@@ -1391,6 +1391,13 @@ public class CompactUi : WindowMediatorSubscriberBase
             return;
         }
 
+        if (ImGui.Button(Loc.Get("CompactUi.Notifications.ClearAll")))
+        {
+            _notificationTracker.Clear();
+        }
+
+        ImGuiHelpers.ScaledDummy(4f);
+
         foreach (var notification in notifications.OrderByDescending(n => n.CreatedAt))
         {
             switch (notification.Category)

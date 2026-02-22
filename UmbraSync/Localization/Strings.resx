@@ -482,6 +482,9 @@ Please keep a copy of your secret key in case you need to reset your plugins, or
   <data name="CompactUi.Notifications.Clear" xml:space="preserve">
     <value>Ok</value>
   </data>
+  <data name="CompactUi.Notifications.ClearAll" xml:space="preserve">
+    <value>Clear All</value>
+  </data>
   <data name="CompactUi.Notifications.Decline" xml:space="preserve">
     <value>Decline</value>
   </data>

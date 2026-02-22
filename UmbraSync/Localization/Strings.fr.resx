@@ -482,6 +482,9 @@ Veuillez conserver une copie de votre clé secrète au cas où vous auriez besoi
   <data name="CompactUi.Notifications.Clear" xml:space="preserve">
     <value>Ok</value>
   </data>
+  <data name="CompactUi.Notifications.ClearAll" xml:space="preserve">
+    <value>Tout effacer</value>
+  </data>
   <data name="CompactUi.Notifications.Decline" xml:space="preserve">
     <value>Refuser</value>
   </data>
