@@ -2467,7 +2467,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
                 Dalamud.Utility.Util.OpenLink("https://discord.gg/2zJB7DjAs9");
             ImGui.SameLine(0, btnSpacing);
             if (DrawAboutLinkButton(FontAwesomeIcon.Code, "GitHub", btnWidth))
-                Dalamud.Utility.Util.OpenLink("https://github.com/umbrasys/UmbraClient/");
+                Dalamud.Utility.Util.OpenLink("https://github.com/kedaewyn/UmbraClient/");
             ImGui.SameLine(0, btnSpacing);
             if (DrawAboutLinkButton(FontAwesomeIcon.FileAlt, Loc.Get("Settings.About.Changelog"), btnWidth))
                 Mediator.Publish(new OpenChangelogUiMessage());
