@@ -516,11 +516,39 @@ public class SettingsUi : WindowMediatorSubscriberBase
             _guiHookService.RequestRedraw(force: true);
         }
 
+        if (useRpNamesOnNameplates)
+        {
+            using (ImRaii.PushIndent())
+            {
+                var disableInDuty = _configService.Current.DisableNameplatesInDuty;
+                if (ImGui.Checkbox(Loc.Get("Settings.DisableInDuty") + "##Nameplates", ref disableInDuty))
+                {
+                    _configService.Current.DisableNameplatesInDuty = disableInDuty;
+                    _configService.Save();
+                }
+                _uiShared.DrawHelpText(Loc.Get("Settings.DisableInDuty.Help"));
+            }
+        }
+
         var useRpNamesInChat = _configService.Current.UseRpNamesInChat;
         if (ImGui.Checkbox(Loc.Get("Settings.RpNamesInChat"), ref useRpNamesInChat))
         {
             _configService.Current.UseRpNamesInChat = useRpNamesInChat;
             _configService.Save();
+        }
+
+        if (useRpNamesInChat)
+        {
+            using (ImRaii.PushIndent())
+            {
+                var disableInDuty = _configService.Current.DisableRpNamesInChatInDuty;
+                if (ImGui.Checkbox(Loc.Get("Settings.DisableInDuty") + "##Chat", ref disableInDuty))
+                {
+                    _configService.Current.DisableRpNamesInChatInDuty = disableInDuty;
+                    _configService.Save();
+                }
+                _uiShared.DrawHelpText(Loc.Get("Settings.DisableInDuty.Help"));
+            }
         }
 
         var useRpNameColors = _configService.Current.UseRpNameColors;
@@ -530,6 +558,20 @@ public class SettingsUi : WindowMediatorSubscriberBase
             _configService.Save();
         }
         _uiShared.DrawHelpText(Loc.Get("Settings.RpNameColors.Help"));
+
+        if (useRpNameColors)
+        {
+            using (ImRaii.PushIndent())
+            {
+                var disableInDuty = _configService.Current.DisableRpNameColorsInDuty;
+                if (ImGui.Checkbox(Loc.Get("Settings.DisableInDuty") + "##Colors", ref disableInDuty))
+                {
+                    _configService.Current.DisableRpNameColorsInDuty = disableInDuty;
+                    _configService.Save();
+                }
+                _uiShared.DrawHelpText(Loc.Get("Settings.DisableInDuty.Help"));
+            }
+        }
 
         ImGui.Spacing();
 

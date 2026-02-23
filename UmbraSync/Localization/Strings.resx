@@ -2394,6 +2394,12 @@ Click to change.</value>
   <data name="Settings.RpNamesOnNameplates" xml:space="preserve">
     <value>Display RP names on nameplates</value>
   </data>
+  <data name="Settings.DisableInDuty" xml:space="preserve">
+    <value>Disable in duties (dungeons, raids...)</value>
+  </data>
+  <data name="Settings.DisableInDuty.Help" xml:space="preserve">
+    <value>Explorer Mode and Island Sanctuary are not affected.</value>
+  </data>
   <data name="Settings.RpNamesInChat" xml:space="preserve">
     <value>Display RP names in chat</value>
   </data>

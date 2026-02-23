@@ -2294,6 +2294,12 @@ Veuillez conserver une copie de votre clé secrète au cas où vous auriez besoi
   <data name="Settings.RpNamesOnNameplates" xml:space="preserve">
     <value>Afficher les noms RP sur les plaques de nom</value>
   </data>
+  <data name="Settings.DisableInDuty" xml:space="preserve">
+    <value>Désactiver en instance (donjons, raids...)</value>
+  </data>
+  <data name="Settings.DisableInDuty.Help" xml:space="preserve">
+    <value>Le mode Explorateur et l'Île sanctuaire ne sont pas affectés.</value>
+  </data>
   <data name="Settings.RpNamesInChat" xml:space="preserve">
     <value>Afficher les noms RP dans le chat</value>
   </data>
