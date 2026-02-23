@@ -6,6 +6,7 @@ using Dalamud.Utility;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.Game.Character;
 using FFXIVClientStructs.FFXIV.Client.Game.Control;
+using FFXIVClientStructs.FFXIV.Client.Game.Event;
 using FFXIVClientStructs.FFXIV.Client.Graphics.Scene;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using Lumina.Excel.Sheets;
@@ -173,6 +174,7 @@ public class DalamudUtilService : IHostedService, IMediatorSubscriber
     }
     public bool IsAnythingDrawing { get; private set; }
     public bool IsInCutscene { get; private set; }
+    public bool IsInDuty { get; private set; }
     public bool IsInGpose { get; private set; }
     public bool IsLoggedIn { get; private set; }
     public bool IsOnFrameworkThread => _framework.IsInFrameworkUpdateThread;
@@ -180,6 +182,23 @@ public class DalamudUtilService : IHostedService, IMediatorSubscriber
     public bool IsInCombatOrPerforming { get; private set; }
     public bool IsInHousingMode => _condition[ConditionFlag.UsingHousingFunctions];
     public bool HasModifiedGameFiles => _gameData.HasModifiedGameDataFiles;
+
+    private unsafe bool IsInActiveDuty()
+    {
+        if (!_condition[ConditionFlag.BoundByDuty] && !_condition[ConditionFlag.BoundByDuty56] && !_clientState.IsPvP)
+            return false;
+
+        var eventFramework = EventFramework.Instance();
+        if (eventFramework == null)
+            return true;
+
+        var instanceDirector = eventFramework->GetInstanceContentDirector();
+        if (instanceDirector == null)
+            return !_condition[ConditionFlag.BoundByDuty95];
+
+        // ContentFlags == 1 soit Tourism / Explorer Mode
+        return instanceDirector->ContentFlags != 1;
+    }
 
     public bool IsConditionActive(string flagName)
     {
@@ -836,6 +855,21 @@ public class DalamudUtilService : IHostedService, IMediatorSubscriber
             {
                 Mediator.Publish(new CutsceneFrameworkUpdateMessage());
                 return;
+            }
+
+            var inActiveDuty = IsInActiveDuty();
+
+            if (inActiveDuty && !IsInDuty)
+            {
+                _logger.LogDebug("Duty start");
+                IsInDuty = true;
+                Mediator.Publish(new InstanceOrDutyStartMessage());
+            }
+            else if (!inActiveDuty && IsInDuty)
+            {
+                _logger.LogDebug("Duty end");
+                IsInDuty = false;
+                Mediator.Publish(new InstanceOrDutyEndMessage());
             }
 
             if (_condition[ConditionFlag.BetweenAreas] || _condition[ConditionFlag.BetweenAreas51])

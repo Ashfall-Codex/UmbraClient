@@ -1,31 +1,173 @@
-# UmbraSync
-
 <p align="center">
-  <img src="https://repo.umbra-sync.net/images/logo.png" alt="UmbraSync"/>
+  <img src="https://repo.umbra-sync.net/images/Logo-UMBRA-full.png" alt="UmbraSync" width="128" />
 </p>
 
+<h1 align="center">UmbraSync</h1>
 
-Projet francophone porté par un Rôliste pour les Rôlistes. Basé sur les travaux de DarkArchon et du projet Mare Synchronos.
+<p align="center">
+  <b>Plugin Dalamud pour FFXIV</b> : Fork enrichi de Mare Synchronos, pensé avant tout pour les rôlistes. UmbraSync va au-delà de la simple synchronisation de mods pour offrir une expérience roleplay immersive et sociale.
+</p>
 
-# Fonctionnalités principales
+---
 
-## Autodetect
-*Suite de features qui permet de rendre l'appairage plus simple, rapide et intuitif*
+## Fonctionnalités
 
-- **Invitation rapide** : Permet d'envoyer une invitation à un joueur spécifique en appuyant sur **+** où en clique droit sur son nom.
-- **Detection proximité** : Dans un rayon autour de votre personnage, permet d'envoyer des invitations aux joueurs à portée.
-- **Annuaire SyncFinder** : Affiche dans une liste les Syncshell publiques qui permet de les consulter et de les rejoindre.
-- **SyncSlot** : Permet de lier une Syncshell à votre housing avec la possibilité de partager votre Syncshell temporairement.
+### Synchronisation de mods
 
-## RôlePlay
-*Features dédiés au RôlePlay*
-- **Profil RP** : Possedez un profil RP simplifiée en plus de votre profil classique.
-- **Bulle d'écriture** (*Inspiré de [RTyping](https://github.com/apetih/rtyping)*) : indicateur de saisie léger qui apparaît sur les nameplates ou directement dans le monde (même quand les plaques sont masquées) et fonctionne autant avec le chat natif qu’avec ChatTwo.
+- **Penumbra** : synchronisation automatique des mods, collections, settings et mods temporaires entre joueurs appairés
+- **Glamourer** : synchronisation de l'apparence complète (customization, états, verrouillages)
+- **Plugins tiers** : intégration native avec Customize+, Heels, Honorific, Moodles, PetNames et Brio
+- **Transfert intelligent** : envoi et réception rapides des mods, reprise automatique en cas de coupure, évite les doublons et vérifie l'intégrité des fichiers
+- **Cache local** : gestion automatique du cache de mods avec compaction, nettoyage et monitoring de taille
 
-## Autre
-- **Nouvelle interface** : UI compacte et revisitée avec navigation par onglets. Le tout dans la même fenêtre.
-- **Partage MCDF** : Partagez le MCDF de vos personnages avec vos paires directement dans UmbraSync, sans devoir passer par un Cloud tiers. Sans limite de stockage.
+### AutoDetect
 
+- **Invitation rapide** : envoi d'invitation à un joueur en un clic via le bouton **+** ou clic droit sur son nom
+- **Détection de proximité** : découverte automatique des joueurs UmbraSync à portée de votre personnage
+- **Annuaire SyncFinder** : consultation et adhésion aux Syncshells publiques depuis une liste centralisée
+- **SyncSlot** : liaison d'une Syncshell à votre housing avec partage temporaire optionnel
+- **Planification** : programmation horaire de l'AutoDetect par Syncshell (durée fixe ou plages horaires)
 
-# Licence
-Le code original est sous licence MIT, voir le fichier `LICENSE_MIT` pour plus de détails. Les commits après `46f2443` sont sous licence **AGPL v3**.
+### Roleplay
+
+- **Profil RP** : fiche personnage complète (prénom, nom, titre, âge, race, taille, résidence, occupation, alignement, etc.) avec champs personnalisés, photo dédiée et couleur de nom configurable
+- **Profil classique** : photo de profil, description personnelle, statut NSFW
+- **Moodles RP** : intégration des Moodles dans les profils avec cache local de sauvegarde
+- **Bulle d'écriture** : indicateur de saisie en temps réel sur les nameplates et la Party List, compatible avec le chat natif et ChatTwo *(inspiré de [RTyping](https://github.com/apetih/rtyping))*
+- **Colorisation des émotes** : mise en évidence des emotes dans le chat (entre `<>`, `*` et `[]`)
+- **Contenu HRP** : les messages entre parenthèses (simples et doubles) sont affichés en gris italique
+- **Support BBCode** : formatage riche dans les informations du profil RP
+- **Adaptation aux plugins tiers** : UmbraSync détecte automatiquement la présence de ChatTwo et de Chat Proximity pour s'y adapter. La bulle d'écriture fonctionne avec ChatTwo, et la colorisation des émotes s'ajuste en fonction de la distance si Chat Proximity est installé
+
+### Partage MCDF (Mare Character Data Format)
+
+- **Hub de données** : centre de gestion pour créer, importer, partager et appliquer des MCDF
+- **Partage direct** : envoi de MCDF à vos paires sans passer par un cloud tiers, sans limite de stockage
+- **Chiffrement** : données chiffrées par AES-GCM avec salt et nonce aléatoires, tag d'authentification 128 bits
+- **Gpose Together** : échange de poses en groupe directement depuis le hub
+- **Permissions** : contrôle d'accès par individu ou par Syncshell avec expiration configurable
+- **MCD Online** : consultation de profils MCDF en ligne
+
+### Partage de Housing
+
+- **Scan de meubles** : détection automatique des meubles et décorations de votre logement
+- **Snapshot de layout** : capture et partage de l'agencement complet de votre housing
+- **Chiffrement** : données protégées par AES-GCM en transit
+- **Application** : import du layout partagé par un autre joueur
+
+### Syncshells (groupes)
+
+- **Création** : syncshells permanentes ou temporaires (avec date d'expiration)
+- **Administration** : gestion des membres (ban, retrait, permissions), transfert de propriété, changement de mot de passe
+- **Invitations temporaires** : génération d'invitations à usage unique
+- **Rôles** : Owner, Moderator, Member avec permissions granulaires
+- **Profil de groupe** : description, tags, logo pour la découverte publique
+- **Pruning** : nettoyage automatique des membres inactifs
+
+### Synchronisation de quêtes
+
+- **A Quest Reborn** : support de la synchronisation des quêtes personnalisées entre joueurs via sessions partagées
+
+### Interface utilisateur
+
+- **UI compacte** : interface revisitée avec navigation par sidebar et onglets, tout dans une même fenêtre
+- **Thème Royal Smoke** : palette sombre matte avec accents violet, conçue pour le confort visuel
+- **Fenêtre de permissions** : contrôle fin par paire (pause, sons, animations, VFX)
+- **Data Analysis** : analyse détaillée des fichiers de votre personnage (taille, triangles, résolution, type)
+- **Widget de téléchargement** : suivi en temps réel des transferts upload/download
+- **Changelog intégré** : affichage automatique des nouveautés à chaque mise à jour
+- **Notifications** : système centralisé avec badge, toast et panneau dédié
+
+### Conformité RGPD
+
+- **Consentement** : fenêtre de consentement au premier lancement, versionné et révocable
+- **Export de données** : exportation complète de vos données personnelles
+- **Suppression** : suppression de compte et de toutes les données associées
+- **Droits utilisateur** : accès, effacement, opposition conformes au règlement
+
+### Performance et monitoring
+
+- **Métriques** : collecte de performances (frame time, latence IPC, débit transfert)
+- **Par joueur** : suivi de la latence de synchronisation, taille des données et taux d'erreur par paire
+- **Analyse personnage** : scan complet des fichiers de mods avec statistiques détaillées
+
+---
+
+## Architecture
+
+Le projet est composé de plusieurs modules :
+
+| Composant | Technologie | Description |
+|---|---|---|
+| `UmbraSync/` | C# 13 / .NET 10 / Dalamud SDK | Plugin FFXIV principal |
+| `UmbraAPI/` | C# / .NET 10 | API partagée (contrats et DTOs) |
+| `Penumbra.Api/` | Submodule git | API d'intégration Penumbra |
+| `Glamourer.Api/` | Submodule git | API d'intégration Glamourer |
+| `OtterGui/` | Submodule git | Bibliothèque UI ImGui |
+
+### Plugin (C#)
+
+- **Point d'entree** : `Plugin.cs` — injection de dépendances via `Microsoft.Extensions.DependencyInjection` avec architecture hosted services
+- **Communication** : SignalR (WebSocket) avec authentification JWT, reconnexion automatique
+- **Bus de messages** : Mediator pattern central (`MareMediator`) pour la communication intra-plugin
+- **UI** : ImGui avec thème violet/sombre "Royal Smoke", fenêtres modulaires
+- **IPC** : intégration bidirectionnelle avec Penumbra, Glamourer, Customize+, Heels, Honorific, Moodles, PetNames, Brio et Mare Synchronos
+- **Cache** : gestion de fichiers avec compression LZ4, compaction et déduplication
+
+---
+
+## Build
+
+### Prérequis
+
+- .NET 10.0 SDK
+- Environnement de développement Dalamud
+- Variable `DALAMUD_DIR` pointant vers l'installation Dalamud
+
+### Compilation
+
+```bash
+# Initialiser les submodules
+git submodule update --init --recursive
+
+# Restaurer les dépendances
+dotnet restore UmbraSync.sln -p:DALAMUD_DIR="$DALAMUD_DIR"
+
+# Build Debug
+dotnet build UmbraSync.sln -c Debug --no-restore -p:DALAMUD_DIR="$DALAMUD_DIR"
+
+# Build Release
+dotnet build UmbraSync.sln -c Release --no-restore -p:DALAMUD_DIR="$DALAMUD_DIR" -p:ContinuousIntegrationBuild=true
+```
+
+---
+
+## Commandes
+
+| Commande | Description |
+|---|---|
+| `/usync` | Ouvre la fenêtre principale |
+| `/usync toggle [on\|off]` | Active ou désactive la synchronisation |
+| `/usync gpose` | Ouvre le hub de données (Character Data) |
+| `/usync analyze` | Ouvre l'analyse de données du personnage |
+| `/usync rescan` | Force un scan du cache de mods |
+
+### Commandes debug
+
+| Commande | Description |
+|---|---|
+| `/usync perf [secondes]` | Affiche les métriques de performance |
+| `/usync medi` | Affiche les informations du système Mediator |
+
+---
+
+## Localisation
+
+- **Francais** (langue par defaut)
+- **English**
+
+---
+
+## Licence
+
+Le code original est sous licence MIT, voir le fichier `LICENSE_MIT` pour plus de détails. Les commits après `46f2443` sont sous licence **AGPL v3**, voir le fichier `LICENSE`.

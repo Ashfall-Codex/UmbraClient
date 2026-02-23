@@ -19,6 +19,8 @@ public class ChatNameReplacementService : DisposableMediatorSubscriberBase
     private readonly DalamudUtilService _dalamudUtil;
     private readonly ApiController _apiController;
 
+    private bool _isInDuty;
+
     private static readonly HashSet<XivChatType> RpChatTypes =
     [
         XivChatType.Say,
@@ -65,6 +67,9 @@ public class ChatNameReplacementService : DisposableMediatorSubscriberBase
 
         _chatGui.ChatMessage += OnChatMessage;
 
+        Mediator.Subscribe<InstanceOrDutyStartMessage>(this, (_) => _isInDuty = true);
+        Mediator.Subscribe<InstanceOrDutyEndMessage>(this, (_) => _isInDuty = false);
+
         // Pré-charger le profil du joueur local dès la connexion
         Mediator.Subscribe<ConnectedMessage>(this, (_) => PreloadLocalProfile());
         PreloadLocalProfile();
@@ -90,6 +95,9 @@ public class ChatNameReplacementService : DisposableMediatorSubscriberBase
         if (isHandled || !_configService.Current.UseRpNamesInChat)
             return;
 
+        if (_isInDuty && _configService.Current.DisableRpNamesInChatInDuty)
+            return;
+
         if (!RpChatTypes.Contains(type))
             return;
 
@@ -101,7 +109,9 @@ public class ChatNameReplacementService : DisposableMediatorSubscriberBase
         if (rpName == null)
             return;
 
-        var effectiveColor = _configService.Current.UseRpNameColors ? nameColor : null;
+        var effectiveColor = _configService.Current.UseRpNameColors
+            && !(_isInDuty && _configService.Current.DisableRpNameColorsInDuty)
+            ? nameColor : null;
         ReplaceSenderName(ref sender, senderText, rpName, effectiveColor);
     }
 

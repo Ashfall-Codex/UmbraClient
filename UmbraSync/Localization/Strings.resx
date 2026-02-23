@@ -482,6 +482,9 @@ Please keep a copy of your secret key in case you need to reset your plugins, or
   <data name="CompactUi.Notifications.Clear" xml:space="preserve">
     <value>Ok</value>
   </data>
+  <data name="CompactUi.Notifications.ClearAll" xml:space="preserve">
+    <value>Clear All</value>
+  </data>
   <data name="CompactUi.Notifications.Decline" xml:space="preserve">
     <value>Decline</value>
   </data>
@@ -2391,6 +2394,12 @@ Click to change.</value>
   <data name="Settings.RpNamesOnNameplates" xml:space="preserve">
     <value>Display RP names on nameplates</value>
   </data>
+  <data name="Settings.DisableInDuty" xml:space="preserve">
+    <value>Disable in duties (dungeons, raids...)</value>
+  </data>
+  <data name="Settings.DisableInDuty.Help" xml:space="preserve">
+    <value>Explorer Mode and Island Sanctuary are not affected.</value>
+  </data>
   <data name="Settings.RpNamesInChat" xml:space="preserve">
     <value>Display RP names in chat</value>
   </data>
@@ -3651,6 +3660,15 @@ Click to change.</value>
   </data>
   <data name="Syncshell.Cards.Notification.AnimDisabled" xml:space="preserve">
     <value>Animation sync disabled for {0} member(s).</value>
+  </data>
+  <data name="Syncshell.Cards.AddFavorite" xml:space="preserve">
+    <value>Add to favorites</value>
+  </data>
+  <data name="Syncshell.Cards.RemoveFavorite" xml:space="preserve">
+    <value>Remove from favorites</value>
+  </data>
+  <data name="Syncshell.Cards.FavoriteMembers" xml:space="preserve">
+    <value>{0} — Members ({1})</value>
   </data>
   <data name="Syncshell.Members.WindowTitle" xml:space="preserve">
     <value>Members - {0}</value>

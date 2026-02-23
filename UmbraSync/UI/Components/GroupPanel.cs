@@ -82,6 +82,8 @@ internal sealed class GroupPanel
     private string _syncshellFilter = string.Empty;
     private string _membersFilter = string.Empty;
     private readonly UmbraProfileManager _profileManager;
+    private readonly SyncshellConfigService _syncshellConfig;
+    private readonly Dictionary<string, bool> _favoriteMembersExpanded = new(StringComparer.Ordinal);
     private string? _profileWindowGid = null;
     private bool _profileLoading = false;
     private GroupProfileDto? _currentProfile = null;
@@ -91,7 +93,7 @@ internal sealed class GroupPanel
     public GroupPanel(CompactUi mainUi, UiSharedService uiShared, PairManager pairManager,
         UidDisplayHandler uidDisplayHandler, ServerConfigurationManager serverConfigurationManager,
         CharaDataManager charaDataManager, AutoDetectRequestService autoDetectRequestService,
-        MareConfigService mareConfig, UmbraProfileManager profileManager)
+        MareConfigService mareConfig, UmbraProfileManager profileManager, SyncshellConfigService syncshellConfig)
     {
         _mainUi = mainUi;
         _uiShared = uiShared;
@@ -102,6 +104,7 @@ internal sealed class GroupPanel
         _autoDetectRequestService = autoDetectRequestService;
         _mareConfig = mareConfig;
         _profileManager = profileManager;
+        _syncshellConfig = syncshellConfig;
     }
 
     private ApiController ApiController => _uiShared.ApiController;
@@ -937,8 +940,10 @@ internal sealed class GroupPanel
 
     private void DrawSyncshellCards()
     {
+        var favorites = _syncshellConfig.Current.FavoriteSyncshells;
         var groups = _pairManager.GroupPairs
-            .OrderBy(g => g.Key.Group.AliasOrGID, StringComparer.OrdinalIgnoreCase)
+            .OrderByDescending(g => favorites.Contains(g.Key.GID))
+            .ThenBy(g => g.Key.Group.AliasOrGID, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
         if (!string.IsNullOrEmpty(_syncshellFilter))
@@ -1183,7 +1188,8 @@ internal sealed class GroupPanel
             
             bool isAdmin = string.Equals(groupDto.OwnerUID, ApiController.UID, StringComparison.Ordinal)
                            || groupDto.GroupUserInfo.IsModerator();
-            int bottomBtnCount = isAdmin ? 3 : 2;
+            bool isFavorite = favorites.Contains(groupDto.GID);
+            int bottomBtnCount = isAdmin ? 4 : 3;
             float bottomRowButtonsWidth = buttonSize * bottomBtnCount + buttonSpacing * (bottomBtnCount - 1);
             float bottomRowStartX = cardMin.X + (cardSize - bottomRowButtonsWidth) / 2f;
 
@@ -1208,7 +1214,31 @@ internal sealed class GroupPanel
                 UiSharedService.AttachToolTip(string.Format(CultureInfo.CurrentCulture, Loc.Get("Syncshell.Cards.PauseTooltip"), pauseActionText));
             }
 
-            ImGui.SetCursorScreenPos(new Vector2(bottomRowStartX + buttonSize + buttonSpacing, bottomRowY));
+            int btnIdx = 1;
+            ImGui.SetCursorScreenPos(new Vector2(bottomRowStartX + (buttonSize + buttonSpacing) * btnIdx, bottomRowY));
+            using (ImRaii.PushId($"fav-{groupDto.GID}"))
+            {
+                var starColor = isFavorite ? ImGuiColors.ParsedGold : new Vector4(1f, 1f, 1f, 1f);
+                using (ImRaii.PushColor(ImGuiCol.Button, new Vector4(0.2f, 0.2f, 0.25f, 1f)))
+                using (ImRaii.PushColor(ImGuiCol.ButtonHovered, new Vector4(0.3f, 0.3f, 0.35f, 1f)))
+                using (ImRaii.PushColor(ImGuiCol.ButtonActive, new Vector4(0.25f, 0.25f, 0.3f, 1f)))
+                using (ImRaii.PushColor(ImGuiCol.Text, starColor))
+                using (ImRaii.PushStyle(ImGuiStyleVar.FrameRounding, 4f * ImGuiHelpers.GlobalScale))
+                {
+                    if (_uiShared.IconButtonCentered(FontAwesomeIcon.Star, buttonSize, square: true))
+                    {
+                        if (isFavorite)
+                            favorites.Remove(groupDto.GID);
+                        else
+                            favorites.Add(groupDto.GID);
+                        _syncshellConfig.Save();
+                    }
+                }
+                UiSharedService.AttachToolTip(Loc.Get(isFavorite ? "Syncshell.Cards.RemoveFavorite" : "Syncshell.Cards.AddFavorite"));
+            }
+
+            btnIdx++;
+            ImGui.SetCursorScreenPos(new Vector2(bottomRowStartX + (buttonSize + buttonSpacing) * btnIdx, bottomRowY));
             using (ImRaii.PushId($"members-{groupDto.GID}"))
             {
                 using (ImRaii.PushColor(ImGuiCol.Button, new Vector4(0.2f, 0.2f, 0.25f, 1f)))
@@ -1238,7 +1268,8 @@ internal sealed class GroupPanel
 
             if (isAdmin)
             {
-                ImGui.SetCursorScreenPos(new Vector2(bottomRowStartX + (buttonSize + buttonSpacing) * 2, bottomRowY));
+                btnIdx++;
+                ImGui.SetCursorScreenPos(new Vector2(bottomRowStartX + (buttonSize + buttonSpacing) * btnIdx, bottomRowY));
                 using (ImRaii.PushId($"admin-{groupDto.GID}"))
                 {
                     using (ImRaii.PushColor(ImGuiCol.Button, new Vector4(0.2f, 0.2f, 0.25f, 1f)))
@@ -1276,8 +1307,185 @@ internal sealed class GroupPanel
             cardIndex++;
         }
 
+        // Inline members for favorite syncshells
+        DrawFavoriteMembersInline(groups, favorites);
+
         DrawMembersWindow();
         DrawProfileWindow();
+    }
+
+    private void DrawFavoriteMembersInline(List<KeyValuePair<GroupFullInfoDto, List<Pair>>> groups, HashSet<string> favorites)
+    {
+        var favoriteGroups = groups.Where(g => favorites.Contains(g.Key.GID)).ToList();
+        if (favoriteGroups.Count == 0) return;
+
+        ImGuiHelpers.ScaledDummy(8f);
+
+        // Separator violet between cards and favorite members
+        var separatorColor = new Vector4(0x4A / 255f, 0x36 / 255f, 0x68 / 255f, 0.70f);
+        var cursorScreenPos = ImGui.GetCursorScreenPos();
+        var availWidth = ImGui.GetContentRegionAvail().X;
+        ImGui.GetWindowDrawList().AddLine(
+            cursorScreenPos,
+            new Vector2(cursorScreenPos.X + availWidth, cursorScreenPos.Y),
+            ImGui.ColorConvertFloat4ToU32(separatorColor),
+            2f * ImGuiHelpers.GlobalScale);
+        ImGuiHelpers.ScaledDummy(6f);
+
+        foreach (var entry in favoriteGroups)
+        {
+            var groupDto = entry.Key;
+            var pairsInGroup = entry.Value;
+            var groupName = _serverConfigurationManager.GetNoteForGid(groupDto.GID);
+            if (string.IsNullOrEmpty(groupName))
+            {
+                groupName = groupDto.Group.Alias ?? groupDto.GID;
+            }
+
+            if (!_favoriteMembersExpanded.TryGetValue(groupDto.GID, out var expanded))
+            {
+                expanded = true;
+                _favoriteMembersExpanded[groupDto.GID] = expanded;
+            }
+
+            var headerLabel = string.Format(CultureInfo.CurrentCulture, Loc.Get("Syncshell.Cards.FavoriteMembers"), groupName, pairsInGroup.Count + 1);
+            var headerExpanded = expanded;
+            UiSharedService.DrawArrowToggle(ref headerExpanded, $"##fav-members-toggle-{groupDto.GID}");
+            if (headerExpanded != expanded)
+            {
+                _favoriteMembersExpanded[groupDto.GID] = headerExpanded;
+            }
+            ImGui.SameLine(0f, 6f * ImGuiHelpers.GlobalScale);
+            UiSharedService.ColorText(headerLabel, new Vector4(0x9B / 255f, 0x82 / 255f, 0xC0 / 255f, 1f));
+
+            if (headerExpanded)
+            {
+                ImGui.Indent(20);
+                DrawMembersList(groupDto, pairsInGroup);
+                ImGui.Unindent(20);
+            }
+
+            ImGuiHelpers.ScaledDummy(4f);
+        }
+    }
+
+    private void DrawMembersList(GroupFullInfoDto groupDto, List<Pair> pairsInGroup)
+    {
+        var sortedPairs = pairsInGroup
+            .OrderByDescending(u => string.Equals(u.UserData.UID, groupDto.OwnerUID, StringComparison.Ordinal))
+            .ThenByDescending(u => u.GroupPair[groupDto].GroupPairStatusInfo.IsModerator())
+            .ThenByDescending(u => u.GroupPair[groupDto].GroupPairStatusInfo.IsPinned())
+            .ThenByDescending(u => u.IsOnline)
+            .ThenBy(u => u.GetPairSortKey(), StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var visibleUsers = new List<DrawGroupPair>();
+        var onlineUsers = new List<DrawGroupPair>();
+        var offlineUsers = new List<DrawGroupPair>();
+
+        foreach (var pair in sortedPairs)
+        {
+            var cacheKey = groupDto.GID + pair.UserData.UID;
+            var groupPairFullInfoDto = pair.GroupPair.FirstOrDefault(
+                g => string.Equals(g.Key.Group.GID, groupDto.GID, StringComparison.Ordinal)
+            ).Value;
+
+            if (groupPairFullInfoDto == null) continue;
+
+            if (!_drawGroupPairCache.TryGetValue(cacheKey, out var drawPair))
+            {
+                drawPair = new DrawGroupPair(
+                    cacheKey, pair,
+                    ApiController, _mainUi.Mediator, groupDto,
+                    groupPairFullInfoDto,
+                    _uidDisplayHandler,
+                    _uiShared,
+                    _charaDataManager,
+                    _autoDetectRequestService,
+                    _serverConfigurationManager,
+                    _mareConfig);
+                _drawGroupPairCache[cacheKey] = drawPair;
+            }
+            else
+            {
+                drawPair.UpdateData(groupDto, groupPairFullInfoDto);
+            }
+
+            if (pair.IsVisible)
+                visibleUsers.Add(drawPair);
+            else if (pair.IsOnline)
+                onlineUsers.Add(drawPair);
+            else
+                offlineUsers.Add(drawPair);
+        }
+
+        bool needsSpacer = false;
+
+        if (visibleUsers.Count > 0)
+        {
+            var visKey = groupDto.GID + "-visible";
+            if (!_favoriteMembersExpanded.ContainsKey(visKey)) _favoriteMembersExpanded[visKey] = true;
+            var visExpanded = _favoriteMembersExpanded[visKey];
+            DrawMembersSectionHeader(
+                string.Format(CultureInfo.CurrentCulture, Loc.Get("Syncshell.Members.VisibleSection"), visibleUsers.Count),
+                new Vector4(0.4f, 0.75f, 1f, 1f),
+                ref visExpanded,
+                $"##fav-visible-{groupDto.GID}");
+            _favoriteMembersExpanded[visKey] = visExpanded;
+
+            if (visExpanded)
+            {
+                UidDisplayHandler.RenderPairList(visibleUsers);
+            }
+            needsSpacer = true;
+        }
+
+        if (onlineUsers.Count > 0)
+        {
+            if (needsSpacer) ImGuiHelpers.ScaledDummy(8f);
+            var onKey = groupDto.GID + "-online";
+            if (!_favoriteMembersExpanded.ContainsKey(onKey)) _favoriteMembersExpanded[onKey] = true;
+            var onExpanded = _favoriteMembersExpanded[onKey];
+            DrawMembersSectionHeader(
+                string.Format(CultureInfo.CurrentCulture, Loc.Get("Syncshell.Members.OnlineSection"), onlineUsers.Count),
+                new Vector4(0.4f, 0.9f, 0.4f, 1f),
+                ref onExpanded,
+                $"##fav-online-{groupDto.GID}");
+            _favoriteMembersExpanded[onKey] = onExpanded;
+
+            if (onExpanded)
+            {
+                UidDisplayHandler.RenderPairList(onlineUsers);
+            }
+            needsSpacer = true;
+        }
+
+        if (offlineUsers.Count > 0)
+        {
+            if (needsSpacer) ImGuiHelpers.ScaledDummy(8f);
+            var offKey = groupDto.GID + "-offline";
+            if (!_favoriteMembersExpanded.ContainsKey(offKey)) _favoriteMembersExpanded[offKey] = false;
+            var offExpanded = _favoriteMembersExpanded[offKey];
+            DrawMembersSectionHeader(
+                string.Format(CultureInfo.CurrentCulture, Loc.Get("Syncshell.Members.OfflineSection"), offlineUsers.Count),
+                ImGuiColors.DalamudGrey,
+                ref offExpanded,
+                $"##fav-offline-{groupDto.GID}");
+            _favoriteMembersExpanded[offKey] = offExpanded;
+
+            if (offExpanded)
+            {
+                bool hideOffline = offlineUsers.Count > 1000;
+                if (hideOffline)
+                {
+                    UiSharedService.ColorText($"    {offlineUsers.Count} offline users omitted from display.", ImGuiColors.DalamudGrey);
+                }
+                else
+                {
+                    UidDisplayHandler.RenderPairList(offlineUsers);
+                }
+            }
+        }
     }
 
     private void DrawMembersWindow()

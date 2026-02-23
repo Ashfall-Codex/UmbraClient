@@ -23,6 +23,7 @@ public class GuiHookService : DisposableMediatorSubscriberBase
     private readonly ApiController _apiController;
 
     private bool _isModified;
+    private bool _isInDuty;
     private bool _namePlateRoleColorsEnabled;
 
     public GuiHookService(ILogger<GuiHookService> logger, DalamudUtilService dalamudUtil, MareMediator mediator, MareConfigService configService,
@@ -43,6 +44,8 @@ public class GuiHookService : DisposableMediatorSubscriberBase
         _namePlateGui.OnNamePlateUpdate += OnNamePlateUpdate;
         _namePlateGui.RequestRedraw();
 
+        Mediator.Subscribe<InstanceOrDutyStartMessage>(this, (_) => { _isInDuty = true; RequestRedraw(force: true); });
+        Mediator.Subscribe<InstanceOrDutyEndMessage>(this, (_) => { _isInDuty = false; RequestRedraw(force: true); });
         Mediator.Subscribe<DelayedFrameworkUpdateMessage>(this, (_) => GameSettingsCheck());
         Mediator.Subscribe<PairHandlerVisibleMessage>(this, (_) => RequestRedraw());
         Mediator.Subscribe<NameplateRedrawMessage>(this, (_) => RequestRedraw());
@@ -84,6 +87,9 @@ public class GuiHookService : DisposableMediatorSubscriberBase
         var applyColors = _configService.Current.UseNameColors;
         var applyRpNames = _configService.Current.UseRpNamesOnNameplates;
         if (!applyColors && !applyRpNames)
+            return;
+
+        if (_isInDuty && _configService.Current.DisableNameplatesInDuty)
             return;
 
         var visibleUsers = _pairManager.GetOnlineUserPairs()
