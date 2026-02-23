@@ -3661,6 +3661,15 @@ Click to change.</value>
   <data name="Syncshell.Cards.Notification.AnimDisabled" xml:space="preserve">
     <value>Animation sync disabled for {0} member(s).</value>
   </data>
+  <data name="Syncshell.Cards.AddFavorite" xml:space="preserve">
+    <value>Add to favorites</value>
+  </data>
+  <data name="Syncshell.Cards.RemoveFavorite" xml:space="preserve">
+    <value>Remove from favorites</value>
+  </data>
+  <data name="Syncshell.Cards.FavoriteMembers" xml:space="preserve">
+    <value>{0} — Members ({1})</value>
+  </data>
   <data name="Syncshell.Members.WindowTitle" xml:space="preserve">
     <value>Members - {0}</value>
   </data>

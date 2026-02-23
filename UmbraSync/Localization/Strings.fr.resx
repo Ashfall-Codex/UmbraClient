@@ -3561,6 +3561,15 @@ Veuillez conserver une copie de votre clé secrète au cas où vous auriez besoi
   <data name="Syncshell.Cards.Notification.AnimDisabled" xml:space="preserve">
     <value>Sync animations désactivée pour {0} membre(s).</value>
   </data>
+  <data name="Syncshell.Cards.AddFavorite" xml:space="preserve">
+    <value>Passer en favori</value>
+  </data>
+  <data name="Syncshell.Cards.RemoveFavorite" xml:space="preserve">
+    <value>Retirer des favoris</value>
+  </data>
+  <data name="Syncshell.Cards.FavoriteMembers" xml:space="preserve">
+    <value>{0} — Membres ({1})</value>
+  </data>
   <data name="Syncshell.Members.WindowTitle" xml:space="preserve">
     <value>Membres - {0}</value>
   </data>
