@@ -3451,6 +3451,12 @@ Veuillez conserver une copie de votre clé secrète au cas où vous auriez besoi
   <data name="UserProfile.NoRpDescription" xml:space="preserve">
     <value>L'utilisateur n'a pas défini de description RP.</value>
   </data>
+  <data name="UserProfile.NoRpProfile" xml:space="preserve">
+    <value>Cet utilisateur n'a pas encore configuré de fiche RP.</value>
+  </data>
+  <data name="UserProfile.NoHrpProfile" xml:space="preserve">
+    <value>Cet utilisateur n'a pas encore configuré de fiche HRP.</value>
+  </data>
   <data name="UserProfile.RpDescription" xml:space="preserve">
     <value>Description RP</value>
   </data>
@@ -4106,6 +4112,12 @@ Veuillez conserver une copie de votre clé secrète au cas où vous auriez besoi
   </data>
   <data name="HousingShare.Notification.Applied" xml:space="preserve">
     <value>Mods de maison appliqués ({0})</value>
+  </data>
+  <data name="HousingShare.MustBeInHousingEditMode" xml:space="preserve">
+    <value>Vous devez être en mode Aménagement pour scanner et publier les mods de meubles. Cela prouve la propriété du logement.</value>
+  </data>
+  <data name="HousingShare.Error.NotInHousingMode" xml:space="preserve">
+    <value>Vous devez être en mode Aménagement pour publier.</value>
   </data>
   <data name="QuestSync.Title" xml:space="preserve">
     <value>Quest Sync</value>

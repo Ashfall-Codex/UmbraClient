@@ -1378,6 +1378,13 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
             Logger.LogTrace("Reapplying Pet Names data for {this}", this);
             _ = Task.Run(async () => await _ipcManager.PetNames.SetPlayerData(PlayerCharacter, _cachedData.PetNamesData).ConfigureAwait(false), CancellationToken.None);
         });
+
+        Mediator.Subscribe<MoodlesReadyMessage>(this, msg =>
+        {
+            if (string.IsNullOrEmpty(_cachedData?.MoodlesData)) return;
+            Logger.LogTrace("Reapplying Moodles data for {this}", this);
+            _ = Task.Run(async () => await _ipcManager.Moodles.SetStatusAsync(PlayerCharacter, _cachedData.MoodlesData).ConfigureAwait(false), CancellationToken.None);
+        });
     }
 
     private async Task RevertCustomizationDataAsync(ObjectKind objectKind, string name, Guid applicationId, CancellationToken cancelToken)

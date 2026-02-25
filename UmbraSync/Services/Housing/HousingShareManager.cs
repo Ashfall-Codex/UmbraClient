@@ -21,18 +21,20 @@ public sealed class HousingShareManager
     private readonly HousingFurnitureScanner _scanner;
     private readonly IpcCallerPenumbra _penumbra;
     private readonly MareMediator _mediator;
+    private readonly DalamudUtilService _dalamudUtil;
     private readonly SemaphoreSlim _operationSemaphore = new(1, 1);
     private readonly List<HousingShareEntryDto> _ownShares = new();
     private Task? _currentTask;
 
     public HousingShareManager(ILogger<HousingShareManager> logger, ApiController apiController,
-        HousingFurnitureScanner scanner, IpcCallerPenumbra penumbra, MareMediator mediator)
+        HousingFurnitureScanner scanner, IpcCallerPenumbra penumbra, MareMediator mediator, DalamudUtilService dalamudUtil)
     {
         _logger = logger;
         _apiController = apiController;
         _scanner = scanner;
         _penumbra = penumbra;
         _mediator = mediator;
+        _dalamudUtil = dalamudUtil;
     }
 
     public IReadOnlyList<HousingShareEntryDto> OwnShares => _ownShares;
@@ -46,6 +48,12 @@ public sealed class HousingShareManager
     {
         return RunOperation(async () =>
         {
+            if (!_dalamudUtil.IsInHousingMode)
+            {
+                LastError = Loc.Get("HousingShare.Error.NotInHousingMode");
+                return;
+            }
+
             var modPaths = _scanner.GetCollectedPaths();
             if (modPaths.Count == 0)
             {

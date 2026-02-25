@@ -3551,6 +3551,12 @@ Click to change.</value>
   <data name="UserProfile.NoRpDescription" xml:space="preserve">
     <value>User has no RP description set.</value>
   </data>
+  <data name="UserProfile.NoRpProfile" xml:space="preserve">
+    <value>This user has not configured their RP profile yet.</value>
+  </data>
+  <data name="UserProfile.NoHrpProfile" xml:space="preserve">
+    <value>This user has not configured their HRP profile yet.</value>
+  </data>
   <data name="UserProfile.RpDescription" xml:space="preserve">
     <value>RP Description</value>
   </data>
@@ -4197,6 +4203,12 @@ Click to change.</value>
   </data>
   <data name="HousingShare.Notification.Applied" xml:space="preserve">
     <value>Housing mods applied ({0})</value>
+  </data>
+  <data name="HousingShare.MustBeInHousingEditMode" xml:space="preserve">
+    <value>You must be in Housing Edit Mode to scan and publish furniture mods. This proves ownership of the housing.</value>
+  </data>
+  <data name="HousingShare.Error.NotInHousingMode" xml:space="preserve">
+    <value>You must be in Housing Edit Mode to publish.</value>
   </data>
   <data name="QuestSync.Title" xml:space="preserve">
     <value>Quest Sync</value>
