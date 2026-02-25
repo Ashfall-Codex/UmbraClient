@@ -172,6 +172,21 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
     {
         return new List<ChangelogEntry>
         {
+            new(new Version(2, 3, 0, 0), "2.3.0.0", new List<ChangelogLine>
+            {
+                new("Nouveauté : Conforme avec le Règlement Général sur la Protection des Données (RGPD)."),
+                new("Nouveauté : Support du plugin A Quest Reborn pour la synchronisation des quêtes personnalisées."),
+                new("Nouveauté : Possibilité de partager un fichier de housing avec meubles moddé."),
+                new("Nouveauté : Possibilité d'ajouter des éléments de profil personnalisés."),
+                new("Nouveauté : Possibilité de colorer le nom, prénom et titre RP de son personnage."),
+                new("Nouveauté : Refonte du hub de donnée avec création de liste de profil RP en cache."),
+                new("Nouveauté : Support des doubles parenthèse comme contenu HRP."),
+                new("Correctif : Création d'un cache Moodles propre à UmbraSync afin de sauvegarder les traits RP en cas de panne."),
+                new("Correctif : Le profil RP pouvait disparaitre après un changement de Monde où application d'ID personnalisé."),
+                new("Autres : Suppression de la fonctionnalité des Pings."),
+                new("Autres : Nettoyage du code source."),
+                new("Retrouvez la note de version complète sur Discord."),
+            }),
             new(new Version(2, 2, 2, 1), "2.2.2.1", new List<ChangelogLine>
             {
                 new("Nouveauté : Support du format BBCode dans les informations du Profil RP."),

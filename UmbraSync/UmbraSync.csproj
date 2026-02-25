@@ -5,8 +5,7 @@
         <LangVersion>13.0</LangVersion>
         <AssemblyName>UmbraSync</AssemblyName>
         <RootNamespace>UmbraSync</RootNamespace>
-        <Version>2.2.2.1</Version>
-        <DALAMUD_DIR Condition="'$(DALAMUD_DIR)' == ''">/Volumes/Data/dev/ressources/dalamud/Hooks/dev</DALAMUD_DIR>
+        <Version>2.3.0.1</Version>
     </PropertyGroup>
 
     <ItemGroup>
@@ -65,11 +64,6 @@
         <None Include="..\.editorconfig" Link=".editorconfig" />
     </ItemGroup>
 
-    <ItemGroup>
-        <Content Include="Resources\Ping\*.png">
-            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-        </Content>
-    </ItemGroup>
 
     <Target Name="EnsureOtterGuiBuilt"
             BeforeTargets="ResolveReferences"

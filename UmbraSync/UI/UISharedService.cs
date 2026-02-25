@@ -113,6 +113,7 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
     private bool _brioExists;
     private bool _chatTwoExists;
     private bool _chatProximityExists;
+    private bool _questRebornExists;
     public bool ChatTwoExists => _chatTwoExists;
 
     private int _serverSelectionIndex = -1;
@@ -147,6 +148,7 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
             _brioExists = _ipcManager.Brio.APIAvailable;
             _chatTwoExists = Services.PluginWatcherService.GetInitialPluginState(_pluginInterface, "ChatTwo")?.IsLoaded ?? false;
             _chatProximityExists = Services.PluginWatcherService.GetInitialPluginState(_pluginInterface, "ChatProximity")?.IsLoaded ?? false;
+            _questRebornExists = Services.PluginWatcherService.GetInitialPluginState(_pluginInterface, "AQuestReborn")?.IsLoaded ?? false;
         });
 
         UidFont = _pluginInterface.UiBuilder.FontAtlas.NewDelegateFontHandle(e =>
@@ -1181,6 +1183,7 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
             DrawPluginEntry("PetNicknames", _petNamesExists, check, cross);
             DrawPluginEntry("Moodles", _moodlesExists, check, cross);
             DrawPluginEntry("Brio", _brioExists, check, cross);
+            DrawPluginEntry("A Quest Reborn", _questRebornExists, check, cross);
             DrawPluginEntry("Chat2", _chatTwoExists, check, cross);
             DrawPluginEntry("Chat Proximity", _chatProximityExists, check, cross);
         }
@@ -1223,6 +1226,7 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
                 ("PetNicknames", _petNamesExists),
                 ("Moodles", _moodlesExists),
                 ("Brio", _brioExists),
+                ("A Quest Reborn", _questRebornExists),
             };
             if (ImGui.BeginTable("##OptionalPlugins", 2, ImGuiTableFlags.SizingFixedFit))
             {

@@ -26,13 +26,17 @@ public class MareConfig : IMareConfiguration
     public DtrEntry.Colors NameColors { get; set; } = new(Foreground: 0x67EBF5u, Glow: 0x00303Cu);
     public DtrEntry.Colors BlockedNameColors { get; set; } = new(Foreground: 0x8AADC7, Glow: 0x000080u);
     public bool UseRpNamesOnNameplates { get; set; }
+    public bool DisableNameplatesInDuty { get; set; } = true;
     public bool UseRpNamesInChat { get; set; }
+    public bool DisableRpNamesInChatInDuty { get; set; } = true;
     public bool UseRpNameColors { get; set; } = true;
+    public bool DisableRpNameColorsInDuty { get; set; } = true;
     public bool EmoteHighlightEnabled { get; set; } = true;
     public ushort EmoteHighlightColorKey { get; set; } = 706;
     public bool EmoteHighlightAsterisks { get; set; } = true;
     public bool EmoteHighlightAngleBrackets { get; set; } = true;
     public bool EmoteHighlightSquareBrackets { get; set; } = true;
+    public bool EmoteHighlightDoubleParentheses { get; set; } = true;
     public bool EmoteHighlightParenthesesGray { get; set; } = true;
     public ushort EmoteHighlightParenthesesColorKey { get; set; } = 4;
     public bool EmoteHighlightParenthesesItalic { get; set; } = true;
@@ -107,13 +111,13 @@ public class MareConfig : IMareConfiguration
     public bool UmbraAPI { get; set; } = true;
     public bool EnableSlotNotifications { get; set; } = true;
     public float DefaultSlotRadius { get; set; } = 10f;
-    public bool PingEnabled { get; set; } = true;
-    public int PingKeybind { get; set; } = 0x50; // VirtualKey.P
-    public float PingUiScale { get; set; } = 1.0f;
-    public float PingOpacity { get; set; } = 0.9f;
-    public bool PingShowAuthorName { get; set; } = true;
-    public bool PingShowInParty { get; set; } = true;
-    public bool PingShowInSyncshell { get; set; } = true;
+    public const int ExpectedRgpdVersion = 1;
+    public bool RgpdConsentGiven { get; set; }
+    public DateTime? RgpdConsentDate { get; set; }
+    public int AcceptedRgpdVersion { get; set; }
+    public bool RgpdConsentDataCollection { get; set; }
+    public bool RgpdConsentDataSharing { get; set; }
+    public bool RgpdConsentThirdPartyPlugins { get; set; }
 
     [SuppressMessage("Major Code Smell", "S1133:Do not forget to remove this deprecated code someday", Justification = "Legacy config needed for migration")]
     [SuppressMessage("Major Code Smell", "S1123:Add an explanation", Justification = "Legacy config needed for migration")]

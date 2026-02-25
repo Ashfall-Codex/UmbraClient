@@ -309,16 +309,6 @@ public class SyncshellAdminUI : WindowMediatorSubscriberBase
                                     UiSharedService.AttachToolTip(pair.Value != null && pair.Value.Value.IsPinned() ? Loc.Get("SyncshellAdmin.Users.Unpin") : Loc.Get("SyncshellAdmin.Users.Pin"));
                                     ImGui.SameLine();
 
-                                    if (_uiSharedService.IconButton(FontAwesomeIcon.MapMarkerAlt))
-                                    {
-                                        GroupUserInfo userInfo = pair.Value ?? GroupUserInfo.None;
-
-                                        userInfo.SetCanPlacePings(!userInfo.CanPlacePings());
-
-                                        _ = _apiController.GroupSetUserInfo(new GroupPairUserInfoDto(GroupFullInfo.Group, pair.Key.UserData, userInfo));
-                                    }
-                                    UiSharedService.AttachToolTip(pair.Value != null && pair.Value.Value.CanPlacePings() ? Loc.Get("SyncshellAdmin.Users.RevokePing") : Loc.Get("SyncshellAdmin.Users.GrantPing"));
-                                    ImGui.SameLine();
 
                                     using (ImRaii.Disabled(!UiSharedService.CtrlPressed()))
                                     {

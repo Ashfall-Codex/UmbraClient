@@ -1,3 +1,5 @@
+using UmbraSync.API.Data;
+
 namespace UmbraSync.MareConfiguration.Configurations;
 
 [Serializable]
@@ -27,4 +29,7 @@ public class CharacterRpProfile
     public string RpAlignment { get; set; } = string.Empty;
     public string RpAdditionalInfo { get; set; } = string.Empty;
     public string RpNameColor { get; set; } = string.Empty;
+    public List<RpCustomField> RpCustomFields { get; set; } = new();
+    public string MoodlesBackupJson { get; set; } = string.Empty;
+    public long MoodlesBackupTimestamp { get; set; } = 0;
 }

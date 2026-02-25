@@ -205,6 +205,16 @@ public sealed class NotificationTracker
         PublishState();
     }
 
+    public void Clear()
+    {
+        using (_lock.EnterScope())
+        {
+            _entries.Clear();
+            Persist_NoLock();
+        }
+        PublishState();
+    }
+
     public IReadOnlyList<NotificationEntry> GetEntries()
     {
         using (_lock.EnterScope())

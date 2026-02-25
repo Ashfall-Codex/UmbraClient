@@ -242,6 +242,9 @@
   <data name="EditProfile.SetCustomId.ErrorBody" xml:space="preserve">
     <value>Impossible de mettre à jour votre ID personnalisé. Veuillez réessayer.</value>
   </data>
+  <data name="EditProfile.SetCustomId.ReconnectWarning" xml:space="preserve">
+    <value>Une déconnexion / reconnexion du serveur UmbraSync est nécessaire pour la prise en compte.</value>
+  </data>
   <data name="Common.Cancel" xml:space="preserve">
     <value>Annuler</value>
   </data>
@@ -478,6 +481,9 @@ Veuillez conserver une copie de votre clé secrète au cas où vous auriez besoi
   </data>
   <data name="CompactUi.Notifications.Clear" xml:space="preserve">
     <value>Ok</value>
+  </data>
+  <data name="CompactUi.Notifications.ClearAll" xml:space="preserve">
+    <value>Tout effacer</value>
   </data>
   <data name="CompactUi.Notifications.Decline" xml:space="preserve">
     <value>Refuser</value>
@@ -1497,115 +1503,115 @@ Veuillez conserver une copie de votre clé secrète au cas où vous auriez besoi
     <value />
   </data>
   <data name="CharaDataHub.GposeTogether.ApplyDataTooltip.Main" xml:space="preserve">
-    <value />
+    <value>Appliquer les données de personnage reçues à l'acteur sélectionné.</value>
   </data>
   <data name="CharaDataHub.GposeTogether.ApplyDataTooltip.Note" xml:space="preserve">
-    <value />
+    <value>Note : Si le bouton est grisé, les dernières données ont déjà été appliquées.</value>
   </data>
   <data name="CharaDataHub.GposeTogether.AssignRequiresGpose" xml:space="preserve">
-    <value />
+    <value>L'assignation d'utilisateurs aux personnages n'est disponible qu'en GPose.</value>
   </data>
   <data name="CharaDataHub.GposeTogether.BrioRequired" xml:space="preserve">
-    <value />
+    <value>BRIO EST OBLIGATOIRE POUR GPOSE TOGETHER.</value>
   </data>
   <data name="CharaDataHub.GposeTogether.ConnectionRequired" xml:space="preserve">
-    <value />
+    <value>IMPOSSIBLE D'UTILISER GPOSE TOGETHER SANS CONNEXION AU SERVEUR.</value>
   </data>
   <data name="CharaDataHub.GposeTogether.CopyLobbyIdTooltip" xml:space="preserve">
-    <value />
+    <value>Copier l'ID du lobby dans le presse-papiers.</value>
   </data>
   <data name="CharaDataHub.GposeTogether.CreateLobby" xml:space="preserve">
-    <value />
+    <value>Créer un nouveau lobby GPose Together</value>
   </data>
   <data name="CharaDataHub.GposeTogether.CurrentLobby" xml:space="preserve">
-    <value />
+    <value>Lobby GPose</value>
   </data>
   <data name="CharaDataHub.GposeTogether.Help" xml:space="preserve">
-    <value />
+    <value>GPose Together permet de faire des sessions GPose multijoueurs et des collaborations.&#x0A;&#x0A;GPose Together nécessite Brio pour fonctionner. Seul Brio est supporté pour les interactions de pose. Tenter de poser avec d'autres outils provoquera des conflits et des personnages qui explosent.&#x0A;&#x0A;Pour utiliser GPose Together, créez ou rejoignez un lobby GPose Together. Une fois que vous et les autres joueurs avez rejoint, assurez-vous d'être sur la même carte. Il n'est pas nécessaire d'être sur le même serveur, DC ou instance. Les utilisateurs sur la même carte apparaîtront sous forme de feux follets violets dans le monde ouvert, pour vous retrouver facilement.&#x0A;&#x0A;Une fois proches les uns des autres, vous pouvez lancer le GPose. Vous devez assigner ou faire apparaître des personnages pour chaque utilisateur du lobby. Leurs poses et positions seront automatiquement appliquées.&#x0A;Les données de pose et de position sont mises à jour environ toutes les quelques secondes.</value>
   </data>
   <data name="CharaDataHub.GposeTogether.JoinLobby" xml:space="preserve">
-    <value />
+    <value>Rejoindre un lobby GPose Together</value>
   </data>
   <data name="CharaDataHub.GposeTogether.LeaveLobby" xml:space="preserve">
-    <value />
+    <value>Quitter le lobby GPose</value>
   </data>
   <data name="CharaDataHub.GposeTogether.LeaveTooltip.Hint" xml:space="preserve">
-    <value />
+    <value>Maintenez CTRL et cliquez pour quitter.</value>
   </data>
   <data name="CharaDataHub.GposeTogether.LeaveTooltip.Main" xml:space="preserve">
-    <value />
+    <value>Quitter le lobby GPose actuel.</value>
   </data>
   <data name="CharaDataHub.GposeTogether.LobbyControls" xml:space="preserve">
-    <value />
+    <value>Contrôles du lobby</value>
   </data>
   <data name="CharaDataHub.GposeTogether.LobbyIdPlaceholder" xml:space="preserve">
-    <value />
+    <value>ID du lobby GPose</value>
   </data>
   <data name="CharaDataHub.GposeTogether.MapInfo" xml:space="preserve">
-    <value />
+    <value>Info carte</value>
   </data>
   <data name="CharaDataHub.GposeTogether.NoCharacter" xml:space="preserve">
-    <value />
+    <value>Aucun personnage assigné</value>
   </data>
   <data name="CharaDataHub.GposeTogether.NoCharacterWarning" xml:space="preserve">
-    <value />
+    <value>Aucun personnage valide assigné pour cet utilisateur. Les données de pose ne seront pas appliquées.</value>
   </data>
   <data name="CharaDataHub.GposeTogether.NoUsers" xml:space="preserve">
-    <value />
+    <value>Aucun autre utilisateur dans le lobby GPose actuel</value>
   </data>
   <data name="CharaDataHub.GposeTogether.RejoinLobby" xml:space="preserve">
-    <value />
+    <value>Rejoindre le dernier lobby {0}</value>
   </data>
   <data name="CharaDataHub.GposeTogether.SendCharacterData" xml:space="preserve">
-    <value />
+    <value>Envoyer les données de personnage mises à jour</value>
   </data>
   <data name="CharaDataHub.GposeTogether.SendCharacterDataTooltip" xml:space="preserve">
-    <value />
+    <value>Cela enverra votre apparence actuelle, votre pose et vos données de position à tous les utilisateurs du lobby.</value>
   </data>
   <data name="CharaDataHub.GposeTogether.SpawnTooltip.Main" xml:space="preserve">
-    <value />
+    <value>Faire apparaître un acteur, appliquer les données de personnage et l'assigner à cet utilisateur.</value>
   </data>
   <data name="CharaDataHub.GposeTogether.SpawnTooltip.Note" xml:space="preserve">
-    <value />
+    <value>Note : Si le bouton est grisé, l'utilisateur n'a envoyé aucune donnée ou vous êtes sur la même carte, serveur et instance. Dans ce dernier cas, rejoignez un groupe avec cet utilisateur et assignez-lui le personnage.</value>
   </data>
   <data name="CharaDataHub.GposeTogether.Tooltip.InstanceNote" xml:space="preserve">
-    <value />
+    <value>Note : Les utilisateurs qui ne sont pas dans votre instance, mais sur la même carte, apparaîtront sous forme de feux follets flottants.</value>
   </data>
   <data name="CharaDataHub.GposeTogether.Tooltip.InstanceSpawnNote" xml:space="preserve">
-    <value />
+    <value>Note : La synchronisation GPose ne dépend pas de l'instance actuelle, mais vous devrez faire apparaître un personnage pour les autres utilisateurs du lobby.</value>
   </data>
   <data name="CharaDataHub.GposeTogether.Tooltip.MapClick" xml:space="preserve">
-    <value />
+    <value>Note : Cliquez pour afficher la position de l'utilisateur sur votre carte.</value>
   </data>
   <data name="CharaDataHub.GposeTogether.Tooltip.MapRequirement" xml:space="preserve">
-    <value />
+    <value>Note : Pour que la synchronisation GPose fonctionne correctement, vous devez être sur la même carte.</value>
   </data>
   <data name="CharaDataHub.GposeTogether.Tooltip.NotSameInstance" xml:space="preserve">
-    <value />
+    <value>Vous n'êtes pas dans la même zone instanciée.</value>
   </data>
   <data name="CharaDataHub.GposeTogether.Tooltip.NotSameMap" xml:space="preserve">
-    <value />
+    <value>Vous n'êtes pas sur la même carte.</value>
   </data>
   <data name="CharaDataHub.GposeTogether.Tooltip.NotSameServer" xml:space="preserve">
-    <value />
+    <value>Vous n'êtes pas sur le même serveur.</value>
   </data>
   <data name="CharaDataHub.GposeTogether.Tooltip.SameInstance" xml:space="preserve">
-    <value />
+    <value>Vous êtes dans la même zone instanciée.</value>
   </data>
   <data name="CharaDataHub.GposeTogether.Tooltip.SameMap" xml:space="preserve">
-    <value />
+    <value>Vous êtes sur la même carte.</value>
   </data>
   <data name="CharaDataHub.GposeTogether.Tooltip.SameServer" xml:space="preserve">
-    <value />
+    <value>Vous êtes sur le même serveur.</value>
   </data>
   <data name="CharaDataHub.GposeTogether.Tooltip.ServerNote" xml:space="preserve">
-    <value />
+    <value>Note : La synchronisation GPose ne dépend pas du serveur actuel, mais vous devrez faire apparaître un personnage pour les autres utilisateurs du lobby.</value>
   </data>
   <data name="CharaDataHub.GposeTogether.UnassignTooltip" xml:space="preserve">
-    <value />
+    <value>Désassigner l'acteur pour cet utilisateur</value>
   </data>
   <data name="CharaDataHub.GposeTogether.UsersInLobby" xml:space="preserve">
-    <value />
+    <value>Utilisateurs dans le lobby</value>
   </data>
   <data name="CharaDataHub.Mcd.Access.AllPairs" xml:space="preserve">
     <value />
@@ -2288,6 +2294,12 @@ Veuillez conserver une copie de votre clé secrète au cas où vous auriez besoi
   <data name="Settings.RpNamesOnNameplates" xml:space="preserve">
     <value>Afficher les noms RP sur les plaques de nom</value>
   </data>
+  <data name="Settings.DisableInDuty" xml:space="preserve">
+    <value>Désactiver en instance (donjons, raids...)</value>
+  </data>
+  <data name="Settings.DisableInDuty.Help" xml:space="preserve">
+    <value>Le mode Explorateur et l'Île sanctuaire ne sont pas affectés.</value>
+  </data>
   <data name="Settings.RpNamesInChat" xml:space="preserve">
     <value>Afficher les noms RP dans le chat</value>
   </data>
@@ -2314,6 +2326,9 @@ Veuillez conserver une copie de votre clé secrète au cas où vous auriez besoi
   </data>
   <data name="Settings.EmoteHighlight.SquareBrackets" xml:space="preserve">
     <value>Crochets [ ... ]</value>
+  </data>
+  <data name="Settings.EmoteHighlight.DoubleParentheses" xml:space="preserve">
+    <value>Double parenthèses (( ... ))</value>
   </data>
   <data name="Settings.EmoteHighlight.ColorKey" xml:space="preserve">
     <value>Couleur de surbrillance</value>
@@ -3030,13 +3045,13 @@ Veuillez conserver une copie de votre clé secrète au cas où vous auriez besoi
     <value />
   </data>
   <data name="CharaDataHub.NearbyPoses.IgnoreHousing" xml:space="preserve">
-    <value />
+    <value>Ignorer les limites de housing</value>
   </data>
   <data name="CharaDataHub.NearbyPoses.IgnoreHousingHelp" xml:space="preserve">
-    <value />
+    <value>Afficher toutes les poses à leur emplacement, indépendamment des limites de housing. (Ward, Parcelle, Chambre ignorés)</value>
   </data>
   <data name="CharaDataHub.NearbyPoses.IgnoreHousingNote" xml:space="preserve">
-    <value />
+    <value>Note : Les poses utilisant des accessoires de housing, meubles, etc. ne s'afficheront pas correctement si elles ne sont pas dans le bon emplacement.</value>
   </data>
   <data name="CharaDataHub.NearbyPoses.MapTooltip" xml:space="preserve">
     <value />
@@ -3105,46 +3120,49 @@ Veuillez conserver une copie de votre clé secrète au cas où vous auriez besoi
     <value />
   </data>
   <data name="CharaDataHub.ShareType.CodeOnly" xml:space="preserve">
-    <value />
+    <value>Code uniquement</value>
   </data>
   <data name="CharaDataHub.ShareType.Shared" xml:space="preserve">
-    <value />
+    <value>Partagé</value>
   </data>
   <data name="CharaDataHub.Tab.Application" xml:space="preserve">
-     <value />
+    <value>Application des données</value>
   </data>
   <data name="CharaDataHub.Tab.ApplyData" xml:space="preserve">
-     <value />
+    <value>Appliquer les données</value>
   </data>
   <data name="CharaDataHub.Tab.DataCreation" xml:space="preserve">
-     <value />
+    <value>Création de données</value>
   </data>
   <data name="CharaDataHub.Tab.GposeActors" xml:space="preserve">
-     <value />
+    <value>Acteurs GPose</value>
   </data>
   <data name="CharaDataHub.Tab.GposeTogether" xml:space="preserve">
-     <value />
+    <value>GPose Together</value>
+  </data>
+  <data name="CharaDataHub.Tab.Mcdf" xml:space="preserve">
+    <value>MCDF</value>
   </data>
   <data name="CharaDataHub.Tab.McdfExport" xml:space="preserve">
-     <value />
+    <value>Export MCDF</value>
   </data>
   <data name="CharaDataHub.Tab.McdfShare" xml:space="preserve">
-     <value />
+    <value>Partage MCDF</value>
   </data>
   <data name="CharaDataHub.Tab.OnlineData" xml:space="preserve">
-     <value />
+    <value>Données en ligne</value>
   </data>
   <data name="CharaDataHub.Tab.PosesNearby" xml:space="preserve">
-     <value />
+    <value>Poses à proximité</value>
   </data>
   <data name="CharaDataHub.Tab.Settings" xml:space="preserve">
-     <value />
+    <value>Paramètres</value>
   </data>
   <data name="CharaDataHub.WorldDataTooltip.None" xml:space="preserve">
-    <value />
+    <value>Cette pose n'a aucune donnée de monde associée.</value>
   </data>
   <data name="CharaDataHub.WindowTitle" xml:space="preserve">
-    <value />
+    <value>Hub de données de personnage Umbra</value>
   </data>
   <data name="ContextMenu.AutoDetect.SendRequest" xml:space="preserve">
     <value>Envoyer une demande d'appairage</value>
@@ -3412,6 +3430,21 @@ Veuillez conserver une copie de votre clé secrète au cas où vous auriez besoi
   <data name="UserProfile.RpAdditionalInfo" xml:space="preserve">
     <value>Informations supplémentaires</value>
   </data>
+  <data name="UserProfile.RpAdditionalInfoWrapHint" xml:space="preserve">
+    <value>Le retour à la ligne automatique n'est pas supporté par Dalamud. Utilisez Entrée pour les sauts de ligne.</value>
+  </data>
+  <data name="UserProfile.RpCustomFields" xml:space="preserve">
+    <value>Autres détails</value>
+  </data>
+  <data name="UserProfile.RpCustomFieldAdd" xml:space="preserve">
+    <value>Ajouter un détail</value>
+  </data>
+  <data name="UserProfile.RpCustomFieldName" xml:space="preserve">
+    <value>Libellé</value>
+  </data>
+  <data name="UserProfile.RpCustomFieldValue" xml:space="preserve">
+    <value>Valeur</value>
+  </data>
   <data name="UserProfile.RpNsfw" xml:space="preserve">
     <value>Est-ce un profil RP NSFW ?</value>
   </data>
@@ -3528,6 +3561,15 @@ Veuillez conserver une copie de votre clé secrète au cas où vous auriez besoi
   <data name="Syncshell.Cards.Notification.AnimDisabled" xml:space="preserve">
     <value>Sync animations désactivée pour {0} membre(s).</value>
   </data>
+  <data name="Syncshell.Cards.AddFavorite" xml:space="preserve">
+    <value>Passer en favori</value>
+  </data>
+  <data name="Syncshell.Cards.RemoveFavorite" xml:space="preserve">
+    <value>Retirer des favoris</value>
+  </data>
+  <data name="Syncshell.Cards.FavoriteMembers" xml:space="preserve">
+    <value>{0} — Membres ({1})</value>
+  </data>
   <data name="Syncshell.Members.WindowTitle" xml:space="preserve">
     <value>Membres - {0}</value>
   </data>
@@ -3581,54 +3623,6 @@ Veuillez conserver une copie de votre clé secrète au cas où vous auriez besoi
   </data>
   <data name="Syncshell.Members.Filter.Placeholder" xml:space="preserve">
     <value>Rechercher un membre...</value>
-  </data>
-  <data name="Settings.Ping.Header" xml:space="preserve">
-    <value>Marqueurs Ping</value>
-  </data>
-  <data name="Settings.Ping.Enabled" xml:space="preserve">
-    <value>Activer les marqueurs ping</value>
-  </data>
-  <data name="Settings.Ping.EnabledHelp" xml:space="preserve">
-    <value>Active l'affichage et le placement des marqueurs ping. Quand désactivé, vous ne verrez ni ne placerez de marqueurs.</value>
-  </data>
-  <data name="Settings.Ping.Keybind" xml:space="preserve">
-    <value>Touche de ping</value>
-  </data>
-  <data name="Settings.Ping.KeybindChange" xml:space="preserve">
-    <value>Changer</value>
-  </data>
-  <data name="Settings.Ping.KeybindCapture" xml:space="preserve">
-    <value>Appuyez sur une touche...</value>
-  </data>
-  <data name="Settings.Ping.KeybindCancel" xml:space="preserve">
-    <value>Annuler</value>
-  </data>
-  <data name="Settings.Ping.UiScale" xml:space="preserve">
-    <value>Taille des marqueurs</value>
-  </data>
-  <data name="Settings.Ping.Opacity" xml:space="preserve">
-    <value>Opacité des marqueurs</value>
-  </data>
-  <data name="Settings.Ping.ShowAuthorName" xml:space="preserve">
-    <value>Afficher le nom de l'auteur</value>
-  </data>
-  <data name="Settings.Ping.ShowInParty" xml:space="preserve">
-    <value>Afficher les marqueurs de groupe</value>
-  </data>
-  <data name="Settings.Ping.ShowInPartyHelp" xml:space="preserve">
-    <value>Affiche les marqueurs placés par le chef de groupe/alliance.</value>
-  </data>
-  <data name="Settings.Ping.ShowInSyncshell" xml:space="preserve">
-    <value>Afficher les marqueurs de syncshell</value>
-  </data>
-  <data name="Settings.Ping.ShowInSyncshellHelp" xml:space="preserve">
-    <value>Affiche les marqueurs placés par les membres de la syncshell ayant la permission de ping.</value>
-  </data>
-  <data name="SyncshellAdmin.Users.GrantPing" xml:space="preserve">
-    <value>Accorder la permission de ping</value>
-  </data>
-  <data name="SyncshellAdmin.Users.RevokePing" xml:space="preserve">
-    <value>Retirer la permission de ping</value>
   </data>
   <data name="SyncshellAdmin.Tab.Profile" xml:space="preserve">
     <value>Profil</value>
@@ -3743,9 +3737,6 @@ Veuillez conserver une copie de votre clé secrète au cas où vous auriez besoi
   </data>
   <data name="Settings.Section.Chat.Desc" xml:space="preserve">
     <value>Configurez les noms RP, les indicateurs de saisie et les intégrations chat.</value>
-  </data>
-  <data name="Settings.Section.Pings.Desc" xml:space="preserve">
-    <value>Configurez le système de marqueurs pour pointer des positions dans le monde.</value>
   </data>
   <data name="Settings.Section.Account.Desc" xml:space="preserve">
     <value>Gérez votre compte, vos clés secrètes et les assignations de personnages.</value>
@@ -3992,5 +3983,342 @@ Veuillez conserver une copie de votre clé secrète au cas où vous auriez besoi
   </data>
   <data name="Settings.Advanced.Debug.ActiveBlocks" xml:space="preserve">
     <value>Blocages de personnages actifs</value>
+  </data>
+  <data name="CharaDataHub.Tab.HousingShare" xml:space="preserve">
+    <value>Housing</value>
+  </data>
+  <data name="HousingShare.Title" xml:space="preserve">
+    <value>Synchronisation des mods de meubles</value>
+  </data>
+  <data name="HousingShare.NotInHousing" xml:space="preserve">
+    <value>Vous n'êtes actuellement pas dans un housing qui vous appartient. Merci d'entrer en mode Housing.</value>
+  </data>
+  <data name="HousingShare.InOwnHouse" xml:space="preserve">
+    <value>Vous êtes dans votre maison. Vous pouvez scanner et publier vos mods de meubles.</value>
+  </data>
+  <data name="HousingShare.Visiting" xml:space="preserve">
+    <value>Vous visitez une maison.</value>
+  </data>
+  <data name="HousingShare.ScanButton" xml:space="preserve">
+    <value>Scanner les meubles moddés</value>
+  </data>
+  <data name="HousingShare.Scanning" xml:space="preserve">
+    <value>Scan en cours...</value>
+  </data>
+  <data name="HousingShare.ScanResult" xml:space="preserve">
+    <value>{0} fichiers de meubles moddés détectés.</value>
+  </data>
+  <data name="HousingShare.PublishButton" xml:space="preserve">
+    <value>Publier</value>
+  </data>
+  <data name="HousingShare.Description" xml:space="preserve">
+    <value>Description</value>
+  </data>
+  <data name="HousingShare.ModsApplied" xml:space="preserve">
+    <value>Mods de maison appliqués ({0} fichiers).</value>
+  </data>
+  <data name="HousingShare.NoModsAvailable" xml:space="preserve">
+    <value>Aucun mod de maison disponible pour cet emplacement.</value>
+  </data>
+  <data name="HousingShare.OwnShares" xml:space="preserve">
+    <value>Mes partages de maison</value>
+  </data>
+  <data name="HousingShare.NoOwnShares" xml:space="preserve">
+    <value>Aucun partage de maison publié.</value>
+  </data>
+  <data name="HousingShare.Location" xml:space="preserve">
+    <value>Emplacement</value>
+  </data>
+  <data name="HousingShare.CreatedAt" xml:space="preserve">
+    <value>Créé le</value>
+  </data>
+  <data name="HousingShare.Delete" xml:space="preserve">
+    <value>Supprimer</value>
+  </data>
+  <data name="HousingShare.Refresh" xml:space="preserve">
+    <value>Actualiser les partages</value>
+  </data>
+  <data name="HousingShare.StopScan" xml:space="preserve">
+    <value>Arrêter le scan</value>
+  </data>
+  <data name="HousingShare.RemoveMods" xml:space="preserve">
+    <value>Retirer les mods appliqués</value>
+  </data>
+  <data name="HousingShare.ModsCurrentlyApplied" xml:space="preserve">
+    <value>Mods de maison actuellement appliqués.</value>
+  </data>
+  <data name="HousingShare.ServerInfo" xml:space="preserve">
+    <value>Serveur : {0} | Quartier : {1} | Ward : {2} | Maison : {3}</value>
+  </data>
+  <data name="HousingShare.Scanner" xml:space="preserve">
+    <value>Scanner</value>
+  </data>
+  <data name="HousingShare.ServerRequired" xml:space="preserve">
+    <value>Connexion au serveur requise.</value>
+  </data>
+  <data name="HousingShare.Processing" xml:space="preserve">
+    <value>Traitement en cours...</value>
+  </data>
+  <data name="HousingShare.Actions" xml:space="preserve">
+    <value>Actions</value>
+  </data>
+  <data name="HousingShare.Error.NoModsDetected" xml:space="preserve">
+    <value>Aucun mod de meuble détecté. Lancez d'abord un scan.</value>
+  </data>
+  <data name="HousingShare.Error.Unavailable" xml:space="preserve">
+    <value>Partage indisponible.</value>
+  </data>
+  <data name="HousingShare.Error.DecryptFailed" xml:space="preserve">
+    <value>Impossible de déchiffrer le partage de mods de maison.</value>
+  </data>
+  <data name="HousingShare.Error.EmptyShare" xml:space="preserve">
+    <value>Le partage ne contient aucun mod.</value>
+  </data>
+  <data name="HousingShare.Error.DeleteRefused" xml:space="preserve">
+    <value>Le serveur a refusé de supprimer le partage.</value>
+  </data>
+  <data name="HousingShare.Success.Published" xml:space="preserve">
+    <value>Mods de maison publiés ({0} fichiers).</value>
+  </data>
+  <data name="HousingShare.Success.Applied" xml:space="preserve">
+    <value>Mods de maison appliqués ({0} fichiers).</value>
+  </data>
+  <data name="HousingShare.Success.Removed" xml:space="preserve">
+    <value>Mods de maison retirés.</value>
+  </data>
+  <data name="HousingShare.Success.Deleted" xml:space="preserve">
+    <value>Partage de mods de maison supprimé.</value>
+  </data>
+  <data name="HousingShare.Success.Refreshed" xml:space="preserve">
+    <value>Partages de mods de maison actualisés.</value>
+  </data>
+  <data name="HousingShare.Success.Updated" xml:space="preserve">
+    <value>Visibilité du partage mise à jour.</value>
+  </data>
+  <data name="HousingShare.Error.UpdateFailed" xml:space="preserve">
+    <value>Échec de la mise à jour du partage.</value>
+  </data>
+  <data name="HousingShare.Notification.ShareTitle" xml:space="preserve">
+    <value>Partage de maison</value>
+  </data>
+  <data name="HousingShare.Notification.SyncTitle" xml:space="preserve">
+    <value>Sync maison</value>
+  </data>
+  <data name="HousingShare.Notification.Applied" xml:space="preserve">
+    <value>Mods de maison appliqués ({0})</value>
+  </data>
+  <data name="QuestSync.Title" xml:space="preserve">
+    <value>Quest Sync</value>
+  </data>
+  <data name="QuestSync.ServerRequired" xml:space="preserve">
+    <value>Connexion au serveur requise pour utiliser Quest Sync.</value>
+  </data>
+  <data name="QuestSync.HelpText" xml:space="preserve">
+    <value>Quest Sync permet de synchroniser des quêtes personnalisées (A Quest Reborn) entre plusieurs joueurs en temps réel.
+
+L'hôte crée une session et partage le code avec les participants. La progression de la quête, les triggers et les choix de branchement sont synchronisés automatiquement.</value>
+  </data>
+  <data name="QuestSync.Session" xml:space="preserve">
+    <value>Session de quête</value>
+  </data>
+  <data name="QuestSync.InDevelopment" xml:space="preserve">
+    <value>Quest Sync est en cours de développement.
+Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
+  </data>
+  <data name="QuestSync.Controls" xml:space="preserve">
+    <value>Contrôles de session</value>
+  </data>
+  <data name="QuestSync.CreateSession" xml:space="preserve">
+    <value>Créer une session de quête</value>
+  </data>
+  <data name="QuestSync.SessionCode" xml:space="preserve">
+    <value>Code de session</value>
+  </data>
+  <data name="QuestSync.JoinSession" xml:space="preserve">
+    <value>Rejoindre une session</value>
+  </data>
+  <data name="QuestSync.Participants" xml:space="preserve">
+    <value>Participants dans la session</value>
+  </data>
+  <data name="QuestSync.NoActiveSession" xml:space="preserve">
+    <value>Aucune session active.</value>
+  </data>
+  <data name="CharaDataHub.Tab.Profiles" xml:space="preserve">
+    <value>Profils</value>
+  </data>
+  <data name="AltSwitcher.Label" xml:space="preserve">
+    <value>Personnages</value>
+  </data>
+  <data name="AltSwitcher.CurrentChar" xml:space="preserve">
+    <value>Personnage actuel</value>
+  </data>
+  <data name="Settings.ProfileBrowser.Title" xml:space="preserve">
+    <value>Navigateur de profils</value>
+  </data>
+  <data name="Settings.ProfileBrowser.OpenButton" xml:space="preserve">
+    <value>Parcourir les profils en cache</value>
+  </data>
+  <data name="Settings.ProfileBrowser.SearchHint" xml:space="preserve">
+    <value>Rechercher par nom, UID ou alias...</value>
+  </data>
+  <data name="Settings.ProfileBrowser.NoResults" xml:space="preserve">
+    <value>Aucun profil trouvé</value>
+  </data>
+  <data name="Settings.ProfileBrowser.OpenProfile" xml:space="preserve">
+    <value>Ouvrir le profil</value>
+  </data>
+  <data name="Settings.ProfileBrowser.CachedProfiles" xml:space="preserve">
+    <value>{0} profils en cache</value>
+  </data>
+  <data name="Settings.ProfileBrowser.ClearCache" xml:space="preserve">
+    <value>Vider le cache</value>
+  </data>
+  <!-- RGPD / Vie privée -->
+  <data name="Settings.Section.Privacy.Desc" xml:space="preserve">
+    <value>Gérez vos données personnelles, vos consentements et exercez vos droits conformément au RGPD.</value>
+  </data>
+  <data name="Settings.Privacy.Title" xml:space="preserve">
+    <value>Vie privée &amp; RGPD</value>
+  </data>
+  <data name="Settings.Privacy.ConsentStatus" xml:space="preserve">
+    <value>État du consentement</value>
+  </data>
+  <data name="Settings.Privacy.ConsentActive" xml:space="preserve">
+    <value>Consentement actif</value>
+  </data>
+  <data name="Settings.Privacy.ConsentExpired" xml:space="preserve">
+    <value>Consentement expiré ou absent ! Veuillez renouveler via l'écran d'introduction.</value>
+  </data>
+  <data name="Settings.Privacy.ConsentDetail.Collection" xml:space="preserve">
+    <value>Collecte de données (identifiant, apparence, mods)</value>
+  </data>
+  <data name="Settings.Privacy.ConsentDetail.Sharing" xml:space="preserve">
+    <value>Partage avec les joueurs appairés</value>
+  </data>
+  <data name="Settings.Privacy.ConsentDetail.ThirdParty" xml:space="preserve">
+    <value>Plugins tiers (Customize+, Honorific, etc.)</value>
+  </data>
+  <data name="Settings.Privacy.Export.Header" xml:space="preserve">
+    <value>Export de vos données (Art. 20 RGPD)</value>
+  </data>
+  <data name="Settings.Privacy.Export.Description" xml:space="preserve">
+    <value>Exportez une copie de toutes vos données personnelles stockées localement et/ou sur le serveur.</value>
+  </data>
+  <data name="Settings.Privacy.Export.LocalButton" xml:space="preserve">
+    <value>Exporter (local)</value>
+  </data>
+  <data name="Settings.Privacy.Export.ServerButton" xml:space="preserve">
+    <value>Exporter (serveur)</value>
+  </data>
+  <data name="Settings.Privacy.Export.InProgress" xml:space="preserve">
+    <value>Export en cours...</value>
+  </data>
+  <data name="Settings.Privacy.Export.Success" xml:space="preserve">
+    <value>Export terminé : {0}</value>
+  </data>
+  <data name="Settings.Privacy.Export.Failed" xml:space="preserve">
+    <value>L'export a échoué. Le serveur ne supporte peut-être pas encore cette fonctionnalité.</value>
+  </data>
+  <data name="Settings.Privacy.Delete.Header" xml:space="preserve">
+    <value>Suppression des données locales (Art. 17 RGPD)</value>
+  </data>
+  <data name="Settings.Privacy.Delete.Description" xml:space="preserve">
+    <value>Supprime les notes, exports et réinitialise le consentement. Les données serveur ne sont pas affectées.</value>
+  </data>
+  <data name="Settings.Privacy.Delete.LocalButton" xml:space="preserve">
+    <value>Supprimer les données locales</value>
+  </data>
+  <data name="Settings.Privacy.Delete.ConfirmTitle" xml:space="preserve">
+    <value>Confirmer la suppression</value>
+  </data>
+  <data name="Settings.Privacy.Delete.ConfirmMessage" xml:space="preserve">
+    <value>Vos notes locales et exports RGPD seront supprimés, et votre consentement sera réinitialisé. Cette action est irréversible.</value>
+  </data>
+  <data name="Settings.Privacy.Delete.ConfirmYes" xml:space="preserve">
+    <value>Supprimer</value>
+  </data>
+  <data name="Settings.Privacy.Revoke.Header" xml:space="preserve">
+    <value>Retrait du consentement</value>
+  </data>
+  <data name="Settings.Privacy.Revoke.Description" xml:space="preserve">
+    <value>Révoquez votre consentement RGPD. Vous serez déconnecté et renvoyé à l'écran d'introduction.</value>
+  </data>
+  <data name="Settings.Privacy.Revoke.Button" xml:space="preserve">
+    <value>Retirer mon consentement</value>
+  </data>
+  <data name="Settings.Privacy.Revoke.ConfirmTitle" xml:space="preserve">
+    <value>Retirer le consentement ?</value>
+  </data>
+  <data name="Settings.Privacy.Revoke.ConfirmMessage" xml:space="preserve">
+    <value>En retirant votre consentement, vous serez déconnecté du service. Vous devrez accepter à nouveau le consentement pour vous reconnecter.</value>
+  </data>
+  <data name="Settings.Privacy.Revoke.ConfirmYes" xml:space="preserve">
+    <value>Retirer</value>
+  </data>
+  <data name="Settings.Privacy.Rights.Header" xml:space="preserve">
+    <value>Vos droits (RGPD)</value>
+  </data>
+  <data name="Settings.Privacy.Rights.Access" xml:space="preserve">
+    <value>Droit d'accès : Consultez les données qu'UmbraSync détient sur vous via l'export.</value>
+  </data>
+  <data name="Settings.Privacy.Rights.Rectification" xml:space="preserve">
+    <value>Droit de rectification : Modifiez vos données via les paramètres de profil.</value>
+  </data>
+  <data name="Settings.Privacy.Rights.Erasure" xml:space="preserve">
+    <value>Droit à l'effacement : Supprimez votre compte et toutes les données associées.</value>
+  </data>
+  <data name="Settings.Privacy.Rights.Portability" xml:space="preserve">
+    <value>Droit à la portabilité : Exportez vos données dans un format lisible (JSON).</value>
+  </data>
+  <data name="Settings.Privacy.Rights.Opposition" xml:space="preserve">
+    <value>Droit d'opposition : Retirez votre consentement à tout moment.</value>
+  </data>
+  <data name="Settings.Privacy.Rights.Limitation" xml:space="preserve">
+    <value>Droit à la limitation : Mettez en pause le traitement via les options de pause du service.</value>
+  </data>
+  <data name="Rgpd.Consent.Title" xml:space="preserve">
+    <value>Protection des données (RGPD)</value>
+  </data>
+  <data name="Rgpd.Consent.Intro" xml:space="preserve">
+    <value>Conformément au Règlement Général sur la Protection des Données (RGPD), UmbraSync doit obtenir votre consentement explicite avant de traiter vos données personnelles.</value>
+  </data>
+  <data name="Rgpd.Consent.Reassurance" xml:space="preserve">
+    <value>Ces données sont collectées uniquement pour le bon fonctionnement du plugin. Aucune donnée n'est revendue ni transmise à des tiers à des fins commerciales.</value>
+  </data>
+  <data name="Rgpd.Consent.DataCollected.Header" xml:space="preserve">
+    <value>Données collectées :</value>
+  </data>
+  <data name="Rgpd.Consent.DataCollected.Details" xml:space="preserve">
+    <value>• Identifiant unique (UID)&#x0A;• Données d'apparence (mods Penumbra, états Glamourer)&#x0A;• Profils RP (nom, description, image)&#x0A;• Liste d'appairage et appartenances aux syncshells&#x0A;• Fichiers de mods uploadés pour la synchronisation</value>
+  </data>
+  <data name="Rgpd.Consent.DataCollection" xml:space="preserve">
+    <value>J'accepte la collecte de mes données (obligatoire)</value>
+  </data>
+  <data name="Rgpd.Consent.DataCollection.Detail" xml:space="preserve">
+    <value>Nécessaire au fonctionnement du service de synchronisation.</value>
+  </data>
+  <data name="Rgpd.Consent.DataSharing" xml:space="preserve">
+    <value>J'accepte le partage avec les joueurs appairés (obligatoire)</value>
+  </data>
+  <data name="Rgpd.Consent.DataSharing.Detail" xml:space="preserve">
+    <value>Vos données d'apparence sont partagées avec les joueurs que vous choisissez d'appairer.</value>
+  </data>
+  <data name="Rgpd.Consent.ThirdParty" xml:space="preserve">
+    <value>J'accepte le partage avec les plugins tiers (optionnel)</value>
+  </data>
+  <data name="Rgpd.Consent.ThirdParty.Detail" xml:space="preserve">
+    <value>Customize+, Honorific, Moodles, etc. peuvent échanger des données supplémentaires.</value>
+  </data>
+  <data name="Rgpd.Consent.Rights" xml:space="preserve">
+    <value>Vos droits :</value>
+  </data>
+  <data name="Rgpd.Consent.Rights.Summary" xml:space="preserve">
+    <value>Vous pouvez à tout moment accéder, exporter, rectifier ou supprimer vos données depuis l'onglet « Vie privée » des paramètres. Vous pouvez retirer votre consentement à tout moment.</value>
+  </data>
+  <data name="Rgpd.Consent.AcceptButton" xml:space="preserve">
+    <value>J'accepte et je continue</value>
+  </data>
+  <data name="Rgpd.Consent.MandatoryWarning" xml:space="preserve">
+    <value>Les consentements de collecte et de partage sont obligatoires pour utiliser le service.</value>
   </data>
 </root>

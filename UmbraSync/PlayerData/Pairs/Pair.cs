@@ -57,18 +57,12 @@ public class Pair : DisposableMediatorSubscriberBase
     {
         get
         {
-            if (_serverConfigurationManager.IsUidPaused(UserData.UID))
-            {
-                if (_logger.IsEnabled(LogLevel.Trace))
-                    _logger.LogTrace("IsPaused: true (LocalPaused) for {uid}", UserData.UID);
-                return true;
-            }
             if (UserPair != null)
             {
-                bool directPaused = UserPair.OwnPermissions.IsPaused();
+                bool directPaused = UserPair.OwnPermissions.IsPaused() || UserPair.OtherPermissions.IsPaused();
                 if (_logger.IsEnabled(LogLevel.Trace))
-                    _logger.LogTrace("IsPaused: {paused} (DirectPair, Own={own}) for {uid}",
-                        directPaused, UserPair.OwnPermissions.IsPaused(), UserData.UID);
+                    _logger.LogTrace("IsPaused: {paused} (DirectPair, Own={own}, Other={other}) for {uid}",
+                        directPaused, UserPair.OwnPermissions.IsPaused(), UserPair.OtherPermissions.IsPaused(), UserData.UID);
                 return directPaused;
             }
 
@@ -189,11 +183,11 @@ public class Pair : DisposableMediatorSubscriberBase
                 });
         }
 
-        // Options toujours disponibles
-        Add(IsPaused ? "Reprendre la synchronisation" : "Mettre en pause", _ => Mediator.Publish(new PauseMessage(UserData)));
-
+        // Options toujours disponibles (pause individuelle uniquement pour les direct pairs)
         if (UserPair != null)
         {
+            bool ownPaused = UserPair.OwnPermissions.IsPaused();
+            Add(ownPaused ? "Reprendre la synchronisation" : "Mettre en pause", _ => Mediator.Publish(new PauseMessage(UserData)));
             Add("Changer les permissions", _ => Mediator.Publish(new OpenPermissionWindow(this)));
         }
     }

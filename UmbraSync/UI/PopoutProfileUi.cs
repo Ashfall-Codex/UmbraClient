@@ -1,10 +1,12 @@
 ﻿using Dalamud.Bindings.ImGui;
+using Dalamud.Interface;
 using Dalamud.Interface.Colors;
 using Dalamud.Interface.Textures.TextureWraps;
 using Dalamud.Interface.Utility;
 using Dalamud.Interface.Utility.Raii;
 using Microsoft.Extensions.Logging;
 using System.Numerics;
+using System.Text;
 using UmbraSync.API.Data.Extensions;
 using UmbraSync.Localization;
 using UmbraSync.MareConfiguration;
@@ -22,6 +24,8 @@ public class PopoutProfileUi : WindowMediatorSubscriberBase
     private readonly ServerConfigurationManager _serverManager;
     private readonly MareConfigService _configService;
     private readonly UiSharedService _uiSharedService;
+    private readonly DalamudUtilService _dalamudUtil;
+    private readonly PairManager _pairManager;
     private Vector2 _lastMainPos = Vector2.Zero;
     private Vector2 _lastMainSize = Vector2.Zero;
     private byte[] _lastProfilePicture = [];
@@ -31,15 +35,20 @@ public class PopoutProfileUi : WindowMediatorSubscriberBase
     private IDalamudTextureWrap? _textureWrap;
     private IDalamudTextureWrap? _rpTextureWrap;
     private bool _isRpTab;
+    private string? _selectedAltCharName;
+    private uint? _selectedAltWorldId;
 
     public PopoutProfileUi(ILogger<PopoutProfileUi> logger, MareMediator mediator, UiSharedService uiSharedService,
         ServerConfigurationManager serverManager, MareConfigService mareConfigService,
-        UmbraProfileManager umbraProfileManager, PerformanceCollectorService performanceCollectorService) : base(logger, mediator, "###UmbraSyncPopoutProfileUI", performanceCollectorService)
+        UmbraProfileManager umbraProfileManager, PerformanceCollectorService performanceCollectorService,
+        DalamudUtilService dalamudUtil, PairManager pairManager) : base(logger, mediator, "###UmbraSyncPopoutProfileUI", performanceCollectorService)
     {
         _uiSharedService = uiSharedService;
         _serverManager = serverManager;
         _configService = mareConfigService;
         _umbraProfileManager = umbraProfileManager;
+        _dalamudUtil = dalamudUtil;
+        _pairManager = pairManager;
         Flags = ImGuiWindowFlags.NoDecoration;
 
         Mediator.Subscribe<ProfilePopoutToggle>(this, (msg) =>
@@ -55,6 +64,8 @@ public class PopoutProfileUi : WindowMediatorSubscriberBase
             _supporterTextureWrap?.Dispose();
             _supporterTextureWrap = null;
             _isRpTab = false;
+            _selectedAltCharName = null;
+            _selectedAltWorldId = null;
         });
 
         Mediator.Subscribe<CompactUiChange>(this, (msg) =>
@@ -93,7 +104,9 @@ public class PopoutProfileUi : WindowMediatorSubscriberBase
         {
             var spacing = ImGui.GetStyle().ItemSpacing;
 
-            var umbraProfile = _umbraProfileManager.GetUmbraProfile(_pair.UserData);
+            var umbraProfile = (_selectedAltCharName != null && _selectedAltWorldId != null)
+                ? _umbraProfileManager.GetUmbraProfile(_pair.UserData, _selectedAltCharName, _selectedAltWorldId)
+                : _umbraProfileManager.GetUmbraProfile(_pair.UserData);
 
             var accent = UiSharedService.AccentColor;
             if (accent.W <= 0f) accent = ImGuiColors.ParsedPurple;
@@ -144,6 +157,8 @@ public class PopoutProfileUi : WindowMediatorSubscriberBase
             using (_uiSharedService.UidFont.Push())
                 UiSharedService.ColorText(_pair.UserData.AliasOrUID + (_isRpTab ? " (RP)" : " (HRP)"), nameColor);
 
+            DrawAltPopup();
+
             ImGuiHelpers.ScaledDummy(spacing.Y, spacing.Y);
             var textPos = ImGui.GetCursorPosY();
             ImGui.Separator();
@@ -192,6 +207,8 @@ public class PopoutProfileUi : WindowMediatorSubscriberBase
             if (_isRpTab)
             {
                 var moodlesJson = _pair.LastReceivedCharacterData?.MoodlesData;
+                if (string.IsNullOrEmpty(moodlesJson))
+                    moodlesJson = umbraProfile.MoodlesData;
                 if (!string.IsNullOrEmpty(moodlesJson))
                 {
                     _uiSharedService.DrawMoodlesAtAGlance(moodlesJson, 36f);
@@ -205,33 +222,42 @@ public class PopoutProfileUi : WindowMediatorSubscriberBase
 
             if (_isRpTab)
             {
-                var rpInfo = string.Empty;
+                var sb = new StringBuilder();
                 if (!string.IsNullOrEmpty(umbraProfile.RpFirstName) || !string.IsNullOrEmpty(umbraProfile.RpLastName))
-                    rpInfo += $"{umbraProfile.RpFirstName} {umbraProfile.RpLastName}\n";
+                    sb.Append(umbraProfile.RpFirstName).Append(' ').Append(umbraProfile.RpLastName).Append('\n');
                 if (!string.IsNullOrEmpty(umbraProfile.RpTitle))
-                    rpInfo += $"{Loc.Get("UserProfile.RpTitle")} : {umbraProfile.RpTitle}\n";
+                    sb.Append(Loc.Get("UserProfile.RpTitle")).Append(" : ").Append(umbraProfile.RpTitle).Append('\n');
                 if (!string.IsNullOrEmpty(umbraProfile.RpAge))
-                    rpInfo += $"{Loc.Get("UserProfile.RpAge")} : {umbraProfile.RpAge}\n";
+                    sb.Append(Loc.Get("UserProfile.RpAge")).Append(" : ").Append(umbraProfile.RpAge).Append('\n');
                 if (!string.IsNullOrEmpty(umbraProfile.RpRace))
-                    rpInfo += $"{Loc.Get("UserProfile.RpRace")} : {umbraProfile.RpRace}\n";
+                    sb.Append(Loc.Get("UserProfile.RpRace")).Append(" : ").Append(umbraProfile.RpRace).Append('\n');
                 if (!string.IsNullOrEmpty(umbraProfile.RpEthnicity))
-                    rpInfo += $"{Loc.Get("UserProfile.RpEthnicity")} : {umbraProfile.RpEthnicity}\n";
+                    sb.Append(Loc.Get("UserProfile.RpEthnicity")).Append(" : ").Append(umbraProfile.RpEthnicity).Append('\n');
                 if (!string.IsNullOrEmpty(umbraProfile.RpHeight))
-                    rpInfo += $"{Loc.Get("UserProfile.RpHeight")} : {umbraProfile.RpHeight}\n";
+                    sb.Append(Loc.Get("UserProfile.RpHeight")).Append(" : ").Append(umbraProfile.RpHeight).Append('\n');
                 if (!string.IsNullOrEmpty(umbraProfile.RpBuild))
-                    rpInfo += $"{Loc.Get("UserProfile.RpBuild")} : {umbraProfile.RpBuild}\n";
+                    sb.Append(Loc.Get("UserProfile.RpBuild")).Append(" : ").Append(umbraProfile.RpBuild).Append('\n');
                 if (!string.IsNullOrEmpty(umbraProfile.RpResidence))
-                    rpInfo += $"{Loc.Get("UserProfile.RpResidence")} : {umbraProfile.RpResidence}\n";
+                    sb.Append(Loc.Get("UserProfile.RpResidence")).Append(" : ").Append(umbraProfile.RpResidence).Append('\n');
                 if (!string.IsNullOrEmpty(umbraProfile.RpOccupation))
-                    rpInfo += $"{Loc.Get("UserProfile.RpOccupation")} : {umbraProfile.RpOccupation}\n";
+                    sb.Append(Loc.Get("UserProfile.RpOccupation")).Append(" : ").Append(umbraProfile.RpOccupation).Append('\n');
                 if (!string.IsNullOrEmpty(umbraProfile.RpAffiliation))
-                    rpInfo += $"{Loc.Get("UserProfile.RpAffiliation")} : {umbraProfile.RpAffiliation}\n";
+                    sb.Append(Loc.Get("UserProfile.RpAffiliation")).Append(" : ").Append(umbraProfile.RpAffiliation).Append('\n');
                 if (!string.IsNullOrEmpty(umbraProfile.RpAlignment))
-                    rpInfo += $"{Loc.Get("UserProfile.RpAlignment")} : {umbraProfile.RpAlignment}\n";
+                    sb.Append(Loc.Get("UserProfile.RpAlignment")).Append(" : ").Append(umbraProfile.RpAlignment).Append('\n');
 
-                if (!string.IsNullOrEmpty(rpInfo))
+                if (umbraProfile.RpCustomFields is { Count: > 0 })
                 {
-                    descText = rpInfo + "----------\n" + descText;
+                    foreach (var field in umbraProfile.RpCustomFields.OrderBy(f => f.Order))
+                    {
+                        if (!string.IsNullOrEmpty(field.Name) || !string.IsNullOrEmpty(field.Value))
+                            sb.Append(field.Name).Append(" : ").Append(field.Value).Append('\n');
+                    }
+                }
+
+                if (sb.Length > 0)
+                {
+                    descText = sb.Append("----------\n").Append(descText).ToString();
                 }
             }
 
@@ -272,6 +298,80 @@ public class PopoutProfileUi : WindowMediatorSubscriberBase
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Error during draw tooltip");
+        }
+    }
+
+    private void DrawAltPopup()
+    {
+        if (_pair == null) return;
+        var alts = _umbraProfileManager.GetEncounteredAlts(_pair.UserData.UID);
+        if (alts.Count <= 1) return;
+
+        ImGui.SameLine();
+        ImGui.PushFont(UiBuilder.IconFont);
+        var iconSize = ImGui.CalcTextSize(FontAwesomeIcon.Users.ToIconString());
+        ImGui.PopFont();
+        var countSize = ImGui.CalcTextSize($" {alts.Count}");
+        var btnW = iconSize.X + countSize.X + ImGui.GetStyle().FramePadding.X * 2 + 4f;
+
+        if (ImGui.Button($"##altPopupBtn", new Vector2(btnW, ImGui.GetFrameHeight())))
+            ImGui.OpenPopup("##altPopup");
+
+        // Draw icon + text manually over the button
+        var btnMin = ImGui.GetItemRectMin();
+        var btnMax = ImGui.GetItemRectMax();
+        var dl = ImGui.GetWindowDrawList();
+        var centerY = (btnMin.Y + btnMax.Y) / 2f;
+        ImGui.PushFont(UiBuilder.IconFont);
+        dl.AddText(new Vector2(btnMin.X + ImGui.GetStyle().FramePadding.X, centerY - iconSize.Y / 2f),
+            ImGui.GetColorU32(ImGuiColors.DalamudGrey), FontAwesomeIcon.Users.ToIconString());
+        ImGui.PopFont();
+        dl.AddText(new Vector2(btnMin.X + ImGui.GetStyle().FramePadding.X + iconSize.X + 2f, centerY - countSize.Y / 2f),
+            ImGui.GetColorU32(ImGuiColors.DalamudGrey), $" {alts.Count}");
+
+        if (ImGui.BeginPopup("##altPopup"))
+        {
+            ImGui.TextColored(ImGuiColors.DalamudGrey, Loc.Get("AltSwitcher.Label"));
+            ImGui.Separator();
+
+            for (int i = 0; i < alts.Count; i++)
+            {
+                var (charName, worldId) = alts[i];
+                var cachedProfile = _umbraProfileManager.GetUmbraProfile(_pair.UserData, charName, worldId);
+                var first = cachedProfile.RpFirstName ?? string.Empty;
+                var last = cachedProfile.RpLastName ?? string.Empty;
+                var rpName = $"{first} {last}".Trim();
+                var worldName = _dalamudUtil.WorldData.Value.TryGetValue((ushort)worldId, out var wn) ? wn : worldId.ToString();
+                var displayName = !string.IsNullOrEmpty(rpName) ? $"{rpName}  ({charName} @ {worldName})" : $"{charName} @ {worldName}";
+
+                bool isSelected = string.Equals(_selectedAltCharName, charName, StringComparison.Ordinal) && _selectedAltWorldId == worldId;
+                if (_selectedAltCharName == null)
+                {
+                    var pair = _pairManager.GetPairByUID(_pair.UserData.UID);
+                    if (pair != null)
+                        isSelected = string.Equals(pair.PlayerName, charName, StringComparison.Ordinal) && pair.WorldId == worldId;
+                    else
+                    {
+                        var lastName = _serverManager.GetNameForUid(_pair.UserData.UID);
+                        var lastWorld = _serverManager.GetWorldIdForUid(_pair.UserData.UID);
+                        isSelected = string.Equals(lastName, charName, StringComparison.Ordinal) && lastWorld == worldId;
+                    }
+                }
+
+                if (ImGui.Selectable(displayName, isSelected))
+                {
+                    _selectedAltCharName = charName;
+                    _selectedAltWorldId = worldId;
+                    _lastProfilePicture = [];
+                    _lastRpProfilePicture = [];
+                    _textureWrap?.Dispose();
+                    _textureWrap = null;
+                    _rpTextureWrap?.Dispose();
+                    _rpTextureWrap = null;
+                }
+            }
+
+            ImGui.EndPopup();
         }
     }
 }

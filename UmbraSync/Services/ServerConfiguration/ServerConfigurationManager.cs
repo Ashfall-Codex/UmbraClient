@@ -16,7 +16,6 @@ public class ServerConfigurationManager
 
     private HashSet<string>? _cachedWhitelistedUIDs = null;
     private HashSet<string>? _cachedBlacklistedUIDs = null;
-    private HashSet<string>? _cachedPausedUIDs = null;
     private string? _realApiUrl = null;
 
     public ServerConfigurationManager(ILogger<ServerConfigurationManager> logger, ServerConfigService configService,
@@ -54,7 +53,6 @@ public class ServerConfigurationManager
             _configService.Current.CurrentServer = value;
             _cachedWhitelistedUIDs = null;
             _cachedBlacklistedUIDs = null;
-            _cachedPausedUIDs = null;
             _realApiUrl = null;
             _configService.Save();
         }
@@ -392,6 +390,65 @@ public class ServerConfigurationManager
         _notesConfig.Save();
     }
 
+    internal void AddEncounteredAlt(string uid, string charName, uint worldId)
+    {
+        if (string.IsNullOrEmpty(uid) || string.IsNullOrEmpty(charName) || worldId == 0) return;
+
+        var storage = CurrentNotesStorage();
+        if (!storage.UidEncounteredAlts.TryGetValue(uid, out var alts))
+        {
+            alts = new HashSet<string>(StringComparer.Ordinal);
+            storage.UidEncounteredAlts[uid] = alts;
+        }
+
+        var key = $"{charName}@{worldId}";
+        if (alts.Contains(key)) return;
+
+        // Remove stale entry for the same charName with a different worldId (world visit)
+        var prefix = charName + "@";
+        var stale = alts.FirstOrDefault(a => a.StartsWith(prefix, StringComparison.Ordinal));
+        if (stale != null) alts.Remove(stale);
+
+        alts.Add(key);
+        _notesConfig.Save();
+    }
+
+    internal HashSet<string> GetEncounteredAlts(string uid)
+    {
+        if (string.IsNullOrEmpty(uid)) return [];
+        var storage = CurrentNotesStorage();
+        if (!storage.UidEncounteredAlts.TryGetValue(uid, out var alts)) return [];
+
+        // Deduplicate: keep only the latest entry per charName
+        var byName = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var entry in alts)
+        {
+            var sep = entry.LastIndexOf('@');
+            if (sep < 0) continue;
+            var charName = entry[..sep];
+            byName[charName] = entry; // last wins
+        }
+
+        if (byName.Count < alts.Count)
+        {
+            alts.Clear();
+            foreach (var v in byName.Values) alts.Add(v);
+            _notesConfig.Save();
+        }
+
+        return alts;
+    }
+
+    internal void RemoveEncounteredAlt(string uid, string charName, uint worldId)
+    {
+        if (string.IsNullOrEmpty(uid) || string.IsNullOrEmpty(charName)) return;
+        var storage = CurrentNotesStorage();
+        if (!storage.UidEncounteredAlts.TryGetValue(uid, out var alts)) return;
+        var key = $"{charName}@{worldId}";
+        if (alts.Remove(key))
+            _notesConfig.Save();
+    }
+
     internal void SetWorldIdForUid(string uid, uint worldId)
     {
         if (string.IsNullOrEmpty(uid)) return;
@@ -416,12 +473,6 @@ public class ServerConfigurationManager
         return _cachedBlacklistedUIDs.Contains(uid);
     }
 
-    internal bool IsUidPaused(string uid)
-    {
-        _cachedPausedUIDs ??= [.. CurrentBlockStorage().Paused];
-        return _cachedPausedUIDs.Contains(uid);
-    }
-
     internal void AddWhitelistUid(string uid)
     {
         if (IsUidWhitelisted(uid))
@@ -444,15 +495,6 @@ public class ServerConfigurationManager
         _blockConfig.Save();
     }
 
-    internal void AddPausedUid(string uid)
-    {
-        if (IsUidPaused(uid))
-            return;
-        CurrentBlockStorage().Paused.Add(uid);
-        _cachedPausedUIDs = null;
-        _blockConfig.Save();
-    }
-
     internal void RemoveWhitelistUid(string uid)
     {
         if (CurrentBlockStorage().Whitelist.RemoveAll(u => u.Equals(uid, StringComparison.Ordinal)) > 0)
@@ -464,13 +506,6 @@ public class ServerConfigurationManager
     {
         if (CurrentBlockStorage().Blacklist.RemoveAll(u => u.Equals(uid, StringComparison.Ordinal)) > 0)
             _cachedBlacklistedUIDs = null;
-        _blockConfig.Save();
-    }
-
-    internal void RemovePausedUid(string uid)
-    {
-        if (CurrentBlockStorage().Paused.RemoveAll(u => u.Equals(uid, StringComparison.Ordinal)) > 0)
-            _cachedPausedUIDs = null;
         _blockConfig.Save();
     }
 

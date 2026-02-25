@@ -84,7 +84,13 @@ public class ChatEmoteHighlightService : DisposableMediatorSubscriberBase
         if (emoteParts.Count > 0)
             allParts.Add($"(?<{GroupEmote}>{string.Join('|', emoteParts)})");
         if (config.EmoteHighlightParenthesesGray)
-            allParts.Add($@"(?<{GroupHrp}>\(.+?\))");
+        {
+            var hrpParts = new List<string>(2);
+            if (config.EmoteHighlightDoubleParentheses)
+                hrpParts.Add(@"\(\(.+?\)\)");
+            hrpParts.Add(@"\(.+?\)");
+            allParts.Add($@"(?<{GroupHrp}>{string.Join('|', hrpParts)})");
+        }
 
         if (allParts.Count == 0)
             return null;

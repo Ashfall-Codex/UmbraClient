@@ -16,6 +16,7 @@ using UmbraSync.PlayerData.Pairs;
 using UmbraSync.PlayerData.Services;
 using UmbraSync.Services;
 using UmbraSync.Services.Events;
+using UmbraSync.Services.Housing;
 using UmbraSync.Services.Mediator;
 using UmbraSync.Services.Notification;
 using UmbraSync.Services.ServerConfiguration;
@@ -156,13 +157,15 @@ public sealed class Plugin : IDalamudPlugin
             collection.AddSingleton<PartyListTypingService>();
             collection.AddSingleton<TypingIndicatorStateService>();
             collection.AddSingleton<TypingRemoteNotificationService>();
-            collection.AddSingleton<UmbraSync.Services.Ping.PingMarkerStateService>();
-            collection.AddSingleton<UmbraSync.Services.Ping.PingPermissionService>();
             collection.AddSingleton<ChatTwoCompatibilityService>();
             collection.AddSingleton<NotificationTracker>();
             collection.AddSingleton<PenumbraPrecacheService>();
             collection.AddSingleton<SlotService>();
             collection.AddSingleton<HousingMonitorService>();
+            collection.AddSingleton<HousingFurnitureScanner>();
+            collection.AddSingleton<HousingShareManager>();
+            collection.AddSingleton<HousingFurnitureSyncService>();
+            collection.AddSingleton<RgpdDataService>();
 
             collection.AddSingleton((s) => new RpConfigService(pluginInterface.ConfigDirectory.FullName, s.GetRequiredService<DalamudUtilService>()));
             collection.AddSingleton((s) => new MareConfigService(pluginInterface.ConfigDirectory.FullName));
@@ -189,6 +192,7 @@ public sealed class Plugin : IDalamudPlugin
             collection.AddSingleton<IConfigService<IMareConfiguration>>(s => s.GetRequiredService<CharaDataConfigService>());
             collection.AddSingleton<IConfigService<IMareConfiguration>>(s => s.GetRequiredService<RemoteConfigCacheService>());
             collection.AddSingleton<IConfigService<IMareConfiguration>>(s => s.GetRequiredService<NotificationsConfigService>());
+            collection.AddSingleton<IConfigService<IMareConfiguration>>(s => s.GetRequiredService<RpConfigService>());
             collection.AddSingleton<ConfigurationMigrator>();
             collection.AddSingleton<ConfigurationSaveService>();
             collection.AddSingleton<IPopupHandler, ReportPopupHandler>();
@@ -221,7 +225,6 @@ public sealed class Plugin : IDalamudPlugin
             collection.AddScoped<WindowMediatorSubscriberBase, CharaDataHubUi>();
             collection.AddScoped<WindowMediatorSubscriberBase>(sp => sp.GetRequiredService<EditProfileUi>());
             collection.AddScoped<WindowMediatorSubscriberBase, TypingIndicatorOverlay>();
-            collection.AddScoped<WindowMediatorSubscriberBase, PingMarkerOverlay>();
             collection.AddScoped<CacheCreationService>();
             collection.AddScoped<TransientResourceManager>();
             collection.AddScoped<PlayerDataFactory>();
@@ -257,6 +260,7 @@ public sealed class Plugin : IDalamudPlugin
             collection.AddHostedService(p => p.GetRequiredService<UmbraSync.Services.AutoDetect.AutoDetectSuppressionService>());
             collection.AddHostedService(p => p.GetRequiredService<PenumbraPrecacheService>());
             collection.AddHostedService(p => p.GetRequiredService<HousingMonitorService>());
+            collection.AddHostedService(p => p.GetRequiredService<HousingFurnitureSyncService>());
         })
         .Build();
 

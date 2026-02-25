@@ -277,7 +277,7 @@ public class DrawGroupPair : DrawPairBase
             UiSharedService.GetIconSize(FontAwesomeIcon.InfoCircle).X
         );
         float plusW = _uiSharedService.GetIconButtonSize(FontAwesomeIcon.Plus).X;
-        var pauseIcon = _pair.IsEffectivelyPaused ? FontAwesomeIcon.Play : FontAwesomeIcon.Pause;
+        var pauseIcon = _pair.IsPaused ? FontAwesomeIcon.Play : FontAwesomeIcon.Pause;
         float pauseMaxW = MathF.Max(
             _uiSharedService.GetIconButtonSize(FontAwesomeIcon.Pause).X,
             _uiSharedService.GetIconButtonSize(FontAwesomeIcon.Play).X
@@ -427,7 +427,7 @@ public class DrawGroupPair : DrawPairBase
                 {
                     _apiController.Pause(_pair.UserData);
                 }
-                UiSharedService.AttachToolTip(AppendSeenInfo((_pair.IsEffectivelyPaused ? "Resume" : "Pause") + " syncing with " + entryUID));
+                UiSharedService.AttachToolTip(AppendSeenInfo((_pair.IsPaused ? "Resume" : "Pause") + " syncing with " + entryUID));
             }
         }
         currentX += pauseMaxW + spacing;

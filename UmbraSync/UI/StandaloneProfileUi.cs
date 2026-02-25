@@ -27,6 +27,7 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
     private readonly UiSharedService _uiSharedService;
     private readonly IpcManager _ipcManager;
     private readonly DalamudUtilService _dalamudUtil;
+    private readonly PairManager _pairManager;
     private byte[] _lastProfilePicture = [];
     private byte[] _lastRpProfilePicture = [];
     private IDalamudTextureWrap? _textureWrap;
@@ -36,10 +37,12 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
     private string _localMoodlesJson = string.Empty;
     private bool _moodlesFetching;
     private DateTime _lastMoodlesFetch = DateTime.MinValue;
+    private string? _selectedAltCharName;
+    private uint? _selectedAltWorldId;
 
     public StandaloneProfileUi(ILogger<StandaloneProfileUi> logger, MareMediator mediator, UiSharedService uiBuilder,
         ServerConfigurationManager serverManager, MareConfigService configService, UmbraProfileManager umbraProfileManager, ApiController apiController, Pair pair,
-        PerformanceCollectorService performanceCollector, IpcManager ipcManager, DalamudUtilService dalamudUtil)
+        PerformanceCollectorService performanceCollector, IpcManager ipcManager, DalamudUtilService dalamudUtil, PairManager pairManager)
         : base(logger, mediator, string.Format(System.Globalization.CultureInfo.CurrentCulture, Loc.Get("StandaloneProfile.WindowTitle"), pair.UserData.AliasOrUID) + "##UmbraSyncStandaloneProfileUI" + pair.UserData.AliasOrUID, performanceCollector)
     {
         _uiSharedService = uiBuilder;
@@ -49,6 +52,7 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
         _apiController = apiController;
         _ipcManager = ipcManager;
         _dalamudUtil = dalamudUtil;
+        _pairManager = pairManager;
         Pair = pair;
         Flags = ImGuiWindowFlags.None;
 
@@ -97,13 +101,19 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
                 _windowSizeInitialized = true;
             }
 
-            var umbraProfile = _umbraProfileManager.GetUmbraProfile(Pair.UserData);
+            var umbraProfile = (_selectedAltCharName != null && _selectedAltWorldId != null)
+                ? _umbraProfileManager.GetUmbraProfile(Pair.UserData, _selectedAltCharName, _selectedAltWorldId)
+                : _umbraProfileManager.GetUmbraProfile(Pair.UserData);
 
             var accent = UiSharedService.AccentColor;
             if (accent.W <= 0f) accent = ImGuiColors.ParsedPurple;
 
             // RP / HRP toggle buttons
             DrawTabButtons(accent);
+
+            // Alt switcher (not self)
+            if (!string.Equals(Pair.UserData.UID, _apiController.UID, StringComparison.Ordinal))
+                DrawAltSwitcher(accent);
 
             // Load textures
             var pfpData = _isRpTab ? umbraProfile.RpImageData.Value : umbraProfile.ImageData.Value;
@@ -211,6 +221,93 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
         ImGuiHelpers.ScaledDummy(4f);
     }
 
+    private void DrawAltSwitcher(Vector4 accent)
+    {
+        var alts = _umbraProfileManager.GetEncounteredAlts(Pair.UserData.UID);
+        if (alts.Count <= 1) return;
+
+        var dl = ImGui.GetWindowDrawList();
+        const float btnH = 24f;
+        const float btnSpacing = 4f;
+        const float rounding = 3f;
+        const float padH = 8f;
+
+        var borderColor = new Vector4(0.29f, 0.21f, 0.41f, 0.7f);
+        var bgColor = new Vector4(0.11f, 0.11f, 0.11f, 0.9f);
+        var hoverBg = new Vector4(0.17f, 0.13f, 0.22f, 1f);
+
+        UiSharedService.ColorText(Loc.Get("AltSwitcher.Label"), ImGuiColors.DalamudGrey);
+        ImGuiHelpers.ScaledDummy(2f);
+
+        for (int i = 0; i < alts.Count; i++)
+        {
+            var (charName, worldId) = alts[i];
+            bool isSelected = (_selectedAltCharName == null && i == 0)
+                ? IsCurrentCharacter(charName, worldId)
+                : string.Equals(_selectedAltCharName, charName, StringComparison.Ordinal) && _selectedAltWorldId == worldId;
+
+            // Try to get display name from cached profile
+            var cachedProfile = _umbraProfileManager.GetUmbraProfile(Pair.UserData, charName, worldId);
+            var displayName = GetAltDisplayName(cachedProfile, charName);
+
+            var textSize = ImGui.CalcTextSize(displayName);
+            var btnW = textSize.X + padH * 2;
+
+            if (i > 0) ImGui.SameLine(0, btnSpacing);
+
+            var p = ImGui.GetCursorScreenPos();
+            bool clicked = ImGui.InvisibleButton($"##alt_{i}", new Vector2(btnW, btnH));
+            bool hovered = ImGui.IsItemHovered();
+
+            var bg = isSelected ? accent : hovered ? hoverBg : bgColor;
+            dl.AddRectFilled(p, p + new Vector2(btnW, btnH), ImGui.GetColorU32(bg), rounding);
+            if (!isSelected)
+                dl.AddRect(p, p + new Vector2(btnW, btnH), ImGui.GetColorU32(borderColor with { W = hovered ? 0.9f : 0.5f }), rounding);
+
+            var textColor = isSelected ? new Vector4(1f, 1f, 1f, 1f) : hovered ? new Vector4(0.9f, 0.85f, 1f, 1f) : new Vector4(0.7f, 0.65f, 0.8f, 1f);
+            dl.AddText(new Vector2(p.X + padH, p.Y + (btnH - textSize.Y) / 2f), ImGui.GetColorU32(textColor), displayName);
+
+            if (hovered)
+            {
+                ImGui.SetMouseCursor(ImGuiMouseCursor.Hand);
+                var worldName = _dalamudUtil.WorldData.Value.TryGetValue((ushort)worldId, out var wn) ? wn : worldId.ToString();
+                ImGui.SetTooltip($"{charName} @ {worldName}");
+            }
+
+            if (clicked)
+            {
+                _selectedAltCharName = charName;
+                _selectedAltWorldId = worldId;
+                _lastProfilePicture = [];
+                _lastRpProfilePicture = [];
+                _textureWrap?.Dispose();
+                _textureWrap = null;
+                _rpTextureWrap?.Dispose();
+                _rpTextureWrap = null;
+            }
+        }
+
+        ImGuiHelpers.ScaledDummy(4f);
+    }
+
+    private bool IsCurrentCharacter(string charName, uint worldId)
+    {
+        var pair = _pairManager.GetPairByUID(Pair.UserData.UID);
+        if (pair != null)
+            return string.Equals(pair.PlayerName, charName, StringComparison.Ordinal) && pair.WorldId == worldId;
+        var lastName = _serverManager.GetNameForUid(Pair.UserData.UID);
+        var lastWorld = _serverManager.GetWorldIdForUid(Pair.UserData.UID);
+        return string.Equals(lastName, charName, StringComparison.Ordinal) && lastWorld == worldId;
+    }
+
+    private static string GetAltDisplayName(UmbraProfileData profile, string charName)
+    {
+        var first = profile.RpFirstName ?? string.Empty;
+        var last = profile.RpLastName ?? string.Empty;
+        var rpName = $"{first} {last}".Trim();
+        return !string.IsNullOrEmpty(rpName) ? rpName : charName;
+    }
+
     private void DrawRpProfile(UmbraProfileData profile, IDalamudTextureWrap? texture, Vector4 accent)
     {
         var cardSpacing = 8f * ImGuiHelpers.GlobalScale;
@@ -295,6 +392,29 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
                         if (hasAffiliation) { ImGui.SameLine(); ImGui.SetCursorPosX(col2X); }
                         DrawVerticalField(Loc.Get("UserProfile.RpAlignment"), profile.RpAlignment!, halfW);
                     }
+                }
+            }, stretchWidth: true);
+            ImGuiHelpers.ScaledDummy(cardSpacing / ImGuiHelpers.GlobalScale);
+        }
+
+        if (profile.RpCustomFields is { Count: > 0 })
+        {
+            UiSharedService.DrawCard("rp-custom-fields-card", () =>
+            {
+                DrawSectionTitle(Loc.Get("UserProfile.RpCustomFields"));
+                var availW = ImGui.GetContentRegionAvail().X;
+                var halfW = availW / 2f;
+                var col1X = ImGui.GetCursorPosX();
+                var col2X = col1X + halfW;
+                var sorted = profile.RpCustomFields.OrderBy(f => f.Order).ToList();
+                for (int i = 0; i < sorted.Count; i++)
+                {
+                    var field = sorted[i];
+                    if (string.IsNullOrEmpty(field.Name) && string.IsNullOrEmpty(field.Value)) continue;
+                    bool isEven = (i % 2 == 0);
+                    if (isEven && i > 0) ImGuiHelpers.ScaledDummy(4f);
+                    if (!isEven) { ImGui.SameLine(); ImGui.SetCursorPosX(col2X); }
+                    DrawVerticalField(field.Name, field.Value, halfW);
                 }
             }, stretchWidth: true);
             ImGuiHelpers.ScaledDummy(cardSpacing / ImGuiHelpers.GlobalScale);
@@ -443,10 +563,10 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
         }, stretchWidth: true);
 
         // Draw moodles AFTER card (on top), right-aligned on same line as name
-        DrawMoodlesOnNameLine(nameLineScreen, cardContentWidth);
+        DrawMoodlesOnNameLine(nameLineScreen);
     }
 
-    private void DrawMoodlesOnNameLine(Vector2 nameLineScreen, float cardContentWidth)
+    private void DrawMoodlesOnNameLine(Vector2 nameLineScreen)
     {
         var moodlesJson = GetMoodlesJson();
         if (string.IsNullOrEmpty(moodlesJson)) return;
@@ -629,7 +749,11 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
         }
         else
         {
-            return Pair.LastReceivedCharacterData?.MoodlesData;
+            var realtimeMoodles = Pair.LastReceivedCharacterData?.MoodlesData;
+            if (!string.IsNullOrEmpty(realtimeMoodles))
+                return realtimeMoodles;
+
+            return _umbraProfileManager.GetUmbraProfile(Pair.UserData).MoodlesData;
         }
     }
 

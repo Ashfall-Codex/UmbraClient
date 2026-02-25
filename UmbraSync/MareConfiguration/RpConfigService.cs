@@ -9,7 +9,7 @@ public class RpConfigService(string configDir, DalamudUtilService dalamudUtil) :
     private readonly DalamudUtilService _dalamudUtil = dalamudUtil;
     public override string ConfigurationName => ConfigName;
     public static string GetCharacterKey(string charName, uint worldId) => $"{charName}@{worldId}";
-    public string CurrentCharacterKey => GetCharacterKey(_dalamudUtil.GetPlayerName(), _dalamudUtil.GetWorldId());
+    public string CurrentCharacterKey => GetCharacterKey(_dalamudUtil.GetPlayerName(), _dalamudUtil.GetHomeWorldId());
     public CharacterRpProfile GetCharacterProfile(string charName, uint worldId)
     {
         var key = GetCharacterKey(charName, worldId);
@@ -22,6 +22,6 @@ public class RpConfigService(string configDir, DalamudUtilService dalamudUtil) :
     }
     public CharacterRpProfile GetCurrentCharacterProfile()
     {
-        return GetCharacterProfile(_dalamudUtil.GetPlayerName(), _dalamudUtil.GetWorldId());
+        return GetCharacterProfile(_dalamudUtil.GetPlayerName(), _dalamudUtil.GetHomeWorldId());
     }
 }

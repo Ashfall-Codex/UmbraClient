@@ -71,6 +71,7 @@ public class MarePlugin : MediatorSubscriberBase, IHostedService
     private readonly DalamudUtilService _dalamudUtil;
     private readonly MareConfigService _mareConfigService;
     private readonly ServerConfigurationManager _serverConfigurationManager;
+    private readonly RgpdDataService _rgpdDataService;
     private readonly IServiceScopeFactory _serviceScopeFactory;
     private IServiceScope? _runtimeServiceScope;
     private Task? _launchTask;
@@ -78,11 +79,13 @@ public class MarePlugin : MediatorSubscriberBase, IHostedService
     public MarePlugin(ILogger<MarePlugin> logger, MareConfigService mareConfigService,
         ServerConfigurationManager serverConfigurationManager,
         DalamudUtilService dalamudUtil,
+        RgpdDataService rgpdDataService,
         IServiceScopeFactory serviceScopeFactory, MareMediator mediator) : base(logger, mediator)
     {
         _mareConfigService = mareConfigService;
         _serverConfigurationManager = serverConfigurationManager;
         _dalamudUtil = dalamudUtil;
+        _rgpdDataService = rgpdDataService;
         _serviceScopeFactory = serviceScopeFactory;
     }
 
@@ -144,6 +147,13 @@ public class MarePlugin : MediatorSubscriberBase, IHostedService
             if (!_mareConfigService.Current.HasValidSetup() || !_serverConfigurationManager.HasValidConfig())
             {
                 Mediator.Publish(new SwitchToIntroUiMessage());
+                return;
+            }
+
+            if (!_rgpdDataService.IsRgpdConsentValid)
+            {
+                Logger.LogInformation("RGPD consent missing or expired, showing consent screen");
+                Mediator.Publish(new SwitchToRgpdConsentUiMessage());
                 return;
             }
             _runtimeServiceScope.ServiceProvider.GetRequiredService<CacheCreationService>();

@@ -339,7 +339,9 @@ public partial class FileDownloadManager : DisposableMediatorSubscriberBase
                     }
 
                     Logger.LogDebug("CDN download (compressed) finished for {hash}", file.Hash);
+                    #pragma warning disable S1751 // Retry loop: returns on success, catches retry on failure
                     return true;
+                    #pragma warning restore S1751
                 }
                 finally
                 {
@@ -362,7 +364,7 @@ public partial class FileDownloadManager : DisposableMediatorSubscriberBase
             catch (HttpRequestException ex) when (ex.InnerException is TimeoutException || ex.StatusCode == null)
             {
                 Logger.LogWarning(ex, "Timeout during CDN download of {hash}. Attempt {attempt}/{max}", file.Hash, attempt, maxRetries);
-                if (File.Exists(lz4TmpPath)) try { File.Delete(lz4TmpPath); } catch { }
+                if (File.Exists(lz4TmpPath)) try { File.Delete(lz4TmpPath); } catch (Exception) { /* best-effort cleanup */ }
 
                 if (attempt >= maxRetries)
                 {
@@ -375,7 +377,7 @@ public partial class FileDownloadManager : DisposableMediatorSubscriberBase
             catch (TaskCanceledException) when (!ct.IsCancellationRequested)
             {
                 Logger.LogWarning("CDN download timed out ({timeout}s) for {hash}. Attempt {attempt}/{max}", perFileTimeoutSeconds, file.Hash, attempt, maxRetries);
-                if (File.Exists(lz4TmpPath)) try { File.Delete(lz4TmpPath); } catch { }
+                if (File.Exists(lz4TmpPath)) try { File.Delete(lz4TmpPath); } catch (Exception) { /* best-effort cleanup */ }
 
                 if (attempt >= maxRetries)
                 {
@@ -388,7 +390,7 @@ public partial class FileDownloadManager : DisposableMediatorSubscriberBase
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 Logger.LogWarning(ex, "Direct CDN download failed for {hash} (attempt {attempt}/{max}), will fallback", file.Hash, attempt, maxRetries);
-                if (File.Exists(lz4TmpPath)) try { File.Delete(lz4TmpPath); } catch { }
+                if (File.Exists(lz4TmpPath)) try { File.Delete(lz4TmpPath); } catch (Exception) { /* best-effort cleanup */ }
                 return false;
             }
         }
@@ -537,6 +539,8 @@ public partial class FileDownloadManager : DisposableMediatorSubscriberBase
         var pendingFallbackHashes = new ConcurrentDictionary<string, byte>(StringComparer.OrdinalIgnoreCase);
         var decompressionTasks = new ConcurrentBag<Task>();
 
+        try
+        {
         // Circuit breaker: skip direct downloads if too many consecutive failures
         if (_disableDirectDownloads && directDownloads.Count > 0)
         {
@@ -628,7 +632,7 @@ public partial class FileDownloadManager : DisposableMediatorSubscriberBase
                                 _deduplicator.Complete(file.Hash, success);
                             }
                             return Task.CompletedTask;
-                        }, token);
+                        }, CancellationToken.None);
                     }
                     else
                     {
@@ -955,6 +959,17 @@ public partial class FileDownloadManager : DisposableMediatorSubscriberBase
         }
 
         ClearDownload();
+        }
+        finally
+        {
+
+            await WaitForAllTasksAsync(decompressionTasks).ConfigureAwait(false);
+
+            foreach (var hash in pendingFallbackHashes.Keys)
+            {
+                _deduplicator.Complete(hash, false);
+            }
+        }
     }
 
     private async Task<List<DownloadFileDto>> FilesGetSizes(List<string> hashes, CancellationToken ct)

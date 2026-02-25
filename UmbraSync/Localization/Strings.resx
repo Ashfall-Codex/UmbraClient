@@ -259,6 +259,9 @@
   <data name="EditProfile.SetCustomId.ErrorBody" xml:space="preserve">
     <value>Unable to update your Custom ID. Please try again.</value>
   </data>
+  <data name="EditProfile.SetCustomId.ReconnectWarning" xml:space="preserve">
+    <value>A disconnection/reconnection from the UmbraSync server is required for the change to take effect.</value>
+  </data>
   <data name="Common.Cancel" xml:space="preserve">
     <value>Cancel</value>
   </data>
@@ -478,6 +481,9 @@ Please keep a copy of your secret key in case you need to reset your plugins, or
   </data>
   <data name="CompactUi.Notifications.Clear" xml:space="preserve">
     <value>Ok</value>
+  </data>
+  <data name="CompactUi.Notifications.ClearAll" xml:space="preserve">
+    <value>Clear All</value>
   </data>
   <data name="CompactUi.Notifications.Decline" xml:space="preserve">
     <value>Decline</value>
@@ -2388,6 +2394,12 @@ Click to change.</value>
   <data name="Settings.RpNamesOnNameplates" xml:space="preserve">
     <value>Display RP names on nameplates</value>
   </data>
+  <data name="Settings.DisableInDuty" xml:space="preserve">
+    <value>Disable in duties (dungeons, raids...)</value>
+  </data>
+  <data name="Settings.DisableInDuty.Help" xml:space="preserve">
+    <value>Explorer Mode and Island Sanctuary are not affected.</value>
+  </data>
   <data name="Settings.RpNamesInChat" xml:space="preserve">
     <value>Display RP names in chat</value>
   </data>
@@ -2414,6 +2426,9 @@ Click to change.</value>
   </data>
   <data name="Settings.EmoteHighlight.SquareBrackets" xml:space="preserve">
     <value>Square brackets [...]</value>
+  </data>
+  <data name="Settings.EmoteHighlight.DoubleParentheses" xml:space="preserve">
+    <value>Double parentheses (( ... ))</value>
   </data>
   <data name="Settings.EmoteHighlight.ColorKey" xml:space="preserve">
     <value>Highlight color</value>
@@ -3225,6 +3240,9 @@ Click to change.</value>
   <data name="CharaDataHub.Tab.GposeTogether" xml:space="preserve">
     <value>GPose Together</value>
   </data>
+  <data name="CharaDataHub.Tab.Mcdf" xml:space="preserve">
+    <value>MCDF</value>
+  </data>
   <data name="CharaDataHub.Tab.McdfExport" xml:space="preserve">
     <value>MCDF Export</value>
   </data>
@@ -3512,6 +3530,21 @@ Click to change.</value>
   <data name="UserProfile.RpAdditionalInfo" xml:space="preserve">
     <value>Additional Information</value>
   </data>
+  <data name="UserProfile.RpAdditionalInfoWrapHint" xml:space="preserve">
+    <value>Auto-wrapping is not supported by Dalamud. Use Enter for line breaks.</value>
+  </data>
+  <data name="UserProfile.RpCustomFields" xml:space="preserve">
+    <value>Other Details</value>
+  </data>
+  <data name="UserProfile.RpCustomFieldAdd" xml:space="preserve">
+    <value>Add a detail</value>
+  </data>
+  <data name="UserProfile.RpCustomFieldName" xml:space="preserve">
+    <value>Label</value>
+  </data>
+  <data name="UserProfile.RpCustomFieldValue" xml:space="preserve">
+    <value>Value</value>
+  </data>
   <data name="UserProfile.RpNsfw" xml:space="preserve">
     <value>Is this a RP NSFW profile?</value>
   </data>
@@ -3628,6 +3661,15 @@ Click to change.</value>
   <data name="Syncshell.Cards.Notification.AnimDisabled" xml:space="preserve">
     <value>Animation sync disabled for {0} member(s).</value>
   </data>
+  <data name="Syncshell.Cards.AddFavorite" xml:space="preserve">
+    <value>Add to favorites</value>
+  </data>
+  <data name="Syncshell.Cards.RemoveFavorite" xml:space="preserve">
+    <value>Remove from favorites</value>
+  </data>
+  <data name="Syncshell.Cards.FavoriteMembers" xml:space="preserve">
+    <value>{0} — Members ({1})</value>
+  </data>
   <data name="Syncshell.Members.WindowTitle" xml:space="preserve">
     <value>Members - {0}</value>
   </data>
@@ -3672,54 +3714,6 @@ Click to change.</value>
   </data>
   <data name="Syncshell.Members.Filter.Placeholder" xml:space="preserve">
     <value>Search members...</value>
-  </data>
-  <data name="Settings.Ping.Header" xml:space="preserve">
-    <value>Ping Markers</value>
-  </data>
-  <data name="Settings.Ping.Enabled" xml:space="preserve">
-    <value>Enable ping markers</value>
-  </data>
-  <data name="Settings.Ping.EnabledHelp" xml:space="preserve">
-    <value>Toggle ping marker display and placement. When disabled, you won't see or place any markers.</value>
-  </data>
-  <data name="Settings.Ping.Keybind" xml:space="preserve">
-    <value>Ping keybind</value>
-  </data>
-  <data name="Settings.Ping.KeybindChange" xml:space="preserve">
-    <value>Change</value>
-  </data>
-  <data name="Settings.Ping.KeybindCapture" xml:space="preserve">
-    <value>Press a key...</value>
-  </data>
-  <data name="Settings.Ping.KeybindCancel" xml:space="preserve">
-    <value>Cancel</value>
-  </data>
-  <data name="Settings.Ping.UiScale" xml:space="preserve">
-    <value>Marker size</value>
-  </data>
-  <data name="Settings.Ping.Opacity" xml:space="preserve">
-    <value>Marker opacity</value>
-  </data>
-  <data name="Settings.Ping.ShowAuthorName" xml:space="preserve">
-    <value>Show author name</value>
-  </data>
-  <data name="Settings.Ping.ShowInParty" xml:space="preserve">
-    <value>Show party markers</value>
-  </data>
-  <data name="Settings.Ping.ShowInPartyHelp" xml:space="preserve">
-    <value>Display markers placed by the party/alliance leader.</value>
-  </data>
-  <data name="Settings.Ping.ShowInSyncshell" xml:space="preserve">
-    <value>Show syncshell markers</value>
-  </data>
-  <data name="Settings.Ping.ShowInSyncshellHelp" xml:space="preserve">
-    <value>Display markers placed by syncshell members with ping permission.</value>
-  </data>
-  <data name="SyncshellAdmin.Users.GrantPing" xml:space="preserve">
-    <value>Grant ping permission</value>
-  </data>
-  <data name="SyncshellAdmin.Users.RevokePing" xml:space="preserve">
-    <value>Revoke ping permission</value>
   </data>
   <data name="SyncshellAdmin.Tab.Profile" xml:space="preserve">
     <value>Profile</value>
@@ -3834,9 +3828,6 @@ Click to change.</value>
   </data>
   <data name="Settings.Section.Chat.Desc" xml:space="preserve">
     <value>Configure RP names, typing indicators and game chat integrations.</value>
-  </data>
-  <data name="Settings.Section.Pings.Desc" xml:space="preserve">
-    <value>Configure the marker system to point at positions in the world.</value>
   </data>
   <data name="Settings.Section.Account.Desc" xml:space="preserve">
     <value>Manage your account, secret keys and character assignments.</value>
@@ -4083,5 +4074,342 @@ Click to change.</value>
   </data>
   <data name="Settings.Advanced.Debug.ActiveBlocks" xml:space="preserve">
     <value>Active Character Blocks</value>
+  </data>
+  <data name="CharaDataHub.Tab.HousingShare" xml:space="preserve">
+    <value>Housing</value>
+  </data>
+  <data name="HousingShare.Title" xml:space="preserve">
+    <value>Housing Furniture Mod Sync</value>
+  </data>
+  <data name="HousingShare.NotInHousing" xml:space="preserve">
+    <value>You are not currently in a housing you own. Please enter Housing mode.</value>
+  </data>
+  <data name="HousingShare.InOwnHouse" xml:space="preserve">
+    <value>You are in your house. You can scan and publish your furniture mods.</value>
+  </data>
+  <data name="HousingShare.Visiting" xml:space="preserve">
+    <value>You are visiting a house.</value>
+  </data>
+  <data name="HousingShare.ScanButton" xml:space="preserve">
+    <value>Scan modded furniture</value>
+  </data>
+  <data name="HousingShare.Scanning" xml:space="preserve">
+    <value>Scanning...</value>
+  </data>
+  <data name="HousingShare.ScanResult" xml:space="preserve">
+    <value>{0} modded furniture files detected.</value>
+  </data>
+  <data name="HousingShare.PublishButton" xml:space="preserve">
+    <value>Publish</value>
+  </data>
+  <data name="HousingShare.Description" xml:space="preserve">
+    <value>Description</value>
+  </data>
+  <data name="HousingShare.ModsApplied" xml:space="preserve">
+    <value>Housing mods applied ({0} files).</value>
+  </data>
+  <data name="HousingShare.NoModsAvailable" xml:space="preserve">
+    <value>No housing mods available for this location.</value>
+  </data>
+  <data name="HousingShare.OwnShares" xml:space="preserve">
+    <value>My housing shares</value>
+  </data>
+  <data name="HousingShare.NoOwnShares" xml:space="preserve">
+    <value>No housing shares published.</value>
+  </data>
+  <data name="HousingShare.Location" xml:space="preserve">
+    <value>Location</value>
+  </data>
+  <data name="HousingShare.CreatedAt" xml:space="preserve">
+    <value>Created</value>
+  </data>
+  <data name="HousingShare.Delete" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="HousingShare.Refresh" xml:space="preserve">
+    <value>Refresh shares</value>
+  </data>
+  <data name="HousingShare.StopScan" xml:space="preserve">
+    <value>Stop scan</value>
+  </data>
+  <data name="HousingShare.RemoveMods" xml:space="preserve">
+    <value>Remove applied mods</value>
+  </data>
+  <data name="HousingShare.ModsCurrentlyApplied" xml:space="preserve">
+    <value>Housing mods currently applied.</value>
+  </data>
+  <data name="HousingShare.ServerInfo" xml:space="preserve">
+    <value>Server: {0} | District: {1} | Ward: {2} | House: {3}</value>
+  </data>
+  <data name="HousingShare.Scanner" xml:space="preserve">
+    <value>Scanner</value>
+  </data>
+  <data name="HousingShare.ServerRequired" xml:space="preserve">
+    <value>Server connection required.</value>
+  </data>
+  <data name="HousingShare.Processing" xml:space="preserve">
+    <value>Processing...</value>
+  </data>
+  <data name="HousingShare.Actions" xml:space="preserve">
+    <value>Actions</value>
+  </data>
+  <data name="HousingShare.Error.NoModsDetected" xml:space="preserve">
+    <value>No modded furniture detected. Run a scan first.</value>
+  </data>
+  <data name="HousingShare.Error.Unavailable" xml:space="preserve">
+    <value>Share unavailable.</value>
+  </data>
+  <data name="HousingShare.Error.DecryptFailed" xml:space="preserve">
+    <value>Failed to decrypt the housing mod share.</value>
+  </data>
+  <data name="HousingShare.Error.EmptyShare" xml:space="preserve">
+    <value>The share contains no mods.</value>
+  </data>
+  <data name="HousingShare.Error.DeleteRefused" xml:space="preserve">
+    <value>The server refused to delete the share.</value>
+  </data>
+  <data name="HousingShare.Success.Published" xml:space="preserve">
+    <value>Housing mods published ({0} files).</value>
+  </data>
+  <data name="HousingShare.Success.Applied" xml:space="preserve">
+    <value>Housing mods applied ({0} files).</value>
+  </data>
+  <data name="HousingShare.Success.Removed" xml:space="preserve">
+    <value>Housing mods removed.</value>
+  </data>
+  <data name="HousingShare.Success.Deleted" xml:space="preserve">
+    <value>Housing mod share deleted.</value>
+  </data>
+  <data name="HousingShare.Success.Refreshed" xml:space="preserve">
+    <value>Housing mod shares refreshed.</value>
+  </data>
+  <data name="HousingShare.Success.Updated" xml:space="preserve">
+    <value>Share visibility updated.</value>
+  </data>
+  <data name="HousingShare.Error.UpdateFailed" xml:space="preserve">
+    <value>Failed to update share.</value>
+  </data>
+  <data name="HousingShare.Notification.ShareTitle" xml:space="preserve">
+    <value>Housing Share</value>
+  </data>
+  <data name="HousingShare.Notification.SyncTitle" xml:space="preserve">
+    <value>Housing Sync</value>
+  </data>
+  <data name="HousingShare.Notification.Applied" xml:space="preserve">
+    <value>Housing mods applied ({0})</value>
+  </data>
+  <data name="QuestSync.Title" xml:space="preserve">
+    <value>Quest Sync</value>
+  </data>
+  <data name="QuestSync.ServerRequired" xml:space="preserve">
+    <value>Server connection required to use Quest Sync.</value>
+  </data>
+  <data name="QuestSync.HelpText" xml:space="preserve">
+    <value>Quest Sync allows you to synchronize custom quests (A Quest Reborn) between multiple players in real time.
+
+The host creates a session and shares the code with participants. Quest progression, triggers and branching choices are synchronized automatically.</value>
+  </data>
+  <data name="QuestSync.Session" xml:space="preserve">
+    <value>Quest session</value>
+  </data>
+  <data name="QuestSync.InDevelopment" xml:space="preserve">
+    <value>Quest Sync is under development.
+The server is ready, awaiting integration with A Quest Reborn.</value>
+  </data>
+  <data name="QuestSync.Controls" xml:space="preserve">
+    <value>Session controls</value>
+  </data>
+  <data name="QuestSync.CreateSession" xml:space="preserve">
+    <value>Create quest session</value>
+  </data>
+  <data name="QuestSync.SessionCode" xml:space="preserve">
+    <value>Session code</value>
+  </data>
+  <data name="QuestSync.JoinSession" xml:space="preserve">
+    <value>Join session</value>
+  </data>
+  <data name="QuestSync.Participants" xml:space="preserve">
+    <value>Participants in session</value>
+  </data>
+  <data name="QuestSync.NoActiveSession" xml:space="preserve">
+    <value>No active session.</value>
+  </data>
+  <data name="CharaDataHub.Tab.Profiles" xml:space="preserve">
+    <value>Profiles</value>
+  </data>
+  <data name="AltSwitcher.Label" xml:space="preserve">
+    <value>Characters</value>
+  </data>
+  <data name="AltSwitcher.CurrentChar" xml:space="preserve">
+    <value>Current character</value>
+  </data>
+  <data name="Settings.ProfileBrowser.Title" xml:space="preserve">
+    <value>Profile Browser</value>
+  </data>
+  <data name="Settings.ProfileBrowser.OpenButton" xml:space="preserve">
+    <value>Browse Cached Profiles</value>
+  </data>
+  <data name="Settings.ProfileBrowser.SearchHint" xml:space="preserve">
+    <value>Search by name, UID, or alias...</value>
+  </data>
+  <data name="Settings.ProfileBrowser.NoResults" xml:space="preserve">
+    <value>No profiles found</value>
+  </data>
+  <data name="Settings.ProfileBrowser.OpenProfile" xml:space="preserve">
+    <value>Open Profile</value>
+  </data>
+  <data name="Settings.ProfileBrowser.CachedProfiles" xml:space="preserve">
+    <value>{0} cached profiles</value>
+  </data>
+  <data name="Settings.ProfileBrowser.ClearCache" xml:space="preserve">
+    <value>Clear cache</value>
+  </data>
+  <!-- GDPR / Privacy -->
+  <data name="Settings.Section.Privacy.Desc" xml:space="preserve">
+    <value>Manage your personal data, consent settings, and exercise your rights under the GDPR.</value>
+  </data>
+  <data name="Settings.Privacy.Title" xml:space="preserve">
+    <value>Privacy &amp; GDPR</value>
+  </data>
+  <data name="Settings.Privacy.ConsentStatus" xml:space="preserve">
+    <value>Consent Status</value>
+  </data>
+  <data name="Settings.Privacy.ConsentActive" xml:space="preserve">
+    <value>Consent active</value>
+  </data>
+  <data name="Settings.Privacy.ConsentExpired" xml:space="preserve">
+    <value>Consent expired or missing ! Please renew via the introduction screen.</value>
+  </data>
+  <data name="Settings.Privacy.ConsentDetail.Collection" xml:space="preserve">
+    <value>Data collection (identifier, appearance, mods)</value>
+  </data>
+  <data name="Settings.Privacy.ConsentDetail.Sharing" xml:space="preserve">
+    <value>Sharing with paired players</value>
+  </data>
+  <data name="Settings.Privacy.ConsentDetail.ThirdParty" xml:space="preserve">
+    <value>Third-party plugins (Customize+, Honorific, etc.)</value>
+  </data>
+  <data name="Settings.Privacy.Export.Header" xml:space="preserve">
+    <value>Export Your Data (GDPR Art. 20)</value>
+  </data>
+  <data name="Settings.Privacy.Export.Description" xml:space="preserve">
+    <value>Export a copy of all your personal data stored locally and/or on the server.</value>
+  </data>
+  <data name="Settings.Privacy.Export.LocalButton" xml:space="preserve">
+    <value>Export (local)</value>
+  </data>
+  <data name="Settings.Privacy.Export.ServerButton" xml:space="preserve">
+    <value>Export (server)</value>
+  </data>
+  <data name="Settings.Privacy.Export.InProgress" xml:space="preserve">
+    <value>Export in progress...</value>
+  </data>
+  <data name="Settings.Privacy.Export.Success" xml:space="preserve">
+    <value>Export complete: {0}</value>
+  </data>
+  <data name="Settings.Privacy.Export.Failed" xml:space="preserve">
+    <value>Export failed. The server may not support this feature yet.</value>
+  </data>
+  <data name="Settings.Privacy.Delete.Header" xml:space="preserve">
+    <value>Delete Local Data (GDPR Art. 17)</value>
+  </data>
+  <data name="Settings.Privacy.Delete.Description" xml:space="preserve">
+    <value>Deletes notes, exports, and resets consent. Server data is not affected.</value>
+  </data>
+  <data name="Settings.Privacy.Delete.LocalButton" xml:space="preserve">
+    <value>Delete local data</value>
+  </data>
+  <data name="Settings.Privacy.Delete.ConfirmTitle" xml:space="preserve">
+    <value>Confirm deletion</value>
+  </data>
+  <data name="Settings.Privacy.Delete.ConfirmMessage" xml:space="preserve">
+    <value>Your local notes and GDPR exports will be deleted, and your consent will be reset. This action is irreversible.</value>
+  </data>
+  <data name="Settings.Privacy.Delete.ConfirmYes" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="Settings.Privacy.Revoke.Header" xml:space="preserve">
+    <value>Revoke Consent</value>
+  </data>
+  <data name="Settings.Privacy.Revoke.Description" xml:space="preserve">
+    <value>Revoke your GDPR consent. You will be disconnected and returned to the introduction screen.</value>
+  </data>
+  <data name="Settings.Privacy.Revoke.Button" xml:space="preserve">
+    <value>Revoke my consent</value>
+  </data>
+  <data name="Settings.Privacy.Revoke.ConfirmTitle" xml:space="preserve">
+    <value>Revoke consent?</value>
+  </data>
+  <data name="Settings.Privacy.Revoke.ConfirmMessage" xml:space="preserve">
+    <value>By revoking your consent, you will be disconnected from the service. You will need to accept consent again to reconnect.</value>
+  </data>
+  <data name="Settings.Privacy.Revoke.ConfirmYes" xml:space="preserve">
+    <value>Revoke</value>
+  </data>
+  <data name="Settings.Privacy.Rights.Header" xml:space="preserve">
+    <value>Your Rights (GDPR)</value>
+  </data>
+  <data name="Settings.Privacy.Rights.Access" xml:space="preserve">
+    <value>Right of access : View the data UmbraSync holds about you via export.</value>
+  </data>
+  <data name="Settings.Privacy.Rights.Rectification" xml:space="preserve">
+    <value>Right to rectification : Edit your data through profile settings.</value>
+  </data>
+  <data name="Settings.Privacy.Rights.Erasure" xml:space="preserve">
+    <value>Right to erasure : Delete your account and all associated data.</value>
+  </data>
+  <data name="Settings.Privacy.Rights.Portability" xml:space="preserve">
+    <value>Right to data portability : Export your data in a readable format (JSON).</value>
+  </data>
+  <data name="Settings.Privacy.Rights.Opposition" xml:space="preserve">
+    <value>Right to object : Withdraw your consent at any time.</value>
+  </data>
+  <data name="Settings.Privacy.Rights.Limitation" xml:space="preserve">
+    <value>Right to restriction : Pause processing through the service's pause options.</value>
+  </data>
+  <data name="Rgpd.Consent.Title" xml:space="preserve">
+    <value>Data Protection (GDPR)</value>
+  </data>
+  <data name="Rgpd.Consent.Intro" xml:space="preserve">
+    <value>In accordance with the General Data Protection Regulation (GDPR), UmbraSync needs your explicit consent before processing your personal data.</value>
+  </data>
+  <data name="Rgpd.Consent.Reassurance" xml:space="preserve">
+    <value>This data is collected solely for the proper functioning of the plugin. No data is sold or shared with third parties for commercial purposes.</value>
+  </data>
+  <data name="Rgpd.Consent.DataCollected.Header" xml:space="preserve">
+    <value>Data collected:</value>
+  </data>
+  <data name="Rgpd.Consent.DataCollected.Details" xml:space="preserve">
+    <value>• Unique identifier (UID)&#x0A;• Appearance data (Penumbra mods, Glamourer states)&#x0A;• RP profiles (name, description, image)&#x0A;• Pairing list and syncshell memberships&#x0A;• Mod files uploaded for synchronization</value>
+  </data>
+  <data name="Rgpd.Consent.DataCollection" xml:space="preserve">
+    <value>I consent to data collection (required)</value>
+  </data>
+  <data name="Rgpd.Consent.DataCollection.Detail" xml:space="preserve">
+    <value>Required for the synchronization service to function.</value>
+  </data>
+  <data name="Rgpd.Consent.DataSharing" xml:space="preserve">
+    <value>I consent to sharing with paired players (required)</value>
+  </data>
+  <data name="Rgpd.Consent.DataSharing.Detail" xml:space="preserve">
+    <value>Your appearance data is shared with players you choose to pair with.</value>
+  </data>
+  <data name="Rgpd.Consent.ThirdParty" xml:space="preserve">
+    <value>I consent to third-party plugin sharing (optional)</value>
+  </data>
+  <data name="Rgpd.Consent.ThirdParty.Detail" xml:space="preserve">
+    <value>Customize+, Honorific, Moodles, etc. may exchange additional data.</value>
+  </data>
+  <data name="Rgpd.Consent.Rights" xml:space="preserve">
+    <value>Your rights:</value>
+  </data>
+  <data name="Rgpd.Consent.Rights.Summary" xml:space="preserve">
+    <value>You can access, export, rectify, or delete your data at any time from the "Privacy" tab in settings. You may withdraw your consent at any time.</value>
+  </data>
+  <data name="Rgpd.Consent.AcceptButton" xml:space="preserve">
+    <value>I accept and continue</value>
+  </data>
+  <data name="Rgpd.Consent.MandatoryWarning" xml:space="preserve">
+    <value>Collection and sharing consent are required to use the service.</value>
   </data>
 </root>

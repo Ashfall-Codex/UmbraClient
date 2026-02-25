@@ -1,6 +1,7 @@
 ﻿using Dalamud.Bindings.ImGui;
 using Dalamud.Interface;
 using Dalamud.Interface.Colors;
+using Dalamud.Interface.Utility;
 using Dalamud.Interface.Utility.Raii;
 using Dalamud.Utility;
 using Microsoft.Extensions.Logging;
@@ -27,8 +28,12 @@ public partial class IntroUi : WindowMediatorSubscriberBase
     private readonly ServerConfigurationManager _serverConfigurationManager;
     private readonly DalamudUtilService _dalamudUtilService;
     private readonly AccountRegistrationService _registerService;
+    private readonly RgpdDataService _rgpdDataService;
     private readonly UiSharedService _uiShared;
     private bool _readFirstPage;
+    private bool _rgpdConsentDataCollection = true;
+    private bool _rgpdConsentDataSharing = true;
+    private bool _rgpdConsentThirdPartyPlugins;
 
     private string _secretKey = string.Empty;
     private string _timeoutLabel = string.Empty;
@@ -40,7 +45,8 @@ public partial class IntroUi : WindowMediatorSubscriberBase
 
     public IntroUi(ILogger<IntroUi> logger, UiSharedService uiShared, MareConfigService configService,
         CacheMonitor fileCacheManager, ServerConfigurationManager serverConfigurationManager, MareMediator mareMediator,
-        PerformanceCollectorService performanceCollectorService, DalamudUtilService dalamudUtilService, AccountRegistrationService registerService) : base(logger, mareMediator, Loc.Get("CompactUi.IntroUi.WindowTitle"), performanceCollectorService)
+        PerformanceCollectorService performanceCollectorService, DalamudUtilService dalamudUtilService, AccountRegistrationService registerService,
+        RgpdDataService gdprDataService) : base(logger, mareMediator, Loc.Get("CompactUi.IntroUi.WindowTitle"), performanceCollectorService)
     {
         _uiShared = uiShared;
         _configService = configService;
@@ -48,6 +54,7 @@ public partial class IntroUi : WindowMediatorSubscriberBase
         _serverConfigurationManager = serverConfigurationManager;
         _dalamudUtilService = dalamudUtilService;
         _registerService = registerService;
+        _rgpdDataService = gdprDataService;
         IsOpen = false;
         ShowCloseButton = false;
         RespectCloseHotkey = false;
@@ -64,6 +71,7 @@ public partial class IntroUi : WindowMediatorSubscriberBase
             _configService.Current.UseCompactor = !dalamudUtilService.IsWine;
             IsOpen = true;
         });
+        Mediator.Subscribe<SwitchToRgpdConsentUiMessage>(this, (_) => IsOpen = true);
     }
 
     private Vector4 GetConnectionColor()
@@ -176,6 +184,10 @@ public partial class IntroUi : WindowMediatorSubscriberBase
             {
                 UiSharedService.TextWrapped(_timeoutLabel);
             }
+        }
+        else if (_configService.Current.AcceptedAgreement && !_rgpdDataService.IsRgpdConsentValid)
+        {
+            DrawRgpdConsentPage();
         }
         else if (_configService.Current.AcceptedAgreement
                  && (string.IsNullOrEmpty(_configService.Current.CacheFolder)
@@ -349,6 +361,58 @@ public partial class IntroUi : WindowMediatorSubscriberBase
             _serverConfigurationManager.Save();
             Mediator.Publish(new SwitchToMainUiMessage());
             IsOpen = false;
+        }
+    }
+
+    private void DrawRgpdConsentPage()
+    {
+        using (_uiShared.UidFont.Push())
+            ImGui.TextUnformatted(Loc.Get("Rgpd.Consent.Title"));
+
+        ImGui.Separator();
+        ImGuiHelpers.ScaledDummy(4f);
+
+        UiSharedService.TextWrapped(Loc.Get("Rgpd.Consent.Intro"));
+        ImGuiHelpers.ScaledDummy(2f);
+        UiSharedService.ColorTextWrapped(Loc.Get("Rgpd.Consent.Reassurance"), ImGuiColors.HealerGreen);
+        ImGuiHelpers.ScaledDummy(4f);
+
+        _uiShared.BigText(Loc.Get("Rgpd.Consent.DataCollected.Header"));
+        UiSharedService.TextWrapped(Loc.Get("Rgpd.Consent.DataCollected.Details"));
+        ImGuiHelpers.ScaledDummy(4f);
+
+        // Mandatory consents
+        ImGui.Checkbox(Loc.Get("Rgpd.Consent.DataCollection"), ref _rgpdConsentDataCollection);
+        UiSharedService.ColorTextWrapped(Loc.Get("Rgpd.Consent.DataCollection.Detail"), ImGuiColors.DalamudGrey3);
+
+        ImGui.Checkbox(Loc.Get("Rgpd.Consent.DataSharing"), ref _rgpdConsentDataSharing);
+        UiSharedService.ColorTextWrapped(Loc.Get("Rgpd.Consent.DataSharing.Detail"), ImGuiColors.DalamudGrey3);
+
+        // Optional consent
+        ImGui.Checkbox(Loc.Get("Rgpd.Consent.ThirdParty"), ref _rgpdConsentThirdPartyPlugins);
+        UiSharedService.ColorTextWrapped(Loc.Get("Rgpd.Consent.ThirdParty.Detail"), ImGuiColors.DalamudGrey3);
+
+        ImGuiHelpers.ScaledDummy(6f);
+        ImGui.Separator();
+
+        // Rights summary
+        _uiShared.BigText(Loc.Get("Rgpd.Consent.Rights"));
+        UiSharedService.TextWrapped(Loc.Get("Rgpd.Consent.Rights.Summary"));
+        ImGuiHelpers.ScaledDummy(4f);
+
+        // Accept button (requires mandatory consents)
+        bool canAccept = _rgpdConsentDataCollection && _rgpdConsentDataSharing;
+        using (ImRaii.Disabled(!canAccept))
+        {
+            if (ImGui.Button(Loc.Get("Rgpd.Consent.AcceptButton")))
+            {
+                _rgpdDataService.AcceptRgpdConsent(_rgpdConsentDataCollection, _rgpdConsentDataSharing, _rgpdConsentThirdPartyPlugins);
+            }
+        }
+
+        if (!canAccept)
+        {
+            UiSharedService.ColorTextWrapped(Loc.Get("Rgpd.Consent.MandatoryWarning"), ImGuiColors.DalamudYellow);
         }
     }
 

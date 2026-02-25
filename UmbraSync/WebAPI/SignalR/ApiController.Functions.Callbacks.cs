@@ -5,7 +5,6 @@ using UmbraSync.API.Data.Enum;
 using UmbraSync.API.Dto;
 using UmbraSync.API.Dto.CharaData;
 using UmbraSync.API.Dto.Group;
-using UmbraSync.API.Dto.Ping;
 using UmbraSync.API.Dto.User;
 using UmbraSync.MareConfiguration.Models;
 using UmbraSync.Services.Mediator;
@@ -422,47 +421,6 @@ public partial class ApiController
         _mareHub!.On(nameof(Client_GroupSendProfile), act);
     }
 
-    public Task Client_GroupReceivePing(GroupPingMarkerDto dto)
-    {
-        if (Logger.IsEnabled(LogLevel.Debug))
-            Logger.LogDebug("Client_GroupReceivePing from {sender} in {gid}", dto.Sender.UID, dto.Group.GID);
-        Mediator.Publish(new PingMarkerReceivedMessage(dto));
-        return Task.CompletedTask;
-    }
-
-    public Task Client_GroupRemovePing(GroupData group, UserData sender, PingMarkerRemoveDto remove)
-    {
-        if (Logger.IsEnabled(LogLevel.Debug))
-            Logger.LogDebug("Client_GroupRemovePing {id} in {gid}", remove.PingId, group.GID);
-        Mediator.Publish(new PingMarkerRemovedMessage(group, sender, remove.PingId));
-        return Task.CompletedTask;
-    }
-
-    public Task Client_GroupClearPings(GroupData group)
-    {
-        if (Logger.IsEnabled(LogLevel.Debug))
-            Logger.LogDebug("Client_GroupClearPings in {gid}", group.GID);
-        Mediator.Publish(new PingMarkersClearedMessage(group));
-        return Task.CompletedTask;
-    }
-
-    public void OnGroupReceivePing(Action<GroupPingMarkerDto> act)
-    {
-        if (_initialized) return;
-        _mareHub!.On(nameof(Client_GroupReceivePing), act);
-    }
-
-    public void OnGroupRemovePing(Action<GroupData, UserData, PingMarkerRemoveDto> act)
-    {
-        if (_initialized) return;
-        _mareHub!.On(nameof(Client_GroupRemovePing), act);
-    }
-
-    public void OnGroupClearPings(Action<GroupData> act)
-    {
-        if (_initialized) return;
-        _mareHub!.On(nameof(Client_GroupClearPings), act);
-    }
 
     private void ExecuteSafely(Action act)
     {

@@ -6,17 +6,10 @@ using UmbraSync.PlayerData.Handlers;
 using UmbraSync.Services;
 using UmbraSync.Services.Mediator;
 using UmbraSync.Services.Notification;
-
-// Aliases pour les IPC qui restent dans la facade
 using PenumbraIpc = global::Penumbra.Api.IpcSubscribers;
 
 namespace UmbraSync.Interop.Ipc;
 
-/// <summary>
-/// Facade pour l'intégration Penumbra.
-/// Délègue aux modules spécialisés pour une architecture modulaire et maintenable.
-/// Architecture inspirée de Lightless mais avec les innovations UmbraSync (debouncing, etc.)
-/// </summary>
 public sealed class IpcCallerPenumbra : DisposableMediatorSubscriberBase, IIpcCaller
 {
     // Modules spécialisés
@@ -62,32 +55,18 @@ public sealed class IpcCallerPenumbra : DisposableMediatorSubscriberBase, IIpcCa
         });
     }
 
-    // === Propriétés déléguées au Core ===
 
     public bool APIAvailable => _core.APIAvailable;
-
     public string? ModDirectory => _core.ModDirectory;
-
-    // === Méthodes déléguées au Core ===
-
     public void CheckAPI() => _core.CheckAPI();
-
     public void CheckModDirectory() => _core.CheckModDirectory();
-
-    // === Méthodes déléguées à ModSettings ===
-
     public Task<HashSet<string>?> GetEnabledModRootsAsync() => _modSettings.GetEnabledModRootsAsync();
-
-    // === Méthodes déléguées à Redraw ===
-
     public Task RedrawAsync(ILogger logger, GameObjectHandler handler, Guid applicationId, CancellationToken token)
         => _redraw.RedrawAsync(logger, handler, applicationId, token);
 
     public void RedrawNow(ILogger logger, Guid applicationId, int objectIndex)
         => _redraw.RedrawNow(logger, applicationId, objectIndex);
-
-    // === Méthodes déléguées à Collections ===
-
+    
     public Task AssignTemporaryCollectionAsync(ILogger logger, Guid collName, int idx)
         => _collections.AssignTemporaryCollectionAsync(logger, collName, idx);
 
@@ -99,30 +78,26 @@ public sealed class IpcCallerPenumbra : DisposableMediatorSubscriberBase, IIpcCa
 
     public void RemoveTemporaryCollection(ILogger logger, Guid applicationId, Guid collId)
         => _collections.RemoveTemporaryCollection(logger, applicationId, collId);
-
-    // === Méthodes déléguées à Resources ===
-
+    
     public Task<Dictionary<string, HashSet<string>>?> GetCharacterData(ILogger logger, GameObjectHandler handler)
         => _resources.GetCharacterData(logger, handler);
-
-    // === Méthodes déléguées à Textures ===
-
+    
     public Task ConvertTextureFiles(ILogger logger, Dictionary<string, string[]> textures, IProgress<(string, int)> progress, CancellationToken token)
         => _textures.ConvertTextureFiles(logger, textures, progress, token);
-
-    // === Méthodes déléguées à TemporaryMods ===
-
+    
     public Task SetManipulationDataAsync(ILogger logger, Guid applicationId, Guid collId, string manipulationData)
         => _temporaryMods.SetManipulationDataAsync(logger, applicationId, collId, manipulationData);
 
     public Task SetTemporaryModsAsync(ILogger logger, Guid applicationId, Guid collId, Dictionary<string, string> modPaths)
         => _temporaryMods.SetTemporaryModsAsync(logger, applicationId, collId, modPaths);
 
-    // === Méthodes spécifiques à la facade (non déléguées) ===
+    public Task AddTemporaryModAllAsync(ILogger logger, string tag, Dictionary<string, string> modPaths, int priority)
+        => _temporaryMods.AddTemporaryModAllAsync(logger, tag, modPaths, priority);
 
-    /// <summary>
-    /// Résout les chemins de fichiers via Penumbra (forward et reverse).
-    /// </summary>
+    public Task RemoveTemporaryModAllAsync(ILogger logger, string tag, int priority)
+        => _temporaryMods.RemoveTemporaryModAllAsync(logger, tag, priority);
+
+
     public async Task<(string[] forward, string[][] reverse)> ResolvePathsAsync(string[] forward, string[] reverse)
     {
         if (!APIAvailable) return ([], []);
@@ -130,17 +105,12 @@ public sealed class IpcCallerPenumbra : DisposableMediatorSubscriberBase, IIpcCa
         Logger.LogTrace("Calling on IPC: Penumbra.ResolvePlayerPaths");
         return await _penumbraResolvePaths.Invoke(forward, reverse).ConfigureAwait(false);
     }
-
-    /// <summary>
-    /// Récupère les manipulations metadata du joueur.
-    /// </summary>
+    
     public string GetMetaManipulations()
     {
         return APIAvailable ? _penumbraGetMetaManipulations.Invoke() : string.Empty;
     }
-
-    // === Dispose ===
-
+    
     protected override void Dispose(bool disposing)
     {
         base.Dispose(disposing);

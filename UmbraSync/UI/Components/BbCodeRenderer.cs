@@ -1,4 +1,5 @@
 using System.Numerics;
+using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using Dalamud.Bindings.ImGui;
 
@@ -8,6 +9,7 @@ public static partial class BbCodeRenderer
 {
     private enum TextAlignment { Left, Center, Right, Justify }
 
+    [StructLayout(LayoutKind.Auto)]
     private readonly record struct SpanStyle(Vector4 Color, bool Bold, bool Italic, bool Underline);
 
     private readonly record struct StyledWord(string Text, SpanStyle Style, float Width, bool IsLineBreak);
@@ -62,8 +64,10 @@ public static partial class BbCodeRenderer
 
     #region Parsing
 
+    #pragma warning disable S1172 // defaultColor is used by local function CurrentStyle()
     private static List<(TextAlignment Alignment, List<(string Text, SpanStyle Style)> Spans)>
         Parse(string input, Vector4 defaultColor)
+    #pragma warning restore S1172
     {
         var blocks = new List<(TextAlignment, List<(string, SpanStyle)>)>();
         var currentAlignment = TextAlignment.Left;

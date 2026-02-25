@@ -284,34 +284,23 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
             return;
         }
 
-        // Utiliser IsEffectivelyPaused pour inclure les blocages automatiques (seuil de performance)
-        bool isCurrentlyPaused = pair.IsEffectivelyPaused;
+        if (pair.UserPair == null)
+        {
+            Logger.LogWarning("Pause: UserPair is null for UID {uid} (group-only pair), individual pause not supported", userData.UID);
+            return;
+        }
+
+        // Toggle basé sur OwnPermissions uniquement (pas IsEffectivelyPaused qui inclut les blocages de perf)
+        bool isCurrentlyPaused = pair.UserPair.OwnPermissions.IsPaused();
         bool shouldPause = !isCurrentlyPaused;
 
         Logger.LogInformation("Toggling pause for {uid}: {isCurrentlyPaused} -> {shouldPause}", userData.UID, isCurrentlyPaused, shouldPause);
-        if (shouldPause) _serverManager.AddPausedUid(userData.UID);
-        else _serverManager.RemovePausedUid(userData.UID);
 
-        if (pair.UserPair != null)
-        {
-            var perm = pair.UserPair.OwnPermissions;
-            perm.SetPaused(shouldPause);
-            pair.UserPair.OwnPermissions = perm;
-            Logger.LogTrace("Pause individual: sending UserSetPairPermissions for {uid} with Paused={shouldPause}", userData.UID, shouldPause);
-            _ = UserSetPairPermissions(new UserPermissionsDto(userData, perm));
-        }
-
-        if (pair.GroupPair.Count > 0)
-        {
-            foreach (var groupEntry in pair.GroupPair)
-            {
-                var groupPerm = groupEntry.Value.GroupUserPermissions;
-                groupPerm.SetPaused(shouldPause);
-                groupEntry.Value.GroupUserPermissions = groupPerm;
-                Logger.LogTrace("Pause group: sending GroupChangeIndividualPermissionState for {uid} in {gid} with Paused={shouldPause}", userData.UID, groupEntry.Key.Group.GID, shouldPause);
-                _ = GroupChangeIndividualPermissionState(new GroupPairUserPermissionDto(groupEntry.Key.Group, userData, groupPerm));
-            }
-        }
+        var perm = pair.UserPair.OwnPermissions;
+        perm.SetPaused(shouldPause);
+        pair.UserPair.OwnPermissions = perm;
+        Logger.LogTrace("Pause individual: sending UserSetPairPermissions for {uid} with Paused={shouldPause}", userData.UID, shouldPause);
+        _ = UserSetPairPermissions(new UserPermissionsDto(userData, perm));
 
         // Si dépause, retirer aussi le verrou de performance automatique
         if (!shouldPause)
@@ -342,7 +331,6 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
             else
             {
                 _pairManager.CancelPendingOffline(userData.UID);
-                // ApplyLastReceivedData gère maintenant la création du CachedPlayer si nécessaire
                 pair.ApplyLastReceivedData(forced: true);
             }
         }
@@ -496,9 +484,11 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
         OnGposeLobbyPushPoseData((dto, data) => _ = Client_GposeLobbyPushPoseData(dto, data));
         OnGposeLobbyPushWorldData((dto, data) => _ = Client_GposeLobbyPushWorldData(dto, data));
         OnGroupSendProfile((dto) => _ = Client_GroupSendProfile(dto));
-        OnGroupReceivePing((dto) => _ = Client_GroupReceivePing(dto));
-        OnGroupRemovePing((group, sender, remove) => _ = Client_GroupRemovePing(group, sender, remove));
-        OnGroupClearPings((group) => _ = Client_GroupClearPings(group));
+        OnQuestSessionJoin((userData) => _ = Client_QuestSessionJoin(userData));
+        OnQuestSessionLeave((userData) => _ = Client_QuestSessionLeave(userData));
+        OnQuestSessionStateUpdate((sender, state) => _ = Client_QuestSessionStateUpdate(sender, state));
+        OnQuestSessionEventTriggered((sender, trigger) => _ = Client_QuestSessionEventTriggered(sender, trigger));
+        OnQuestSessionBranchingChoice((sender, choice) => _ = Client_QuestSessionBranchingChoice(sender, choice));
 
         _healthCheckTokenSource?.Cancel();
         _healthCheckTokenSource?.Dispose();

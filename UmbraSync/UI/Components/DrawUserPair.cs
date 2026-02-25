@@ -153,7 +153,7 @@ public class DrawUserPair : DrawPairBase
 
     protected override float DrawRightSide(float textPosY, float originalY)
     {
-        var pauseIcon = _pair.IsEffectivelyPaused ? FontAwesomeIcon.Play : FontAwesomeIcon.Pause;
+        var pauseIcon = _pair.IsPaused ? FontAwesomeIcon.Play : FontAwesomeIcon.Pause;
         var pauseIconSize = _uiSharedService.GetIconButtonSize(pauseIcon);
         var barButtonSize = _uiSharedService.GetIconButtonSize(FontAwesomeIcon.Bars);
         var entryUID = _pair.UserData.AliasOrUID;
@@ -195,7 +195,7 @@ public class DrawUserPair : DrawPairBase
             {
                 _apiController.Pause(_pair.UserData);
             }
-            var pauseKey = !_pair.IsEffectivelyPaused ? "DrawUserPair.Pause" : "DrawUserPair.Resume";
+            var pauseKey = !_pair.IsPaused ? "DrawUserPair.Pause" : "DrawUserPair.Resume";
             UiSharedService.AttachToolTip(AppendSeenInfo(string.Format(CultureInfo.CurrentCulture, Loc.Get(pauseKey), entryUID)));
         }
 
