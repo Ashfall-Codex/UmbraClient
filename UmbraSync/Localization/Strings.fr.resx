@@ -2309,6 +2309,12 @@ Veuillez conserver une copie de votre clé secrète au cas où vous auriez besoi
   <data name="Settings.RpNameColors.Help" xml:space="preserve">
     <value>Lorsque activé, les couleurs de noms RP choisies par les utilisateurs seront affichées sur les fiches et dans le chat.</value>
   </data>
+  <data name="Settings.RespectExternalNameColors" xml:space="preserve">
+    <value>Respecter les couleurs de noms externes</value>
+  </data>
+  <data name="Settings.RespectExternalNameColors.Help" xml:space="preserve">
+    <value>Lorsqu'un autre plugin (SimpleTweaks, etc.) a déjà coloré un nom de joueur, sa couleur est conservée au lieu d'appliquer la couleur du nom RP.</value>
+  </data>
   <data name="Settings.EmoteHighlight.Header" xml:space="preserve">
     <value>Coloration des emotes</value>
   </data>
@@ -3806,6 +3812,12 @@ Veuillez conserver une copie de votre clé secrète au cas où vous auriez besoi
   </data>
   <data name="Settings.Plugins.ChatProximity.Hint" xml:space="preserve">
     <value>Les couleurs d'emotes se fondent avec l'estompage de distance sur les canaux de proximité (Dire, Crier, Emotes)&#x0A;Nécessite l'activation de la colorisation des emotes</value>
+  </data>
+  <data name="Settings.Plugins.ChatAlert.Hint" xml:space="preserve">
+    <value>Les couleurs de noms configurées dans ChatAlert sont conservées lorsque « Respecter les couleurs de noms externes » est activé</value>
+  </data>
+  <data name="Settings.Plugins.SimpleTweaks.Hint" xml:space="preserve">
+    <value>Les couleurs de noms configurées dans SimpleTweaks sont conservées lorsque « Respecter les couleurs de noms externes » est activé</value>
   </data>
   <data name="Settings.Plugins.MissingMandatory" xml:space="preserve">
     <value>Vous devez installer Penumbra et Glamourer et les maintenir à jour pour utiliser UmbraSync.</value>

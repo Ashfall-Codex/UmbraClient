@@ -97,23 +97,30 @@ public class SlotService : MediatorSubscriberBase, IDisposable
     private Vector3 _lastQueryPosition = Vector3.Zero;
     private LocationInfo? _currentPlot;
 
-    private static bool IsResidentialArea(uint territoryId)
-    {
-        return territoryId switch
-        {
-            339 or 340 or 341 or 641 or 979 => true,
-            _ => false
-        };
-    }
-
     private async void OnHousingPositionUpdate(uint serverId, uint territoryId, uint divisionId, uint wardId, Vector3 position)
     {
-        if (!_configService.Current.EnableSlotNotifications) return;
-        if (!IsResidentialArea(territoryId)) return;
+        if (!_configService.Current.EnableSlotNotifications)
+        {
+            Logger.LogTrace("Slot: notifications désactivées");
+            return;
+        }
+        // Utiliser wardId > 0 pour détecter toute zone résidentielle (extérieur, intérieur, lobby d'appartements)
+        // au lieu d'une liste hardcodée de territoryId qui peut devenir obsolète
+        if (wardId == 0)
+        {
+            Logger.LogTrace("Slot: wardId=0, pas en zone résidentielle (territory={territory})", territoryId);
+            return;
+        }
         if (Vector3.Distance(position, _lastQueryPosition) < 2.0f) return;
-        if (!_apiController.IsConnected) return;
+        if (!_apiController.IsConnected)
+        {
+            Logger.LogTrace("Slot: non connecté au serveur");
+            return;
+        }
 
         _lastQueryPosition = position;
+        Logger.LogDebug("Slot: requête SlotGetNearby - Server={server} Territory={territory} Division={division} Ward={ward} Pos=({x},{y},{z})",
+            serverId, territoryId, divisionId, wardId, position.X, position.Y, position.Z);
         try
         {
             var slotInfo = await _apiController.SlotGetNearby(serverId, territoryId, divisionId, wardId, position.X, position.Y, position.Z).ConfigureAwait(false);
@@ -237,7 +244,8 @@ public class SlotService : MediatorSubscriberBase, IDisposable
     private async Task OnHousingPlotEntered(LocationInfo location)
     {
         if (!_configService.Current.EnableSlotNotifications) return;
-        if (!IsResidentialArea(location.TerritoryId)) return;
+        // Utiliser WardId > 0 pour couvrir toutes les zones résidentielles
+        if (location.WardId == 0) return;
 
         Logger.LogInformation("Entered housing plot: {location}", location);
         _currentPlot = location;
