@@ -32,6 +32,17 @@ public sealed class PenumbraResources : IDisposable
             return _penumbraResourcePaths.Invoke(idx.Value)[0];
         }).ConfigureAwait(false);
     }
+
+    public async Task<Dictionary<string, HashSet<string>>?[]> GetObjectResourcePathsAsync(ILogger logger, ushort[] indices)
+    {
+        if (!_core.APIAvailable) return [];
+
+        return await _core.DalamudUtil.RunOnFrameworkThread(() =>
+        {
+            logger.LogTrace("Calling On IPC: Penumbra.GetGameObjectResourcePaths for {Count} objects", indices.Length);
+            return _penumbraResourcePaths.Invoke(indices);
+        }).ConfigureAwait(false);
+    }
     
     private void ResourceLoaded(IntPtr ptr, string arg1, string arg2)
     {

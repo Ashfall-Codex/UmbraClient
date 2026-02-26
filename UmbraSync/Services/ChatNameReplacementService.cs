@@ -112,11 +112,48 @@ public class ChatNameReplacementService : DisposableMediatorSubscriberBase
         var effectiveColor = _configService.Current.UseRpNameColors
             && !(_isInDuty && _configService.Current.DisableRpNameColorsInDuty)
             ? nameColor : null;
-        ReplaceSenderName(ref sender, senderText, rpName, effectiveColor);
+        ReplaceNameInSeString(ref sender, senderText, rpName, effectiveColor);
+
+        // Pour les emotes standard, le nom apparaît aussi dans le corps du message
+        if (type == XivChatType.StandardEmote)
+            ReplaceEmoteMessageNames(ref message, senderText, rpName);
+    }
+
+    private void ReplaceEmoteMessageNames(ref SeString message, string senderVanillaName, string senderRpName)
+    {
+        // Extraire le nom de la cible via PlayerPayload avant modification
+        string? targetVanillaName = null;
+        foreach (var payload in message.Payloads)
+        {
+            if (payload is PlayerPayload pp && !string.IsNullOrEmpty(pp.PlayerName)
+                && !NameMatches(pp.PlayerName, senderVanillaName))
+            {
+                targetVanillaName = pp.PlayerName;
+                break;
+            }
+        }
+
+        // Remplacer le nom de l'émetteur dans le corps du message (sans couleur, le texte d'emote garde sa couleur native)
+        ReplaceNameInSeString(ref message, senderVanillaName, senderRpName, null);
+
+        // Remplacer le nom de la cible si elle a un nom RP
+        if (targetVanillaName != null)
+        {
+            var (targetRpName, _) = ResolveRpName(targetVanillaName);
+            if (targetRpName != null)
+                ReplaceNameInSeString(ref message, targetVanillaName, targetRpName, null);
+        }
     }
 
     private static string ExtractSenderName(SeString sender)
     {
+        // Prioriser PlayerPayload qui contient le nom propre du joueur,
+        // sans les icônes de groupe d'amis/linkshell (★, etc.) qui préfixent le TextPayload
+        foreach (var payload in sender.Payloads)
+        {
+            if (payload is PlayerPayload playerPayload && !string.IsNullOrEmpty(playerPayload.PlayerName))
+                return playerPayload.PlayerName;
+        }
         foreach (var payload in sender.Payloads)
         {
             if (payload is TextPayload textPayload && !string.IsNullOrWhiteSpace(textPayload.Text))
@@ -207,7 +244,7 @@ public class ChatNameReplacementService : DisposableMediatorSubscriberBase
 
     private const byte ColorTypeForeground = 0x13;
 
-    private static void ReplaceSenderName(ref SeString sender, string originalName, string rpName, string? nameColor)
+    private static void ReplaceNameInSeString(ref SeString sender, string originalName, string rpName, string? nameColor)
     {
         var newPayloads = new List<Payload>(sender.Payloads.Count);
         var replaced = false;
@@ -227,13 +264,11 @@ public class ChatNameReplacementService : DisposableMediatorSubscriberBase
                     var before = text[..index];
                     var after = text[(index + originalName.Length)..];
 
-                    if (!string.IsNullOrEmpty(before))
-                        newPayloads.Add(new TextPayload(before));
-
                     if (applyColor && colorUint != 0)
                         newPayloads.Add(BuildColorStartPayload(ColorTypeForeground, colorUint));
 
-                    newPayloads.Add(new TextPayload(rpName));
+                    // Inclure le préfixe (ex: icône de groupe d'amis ★) dans la couleur RP
+                    newPayloads.Add(new TextPayload(before + rpName));
 
                     if (applyColor && colorUint != 0)
                         newPayloads.Add(BuildColorEndPayload(ColorTypeForeground));

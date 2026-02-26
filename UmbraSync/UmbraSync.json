@@ -8,7 +8,7 @@
   "Tags": [
     "customization"
   ],
-  "IconUrl": "https://repo.umbra-sync.net/images/logo.png",
-  "RepoUrl": "https://repo.umbra-sync.net/plugin.json",
+  "IconUrl": "https://ashfall-codex.dev/assets/img/umbra-minimal.png",
+  "RepoUrl": "https://repo.ashfall-codex.dev/plugins.json",
   "CanUnloadAsync": true
 }

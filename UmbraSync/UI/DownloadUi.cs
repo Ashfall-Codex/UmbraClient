@@ -107,10 +107,10 @@ public class DownloadUi : WindowMediatorSubscriberBase
 
             try
             {
-                foreach (var item in _currentDownloads.ToList())
+                foreach (var item in _currentDownloads.ToArray())
                 {
-                    var statusValues = item.Value?.Values.ToList();
-                    if (statusValues == null || statusValues.Count == 0) continue;
+                    var statusValues = item.Value?.Values.ToArray();
+                    if (statusValues == null || statusValues.Length == 0) continue;
                     var dlSlot = statusValues.Count(c => c?.DownloadStatus == DownloadStatus.WaitingForSlot);
                     var dlQueue = statusValues.Count(c => c?.DownloadStatus == DownloadStatus.WaitingForQueue);
                     var dlProg = statusValues.Count(c => c?.DownloadStatus == DownloadStatus.Downloading);
@@ -144,13 +144,13 @@ public class DownloadUi : WindowMediatorSubscriberBase
             const int transparency = 100;
             const int dlBarBorder = 3;
 
-            foreach (var transfer in _currentDownloads.ToList())
+            foreach (var transfer in _currentDownloads.ToArray())
             {
                 var screenPos = _dalamudUtilService.WorldToScreen(transfer.Key.GetGameObject());
                 if (screenPos == Vector2.Zero) continue;
 
-                var statusValues = transfer.Value?.Values.ToList();
-                if (statusValues == null || statusValues.Count == 0) continue;
+                var statusValues = transfer.Value?.Values.ToArray();
+                if (statusValues == null || statusValues.Length == 0) continue;
                 var totalBytes = statusValues.Sum(c => c?.TotalBytes ?? 0);
                 var transferredBytes = statusValues.Sum(c => c?.TransferredBytes ?? 0);
                 var displayTotalBytes = Math.Max(totalBytes, transferredBytes);
@@ -250,7 +250,7 @@ public class DownloadUi : WindowMediatorSubscriberBase
 
             if (_configService.Current.ShowUploading)
             {
-                foreach (var player in _uploadingPlayers.Select(p => p.Key).ToList())
+                foreach (var player in _uploadingPlayers.Keys.ToArray())
                 {
                     var screenPos = _dalamudUtilService.WorldToScreen(player.GetGameObject());
                     if (screenPos == Vector2.Zero) continue;

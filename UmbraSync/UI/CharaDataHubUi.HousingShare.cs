@@ -4,6 +4,7 @@ using Dalamud.Interface.Colors;
 using Dalamud.Interface.Utility;
 using Dalamud.Interface.Utility.Raii;
 using System.Globalization;
+using System.Numerics;
 using UmbraSync.Localization;
 
 namespace UmbraSync.UI;
@@ -65,9 +66,10 @@ public sealed partial class CharaDataHubUi
         ImGuiHelpers.ScaledDummy(5);
 
         var currentLocation = _dalamudUtilService.GetMapDataAsync().GetAwaiter().GetResult();
-        bool isInHousing = currentLocation.HouseId != 0 && _dalamudUtilService.IsInHousingMode;
+        bool isInsideHouse = currentLocation.HouseId != 0;
+        bool isInHousingEditMode = _dalamudUtilService.IsInHousingMode;
 
-        if (!isInHousing)
+        if (!isInsideHouse)
         {
             UiSharedService.ColorTextWrapped(Loc.Get("HousingShare.NotInHousing"), ImGuiColors.DalamudGrey3);
         }
@@ -76,6 +78,14 @@ public sealed partial class CharaDataHubUi
             ImGui.TextUnformatted(string.Format(CultureInfo.CurrentCulture, Loc.Get("HousingShare.ServerInfo"),
                 currentLocation.ServerId, currentLocation.TerritoryId, currentLocation.WardId, currentLocation.HouseId));
             ImGuiHelpers.ScaledDummy(3);
+
+            if (!isInHousingEditMode)
+            {
+                ImGui.PushStyleColor(ImGuiCol.Text, new Vector4(1.0f, 0.5f, 0.2f, 1.0f));
+                ImGui.TextWrapped(Loc.Get("HousingShare.MustBeInHousingEditMode"));
+                ImGui.PopStyleColor();
+                ImGuiHelpers.ScaledDummy(3);
+            }
 
             // Scanner section
             UiSharedService.DistanceSeparator();
@@ -95,9 +105,12 @@ public sealed partial class CharaDataHubUi
             }
             else
             {
-                if (_uiSharedService.IconTextButton(FontAwesomeIcon.Search, Loc.Get("HousingShare.ScanButton")))
+                using (ImRaii.Disabled(!isInHousingEditMode))
                 {
-                    scanner.StartScan(currentLocation);
+                    if (_uiSharedService.IconTextButton(FontAwesomeIcon.Search, Loc.Get("HousingShare.ScanButton")))
+                    {
+                        scanner.StartScan(currentLocation);
+                    }
                 }
             }
 
@@ -193,7 +206,7 @@ public sealed partial class CharaDataHubUi
 
                 ImGuiHelpers.ScaledDummy(3);
 
-                using (ImRaii.Disabled(housingShareManager.IsBusy))
+                using (ImRaii.Disabled(!isInHousingEditMode || housingShareManager.IsBusy))
                 {
                     if (_uiSharedService.IconTextButton(FontAwesomeIcon.Upload, Loc.Get("HousingShare.PublishButton")))
                     {

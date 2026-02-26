@@ -315,6 +315,27 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
         DrawHeroCard(profile, texture, accent);
         ImGuiHelpers.ScaledDummy(cardSpacing / ImGuiHelpers.GlobalScale);
 
+        bool hasAnyRpContent = !string.IsNullOrEmpty(profile.RpAge)
+            || !string.IsNullOrEmpty(profile.RpHeight)
+            || !string.IsNullOrEmpty(profile.RpBuild)
+            || !string.IsNullOrEmpty(profile.RpResidence)
+            || !string.IsNullOrEmpty(profile.RpOccupation)
+            || !string.IsNullOrEmpty(profile.RpAffiliation)
+            || !string.IsNullOrEmpty(profile.RpAlignment)
+            || !string.IsNullOrEmpty(profile.RpDescription)
+            || !string.IsNullOrEmpty(profile.RpAdditionalInfo)
+            || profile.RpCustomFields is { Count: > 0 };
+
+        if (!hasAnyRpContent)
+        {
+            ImGuiHelpers.ScaledDummy(12f);
+            var noProfileText = Loc.Get("UserProfile.NoRpProfile");
+            var noProfileSz = ImGui.CalcTextSize(noProfileText);
+            ImGui.SetCursorPosX(ImGui.GetCursorPosX() + (ImGui.GetContentRegionAvail().X - noProfileSz.X) / 2f);
+            ImGui.TextColored(ImGuiColors.DalamudGrey, noProfileText);
+            return;
+        }
+
         bool hasAge = !string.IsNullOrEmpty(profile.RpAge);
         bool hasHeight = !string.IsNullOrEmpty(profile.RpHeight);
         bool hasBuild = !string.IsNullOrEmpty(profile.RpBuild);
@@ -727,6 +748,11 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
                 ImGui.PushTextWrapPos(ImGui.GetCursorPosX() + rightWidth);
                 ImGui.TextUnformatted(description);
                 ImGui.PopTextWrapPos();
+            }
+            else
+            {
+                ImGuiHelpers.ScaledDummy(4f);
+                ImGui.TextColored(ImGuiColors.DalamudGrey, Loc.Get("UserProfile.NoHrpProfile"));
             }
 
             ImGui.EndGroup();

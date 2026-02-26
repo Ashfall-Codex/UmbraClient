@@ -49,6 +49,7 @@ public record HonorificMessage(string NewHonorificTitle) : MessageBase;
 public record PetNamesReadyMessage : MessageBase;
 public record PetNamesMessage(string PetNicknamesData) : MessageBase;
 public record MoodlesMessage(IntPtr Address) : MessageBase;
+public record MoodlesReadyMessage : MessageBase;
 public record HonorificReadyMessage : MessageBase;
 public record PlayerChangedMessage(CharacterData Data) : MessageBase;
 public record CharacterChangedMessage(GameObjectHandler GameObjectHandler) : MessageBase;

@@ -13,6 +13,8 @@ public sealed class IpcCallerMoodles : IIpcCaller
     private readonly ICallGateSubscriber<nint, string> _moodlesGetStatus;
     private readonly ICallGateSubscriber<nint, string, object> _moodlesSetStatus;
     private readonly ICallGateSubscriber<nint, object> _moodlesRevertStatus;
+    private readonly ICallGateSubscriber<object> _moodlesReady;
+    private readonly ICallGateSubscriber<object> _moodlesUnloading;
     private readonly ILogger<IpcCallerMoodles> _logger;
     private readonly DalamudUtilService _dalamudUtil;
     private readonly MareMediator _mareMediator;
@@ -29,8 +31,12 @@ public sealed class IpcCallerMoodles : IIpcCaller
         _moodlesGetStatus = pi.GetIpcSubscriber<nint, string>("Moodles.GetStatusManagerByPtrV2");
         _moodlesSetStatus = pi.GetIpcSubscriber<nint, string, object>("Moodles.SetStatusManagerByPtrV2");
         _moodlesRevertStatus = pi.GetIpcSubscriber<nint, object>("Moodles.ClearStatusManagerByPtrV2");
+        _moodlesReady = pi.GetIpcSubscriber<object>("Moodles.Ready");
+        _moodlesUnloading = pi.GetIpcSubscriber<object>("Moodles.Unloading");
 
         _moodlesOnChange.Subscribe(OnMoodlesChange);
+        _moodlesReady.Subscribe(OnMoodlesReady);
+        _moodlesUnloading.Subscribe(OnMoodlesUnloading);
 
         CheckAPI();
     }
@@ -38,6 +44,17 @@ public sealed class IpcCallerMoodles : IIpcCaller
     private void OnMoodlesChange(nint address)
     {
         _mareMediator.Publish(new MoodlesMessage(address));
+    }
+
+    private void OnMoodlesReady()
+    {
+        CheckAPI();
+        _mareMediator.Publish(new MoodlesReadyMessage());
+    }
+
+    private void OnMoodlesUnloading()
+    {
+        APIAvailable = false;
     }
 
     public bool APIAvailable { get; private set; } = false;
@@ -57,6 +74,8 @@ public sealed class IpcCallerMoodles : IIpcCaller
     public void Dispose()
     {
         _moodlesOnChange.Unsubscribe(OnMoodlesChange);
+        _moodlesReady.Unsubscribe(OnMoodlesReady);
+        _moodlesUnloading.Unsubscribe(OnMoodlesUnloading);
     }
 
     public async Task<string?> GetStatusAsync(nint address)
