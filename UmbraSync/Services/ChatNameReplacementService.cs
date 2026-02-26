@@ -112,6 +112,14 @@ public class ChatNameReplacementService : DisposableMediatorSubscriberBase
         var effectiveColor = _configService.Current.UseRpNameColors
             && !(_isInDuty && _configService.Current.DisableRpNameColorsInDuty)
             ? nameColor : null;
+
+        // Si un autre plugin (SimpleTweaks, etc.) a déjà coloré ce nom, respecter sa couleur
+        if (effectiveColor != null && _configService.Current.RespectExternalNameColors
+            && HasExternalNameColor(sender, senderText))
+        {
+            effectiveColor = null;
+        }
+
         ReplaceNameInSeString(ref sender, senderText, rpName, effectiveColor);
 
         // Pour les emotes standard, le nom apparaît aussi dans le corps du message
@@ -243,6 +251,39 @@ public class ChatNameReplacementService : DisposableMediatorSubscriberBase
     }
 
     private const byte ColorTypeForeground = 0x13;
+    
+    private static bool HasExternalNameColor(SeString seString, string originalName)
+    {
+        for (var i = 0; i < seString.Payloads.Count; i++)
+        {
+            if (seString.Payloads[i] is not TextPayload tp
+                || tp.Text == null
+                || tp.Text.IndexOf(originalName, StringComparison.OrdinalIgnoreCase) < 0)
+                continue;
+
+            // Vérifier si le payload précédent est une couleur d'un autre plugin
+            if (i > 0 && IsExternalColorPayload(seString.Payloads[i - 1]))
+                return true;
+
+            return false;
+        }
+        return false;
+    }
+    
+    private static bool IsExternalColorPayload(Payload payload)
+    {
+        if (payload is UIForegroundPayload ufp)
+            return ufp.ColorKey != 0;
+
+        if (payload is RawPayload raw)
+        {
+            var data = raw.Data;
+            // Payload de couleur de début : 0x02 (start) + 0x13 (foreground) + longueur > 2 (pas un end)
+            return data.Length >= 4 && data[0] == 0x02 && data[1] == ColorTypeForeground && data[2] > 0x02;
+        }
+
+        return false;
+    }
 
     private static void ReplaceNameInSeString(ref SeString sender, string originalName, string rpName, string? nameColor)
     {

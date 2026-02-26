@@ -569,6 +569,17 @@ public class SettingsUi : WindowMediatorSubscriberBase
                     _configService.Save();
                 }
                 _uiShared.DrawHelpText(Loc.Get("Settings.DisableInDuty.Help"));
+
+                using (ImRaii.Disabled(!_uiShared.ExternalNameColorPluginExists))
+                {
+                    var respectExternal = _configService.Current.RespectExternalNameColors;
+                    if (ImGui.Checkbox(Loc.Get("Settings.RespectExternalNameColors"), ref respectExternal))
+                    {
+                        _configService.Current.RespectExternalNameColors = respectExternal;
+                        _configService.Save();
+                    }
+                    _uiShared.DrawHelpText(Loc.Get("Settings.RespectExternalNameColors.Help"));
+                }
             }
         }
 

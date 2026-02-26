@@ -31,6 +31,7 @@ public class MareConfig : IMareConfiguration
     public bool DisableRpNamesInChatInDuty { get; set; } = true;
     public bool UseRpNameColors { get; set; } = true;
     public bool DisableRpNameColorsInDuty { get; set; } = true;
+    public bool RespectExternalNameColors { get; set; }
     public bool EmoteHighlightEnabled { get; set; } = true;
     public ushort EmoteHighlightColorKey { get; set; } = 706;
     public bool EmoteHighlightAsterisks { get; set; } = true;

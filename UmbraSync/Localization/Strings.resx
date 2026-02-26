@@ -2409,6 +2409,12 @@ Click to change.</value>
   <data name="Settings.RpNameColors.Help" xml:space="preserve">
     <value>When enabled, RP name colors chosen by users will be displayed on profiles and in chat.</value>
   </data>
+  <data name="Settings.RespectExternalNameColors" xml:space="preserve">
+    <value>Respect external plugin name colors</value>
+  </data>
+  <data name="Settings.RespectExternalNameColors.Help" xml:space="preserve">
+    <value>When another plugin (SimpleTweaks, etc.) has already colored a player name, keep its color instead of applying the RP name color.</value>
+  </data>
   <data name="Settings.EmoteHighlight.Header" xml:space="preserve">
     <value>Emote Highlighting</value>
   </data>
@@ -3897,6 +3903,12 @@ Click to change.</value>
   </data>
   <data name="Settings.Plugins.ChatProximity.Hint" xml:space="preserve">
     <value>Emote colors blend with distance fading on proximity channels (Say, Yell, Emotes)&#x0A;Requires emote color highlighting to be enabled</value>
+  </data>
+  <data name="Settings.Plugins.ChatAlert.Hint" xml:space="preserve">
+    <value>Name colors set in ChatAlert are preserved when "Respect external name colors" is enabled</value>
+  </data>
+  <data name="Settings.Plugins.SimpleTweaks.Hint" xml:space="preserve">
+    <value>Chat name colors set in SimpleTweaks are preserved when "Respect external name colors" is enabled</value>
   </data>
   <data name="Settings.Plugins.MissingMandatory" xml:space="preserve">
     <value>You need to install both Penumbra and Glamourer and keep them up to date to use UmbraSync.</value>
