@@ -326,13 +326,16 @@ public partial class FileDownloadManager : DisposableMediatorSubscriberBase
         }
 
         const int maxRetries = 3;
-        const int perFileTimeoutSeconds = 5;
+        const int firstAttemptTimeoutSeconds = 1;
+        const int subsequentTimeoutSeconds = 5;
         var retryDelay = TimeSpan.FromSeconds(2);
 
         for (int attempt = 1; attempt <= maxRetries; attempt++)
         {
+            // Premier essai rapide (1s) : si le CDN est inaccessible, fallback immédiat
+            var timeoutSeconds = attempt == 1 ? firstAttemptTimeoutSeconds : subsequentTimeoutSeconds;
             using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            timeoutCts.CancelAfter(TimeSpan.FromSeconds(perFileTimeoutSeconds));
+            timeoutCts.CancelAfter(TimeSpan.FromSeconds(timeoutSeconds));
             var linkedToken = timeoutCts.Token;
 
             try
@@ -396,6 +399,13 @@ public partial class FileDownloadManager : DisposableMediatorSubscriberBase
                 Logger.LogWarning(ex, "Timeout during CDN download of {hash}. Attempt {attempt}/{max}", file.Hash, attempt, maxRetries);
                 if (File.Exists(lz4TmpPath)) try { File.Delete(lz4TmpPath); } catch (Exception) { /* best-effort cleanup */ }
 
+                // Premier timeout → fallback immédiat, CDN probablement inaccessible
+                if (attempt == 1)
+                {
+                    Logger.LogWarning("CDN timeout on first attempt for {hash}, will fallback immediately", file.Hash);
+                    return false;
+                }
+
                 if (attempt >= maxRetries)
                 {
                     Logger.LogWarning("Max retries reached for CDN download of {hash}, will fallback", file.Hash);
@@ -406,8 +416,15 @@ public partial class FileDownloadManager : DisposableMediatorSubscriberBase
             }
             catch (TaskCanceledException) when (!ct.IsCancellationRequested)
             {
-                Logger.LogWarning("CDN download timed out ({timeout}s) for {hash}. Attempt {attempt}/{max}", perFileTimeoutSeconds, file.Hash, attempt, maxRetries);
+                Logger.LogWarning("CDN download timed out ({timeout}s) for {hash}. Attempt {attempt}/{max}", timeoutSeconds, file.Hash, attempt, maxRetries);
                 if (File.Exists(lz4TmpPath)) try { File.Delete(lz4TmpPath); } catch (Exception) { /* best-effort cleanup */ }
+
+                // Premier timeout → fallback immédiat, CDN probablement inaccessible
+                if (attempt == 1)
+                {
+                    Logger.LogWarning("CDN timeout on first attempt for {hash}, will fallback immediately", file.Hash);
+                    return false;
+                }
 
                 if (attempt >= maxRetries)
                 {
