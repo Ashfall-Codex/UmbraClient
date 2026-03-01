@@ -84,6 +84,12 @@ public sealed class IpcCallerPenumbra : DisposableMediatorSubscriberBase, IIpcCa
 
     public Task<Dictionary<string, HashSet<string>>?[]> GetObjectResourcePathsAsync(ILogger logger, ushort[] indices)
         => _resources.GetObjectResourcePathsAsync(logger, indices);
+
+    public Task<Dictionary<string, string>> ResolveDefaultCollectionPathsAsync(ILogger logger, string[] gamePaths)
+        => _resources.ResolveDefaultCollectionPathsAsync(logger, gamePaths);
+
+    public Task<List<string>> GetEnabledModPathsForDefaultCollectionAsync()
+        => _modSettings.GetEnabledModPathsForDefaultCollectionAsync();
     
     public Task ConvertTextureFiles(ILogger logger, Dictionary<string, string[]> textures, IProgress<(string, int)> progress, CancellationToken token)
         => _textures.ConvertTextureFiles(logger, textures, progress, token);

@@ -11,7 +11,6 @@ public sealed class HousingFurnitureScanner : IMediatorSubscriber
     private static readonly string[] HousingPathPrefixes = ["bg/ffxiv/hou/", "bgcommon/hou/"];
     private static readonly string[] AllowedExtensions = [".mdl", ".tex", ".mtrl", ".sgb", ".lgb"];
     private const int StabilizationDelayMs = 5000;
-    private const int MaxObjectIndex = 600;
 
     private readonly ILogger<HousingFurnitureScanner> _logger;
     private readonly MareMediator _mediator;
@@ -86,50 +85,102 @@ public sealed class HousingFurnitureScanner : IMediatorSubscriber
     {
         try
         {
-            var indices = new ushort[MaxObjectIndex];
-            for (int i = 0; i < MaxObjectIndex; i++)
-                indices[i] = (ushort)i;
+            // 1. Récupérer les chemins des mods activés dans la collection Default
+            var modPaths = await _penumbra.GetEnabledModPathsForDefaultCollectionAsync().ConfigureAwait(false);
+            if (modPaths.Count == 0)
+            {
+                _logger.LogInformation("Aucun mod activé dans la collection Default");
+                return;
+            }
 
-            var allResources = await _penumbra.GetObjectResourcePathsAsync(_logger, indices).ConfigureAwait(false);
-            if (allResources.Length == 0) return;
+            _logger.LogInformation("Scan de {Count} mods activés dans la collection Default", modPaths.Count);
 
+            // 2. Scanner les fichiers housing dans chaque répertoire de mod
+            var candidatePaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var modPath in modPaths)
+            {
+                ScanModDirectoryForHousingFiles(modPath, candidatePaths);
+            }
+
+            if (candidatePaths.Count == 0)
+            {
+                _logger.LogInformation("Aucun fichier housing trouvé dans les mods activés");
+                return;
+            }
+
+            _logger.LogInformation("{Count} chemins housing candidats trouvés dans les mods", candidatePaths.Count);
+
+            // 3. Vérifier les redirections actives via ResolveDefaultPath
+            var resolvedPaths = await _penumbra.ResolveDefaultCollectionPathsAsync(_logger, [.. candidatePaths]).ConfigureAwait(false);
+
+            // 4. Stocker les redirections confirmées
             lock (_lock)
             {
                 if (!_isScanning) return;
 
-                foreach (var resources in allResources)
+                foreach (var (gamePath, resolvedPath) in resolvedPaths)
                 {
-                    if (resources == null) continue;
-                    foreach (var (gamePath, filePaths) in resources)
-                    {
-                        if (!IsHousingPath(gamePath)) continue;
-                        if (!HasValidExtension(gamePath)) continue;
-
-                        foreach (var filePath in filePaths)
-                        {
-                            if (!string.Equals(gamePath, filePath, StringComparison.OrdinalIgnoreCase))
-                            {
-                                _collectedPaths[gamePath] = filePath;
-                                break;
-                            }
-                        }
-                    }
+                    _collectedPaths[gamePath] = resolvedPath;
                 }
 
                 if (_collectedPaths.Count > 0)
                 {
-                    _logger.LogInformation("Active scan found {Count} existing housing resource paths", _collectedPaths.Count);
+                    _logger.LogInformation("Scan actif : {Count} redirections housing confirmées", _collectedPaths.Count);
                     ResetStabilizationTimer();
                 }
                 else
                 {
-                    _logger.LogInformation("Active scan found no existing housing resource paths");
+                    _logger.LogInformation("Scan actif : aucune redirection housing confirmée");
                 }
             }
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to scan existing housing resources via Penumbra IPC");
+            _logger.LogWarning(ex, "Échec du scan des ressources housing via les mods Penumbra");
+        }
+    }
+    
+    private static void ScanModDirectoryForHousingFiles(string modBasePath, HashSet<string> candidatePaths)
+    {
+        if (!Directory.Exists(modBasePath)) return;
+
+        // Scanner depuis la racine du mod (fichiers directs)
+        ScanFromRoot(modBasePath, candidatePaths);
+
+        // Scanner depuis les sous-répertoires de premier niveau (options de mod)
+        try
+        {
+            foreach (var subDir in Directory.EnumerateDirectories(modBasePath))
+            {
+                ScanFromRoot(subDir, candidatePaths);
+            }
+        }
+        catch (Exception)
+        {
+            // Ignorer les erreurs d'accès au filesystem
+        }
+    }
+    
+    private static void ScanFromRoot(string root, HashSet<string> candidatePaths)
+    {
+        try
+        {
+            foreach (var filePath in Directory.EnumerateFiles(root, "*.*", SearchOption.AllDirectories))
+            {
+                if (!HasValidExtension(filePath)) continue;
+
+                // Calculer le chemin relatif depuis la racine et normaliser en chemin de jeu
+                var relativePath = Path.GetRelativePath(root, filePath).Replace('\\', '/');
+
+                if (IsHousingPath(relativePath))
+                {
+                    candidatePaths.Add(relativePath);
+                }
+            }
+        }
+        catch (Exception)
+        {
+            // Ignorer les erreurs d'accès au filesystem
         }
     }
 

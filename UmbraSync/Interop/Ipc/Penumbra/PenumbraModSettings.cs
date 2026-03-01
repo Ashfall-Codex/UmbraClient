@@ -11,6 +11,7 @@ public sealed class PenumbraModSettings : IDisposable
     private readonly PenumbraCore _core;
     private readonly PenumbraApi.EventSubscriber<PenumbraEnum.ModSettingChange, Guid, string, bool> _penumbraModSettingChanged;
     private readonly PenumbraIpc.GetAllModSettings _penumbraGetAllModSettings;
+    private readonly PenumbraIpc.GetModPath _penumbraGetModPath;
 
     // Debouncing pour les changements d'options de mod
     private readonly TimeSpan _modSettingDebounce = TimeSpan.FromSeconds(2);
@@ -22,8 +23,9 @@ public sealed class PenumbraModSettings : IDisposable
     {
         _core = core;
 
-        // Initialiser l'API pour récupérer les settings
+        // Initialiser les API pour récupérer les settings et chemins de mods
         _penumbraGetAllModSettings = new PenumbraIpc.GetAllModSettings(_core.PluginInterface);
+        _penumbraGetModPath = new PenumbraIpc.GetModPath(_core.PluginInterface);
 
         // S'abonner aux changements de settings de mods
         _penumbraModSettingChanged = PenumbraIpc.ModSettingChanged.Subscriber(
@@ -118,6 +120,39 @@ public sealed class PenumbraModSettings : IDisposable
                     root = root[..lastSlash];
 
                 result.Add(root);
+            }
+
+            return result;
+        });
+    }
+    
+    public Task<List<string>> GetEnabledModPathsForDefaultCollectionAsync()
+    {
+        if (!_core.APIAvailable) return Task.FromResult(new List<string>());
+
+        return _core.DalamudUtil.RunOnFrameworkThread(() =>
+        {
+            var coll = new PenumbraIpc.GetCollection(_core.PluginInterface).Invoke(PenumbraEnum.ApiCollectionType.Default);
+            if (coll == null) return new List<string>();
+            var collId = coll.Value.Id;
+
+            var (ec, all) = _penumbraGetAllModSettings.Invoke(collId, ignoreInheritance: false, ignoreTemporary: true, key: 0);
+            if (ec != PenumbraEnum.PenumbraApiEc.Success || all == null || all.Count == 0)
+                return new List<string>();
+
+            var result = new List<string>();
+            foreach (var kv in all)
+            {
+                var modDirName = kv.Key;
+                var settings = kv.Value;
+                var isEnabled = settings.Item1;
+                if (!isEnabled) continue;
+
+                var (modEc, fullPath, _, _) = _penumbraGetModPath.Invoke(modDirName);
+                if (modEc == PenumbraEnum.PenumbraApiEc.Success && !string.IsNullOrEmpty(fullPath))
+                {
+                    result.Add(fullPath);
+                }
             }
 
             return result;

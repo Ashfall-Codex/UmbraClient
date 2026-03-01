@@ -183,6 +183,7 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
                 new("Correctif : Dépendant de la couleur choisie, elle pouvait mal s'afficher dans le chat."),
                 new("Correctif : Dans certain cas, la couleur du nom du chat ne correspondait plus avec la couleur du profil RP."),
                 new("Correctif : Dans certain cas, les traits Moodles se supprimaient au redemarrage du jeu."),
+                new("Correctif : Correction de la détection des meubles moddé lors du scan."),
 
             }),
             new(new Version(2, 3, 0, 0), "2.3.0.0", new List<ChangelogLine>
