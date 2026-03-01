@@ -686,6 +686,9 @@ Veuillez conserver une copie de votre clé secrète au cas où vous auriez besoi
   <data name="DrawUserPair.Permissions.VfxDisabled" xml:space="preserve">
     <value>Synchro VFX désactivée avec {0}</value>
   </data>
+  <data name="DrawUserPair.Permissions.HousingDisabled" xml:space="preserve">
+    <value>Synchro housing désactivée avec {0}</value>
+  </data>
   <data name="DrawUserPair.Permissions.StatusLine" xml:space="preserve">
     <value>Toi : {0}, Lui/Elle : {1}</value>
   </data>
@@ -748,6 +751,12 @@ Veuillez conserver une copie de votre clé secrète au cas où vous auriez besoi
   </data>
   <data name="DrawUserPair.Menu.DisableVfx" xml:space="preserve">
     <value>Désactiver la synchro VFX</value>
+  </data>
+  <data name="DrawUserPair.Menu.EnableHousing" xml:space="preserve">
+    <value>Activer la synchro housing</value>
+  </data>
+  <data name="DrawUserPair.Menu.DisableHousing" xml:space="preserve">
+    <value>Désactiver la synchro housing</value>
   </data>
   <data name="DrawUserPair.Menu.Unpair" xml:space="preserve">
     <value>Rompre l'appairage définitivement</value>
@@ -895,6 +904,12 @@ Veuillez conserver une copie de votre clé secrète au cas où vous auriez besoi
   </data>
   <data name="CompactUi.SyncDefaults.VfxSubject" xml:space="preserve">
     <value>effets visuels</value>
+  </data>
+  <data name="CompactUi.SyncDefaults.HousingLabel" xml:space="preserve">
+    <value>Housing</value>
+  </data>
+  <data name="CompactUi.SyncDefaults.HousingSubject" xml:space="preserve">
+    <value>synchro housing</value>
   </data>
   <data name="CompactUi.Uid.CopyTooltip" xml:space="preserve">
     <value>Copier votre UID dans le presse-papiers</value>
@@ -3552,6 +3567,12 @@ Veuillez conserver une copie de votre clé secrète au cas où vous auriez besoi
   <data name="Syncshell.Cards.AnimDisabled" xml:space="preserve">
     <value>Sync animations désactivée - Cliquez pour activer</value>
   </data>
+  <data name="Syncshell.Cards.HousingEnabled" xml:space="preserve">
+    <value>Sync housing activée - Cliquez pour désactiver</value>
+  </data>
+  <data name="Syncshell.Cards.HousingDisabled" xml:space="preserve">
+    <value>Sync housing désactivée - Cliquez pour activer</value>
+  </data>
   <data name="Syncshell.Cards.Notification.Title" xml:space="preserve">
     <value>Syncshell : {0}</value>
   </data>
@@ -3572,6 +3593,12 @@ Veuillez conserver une copie de votre clé secrète au cas où vous auriez besoi
   </data>
   <data name="Syncshell.Cards.Notification.AnimDisabled" xml:space="preserve">
     <value>Sync animations désactivée pour {0} membre(s).</value>
+  </data>
+  <data name="Syncshell.Cards.Notification.HousingEnabled" xml:space="preserve">
+    <value>Sync housing activée pour {0} membre(s).</value>
+  </data>
+  <data name="Syncshell.Cards.Notification.HousingDisabled" xml:space="preserve">
+    <value>Sync housing désactivée pour {0} membre(s).</value>
   </data>
   <data name="Syncshell.Cards.AddFavorite" xml:space="preserve">
     <value>Passer en favori</value>
@@ -4024,7 +4051,7 @@ Veuillez conserver une copie de votre clé secrète au cas où vous auriez besoi
     <value>Scan en cours...</value>
   </data>
   <data name="HousingShare.ScanResult" xml:space="preserve">
-    <value>{0} fichiers de meubles moddés détectés.</value>
+    <value>{0} meubles moddés détectés.</value>
   </data>
   <data name="HousingShare.PublishButton" xml:space="preserve">
     <value>Publier</value>
@@ -4033,7 +4060,7 @@ Veuillez conserver une copie de votre clé secrète au cas où vous auriez besoi
     <value>Description</value>
   </data>
   <data name="HousingShare.ModsApplied" xml:space="preserve">
-    <value>Mods de maison appliqués ({0} fichiers).</value>
+    <value>Mods de maison appliqués ({0} meubles).</value>
   </data>
   <data name="HousingShare.NoModsAvailable" xml:space="preserve">
     <value>Aucun mod de maison disponible pour cet emplacement.</value>
@@ -4096,10 +4123,10 @@ Veuillez conserver une copie de votre clé secrète au cas où vous auriez besoi
     <value>Le serveur a refusé de supprimer le partage.</value>
   </data>
   <data name="HousingShare.Success.Published" xml:space="preserve">
-    <value>Mods de maison publiés ({0} fichiers).</value>
+    <value>Mods de maison publiés ({0} meubles).</value>
   </data>
   <data name="HousingShare.Success.Applied" xml:space="preserve">
-    <value>Mods de maison appliqués ({0} fichiers).</value>
+    <value>Mods de maison appliqués ({0} meubles).</value>
   </data>
   <data name="HousingShare.Success.Removed" xml:space="preserve">
     <value>Mods de maison retirés.</value>
@@ -4125,11 +4152,41 @@ Veuillez conserver une copie de votre clé secrète au cas où vous auriez besoi
   <data name="HousingShare.Notification.Applied" xml:space="preserve">
     <value>Mods de maison appliqués ({0})</value>
   </data>
+  <data name="HousingShare.Notification.ReenterForEffect" xml:space="preserve">
+    <value>Mods enregistrés. Re-entrez dans la maison pour les voir.</value>
+  </data>
+  <data name="HousingShare.Notification.FurnitureApplied" xml:space="preserve">
+    <value>Mods de meubles appliqués avec succès !</value>
+  </data>
+  <data name="HousingShare.Overlay.Title" xml:space="preserve">
+    <value>D&#xE9;tection de housing modd&#xE9;</value>
+  </data>
   <data name="HousingShare.MustBeInHousingEditMode" xml:space="preserve">
     <value>Vous devez être en mode Aménagement pour scanner et publier les mods de meubles. Cela prouve la propriété du logement.</value>
   </data>
   <data name="HousingShare.Error.NotInHousingMode" xml:space="preserve">
     <value>Vous devez être en mode Aménagement pour publier.</value>
+  </data>
+  <data name="HousingShare.Warning.DefaultCollection" xml:space="preserve">
+    <value>Limitation Penumbra : les mods de meubles doivent être activés dans la collection Default (assignation « Base » qui gère World, Music, Furniture). Les mods activés uniquement dans votre collection personnage ne seront pas détectés par le scanner et n'affecteront pas les meubles en jeu.</value>
+  </data>
+  <data name="HousingShare.DeleteSourceAfterPublish" xml:space="preserve">
+    <value>Supprimer le mod original après l'envoi</value>
+  </data>
+  <data name="HousingShare.DeleteSourceAfterPublish.Help" xml:space="preserve">
+    <value>Si coché, le(s) mod(s) Penumbra original(aux) utilisé(s) comme source pour le partage housing seront supprimés de Penumbra après l'envoi. Les données partagées restent sur le serveur et peuvent être re-téléchargées en entrant dans la maison.</value>
+  </data>
+  <data name="HousingShare.DisableSourceAfterPublish" xml:space="preserve">
+    <value>Désactiver le mod original après l'envoi</value>
+  </data>
+  <data name="HousingShare.DisableSourceAfterPublish.Help" xml:space="preserve">
+    <value>Si coché, le(s) mod(s) Penumbra original(aux) utilisé(s) comme source pour le partage housing seront désactivés dans Penumbra après l'envoi. Les fichiers restent sur votre ordinateur mais ne sont plus actifs. Les données partagées sont envoyées sur le serveur.</value>
+  </data>
+  <data name="HousingShare.SourceMod.Deleted" xml:space="preserve">
+    <value>Mod(s) source supprimé(s) : {0}</value>
+  </data>
+  <data name="HousingShare.SourceMod.Disabled" xml:space="preserve">
+    <value>Mod(s) source désactivé(s) : {0}</value>
   </data>
   <data name="QuestSync.Title" xml:space="preserve">
     <value>Quest Sync</value>
@@ -4344,5 +4401,35 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
   </data>
   <data name="Rgpd.Consent.MandatoryWarning" xml:space="preserve">
     <value>Les consentements de collecte et de partage sont obligatoires pour utiliser le service.</value>
+  </data>
+  <data name="HousingShare.Progress.Hashing" xml:space="preserve">
+    <value>Hachage des fichiers...</value>
+  </data>
+  <data name="HousingShare.Progress.Uploading" xml:space="preserve">
+    <value>Upload des fichiers...</value>
+  </data>
+  <data name="HousingShare.Progress.Downloading" xml:space="preserve">
+    <value>T&#xE9;l&#xE9;chargement des fichiers... ({0}/{1})</value>
+  </data>
+  <data name="HousingShare.Progress.Applying" xml:space="preserve">
+    <value>Application des mods...</value>
+  </data>
+  <data name="HousingShare.Progress.CreatingMod" xml:space="preserve">
+    <value>Cr&#xE9;ation du mod Penumbra...</value>
+  </data>
+  <data name="HousingShare.Progress.RegisteringMod" xml:space="preserve">
+    <value>Enregistrement du mod dans Penumbra...</value>
+  </data>
+  <data name="HousingShare.Progress.RedrawFurniture" xml:space="preserve">
+    <value>Rechargement des meubles...</value>
+  </data>
+  <data name="HousingShare.Progress.Searching" xml:space="preserve">
+    <value>Recherche de mods housing...</value>
+  </data>
+  <data name="HousingShare.Error.HashingFailed" xml:space="preserve">
+    <value>Impossible de hacher les fichiers de mods. V&#xE9;rifiez que Penumbra est correctement configur&#xE9;.</value>
+  </data>
+  <data name="HousingShare.Error.DownloadFailed" xml:space="preserve">
+    <value>&#xC9;chec du t&#xE9;l&#xE9;chargement des fichiers de mods depuis le serveur.</value>
   </data>
 </root>

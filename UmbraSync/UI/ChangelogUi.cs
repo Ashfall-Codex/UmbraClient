@@ -174,6 +174,7 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
         {
             new(new Version(2, 3, 1, 0103), "2.3.1.0103", new List<ChangelogLine>
             {   
+                new("Amélioration : Réécriture complète du partage de meubles housing moddé avec une meilleure logique."),
                 new("Amélioration : Un message indique clairement quand un utilisateur n'a pas configuré son profil RP."),
                 new("Amélioration : Le nom personnalisé s'affiche correctement quand vous avez configuré groupe d'ami."),
                 new("Amélioration : Le nom personnalisé s'affiche correctement lors d'une émote classique."),

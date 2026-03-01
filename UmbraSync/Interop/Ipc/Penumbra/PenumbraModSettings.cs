@@ -11,7 +11,6 @@ public sealed class PenumbraModSettings : IDisposable
     private readonly PenumbraCore _core;
     private readonly PenumbraApi.EventSubscriber<PenumbraEnum.ModSettingChange, Guid, string, bool> _penumbraModSettingChanged;
     private readonly PenumbraIpc.GetAllModSettings _penumbraGetAllModSettings;
-    private readonly PenumbraIpc.GetModPath _penumbraGetModPath;
 
     // Debouncing pour les changements d'options de mod
     private readonly TimeSpan _modSettingDebounce = TimeSpan.FromSeconds(2);
@@ -23,9 +22,8 @@ public sealed class PenumbraModSettings : IDisposable
     {
         _core = core;
 
-        // Initialiser les API pour récupérer les settings et chemins de mods
+        // Initialiser l'API pour récupérer les settings de mods
         _penumbraGetAllModSettings = new PenumbraIpc.GetAllModSettings(_core.PluginInterface);
-        _penumbraGetModPath = new PenumbraIpc.GetModPath(_core.PluginInterface);
 
         // S'abonner aux changements de settings de mods
         _penumbraModSettingChanged = PenumbraIpc.ModSettingChanged.Subscriber(
@@ -132,6 +130,11 @@ public sealed class PenumbraModSettings : IDisposable
 
         return _core.DalamudUtil.RunOnFrameworkThread(() =>
         {
+            // Récupérer le répertoire racine des mods Penumbra
+            var modRoot = _core.ModDirectory;
+            if (string.IsNullOrEmpty(modRoot))
+                return new List<string>();
+
             var coll = new PenumbraIpc.GetCollection(_core.PluginInterface).Invoke(PenumbraEnum.ApiCollectionType.Default);
             if (coll == null) return new List<string>();
             var collId = coll.Value.Id;
@@ -148,11 +151,9 @@ public sealed class PenumbraModSettings : IDisposable
                 var isEnabled = settings.Item1;
                 if (!isEnabled) continue;
 
-                var (modEc, fullPath, _, _) = _penumbraGetModPath.Invoke(modDirName);
-                if (modEc == PenumbraEnum.PenumbraApiEc.Success && !string.IsNullOrEmpty(fullPath))
-                {
-                    result.Add(fullPath);
-                }
+                // Combiner le répertoire racine Penumbra avec le nom du dossier du mod
+                var fullPath = Path.Combine(modRoot, modDirName);
+                result.Add(fullPath);
             }
 
             return result;

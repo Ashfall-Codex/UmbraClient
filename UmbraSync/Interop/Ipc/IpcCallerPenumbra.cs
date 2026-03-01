@@ -6,6 +6,7 @@ using UmbraSync.PlayerData.Handlers;
 using UmbraSync.Services;
 using UmbraSync.Services.Mediator;
 using UmbraSync.Services.Notification;
+using PenumbraEnum = global::Penumbra.Api.Enums;
 using PenumbraIpc = global::Penumbra.Api.IpcSubscribers;
 
 namespace UmbraSync.Interop.Ipc;
@@ -20,6 +21,7 @@ public sealed class IpcCallerPenumbra : DisposableMediatorSubscriberBase, IIpcCa
     private readonly PenumbraResources _resources;
     private readonly PenumbraTextures _textures;
     private readonly PenumbraTemporaryMods _temporaryMods;
+    private readonly PenumbraMods _mods;
 
     // IPC non déléguées (spécifiques à la facade)
     private readonly PenumbraIpc.ResolvePlayerPathsAsync _penumbraResolvePaths;
@@ -43,6 +45,7 @@ public sealed class IpcCallerPenumbra : DisposableMediatorSubscriberBase, IIpcCa
         _resources = new PenumbraResources(_core);
         _textures = new PenumbraTextures(_core);
         _temporaryMods = new PenumbraTemporaryMods(_core);
+        _mods = new PenumbraMods(_core);
 
         // IPC spécifiques à la facade
         _penumbraResolvePaths = new PenumbraIpc.ResolvePlayerPathsAsync(pi);
@@ -66,6 +69,8 @@ public sealed class IpcCallerPenumbra : DisposableMediatorSubscriberBase, IIpcCa
 
     public void RedrawNow(ILogger logger, Guid applicationId, int objectIndex)
         => _redraw.RedrawNow(logger, applicationId, objectIndex);
+
+    public void RedrawAll() => _redraw.RedrawAll();
     
     public Task AssignTemporaryCollectionAsync(ILogger logger, Guid collName, int idx)
         => _collections.AssignTemporaryCollectionAsync(logger, collName, idx);
@@ -106,6 +111,34 @@ public sealed class IpcCallerPenumbra : DisposableMediatorSubscriberBase, IIpcCa
     public Task RemoveTemporaryModAllAsync(ILogger logger, string tag, int priority)
         => _temporaryMods.RemoveTemporaryModAllAsync(logger, tag, priority);
 
+    public Guid? GetDefaultCollectionId()
+        => _collections.GetDefaultCollectionId();
+
+    public Task<Guid?> GetDefaultCollectionIdAsync()
+        => _collections.GetDefaultCollectionIdAsync();
+
+    public Task AddTemporaryModAsync(ILogger logger, string tag, Guid collId, Dictionary<string, string> modPaths, int priority)
+        => _temporaryMods.AddTemporaryModAsync(logger, tag, collId, modPaths, priority);
+
+    public Task RemoveTemporaryModAsync(ILogger logger, string tag, Guid collId, int priority)
+        => _temporaryMods.RemoveTemporaryModAsync(logger, tag, collId, priority);
+    
+    public string? GetModDirectoryRaw() => _core.GetModDirectoryRaw();
+
+    public Task<PenumbraEnum.PenumbraApiEc> AddModAsync(ILogger logger, string modDirName)
+        => _mods.AddModAsync(logger, modDirName);
+
+    public Task<PenumbraEnum.PenumbraApiEc> DeleteModAsync(ILogger logger, string modDirName)
+        => _mods.DeleteModAsync(logger, modDirName);
+
+    public Task<PenumbraEnum.PenumbraApiEc> ReloadModAsync(ILogger logger, string modDirName)
+        => _mods.ReloadModAsync(logger, modDirName);
+
+    public Task<PenumbraEnum.PenumbraApiEc> TrySetModEnabledAsync(ILogger logger, Guid collId, string modDirName, bool enabled)
+        => _mods.TrySetModEnabledAsync(logger, collId, modDirName, enabled);
+
+    public Task<PenumbraEnum.PenumbraApiEc> TrySetModPriorityAsync(ILogger logger, Guid collId, string modDirName, int priority)
+        => _mods.TrySetModPriorityAsync(logger, collId, modDirName, priority);
 
     public async Task<(string[] forward, string[][] reverse)> ResolvePathsAsync(string[] forward, string[] reverse)
     {

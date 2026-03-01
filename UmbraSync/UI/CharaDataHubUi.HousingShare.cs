@@ -20,6 +20,7 @@ public sealed partial class CharaDataHubUi
     private string _housingShareIndividualInput = string.Empty;
     private string _housingShareSyncshellDropdownSelection = string.Empty;
     private string _housingShareSyncshellInput = string.Empty;
+    private bool _housingShareDisableSourceMods;
     private Guid? _housingShareEditingId;
     private string _housingShareEditDescription = string.Empty;
     private bool _housingShareEditToAll;
@@ -54,7 +55,8 @@ public sealed partial class CharaDataHubUi
 
         if (housingShareManager.IsBusy)
         {
-            UiSharedService.ColorTextWrapped(Loc.Get("HousingShare.Processing"), ImGuiColors.DalamudYellow);
+            var progressText = housingShareManager.ProgressStatus ?? Loc.Get("HousingShare.Processing");
+            UiSharedService.ColorTextWrapped(progressText, ImGuiColors.DalamudYellow);
         }
         if (!string.IsNullOrEmpty(housingShareManager.LastError))
         {
@@ -88,15 +90,21 @@ public sealed partial class CharaDataHubUi
                 ImGui.PopStyleColor();
                 ImGuiHelpers.ScaledDummy(3);
             }
-
-            // Scanner section
+            
+            ImGuiHelpers.ScaledDummy(3);
+            ImGui.PushStyleColor(ImGuiCol.Text, new Vector4(1.0f, 0.75f, 0.3f, 1.0f));
+            _uiSharedService.IconText(FontAwesomeIcon.ExclamationTriangle);
+            ImGui.SameLine();
+            ImGui.TextWrapped(Loc.Get("HousingShare.Warning.DefaultCollection"));
+            ImGui.PopStyleColor();
+            ImGuiHelpers.ScaledDummy(3);
             UiSharedService.DistanceSeparator();
             _uiSharedService.BigText(Loc.Get("HousingShare.Scanner"));
 
             if (scanner.IsScanning)
             {
                 UiSharedService.ColorTextWrapped(
-                    string.Format(CultureInfo.CurrentCulture, Loc.Get("HousingShare.ScanResult"), scanner.CollectedFileCount),
+                    string.Format(CultureInfo.CurrentCulture, Loc.Get("HousingShare.ScanResult"), scanner.CollectedFurnitureCount),
                     UiSharedService.AccentColor);
                 ImGuiHelpers.ScaledDummy(3);
 
@@ -117,14 +125,14 @@ public sealed partial class CharaDataHubUi
             }
 
             // Publish section
-            if (scanner.CollectedFileCount > 0)
+            if (scanner.CollectedFurnitureCount > 0)
             {
                 ImGuiHelpers.ScaledDummy(5);
                 UiSharedService.DistanceSeparator();
                 _uiSharedService.BigText(Loc.Get("HousingShare.PublishButton"));
 
                 UiSharedService.ColorTextWrapped(
-                    string.Format(CultureInfo.CurrentCulture, Loc.Get("HousingShare.ScanResult"), scanner.CollectedFileCount),
+                    string.Format(CultureInfo.CurrentCulture, Loc.Get("HousingShare.ScanResult"), scanner.CollectedFurnitureCount),
                     ImGuiColors.HealerGreen);
 
                 ImGui.SetNextItemWidth(300);
@@ -214,6 +222,11 @@ public sealed partial class CharaDataHubUi
 
                 ImGuiHelpers.ScaledDummy(3);
 
+                ImGui.Checkbox(Loc.Get("HousingShare.DisableSourceAfterPublish"), ref _housingShareDisableSourceMods);
+                _uiSharedService.DrawHelpText(Loc.Get("HousingShare.DisableSourceAfterPublish.Help"));
+
+                ImGuiHelpers.ScaledDummy(3);
+
                 using (ImRaii.Disabled(!isInHousingEditMode || housingShareManager.IsBusy))
                 {
                     if (_uiSharedService.IconTextButton(FontAwesomeIcon.Upload, Loc.Get("HousingShare.PublishButton")))
@@ -224,8 +237,9 @@ public sealed partial class CharaDataHubUi
                         var syncshells = _housingShareToAll
                             ? _pairManager.Groups.Values.Select(g => g.GID).ToList()
                             : new List<string>(_housingShareAllowedSyncshells);
-                        _ = housingShareManager.PublishAsync(currentLocation, _housingShareDescription, individuals, syncshells);
+                        _ = housingShareManager.PublishAsync(currentLocation, _housingShareDescription, individuals, syncshells, _housingShareDisableSourceMods);
                         _housingShareDescription = string.Empty;
+                        _housingShareDisableSourceMods = false;
                         _housingShareToAll = true;
                         _housingShareAllowedIndividuals.Clear();
                         _housingShareAllowedSyncshells.Clear();
