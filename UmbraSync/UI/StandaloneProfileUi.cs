@@ -446,7 +446,8 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
         {
             UiSharedService.DrawCard("rp-description-card", () =>
             {
-                var wrapWidth = ImGui.GetContentRegionAvail().X;
+                var rightPad = ImGui.GetStyle().FramePadding.X + 4f * ImGuiHelpers.GlobalScale;
+                var wrapWidth = ImGui.GetContentRegionAvail().X - rightPad;
                 DrawSectionTitle(Loc.Get("UserProfile.RpDescription"));
                 using var _ = _uiSharedService.GameFont.Push();
                 BbCodeRenderer.Render(description, wrapWidth);
@@ -458,7 +459,8 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
         {
             UiSharedService.DrawCard("rp-additional-card", () =>
             {
-                var wrapWidth = ImGui.GetContentRegionAvail().X;
+                var rightPad = ImGui.GetStyle().FramePadding.X + 4f * ImGuiHelpers.GlobalScale;
+                var wrapWidth = ImGui.GetContentRegionAvail().X - rightPad;
                 DrawSectionTitle(Loc.Get("UserProfile.RpAdditionalInfo"));
                 using var _ = _uiSharedService.GameFont.Push();
                 BbCodeRenderer.Render(profile.RpAdditionalInfo, wrapWidth);
@@ -511,7 +513,7 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
             // Right side: name, title, race, status
             ImGui.BeginGroup();
 
-            // Full name (violet)
+            // Full name
             var firstName = profile.RpFirstName ?? string.Empty;
             var lastName = profile.RpLastName ?? string.Empty;
             var fullName = $"{firstName} {lastName}".Trim();
