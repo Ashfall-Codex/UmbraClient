@@ -172,16 +172,19 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
     {
         return new List<ChangelogEntry>
         {
-            new(new Version(2, 3, 1, 2702), "2.3.1.2702", new List<ChangelogLine>
+            new(new Version(2, 3, 1, 0103), "2.3.1.0103", new List<ChangelogLine>
             {   
+                new("Amélioration : Réécriture complète du partage de meubles housing moddé avec une meilleure logique."),
                 new("Amélioration : Un message indique clairement quand un utilisateur n'a pas configuré son profil RP."),
                 new("Amélioration : Le nom personnalisé s'affiche correctement quand vous avez configuré groupe d'ami."),
                 new("Amélioration : Le nom personnalisé s'affiche correctement lors d'une émote classique."),
                 new("Amélioration : Détection et adaptation de UmbraSync lorsque ChatAlerts est detecté."),
                 new("Amélioration : Il vous est désormais possible de choisir la priorité des couleurs entre UmbraSync et SimpleTweak."),
                 new("Correctif : Dans certain cas, la barre de chargement pouvait entrainer une erreur."),
+                new("Correctif : Dépendant de la couleur choisie, elle pouvait mal s'afficher dans le chat."),
                 new("Correctif : Dans certain cas, la couleur du nom du chat ne correspondait plus avec la couleur du profil RP."),
                 new("Correctif : Dans certain cas, les traits Moodles se supprimaient au redemarrage du jeu."),
+                new("Correctif : Correction de la détection des meubles moddé lors du scan."),
 
             }),
             new(new Version(2, 3, 0, 0), "2.3.0.0", new List<ChangelogLine>

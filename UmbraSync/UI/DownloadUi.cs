@@ -8,6 +8,7 @@ using UmbraSync.Localization;
 using UmbraSync.MareConfiguration;
 using UmbraSync.PlayerData.Handlers;
 using UmbraSync.Services;
+using UmbraSync.Services.Housing;
 using UmbraSync.Services.Mediator;
 using UmbraSync.WebAPI.Files;
 using UmbraSync.WebAPI.Files.Models;
@@ -20,16 +21,19 @@ public class DownloadUi : WindowMediatorSubscriberBase
     private readonly ConcurrentDictionary<GameObjectHandler, ConcurrentDictionary<string, FileDownloadStatus>> _currentDownloads = new();
     private readonly DalamudUtilService _dalamudUtilService;
     private readonly FileUploadManager _fileTransferManager;
+    private readonly HousingShareManager _housingShareManager;
     private readonly UiSharedService _uiShared;
     private readonly ConcurrentDictionary<GameObjectHandler, bool> _uploadingPlayers = new();
 
     public DownloadUi(ILogger<DownloadUi> logger, DalamudUtilService dalamudUtilService, MareConfigService configService,
-        FileUploadManager fileTransferManager, MareMediator mediator, UiSharedService uiShared, PerformanceCollectorService performanceCollectorService)
+        FileUploadManager fileTransferManager, HousingShareManager housingShareManager,
+        MareMediator mediator, UiSharedService uiShared, PerformanceCollectorService performanceCollectorService)
         : base(logger, mediator, Loc.Get("DownloadUi.WindowTitle"), performanceCollectorService)
     {
         _dalamudUtilService = dalamudUtilService;
         _configService = configService;
         _fileTransferManager = fileTransferManager;
+        _housingShareManager = housingShareManager;
         _uiShared = uiShared;
 
         SizeConstraints = new WindowSizeConstraints()
@@ -275,10 +279,106 @@ public class DownloadUi : WindowMediatorSubscriberBase
                 }
             }
         }
+
+        if (_housingShareManager.IsBusy)
+        {
+            try
+            {
+                DrawHousingOverlay();
+            }
+            catch
+            {
+                // ignore errors thrown from UI
+            }
+        }
+    }
+
+    private void DrawHousingOverlay()
+    {
+        var drawList = ImGui.GetBackgroundDrawList();
+        var viewport = ImGui.GetMainViewport();
+        var screenCenter = viewport.GetCenter();
+        var screenSize = viewport.Size;
+
+        const float panelWidth = 420f;
+        const float panelHeight = 64f;
+        const float barHeight = 20f;
+        const float barMarginX = 16f;
+        const float barMarginTop = 36f;
+        const float cornerRounding = 10f;
+        const float barRounding = 10f;
+
+        var panelStart = new Vector2(
+            screenCenter.X - panelWidth / 2f,
+            screenSize.Y * 0.6f);
+        var panelEnd = new Vector2(
+            panelStart.X + panelWidth,
+            panelStart.Y + panelHeight);
+
+        drawList.AddRectFilled(panelStart, panelEnd,
+            UiSharedService.Color(18, 16, 22, 210), cornerRounding);
+        drawList.AddRect(panelStart, panelEnd,
+            UiSharedService.Color(74, 54, 104, 180), cornerRounding, ImDrawFlags.RoundCornersAll, 1.5f);
+
+        var title = Loc.Get("HousingShare.Overlay.Title");
+        var titleSize = ImGui.CalcTextSize(title);
+        var titlePos = new Vector2(
+            panelStart.X + (panelWidth - titleSize.X) / 2f,
+            panelStart.Y + 6f);
+        drawList.AddText(titlePos with { X = titlePos.X + 1, Y = titlePos.Y + 1 },
+            UiSharedService.Color(0, 0, 0, 200), title);
+        drawList.AddText(titlePos,
+            UiSharedService.Color(200, 160, 255, 240), title);
+
+        var barStart = new Vector2(panelStart.X + barMarginX, panelStart.Y + barMarginTop);
+        var barEnd = new Vector2(panelEnd.X - barMarginX, barStart.Y + barHeight);
+        var barWidth = barEnd.X - barStart.X;
+
+        drawList.AddRectFilled(barStart, barEnd,
+            UiSharedService.Color(25, 22, 28, 220), barRounding);
+
+        var percent = Math.Clamp(_housingShareManager.ProgressPercent, 0f, 1f);
+        var progressWidth = percent * barWidth;
+        if (progressWidth > 0.5f)
+        {
+            drawList.AddRectFilled(barStart, new Vector2(barStart.X + progressWidth, barEnd.Y),
+                UiSharedService.Color(96, 74, 128, 220), barRounding, ImDrawFlags.RoundCornersAll);
+        }
+
+        drawList.AddRectFilled(barStart, barStart with { X = barEnd.X, Y = barStart.Y + barHeight * 0.45f },
+            UiSharedService.Color(255, 255, 255, 14), barRounding);
+
+        var statusText = _housingShareManager.ProgressStatus ?? Loc.Get("HousingShare.Processing");
+        var statusSize = ImGui.CalcTextSize(statusText);
+        var barCenterY = barStart.Y + (barHeight - statusSize.Y) / 2f;
+
+        var statusPos = new Vector2(barStart.X + 10f, barCenterY);
+        drawList.AddText(statusPos with { X = statusPos.X + 1, Y = statusPos.Y + 1 },
+            UiSharedService.Color(0, 0, 0, 200), statusText);
+        drawList.AddText(statusPos,
+            UiSharedService.Color(255, 255, 255, 220), statusText);
+
+        var percentText = $"{(int)(percent * 100)}%";
+        var percentSize = ImGui.CalcTextSize(percentText);
+        var percentPos = new Vector2(barEnd.X - percentSize.X - 10f, barCenterY);
+        drawList.AddText(percentPos with { X = percentPos.X + 1, Y = percentPos.Y + 1 },
+            UiSharedService.Color(0, 0, 0, 200), percentText);
+        drawList.AddText(percentPos,
+            UiSharedService.Color(255, 255, 255, 200), percentText);
+
+        if (percent >= 1.0f - float.Epsilon)
+        {
+            var time = (float)ImGui.GetTime();
+            var center = new Vector2((barStart.X + barEnd.X) / 2f, (barStart.Y + barEnd.Y) / 2f);
+            var pulse = MathF.Sin(time * 6.0f) * 0.5f + 0.5f;
+            drawList.AddCircleFilled(center, 3f + pulse, UiSharedService.Color(255, 245, 220, 170));
+            drawList.AddCircle(center, 5f + pulse * 2f, UiSharedService.Color(200, 160, 255, 75), 48, 2f);
+        }
     }
 
     public override bool DrawConditions()
     {
+        if (_housingShareManager.IsBusy) return true;
         if (_uiShared.EditTrackerPosition) return true;
         if (!_configService.Current.ShowTransferWindow && !_configService.Current.ShowTransferBars) return false;
         if (_currentDownloads.Count == 0 && _fileTransferManager.CurrentUploads.Count == 0 && _uploadingPlayers.Count == 0) return false;

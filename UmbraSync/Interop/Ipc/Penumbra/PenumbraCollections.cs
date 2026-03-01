@@ -115,6 +115,39 @@ public sealed class PenumbraCollections : IDisposable
         return (coll.Value.Id, coll.Value.Name);
     }
 
+    public Guid? GetDefaultCollectionId()
+    {
+        if (!_core.APIAvailable) return null;
+
+        var coll = _penumbraGetCollection.Invoke(PenumbraEnum.ApiCollectionType.Default);
+        return coll?.Id;
+    }
+
+    public async Task<Guid?> GetDefaultCollectionIdAsync()
+    {
+        if (!_core.APIAvailable)
+        {
+            _core.Logger.LogWarning("[GetDefaultCollId] APIAvailable=false, abandon");
+            return null;
+        }
+
+        return await _core.DalamudUtil.RunOnFrameworkThread(() =>
+        {
+            try
+            {
+                var coll = _penumbraGetCollection.Invoke(PenumbraEnum.ApiCollectionType.Default);
+                _core.Logger.LogDebug("[GetDefaultCollId] GetCollection(Default) → HasValue={HasValue}, Id={Id}",
+                    coll.HasValue, coll?.Id);
+                return coll?.Id;
+            }
+            catch (Exception ex)
+            {
+                _core.Logger.LogError(ex, "[GetDefaultCollId] Exception lors de GetCollection(Default)");
+                return null;
+            }
+        }).ConfigureAwait(false);
+    }
+
     private void ScheduleCleanup()
     {
         if (Interlocked.Exchange(ref _cleanupScheduled, 1) != 0)

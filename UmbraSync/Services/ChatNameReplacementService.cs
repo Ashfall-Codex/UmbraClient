@@ -343,7 +343,7 @@ public class ChatNameReplacementService : DisposableMediatorSubscriberBase
         if (g != 0) { mask |= 0x02; data.Add(g); }
         if (b != 0) { mask |= 0x01; data.Add(b); }
 
-        var result = new byte[4 + data.Count];
+        var result = new byte[5 + data.Count];
         result[0] = 0x02;
         result[1] = colorType;
         result[2] = (byte)(data.Count + 2); // typeByte + data + end marker

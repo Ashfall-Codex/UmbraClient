@@ -1014,6 +1014,7 @@ internal sealed class GroupPanel
             bool isVfxDisabled = groupDto.GroupUserPermissions.IsDisableVFX();
             bool isSoundDisabled = groupDto.GroupUserPermissions.IsDisableSounds();
             bool isAnimDisabled = groupDto.GroupUserPermissions.IsDisableAnimations();
+            bool isHousingDisabled = groupDto.GroupUserPermissions.IsDisableHousing();
 
             int col = cardIndex % cardsPerRow;
             int row = cardIndex / cardsPerRow;
@@ -1101,7 +1102,7 @@ internal sealed class GroupPanel
 
             float bottomRowY = cardMax.Y - padding - buttonSize;
             float topRowY = bottomRowY - buttonSize - buttonSpacing;
-            float topRowButtonsWidth = buttonSize * 3 + buttonSpacing * 2;
+            float topRowButtonsWidth = buttonSize * 4 + buttonSpacing * 3;
             float topRowStartX = cardMin.X + (cardSize - topRowButtonsWidth) / 2f;
             
             ImGui.SetCursorScreenPos(new Vector2(topRowStartX, topRowY));
@@ -1185,7 +1186,34 @@ internal sealed class GroupPanel
                 }
                 UiSharedService.AttachToolTip(Loc.Get(isVfxDisabled ? "Syncshell.Cards.VfxDisabled" : "Syncshell.Cards.VfxEnabled"));
             }
-            
+
+            ImGui.SetCursorScreenPos(new Vector2(topRowStartX + (buttonSize + buttonSpacing) * 3, topRowY));
+            using (ImRaii.PushId($"housing-{groupDto.GID}"))
+            {
+                var housingIcon = FontAwesomeIcon.Home;
+                var housingColor = isHousingDisabled ? ImGuiColors.DalamudRed : new Vector4(0.4f, 0.9f, 0.4f, 1f);
+                using (ImRaii.PushColor(ImGuiCol.Button, new Vector4(0.2f, 0.2f, 0.25f, 1f)))
+                using (ImRaii.PushColor(ImGuiCol.ButtonHovered, new Vector4(0.3f, 0.3f, 0.35f, 1f)))
+                using (ImRaii.PushColor(ImGuiCol.ButtonActive, new Vector4(0.25f, 0.25f, 0.3f, 1f)))
+                using (ImRaii.PushColor(ImGuiCol.Text, housingColor))
+                using (ImRaii.PushStyle(ImGuiStyleVar.FrameRounding, 4f * ImGuiHelpers.GlobalScale))
+                {
+                    if (_uiShared.IconButtonCentered(housingIcon, buttonSize, square: true))
+                    {
+                        var perm = groupDto.GroupUserPermissions;
+                        var newState = !perm.IsDisableHousing();
+                        perm.SetDisableHousing(newState);
+                        _mainUi.Mediator.Publish(new GroupSyncOverrideChanged(groupDto.Group.GID, null, null, null, perm.IsDisableHousing()));
+                        _ = ApiController.GroupChangeIndividualPermissionState(new GroupPairUserPermissionDto(groupDto.Group, new UserData(ApiController.UID), perm));
+
+                        var notifTitle = string.Format(CultureInfo.CurrentCulture, Loc.Get("Syncshell.Cards.Notification.Title"), groupName);
+                        var notifBody = string.Format(CultureInfo.CurrentCulture, Loc.Get(newState ? "Syncshell.Cards.Notification.HousingDisabled" : "Syncshell.Cards.Notification.HousingEnabled"), totalMembers);
+                        _mainUi.Mediator.Publish(new DualNotificationMessage(notifTitle, notifBody, NotificationType.Info));
+                    }
+                }
+                UiSharedService.AttachToolTip(Loc.Get(isHousingDisabled ? "Syncshell.Cards.HousingDisabled" : "Syncshell.Cards.HousingEnabled"));
+            }
+
             bool isAdmin = string.Equals(groupDto.OwnerUID, ApiController.UID, StringComparison.Ordinal)
                            || groupDto.GroupUserInfo.IsModerator();
             bool isFavorite = favorites.Contains(groupDto.GID);

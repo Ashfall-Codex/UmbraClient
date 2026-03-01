@@ -1,12 +1,10 @@
+using Dalamud.Plugin.Services;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using System.Globalization;
 using UmbraSync.API.Dto.CharaData;
-using UmbraSync.API.Dto.HousingShare;
-using UmbraSync.Localization;
-using UmbraSync.MareConfiguration.Models;
+using UmbraSync.MareConfiguration;
+using UmbraSync.MareConfiguration.Configurations;
 using UmbraSync.Services.Mediator;
-using UmbraSync.WebAPI.SignalR;
 
 namespace UmbraSync.Services.Housing;
 
@@ -14,19 +12,25 @@ public sealed class HousingFurnitureSyncService : IHostedService, IMediatorSubsc
 {
     private readonly ILogger<HousingFurnitureSyncService> _logger;
     private readonly MareMediator _mediator;
-    private readonly ApiController _apiController;
     private readonly HousingShareManager _housingShareManager;
+    private readonly MareConfigService _configService;
+    private readonly DalamudUtilService _dalamudUtil;
+    private readonly ICommandManager _commandManager;
 
     public HousingFurnitureSyncService(
         ILogger<HousingFurnitureSyncService> logger,
         MareMediator mediator,
-        ApiController apiController,
-        HousingShareManager housingShareManager)
+        HousingShareManager housingShareManager,
+        MareConfigService configService,
+        DalamudUtilService dalamudUtil,
+        ICommandManager commandManager)
     {
         _logger = logger;
         _mediator = mediator;
-        _apiController = apiController;
         _housingShareManager = housingShareManager;
+        _configService = configService;
+        _dalamudUtil = dalamudUtil;
+        _commandManager = commandManager;
     }
 
     public MareMediator Mediator => _mediator;
@@ -35,8 +39,12 @@ public sealed class HousingFurnitureSyncService : IHostedService, IMediatorSubsc
     {
         _logger.LogInformation("Starting HousingFurnitureSyncService");
 
+        // Nettoyer les mods housing orphelins de sessions précédentes
+        _housingShareManager.CleanupStaleMods();
+
         _mediator.Subscribe<HousingPlotEnteredMessage>(this, OnHousingPlotEntered);
         _mediator.Subscribe<HousingPlotLeftMessage>(this, _ => OnHousingPlotLeft());
+        _mediator.Subscribe<ApplyDefaultsToAllSyncsMessage>(this, OnDefaultsChanged);
 
         return Task.CompletedTask;
     }
@@ -53,40 +61,54 @@ public sealed class HousingFurnitureSyncService : IHostedService, IMediatorSubsc
         _logger.LogDebug("Entered housing plot {Server}:{Territory}:{Ward}:{House}",
             msg.LocationInfo.ServerId, msg.LocationInfo.TerritoryId, msg.LocationInfo.WardId, msg.LocationInfo.HouseId);
 
+        //Global : si la synchro housing est désactivée, ne pas appliquer
+        if (_configService.Current.DefaultDisableHousingMods)
+        {
+            _logger.LogInformation("Synchro housing globalement désactivée, skip");
+            return;
+        }
+
         _ = TryApplyHousingModsAsync(msg.LocationInfo);
+    }
+
+    private void OnDefaultsChanged(ApplyDefaultsToAllSyncsMessage msg)
+    {
+        // Réagir quand housing est désactivé alors qu'un mod est déjà appliqué
+        if (!_configService.Current.DefaultDisableHousingMods || !_housingShareManager.IsApplied) return;
+
+        _logger.LogInformation("Housing désactivé globalement, suppression du mod appliqué");
+        _ = RemoveAndRedrawAsync();
+    }
+
+    private async Task RemoveAndRedrawAsync()
+    {
+        try
+        {
+            await _housingShareManager.RemoveAppliedModsAsync().ConfigureAwait(false);
+            await Task.Delay(500).ConfigureAwait(false);
+            await _dalamudUtil.RunOnFrameworkThread(() =>
+            {
+                _commandManager.ProcessCommand("/penumbra redraw furniture");
+            }).ConfigureAwait(false);
+            _logger.LogInformation("Redraw furniture exécuté après désactivation du housing");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Échec du redraw furniture après désactivation housing");
+        }
     }
 
     private void OnHousingPlotLeft()
     {
         _logger.LogDebug("Left housing plot");
-
-        if (_housingShareManager.IsApplied)
-        {
-            _ = _housingShareManager.RemoveAppliedModsAsync();
-        }
+        _housingShareManager.ScheduleDelayedCleanup();
     }
 
     private async Task TryApplyHousingModsAsync(LocationInfo location)
     {
         try
         {
-            var shares = await _apiController.HousingShareGetForLocation(location).ConfigureAwait(false);
-            if (shares.Count == 0)
-            {
-                _logger.LogDebug("No housing shares found for this location");
-                return;
-            }
-
-            var share = shares[0];
-            _logger.LogInformation("Found housing share {ShareId} from {Owner} for this location", share.Id, share.OwnerUid);
-
-            await _housingShareManager.DownloadAndApplyAsync(share.Id).ConfigureAwait(false);
-
-            _mediator.Publish(new NotificationMessage(
-                Loc.Get("HousingShare.Notification.SyncTitle"),
-                string.Format(CultureInfo.CurrentCulture, Loc.Get("HousingShare.Notification.Applied"), share.Description),
-                NotificationType.Info,
-                TimeSpan.FromSeconds(4)));
+            await _housingShareManager.CheckAndApplyForLocationAsync(location).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
