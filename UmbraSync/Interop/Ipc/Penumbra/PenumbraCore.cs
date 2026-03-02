@@ -152,6 +152,14 @@ public sealed class PenumbraCore : DisposableMediatorSubscriberBase, IPenumbraCo
         }
     }
     
+    // Retourne le chemin brut du répertoire de mods Penumbra (sans transformation de casse).
+    public string? GetModDirectoryRaw()
+    {
+        if (!APIAvailable) return null;
+        try { return _penumbraResolveModDir.Invoke(); }
+        catch { return null; }
+    }
+
     public void CheckModDirectory()
     {
         if (!APIAvailable)

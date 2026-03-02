@@ -11,7 +11,6 @@ using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
 using System.Globalization;
 using System.Numerics;
-using System.Reflection;
 using System.Text.Json;
 using UmbraSync.API.Data;
 using UmbraSync.API.Data.Comparer;
@@ -570,6 +569,17 @@ public class SettingsUi : WindowMediatorSubscriberBase
                     _configService.Save();
                 }
                 _uiShared.DrawHelpText(Loc.Get("Settings.DisableInDuty.Help"));
+
+                using (ImRaii.Disabled(!_uiShared.ExternalNameColorPluginExists))
+                {
+                    var respectExternal = _configService.Current.RespectExternalNameColors;
+                    if (ImGui.Checkbox(Loc.Get("Settings.RespectExternalNameColors"), ref respectExternal))
+                    {
+                        _configService.Current.RespectExternalNameColors = respectExternal;
+                        _configService.Save();
+                    }
+                    _uiShared.DrawHelpText(Loc.Get("Settings.RespectExternalNameColors.Help"));
+                }
             }
         }
 
@@ -2439,8 +2449,6 @@ public class SettingsUi : WindowMediatorSubscriberBase
         _lastTab = "About";
 
         var availWidth = ImGui.GetContentRegionAvail().X;
-        var ver = Assembly.GetExecutingAssembly().GetName().Version!;
-        string versionStr = $"v{ver.Major}.{ver.Minor}.{ver.Build}.{ver.Revision}";
 
         ImGuiHelpers.ScaledDummy(20f);
 
@@ -2465,12 +2473,20 @@ public class SettingsUi : WindowMediatorSubscriberBase
 
         ImGuiHelpers.ScaledDummy(2f);
 
-        string versionLine = $"{versionStr}  ·  {Loc.Get("Settings.About.ByAuthor")}";
+        string versionLine = $"v{Constants.PluginVersion}  ·  {Loc.Get("Settings.About.ByAuthor")}";
         using (ImRaii.PushColor(ImGuiCol.Text, ImGuiColors.DalamudGrey3))
         {
             var vSz = ImGui.CalcTextSize(versionLine);
             ImGui.SetCursorPosX(ImGui.GetCursorPosX() + (availWidth - vSz.X) / 2f);
             ImGui.TextUnformatted(versionLine);
+        }
+
+        string buildLine = $"Build : {Constants.PluginBuild}";
+        using (ImRaii.PushColor(ImGuiCol.Text, ImGuiColors.DalamudGrey3))
+        {
+            var bSz = ImGui.CalcTextSize(buildLine);
+            ImGui.SetCursorPosX(ImGui.GetCursorPosX() + (availWidth - bSz.X) / 2f);
+            ImGui.TextUnformatted(buildLine);
         }
 
         ImGuiHelpers.ScaledDummy(4f);
@@ -2506,10 +2522,10 @@ public class SettingsUi : WindowMediatorSubscriberBase
         using (ImRaii.PushColor(ImGuiCol.ButtonActive, new Vector4(0x4A / 255f, 0x36 / 255f, 0x68 / 255f, 1f)))
         {
             if (DrawAboutLinkButton(FontAwesomeIcon.Globe, "Discord", btnWidth))
-                Dalamud.Utility.Util.OpenLink("https://discord.gg/2zJB7DjAs9");
+                Dalamud.Utility.Util.OpenLink(Constants.DiscordUrl);
             ImGui.SameLine(0, btnSpacing);
             if (DrawAboutLinkButton(FontAwesomeIcon.Code, "GitHub", btnWidth))
-                Dalamud.Utility.Util.OpenLink("https://github.com/kedaewyn/UmbraClient/");
+                Dalamud.Utility.Util.OpenLink(Constants.GitHubUrl);
             ImGui.SameLine(0, btnSpacing);
             if (DrawAboutLinkButton(FontAwesomeIcon.FileAlt, Loc.Get("Settings.About.Changelog"), btnWidth))
                 Mediator.Publish(new OpenChangelogUiMessage());
@@ -2562,6 +2578,37 @@ public class SettingsUi : WindowMediatorSubscriberBase
             ImGui.SetCursorPosX(ImGui.GetCursorPosX() + (availWidth - fSz.X) / 2f);
             ImGui.TextUnformatted(footer);
         }
+
+        // Ashfall Codex branding
+        ImGuiHelpers.ScaledDummy(16f);
+
+        var sepStart = ImGui.GetCursorScreenPos();
+        var sepW = 120f * ImGuiHelpers.GlobalScale;
+        var sepX2 = sepStart.X + (availWidth - sepW) / 2f;
+        ImGui.GetWindowDrawList().AddLine(
+            new Vector2(sepX2, sepStart.Y),
+            new Vector2(sepX2 + sepW, sepStart.Y),
+            ImGui.GetColorU32(new Vector4(0.831f, 0.686f, 0.416f, 0.12f)), 1f);
+        ImGuiHelpers.ScaledDummy(16f);
+
+        var logoSize = 72f * ImGuiHelpers.GlobalScale;
+        ImGui.SetCursorPosX(ImGui.GetCursorPosX() + (availWidth - logoSize) / 2f);
+        var logoPos = ImGui.GetCursorScreenPos();
+        ImGui.Dummy(new Vector2(logoSize, logoSize));
+        DrawAshfallCodexLogo(new Vector2(logoPos.X + logoSize / 2f, logoPos.Y + logoSize / 2f), logoSize);
+
+        ImGuiHelpers.ScaledDummy(4f);
+
+        var brandName = "Ashfall Codex";
+        var brandSz = ImGui.CalcTextSize(brandName);
+        using (ImRaii.PushColor(ImGuiCol.Text, new Vector4(0.831f, 0.686f, 0.416f, 0.4f)))
+        using (ImRaii.PushColor(ImGuiCol.HeaderHovered, new Vector4(0.831f, 0.384f, 0.165f, 0.2f)))
+        using (ImRaii.PushColor(ImGuiCol.HeaderActive, new Vector4(0.831f, 0.384f, 0.165f, 0.3f)))
+        {
+            ImGui.SetCursorPosX(ImGui.GetCursorPosX() + (availWidth - brandSz.X) / 2f);
+            if (ImGui.Selectable(brandName, false, ImGuiSelectableFlags.None, brandSz))
+                Dalamud.Utility.Util.OpenLink("https://ashfall-codex.dev/");
+        }
     }
 
     private static bool DrawAboutLinkButton(FontAwesomeIcon icon, string label, float width)
@@ -2585,6 +2632,89 @@ public class SettingsUi : WindowMediatorSubscriberBase
         dl.AddText(new Vector2(startX + iconSz.X + 6f * ImGuiHelpers.GlobalScale, textY), ImGui.GetColorU32(new Vector4(1f, 1f, 1f, 1f)), label);
 
         return clicked;
+    }
+
+    private static void DrawAshfallCodexLogo(Vector2 center, float size)
+    {
+        var dl = ImGui.GetWindowDrawList();
+        float s = size / 512f;
+        float ox = center.X - 256f * s;
+        float oy = center.Y - 256f * s;
+        double t = ImGui.GetTime();
+        float cxVb = 261f, cyVb = 256f;
+        var logoCenter = new Vector2(ox + cxVb * s, oy + cyVb * s);
+        float glowPulse = 0.5f + 0.3f * MathF.Sin((float)(t * Math.PI * 2.0 / 2.5));
+        float haloR = 80f * s;
+        for (int ring = 5; ring >= 0; ring--)
+        {
+            float r = haloR * (1f + ring * 0.5f);
+            float a = 0.04f * glowPulse * (1f - ring / 6f);
+            dl.AddCircleFilled(logoCenter, r,
+                ImGui.GetColorU32(new Vector4(0.831f, 0.384f, 0.165f, a)), 48);
+        }
+
+        dl.AddCircle(new Vector2(ox + 256f * s, oy + 256f * s), 241f * s,
+            ImGui.GetColorU32(new Vector4(0.831f, 0.686f, 0.416f, 0.25f)), 64, MathF.Max(1.5f, 4.4f * s));
+        float bookR = MathF.Max(2f, 11f * s);
+        var bookMin = new Vector2(ox + 150f * s, oy + 117f * s);
+        var bookMax = new Vector2(ox + 362f * s, oy + 395f * s);
+        dl.AddRectFilled(bookMin, bookMax,
+            ImGui.GetColorU32(new Vector4(0.075f, 0.075f, 0.082f, 1f)), bookR);
+        dl.AddRect(bookMin, bookMax,
+            ImGui.GetColorU32(new Vector4(0.831f, 0.686f, 0.416f, 0.85f)), bookR, ImDrawFlags.None, MathF.Max(1.5f, 6.6f * s));
+
+        dl.AddRectFilled(
+            new Vector2(ox + 150f * s, oy + 117f * s),
+            new Vector2(ox + 176f * s, oy + 395f * s),
+            ImGui.GetColorU32(new Vector4(0.102f, 0.102f, 0.118f, 0.7f)), bookR);
+        dl.AddLine(
+            new Vector2(ox + 176f * s, oy + 125f * s),
+            new Vector2(ox + 176f * s, oy + 387f * s),
+            ImGui.GetColorU32(new Vector4(0.831f, 0.686f, 0.416f, 0.3f)), MathF.Max(1f, 1.5f * s));
+
+        var d1 = new Vector2(ox + cxVb * s, oy + 212f * s);
+        var d2 = new Vector2(ox + 305f * s, oy + cyVb * s);
+        var d3 = new Vector2(ox + cxVb * s, oy + 300f * s);
+        var d4 = new Vector2(ox + 217f * s, oy + cyVb * s);
+        float outerThk = MathF.Max(1.5f, 5.5f * s);
+        uint outerCol = ImGui.GetColorU32(new Vector4(0.831f, 0.384f, 0.165f, 0.85f));
+        dl.AddLine(d1, d2, outerCol, outerThk);
+        dl.AddLine(d2, d3, outerCol, outerThk);
+        dl.AddLine(d3, d4, outerCol, outerThk);
+        dl.AddLine(d4, d1, outerCol, outerThk);
+
+        var i1 = new Vector2(ox + cxVb * s, oy + 229f * s);
+        var i2 = new Vector2(ox + 288f * s, oy + cyVb * s);
+        var i3 = new Vector2(ox + cxVb * s, oy + 283f * s);
+        var i4 = new Vector2(ox + 234f * s, oy + cyVb * s);
+        float innerThk = MathF.Max(1.2f, 3.7f * s);
+        uint innerCol = ImGui.GetColorU32(new Vector4(0.941f, 0.565f, 0.259f, 0.65f));
+        dl.AddLine(i1, i2, innerCol, innerThk);
+        dl.AddLine(i2, i3, innerCol, innerThk);
+        dl.AddLine(i3, i4, innerCol, innerThk);
+        dl.AddLine(i4, i1, innerCol, innerThk);
+
+        float emberR = MathF.Max(2f, 11f * s);
+        for (int g = 3; g >= 0; g--)
+        {
+            float r = emberR * (1f + g * 0.8f);
+            float a = 0.12f * glowPulse * (1f - g / 4f);
+            dl.AddCircleFilled(logoCenter, r,
+                ImGui.GetColorU32(new Vector4(0.941f, 0.565f, 0.259f, a)), 32);
+        }
+        dl.AddCircleFilled(logoCenter, emberR,
+            ImGui.GetColorU32(new Vector4(0.941f, 0.565f, 0.259f, 0.5f + 0.35f * glowPulse)), 32);
+
+        float cThk = MathF.Max(1.2f, 2.9f * s);
+        uint cCol = ImGui.GetColorU32(new Vector4(0.831f, 0.686f, 0.416f, 0.4f));
+        dl.AddLine(new Vector2(ox + 187f * s, oy + 128f * s), new Vector2(ox + 187f * s, oy + 146f * s), cCol, cThk);
+        dl.AddLine(new Vector2(ox + 187f * s, oy + 146f * s), new Vector2(ox + 206f * s, oy + 146f * s), cCol, cThk);
+        dl.AddLine(new Vector2(ox + 342f * s, oy + 128f * s), new Vector2(ox + 342f * s, oy + 146f * s), cCol, cThk);
+        dl.AddLine(new Vector2(ox + 342f * s, oy + 146f * s), new Vector2(ox + 324f * s, oy + 146f * s), cCol, cThk);
+        dl.AddLine(new Vector2(ox + 187f * s, oy + 383f * s), new Vector2(ox + 187f * s, oy + 365f * s), cCol, cThk);
+        dl.AddLine(new Vector2(ox + 187f * s, oy + 365f * s), new Vector2(ox + 206f * s, oy + 365f * s), cCol, cThk);
+        dl.AddLine(new Vector2(ox + 342f * s, oy + 383f * s), new Vector2(ox + 342f * s, oy + 365f * s), cCol, cThk);
+        dl.AddLine(new Vector2(ox + 342f * s, oy + 365f * s), new Vector2(ox + 324f * s, oy + 365f * s), cCol, cThk);
     }
 
     private void DrawSectionHeader(int tabIndex)

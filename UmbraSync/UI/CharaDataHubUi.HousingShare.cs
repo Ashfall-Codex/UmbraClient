@@ -4,6 +4,7 @@ using Dalamud.Interface.Colors;
 using Dalamud.Interface.Utility;
 using Dalamud.Interface.Utility.Raii;
 using System.Globalization;
+using System.Numerics;
 using UmbraSync.Localization;
 
 namespace UmbraSync.UI;
@@ -12,14 +13,17 @@ public sealed partial class CharaDataHubUi
 {
     private string _housingShareDescription = string.Empty;
     private bool _housingShareInitialized;
+    private bool _housingShareToAll = true;
     private readonly List<string> _housingShareAllowedIndividuals = new();
     private readonly List<string> _housingShareAllowedSyncshells = new();
     private string _housingShareIndividualDropdownSelection = string.Empty;
     private string _housingShareIndividualInput = string.Empty;
     private string _housingShareSyncshellDropdownSelection = string.Empty;
     private string _housingShareSyncshellInput = string.Empty;
+    private bool _housingShareDisableSourceMods;
     private Guid? _housingShareEditingId;
     private string _housingShareEditDescription = string.Empty;
+    private bool _housingShareEditToAll;
     private readonly List<string> _housingShareEditAllowedIndividuals = new();
     private readonly List<string> _housingShareEditAllowedSyncshells = new();
     private string _housingShareEditIndividualDropdownSelection = string.Empty;
@@ -51,7 +55,8 @@ public sealed partial class CharaDataHubUi
 
         if (housingShareManager.IsBusy)
         {
-            UiSharedService.ColorTextWrapped(Loc.Get("HousingShare.Processing"), ImGuiColors.DalamudYellow);
+            var progressText = housingShareManager.ProgressStatus ?? Loc.Get("HousingShare.Processing");
+            UiSharedService.ColorTextWrapped(progressText, ImGuiColors.DalamudYellow);
         }
         if (!string.IsNullOrEmpty(housingShareManager.LastError))
         {
@@ -65,9 +70,10 @@ public sealed partial class CharaDataHubUi
         ImGuiHelpers.ScaledDummy(5);
 
         var currentLocation = _dalamudUtilService.GetMapDataAsync().GetAwaiter().GetResult();
-        bool isInHousing = currentLocation.HouseId != 0 && _dalamudUtilService.IsInHousingMode;
+        bool isInsideHouse = currentLocation.HouseId != 0;
+        bool isInHousingEditMode = _dalamudUtilService.IsInHousingMode;
 
-        if (!isInHousing)
+        if (!isInsideHouse)
         {
             UiSharedService.ColorTextWrapped(Loc.Get("HousingShare.NotInHousing"), ImGuiColors.DalamudGrey3);
         }
@@ -77,14 +83,28 @@ public sealed partial class CharaDataHubUi
                 currentLocation.ServerId, currentLocation.TerritoryId, currentLocation.WardId, currentLocation.HouseId));
             ImGuiHelpers.ScaledDummy(3);
 
-            // Scanner section
+            if (!isInHousingEditMode)
+            {
+                ImGui.PushStyleColor(ImGuiCol.Text, new Vector4(1.0f, 0.5f, 0.2f, 1.0f));
+                ImGui.TextWrapped(Loc.Get("HousingShare.MustBeInHousingEditMode"));
+                ImGui.PopStyleColor();
+                ImGuiHelpers.ScaledDummy(3);
+            }
+            
+            ImGuiHelpers.ScaledDummy(3);
+            ImGui.PushStyleColor(ImGuiCol.Text, new Vector4(1.0f, 0.75f, 0.3f, 1.0f));
+            _uiSharedService.IconText(FontAwesomeIcon.ExclamationTriangle);
+            ImGui.SameLine();
+            ImGui.TextWrapped(Loc.Get("HousingShare.Warning.DefaultCollection"));
+            ImGui.PopStyleColor();
+            ImGuiHelpers.ScaledDummy(3);
             UiSharedService.DistanceSeparator();
             _uiSharedService.BigText(Loc.Get("HousingShare.Scanner"));
 
             if (scanner.IsScanning)
             {
                 UiSharedService.ColorTextWrapped(
-                    string.Format(CultureInfo.CurrentCulture, Loc.Get("HousingShare.ScanResult"), scanner.CollectedFileCount),
+                    string.Format(CultureInfo.CurrentCulture, Loc.Get("HousingShare.ScanResult"), scanner.CollectedFurnitureCount),
                     UiSharedService.AccentColor);
                 ImGuiHelpers.ScaledDummy(3);
 
@@ -95,21 +115,24 @@ public sealed partial class CharaDataHubUi
             }
             else
             {
-                if (_uiSharedService.IconTextButton(FontAwesomeIcon.Search, Loc.Get("HousingShare.ScanButton")))
+                using (ImRaii.Disabled(!isInHousingEditMode))
                 {
-                    scanner.StartScan(currentLocation);
+                    if (_uiSharedService.IconTextButton(FontAwesomeIcon.Search, Loc.Get("HousingShare.ScanButton")))
+                    {
+                        scanner.StartScan(currentLocation);
+                    }
                 }
             }
 
             // Publish section
-            if (scanner.CollectedFileCount > 0)
+            if (scanner.CollectedFurnitureCount > 0)
             {
                 ImGuiHelpers.ScaledDummy(5);
                 UiSharedService.DistanceSeparator();
                 _uiSharedService.BigText(Loc.Get("HousingShare.PublishButton"));
 
                 UiSharedService.ColorTextWrapped(
-                    string.Format(CultureInfo.CurrentCulture, Loc.Get("HousingShare.ScanResult"), scanner.CollectedFileCount),
+                    string.Format(CultureInfo.CurrentCulture, Loc.Get("HousingShare.ScanResult"), scanner.CollectedFurnitureCount),
                     ImGuiColors.HealerGreen);
 
                 ImGui.SetNextItemWidth(300);
@@ -117,89 +140,107 @@ public sealed partial class CharaDataHubUi
 
                 ImGuiHelpers.ScaledDummy(3);
 
-                // Visibility: Allowed individuals
-                DrawHousingShareIndividualDropdown();
-                ImGui.SameLine();
-                ImGui.SetNextItemWidth(220f);
-                if (ImGui.InputTextWithHint("##housingShareUidInput", "UID ou vanity", ref _housingShareIndividualInput, 32))
+                // Visibilité : checkbox tout partager
+                ImGui.Checkbox("Partager à tous mes paires et syncshells", ref _housingShareToAll);
+
+                if (!_housingShareToAll)
                 {
-                    _housingShareIndividualDropdownSelection = string.Empty;
-                }
-                ImGui.SameLine();
-                var normalizedUid = NormalizeUidCandidate(_housingShareIndividualInput);
-                using (ImRaii.Disabled(string.IsNullOrEmpty(normalizedUid)
-                    || _housingShareAllowedIndividuals.Any(p => string.Equals(p, normalizedUid, StringComparison.OrdinalIgnoreCase))))
-                {
-                    if (ImGui.SmallButton("Ajouter##housingUid"))
+                    // Visibility: Allowed individuals
+                    DrawHousingShareIndividualDropdown();
+                    ImGui.SameLine();
+                    ImGui.SetNextItemWidth(220f);
+                    if (ImGui.InputTextWithHint("##housingShareUidInput", "UID ou vanity", ref _housingShareIndividualInput, 32))
                     {
-                        _housingShareAllowedIndividuals.Add(normalizedUid);
-                        _housingShareIndividualInput = string.Empty;
                         _housingShareIndividualDropdownSelection = string.Empty;
                     }
-                }
-                ImGui.SameLine();
-                ImGui.TextUnformatted("UID synchronis\u00e9 \u00e0 ajouter");
-                _uiSharedService.DrawHelpText("Choisissez un pair synchronis\u00e9 dans la liste ou saisissez un UID. Les utilisateurs list\u00e9s pourront r\u00e9cup\u00e9rer ce partage de maison.");
-
-                foreach (var uid in _housingShareAllowedIndividuals.ToArray())
-                {
-                    using (ImRaii.PushId("housingShareUid" + uid))
+                    ImGui.SameLine();
+                    var normalizedUid = NormalizeUidCandidate(_housingShareIndividualInput);
+                    using (ImRaii.Disabled(string.IsNullOrEmpty(normalizedUid)
+                        || _housingShareAllowedIndividuals.Any(p => string.Equals(p, normalizedUid, StringComparison.OrdinalIgnoreCase))))
                     {
-                        ImGui.BulletText(FormatPairLabel(uid));
-                        ImGui.SameLine();
-                        if (ImGui.SmallButton("Retirer"))
+                        if (ImGui.SmallButton("Ajouter##housingUid"))
                         {
-                            _housingShareAllowedIndividuals.Remove(uid);
+                            _housingShareAllowedIndividuals.Add(normalizedUid);
+                            _housingShareIndividualInput = string.Empty;
+                            _housingShareIndividualDropdownSelection = string.Empty;
                         }
                     }
-                }
+                    ImGui.SameLine();
+                    ImGui.TextUnformatted("UID synchronis\u00e9 \u00e0 ajouter");
+                    _uiSharedService.DrawHelpText("Choisissez un pair synchronis\u00e9 dans la liste ou saisissez un UID. Les utilisateurs list\u00e9s pourront r\u00e9cup\u00e9rer ce partage de maison.");
 
-                // Visibility: Allowed syncshells
-                DrawHousingShareSyncshellDropdown();
-                ImGui.SameLine();
-                ImGui.SetNextItemWidth(220f);
-                if (ImGui.InputTextWithHint("##housingShareSyncshellInput", "GID ou alias", ref _housingShareSyncshellInput, 32))
-                {
-                    _housingShareSyncshellDropdownSelection = string.Empty;
-                }
-                ImGui.SameLine();
-                var normalizedSyncshell = NormalizeSyncshellCandidate(_housingShareSyncshellInput);
-                using (ImRaii.Disabled(string.IsNullOrEmpty(normalizedSyncshell)
-                    || _housingShareAllowedSyncshells.Any(p => string.Equals(p, normalizedSyncshell, StringComparison.OrdinalIgnoreCase))))
-                {
-                    if (ImGui.SmallButton("Ajouter##housingSyncshell"))
+                    foreach (var uid in _housingShareAllowedIndividuals.ToArray())
                     {
-                        _housingShareAllowedSyncshells.Add(normalizedSyncshell);
-                        _housingShareSyncshellInput = string.Empty;
+                        using (ImRaii.PushId("housingShareUid" + uid))
+                        {
+                            ImGui.BulletText(FormatPairLabel(uid));
+                            ImGui.SameLine();
+                            if (ImGui.SmallButton("Retirer"))
+                            {
+                                _housingShareAllowedIndividuals.Remove(uid);
+                            }
+                        }
+                    }
+
+                    // Visibility: Allowed syncshells
+                    DrawHousingShareSyncshellDropdown();
+                    ImGui.SameLine();
+                    ImGui.SetNextItemWidth(220f);
+                    if (ImGui.InputTextWithHint("##housingShareSyncshellInput", "GID ou alias", ref _housingShareSyncshellInput, 32))
+                    {
                         _housingShareSyncshellDropdownSelection = string.Empty;
                     }
-                }
-                ImGui.SameLine();
-                ImGui.TextUnformatted("Syncshell \u00e0 ajouter");
-                _uiSharedService.DrawHelpText("S\u00e9lectionnez une syncshell synchronis\u00e9e ou saisissez un identifiant. Les syncshells list\u00e9es auront acc\u00e8s au partage.");
-
-                foreach (var shell in _housingShareAllowedSyncshells.ToArray())
-                {
-                    using (ImRaii.PushId("housingShareShell" + shell))
+                    ImGui.SameLine();
+                    var normalizedSyncshell = NormalizeSyncshellCandidate(_housingShareSyncshellInput);
+                    using (ImRaii.Disabled(string.IsNullOrEmpty(normalizedSyncshell)
+                        || _housingShareAllowedSyncshells.Any(p => string.Equals(p, normalizedSyncshell, StringComparison.OrdinalIgnoreCase))))
                     {
-                        ImGui.BulletText(FormatSyncshellLabel(shell));
-                        ImGui.SameLine();
-                        if (ImGui.SmallButton("Retirer"))
+                        if (ImGui.SmallButton("Ajouter##housingSyncshell"))
                         {
-                            _housingShareAllowedSyncshells.Remove(shell);
+                            _housingShareAllowedSyncshells.Add(normalizedSyncshell);
+                            _housingShareSyncshellInput = string.Empty;
+                            _housingShareSyncshellDropdownSelection = string.Empty;
+                        }
+                    }
+                    ImGui.SameLine();
+                    ImGui.TextUnformatted("Syncshell \u00e0 ajouter");
+                    _uiSharedService.DrawHelpText("S\u00e9lectionnez une syncshell synchronis\u00e9e ou saisissez un identifiant. Les syncshells list\u00e9es auront acc\u00e8s au partage.");
+
+                    foreach (var shell in _housingShareAllowedSyncshells.ToArray())
+                    {
+                        using (ImRaii.PushId("housingShareShell" + shell))
+                        {
+                            ImGui.BulletText(FormatSyncshellLabel(shell));
+                            ImGui.SameLine();
+                            if (ImGui.SmallButton("Retirer"))
+                            {
+                                _housingShareAllowedSyncshells.Remove(shell);
+                            }
                         }
                     }
                 }
 
                 ImGuiHelpers.ScaledDummy(3);
 
-                using (ImRaii.Disabled(housingShareManager.IsBusy))
+                ImGui.Checkbox(Loc.Get("HousingShare.DisableSourceAfterPublish"), ref _housingShareDisableSourceMods);
+                _uiSharedService.DrawHelpText(Loc.Get("HousingShare.DisableSourceAfterPublish.Help"));
+
+                ImGuiHelpers.ScaledDummy(3);
+
+                using (ImRaii.Disabled(!isInHousingEditMode || housingShareManager.IsBusy))
                 {
                     if (_uiSharedService.IconTextButton(FontAwesomeIcon.Upload, Loc.Get("HousingShare.PublishButton")))
                     {
-                        _ = housingShareManager.PublishAsync(currentLocation, _housingShareDescription,
-                            new List<string>(_housingShareAllowedIndividuals), new List<string>(_housingShareAllowedSyncshells));
+                        var individuals = _housingShareToAll
+                            ? _pairManager.DirectPairs.Select(p => p.UserData.UID).ToList()
+                            : new List<string>(_housingShareAllowedIndividuals);
+                        var syncshells = _housingShareToAll
+                            ? _pairManager.Groups.Values.Select(g => g.GID).ToList()
+                            : new List<string>(_housingShareAllowedSyncshells);
+                        _ = housingShareManager.PublishAsync(currentLocation, _housingShareDescription, individuals, syncshells, _housingShareDisableSourceMods);
                         _housingShareDescription = string.Empty;
+                        _housingShareDisableSourceMods = false;
+                        _housingShareToAll = true;
                         _housingShareAllowedIndividuals.Clear();
                         _housingShareAllowedSyncshells.Clear();
                         _housingShareIndividualInput = string.Empty;
@@ -308,6 +349,11 @@ public sealed partial class CharaDataHubUi
                             _housingShareEditAllowedIndividuals.AddRange(entry.AllowedIndividuals);
                             _housingShareEditAllowedSyncshells.Clear();
                             _housingShareEditAllowedSyncshells.AddRange(entry.AllowedSyncshells);
+                            
+                            var allUids = new HashSet<string>(_pairManager.DirectPairs.Select(p => p.UserData.UID), StringComparer.OrdinalIgnoreCase);
+                            var allGids = new HashSet<string>(_pairManager.Groups.Values.Select(g => g.GID), StringComparer.OrdinalIgnoreCase);
+                            
+                            _housingShareEditToAll = allUids.SetEquals(entry.AllowedIndividuals) && allGids.SetEquals(entry.AllowedSyncshells);
                             _housingShareEditIndividualInput = string.Empty;
                             _housingShareEditSyncshellInput = string.Empty;
                             _housingShareEditIndividualDropdownSelection = string.Empty;
@@ -352,74 +398,80 @@ public sealed partial class CharaDataHubUi
 
         ImGuiHelpers.ScaledDummy(3);
 
-        // Edit: Allowed individuals
-        DrawHousingShareEditIndividualDropdown();
-        ImGui.SameLine();
-        ImGui.SetNextItemWidth(220f);
-        if (ImGui.InputTextWithHint("##housingShareEditUidInput", "UID ou vanity", ref _housingShareEditIndividualInput, 32))
+        // Visibilité : checkbox tout partager
+        ImGui.Checkbox("Partager à tous mes paires et syncshells##edit", ref _housingShareEditToAll);
+
+        if (!_housingShareEditToAll)
         {
-            _housingShareEditIndividualDropdownSelection = string.Empty;
-        }
-        ImGui.SameLine();
-        var normalizedUid = NormalizeUidCandidate(_housingShareEditIndividualInput);
-        using (ImRaii.Disabled(string.IsNullOrEmpty(normalizedUid)
-            || _housingShareEditAllowedIndividuals.Any(p => string.Equals(p, normalizedUid, StringComparison.OrdinalIgnoreCase))))
-        {
-            if (ImGui.SmallButton("Ajouter##housingEditUid"))
+            // Edit: Allowed individuals
+            DrawHousingShareEditIndividualDropdown();
+            ImGui.SameLine();
+            ImGui.SetNextItemWidth(220f);
+            if (ImGui.InputTextWithHint("##housingShareEditUidInput", "UID ou vanity", ref _housingShareEditIndividualInput, 32))
             {
-                _housingShareEditAllowedIndividuals.Add(normalizedUid);
-                _housingShareEditIndividualInput = string.Empty;
                 _housingShareEditIndividualDropdownSelection = string.Empty;
             }
-        }
-        ImGui.SameLine();
-        ImGui.TextUnformatted("UID synchronis\u00e9 \u00e0 ajouter");
-
-        foreach (var uid in _housingShareEditAllowedIndividuals.ToArray())
-        {
-            using (ImRaii.PushId("housingShareEditUid" + uid))
+            ImGui.SameLine();
+            var normalizedUid = NormalizeUidCandidate(_housingShareEditIndividualInput);
+            using (ImRaii.Disabled(string.IsNullOrEmpty(normalizedUid)
+                || _housingShareEditAllowedIndividuals.Any(p => string.Equals(p, normalizedUid, StringComparison.OrdinalIgnoreCase))))
             {
-                ImGui.BulletText(FormatPairLabel(uid));
-                ImGui.SameLine();
-                if (ImGui.SmallButton("Retirer"))
+                if (ImGui.SmallButton("Ajouter##housingEditUid"))
                 {
-                    _housingShareEditAllowedIndividuals.Remove(uid);
+                    _housingShareEditAllowedIndividuals.Add(normalizedUid);
+                    _housingShareEditIndividualInput = string.Empty;
+                    _housingShareEditIndividualDropdownSelection = string.Empty;
                 }
             }
-        }
+            ImGui.SameLine();
+            ImGui.TextUnformatted("UID synchronisé à ajouter");
 
-        // Edit: Allowed syncshells
-        DrawHousingShareEditSyncshellDropdown();
-        ImGui.SameLine();
-        ImGui.SetNextItemWidth(220f);
-        if (ImGui.InputTextWithHint("##housingShareEditSyncshellInput", "GID ou alias", ref _housingShareEditSyncshellInput, 32))
-        {
-            _housingShareEditSyncshellDropdownSelection = string.Empty;
-        }
-        ImGui.SameLine();
-        var normalizedSyncshell = NormalizeSyncshellCandidate(_housingShareEditSyncshellInput);
-        using (ImRaii.Disabled(string.IsNullOrEmpty(normalizedSyncshell)
-            || _housingShareEditAllowedSyncshells.Any(p => string.Equals(p, normalizedSyncshell, StringComparison.OrdinalIgnoreCase))))
-        {
-            if (ImGui.SmallButton("Ajouter##housingEditSyncshell"))
+            foreach (var uid in _housingShareEditAllowedIndividuals.ToArray())
             {
-                _housingShareEditAllowedSyncshells.Add(normalizedSyncshell);
-                _housingShareEditSyncshellInput = string.Empty;
+                using (ImRaii.PushId("housingShareEditUid" + uid))
+                {
+                    ImGui.BulletText(FormatPairLabel(uid));
+                    ImGui.SameLine();
+                    if (ImGui.SmallButton("Retirer"))
+                    {
+                        _housingShareEditAllowedIndividuals.Remove(uid);
+                    }
+                }
+            }
+
+            // Edit: Allowed syncshells
+            DrawHousingShareEditSyncshellDropdown();
+            ImGui.SameLine();
+            ImGui.SetNextItemWidth(220f);
+            if (ImGui.InputTextWithHint("##housingShareEditSyncshellInput", "GID ou alias", ref _housingShareEditSyncshellInput, 32))
+            {
                 _housingShareEditSyncshellDropdownSelection = string.Empty;
             }
-        }
-        ImGui.SameLine();
-        ImGui.TextUnformatted("Syncshell \u00e0 ajouter");
-
-        foreach (var shell in _housingShareEditAllowedSyncshells.ToArray())
-        {
-            using (ImRaii.PushId("housingShareEditShell" + shell))
+            ImGui.SameLine();
+            var normalizedSyncshell = NormalizeSyncshellCandidate(_housingShareEditSyncshellInput);
+            using (ImRaii.Disabled(string.IsNullOrEmpty(normalizedSyncshell)
+                || _housingShareEditAllowedSyncshells.Any(p => string.Equals(p, normalizedSyncshell, StringComparison.OrdinalIgnoreCase))))
             {
-                ImGui.BulletText(FormatSyncshellLabel(shell));
-                ImGui.SameLine();
-                if (ImGui.SmallButton("Retirer"))
+                if (ImGui.SmallButton("Ajouter##housingEditSyncshell"))
                 {
-                    _housingShareEditAllowedSyncshells.Remove(shell);
+                    _housingShareEditAllowedSyncshells.Add(normalizedSyncshell);
+                    _housingShareEditSyncshellInput = string.Empty;
+                    _housingShareEditSyncshellDropdownSelection = string.Empty;
+                }
+            }
+            ImGui.SameLine();
+            ImGui.TextUnformatted("Syncshell à ajouter");
+
+            foreach (var shell in _housingShareEditAllowedSyncshells.ToArray())
+            {
+                using (ImRaii.PushId("housingShareEditShell" + shell))
+                {
+                    ImGui.BulletText(FormatSyncshellLabel(shell));
+                    ImGui.SameLine();
+                    if (ImGui.SmallButton("Retirer"))
+                    {
+                        _housingShareEditAllowedSyncshells.Remove(shell);
+                    }
                 }
             }
         }
@@ -430,8 +482,13 @@ public sealed partial class CharaDataHubUi
         {
             if (_uiSharedService.IconTextButton(FontAwesomeIcon.Save, "Sauvegarder"))
             {
-                _ = housingShareManager.UpdateVisibilityAsync(entry.Id, _housingShareEditDescription,
-                    new List<string>(_housingShareEditAllowedIndividuals), new List<string>(_housingShareEditAllowedSyncshells));
+                var editIndividuals = _housingShareEditToAll
+                    ? _pairManager.DirectPairs.Select(p => p.UserData.UID).ToList()
+                    : new List<string>(_housingShareEditAllowedIndividuals);
+                var editSyncshells = _housingShareEditToAll
+                    ? _pairManager.Groups.Values.Select(g => g.GID).ToList()
+                    : new List<string>(_housingShareEditAllowedSyncshells);
+                _ = housingShareManager.UpdateVisibilityAsync(entry.Id, _housingShareEditDescription, editIndividuals, editSyncshells);
                 _housingShareEditingId = null;
             }
         }

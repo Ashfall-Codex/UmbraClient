@@ -73,7 +73,8 @@ public sealed class FileUploadManager : DisposableMediatorSubscriberBase
             return locallyMissingFiles;
         }
 
-        progress.Report($"Starting upload for {filesPresentLocally.Count} files");
+        progress.Report(string.Format(System.Globalization.CultureInfo.CurrentCulture,
+            Localization.Loc.Get("Settings.Transfer.Precache.Progress.Starting"), filesPresentLocally.Count));
 
         var filesToUpload = await FilesSend([.. filesPresentLocally], [], ct ?? CancellationToken.None).ConfigureAwait(false);
 
@@ -96,7 +97,8 @@ public sealed class FileUploadManager : DisposableMediatorSubscriberBase
                 uploadedBytesProgress?.Report(uploadedTotal);
             }
 
-            progress.Report($"Uploading file {i++}/{filesToUpload.Count}. Please wait until the upload is completed.");
+            progress.Report(string.Format(System.Globalization.CultureInfo.CurrentCulture,
+                Localization.Loc.Get("Settings.Transfer.Precache.Progress.Uploading"), i++, filesToUpload.Count));
             Logger.LogDebug("[{hash}] Compressing", file);
             var data = await _fileDbManager.GetCompressedFileData(file.Hash, ct ?? CancellationToken.None).ConfigureAwait(false);
             lastSize = data.Item2.LongLength;

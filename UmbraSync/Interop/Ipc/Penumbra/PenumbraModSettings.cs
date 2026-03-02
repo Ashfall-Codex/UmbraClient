@@ -22,7 +22,7 @@ public sealed class PenumbraModSettings : IDisposable
     {
         _core = core;
 
-        // Initialiser l'API pour récupérer les settings
+        // Initialiser l'API pour récupérer les settings de mods
         _penumbraGetAllModSettings = new PenumbraIpc.GetAllModSettings(_core.PluginInterface);
 
         // S'abonner aux changements de settings de mods
@@ -118,6 +118,42 @@ public sealed class PenumbraModSettings : IDisposable
                     root = root[..lastSlash];
 
                 result.Add(root);
+            }
+
+            return result;
+        });
+    }
+    
+    public Task<List<string>> GetEnabledModPathsForDefaultCollectionAsync()
+    {
+        if (!_core.APIAvailable) return Task.FromResult(new List<string>());
+
+        return _core.DalamudUtil.RunOnFrameworkThread(() =>
+        {
+            // Récupérer le répertoire racine des mods Penumbra
+            var modRoot = _core.ModDirectory;
+            if (string.IsNullOrEmpty(modRoot))
+                return new List<string>();
+
+            var coll = new PenumbraIpc.GetCollection(_core.PluginInterface).Invoke(PenumbraEnum.ApiCollectionType.Default);
+            if (coll == null) return new List<string>();
+            var collId = coll.Value.Id;
+
+            var (ec, all) = _penumbraGetAllModSettings.Invoke(collId, ignoreInheritance: false, ignoreTemporary: true, key: 0);
+            if (ec != PenumbraEnum.PenumbraApiEc.Success || all == null || all.Count == 0)
+                return new List<string>();
+
+            var result = new List<string>();
+            foreach (var kv in all)
+            {
+                var modDirName = kv.Key;
+                var settings = kv.Value;
+                var isEnabled = settings.Item1;
+                if (!isEnabled) continue;
+
+                // Combiner le répertoire racine Penumbra avec le nom du dossier du mod
+                var fullPath = Path.Combine(modRoot, modDirName);
+                result.Add(fullPath);
             }
 
             return result;

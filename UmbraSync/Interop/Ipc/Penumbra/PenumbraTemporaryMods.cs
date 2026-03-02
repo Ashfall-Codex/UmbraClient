@@ -59,9 +59,47 @@ public sealed class PenumbraTemporaryMods
                 logger.LogTrace("[{tag}] Change: {from} => {to}", tag, mod.Key, mod.Value);
             }
             var retRemove = _penumbraRemoveTemporaryModAll.Invoke(tag, priority);
-            logger.LogTrace("[{tag}] Removing temp all mod, Success: {ret}", tag, retRemove);
+            logger.LogDebug("[{tag}] Removing temp all mod, Result: {ret}", tag, retRemove);
             var retAdd = _penumbraAddTemporaryModAll.Invoke(tag, modPaths, string.Empty, priority);
-            logger.LogTrace("[{tag}] Setting temp all mod ({count} paths), Success: {ret}", tag, modPaths.Count, retAdd);
+            logger.LogInformation("[{tag}] AddTemporaryModAll ({count} paths), Result: {ret}", tag, modPaths.Count, retAdd);
+            
+            int logged = 0;
+            foreach (var mod in modPaths)
+            {
+                if (logged++ >= 5) break;
+                logger.LogInformation("[{tag}] Exemple : {from} => {to}", tag, mod.Key, mod.Value);
+            }
+        }).ConfigureAwait(false);
+    }
+
+    public async Task AddTemporaryModAsync(ILogger logger, string tag, Guid collId, Dictionary<string, string> modPaths, int priority)
+    {
+        if (!_core.APIAvailable || collId == Guid.Empty) return;
+
+        await _core.DalamudUtil.RunOnFrameworkThread(() =>
+        {
+            var retRemove = _penumbraRemoveTemporaryMod.Invoke(tag, collId, priority);
+            logger.LogDebug("[{tag}] Removing temp mod for collection {collId}, Result: {ret}", tag, collId, retRemove);
+            var retAdd = _penumbraAddTemporaryMod.Invoke(tag, collId, modPaths, string.Empty, priority);
+            logger.LogInformation("[{tag}] AddTemporaryMod ({count} paths) for collection {collId}, Result: {ret}", tag, modPaths.Count, collId, retAdd);
+
+            int logged = 0;
+            foreach (var mod in modPaths)
+            {
+                if (logged++ >= 5) break;
+                logger.LogInformation("[{tag}] Exemple : {from} => {to}", tag, mod.Key, mod.Value);
+            }
+        }).ConfigureAwait(false);
+    }
+
+    public async Task RemoveTemporaryModAsync(ILogger logger, string tag, Guid collId, int priority)
+    {
+        if (!_core.APIAvailable || collId == Guid.Empty) return;
+
+        await _core.DalamudUtil.RunOnFrameworkThread(() =>
+        {
+            var ret = _penumbraRemoveTemporaryMod.Invoke(tag, collId, priority);
+            logger.LogTrace("[{tag}] Removing temp mod for collection {collId}, Result: {ret}", tag, collId, ret);
         }).ConfigureAwait(false);
     }
 

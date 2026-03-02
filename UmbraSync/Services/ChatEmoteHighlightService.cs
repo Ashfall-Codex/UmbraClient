@@ -4,6 +4,7 @@ using Dalamud.Game.Text.SeStringHandling.Payloads;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
 using Microsoft.Extensions.Logging;
+using System.Text;
 using System.Text.RegularExpressions;
 using UmbraSync.MareConfiguration;
 using UmbraSync.Services.Mediator;
@@ -113,54 +114,136 @@ public class ChatEmoteHighlightService : DisposableMediatorSubscriberBase
         var emoteColorKey = _configService.Current.EmoteHighlightColorKey;
         var hrpColorKey = _configService.Current.EmoteHighlightParenthesesColorKey;
         var chatTwoActive = PluginWatcherService.GetInitialPluginState(_pluginInterface, "ChatTwo")?.IsLoaded == true;
+
+        // Concaténer tous les TextPayload.Text pour que le regex puisse détecter les patterns
+        var flatBuilder = new StringBuilder();
+        foreach (var payload in message.Payloads)
+        {
+            if (payload is TextPayload tp && tp.Text != null)
+                flatBuilder.Append(tp.Text);
+        }
+        var flatText = flatBuilder.ToString();
+        
+        var matches = pattern.Matches(flatText);
+        if (matches.Count == 0)
+            return;
+
+        // Construire la liste des matchées (start, end exclusif, isHrp)
+        var regions = new List<(int start, int end, bool isHrp)>(matches.Count);
+        foreach (Match m in matches)
+            regions.Add((m.Index, m.Index + m.Length, m.Groups[GroupHrp].Success));
+        
+        // Reconstruire le texte
         var newPayloads = new List<Payload>();
-        var modified = false;
+        var flatPos = 0;
+        var regionIdx = 0;
+        var colorOpen = false;
+        var foreignColorOpen = false;
+        ushort activeColorKey = 0;
+        var activeItalic = false;
 
         foreach (var payload in message.Payloads)
         {
-            if (payload is not TextPayload textPayload || string.IsNullOrEmpty(textPayload.Text))
+            if (payload is TextPayload textPayload && !string.IsNullOrEmpty(textPayload.Text))
+            {
+                var text = textPayload.Text;
+                var localPos = 0;
+
+                while (localPos < text.Length)
+                {
+                    if (colorOpen)
+                    {
+                        // Emettre le texte jusqu'à la fin de la région ou du payload
+                        var region = regions[regionIdx];
+                        var endInText = Math.Min(region.end - flatPos, text.Length);
+
+                        if (endInText > localPos)
+                            newPayloads.Add(new TextPayload(text[localPos..endInText]));
+
+                        localPos = endInText;
+
+                        if (flatPos + localPos >= region.end)
+                        {
+                            // Fermer
+                            if (activeItalic)
+                                newPayloads.Add(new EmphasisItalicPayload(false));
+                            newPayloads.Add(UIForegroundPayload.UIForegroundOff);
+                            colorOpen = false;
+                            foreignColorOpen = false;
+                            regionIdx++;
+                        }
+                    }
+                    else
+                    {
+                        if (regionIdx < regions.Count && regions[regionIdx].start < flatPos + text.Length)
+                        {
+                            var region = regions[regionIdx];
+                            var startInText = region.start - flatPos;
+
+                            if (startInText > localPos)
+                                newPayloads.Add(new TextPayload(text[localPos..startInText]));
+
+                            var isHrp = region.isHrp;
+                            activeColorKey = isHrp ? hrpColorKey : emoteColorKey;
+                            activeItalic = isHrp && _configService.Current.EmoteHighlightParenthesesItalic && !chatTwoActive;
+
+                            newPayloads.Add(new UIForegroundPayload(activeColorKey));
+                            if (activeItalic)
+                                newPayloads.Add(new EmphasisItalicPayload(true));
+                            colorOpen = true;
+
+                            localPos = startInText;
+                        }
+                        else
+                        {
+                            // R.A.S
+                            if (localPos > 0)
+                                newPayloads.Add(new TextPayload(text[localPos..]));
+                            else
+                                newPayloads.Add(payload);
+                            localPos = text.Length;
+                        }
+                    }
+                }
+
+                flatPos += text.Length;
+            }
+            else if (payload is UIForegroundPayload ufp)
+            {
+                if (colorOpen)
+                {
+                    if (ufp.ColorKey != 0)
+                    {
+                        // Couleur étrangère, suspendre notre couleur
+                        newPayloads.Add(UIForegroundPayload.UIForegroundOff);
+                        newPayloads.Add(ufp);
+                        foreignColorOpen = true;
+                    }
+                    else
+                    {
+                        //  restaurer notre couleur
+                        if (foreignColorOpen)
+                        {
+                            newPayloads.Add(new UIForegroundPayload(activeColorKey));
+                            foreignColorOpen = false;
+                        }
+                        else
+                        {
+                            newPayloads.Add(ufp);
+                        }
+                    }
+                }
+                else
+                {
+                    newPayloads.Add(ufp);
+                }
+            }
+            else
             {
                 newPayloads.Add(payload);
-                continue;
             }
-
-            var text = textPayload.Text;
-            var matches = pattern.Matches(text);
-
-            if (matches.Count == 0)
-            {
-                newPayloads.Add(payload);
-                continue;
-            }
-
-            modified = true;
-            var lastIndex = 0;
-
-            foreach (Match match in matches)
-            {
-                if (match.Index > lastIndex)
-                    newPayloads.Add(new TextPayload(text[lastIndex..match.Index]));
-
-                var isHrp = match.Groups[GroupHrp].Success;
-                var colorKey = isHrp ? hrpColorKey : emoteColorKey;
-                var useItalic = isHrp && _configService.Current.EmoteHighlightParenthesesItalic && !chatTwoActive;
-
-                newPayloads.Add(new UIForegroundPayload(colorKey));
-                if (useItalic)
-                    newPayloads.Add(new EmphasisItalicPayload(true));
-                newPayloads.Add(new TextPayload(match.Value));
-                if (useItalic)
-                    newPayloads.Add(new EmphasisItalicPayload(false));
-                newPayloads.Add(UIForegroundPayload.UIForegroundOff);
-
-                lastIndex = match.Index + match.Length;
-            }
-
-            if (lastIndex < text.Length)
-                newPayloads.Add(new TextPayload(text[lastIndex..]));
         }
 
-        if (modified)
-            message = new SeString(newPayloads);
+        message = new SeString(newPayloads);
     }
 }

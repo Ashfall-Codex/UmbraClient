@@ -181,6 +181,18 @@ public sealed class SyncDefaultsService : DisposableMediatorSubscriberBase
             }
         }
 
+        if (message.DisableHousingMods.HasValue)
+        {
+            var val = message.DisableHousingMods.Value;
+            var defaultVal = _configService.Current.DefaultDisableHousingMods;
+            var newValue = val == defaultVal ? (bool?)null : val;
+            if (entry.DisableHousingMods != newValue)
+            {
+                entry.DisableHousingMods = newValue;
+                changed = true;
+            }
+        }
+
         if (!changed) return;
 
         if (entry.IsEmpty)
@@ -229,6 +241,18 @@ public sealed class SyncDefaultsService : DisposableMediatorSubscriberBase
             if (entry.DisableVfx != newValue)
             {
                 entry.DisableVfx = newValue;
+                changed = true;
+            }
+        }
+
+        if (message.DisableHousingMods.HasValue)
+        {
+            var val = message.DisableHousingMods.Value;
+            var defaultVal = _configService.Current.DefaultDisableHousingMods;
+            var newValue = val == defaultVal ? (bool?)null : val;
+            if (entry.DisableHousingMods != newValue)
+            {
+                entry.DisableHousingMods = newValue;
                 changed = true;
             }
         }
@@ -300,6 +324,20 @@ public sealed class SyncDefaultsService : DisposableMediatorSubscriberBase
             changed = true;
         }
 
+        if (overrides?.DisableHousingMods is bool overrideHousing)
+        {
+            if (permissions.IsDisableHousing() != overrideHousing)
+            {
+                permissions.SetDisableHousing(overrideHousing);
+                changed = true;
+            }
+        }
+        else if (permissions.IsDisableHousing() != config.DefaultDisableHousingMods)
+        {
+            permissions.SetDisableHousing(config.DefaultDisableHousingMods);
+            changed = true;
+        }
+
         return changed;
     }
 
@@ -345,6 +383,20 @@ public sealed class SyncDefaultsService : DisposableMediatorSubscriberBase
         else if (permissions.IsDisableVFX() != config.DefaultDisableVfx)
         {
             permissions.SetDisableVFX(config.DefaultDisableVfx);
+            changed = true;
+        }
+
+        if (overrides?.DisableHousingMods is bool overrideHousing)
+        {
+            if (permissions.IsDisableHousing() != overrideHousing)
+            {
+                permissions.SetDisableHousing(overrideHousing);
+                changed = true;
+            }
+        }
+        else if (permissions.IsDisableHousing() != config.DefaultDisableHousingMods)
+        {
+            permissions.SetDisableHousing(config.DefaultDisableHousingMods);
             changed = true;
         }
 

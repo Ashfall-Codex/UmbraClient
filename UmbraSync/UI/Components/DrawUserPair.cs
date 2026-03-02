@@ -203,7 +203,8 @@ public class DrawUserPair : DrawPairBase
         var individualSoundsDisabled = (_pair.UserPair?.OwnPermissions.IsDisableSounds() ?? false) || (_pair.UserPair?.OtherPermissions.IsDisableSounds() ?? false);
         var individualAnimDisabled = (_pair.UserPair?.OwnPermissions.IsDisableAnimations() ?? false) || (_pair.UserPair?.OtherPermissions.IsDisableAnimations() ?? false);
         var individualVFXDisabled = (_pair.UserPair?.OwnPermissions.IsDisableVFX() ?? false) || (_pair.UserPair?.OtherPermissions.IsDisableVFX() ?? false);
-        if (individualSoundsDisabled || individualAnimDisabled || individualVFXDisabled)
+        var individualHousingDisabled = (_pair.UserPair?.OwnPermissions.IsDisableHousing() ?? false) || (_pair.UserPair?.OtherPermissions.IsDisableHousing() ?? false);
+        if (individualSoundsDisabled || individualAnimDisabled || individualVFXDisabled || individualHousingDisabled)
         {
             var icon = FontAwesomeIcon.ExclamationTriangle;
             var iconwidth = _uiSharedService.GetIconButtonSize(icon);
@@ -263,6 +264,21 @@ public class DrawUserPair : DrawPairBase
                         Loc.Get("DrawUserPair.Permissions.StatusLine"),
                         _pair.UserPair!.OwnPermissions.IsDisableVFX() ? Loc.Get("Common.Disabled") : Loc.Get("Common.Enabled"),
                         _pair.UserPair!.OtherPermissions.IsDisableVFX() ? Loc.Get("Common.Disabled") : Loc.Get("Common.Enabled")));
+                }
+
+                if (individualHousingDisabled)
+                {
+                    var userHousingText = string.Format(CultureInfo.CurrentCulture, Loc.Get("DrawUserPair.Permissions.HousingDisabled"), _pair.UserData.AliasOrUID);
+                    _uiSharedService.IconText(FontAwesomeIcon.Home);
+                    ImGui.SameLine(40 * ImGuiHelpers.GlobalScale);
+                    ImGui.TextUnformatted(userHousingText);
+                    ImGui.NewLine();
+                    ImGui.SameLine(40 * ImGuiHelpers.GlobalScale);
+                    ImGui.TextUnformatted(string.Format(
+                        CultureInfo.CurrentCulture,
+                        Loc.Get("DrawUserPair.Permissions.StatusLine"),
+                        _pair.UserPair!.OwnPermissions.IsDisableHousing() ? Loc.Get("Common.Disabled") : Loc.Get("Common.Enabled"),
+                        _pair.UserPair!.OtherPermissions.IsDisableHousing() ? Loc.Get("Common.Disabled") : Loc.Get("Common.Enabled")));
                 }
 
                 ImGui.EndTooltip();
@@ -366,6 +382,17 @@ public class DrawUserPair : DrawPairBase
             var permissions = entry.UserPair.OwnPermissions;
             permissions.SetDisableVFX(!isDisableVFX);
             _mediator.Publish(new PairSyncOverrideChanged(entry.UserData.UID, null, null, permissions.IsDisableVFX()));
+            _ = _apiController.UserSetPairPermissions(new UserPermissionsDto(entry.UserData, permissions));
+        }
+
+        var isDisableHousing = entry.UserPair!.OwnPermissions.IsDisableHousing();
+        string disableHousingText = Loc.Get(isDisableHousing ? "DrawUserPair.Menu.EnableHousing" : "DrawUserPair.Menu.DisableHousing");
+        var disableHousingIcon = isDisableHousing ? FontAwesomeIcon.TimesCircle : FontAwesomeIcon.Home;
+        if (_uiSharedService.IconTextButton(disableHousingIcon, disableHousingText))
+        {
+            var permissions = entry.UserPair.OwnPermissions;
+            permissions.SetDisableHousing(!isDisableHousing);
+            _mediator.Publish(new PairSyncOverrideChanged(entry.UserData.UID, null, null, null, permissions.IsDisableHousing()));
             _ = _apiController.UserSetPairPermissions(new UserPermissionsDto(entry.UserData, permissions));
         }
 

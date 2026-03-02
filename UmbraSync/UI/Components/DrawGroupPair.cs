@@ -567,6 +567,22 @@ public class DrawGroupPair : DrawPairBase
                     }
                     _pair.ApplyLastReceivedData(forced: true);
                 }
+
+                var isDisableHousing = localOverride?.DisableHousingMods
+                    ?? (_pair.UserPair?.OwnPermissions.IsDisableHousing() ?? false);
+                var disableHousingText = Loc.Get(isDisableHousing ? "DrawUserPair.Menu.EnableHousing" : "DrawUserPair.Menu.DisableHousing");
+                var disableHousingIcon = isDisableHousing ? FontAwesomeIcon.TimesCircle : FontAwesomeIcon.Home;
+                if (_uiSharedService.IconTextButton(disableHousingIcon, disableHousingText))
+                {
+                    var newState = !isDisableHousing;
+                    _mediator.Publish(new PairSyncOverrideChanged(uid, null, null, null, newState));
+                    if (_pair.UserPair != null)
+                    {
+                        var permissions = _pair.UserPair.OwnPermissions;
+                        permissions.SetDisableHousing(newState);
+                        _ = _apiController.UserSetPairPermissions(new UserPermissionsDto(_pair.UserData, permissions));
+                    }
+                }
             }
 
             if (_pair.IsVisible)

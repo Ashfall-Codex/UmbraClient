@@ -49,6 +49,7 @@ public record HonorificMessage(string NewHonorificTitle) : MessageBase;
 public record PetNamesReadyMessage : MessageBase;
 public record PetNamesMessage(string PetNicknamesData) : MessageBase;
 public record MoodlesMessage(IntPtr Address) : MessageBase;
+public record MoodlesReadyMessage : MessageBase;
 public record HonorificReadyMessage : MessageBase;
 public record PlayerChangedMessage(CharacterData Data) : MessageBase;
 public record CharacterChangedMessage(GameObjectHandler GameObjectHandler) : MessageBase;
@@ -135,8 +136,8 @@ public record ManualPairInviteMessage(string SourceUid, string SourceAlias, stri
 public record ApplyDefaultPairPermissionsMessage(UserPairDto Pair) : MessageBase;
 public record ApplyDefaultGroupPermissionsMessage(GroupPairFullInfoDto GroupPair) : MessageBase;
 public record ApplyDefaultsToAllSyncsMessage(string? Context = null, bool? Disabled = null) : MessageBase;
-public record PairSyncOverrideChanged(string Uid, bool? DisableSounds, bool? DisableAnimations, bool? DisableVfx) : MessageBase;
-public record GroupSyncOverrideChanged(string Gid, bool? DisableSounds, bool? DisableAnimations, bool? DisableVfx) : MessageBase;
+public record PairSyncOverrideChanged(string Uid, bool? DisableSounds, bool? DisableAnimations, bool? DisableVfx, bool? DisableHousingMods = null) : MessageBase;
+public record GroupSyncOverrideChanged(string Gid, bool? DisableSounds, bool? DisableAnimations, bool? DisableVfx, bool? DisableHousingMods = null) : MessageBase;
 public record NotificationStateChanged(int TotalCount) : MessageBase;
 public record PairOnlineMessage(UserData User) : MessageBase;
 public record PluginChangeMessage(string InternalName, Version Version, bool IsLoaded) : KeyedMessage(InternalName);

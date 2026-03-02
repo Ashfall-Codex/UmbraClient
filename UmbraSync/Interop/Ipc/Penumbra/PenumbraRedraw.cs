@@ -16,13 +16,15 @@ public sealed class PenumbraRedraw : IDisposable
     private readonly ConcurrentDictionary<IntPtr, bool> _penumbraRedrawRequests = new();
     private readonly PenumbraApi.EventSubscriber<nint, int> _penumbraObjectIsRedrawn;
     private readonly PenumbraIpc.RedrawObject _penumbraRedraw;
+    private readonly PenumbraIpc.RedrawAll _penumbraRedrawAll;
 
     public PenumbraRedraw(PenumbraCore core)
     {
         _core = core;
 
-        // Initialiser l'API de redraw
+        // Initialiser les API de redraw
         _penumbraRedraw = new PenumbraIpc.RedrawObject(_core.PluginInterface);
+        _penumbraRedrawAll = new PenumbraIpc.RedrawAll(_core.PluginInterface);
         _penumbraObjectIsRedrawn = PenumbraIpc.GameObjectRedrawn.Subscriber(_core.PluginInterface, RedrawEvent);
     }
     
@@ -69,7 +71,7 @@ public sealed class PenumbraRedraw : IDisposable
     public void RedrawAll()
     {
         if (!_core.APIAvailable) return;
-        _penumbraRedraw!.Invoke(0, setting: PenumbraEnum.RedrawType.Redraw);
+        _penumbraRedrawAll.Invoke(PenumbraEnum.RedrawType.Redraw);
     }
     
     private void RedrawEvent(IntPtr objectAddress, int objectTableIndex)

@@ -758,6 +758,9 @@ Please keep a copy of your secret key in case you need to reset your plugins, or
   <data name="DrawUserPair.Permissions.VfxDisabled" xml:space="preserve">
     <value>VFX sync disabled with {0}</value>
   </data>
+  <data name="DrawUserPair.Permissions.HousingDisabled" xml:space="preserve">
+    <value>Housing sync disabled with {0}</value>
+  </data>
   <data name="DrawUserPair.Permissions.StatusLine" xml:space="preserve">
     <value>You: {0}, They: {1}</value>
   </data>
@@ -811,6 +814,12 @@ Please keep a copy of your secret key in case you need to reset your plugins, or
   </data>
   <data name="DrawUserPair.Menu.DisableVfx" xml:space="preserve">
     <value>Disable VFX sync</value>
+  </data>
+  <data name="DrawUserPair.Menu.EnableHousing" xml:space="preserve">
+    <value>Enable housing sync</value>
+  </data>
+  <data name="DrawUserPair.Menu.DisableHousing" xml:space="preserve">
+    <value>Disable housing sync</value>
   </data>
   <data name="DrawUserPair.Menu.Unpair" xml:space="preserve">
     <value>Unpair Permanently</value>
@@ -995,6 +1004,12 @@ Click to change.</value>
   </data>
   <data name="CompactUi.SyncDefaults.VfxSubject" xml:space="preserve">
     <value>visual effects</value>
+  </data>
+  <data name="CompactUi.SyncDefaults.HousingLabel" xml:space="preserve">
+    <value>Housing</value>
+  </data>
+  <data name="CompactUi.SyncDefaults.HousingSubject" xml:space="preserve">
+    <value>housing sync</value>
   </data>
   <data name="CompactUi.Uid.CopyTooltip" xml:space="preserve">
     <value>Copy your UID to clipboard</value>
@@ -2409,6 +2424,12 @@ Click to change.</value>
   <data name="Settings.RpNameColors.Help" xml:space="preserve">
     <value>When enabled, RP name colors chosen by users will be displayed on profiles and in chat.</value>
   </data>
+  <data name="Settings.RespectExternalNameColors" xml:space="preserve">
+    <value>Respect external plugin name colors</value>
+  </data>
+  <data name="Settings.RespectExternalNameColors.Help" xml:space="preserve">
+    <value>When another plugin (SimpleTweaks, etc.) has already colored a player name, keep its color instead of applying the RP name color.</value>
+  </data>
   <data name="Settings.EmoteHighlight.Header" xml:space="preserve">
     <value>Emote Highlighting</value>
   </data>
@@ -3551,6 +3572,12 @@ Click to change.</value>
   <data name="UserProfile.NoRpDescription" xml:space="preserve">
     <value>User has no RP description set.</value>
   </data>
+  <data name="UserProfile.NoRpProfile" xml:space="preserve">
+    <value>This user has not configured their RP profile yet.</value>
+  </data>
+  <data name="UserProfile.NoHrpProfile" xml:space="preserve">
+    <value>This user has not configured their HRP profile yet.</value>
+  </data>
   <data name="UserProfile.RpDescription" xml:space="preserve">
     <value>RP Description</value>
   </data>
@@ -3640,6 +3667,12 @@ Click to change.</value>
   <data name="Syncshell.Cards.AnimDisabled" xml:space="preserve">
     <value>Animation sync disabled - Click to enable</value>
   </data>
+  <data name="Syncshell.Cards.HousingEnabled" xml:space="preserve">
+    <value>Housing sync enabled - Click to disable</value>
+  </data>
+  <data name="Syncshell.Cards.HousingDisabled" xml:space="preserve">
+    <value>Housing sync disabled - Click to enable</value>
+  </data>
   <data name="Syncshell.Cards.Notification.Title" xml:space="preserve">
     <value>Syncshell: {0}</value>
   </data>
@@ -3660,6 +3693,12 @@ Click to change.</value>
   </data>
   <data name="Syncshell.Cards.Notification.AnimDisabled" xml:space="preserve">
     <value>Animation sync disabled for {0} member(s).</value>
+  </data>
+  <data name="Syncshell.Cards.Notification.HousingEnabled" xml:space="preserve">
+    <value>Housing sync enabled for {0} member(s).</value>
+  </data>
+  <data name="Syncshell.Cards.Notification.HousingDisabled" xml:space="preserve">
+    <value>Housing sync disabled for {0} member(s).</value>
   </data>
   <data name="Syncshell.Cards.AddFavorite" xml:space="preserve">
     <value>Add to favorites</value>
@@ -3892,6 +3931,12 @@ Click to change.</value>
   <data name="Settings.Plugins.ChatProximity.Hint" xml:space="preserve">
     <value>Emote colors blend with distance fading on proximity channels (Say, Yell, Emotes)&#x0A;Requires emote color highlighting to be enabled</value>
   </data>
+  <data name="Settings.Plugins.ChatAlert.Hint" xml:space="preserve">
+    <value>Name colors set in ChatAlert are preserved when "Respect external name colors" is enabled</value>
+  </data>
+  <data name="Settings.Plugins.SimpleTweaks.Hint" xml:space="preserve">
+    <value>Chat name colors set in SimpleTweaks are preserved when "Respect external name colors" is enabled</value>
+  </data>
   <data name="Settings.Plugins.MissingMandatory" xml:space="preserve">
     <value>You need to install both Penumbra and Glamourer and keep them up to date to use UmbraSync.</value>
   </data>
@@ -4097,7 +4142,7 @@ Click to change.</value>
     <value>Scanning...</value>
   </data>
   <data name="HousingShare.ScanResult" xml:space="preserve">
-    <value>{0} modded furniture files detected.</value>
+    <value>{0} modded furniture items detected.</value>
   </data>
   <data name="HousingShare.PublishButton" xml:space="preserve">
     <value>Publish</value>
@@ -4106,7 +4151,7 @@ Click to change.</value>
     <value>Description</value>
   </data>
   <data name="HousingShare.ModsApplied" xml:space="preserve">
-    <value>Housing mods applied ({0} files).</value>
+    <value>Housing mods applied ({0} furniture items).</value>
   </data>
   <data name="HousingShare.NoModsAvailable" xml:space="preserve">
     <value>No housing mods available for this location.</value>
@@ -4169,10 +4214,10 @@ Click to change.</value>
     <value>The server refused to delete the share.</value>
   </data>
   <data name="HousingShare.Success.Published" xml:space="preserve">
-    <value>Housing mods published ({0} files).</value>
+    <value>Housing mods published ({0} furniture items).</value>
   </data>
   <data name="HousingShare.Success.Applied" xml:space="preserve">
-    <value>Housing mods applied ({0} files).</value>
+    <value>Housing mods applied ({0} furniture items).</value>
   </data>
   <data name="HousingShare.Success.Removed" xml:space="preserve">
     <value>Housing mods removed.</value>
@@ -4197,6 +4242,42 @@ Click to change.</value>
   </data>
   <data name="HousingShare.Notification.Applied" xml:space="preserve">
     <value>Housing mods applied ({0})</value>
+  </data>
+  <data name="HousingShare.Notification.ReenterForEffect" xml:space="preserve">
+    <value>Mods registered. Re-enter the house for them to take effect.</value>
+  </data>
+  <data name="HousingShare.Notification.FurnitureApplied" xml:space="preserve">
+    <value>Furniture mods applied successfully!</value>
+  </data>
+  <data name="HousingShare.Overlay.Title" xml:space="preserve">
+    <value>Modded housing detection</value>
+  </data>
+  <data name="HousingShare.MustBeInHousingEditMode" xml:space="preserve">
+    <value>You must be in Housing Edit Mode to scan and publish furniture mods. This proves ownership of the housing.</value>
+  </data>
+  <data name="HousingShare.Error.NotInHousingMode" xml:space="preserve">
+    <value>You must be in Housing Edit Mode to publish.</value>
+  </data>
+  <data name="HousingShare.Warning.DefaultCollection" xml:space="preserve">
+    <value>Penumbra limitation: furniture mods must be enabled in the Default collection (the "Base" assignment that handles World, Music, Furniture). Mods enabled only in your character collection will not be detected by the scanner and will not affect furniture in-game.</value>
+  </data>
+  <data name="HousingShare.DeleteSourceAfterPublish" xml:space="preserve">
+    <value>Delete original mod after publishing</value>
+  </data>
+  <data name="HousingShare.DeleteSourceAfterPublish.Help" xml:space="preserve">
+    <value>If checked, the original Penumbra mod(s) used as source for the housing share will be deleted from Penumbra after the upload completes. The shared data remains on the server. You can re-download it later by entering the house.</value>
+  </data>
+  <data name="HousingShare.DisableSourceAfterPublish" xml:space="preserve">
+    <value>Disable original mod after publishing</value>
+  </data>
+  <data name="HousingShare.DisableSourceAfterPublish.Help" xml:space="preserve">
+    <value>If checked, the original Penumbra mod(s) used as source for the housing share will be disabled in Penumbra after the upload completes. The mod files remain on your computer but won't be active. The shared data is uploaded to the server.</value>
+  </data>
+  <data name="HousingShare.SourceMod.Deleted" xml:space="preserve">
+    <value>Source mod(s) deleted: {0}</value>
+  </data>
+  <data name="HousingShare.SourceMod.Disabled" xml:space="preserve">
+    <value>Source mod(s) disabled: {0}</value>
   </data>
   <data name="QuestSync.Title" xml:space="preserve">
     <value>Quest Sync</value>
@@ -4411,5 +4492,35 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
   </data>
   <data name="Rgpd.Consent.MandatoryWarning" xml:space="preserve">
     <value>Collection and sharing consent are required to use the service.</value>
+  </data>
+  <data name="HousingShare.Progress.Hashing" xml:space="preserve">
+    <value>Hashing files...</value>
+  </data>
+  <data name="HousingShare.Progress.Uploading" xml:space="preserve">
+    <value>Uploading files...</value>
+  </data>
+  <data name="HousingShare.Progress.Downloading" xml:space="preserve">
+    <value>Downloading files... ({0}/{1})</value>
+  </data>
+  <data name="HousingShare.Progress.Applying" xml:space="preserve">
+    <value>Applying mods...</value>
+  </data>
+  <data name="HousingShare.Progress.CreatingMod" xml:space="preserve">
+    <value>Creating Penumbra mod...</value>
+  </data>
+  <data name="HousingShare.Progress.RegisteringMod" xml:space="preserve">
+    <value>Registering mod in Penumbra...</value>
+  </data>
+  <data name="HousingShare.Progress.RedrawFurniture" xml:space="preserve">
+    <value>Reloading furniture...</value>
+  </data>
+  <data name="HousingShare.Progress.Searching" xml:space="preserve">
+    <value>Searching for housing mods...</value>
+  </data>
+  <data name="HousingShare.Error.HashingFailed" xml:space="preserve">
+    <value>Failed to hash mod files. Make sure Penumbra is configured properly.</value>
+  </data>
+  <data name="HousingShare.Error.DownloadFailed" xml:space="preserve">
+    <value>Failed to download mod files from the server.</value>
   </data>
 </root>

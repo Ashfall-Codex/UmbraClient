@@ -113,8 +113,11 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
     private bool _brioExists;
     private bool _chatTwoExists;
     private bool _chatProximityExists;
+    private bool _chatAlertExists;
+    private bool _simpleTweaksExists;
     private bool _questRebornExists;
     public bool ChatTwoExists => _chatTwoExists;
+    public bool ExternalNameColorPluginExists => _chatAlertExists || _simpleTweaksExists;
 
     private int _serverSelectionIndex = -1;
 
@@ -148,6 +151,8 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
             _brioExists = _ipcManager.Brio.APIAvailable;
             _chatTwoExists = Services.PluginWatcherService.GetInitialPluginState(_pluginInterface, "ChatTwo")?.IsLoaded ?? false;
             _chatProximityExists = Services.PluginWatcherService.GetInitialPluginState(_pluginInterface, "ChatProximity")?.IsLoaded ?? false;
+            _chatAlertExists = Services.PluginWatcherService.GetInitialPluginState(_pluginInterface, "ChatAlerts")?.IsLoaded ?? false;
+            _simpleTweaksExists = Services.PluginWatcherService.GetInitialPluginState(_pluginInterface, "SimpleTweaksPlugin")?.IsLoaded ?? false;
             _questRebornExists = Services.PluginWatcherService.GetInitialPluginState(_pluginInterface, "AQuestReborn")?.IsLoaded ?? false;
         });
 
@@ -1260,6 +1265,15 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
                 DrawPluginEntry("Chat Proximity", _chatProximityExists, check, cross);
                 ImGui.SameLine();
                 DrawHelpText(Loc.Get("Settings.Plugins.ChatProximity.Hint"));
+                ImGui.TableNextRow();
+                ImGui.TableNextColumn();
+                DrawPluginEntry("ChatAlert", _chatAlertExists, check, cross);
+                ImGui.SameLine();
+                DrawHelpText(Loc.Get("Settings.Plugins.ChatAlert.Hint"));
+                ImGui.TableNextColumn();
+                DrawPluginEntry("SimpleTweaks", _simpleTweaksExists, check, cross);
+                ImGui.SameLine();
+                DrawHelpText(Loc.Get("Settings.Plugins.SimpleTweaks.Hint"));
                 ImGui.EndTable();
             }
         }
