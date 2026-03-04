@@ -41,6 +41,14 @@ public class MareConfig : IMareConfiguration
     public bool EmoteHighlightParenthesesGray { get; set; } = true;
     public ushort EmoteHighlightParenthesesColorKey { get; set; } = 4;
     public bool EmoteHighlightParenthesesItalic { get; set; } = true;
+    public bool ChatTargetSoundMasterEnabled { get; set; }
+    public bool ChatTargetSoundEnabled { get; set; } = false;
+    public int ChatTargetSoundIndex { get; set; } = 1;
+    public bool ChatTargetSoundReverseEnabled { get; set; }
+    public bool ChatTargetSoundPairOverridesEnabled { get; set; }
+    public Dictionary<string, int> PairTargetSoundOverrides { get; set; } = new(StringComparer.Ordinal);
+    public bool ChatTargetSoundGroupOverridesEnabled { get; set; }
+    public Dictionary<string, int> GroupTargetSoundOverrides { get; set; } = new(StringComparer.Ordinal);
     public bool EnableRightClickMenus { get; set; } = true;
     public NotificationLocation ErrorNotification { get; set; } = NotificationLocation.Both;
     public string ExportFolder { get; set; } = string.Empty;

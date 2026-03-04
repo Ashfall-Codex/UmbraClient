@@ -62,6 +62,8 @@ public class SettingsUi : WindowMediatorSubscriberBase
     private bool _deleteAccountPopupModalShown = false;
     private bool _emoteColorPaletteOpen = false;
     private bool _hrpColorPaletteOpen = false;
+    private string _targetSoundPairSearch = string.Empty;
+    private string _targetSoundGroupSearch = string.Empty;
     private string _lastTab = string.Empty;
     private int _activeSettingsTab;
     private bool? _notesSuccessfullyApplied = null;
@@ -674,10 +676,321 @@ public class SettingsUi : WindowMediatorSubscriberBase
 
         ImGui.Spacing();
 
+        DrawChatTargetSoundSettings();
+
+        ImGui.Spacing();
+
         _uiShared.BigText(Loc.Get("Settings.Typing.BubbleHeader"));
         using (ImRaii.PushIndent())
         {
             DrawTypingSettings();
+        }
+    }
+
+    private unsafe void DrawChatTargetSoundSettings()
+    {
+        _uiShared.BigText(Loc.Get("Settings.ChatTargetSound.Header"));
+
+        var masterEnabled = _configService.Current.ChatTargetSoundMasterEnabled;
+        if (ImGui.Checkbox(Loc.Get("Settings.ChatTargetSound.MasterEnable"), ref masterEnabled))
+        {
+            _configService.Current.ChatTargetSoundMasterEnabled = masterEnabled;
+            _configService.Save();
+        }
+
+        if (!masterEnabled)
+            return;
+
+        using (ImRaii.PushIndent())
+        {
+            var reverse = _configService.Current.ChatTargetSoundReverseEnabled;
+            if (ImGui.Checkbox(Loc.Get("Settings.ChatTargetSound.Reverse"), ref reverse))
+            {
+                _configService.Current.ChatTargetSoundReverseEnabled = reverse;
+                _configService.Save();
+            }
+            _uiShared.DrawHelpText(Loc.Get("Settings.ChatTargetSound.Reverse.Help"));
+
+            var enabled = _configService.Current.ChatTargetSoundEnabled;
+            if (ImGui.Checkbox(Loc.Get("Settings.ChatTargetSound.Enable"), ref enabled))
+            {
+                _configService.Current.ChatTargetSoundEnabled = enabled;
+                _configService.Save();
+            }
+            _uiShared.DrawHelpText(Loc.Get("Settings.ChatTargetSound.Enable.Help"));
+
+            ImGuiHelpers.ScaledDummy(3f);
+
+            var soundIndex = _configService.Current.ChatTargetSoundIndex;
+            ImGui.SetNextItemWidth(200 * ImGuiHelpers.GlobalScale);
+            var preview = string.Format(Loc.Get("Settings.ChatTargetSound.SoundItem"), soundIndex);
+            using (var combo = ImRaii.Combo(Loc.Get("Settings.ChatTargetSound.SoundIndex"), preview))
+            {
+                if (combo)
+                {
+                    for (var i = 1; i <= 16; i++)
+                    {
+                        var isSelected = soundIndex == i;
+                        if (ImGui.Selectable(string.Format(Loc.Get("Settings.ChatTargetSound.SoundItem"), i), isSelected))
+                        {
+                            _configService.Current.ChatTargetSoundIndex = i;
+                            _configService.Save();
+                            FFXIVClientStructs.FFXIV.Client.UI.UIGlobals.PlayChatSoundEffect((uint)i);
+                        }
+                        if (isSelected)
+                            ImGui.SetItemDefaultFocus();
+                    }
+                }
+            }
+
+            ImGuiHelpers.ScaledDummy(5f);
+
+            DrawTargetSoundPairOverrides();
+
+            ImGuiHelpers.ScaledDummy(5f);
+
+            DrawTargetSoundGroupOverrides();
+        }
+    }
+
+    /// <summary>
+    /// Dessine la section de surcharges de son par pair dans les settings.
+    /// </summary>
+    private unsafe void DrawTargetSoundPairOverrides()
+    {
+        var pairEnabled = _configService.Current.ChatTargetSoundPairOverridesEnabled;
+        if (ImGui.Checkbox(Loc.Get("Settings.ChatTargetSound.Override.EnablePair"), ref pairEnabled))
+        {
+            _configService.Current.ChatTargetSoundPairOverridesEnabled = pairEnabled;
+            _configService.Save();
+        }
+
+        if (!pairEnabled)
+            return;
+
+        using var indent = ImRaii.PushIndent(20f);
+
+        var overrides = _configService.Current.PairTargetSoundOverrides;
+        var allPairs = _pairManager.DirectPairs;
+        string? toRemove = null;
+
+        // Afficher les surcharges existantes
+        foreach (var (uid, soundValue) in overrides)
+        {
+            using var id = ImRaii.PushId("pair_ov_" + uid);
+
+            // Trouver le nom affiché du pair
+            var pair = allPairs.FirstOrDefault(p => string.Equals(p.UserData.UID, uid, StringComparison.Ordinal));
+            var noteOrName = pair?.GetNoteOrName();
+            var displayName = noteOrName != null
+                ? $"{noteOrName} ({pair!.UserData.AliasOrUID})"
+                : pair?.UserData.AliasOrUID ?? _serverConfigurationManager.GetNoteForUid(uid) ?? uid;
+
+            // Combo de sélection du son
+            var currentSound = soundValue;
+            var soundPreview = currentSound == 0
+                ? Loc.Get("Settings.ChatTargetSound.Override.Disabled")
+                : string.Format(CultureInfo.CurrentCulture, Loc.Get("Settings.ChatTargetSound.SoundItem"), currentSound);
+
+            ImGui.SetNextItemWidth(150 * ImGuiHelpers.GlobalScale);
+            using (var combo = ImRaii.Combo("##sound", soundPreview))
+            {
+                if (combo)
+                {
+                    if (ImGui.Selectable(Loc.Get("Settings.ChatTargetSound.Override.Disabled"), currentSound == 0))
+                    {
+                        overrides[uid] = 0;
+                        _configService.Save();
+                    }
+                    for (var i = 1; i <= 16; i++)
+                    {
+                        if (ImGui.Selectable(string.Format(CultureInfo.CurrentCulture, Loc.Get("Settings.ChatTargetSound.SoundItem"), i), currentSound == i))
+                        {
+                            overrides[uid] = i;
+                            _configService.Save();
+                            FFXIVClientStructs.FFXIV.Client.UI.UIGlobals.PlayChatSoundEffect((uint)i);
+                        }
+                    }
+                }
+            }
+
+            ImGui.SameLine();
+            ImGui.TextUnformatted(displayName);
+
+            ImGui.SameLine();
+            if (_uiShared.IconButton(FontAwesomeIcon.Trash))
+            {
+                toRemove = uid;
+            }
+        }
+
+        if (toRemove != null)
+        {
+            overrides.Remove(toRemove);
+            _configService.Save();
+        }
+
+        // Combo recherchable pour ajouter un nouveau pair
+        var availablePairs = allPairs
+            .Where(p => !overrides.ContainsKey(p.UserData.UID))
+            .OrderBy(p => p.GetNoteOrName() ?? p.UserData.AliasOrUID, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (availablePairs.Count > 0)
+        {
+            ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X);
+            using var combo = ImRaii.Combo("##add_pair_override", Loc.Get("Settings.ChatTargetSound.Override.SelectPair"));
+            if (combo)
+            {
+                ImGui.SetNextItemWidth(-1);
+                ImGui.InputTextWithHint("##pair_search", Loc.Get("Settings.ChatTargetSound.Override.SearchHint"), ref _targetSoundPairSearch, 128);
+                ImGui.Separator();
+
+                var search = _targetSoundPairSearch.Trim();
+                foreach (var pair in availablePairs)
+                {
+                    var noteOrName = pair.GetNoteOrName();
+                    var label = noteOrName != null
+                        ? $"{noteOrName} ({pair.UserData.AliasOrUID})"
+                        : pair.UserData.AliasOrUID;
+
+                    // Filtrer par recherche
+                    if (!string.IsNullOrEmpty(search)
+                        && !label.Contains(search, StringComparison.OrdinalIgnoreCase)
+                        && !pair.UserData.UID.Contains(search, StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    if (ImGui.Selectable(label))
+                    {
+                        overrides[pair.UserData.UID] = _configService.Current.ChatTargetSoundIndex;
+                        _configService.Save();
+                        _targetSoundPairSearch = string.Empty;
+                    }
+                }
+            }
+            else
+            {
+                // Réinitialiser la recherche quand le combo se ferme
+                _targetSoundPairSearch = string.Empty;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Dessine la section de surcharges de son par syncshell dans les settings.
+    /// </summary>
+    private unsafe void DrawTargetSoundGroupOverrides()
+    {
+        var groupEnabled = _configService.Current.ChatTargetSoundGroupOverridesEnabled;
+        if (ImGui.Checkbox(Loc.Get("Settings.ChatTargetSound.Override.EnableGroup"), ref groupEnabled))
+        {
+            _configService.Current.ChatTargetSoundGroupOverridesEnabled = groupEnabled;
+            _configService.Save();
+        }
+
+        if (!groupEnabled)
+            return;
+
+        using var indent = ImRaii.PushIndent(20f);
+
+        var overrides = _configService.Current.GroupTargetSoundOverrides;
+        var allGroups = _pairManager.GroupPairs.Keys.ToList();
+        string? toRemove = null;
+
+        // Afficher les surcharges existantes
+        foreach (var (gid, soundValue) in overrides)
+        {
+            using var id = ImRaii.PushId("group_ov_" + gid);
+
+            // Trouver le nom du syncshell
+            var group = allGroups.FirstOrDefault(g => string.Equals(g.Group.GID, gid, StringComparison.Ordinal));
+            var displayName = group?.Group.AliasOrGID ?? _serverConfigurationManager.GetNoteForGid(gid) ?? gid;
+
+            // Combo de sélection du son
+            var currentSound = soundValue;
+            var soundPreview = currentSound == 0
+                ? Loc.Get("Settings.ChatTargetSound.Override.Disabled")
+                : string.Format(CultureInfo.CurrentCulture, Loc.Get("Settings.ChatTargetSound.SoundItem"), currentSound);
+
+            ImGui.SetNextItemWidth(150 * ImGuiHelpers.GlobalScale);
+            using (var combo = ImRaii.Combo("##sound", soundPreview))
+            {
+                if (combo)
+                {
+                    if (ImGui.Selectable(Loc.Get("Settings.ChatTargetSound.Override.Disabled"), currentSound == 0))
+                    {
+                        overrides[gid] = 0;
+                        _configService.Save();
+                    }
+                    for (var i = 1; i <= 16; i++)
+                    {
+                        if (ImGui.Selectable(string.Format(CultureInfo.CurrentCulture, Loc.Get("Settings.ChatTargetSound.SoundItem"), i), currentSound == i))
+                        {
+                            overrides[gid] = i;
+                            _configService.Save();
+                            FFXIVClientStructs.FFXIV.Client.UI.UIGlobals.PlayChatSoundEffect((uint)i);
+                        }
+                    }
+                }
+            }
+
+            ImGui.SameLine();
+            ImGui.TextUnformatted(displayName);
+
+            ImGui.SameLine();
+            if (_uiShared.IconButton(FontAwesomeIcon.Trash))
+            {
+                toRemove = gid;
+            }
+        }
+
+        if (toRemove != null)
+        {
+            overrides.Remove(toRemove);
+            _configService.Save();
+        }
+
+        // Combo recherchable pour ajouter un nouveau syncshell
+        var availableGroups = allGroups
+            .Where(g => !overrides.ContainsKey(g.Group.GID))
+            .OrderBy(g => g.Group.AliasOrGID, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (availableGroups.Count > 0)
+        {
+            ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X);
+            using var combo = ImRaii.Combo("##add_group_override", Loc.Get("Settings.ChatTargetSound.Override.SelectGroup"));
+            if (combo)
+            {
+                ImGui.SetNextItemWidth(-1);
+                ImGui.InputTextWithHint("##group_search", Loc.Get("Settings.ChatTargetSound.Override.SearchHint"), ref _targetSoundGroupSearch, 128);
+                ImGui.Separator();
+
+                var search = _targetSoundGroupSearch.Trim();
+                foreach (var group in availableGroups)
+                {
+                    var label = group.Group.AliasOrGID;
+                    var note = _serverConfigurationManager.GetNoteForGid(group.Group.GID);
+                    var displayLabel = note != null ? $"{note} ({label})" : label;
+
+                    // Filtrer par recherche
+                    if (!string.IsNullOrEmpty(search)
+                        && !displayLabel.Contains(search, StringComparison.OrdinalIgnoreCase)
+                        && !group.Group.GID.Contains(search, StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    if (ImGui.Selectable(displayLabel))
+                    {
+                        overrides[group.Group.GID] = _configService.Current.ChatTargetSoundIndex;
+                        _configService.Save();
+                        _targetSoundGroupSearch = string.Empty;
+                    }
+                }
+            }
+            else
+            {
+                _targetSoundGroupSearch = string.Empty;
+            }
         }
     }
 

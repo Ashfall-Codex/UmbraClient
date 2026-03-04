@@ -773,7 +773,7 @@ public class CompactUi : WindowMediatorSubscriberBase
             var cacheKey = "Visible" + c.UserData.UID;
             if (!_drawUserPairCache.TryGetValue(cacheKey, out var drawPair))
             {
-                drawPair = new DrawUserPair(cacheKey, c, _uidDisplayHandler, _apiController, Mediator, _selectGroupForPairUi, _uiSharedService, _charaDataManager, _serverManager);
+                drawPair = new DrawUserPair(cacheKey, c, _uidDisplayHandler, _apiController, Mediator, _selectGroupForPairUi, _uiSharedService, _charaDataManager, _serverManager, _configService);
                 _drawUserPairCache[cacheKey] = drawPair;
             }
             else
@@ -789,7 +789,7 @@ public class CompactUi : WindowMediatorSubscriberBase
                 var cacheKey = "Online" + c.UserData.UID;
                 if (!_drawUserPairCache.TryGetValue(cacheKey, out var drawPair))
                 {
-                    drawPair = new DrawUserPair(cacheKey, c, _uidDisplayHandler, _apiController, Mediator, _selectGroupForPairUi, _uiSharedService, _charaDataManager, _serverManager);
+                    drawPair = new DrawUserPair(cacheKey, c, _uidDisplayHandler, _apiController, Mediator, _selectGroupForPairUi, _uiSharedService, _charaDataManager, _serverManager, _configService);
                     _drawUserPairCache[cacheKey] = drawPair;
                 }
                 else
@@ -805,7 +805,7 @@ public class CompactUi : WindowMediatorSubscriberBase
                 var cacheKey = "Offline" + c.UserData.UID;
                 if (!_drawUserPairCache.TryGetValue(cacheKey, out var drawPair))
                 {
-                    drawPair = new DrawUserPair(cacheKey, c, _uidDisplayHandler, _apiController, Mediator, _selectGroupForPairUi, _uiSharedService, _charaDataManager, _serverManager);
+                    drawPair = new DrawUserPair(cacheKey, c, _uidDisplayHandler, _apiController, Mediator, _selectGroupForPairUi, _uiSharedService, _charaDataManager, _serverManager, _configService);
                     _drawUserPairCache[cacheKey] = drawPair;
                 }
                 else

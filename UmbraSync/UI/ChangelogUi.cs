@@ -172,6 +172,13 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
     {
         return new List<ChangelogEntry>
         {
+            
+            new(new Version(2, 3, 2, 4003), "2.3.2.4003", new List<ChangelogLine>
+            {   
+                new("Nouveauté : Il est désormais possible de définir un son lorsque quelqu'un vous écrit et que vous le cibler / votre cible parle."),
+                new("Correctif : Le Spawn actor ne fonctionnait plus."),
+
+            }),
             new(new Version(2, 3, 1, 3002), "2.3.1.3002", new List<ChangelogLine>
             {   
                 new("Amélioration : Réécriture complète du partage de meubles housing moddé avec une meilleure logique."),

@@ -8,6 +8,7 @@ using System.Numerics;
 using UmbraSync.API.Data.Extensions;
 using UmbraSync.API.Dto.User;
 using UmbraSync.Localization;
+using UmbraSync.MareConfiguration;
 using UmbraSync.PlayerData.Pairs;
 using UmbraSync.Services.Mediator;
 using UmbraSync.Services.ServerConfiguration;
@@ -22,6 +23,7 @@ public class DrawUserPair : DrawPairBase
     private readonly SelectGroupForPairUi _selectGroupForPairUi;
     private readonly CharaDataManager _charaDataManager;
     private readonly ServerConfigurationManager _serverConfigurationManager;
+    private readonly MareConfigService _mareConfig;
 
     public void UpdateData()
     {
@@ -31,7 +33,7 @@ public class DrawUserPair : DrawPairBase
     public DrawUserPair(string id, Pair entry, UidDisplayHandler displayHandler, ApiController apiController,
         MareMediator mareMediator, SelectGroupForPairUi selectGroupForPairUi,
         UiSharedService uiSharedService, CharaDataManager charaDataManager,
-        ServerConfigurationManager serverConfigurationManager)
+        ServerConfigurationManager serverConfigurationManager, MareConfigService mareConfig)
         : base(id, entry, apiController, displayHandler, uiSharedService)
     {
         if (_pair.UserPair == null) throw new ArgumentException("Pair must be UserPair", nameof(entry));
@@ -40,6 +42,7 @@ public class DrawUserPair : DrawPairBase
         _mediator = mareMediator;
         _charaDataManager = charaDataManager;
         _serverConfigurationManager = serverConfigurationManager;
+        _mareConfig = mareConfig;
     }
 
     public bool IsOnline => _pair.IsOnline;
@@ -395,12 +398,55 @@ public class DrawUserPair : DrawPairBase
             _mediator.Publish(new PairSyncOverrideChanged(entry.UserData.UID, null, null, null, permissions.IsDisableHousing()));
             _ = _apiController.UserSetPairPermissions(new UserPermissionsDto(entry.UserData, permissions));
         }
+        DrawTargetSoundOverrideCombo(entry.UserData.UID);
 
         if (_uiSharedService.IconTextButton(FontAwesomeIcon.Trash, Loc.Get("DrawUserPair.Menu.Unpair")) && UiSharedService.CtrlPressed())
         {
             _ = _apiController.UserRemovePair(new(entry.UserData));
         }
         UiSharedService.AttachToolTip(AppendSeenInfo(string.Format(CultureInfo.CurrentCulture, Loc.Get("DrawUserPair.Menu.UnpairTooltip"), entryUID)));
+    }
+
+    private void DrawTargetSoundOverrideCombo(string uid)
+    {
+        var overrides = _mareConfig.Current.PairTargetSoundOverrides;
+        overrides.TryGetValue(uid, out var currentValue); // 0 si absent (= pas de surcharge, on affiche "Par défaut")
+        var hasOverride = overrides.ContainsKey(uid);
+
+        // Construire le label de prévisualisation
+        var previewLabel = !hasOverride
+            ? Loc.Get("Settings.ChatTargetSound.Override.Default")
+            : currentValue == 0
+                ? Loc.Get("Settings.ChatTargetSound.Override.Disabled")
+                : string.Format(CultureInfo.CurrentCulture, Loc.Get("Settings.ChatTargetSound.SoundItem"), currentValue);
+
+        ImGui.SetNextItemWidth(200 * ImGuiHelpers.GlobalScale);
+        if (ImGui.BeginCombo(Loc.Get("Settings.ChatTargetSound.Override.Label") + "##pair_sound_" + uid, previewLabel))
+        {
+            // Option "Par défaut (global)"
+            if (ImGui.Selectable(Loc.Get("Settings.ChatTargetSound.Override.Default"), !hasOverride))
+            {
+                overrides.Remove(uid);
+                _mareConfig.Save();
+            }
+            // Option "Désactivé"
+            if (ImGui.Selectable(Loc.Get("Settings.ChatTargetSound.Override.Disabled"), hasOverride && currentValue == 0))
+            {
+                overrides[uid] = 0;
+                _mareConfig.Save();
+            }
+            // Options "Effet sonore 1-16"
+            for (var i = 1; i <= 16; i++)
+            {
+                var label = string.Format(CultureInfo.CurrentCulture, Loc.Get("Settings.ChatTargetSound.SoundItem"), i);
+                if (ImGui.Selectable(label, hasOverride && currentValue == i))
+                {
+                    overrides[uid] = i;
+                    _mareConfig.Save();
+                }
+            }
+            ImGui.EndCombo();
+        }
     }
 
     private string AppendSeenInfo(string tooltip)

@@ -895,6 +895,45 @@ internal sealed class GroupPanel
                                           + Environment.NewLine + "Note: this setting can be forcefully overridden to 'disabled' through the syncshell owner."
                                           + Environment.NewLine + "Note: this setting does not apply to individual pairs that are also in the syncshell.");
 
+            // Combo son de notification ciblée pour ce syncshell
+            {
+                var gid = groupDto.Group.GID;
+                var overrides = _mareConfig.Current.GroupTargetSoundOverrides;
+                overrides.TryGetValue(gid, out var currentValue);
+                var hasOverride = overrides.ContainsKey(gid);
+
+                var previewLabel = !hasOverride
+                    ? Loc.Get("Settings.ChatTargetSound.Override.Default")
+                    : currentValue == 0
+                        ? Loc.Get("Settings.ChatTargetSound.Override.Disabled")
+                        : string.Format(CultureInfo.CurrentCulture, Loc.Get("Settings.ChatTargetSound.SoundItem"), currentValue);
+
+                ImGui.SetNextItemWidth(200 * ImGuiHelpers.GlobalScale);
+                if (ImGui.BeginCombo(Loc.Get("Settings.ChatTargetSound.Override.Label") + "##shell_sound_" + gid, previewLabel))
+                {
+                    if (ImGui.Selectable(Loc.Get("Settings.ChatTargetSound.Override.Default"), !hasOverride))
+                    {
+                        overrides.Remove(gid);
+                        _mareConfig.Save();
+                    }
+                    if (ImGui.Selectable(Loc.Get("Settings.ChatTargetSound.Override.Disabled"), hasOverride && currentValue == 0))
+                    {
+                        overrides[gid] = 0;
+                        _mareConfig.Save();
+                    }
+                    for (var i = 1; i <= 16; i++)
+                    {
+                        var label = string.Format(CultureInfo.CurrentCulture, Loc.Get("Settings.ChatTargetSound.SoundItem"), i);
+                        if (ImGui.Selectable(label, hasOverride && currentValue == i))
+                        {
+                            overrides[gid] = i;
+                            _mareConfig.Save();
+                        }
+                    }
+                    ImGui.EndCombo();
+                }
+            }
+
             if (isOwner || groupDto.GroupUserInfo.IsModerator())
             {
                 ImGui.Separator();

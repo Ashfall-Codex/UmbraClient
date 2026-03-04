@@ -737,8 +737,12 @@ public sealed partial class CharaDataManager : DisposableMediatorSubscriberBase
             {
                 _dalamudUtilService.GposeTarget = (FFXIVClientStructs.FFXIV.Client.Game.Object.GameObject*)newActor.Address;
             }
-
-            await McdfApplyToGposeTarget().ConfigureAwait(false);
+            
+            McdfApplyToTarget(newActor.Name.TextValue);
+            if (McdfApplicationTask != null)
+            {
+                await McdfApplicationTask.ConfigureAwait(false);
+            }
         });
     }
 

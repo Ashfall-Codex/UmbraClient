@@ -585,6 +585,9 @@ public class DrawGroupPair : DrawPairBase
                 }
             }
 
+            // Combo surcharge son de notification ciblée
+            DrawTargetSoundOverrideCombo(_pair.UserData.UID);
+
             if (_pair.IsVisible)
             {
 #if DEBUG
@@ -628,6 +631,44 @@ public class DrawGroupPair : DrawPairBase
         catch
         {
             // errors are logged within the request service; ignore here
+        }
+    }
+
+    private void DrawTargetSoundOverrideCombo(string uid)
+    {
+        var overrides = _mareConfig.Current.PairTargetSoundOverrides;
+        overrides.TryGetValue(uid, out var currentValue);
+        var hasOverride = overrides.ContainsKey(uid);
+
+        var previewLabel = !hasOverride
+            ? Loc.Get("Settings.ChatTargetSound.Override.Default")
+            : currentValue == 0
+                ? Loc.Get("Settings.ChatTargetSound.Override.Disabled")
+                : string.Format(CultureInfo.CurrentCulture, Loc.Get("Settings.ChatTargetSound.SoundItem"), currentValue);
+
+        ImGui.SetNextItemWidth(200 * ImGuiHelpers.GlobalScale);
+        if (ImGui.BeginCombo(Loc.Get("Settings.ChatTargetSound.Override.Label") + "##gpair_sound_" + uid, previewLabel))
+        {
+            if (ImGui.Selectable(Loc.Get("Settings.ChatTargetSound.Override.Default"), !hasOverride))
+            {
+                overrides.Remove(uid);
+                _mareConfig.Save();
+            }
+            if (ImGui.Selectable(Loc.Get("Settings.ChatTargetSound.Override.Disabled"), hasOverride && currentValue == 0))
+            {
+                overrides[uid] = 0;
+                _mareConfig.Save();
+            }
+            for (var i = 1; i <= 16; i++)
+            {
+                var label = string.Format(CultureInfo.CurrentCulture, Loc.Get("Settings.ChatTargetSound.SoundItem"), i);
+                if (ImGui.Selectable(label, hasOverride && currentValue == i))
+                {
+                    overrides[uid] = i;
+                    _mareConfig.Save();
+                }
+            }
+            ImGui.EndCombo();
         }
     }
 }

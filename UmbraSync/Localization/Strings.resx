@@ -2469,6 +2469,72 @@ Click to change.</value>
   <data name="Settings.EmoteHighlight.HrpColorKey" xml:space="preserve">
     <value>OOC color</value>
   </data>
+  <data name="Settings.ChatTargetSound.Header" xml:space="preserve">
+    <value>Target Sound Notification</value>
+  </data>
+  <data name="Settings.ChatTargetSound.Enable" xml:space="preserve">
+    <value>When someone targets me and speaks</value>
+  </data>
+  <data name="Settings.ChatTargetSound.Enable.Help" xml:space="preserve">
+    <value>Plays a sound when a nearby player sends a Say, Yell, or Emote message while targeting your character.</value>
+  </data>
+  <data name="Settings.ChatTargetSound.SoundIndex" xml:space="preserve">
+    <value>Notification sound</value>
+  </data>
+  <data name="Settings.ChatTargetSound.SoundItem" xml:space="preserve">
+    <value>Sound Effect {0}</value>
+  </data>
+  <data name="Settings.ChatTargetSound.MasterEnable" xml:space="preserve">
+    <value>Enable sound notification</value>
+  </data>
+  <data name="Settings.ChatTargetSound.WhenToPlay" xml:space="preserve">
+    <value>Play a sound:</value>
+  </data>
+  <data name="Settings.ChatTargetSound.Reverse" xml:space="preserve">
+    <value>When my target speaks</value>
+  </data>
+  <data name="Settings.ChatTargetSound.Reverse.Help" xml:space="preserve">
+    <value>Plays a sound when the player you are targeting sends a Say, Yell, or Emote message.</value>
+  </data>
+  <data name="Settings.ChatTargetSound.Override.Default" xml:space="preserve">
+    <value>Default (global)</value>
+  </data>
+  <data name="Settings.ChatTargetSound.Override.Disabled" xml:space="preserve">
+    <value>Disabled</value>
+  </data>
+  <data name="Settings.ChatTargetSound.Override.Label" xml:space="preserve">
+    <value>Target notification sound</value>
+  </data>
+  <data name="Settings.ChatTargetSound.Override.PairHeader" xml:space="preserve">
+    <value>Per pair</value>
+  </data>
+  <data name="Settings.ChatTargetSound.Override.GroupHeader" xml:space="preserve">
+    <value>Per syncshell</value>
+  </data>
+  <data name="Settings.ChatTargetSound.Override.AddPair" xml:space="preserve">
+    <value>Add a pair</value>
+  </data>
+  <data name="Settings.ChatTargetSound.Override.AddGroup" xml:space="preserve">
+    <value>Add a syncshell</value>
+  </data>
+  <data name="Settings.ChatTargetSound.Override.Remove" xml:space="preserve">
+    <value>Remove</value>
+  </data>
+  <data name="Settings.ChatTargetSound.Override.SelectPair" xml:space="preserve">
+    <value>Select a pair...</value>
+  </data>
+  <data name="Settings.ChatTargetSound.Override.SelectGroup" xml:space="preserve">
+    <value>Select a syncshell...</value>
+  </data>
+  <data name="Settings.ChatTargetSound.Override.EnablePair" xml:space="preserve">
+    <value>Play a different sound for a specific pair</value>
+  </data>
+  <data name="Settings.ChatTargetSound.Override.EnableGroup" xml:space="preserve">
+    <value>Play a different sound for a specific syncshell</value>
+  </data>
+  <data name="Settings.ChatTargetSound.Override.SearchHint" xml:space="preserve">
+    <value>Search...</value>
+  </data>
   <data name="Settings.Typing.BlockedNameColor" xml:space="preserve">
     <value>Blocked name color</value>
   </data>

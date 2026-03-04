@@ -48,9 +48,17 @@ public class ConfigurationMigrator(ILogger<ConfigurationMigrator> logger, MareCo
                 changed = true;
             }
 
+            // Migration : ChatTargetSoundEnabled → ChatTargetSoundMasterEnabled
+            if (!_mareConfig.Current.ChatTargetSoundMasterEnabled
+                && (_mareConfig.Current.ChatTargetSoundEnabled || _mareConfig.Current.ChatTargetSoundReverseEnabled))
+            {
+                _mareConfig.Current.ChatTargetSoundMasterEnabled = true;
+                changed = true;
+            }
+
             if (changed)
             {
-                _logger.LogInformation("Migrated config: AutoSync -> AutoDetect fields");
+                _logger.LogInformation("Migrated config");
                 _mareConfig.Save();
             }
         }
