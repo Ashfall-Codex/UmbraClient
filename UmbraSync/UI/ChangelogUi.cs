@@ -178,6 +178,7 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
                 new("Nouveauté : Il est désormais possible de définir un son lorsque quelqu'un vous écrit et que vous le cibler / votre cible parle."),
                 new("Nouveauté : Il est désormais possible de définir une collection spécifique Penumbra par Syncshell."),
                 new("Amélioration : Migration vers Brio.API pour l'interconnexion avec Brio et ses fonctionnalités."),
+                new("Amélioration : Possibilité de trier la liste des membres syncshell par type de pair où par ordre alphabétique."),
                 new("Amélioration : Divers ajustement graphique "),
 
             }),
