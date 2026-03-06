@@ -176,7 +176,8 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
             new(new Version(2, 3, 2, 86003), "2.3.2.6003", new List<ChangelogLine>
             {   
                 new("Nouveauté : Il est désormais possible de définir un son lorsque quelqu'un vous écrit et que vous le cibler / votre cible parle."),
-                new("Amélioration : Migration vers Brio.API."),
+                new("Nouveauté : Il est désormais possible de définir une collection spécifique Penumbra par Syncshell."),
+                new("Amélioration : Migration vers Brio.API pour l'interconnexion avec Brio et ses fonctionnalités."),
                 new("Amélioration : Divers ajustement graphique "),
 
             }),
