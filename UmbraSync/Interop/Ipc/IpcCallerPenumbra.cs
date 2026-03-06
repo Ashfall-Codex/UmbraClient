@@ -26,6 +26,7 @@ public sealed class IpcCallerPenumbra : DisposableMediatorSubscriberBase, IIpcCa
     // IPC non déléguées (spécifiques à la facade)
     private readonly PenumbraIpc.ResolvePlayerPathsAsync _penumbraResolvePaths;
     private readonly PenumbraIpc.GetPlayerMetaManipulations _penumbraGetMetaManipulations;
+    private readonly PenumbraIpc.ResolvePaths _penumbraResolvePathsForCollection;
 
     public IpcCallerPenumbra(
         ILogger<IpcCallerPenumbra> logger,
@@ -50,6 +51,7 @@ public sealed class IpcCallerPenumbra : DisposableMediatorSubscriberBase, IIpcCa
         // IPC spécifiques à la facade
         _penumbraResolvePaths = new PenumbraIpc.ResolvePlayerPathsAsync(pi);
         _penumbraGetMetaManipulations = new PenumbraIpc.GetPlayerMetaManipulations(pi);
+        _penumbraResolvePathsForCollection = new PenumbraIpc.ResolvePaths(pi);
 
         // S'abonner au message de redraw de personnage
         Mediator.Subscribe<PenumbraRedrawCharacterMessage>(this, (msg) =>
@@ -152,6 +154,19 @@ public sealed class IpcCallerPenumbra : DisposableMediatorSubscriberBase, IIpcCa
     {
         return APIAvailable ? _penumbraGetMetaManipulations.Invoke() : string.Empty;
     }
+    
+    public async Task<(PenumbraEnum.PenumbraApiEc result, string[] forward, string[][] reverse)> ResolvePathsForCollectionAsync(
+        Guid collectionId, string[] forward, string[] reverse)
+    {
+        if (!APIAvailable) return (PenumbraEnum.PenumbraApiEc.UnknownError, [], []);
+
+        Logger.LogTrace("Calling on IPC: Penumbra.ResolvePaths pour collection {collId}", collectionId);
+        var ec = _penumbraResolvePathsForCollection.Invoke(collectionId, forward, reverse, out var fwd, out var rev);
+        return (ec, fwd, rev);
+    }
+    
+    public Task<Dictionary<Guid, string>> GetAllCollectionsAsync()
+        => _collections.GetAllCollectionsAsync();
     
     protected override void Dispose(bool disposing)
     {

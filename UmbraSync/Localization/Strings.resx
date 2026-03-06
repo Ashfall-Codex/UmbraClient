@@ -211,6 +211,35 @@
     <value>Maximum number of pairs that can be processed at the same time. Higher values are faster but use more resources. Recommended: 4 (default: 4, max: 16)</value>
   </data>
 
+  <!-- Collection Override per Syncshell -->
+  <data name="Settings.Transfer.CollectionOverride.Title" xml:space="preserve">
+    <value>Collection per Syncshell</value>
+  </data>
+  <data name="Settings.Transfer.CollectionOverride.Description" xml:space="preserve">
+    <value>Choose a specific Penumbra collection to send to each syncshell. By default, your current collection is used.</value>
+  </data>
+  <data name="Settings.Transfer.CollectionOverride.NoPenumbra" xml:space="preserve">
+    <value>Penumbra is not available. Connect Penumbra to configure collection overrides.</value>
+  </data>
+  <data name="Settings.Transfer.CollectionOverride.NoSyncshell" xml:space="preserve">
+    <value>No syncshell available. Join a syncshell to configure collection overrides.</value>
+  </data>
+  <data name="Settings.Transfer.CollectionOverride.Enable" xml:space="preserve">
+    <value>Enable collection overrides per syncshell</value>
+  </data>
+  <data name="Settings.Transfer.CollectionOverride.Default" xml:space="preserve">
+    <value>Default (current collection)</value>
+  </data>
+  <data name="Settings.Transfer.CollectionOverride.Unknown" xml:space="preserve">
+    <value>(unknown collection)</value>
+  </data>
+  <data name="Settings.Transfer.CollectionOverride.AddException" xml:space="preserve">
+    <value>Add an exception</value>
+  </data>
+  <data name="Settings.Transfer.CollectionOverride.SelectSyncshell" xml:space="preserve">
+    <value>Select a syncshell</value>
+  </data>
+
   <!-- AutoDetect notifications -->
   <data name="AutoDetect.Notification.IncomingTitle" xml:space="preserve">
     <value>New invitation</value>
@@ -3790,6 +3819,18 @@ Click to change.</value>
   <data name="Syncshell.Members.OfflineSection" xml:space="preserve">
     <value>Offline ({0})</value>
   </data>
+  <data name="Syncshell.Members.DirectPairsSection" xml:space="preserve">
+    <value>Direct Pairs ({0})</value>
+  </data>
+  <data name="Syncshell.Members.SyncshellOnlySection" xml:space="preserve">
+    <value>Syncshell Only ({0})</value>
+  </data>
+  <data name="Syncshell.Members.SortByStatus" xml:space="preserve">
+    <value>Sort by status</value>
+  </data>
+  <data name="Syncshell.Members.SortByType" xml:space="preserve">
+    <value>Sort by type (direct / syncshell)</value>
+  </data>
   <data name="Syncshell.Members.Leave" xml:space="preserve">
     <value>Leave</value>
   </data>
@@ -3915,6 +3956,45 @@ Click to change.</value>
   </data>
   <data name="Notification.NearbyDetection.Disabled" xml:space="preserve">
     <value>AutoDetect disabled: you are not visible.</value>
+  </data>
+  <data name="Notification.Server.Info" xml:space="preserve">
+    <value>Info from</value>
+  </data>
+  <data name="Notification.Server.Warning" xml:space="preserve">
+    <value>Warning from</value>
+  </data>
+  <data name="Notification.Nearby.Blocked.Title" xml:space="preserve">
+    <value>Nearby request blocked</value>
+  </data>
+  <data name="Notification.Nearby.Blocked.Body" xml:space="preserve">
+    <value>Enable 'Allow pair requests' in Settings to send requests.</value>
+  </data>
+  <data name="Notification.Nearby.Sent.Title" xml:space="preserve">
+    <value>Nearby request sent</value>
+  </data>
+  <data name="Notification.Nearby.Sent.Body" xml:space="preserve">
+    <value>The other user will receive a request notification.</value>
+  </data>
+  <data name="Notification.Nearby.Failed.Title" xml:space="preserve">
+    <value>Nearby request failed</value>
+  </data>
+  <data name="Notification.Nearby.Failed.NoEndpoint" xml:space="preserve">
+    <value>Server does not expose request endpoint.</value>
+  </data>
+  <data name="Notification.Nearby.Failed.Rejected" xml:space="preserve">
+    <value>The server rejected the request. Try again soon.</value>
+  </data>
+  <data name="Notification.Nearby.Cooldown.Title" xml:space="preserve">
+    <value>Nearby request pending</value>
+  </data>
+  <data name="Notification.Nearby.Cooldown.Body" xml:space="preserve">
+    <value>Request already sent. Please wait about {0} before retrying.</value>
+  </data>
+  <data name="Notification.Nearby.Locked.Title" xml:space="preserve">
+    <value>Nearby request locked</value>
+  </data>
+  <data name="Notification.Nearby.Locked.Body" xml:space="preserve">
+    <value>Request locked after multiple refusals. Retry in {0}.</value>
   </data>
   <data name="Settings.Section.General.Desc" xml:space="preserve">
     <value>Customize the interface, notes, notifications and display preferences.</value>

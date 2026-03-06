@@ -585,7 +585,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
                             }).ConfigureAwait(false);
                         }
                         Mediator.Publish(new ClearProfileDataMessage(new UserData(_apiController.UID), charName, worldId));
-                        Mediator.Publish(new NotificationMessage(Loc.Get("EditProfile.SaveSuccessTitle"), Loc.Get("EditProfile.SaveSuccessBody"), NotificationType.Info));
+                        Mediator.Publish(new NotificationMessage(Loc.Get("EditProfile.SaveSuccessTitle"), Loc.Get("EditProfile.SaveSuccessBody"), NotificationType.Success));
                     }
                     catch (Exception ex)
                     {
@@ -1666,7 +1666,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
                         }).ConfigureAwait(false);
                     }
                     Mediator.Publish(new ClearProfileDataMessage(new UserData(_apiController.UID), charName, worldId));
-                    Mediator.Publish(new NotificationMessage(Loc.Get("EditProfile.SaveSuccessTitle"), Loc.Get("EditProfile.SaveSuccessBody"), NotificationType.Info));
+                    Mediator.Publish(new NotificationMessage(Loc.Get("EditProfile.SaveSuccessTitle"), Loc.Get("EditProfile.SaveSuccessBody"), NotificationType.Success));
                     SnapshotSavedState(isRp, customFieldsJsonSnapshot);
                     _saveConfirmTime = DateTime.UtcNow;
                 }
@@ -1775,7 +1775,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
         try
         {
             await _apiController.UserSetAlias(string.IsNullOrWhiteSpace(input) ? null : input).ConfigureAwait(false);
-            Mediator.Publish(new NotificationMessage(Loc.Get("EditProfile.SetCustomId.SentTitle"), Loc.Get("EditProfile.SetCustomId.SentBody"), NotificationType.Info));
+            Mediator.Publish(new NotificationMessage(Loc.Get("EditProfile.SetCustomId.SentTitle"), Loc.Get("EditProfile.SetCustomId.SentBody"), NotificationType.Success));
         }
         catch
         {

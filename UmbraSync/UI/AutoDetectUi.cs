@@ -373,7 +373,7 @@ public class AutoDetectUi : WindowMediatorSubscriberBase
             var joined = await _syncshellDiscoveryService.JoinAsync(entry.GID, CancellationToken.None).ConfigureAwait(false);
             if (joined)
             {
-                Mediator.Publish(new NotificationMessage(Loc.Get("AutoDetectUi.Syncshell.NotificationTitle"), string.Format(CultureInfo.CurrentCulture, Loc.Get("AutoDetectUi.Syncshell.Joined"), entry.Alias ?? entry.GID), NotificationType.Info, TimeSpan.FromSeconds(5)));
+                Mediator.Publish(new NotificationMessage(Loc.Get("AutoDetectUi.Syncshell.NotificationTitle"), string.Format(CultureInfo.CurrentCulture, Loc.Get("AutoDetectUi.Syncshell.Joined"), entry.Alias ?? entry.GID), NotificationType.Success, TimeSpan.FromSeconds(5)));
                 await _syncshellDiscoveryService.RefreshAsync(CancellationToken.None).ConfigureAwait(false);
             }
             else

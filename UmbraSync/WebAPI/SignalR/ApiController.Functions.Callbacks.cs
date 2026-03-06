@@ -9,6 +9,7 @@ using UmbraSync.API.Dto.User;
 using UmbraSync.MareConfiguration.Models;
 using UmbraSync.Services.Mediator;
 using UmbraSync.Services.Notification;
+using UmbraSync.Localization;
 
 namespace UmbraSync.WebAPI.SignalR;
 
@@ -108,12 +109,12 @@ public partial class ApiController
         switch (messageSeverity)
         {
             case MessageSeverity.Error:
-                Mediator.Publish(new NotificationMessage("Warning from " + _serverManager.CurrentServer!.ServerName, message, NotificationType.Error, TimeSpan.FromSeconds(7.5)));
+                Mediator.Publish(new NotificationMessage(Loc.Get("Notification.Server.Warning") + " " + _serverManager.CurrentServer!.ServerName, message, NotificationType.Error, TimeSpan.FromSeconds(7.5)));
                 _notificationTracker.Upsert(NotificationEntry.ServerMessageError(_serverManager.CurrentServer!.ServerName, message));
                 break;
 
             case MessageSeverity.Warning:
-                Mediator.Publish(new NotificationMessage("Warning from " + _serverManager.CurrentServer!.ServerName, message, NotificationType.Warning, TimeSpan.FromSeconds(7.5)));
+                Mediator.Publish(new NotificationMessage(Loc.Get("Notification.Server.Warning") + " " + _serverManager.CurrentServer!.ServerName, message, NotificationType.Warning, TimeSpan.FromSeconds(7.5)));
                 _notificationTracker.Upsert(NotificationEntry.ServerMessageWarning(_serverManager.CurrentServer!.ServerName, message));
                 break;
 
@@ -123,7 +124,12 @@ public partial class ApiController
                     _doNotNotifyOnNextInfo = false;
                     break;
                 }
-                Mediator.Publish(new NotificationMessage("Info from " + _serverManager.CurrentServer!.ServerName, message, NotificationType.Info, TimeSpan.FromSeconds(5)));
+                var enrichedMessage = message;
+                if (_configService.Current.EnableAutoDetectDiscovery)
+                {
+                    enrichedMessage += "\n" + Loc.Get("Notification.NearbyDetection.Enabled");
+                }
+                Mediator.Publish(new NotificationMessage(Loc.Get("Notification.Server.Info") + " " + _serverManager.CurrentServer!.ServerName, enrichedMessage, NotificationType.Success, TimeSpan.FromSeconds(5)));
                 break;
         }
 

@@ -711,7 +711,7 @@ public class SyncshellAdminUI : WindowMediatorSubscriberBase
                         if (await _apiController.SlotUpdate(request).ConfigureAwait(false))
                         {
                             await LoadSlotData().ConfigureAwait(false);
-                            Mediator.Publish(new NotificationMessage(Loc.Get("SyncshellAdmin.Slot.DeleteSuccessTitle"), Loc.Get("SyncshellAdmin.Slot.DeleteSuccessMessage"), NotificationType.Info));
+                            Mediator.Publish(new NotificationMessage(Loc.Get("SyncshellAdmin.Slot.DeleteSuccessTitle"), Loc.Get("SyncshellAdmin.Slot.DeleteSuccessMessage"), NotificationType.Success));
                         }
                     });
                 }
@@ -849,7 +849,7 @@ public class SyncshellAdminUI : WindowMediatorSubscriberBase
                         {
                             await LoadSlotData().ConfigureAwait(false);
                             _selectedSlot = null;
-                            Mediator.Publish(new NotificationMessage(Loc.Get("SyncshellAdmin.Slot.SaveSuccessTitle"), Loc.Get("SyncshellAdmin.Slot.SaveSuccessMessage"), NotificationType.Info));
+                            Mediator.Publish(new NotificationMessage(Loc.Get("SyncshellAdmin.Slot.SaveSuccessTitle"), Loc.Get("SyncshellAdmin.Slot.SaveSuccessMessage"), NotificationType.Success));
                         }
                         else
                         {
@@ -1699,7 +1699,7 @@ public class SyncshellAdminUI : WindowMediatorSubscriberBase
         {
             var title = string.Format(CultureInfo.CurrentCulture, Loc.Get("SyncshellAdmin.AutoDetect.NotificationTitle"), GroupFullInfo.GroupAliasOrGID);
             var message = Loc.Get("SyncshellAdmin.AutoDetect.NotificationMessage");
-            Mediator.Publish(new DualNotificationMessage(title, message, NotificationType.Info, TimeSpan.FromSeconds(4)));
+            Mediator.Publish(new DualNotificationMessage(title, message, NotificationType.Success, TimeSpan.FromSeconds(4)));
             _notificationTracker.Upsert(NotificationEntry.SyncshellPublic(GroupFullInfo.GID, GroupFullInfo.GroupAliasOrGID));
         }
         catch

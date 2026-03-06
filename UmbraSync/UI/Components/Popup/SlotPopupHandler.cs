@@ -232,7 +232,7 @@ public class SlotPopupHandler : IPopupHandler
                     _mediator.Publish(new NotificationMessage(
                         Loc.Get("SlotPopup.Title"),
                         string.Format(Loc.Get("Slot.Toast.Joined"), slotName),
-                        NotificationType.Info));
+                        NotificationType.Success));
                 });
                 ImGui.CloseCurrentPopup();
             }

@@ -55,6 +55,9 @@ public class SettingsUi : WindowMediatorSubscriberBase
     private readonly UiSharedService _uiShared;
     private readonly ChatTypingDetectionService _chatTypingDetectionService;
     private readonly RgpdDataService _rgpdDataService;
+    private readonly MareConfiguration.SyncshellConfigService _syncshellConfigService;
+    private Dictionary<Guid, string>? _cachedPenumbraCollections;
+    private DateTime _lastCollectionRefresh = DateTime.MinValue;
     private bool _rgpdDeleteConfirmShown;
     private bool _rgpdRevokeConfirmShown;
     private string? _rgpdExportStatusMessage;
@@ -126,7 +129,8 @@ public class SettingsUi : WindowMediatorSubscriberBase
         AutoDetectSuppressionService autoDetectSuppressionService,
         PenumbraPrecacheService precacheService,
         ChatTypingDetectionService chatTypingDetectionService,
-        RgpdDataService gdprDataService) : base(logger, mediator, "Umbra Settings", performanceCollector)
+        RgpdDataService gdprDataService,
+        MareConfiguration.SyncshellConfigService syncshellConfigService) : base(logger, mediator, "Umbra Settings", performanceCollector)
     {
         _configService = configService;
         _pairManager = pairManager;
@@ -149,6 +153,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
         _precacheService = precacheService;
         _chatTypingDetectionService = chatTypingDetectionService;
         _rgpdDataService = gdprDataService;
+        _syncshellConfigService = syncshellConfigService;
         AllowClickthrough = false;
         AllowPinning = false;
         _validationProgress = new Progress<(int, int, FileCacheEntity)>(v => _currentProgress = v);
@@ -189,6 +194,142 @@ public class SettingsUi : WindowMediatorSubscriberBase
         _uiShared.EditTrackerPosition = false;
 
         base.OnClose();
+    }
+
+    private void DrawCollectionOverrides()
+    {
+        _uiShared.BigText(Loc.Get("Settings.Transfer.CollectionOverride.Title"));
+        UiSharedService.ColorTextWrapped(Loc.Get("Settings.Transfer.CollectionOverride.Description"), ImGuiColors.DalamudGrey);
+
+        bool enableOverrides = _syncshellConfigService.Current.EnableCollectionOverrides;
+        if (ImGui.Checkbox(Loc.Get("Settings.Transfer.CollectionOverride.Enable"), ref enableOverrides))
+        {
+            _syncshellConfigService.Current.EnableCollectionOverrides = enableOverrides;
+            _syncshellConfigService.Save();
+        }
+
+        if (!enableOverrides) return;
+
+        // Rafraîchir les collections Penumbra toutes les 10 secondes max
+        if ((_cachedPenumbraCollections == null || DateTime.UtcNow - _lastCollectionRefresh > TimeSpan.FromSeconds(10))
+            && _ipcManager.Initialized && _ipcManager.Penumbra.APIAvailable)
+        {
+            _ = Task.Run(async () =>
+            {
+                var collections = await _ipcManager.Penumbra.GetAllCollectionsAsync().ConfigureAwait(false);
+                _cachedPenumbraCollections = collections;
+                _lastCollectionRefresh = DateTime.UtcNow;
+            });
+        }
+
+        if (_cachedPenumbraCollections == null || _cachedPenumbraCollections.Count == 0)
+        {
+            UiSharedService.ColorTextWrapped(Loc.Get("Settings.Transfer.CollectionOverride.NoPenumbra"), ImGuiColors.DalamudYellow);
+            return;
+        }
+
+        // Filtrer les collections temporaires UmbraSync
+        var userCollections = _cachedPenumbraCollections
+            .Where(c => !c.Value.StartsWith("UmbraSync_", StringComparison.Ordinal))
+            .OrderBy(c => c.Value, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var groups = _pairManager.Groups;
+        var overrides = _syncshellConfigService.Current.GroupCollectionOverrides;
+        bool changed = false;
+        string? toRemove = null;
+
+        ImGui.Spacing();
+
+        // Afficher les overrides existants
+        foreach (var (gid, collectionId) in overrides)
+        {
+            // Trouver le nom du syncshell
+            var groupEntry = groups.FirstOrDefault(g => string.Equals(g.Key.GID, gid, StringComparison.Ordinal));
+            var groupName = groupEntry.Key != null
+                ? (!string.IsNullOrEmpty(groupEntry.Key.Alias) ? groupEntry.Key.Alias : groupEntry.Key.GID)
+                : gid;
+
+            // Trouver le nom de la collection
+            var collName = userCollections.FirstOrDefault(c => c.Key == collectionId).Value
+                ?? Loc.Get("Settings.Transfer.CollectionOverride.Unknown");
+
+            // Bouton supprimer
+            ImGui.PushID("removeOverride_" + gid);
+            if (_uiShared.IconButton(FontAwesomeIcon.Trash))
+            {
+                toRemove = gid;
+            }
+            ImGui.PopID();
+            ImGui.SameLine();
+
+            // Combo pour changer la collection
+            ImGui.SetNextItemWidth(MathF.Min(250 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X - 200 * ImGuiHelpers.GlobalScale));
+            if (ImGui.BeginCombo("##collOverride_" + gid, collName))
+            {
+                foreach (var (cId, cName) in userCollections)
+                {
+                    if (ImGui.Selectable(cName, cId == collectionId))
+                    {
+                        overrides[gid] = cId;
+                        changed = true;
+                    }
+                }
+                ImGui.EndCombo();
+            }
+
+            ImGui.SameLine();
+            ImGui.TextUnformatted(groupName);
+        }
+
+        // Supprimer l'entrée marquée
+        if (toRemove != null)
+        {
+            overrides.Remove(toRemove);
+            changed = true;
+        }
+
+        // Bouton "Ajouter une exception"
+        // Trouver les syncshells qui n'ont pas encore d'override
+        var availableGroups = groups
+            .Where(g => !overrides.ContainsKey(g.Key.GID))
+            .ToList();
+
+        if (availableGroups.Count > 0)
+        {
+            ImGui.Spacing();
+            if (_uiShared.IconTextButton(FontAwesomeIcon.Plus, Loc.Get("Settings.Transfer.CollectionOverride.AddException")))
+            {
+                ImGui.OpenPopup("##addCollOverridePopup");
+            }
+
+            if (ImGui.BeginPopup("##addCollOverridePopup"))
+            {
+                ImGui.TextUnformatted(Loc.Get("Settings.Transfer.CollectionOverride.SelectSyncshell"));
+                ImGui.Separator();
+
+                foreach (var (groupData, _) in availableGroups)
+                {
+                    var name = !string.IsNullOrEmpty(groupData.Alias) ? groupData.Alias : groupData.GID;
+                    if (ImGui.Selectable(name))
+                    {
+                        // Ajouter avec la première collection disponible
+                        if (userCollections.Count > 0)
+                        {
+                            overrides[groupData.GID] = userCollections[0].Key;
+                            changed = true;
+                        }
+                        ImGui.CloseCurrentPopup();
+                    }
+                }
+                ImGui.EndPopup();
+            }
+        }
+
+        if (changed)
+        {
+            _syncshellConfigService.Save();
+        }
     }
 
     private void DrawBlockedTransfers()
@@ -339,6 +480,9 @@ public class SettingsUi : WindowMediatorSubscriberBase
         _uiShared.DrawHelpText(Loc.Get("Settings.Transfer.PairProcessing.MaxConcurrent.Help"));
         ImGui.Unindent();
         if (!enableParallelPairProcessing) ImGui.EndDisabled();
+
+        ImGui.Separator();
+        DrawCollectionOverrides();
 
         ImGui.Separator();
         _uiShared.BigText("Transfer UI");

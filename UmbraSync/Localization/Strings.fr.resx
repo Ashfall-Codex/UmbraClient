@@ -211,6 +211,35 @@
     <value>Nombre maximum de pairs pouvant être traités en même temps. Des valeurs plus élevées sont plus rapides mais utilisent plus de ressources. Recommandé : 10 (défaut : 10, max : 50)</value>
   </data>
 
+  <!-- Override de collection par Syncshell -->
+  <data name="Settings.Transfer.CollectionOverride.Title" xml:space="preserve">
+    <value>Collection par Syncshell</value>
+  </data>
+  <data name="Settings.Transfer.CollectionOverride.Description" xml:space="preserve">
+    <value>Choisissez une collection Penumbra spécifique à envoyer pour chaque syncshell. Par défaut, votre collection actuelle est utilisée.</value>
+  </data>
+  <data name="Settings.Transfer.CollectionOverride.NoPenumbra" xml:space="preserve">
+    <value>Penumbra n'est pas disponible. Connectez Penumbra pour configurer les exceptions de collection.</value>
+  </data>
+  <data name="Settings.Transfer.CollectionOverride.NoSyncshell" xml:space="preserve">
+    <value>Aucun syncshell disponible. Rejoignez un syncshell pour configurer les exceptions de collection.</value>
+  </data>
+  <data name="Settings.Transfer.CollectionOverride.Enable" xml:space="preserve">
+    <value>Activer les exceptions de collection par syncshell</value>
+  </data>
+  <data name="Settings.Transfer.CollectionOverride.Default" xml:space="preserve">
+    <value>Par défaut (collection actuelle)</value>
+  </data>
+  <data name="Settings.Transfer.CollectionOverride.Unknown" xml:space="preserve">
+    <value>(collection inconnue)</value>
+  </data>
+  <data name="Settings.Transfer.CollectionOverride.AddException" xml:space="preserve">
+    <value>Ajouter une exception</value>
+  </data>
+  <data name="Settings.Transfer.CollectionOverride.SelectSyncshell" xml:space="preserve">
+    <value>Choisir un syncshell</value>
+  </data>
+
   <!-- Vanity / Custom ID in Edit Profile (FR) -->
   <data name="EditProfile.SetCustomId.Button" xml:space="preserve">
     <value>Définir l'ID personnalisé</value>
@@ -3690,6 +3719,18 @@ Veuillez conserver une copie de votre clé secrète au cas où vous auriez besoi
   <data name="Syncshell.Members.OfflineSection" xml:space="preserve">
     <value>Hors ligne ({0})</value>
   </data>
+  <data name="Syncshell.Members.DirectPairsSection" xml:space="preserve">
+    <value>Paires directes ({0})</value>
+  </data>
+  <data name="Syncshell.Members.SyncshellOnlySection" xml:space="preserve">
+    <value>Syncshell uniquement ({0})</value>
+  </data>
+  <data name="Syncshell.Members.SortByStatus" xml:space="preserve">
+    <value>Trier par statut</value>
+  </data>
+  <data name="Syncshell.Members.SortByType" xml:space="preserve">
+    <value>Trier par type (direct / syncshell)</value>
+  </data>
   <data name="Syncshell.Join.ModalTitle" xml:space="preserve">
     <value>Rejoindre une Syncshell</value>
   </data>
@@ -3824,6 +3865,45 @@ Veuillez conserver une copie de votre clé secrète au cas où vous auriez besoi
   </data>
   <data name="Notification.NearbyDetection.Disabled" xml:space="preserve">
     <value>Vous n'êtes plus visible.</value>
+  </data>
+  <data name="Notification.Server.Info" xml:space="preserve">
+    <value>Information du serveur</value>
+  </data>
+  <data name="Notification.Server.Warning" xml:space="preserve">
+    <value>Avertissement du serveur</value>
+  </data>
+  <data name="Notification.Nearby.Blocked.Title" xml:space="preserve">
+    <value>Demande bloquée</value>
+  </data>
+  <data name="Notification.Nearby.Blocked.Body" xml:space="preserve">
+    <value>Activez « Autoriser les demandes d'appairage » dans les paramètres pour envoyer des demandes.</value>
+  </data>
+  <data name="Notification.Nearby.Sent.Title" xml:space="preserve">
+    <value>Demande envoyée</value>
+  </data>
+  <data name="Notification.Nearby.Sent.Body" xml:space="preserve">
+    <value>L'autre utilisateur recevra une notification de demande.</value>
+  </data>
+  <data name="Notification.Nearby.Failed.Title" xml:space="preserve">
+    <value>Demande échouée</value>
+  </data>
+  <data name="Notification.Nearby.Failed.NoEndpoint" xml:space="preserve">
+    <value>Le serveur n'expose pas de point d'accès pour les demandes.</value>
+  </data>
+  <data name="Notification.Nearby.Failed.Rejected" xml:space="preserve">
+    <value>Le serveur a rejeté la demande. Réessayez bientôt.</value>
+  </data>
+  <data name="Notification.Nearby.Cooldown.Title" xml:space="preserve">
+    <value>Demande en attente</value>
+  </data>
+  <data name="Notification.Nearby.Cooldown.Body" xml:space="preserve">
+    <value>Demande déjà envoyée. Merci d'attendre environ {0} avant de réessayer.</value>
+  </data>
+  <data name="Notification.Nearby.Locked.Title" xml:space="preserve">
+    <value>Demande bloquée</value>
+  </data>
+  <data name="Notification.Nearby.Locked.Body" xml:space="preserve">
+    <value>Demande bloquée après plusieurs refus. Réessayez dans {0}.</value>
   </data>
   <data name="Settings.Section.General.Desc" xml:space="preserve">
     <value>Personnalisez l'interface, les notes, les notifications et les préférences d'affichage.</value>

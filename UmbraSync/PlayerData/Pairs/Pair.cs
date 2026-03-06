@@ -317,7 +317,14 @@ public class Pair : DisposableMediatorSubscriberBase
 #pragma warning restore S6966
         try { previousCts?.Dispose(); } catch (ObjectDisposedException) { /* Intentionnellement ignoré */ }
 
-        cts.CancelAfter(HandlerReadyTimeout);
+        // Le CTS peut avoir été disposé par un appel concurrent entre la création et ici
+        try { cts.CancelAfter(HandlerReadyTimeout); }
+        catch (ObjectDisposedException)
+        {
+            _logger.LogDebug("CTS disposed by concurrent call for {uid}, aborting", UserData.UID);
+            return;
+        }
+
         using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cts.Token, externalToken);
 
         try

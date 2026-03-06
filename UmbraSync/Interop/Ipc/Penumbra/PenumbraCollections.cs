@@ -204,6 +204,14 @@ public sealed class PenumbraCollections : IDisposable
         }
     }
 
+    // Récupère la liste de toutes les collections Penumbra (Id → Nom).
+    public async Task<Dictionary<Guid, string>> GetAllCollectionsAsync()
+    {
+        if (!_core.APIAvailable) return new Dictionary<Guid, string>();
+
+        return await _core.DalamudUtil.RunOnFrameworkThread(() => _penumbraGetCollections.Invoke()).ConfigureAwait(false);
+    }
+
     private static bool IsUmbraCollectionName(string? name)
         => !string.IsNullOrEmpty(name) && name.StartsWith("UmbraSync_", StringComparison.Ordinal);
 

@@ -202,7 +202,7 @@ public sealed class HousingShareManager : IDisposable
             _mediator.Publish(new NotificationMessage(
                 Loc.Get("HousingShare.Notification.ShareTitle"),
                 string.Format(CultureInfo.CurrentCulture, Loc.Get("HousingShare.Success.Published"), furnitureCount),
-                NotificationType.Info,
+                NotificationType.Success,
                 TimeSpan.FromSeconds(4)));
         });
     }
@@ -420,7 +420,7 @@ public sealed class HousingShareManager : IDisposable
             _mediator.Publish(new NotificationMessage(
                 Loc.Get("HousingShare.Notification.ShareTitle"),
                 Loc.Get("HousingShare.Notification.FurnitureApplied"),
-                NotificationType.Info,
+                NotificationType.Success,
                 TimeSpan.FromSeconds(6)));
         }
         catch (Exception ex)

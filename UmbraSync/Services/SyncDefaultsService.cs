@@ -105,7 +105,7 @@ public sealed class SyncDefaultsService : DisposableMediatorSubscriberBase
             var summary = BuildSummaryMessage(updatedPairs, updatedGroups);
             var primary = BuildPrimaryMessage(message);
             var combined = string.IsNullOrEmpty(primary) ? summary : string.Concat(primary, ' ', summary);
-            Mediator.Publish(new DualNotificationMessage("Préférences appliquées", combined, NotificationType.Info));
+            Mediator.Publish(new DualNotificationMessage("Préférences appliquées", combined, NotificationType.Success));
         }
         catch (Exception ex)
         {

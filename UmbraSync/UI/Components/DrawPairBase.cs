@@ -25,6 +25,7 @@ public abstract class DrawPairBase
     }
 
     public string ImGuiID => _id;
+    public Pair Pair => _pair;
     public string UID => _pair.UserData.UID;
 
     public void DrawPairedClient()

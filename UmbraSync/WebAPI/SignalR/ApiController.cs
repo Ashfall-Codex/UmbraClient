@@ -8,6 +8,7 @@ using UmbraSync.API.Dto;
 using UmbraSync.API.Dto.Group;
 using UmbraSync.API.Dto.User;
 using UmbraSync.API.SignalR;
+using UmbraSync.MareConfiguration;
 using UmbraSync.MareConfiguration.Models;
 using UmbraSync.PlayerData.Pairs;
 using UmbraSync.Services;
@@ -29,6 +30,7 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
 
     private readonly DalamudUtilService _dalamudUtil;
     private readonly HubFactory _hubFactory;
+    private readonly MareConfigService _configService;
     private readonly PairManager _pairManager;
     private readonly ServerConfigurationManager _serverManager;
     private readonly TokenProvider _tokenProvider;
@@ -44,7 +46,7 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
 
     public ApiController(ILogger<ApiController> logger, HubFactory hubFactory, DalamudUtilService dalamudUtil,
         PairManager pairManager, ServerConfigurationManager serverManager, MareMediator mediator,
-        TokenProvider tokenProvider, NotificationTracker notificationTracker) : base(logger, mediator)
+        TokenProvider tokenProvider, NotificationTracker notificationTracker, MareConfigService configService) : base(logger, mediator)
     {
         _hubFactory = hubFactory;
         _dalamudUtil = dalamudUtil;
@@ -52,6 +54,7 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
         _serverManager = serverManager;
         _tokenProvider = tokenProvider;
         _notificationTracker = notificationTracker;
+        _configService = configService;
         _connectionCancellationTokenSource = new CancellationTokenSource();
 
         Mediator.Subscribe<DalamudLoginMessage>(this, (_) => DalamudUtilOnLogIn());
