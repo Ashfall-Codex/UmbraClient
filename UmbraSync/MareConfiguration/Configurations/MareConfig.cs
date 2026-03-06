@@ -41,6 +41,7 @@ public class MareConfig : IMareConfiguration
     public bool EmoteHighlightParenthesesGray { get; set; } = true;
     public ushort EmoteHighlightParenthesesColorKey { get; set; } = 4;
     public bool EmoteHighlightParenthesesItalic { get; set; } = true;
+    public bool EmoteHighlightQuotes { get; set; } = false;
     public bool ChatTargetSoundMasterEnabled { get; set; }
     public bool ChatTargetSoundEnabled { get; set; } = false;
     public int ChatTargetSoundIndex { get; set; } = 1;

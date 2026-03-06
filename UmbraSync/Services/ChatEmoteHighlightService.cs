@@ -50,6 +50,10 @@ public class ChatEmoteHighlightService : DisposableMediatorSubscriberBase
 
     private const string GroupEmote = "emote";
     private const string GroupHrp = "hrp";
+    private const string GroupQuotes = "quotes";
+
+    /// <summary>Couleur fixe pour les guillemets (blanc = texte normal).</summary>
+    public const ushort QuotesColorKey = 1;
 
     public ChatEmoteHighlightService(ILogger<ChatEmoteHighlightService> logger, MareMediator mediator,
         IChatGui chatGui, MareConfigService configService, IDalamudPluginInterface pluginInterface)
@@ -93,6 +97,9 @@ public class ChatEmoteHighlightService : DisposableMediatorSubscriberBase
             allParts.Add($@"(?<{GroupHrp}>{string.Join('|', hrpParts)})");
         }
 
+        if (config.EmoteHighlightQuotes)
+            allParts.Add($@"(?<{GroupQuotes}>"".+?"")");
+
         if (allParts.Count == 0)
             return null;
 
@@ -113,6 +120,7 @@ public class ChatEmoteHighlightService : DisposableMediatorSubscriberBase
 
         var emoteColorKey = _configService.Current.EmoteHighlightColorKey;
         var hrpColorKey = _configService.Current.EmoteHighlightParenthesesColorKey;
+        var quotesColorKey = QuotesColorKey;
         var chatTwoActive = PluginWatcherService.GetInitialPluginState(_pluginInterface, "ChatTwo")?.IsLoaded == true;
 
         // Concaténer tous les TextPayload.Text pour que le regex puisse détecter les patterns
@@ -123,15 +131,20 @@ public class ChatEmoteHighlightService : DisposableMediatorSubscriberBase
                 flatBuilder.Append(tp.Text);
         }
         var flatText = flatBuilder.ToString();
-        
+
         var matches = pattern.Matches(flatText);
         if (matches.Count == 0)
             return;
 
-        // Construire la liste des matchées (start, end exclusif, isHrp)
-        var regions = new List<(int start, int end, bool isHrp)>(matches.Count);
+        // Construire la liste des régions (start, end exclusif, type de groupe)
+        var regions = new List<(int start, int end, HighlightKind kind)>(matches.Count);
         foreach (Match m in matches)
-            regions.Add((m.Index, m.Index + m.Length, m.Groups[GroupHrp].Success));
+        {
+            var kind = m.Groups[GroupQuotes].Success ? HighlightKind.Quotes
+                     : m.Groups[GroupHrp].Success ? HighlightKind.Hrp
+                     : HighlightKind.Emote;
+            regions.Add((m.Index, m.Index + m.Length, kind));
+        }
         
         // Reconstruire le texte
         var newPayloads = new List<Payload>();
@@ -183,9 +196,13 @@ public class ChatEmoteHighlightService : DisposableMediatorSubscriberBase
                             if (startInText > localPos)
                                 newPayloads.Add(new TextPayload(text[localPos..startInText]));
 
-                            var isHrp = region.isHrp;
-                            activeColorKey = isHrp ? hrpColorKey : emoteColorKey;
-                            activeItalic = isHrp && _configService.Current.EmoteHighlightParenthesesItalic && !chatTwoActive;
+                            activeColorKey = region.kind switch
+                            {
+                                HighlightKind.Hrp => hrpColorKey,
+                                HighlightKind.Quotes => quotesColorKey,
+                                _ => emoteColorKey,
+                            };
+                            activeItalic = region.kind == HighlightKind.Hrp && _configService.Current.EmoteHighlightParenthesesItalic && !chatTwoActive;
 
                             newPayloads.Add(new UIForegroundPayload(activeColorKey));
                             if (activeItalic)
@@ -246,4 +263,6 @@ public class ChatEmoteHighlightService : DisposableMediatorSubscriberBase
 
         message = new SeString(newPayloads);
     }
+
+    private enum HighlightKind { Emote, Hrp, Quotes }
 }

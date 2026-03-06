@@ -766,6 +766,14 @@ public class SettingsUi : WindowMediatorSubscriberBase
                     _configService.Save();
                 }
 
+                var quotes = _configService.Current.EmoteHighlightQuotes;
+                if (ImGui.Checkbox(Loc.Get("Settings.EmoteHighlight.Quotes"), ref quotes))
+                {
+                    _configService.Current.EmoteHighlightQuotes = quotes;
+                    _configService.Save();
+                }
+                _uiShared.DrawHelpText(Loc.Get("Settings.EmoteHighlight.Quotes.Help"));
+
                 DrawColorPaletteRow(
                     "emote",
                     Loc.Get("Settings.EmoteHighlight.ColorKey"),

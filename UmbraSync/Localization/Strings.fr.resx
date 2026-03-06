@@ -2377,6 +2377,12 @@ Veuillez conserver une copie de votre clé secrète au cas où vous auriez besoi
   <data name="Settings.EmoteHighlight.SquareBrackets" xml:space="preserve">
     <value>Crochets [ ... ]</value>
   </data>
+  <data name="Settings.EmoteHighlight.Quotes" xml:space="preserve">
+    <value>Guillemets "..."</value>
+  </data>
+  <data name="Settings.EmoteHighlight.Quotes.Help" xml:space="preserve">
+    <value>Affiche le texte entre guillemets doubles en blanc pour distinguer les dialogues de la narration dans les émotes.</value>
+  </data>
   <data name="Settings.EmoteHighlight.DoubleParentheses" xml:space="preserve">
     <value>Double parenthèses (( ... ))</value>
   </data>

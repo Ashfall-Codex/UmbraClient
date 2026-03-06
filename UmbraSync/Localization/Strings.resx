@@ -2477,6 +2477,12 @@ Click to change.</value>
   <data name="Settings.EmoteHighlight.SquareBrackets" xml:space="preserve">
     <value>Square brackets [...]</value>
   </data>
+  <data name="Settings.EmoteHighlight.Quotes" xml:space="preserve">
+    <value>Quotation marks "..."</value>
+  </data>
+  <data name="Settings.EmoteHighlight.Quotes.Help" xml:space="preserve">
+    <value>Displays text enclosed in double quotes in white to distinguish dialogue from narration in emotes.</value>
+  </data>
   <data name="Settings.EmoteHighlight.DoubleParentheses" xml:space="preserve">
     <value>Double parentheses (( ... ))</value>
   </data>
