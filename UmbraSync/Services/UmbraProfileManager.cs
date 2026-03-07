@@ -256,7 +256,27 @@ public class UmbraProfileManager : MediatorSubscriberBase
 
             // Persist to disk cache (not for self)
             if (!isSelf)
+            {
                 UpdatePersistedProfile(data, charName, worldId, profileData);
+
+                // Fetch all alt profiles for this UID in the background (only if we have valid encounter data)
+                if (!string.IsNullOrEmpty(charName) && worldId is > 0)
+                {
+                    var fetchCharName = charName;
+                    var fetchWorldId = worldId.Value;
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            await FetchAndCacheAllAltProfiles(data, fetchCharName, fetchWorldId).ConfigureAwait(false);
+                        }
+                        catch (Exception ex2)
+                        {
+                            Logger.LogWarning(ex2, "Failed to fetch alt profiles for {uid}", data.UID);
+                        }
+                    });
+                }
+            }
 
             Mediator.Publish(new NameplateRedrawMessage());
         }
@@ -265,6 +285,63 @@ public class UmbraProfileManager : MediatorSubscriberBase
             Logger.LogWarning(ex, "Failed to get Profile from service for user {user}", data);
             _umbraProfiles[key] = _defaultProfileData;
         }
+    }
+
+    private async Task FetchAndCacheAllAltProfiles(UserData data, string encounteredCharName, uint encounteredWorldId)
+    {
+        var allProfiles = await _apiController.UserGetAllCharacterProfiles(new API.Dto.User.UserDto(data)
+        {
+            CharacterName = encounteredCharName,
+            WorldId = encounteredWorldId
+        }).ConfigureAwait(false);
+        if (allProfiles.Count == 0) return;
+
+        Logger.LogInformation("Fetched {count} alt profiles for {uid}", allProfiles.Count, data.UID);
+        bool isSelf = string.Equals(_apiController.UID, data.UID, StringComparison.Ordinal);
+
+        foreach (var profile in allProfiles)
+        {
+            var altCharName = profile.CharacterName;
+            var altWorldId = profile.WorldId;
+            if (string.IsNullOrEmpty(altCharName) || altWorldId is null or 0) continue;
+
+            _serverConfigurationManager.AddEncounteredAlt(data.UID, altCharName, altWorldId.Value);
+
+            var altKey = NormalizeKey(data, altCharName, altWorldId);
+            if (_umbraProfiles.ContainsKey(altKey)) continue;
+
+            List<RpCustomField>? customFields = null;
+            if (!string.IsNullOrEmpty(profile.RpCustomFields))
+            {
+                try { customFields = JsonSerializer.Deserialize<List<RpCustomField>>(profile.RpCustomFields); }
+                catch (JsonException ex) { Logger.LogWarning(ex, "Failed to deserialize RpCustomFields for alt {char}@{world}", altCharName, altWorldId); }
+            }
+
+            var altProfileData = new UmbraProfileData(profile.Disabled, profile.IsNSFW ?? false,
+                string.IsNullOrEmpty(profile.ProfilePictureBase64) ? string.Empty : profile.ProfilePictureBase64,
+                string.IsNullOrEmpty(profile.Description) ? _noDescription : profile.Description,
+                profile.RpProfilePictureBase64, profile.RpDescription, profile.IsRpNSFW ?? false,
+                profile.RpFirstName, profile.RpLastName, profile.RpTitle, profile.RpAge,
+                profile.RpRace, profile.RpEthnicity,
+                profile.RpHeight, profile.RpBuild, profile.RpResidence, profile.RpOccupation, profile.RpAffiliation,
+                profile.RpAlignment, profile.RpAdditionalInfo, profile.RpNameColor,
+                customFields,
+                profile.MoodlesData);
+
+            if (!isSelf)
+            {
+                if (altProfileData.IsNSFW && !_mareConfigService.Current.ProfilesAllowNsfw)
+                    _umbraProfiles[altKey] = _nsfwProfileData;
+                else if (altProfileData.IsRpNSFW && !_mareConfigService.Current.ProfilesAllowRpNsfw)
+                    _umbraProfiles[altKey] = _nsfwProfileData;
+                else
+                    _umbraProfiles[altKey] = altProfileData;
+
+                UpdatePersistedProfile(data, altCharName, altWorldId, altProfileData);
+            }
+        }
+
+        Mediator.Publish(new NameplateRedrawMessage());
     }
 
     public List<(string CharName, uint WorldId)> GetEncounteredAlts(string uid)

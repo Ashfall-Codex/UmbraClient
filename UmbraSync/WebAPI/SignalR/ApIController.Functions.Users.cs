@@ -76,6 +76,28 @@ public partial class ApiController
         }
     }
 
+    public async Task<List<UserProfileDto>> UserGetAllCharacterProfiles(UserDto dto)
+    {
+        if (!IsConnected)
+        {
+            Logger.LogTrace("UserGetAllCharacterProfiles: Not connected, returning empty list");
+            return [];
+        }
+
+        try
+        {
+            Logger.LogTrace("Fetching all character profiles for {uid}", dto.User.UID);
+            var result = await _mareHub!.InvokeAsync<List<UserProfileDto>>(nameof(UserGetAllCharacterProfiles), dto).ConfigureAwait(false);
+            Logger.LogTrace("Fetched {count} character profiles for {uid}", result.Count, dto.User.UID);
+            return result;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Error fetching all character profiles for {uid}", dto.User.UID);
+            return [];
+        }
+    }
+
     public async Task UserPushData(UserCharaDataMessageDto dto)
     {
         try

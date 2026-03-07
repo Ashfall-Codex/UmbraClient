@@ -179,6 +179,7 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
                 new("Amélioration : Coloration des textes entre guillemets \"...\" en blanc pour distinguer les dialogues dans une émote."),
                 new("Amélioration : Migration vers Brio.API pour l'interconnexion avec Brio et ses fonctionnalités."),
                 new("Amélioration : Possibilité de trier la liste des membres syncshell par type de pair où par ordre alphabétique."),
+                new("Amélioration : Révision du système de cache de profil RP & Traits Moodles."),
                 new("Amélioration : Réécriture du système d'envoi / réception d'invitation interactive."),
                 new("Amélioration : Divers ajustement graphique & nettoyage du code."),
 
