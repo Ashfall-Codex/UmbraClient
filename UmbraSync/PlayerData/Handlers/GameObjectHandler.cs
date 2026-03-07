@@ -1,8 +1,8 @@
 ﻿using FFXIVClientStructs.FFXIV.Client.Game.Character;
 using FFXIVClientStructs.FFXIV.Client.Graphics.Scene;
 using Microsoft.Extensions.Logging;
-using System.Globalization;
 using System.Runtime.CompilerServices;
+using System.Globalization;
 using UmbraSync.Services;
 using UmbraSync.Services.Mediator;
 using UmbraSync.Utils;
@@ -209,7 +209,7 @@ public sealed class GameObjectHandler : DisposableMediatorSubscriberBase
             {
                 Name = name;
             }
-            bool equipDiff = false;
+            bool equipDiff;
 
             if (((DrawObject*)DrawObjectAddress)->Object.GetObjectType() == ObjectType.CharacterBase
                 && ((CharacterBase*)DrawObjectAddress)->GetModelType() == CharacterBase.ModelType.Human)
@@ -303,7 +303,7 @@ public sealed class GameObjectHandler : DisposableMediatorSubscriberBase
         _clearCts = null;
     }
 
-    private unsafe bool CompareAndUpdateCustomizeData(Span<byte> customizeData)
+    private bool CompareAndUpdateCustomizeData(Span<byte> customizeData)
     {
         bool hasChanges = false;
 

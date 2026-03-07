@@ -1,5 +1,4 @@
 ﻿using Microsoft.AspNetCore.SignalR.Client;
-using UmbraSync.API.Data;
 using UmbraSync.API.Dto.Group;
 using UmbraSync.WebAPI.SignalR.Utils;
 

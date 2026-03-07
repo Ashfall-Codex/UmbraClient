@@ -157,7 +157,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
             }
         });
         Mediator.Subscribe<MoodlesMessage>(this, (msg) => _ = Task.Run(RefreshLocalMoodlesAsync));
-        Mediator.Subscribe<ConnectedMessage>(this, (msg) => Task.Run(async () =>
+        Mediator.Subscribe<ConnectedMessage>(this, (msg) => _ = Task.Run(async () =>
         {
             // Boucle de restauration de moodles au démarrage
             await Task.Delay(2000).ConfigureAwait(false);
@@ -1345,7 +1345,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
         BbCodeIconButton(FontAwesomeIcon.AlignJustify, "[justify]\n", "\n[/justify]", "Justifier", ref text);
         ImGui.SameLine(0, spacing);
 
-        using (var font = _uiSharedService.IconFont.Push())
+        using (var _ = _uiSharedService.IconFont.Push())
         {
             if (ImGui.Button(FontAwesomeIcon.PaintBrush.ToIconString() + "##bbcode_color"))
                 ImGui.OpenPopup("bbcode_color_picker");

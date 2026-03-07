@@ -1,7 +1,6 @@
 using Dalamud.Bindings.ImGui;
 using Dalamud.Interface;
 using Dalamud.Interface.Colors;
-using Dalamud.Interface.Internal;
 using Dalamud.Interface.Utility;
 using Dalamud.Interface.Utility.Raii;
 using Microsoft.Extensions.Logging;
@@ -160,7 +159,7 @@ public class AutoDetectUi : WindowMediatorSubscriberBase
         DrawInternal();
     }
 
-    private void DrawInvitationsTab(List<KeyValuePair<string, string>> incomingInvites, IReadOnlyCollection<AutoDetectRequestService.PendingRequestInfo> outgoingInvites)
+    private void DrawInvitationsTab(List<KeyValuePair<string, PendingEntry>> incomingInvites, IReadOnlyCollection<AutoDetectRequestService.PendingRequestInfo> outgoingInvites)
     {
         if (incomingInvites.Count == 0 && outgoingInvites.Count == 0)
         {
@@ -187,12 +186,13 @@ public class AutoDetectUi : WindowMediatorSubscriberBase
         }
         else
         {
-            foreach (var (uid, name) in incomingInvites.OrderBy(k => k.Value, StringComparer.OrdinalIgnoreCase))
+            foreach (var (uid, entry) in incomingInvites.OrderByDescending(k => k.Value.ReceivedAtUtc))
             {
                 using var id = ImRaii.PushId(uid);
                 bool processing = _acceptInFlight.Contains(uid);
-                ImGui.TextUnformatted(name);
+                ImGui.TextUnformatted(entry.DisplayName);
                 ImGui.TextDisabled(uid);
+                ImGui.TextDisabled(string.Format(CultureInfo.CurrentCulture, Loc.Get("AutoDetectUi.Invitations.ReceivedAgo"), FormatDuration(DateTime.UtcNow - entry.ReceivedAtUtc)));
                 if (processing)
                 {
                     ImGui.TextDisabled(Loc.Get("AutoDetectUi.Invitations.Processing"));

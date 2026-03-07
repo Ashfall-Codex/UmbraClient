@@ -175,9 +175,9 @@ public sealed class IpcCallerBrio : IIpcCaller
             if (gameObject == null) return false;
             _logger.LogDebug("Setting Pose to Actor {actor}", gameObject.Name.TextValue);
 
-            var applicablePose = JsonNode.Parse(pose)!;
+            var applicablePose = JsonNode.Parse(pose ?? string.Empty)!;
             var currentPose = await _dalamudUtilService.RunOnFrameworkThread(() => _getPoseAsJson.Invoke(gameObject)).ConfigureAwait(false);
-            applicablePose["ModelDifference"] = JsonNode.Parse(JsonNode.Parse(currentPose)!["ModelDifference"]!.ToJsonString());
+            applicablePose["ModelDifference"] = JsonNode.Parse(JsonNode.Parse(currentPose ?? string.Empty)!["ModelDifference"]!.ToJsonString());
 
             await _dalamudUtilService.RunOnFrameworkThread(() =>
             {

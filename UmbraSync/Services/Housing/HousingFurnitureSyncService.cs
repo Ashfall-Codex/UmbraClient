@@ -3,7 +3,6 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using UmbraSync.API.Dto.CharaData;
 using UmbraSync.MareConfiguration;
-using UmbraSync.MareConfiguration.Configurations;
 using UmbraSync.Services.Mediator;
 
 namespace UmbraSync.Services.Housing;

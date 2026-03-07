@@ -338,7 +338,7 @@ public partial class IntroUi : WindowMediatorSubscriberBase
                         keyName = string.Format(CultureInfo.CurrentCulture, Loc.Get("CompactUi.IntroUi.SecretKey.FriendlyNameRegistered"), _registrationReply.UID, DateTime.Now);
                     else
                         keyName = string.Format(CultureInfo.CurrentCulture, Loc.Get("CompactUi.IntroUi.SecretKey.FriendlyNameDefault"), DateTime.Now);
-                    _serverConfigurationManager.CurrentServer!.SecretKeys.Add(_serverConfigurationManager.CurrentServer.SecretKeys.Select(k => k.Key).LastOrDefault() + 1, new SecretKey()
+                    _serverConfigurationManager.CurrentServer.SecretKeys.Add(_serverConfigurationManager.CurrentServer.SecretKeys.Select(k => k.Key).LastOrDefault() + 1, new SecretKey()
                     {
                         FriendlyName = keyName,
                         Key = _secretKey,

@@ -146,10 +146,7 @@ public sealed class PenumbraCore : DisposableMediatorSubscriberBase, IPenumbraCo
         {
             APIAvailable = penumbraAvailable;
         }
-        finally
-        {
-            // Notification is deferred to CheckAPIWithRetryAsync after all retries are exhausted
-        }
+        // Notification is deferred to CheckAPIWithRetryAsync after all retries are exhausted
     }
     
     // Retourne le chemin brut du répertoire de mods Penumbra (sans transformation de casse).
@@ -170,7 +167,7 @@ public sealed class PenumbraCore : DisposableMediatorSubscriberBase, IPenumbraCo
 
         try
         {
-            ModDirectory = _penumbraResolveModDir!.Invoke().ToLowerInvariant();
+            ModDirectory = _penumbraResolveModDir.Invoke().ToLowerInvariant();
         }
         catch
         {

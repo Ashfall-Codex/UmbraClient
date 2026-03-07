@@ -126,7 +126,7 @@ public sealed class PairRequestToastUi : WindowMediatorSubscriberBase
                     + (messageHeight > 0f ? titleMessageGap + messageHeight : 0f)
                     + buttonGap + buttonHeight + paddingY;
                 if (height < minHeight) height = minHeight;
-                return (Id: entry.Id, Title: title, Message: message, Height: height);
+                return (entry.Id, Title: title, Message: message, Height: height);
             })
             .ToList();
 
@@ -249,10 +249,10 @@ public sealed class PairRequestToastUi : WindowMediatorSubscriberBase
             // ignore lookup errors and fall back to pending data
         }
 
-        if (_nearbyPending.Pending.TryGetValue(uid, out var pendingName)
-            && !string.IsNullOrWhiteSpace(pendingName)
-            && !string.Equals(pendingName, _apiController.DisplayName, StringComparison.OrdinalIgnoreCase))
-            return pendingName;
+        if (_nearbyPending.Pending.TryGetValue(uid, out var pendingEntry)
+            && !string.IsNullOrWhiteSpace(pendingEntry.DisplayName)
+            && !string.Equals(pendingEntry.DisplayName, _apiController.DisplayName, StringComparison.OrdinalIgnoreCase))
+            return pendingEntry.DisplayName;
 
         return string.Empty;
     }
@@ -294,7 +294,7 @@ public sealed class PairRequestToastUi : WindowMediatorSubscriberBase
         if (entries.Count > 0) return entries;
 
         return _nearbyPending.Pending
-            .Select(kv => NotificationEntry.AutoDetect(kv.Key, kv.Value))
+            .Select(kv => NotificationEntry.AutoDetect(kv.Key, kv.Value.DisplayName))
             .ToList();
     }
 }

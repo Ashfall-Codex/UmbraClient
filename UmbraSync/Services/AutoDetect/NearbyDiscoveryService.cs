@@ -112,7 +112,7 @@ public class NearbyDiscoveryService(ILogger<NearbyDiscoveryService> logger, Mare
             if (string.IsNullOrEmpty(displayName)) return;
 
             var selfHash = (saltHex + displayName + meWorld.ToString()).GetHash256();
-            var ok = await _api.PublishAsync(ep!, [selfHash], displayName, ct, _config.Current.AllowAutoDetectPairRequests).ConfigureAwait(false);
+            var ok = await _api.PublishAsync(ep, [selfHash], displayName, ct, _config.Current.AllowAutoDetectPairRequests).ConfigureAwait(false);
             _logger.LogInformation("Nearby publish (manual/immediate): {result}", ok ? "success" : "failed");
             if (ok)
             {

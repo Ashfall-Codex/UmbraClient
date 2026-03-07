@@ -1,7 +1,6 @@
 using Dalamud.Plugin;
 using Microsoft.Extensions.Logging;
 using UmbraSync.Interop.Ipc.Penumbra;
-using UmbraSync.MareConfiguration.Models;
 using UmbraSync.PlayerData.Handlers;
 using UmbraSync.Services;
 using UmbraSync.Services.Mediator;

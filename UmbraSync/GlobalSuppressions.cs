@@ -13,7 +13,5 @@ using System.Diagnostics.CodeAnalysis;
 // DrawSyncshell : méthode conservée pour réutilisation future (remplacée par DrawSyncshellCards)
 [assembly: SuppressMessage("Major Code Smell", "S1144:Unused private types or members should be removed", Justification = "Kept for future use", Scope = "member", Target = "~M:UmbraSync.UI.Components.GroupPanel.DrawSyncshell(UmbraSync.API.Dto.Group.GroupFullInfoDto,System.Collections.Generic.List{UmbraSync.PlayerData.Pairs.Pair})")]
 
-// _profileManager : lié à DrawSyncshell, conservé pour usage futur
-[assembly: SuppressMessage("Minor Code Smell", "S4487:Unread \"private\" fields should be removed", Justification = "Linked to DrawSyncshell, kept for future use", Scope = "member", Target = "~F:UmbraSync.UI.Components.GroupPanel._profileManager")]
 
 // S1199 et S6966 supprimés via #pragma inline dans les fichiers concernés

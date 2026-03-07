@@ -1,5 +1,4 @@
 using Microsoft.Extensions.Logging;
-using UmbraSync.MareConfiguration.Models;
 using UmbraSync.Services.Mediator;
 using PenumbraApi = global::Penumbra.Api.Helpers;
 using PenumbraEnum = global::Penumbra.Api.Enums;
@@ -44,9 +43,6 @@ public sealed class PenumbraModSettings : IDisposable
             case PenumbraEnum.ModSettingChange.Setting:
                 _core.Logger.LogTrace("Penumbra mod Setting changed, triggering debounced sync");
                 TriggerDebouncedModSettingSync();
-                break;
-
-            default:
                 break;
         }
     }

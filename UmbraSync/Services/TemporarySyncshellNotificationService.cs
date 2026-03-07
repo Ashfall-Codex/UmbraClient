@@ -99,7 +99,7 @@ public sealed class TemporarySyncshellNotificationService : MediatorSubscriberBa
         var expiredGroups = new List<GroupFullInfoDto>();
         var seenTemporaryGids = new HashSet<string>(StringComparer.Ordinal);
 
-        using (var guard = _stateLock.EnterScope())
+        using (var _ = _stateLock.EnterScope())
         {
             foreach (var group in groupsSnapshot)
             {
@@ -207,7 +207,7 @@ public sealed class TemporarySyncshellNotificationService : MediatorSubscriberBa
 
     private void ResetTrackedGroups()
     {
-        using (var guard = _stateLock.EnterScope())
+        using (var _ = _stateLock.EnterScope())
         {
             _trackedGroups.Clear();
         }

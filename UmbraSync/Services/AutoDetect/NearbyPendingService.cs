@@ -10,15 +10,19 @@ using UmbraSync.Services.Notification;
 
 namespace UmbraSync.Services.AutoDetect;
 
+public sealed record PendingEntry(string DisplayName, DateTime ReceivedAtUtc);
+
 public sealed class NearbyPendingService : IMediatorSubscriber
 {
+    private static readonly TimeSpan ExpirationDuration = TimeSpan.FromMinutes(10);
+
     private readonly ILogger<NearbyPendingService> _logger;
     private readonly MareMediator _mediator;
     private readonly ApiController _api;
     private readonly AutoDetectRequestService _requestService;
     private readonly NotificationTracker _notificationTracker;
     private readonly MareConfigService _configService;
-    private readonly ConcurrentDictionary<string, string> _pending = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, PendingEntry> _pending = new(StringComparer.Ordinal);
     private static readonly TimeSpan RegexTimeout = TimeSpan.FromSeconds(1);
     private static readonly Regex ReqRegex = new(@"^Nearby Request: .+ \[(?<uid>[A-Z0-9]+)\]$", RegexOptions.Compiled | RegexOptions.ExplicitCapture, RegexTimeout);
     private static readonly Regex AcceptRegex = new(@"^Nearby Accept: .+ \[(?<uid>[A-Z0-9]+)\]$", RegexOptions.Compiled | RegexOptions.ExplicitCapture, RegexTimeout);
@@ -33,11 +37,14 @@ public sealed class NearbyPendingService : IMediatorSubscriber
         _configService = configService;
         _mediator.Subscribe<NotificationMessage>(this, OnNotification);
         _mediator.Subscribe<ManualPairInviteMessage>(this, OnManualPairInvite);
+        _mediator.Subscribe<DelayedFrameworkUpdateMessage>(this, _ => CleanupExpired());
+        _mediator.Subscribe<DisconnectedMessage>(this, _ => ClearAllOnDisconnect());
+        _mediator.Subscribe<PairOfflineMessage>(this, msg => RemoveIfPending(msg.User.UID));
     }
 
     public MareMediator Mediator => _mediator;
 
-    public IReadOnlyDictionary<string, string> Pending => _pending;
+    public IReadOnlyDictionary<string, PendingEntry> Pending => _pending;
 
     private void OnNotification(NotificationMessage msg)
     {
@@ -66,6 +73,7 @@ public sealed class NearbyPendingService : IMediatorSubscriber
         if (!m.Success) return;
         var uid = m.Groups["uid"].Value;
         if (string.IsNullOrEmpty(uid)) return;
+        if (_pending.ContainsKey(uid)) return;
         // Try to extract name as everything before space and '['
         var name = msg.Message;
         try
@@ -80,17 +88,7 @@ public sealed class NearbyPendingService : IMediatorSubscriber
             _logger.LogDebug(ex, "Failed to parse nearby pending name, using UID");
             name = uid;
         }
-        _pending[uid] = name;
-        _logger.LogInformation("NearbyPending: received request from {uid} ({name})", uid, name);
-        _notificationTracker.Upsert(NotificationEntry.AutoDetect(uid, name));
-
-        if (!_configService.Current.UseInteractivePairRequestPopup)
-        {
-            Mediator.Publish(new NotificationMessage(
-                Loc.Get("AutoDetect.Notification.IncomingTitle"),
-                string.Format(CultureInfo.CurrentCulture, Loc.Get("AutoDetect.Notification.IncomingBody"), name, uid),
-                NotificationType.Info, TimeSpan.FromSeconds(5)));
-        }
+        RegisterPending(uid, name);
     }
 
     private void OnManualPairInvite(ManualPairInviteMessage msg)
@@ -102,17 +100,59 @@ public sealed class NearbyPendingService : IMediatorSubscriber
             ? msg.SourceAlias
             : (!string.IsNullOrWhiteSpace(msg.DisplayName) ? msg.DisplayName! : msg.SourceUid);
 
-        _pending[msg.SourceUid] = display;
-        _logger.LogInformation("NearbyPending: received manual invite from {uid} ({name})", msg.SourceUid, display);
-        _notificationTracker.Upsert(NotificationEntry.AutoDetect(msg.SourceUid, display));
+        RegisterPending(msg.SourceUid, display);
+    }
+
+    private void RegisterPending(string uid, string displayName)
+    {
+        _pending[uid] = new PendingEntry(displayName, DateTime.UtcNow);
+        _logger.LogInformation("NearbyPending: received request from {uid} ({name})", uid, displayName);
+        _notificationTracker.Upsert(NotificationEntry.AutoDetect(uid, displayName));
 
         if (!_configService.Current.UseInteractivePairRequestPopup)
         {
             _mediator.Publish(new NotificationMessage(
                 Loc.Get("AutoDetect.Notification.IncomingTitle"),
-                string.Format(CultureInfo.CurrentCulture, Loc.Get("AutoDetect.Notification.IncomingBody"), display, msg.SourceUid),
+                string.Format(CultureInfo.CurrentCulture, Loc.Get("AutoDetect.Notification.IncomingBody"), displayName, uid),
                 NotificationType.Info, TimeSpan.FromSeconds(5)));
         }
+    }
+
+    private void CleanupExpired()
+    {
+        var cutoff = DateTime.UtcNow - ExpirationDuration;
+        foreach (var kvp in _pending)
+        {
+            if (kvp.Value.ReceivedAtUtc < cutoff && _pending.TryRemove(kvp.Key, out _))
+            {
+                _notificationTracker.Remove(NotificationCategory.AutoDetect, kvp.Key);
+                _logger.LogDebug("NearbyPending: expired request from {uid}", kvp.Key);
+            }
+        }
+    }
+
+    private void RemoveIfPending(string uid)
+    {
+        if (_pending.TryRemove(uid, out var entry))
+        {
+            _notificationTracker.Remove(NotificationCategory.AutoDetect, uid);
+            _logger.LogInformation("NearbyPending: removed incoming invite from {uid} (user went offline)", uid);
+            _mediator.Publish(new NotificationMessage(
+                Loc.Get("AutoDetect.Notification.DisconnectedTitle"),
+                string.Format(CultureInfo.CurrentCulture, Loc.Get("AutoDetect.Notification.DisconnectedIncoming"), entry.DisplayName),
+                MareConfiguration.Models.NotificationType.Info, TimeSpan.FromSeconds(5)));
+        }
+    }
+
+    private void ClearAllOnDisconnect()
+    {
+        if (_pending.IsEmpty) return;
+        foreach (var uid in _pending.Keys)
+        {
+            _notificationTracker.Remove(NotificationCategory.AutoDetect, uid);
+        }
+        _pending.Clear();
+        _logger.LogInformation("NearbyPending: cleared all incoming invitations (disconnected)");
     }
 
     public void Remove(string uid)

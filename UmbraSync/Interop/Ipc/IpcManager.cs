@@ -3,7 +3,7 @@ using UmbraSync.Services.Mediator;
 
 namespace UmbraSync.Interop.Ipc;
 
-public sealed partial class IpcManager : DisposableMediatorSubscriberBase
+public sealed class IpcManager : DisposableMediatorSubscriberBase
 {
     public IpcManager(ILogger<IpcManager> logger, MareMediator mediator,
         IpcCallerPenumbra penumbraIpc, IpcCallerGlamourer glamourerIpc, IpcCallerCustomize customizeIpc, IpcCallerHeels heelsIpc,

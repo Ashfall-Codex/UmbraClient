@@ -66,6 +66,7 @@ public class MareConfig : IMareConfiguration
     public bool EnableDownloadQueue { get; set; } = true;
     public bool EnableParallelPairProcessing { get; set; } = true;
     public int MaxConcurrentPairApplications { get; set; } = 10;
+    public int MaxDecompressionThreads { get; set; }
     public int DownloadSpeedLimitInBytes { get; set; }
     public DownloadSpeeds DownloadSpeedType { get; set; } = DownloadSpeeds.MBps;
     public float ProfileDelay { get; set; } = 1.5f;

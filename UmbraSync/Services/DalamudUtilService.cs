@@ -51,7 +51,6 @@ public class DalamudUtilService : IHostedService, IMediatorSubscriber
     private readonly BlockedCharacterHandler _blockedCharacterHandler;
     private readonly IFramework _framework;
     private readonly IGameGui _gameGui;
-    private readonly IToastGui _toastGui;
     private readonly ILogger<DalamudUtilService> _logger;
     private readonly IObjectTable _objectTable;
     private readonly PerformanceCollectorService _performanceCollector;
@@ -80,7 +79,6 @@ public class DalamudUtilService : IHostedService, IMediatorSubscriber
         _objectTable = objectTable;
         _framework = framework;
         _gameGui = gameGui;
-        _toastGui = toastGui;
         _condition = condition;
         _gameData = gameData;
         _blockedCharacterHandler = blockedCharacterHandler;
@@ -88,19 +86,19 @@ public class DalamudUtilService : IHostedService, IMediatorSubscriber
         _performanceCollector = performanceCollector;
         WorldData = new(() =>
         {
-            return gameData.GetExcelSheet<Lumina.Excel.Sheets.World>(Dalamud.Game.ClientLanguage.English)!
+            return gameData.GetExcelSheet<Lumina.Excel.Sheets.World>(Dalamud.Game.ClientLanguage.English)
                 .Where(w => w.Name.ByteLength > 0 && w.DataCenter.RowId != 0 && (w.IsPublic || char.IsUpper((char)w.Name.Data.Span[0])))
                 .ToDictionary(w => (ushort)w.RowId, w => w.Name.ToString());
         });
         UiColors = new(() =>
         {
-            return gameData.GetExcelSheet<Lumina.Excel.Sheets.UIColor>(Dalamud.Game.ClientLanguage.English)!
+            return gameData.GetExcelSheet<Lumina.Excel.Sheets.UIColor>(Dalamud.Game.ClientLanguage.English)
                 .Where(x => x.RowId != 0 && !(x.RowId >= 500 && (x.Dark & 0xFFFFFF00) == 0))
                 .ToDictionary(x => (int)x.RowId);
         });
         TerritoryData = new(() =>
         {
-            return gameData.GetExcelSheet<Lumina.Excel.Sheets.TerritoryType>(Dalamud.Game.ClientLanguage.English)!
+            return gameData.GetExcelSheet<Lumina.Excel.Sheets.TerritoryType>(Dalamud.Game.ClientLanguage.English)
             .Where(w => w.RowId != 0)
             .ToDictionary(w => w.RowId, w =>
             {
@@ -116,7 +114,7 @@ public class DalamudUtilService : IHostedService, IMediatorSubscriber
         });
         MapData = new(() =>
         {
-            return gameData.GetExcelSheet<Lumina.Excel.Sheets.Map>(Dalamud.Game.ClientLanguage.English)!
+            return gameData.GetExcelSheet<Lumina.Excel.Sheets.Map>(Dalamud.Game.ClientLanguage.English)
             .Where(w => w.RowId != 0)
             .ToDictionary(w => w.RowId, w =>
             {
@@ -148,7 +146,7 @@ public class DalamudUtilService : IHostedService, IMediatorSubscriber
                 if (gobj != null && Vector3.Distance(pc.Position, gobj.Position) < 55.0f)
                     targetManager.Target = gobj;
                 else
-                    _toastGui.ShowError("Player out of range.");
+                    toastGui.ShowError("Player out of range.");
             }).ConfigureAwait(false);
         });
         IsWine = Util.IsWine();
@@ -418,7 +416,7 @@ public class DalamudUtilService : IHostedService, IMediatorSubscriber
         uint territoryId = agentMap == null ? 0 : agentMap->CurrentTerritoryId;
         uint divisionId = houseMan == null ? 0 : (uint)(houseMan->GetCurrentDivision());
         uint wardId = houseMan == null ? 0 : (uint)(houseMan->GetCurrentWard() + 1);
-        uint houseId = 0;
+        uint houseId;
         var tempHouseId = houseMan == null ? 0 : (houseMan->GetCurrentPlot() + 1);
         if (!houseMan->IsInside()) tempHouseId = 0;
         if (tempHouseId < 0) // Should not happen with +1 but keep logic
@@ -470,7 +468,7 @@ public class DalamudUtilService : IHostedService, IMediatorSubscriber
         return await RunOnFrameworkThread(GetHomeWorldId).ConfigureAwait(false);
     }
 
-    public unsafe bool IsGameObjectPresent(IntPtr key)
+    public bool IsGameObjectPresent(IntPtr key)
     {
         return _objectTable.Any(f => f.Address == key);
     }
@@ -531,7 +529,7 @@ public class DalamudUtilService : IHostedService, IMediatorSubscriber
 #pragma warning disable S2696 // Instance members should not write to "static" fields
         Plugin.Instance!.RealOnFrameworkUpdate = this.FrameworkOnUpdate;
 #pragma warning restore S2696
-        _framework.Update += Plugin.Instance!.OnFrameworkUpdate;
+        _framework.Update += Plugin.Instance.OnFrameworkUpdate;
         if (IsLoggedIn)
         {
             _classJobId = LocalPlayer!.ClassJob.RowId;
@@ -753,7 +751,7 @@ public class DalamudUtilService : IHostedService, IMediatorSubscriber
         _performanceCollector.LogPerformance(this, $"FrameworkOnUpdate", FrameworkOnUpdateInternal);
     }
 
-    private unsafe void FrameworkOnUpdateInternal()
+    private void FrameworkOnUpdateInternal()
     {
         if (LocalPlayer?.IsDead ?? false)
         {

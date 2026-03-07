@@ -300,8 +300,8 @@ public class Pair : DisposableMediatorSubscriberBase
 
     private async Task WaitForHandlerInitializationAsync(bool forced, CancellationToken externalToken)
     {
-        CancellationTokenSource? previousCts = null;
         CancellationTokenSource cts;
+        CancellationTokenSource? previousCts;
 
         lock (_pollingGate)
         {

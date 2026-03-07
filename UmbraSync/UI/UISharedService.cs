@@ -82,7 +82,6 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
 
     private readonly DalamudUtilService _dalamudUtil;
     private readonly IpcManager _ipcManager;
-    private readonly IDalamudPluginInterface _pluginInterface;
     private readonly ITextureProvider _textureProvider;
     public ITextureProvider TextureProvider => _textureProvider;
     private readonly Dictionary<string, object> _selectedComboItems = new(StringComparer.Ordinal);
@@ -133,7 +132,6 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
         FileDialogManager = fileDialogManager;
         _configService = configService;
         _dalamudUtil = dalamudUtil;
-        _pluginInterface = pluginInterface;
         _textureProvider = textureProvider;
         _serverConfigurationManager = serverManager;
 
@@ -149,14 +147,14 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
             _petNamesExists = _ipcManager.PetNames.APIAvailable;
             _moodlesExists = _ipcManager.Moodles.APIAvailable;
             _brioExists = _ipcManager.Brio.APIAvailable;
-            _chatTwoExists = Services.PluginWatcherService.GetInitialPluginState(_pluginInterface, "ChatTwo")?.IsLoaded ?? false;
-            _chatProximityExists = Services.PluginWatcherService.GetInitialPluginState(_pluginInterface, "ChatProximity")?.IsLoaded ?? false;
-            _chatAlertExists = Services.PluginWatcherService.GetInitialPluginState(_pluginInterface, "ChatAlerts")?.IsLoaded ?? false;
-            _simpleTweaksExists = Services.PluginWatcherService.GetInitialPluginState(_pluginInterface, "SimpleTweaksPlugin")?.IsLoaded ?? false;
-            _questRebornExists = Services.PluginWatcherService.GetInitialPluginState(_pluginInterface, "AQuestReborn")?.IsLoaded ?? false;
+            _chatTwoExists = Services.PluginWatcherService.GetInitialPluginState(pluginInterface, "ChatTwo")?.IsLoaded ?? false;
+            _chatProximityExists = Services.PluginWatcherService.GetInitialPluginState(pluginInterface, "ChatProximity")?.IsLoaded ?? false;
+            _chatAlertExists = Services.PluginWatcherService.GetInitialPluginState(pluginInterface, "ChatAlerts")?.IsLoaded ?? false;
+            _simpleTweaksExists = Services.PluginWatcherService.GetInitialPluginState(pluginInterface, "SimpleTweaksPlugin")?.IsLoaded ?? false;
+            _questRebornExists = Services.PluginWatcherService.GetInitialPluginState(pluginInterface, "AQuestReborn")?.IsLoaded ?? false;
         });
 
-        UidFont = _pluginInterface.UiBuilder.FontAtlas.NewDelegateFontHandle(e =>
+        UidFont = pluginInterface.UiBuilder.FontAtlas.NewDelegateFontHandle(e =>
         {
             e.OnPreBuild(tk => tk.AddDalamudAssetFont(Dalamud.DalamudAsset.NotoSansJpMedium, new()
             {
@@ -168,8 +166,8 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
                 ]
             }));
         });
-        GameFont = _pluginInterface.UiBuilder.FontAtlas.NewGameFontHandle(new(GameFontFamilyAndSize.Axis12));
-        IconFont = _pluginInterface.UiBuilder.IconFontFixedWidthHandle;
+        GameFont = pluginInterface.UiBuilder.FontAtlas.NewGameFontHandle(new(GameFontFamilyAndSize.Axis12));
+        IconFont = pluginInterface.UiBuilder.IconFontFixedWidthHandle;
     }
 
     public ApiController ApiController => _apiController;

@@ -146,10 +146,7 @@ public sealed class IpcCallerGlamourer : DisposableMediatorSubscriberBase, IIpcC
         {
             APIAvailable = apiAvailable;
         }
-        finally
-        {
-            // Notification is deferred to CheckAPIWithRetryAsync after all retries are exhausted
-        }
+        // Notification is deferred to CheckAPIWithRetryAsync after all retries are exhausted
     }
 
     public async Task ApplyAllAsync(ILogger logger, GameObjectHandler handler, string? customization, Guid applicationId, CancellationToken token, bool allowImmediate = false)

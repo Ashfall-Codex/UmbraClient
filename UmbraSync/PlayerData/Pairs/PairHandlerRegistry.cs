@@ -8,9 +8,6 @@ public sealed class PairHandlerRegistry : IDisposable
 {
     private readonly ILogger<PairHandlerRegistry> _logger;
     private readonly PairHandlerFactory _handlerFactory;
-    #pragma warning disable S4487
-    private readonly MareMediator _mediator;
-    #pragma warning restore S4487
 
     private readonly Lock _gate = new();
     private readonly Dictionary<string, PairHandlerEntry> _entriesByIdent = new(StringComparer.Ordinal);
@@ -20,12 +17,10 @@ public sealed class PairHandlerRegistry : IDisposable
 
     public PairHandlerRegistry(
         ILogger<PairHandlerRegistry> logger,
-        PairHandlerFactory handlerFactory,
-        MareMediator mediator)
+        PairHandlerFactory handlerFactory)
     {
         _logger = logger;
         _handlerFactory = handlerFactory;
-        _mediator = mediator;
     }
 
     public int HandlerCount

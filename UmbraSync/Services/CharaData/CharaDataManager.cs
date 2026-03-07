@@ -16,7 +16,7 @@ using UmbraSync.Utils;
 
 namespace UmbraSync.Services.CharaData;
 
-public sealed partial class CharaDataManager : DisposableMediatorSubscriberBase
+public sealed class CharaDataManager : DisposableMediatorSubscriberBase
 {
     private readonly ApiController _apiController;
     private readonly CharaDataConfigService _configService;
@@ -264,7 +264,7 @@ public sealed partial class CharaDataManager : DisposableMediatorSubscriberBase
     public async Task<(bool CanApply, string TargetName)> CanApplyInGpose()
     {
         var obj = await _dalamudUtilService.GetGposeTargetGameObjectAsync().ConfigureAwait(false);
-        string targetName = string.Empty;
+        string targetName;
         bool canApply = _dalamudUtilService.IsInGpose && obj != null
             && obj.ObjectKind == Dalamud.Game.ClientState.Objects.Enums.ObjectKind.Player;
         if (canApply)
@@ -661,7 +661,7 @@ public sealed partial class CharaDataManager : DisposableMediatorSubscriberBase
             return ("Restored successfully", true);
         }
 
-        var missingFileList = extendedDto!.MissingFiles.ToList();
+        var missingFileList = extendedDto.MissingFiles.ToList();
         var result = await UploadFiles(missingFileList, async () =>
         {
             var newFilePaths = dto.FileGamePaths;

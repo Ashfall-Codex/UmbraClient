@@ -109,13 +109,13 @@ public partial class ApiController
         switch (messageSeverity)
         {
             case MessageSeverity.Error:
-                Mediator.Publish(new NotificationMessage(Loc.Get("Notification.Server.Warning") + " " + _serverManager.CurrentServer!.ServerName, message, NotificationType.Error, TimeSpan.FromSeconds(7.5)));
-                _notificationTracker.Upsert(NotificationEntry.ServerMessageError(_serverManager.CurrentServer!.ServerName, message));
+                Mediator.Publish(new NotificationMessage(Loc.Get("Notification.Server.Warning") + " " + _serverManager.CurrentServer.ServerName, message, NotificationType.Error, TimeSpan.FromSeconds(7.5)));
+                _notificationTracker.Upsert(NotificationEntry.ServerMessageError(_serverManager.CurrentServer.ServerName, message));
                 break;
 
             case MessageSeverity.Warning:
-                Mediator.Publish(new NotificationMessage(Loc.Get("Notification.Server.Warning") + " " + _serverManager.CurrentServer!.ServerName, message, NotificationType.Warning, TimeSpan.FromSeconds(7.5)));
-                _notificationTracker.Upsert(NotificationEntry.ServerMessageWarning(_serverManager.CurrentServer!.ServerName, message));
+                Mediator.Publish(new NotificationMessage(Loc.Get("Notification.Server.Warning") + " " + _serverManager.CurrentServer.ServerName, message, NotificationType.Warning, TimeSpan.FromSeconds(7.5)));
+                _notificationTracker.Upsert(NotificationEntry.ServerMessageWarning(_serverManager.CurrentServer.ServerName, message));
                 break;
 
             case MessageSeverity.Information:
@@ -125,11 +125,13 @@ public partial class ApiController
                     break;
                 }
                 var enrichedMessage = message;
-                if (_configService.Current.EnableAutoDetectDiscovery)
+                bool isNearbyMessage = message.StartsWith("Nearby Request:", StringComparison.Ordinal)
+                    || message.StartsWith("Nearby Accept:", StringComparison.Ordinal);
+                if (!isNearbyMessage && _configService.Current.EnableAutoDetectDiscovery)
                 {
                     enrichedMessage += "\n" + Loc.Get("Notification.NearbyDetection.Enabled");
                 }
-                Mediator.Publish(new NotificationMessage(Loc.Get("Notification.Server.Info") + " " + _serverManager.CurrentServer!.ServerName, enrichedMessage, NotificationType.Success, TimeSpan.FromSeconds(5)));
+                Mediator.Publish(new NotificationMessage(Loc.Get("Notification.Server.Info") + " " + _serverManager.CurrentServer.ServerName, enrichedMessage, NotificationType.Success, TimeSpan.FromSeconds(5)));
                 break;
         }
 
@@ -147,6 +149,23 @@ public partial class ApiController
         if (Logger.IsEnabled(LogLevel.Debug))
             Logger.LogDebug("Client_UserAddClientPair: {uid}", dto.User.UID);
         ExecuteSafely(() => _pairManager.AddUserPair(dto, addToLastAddedUser: true));
+        return Task.CompletedTask;
+    }
+
+    public Task Client_ReceivePairRequest(UserDto requester)
+    {
+        if (requester is null) return Task.CompletedTask;
+
+        if (Logger.IsEnabled(LogLevel.Debug))
+            Logger.LogDebug("Client_ReceivePairRequest: {uid}", requester.User.UID);
+
+        ExecuteSafely(() =>
+        {
+            var uid = requester.User.UID;
+            var alias = requester.User.Alias ?? string.Empty;
+            Mediator.Publish(new ManualPairInviteMessage(uid, alias, UID, DisplayName, $"pair-request-{uid}"));
+        });
+
         return Task.CompletedTask;
     }
 
@@ -186,7 +205,11 @@ public partial class ApiController
     {
         if (Logger.IsEnabled(LogLevel.Debug))
             Logger.LogDebug("Client_UserSendOffline: {uid}", dto.User.UID);
-        ExecuteSafely(() => _pairManager.MarkPairOffline(dto.User));
+        ExecuteSafely(() =>
+        {
+            _pairManager.MarkPairOffline(dto.User);
+            Mediator.Publish(new PairOfflineMessage(dto.User));
+        });
         return Task.CompletedTask;
     }
 
@@ -327,6 +350,12 @@ public partial class ApiController
     {
         if (_initialized) return;
         _mareHub!.On(nameof(Client_UserAddClientPair), act);
+    }
+
+    public void OnReceivePairRequest(Action<UserDto> act)
+    {
+        if (_initialized) return;
+        _mareHub!.On(nameof(Client_ReceivePairRequest), act);
     }
 
     public void OnUserTypingState(Action<TypingStateDto> act)

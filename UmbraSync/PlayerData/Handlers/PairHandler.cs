@@ -5,9 +5,9 @@ using System.Diagnostics;
 using UmbraSync.API.Data;
 using UmbraSync.FileCache;
 using UmbraSync.Interop.Ipc;
-using UmbraSync.MareConfiguration;
 using UmbraSync.PlayerData.Factories;
 using UmbraSync.PlayerData.Pairs;
+using UmbraSync.MareConfiguration;
 using UmbraSync.Services;
 using UmbraSync.Services.Events;
 using UmbraSync.Services.Mediator;
@@ -863,8 +863,6 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
                     await _ipcManager.Penumbra.RedrawAsync(Logger, handler, applicationId, token).ConfigureAwait(false);
                     break;
 
-                default:
-                    break;
             }
 
             token.ThrowIfCancellationRequested();

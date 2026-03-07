@@ -35,13 +35,10 @@ public sealed class PenumbraCollections : IDisposable
 
     private sealed class CollectionsSubscriber : MediatorSubscriberBase
     {
-        private readonly PenumbraCollections _collections;
-
         public CollectionsSubscriber(ILogger logger, MareMediator mediator, PenumbraCollections collections)
             : base(logger, mediator)
         {
-            _collections = collections;
-            Mediator.Subscribe<PenumbraInitializedMessage>(this, _ => _collections.ScheduleCleanup());
+            Mediator.Subscribe<PenumbraInitializedMessage>(this, _ => collections.ScheduleCleanup());
         }
     }
 

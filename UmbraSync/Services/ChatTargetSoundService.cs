@@ -173,7 +173,7 @@ public class ChatTargetSoundService : DisposableMediatorSubscriberBase
         return null;
     }
 
-    private static unsafe void PlayChatSound(uint soundIndex)
+    private static void PlayChatSound(uint soundIndex)
     {
         UIGlobals.PlayChatSoundEffect(soundIndex);
     }

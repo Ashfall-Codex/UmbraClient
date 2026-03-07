@@ -1,11 +1,10 @@
 ﻿using Microsoft.AspNetCore.SignalR.Client;
 using Microsoft.Extensions.Logging;
-using System.Globalization;
 using System.Reflection;
+using System.Globalization;
 using UmbraSync.API.Data;
 using UmbraSync.API.Data.Extensions;
 using UmbraSync.API.Dto;
-using UmbraSync.API.Dto.Group;
 using UmbraSync.API.Dto.User;
 using UmbraSync.API.SignalR;
 using UmbraSync.MareConfiguration;
@@ -42,7 +41,6 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
     private bool _initialized;
     private HubConnection? _mareHub;
     private ServerState _serverState;
-    private CensusUpdateMessage? _lastCensus;
 
     public ApiController(ILogger<ApiController> logger, HubFactory hubFactory, DalamudUtilService dalamudUtil,
         PairManager pairManager, ServerConfigurationManager serverManager, MareMediator mediator,
@@ -63,7 +61,6 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
         Mediator.Subscribe<HubReconnectedMessage>(this, (msg) => _ = MareHubOnReconnected());
         Mediator.Subscribe<HubReconnectingMessage>(this, (msg) => MareHubOnReconnecting(msg.Exception));
         Mediator.Subscribe<CyclePauseMessage>(this, (msg) => _ = CyclePauseAsync(msg.UserData));
-        Mediator.Subscribe<CensusUpdateMessage>(this, (msg) => _lastCensus = msg);
         Mediator.Subscribe<PauseMessage>(this, (msg) => Pause(msg.UserData));
 
         ServerState = ServerState.Offline;
@@ -465,6 +462,7 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
         OnUpdateSystemInfo((dto) => _ = Client_UpdateSystemInfo(dto));
         OnUserSendOffline((dto) => _ = Client_UserSendOffline(dto));
         OnUserAddClientPair((dto) => _ = Client_UserAddClientPair(dto));
+        OnReceivePairRequest((dto) => _ = Client_ReceivePairRequest(dto));
         OnUserReceiveCharacterData((dto) => _ = Client_UserReceiveCharacterData(dto));
         OnUserRemoveClientPair(dto => _ = Client_UserRemoveClientPair(dto));
         OnUserSendOnline(dto => _ = Client_UserSendOnline(dto));

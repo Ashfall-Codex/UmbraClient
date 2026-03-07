@@ -1,11 +1,8 @@
 ﻿using Dalamud.Bindings.ImGui;
-using Dalamud.Game.ClientState.Keys;
-using Dalamud.Game.Text;
 using Dalamud.Interface;
 using Dalamud.Interface.Colors;
 using Dalamud.Interface.Utility;
 using Dalamud.Interface.Utility.Raii;
-using Dalamud.Plugin.Services;
 using Dalamud.Utility;
 using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
@@ -420,7 +417,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
         int downloadSpeedLimit = _configService.Current.DownloadSpeedLimitInBytes;
 
         ImGui.AlignTextToFramePadding();
-        ImGui.TextUnformatted("Global Download Speed Limit");
+        ImGui.TextUnformatted(Loc.Get("Settings.Transfer.SpeedLimit"));
         ImGui.SameLine();
         ImGui.SetNextItemWidth(MathF.Min(100 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X * 0.3f));
         if (ImGui.InputInt("###speedlimit", ref downloadSpeedLimit))
@@ -446,14 +443,25 @@ public class SettingsUi : WindowMediatorSubscriberBase
             }, _configService.Current.DownloadSpeedType);
         ImGui.SameLine();
         ImGui.AlignTextToFramePadding();
-        ImGui.TextUnformatted("0 = No limit/infinite");
+        ImGui.TextUnformatted(Loc.Get("Settings.Transfer.SpeedLimit.NoLimit"));
         ImGui.SetNextItemWidth(MathF.Min(250 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X - 200 * ImGuiHelpers.GlobalScale));
-        if (ImGui.SliderInt("Maximum Parallel Downloads", ref maxParallelDownloads, 1, 10))
+        if (ImGui.SliderInt(Loc.Get("Settings.Transfer.ParallelDownloads"), ref maxParallelDownloads, 1, 10))
         {
             _configService.Current.ParallelDownloads = maxParallelDownloads;
             _configService.Save();
         }
-        UiSharedService.AttachToolTip("Limite le nombre de téléchargements simultanés pour éviter la surcharge. (défaut: 10)");
+        UiSharedService.AttachToolTip(Loc.Get("Settings.Transfer.ParallelDownloads.Help"));
+
+        int maxDecompThreads = _configService.Current.MaxDecompressionThreads;
+        var cpuCount = Environment.ProcessorCount;
+        var autoValue = Math.Clamp(_configService.Current.ParallelDownloads, 1, Math.Min(cpuCount, 4));
+        ImGui.SetNextItemWidth(MathF.Min(250 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X - 200 * ImGuiHelpers.GlobalScale));
+        if (ImGui.SliderInt(Loc.Get("Settings.Transfer.DecompressionThreads"), ref maxDecompThreads, 0, cpuCount))
+        {
+            _configService.Current.MaxDecompressionThreads = maxDecompThreads;
+            _configService.Save();
+        }
+        UiSharedService.AttachToolTip(string.Format(Loc.Get("Settings.Transfer.DecompressionThreads.Help"), autoValue));
 
         ImGui.Spacing();
         _uiShared.BigText(Loc.Get("Settings.Transfer.PairProcessing.Title"));
@@ -839,7 +847,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
         }
     }
 
-    private unsafe void DrawChatTargetSoundSettings()
+    private void DrawChatTargetSoundSettings()
     {
         _uiShared.BigText(Loc.Get("Settings.ChatTargetSound.Header"));
 
@@ -908,7 +916,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
     /// <summary>
     /// Dessine la section de surcharges de son par pair dans les settings.
     /// </summary>
-    private unsafe void DrawTargetSoundPairOverrides()
+    private void DrawTargetSoundPairOverrides()
     {
         var pairEnabled = _configService.Current.ChatTargetSoundPairOverridesEnabled;
         if (ImGui.Checkbox(Loc.Get("Settings.ChatTargetSound.Override.EnablePair"), ref pairEnabled))
@@ -1031,7 +1039,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
     /// <summary>
     /// Dessine la section de surcharges de son par syncshell dans les settings.
     /// </summary>
-    private unsafe void DrawTargetSoundGroupOverrides()
+    private void DrawTargetSoundGroupOverrides()
     {
         var groupEnabled = _configService.Current.ChatTargetSoundGroupOverridesEnabled;
         if (ImGui.Checkbox(Loc.Get("Settings.ChatTargetSound.Override.EnableGroup"), ref groupEnabled))
@@ -2501,7 +2509,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
                         UiSharedService.DrawCard($"chara-{i}", () =>
                         {
                             using var charaId = ImRaii.PushId("selectedChara" + i);
-                            var availWidth = ImGui.GetContentRegionAvail().X;
+                            var cardWidth = ImGui.GetContentRegionAvail().X;
 
                             // Character name row
                             _uiShared.IconText(thisIsYou ? FontAwesomeIcon.Star : FontAwesomeIcon.User);
@@ -2513,7 +2521,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
                             // Key selector
                             _uiShared.IconText(FontAwesomeIcon.Key);
                             ImGui.SameLine();
-                            var comboWidth = availWidth - ImGui.GetCursorPosX() + ImGui.GetWindowContentRegionMin().X;
+                            var comboWidth = cardWidth - ImGui.GetCursorPosX() + ImGui.GetWindowContentRegionMin().X;
                             ImGui.SetNextItemWidth(comboWidth);
 
                             string selectedKeyName = string.Empty;
@@ -2570,7 +2578,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
                     UiSharedService.DrawCard($"secret-key-{item.Key}", () =>
                     {
                         using var id = ImRaii.PushId("key" + item.Key);
-                        var availWidth = ImGui.GetContentRegionAvail().X;
+                        var cardWidth = ImGui.GetContentRegionAvail().X;
 
                         // Header: name + lock icon
                         var friendlyName = item.Value.FriendlyName;
@@ -2578,7 +2586,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
                         if (keyInUse)
                             UiSharedService.AttachToolTip(Loc.Get("Settings.Account.Keys.InUseWarning"));
                         ImGui.SameLine();
-                        var inputWidth = availWidth - ImGui.GetCursorPosX() + ImGui.GetWindowContentRegionMin().X;
+                        var inputWidth = cardWidth - ImGui.GetCursorPosX() + ImGui.GetWindowContentRegionMin().X;
                         ImGui.SetNextItemWidth(inputWidth);
                         if (ImGui.InputText("##name", ref friendlyName, 255))
                         {
@@ -2752,7 +2760,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
                         (success, paths) =>
                     {
                         if (!success) return;
-                        if (paths.FirstOrDefault() is not string path) return;
+                        if (paths.FirstOrDefault() is not { } path) return;
                         try
                         {
                             var json = File.ReadAllText(path);
@@ -3000,7 +3008,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
 
         if (_apiController.ServerState is ServerState.Connected)
         {
-            string statusText = $"{Loc.Get("Settings.About.Service")} {_serverConfigurationManager.CurrentServer!.ServerName}:";
+            string statusText = $"{Loc.Get("Settings.About.Service")} {_serverConfigurationManager.CurrentServer.ServerName}:";
             string availableText = Loc.Get("Settings.About.Available");
             string usersText = _apiController.OnlineUsers.ToString(CultureInfo.InvariantCulture);
             string onlineText = Loc.Get("Settings.About.UsersOnline");

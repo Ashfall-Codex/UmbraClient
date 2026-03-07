@@ -1,5 +1,4 @@
 using Microsoft.Extensions.Logging;
-using UmbraSync.MareConfiguration.Models;
 using UmbraSync.PlayerData.Handlers;
 using UmbraSync.Services.Mediator;
 using PenumbraApi = global::Penumbra.Api.Helpers;

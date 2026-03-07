@@ -3,7 +3,6 @@ using Dalamud.Interface;
 using Dalamud.Interface.Colors;
 using Dalamud.Interface.Utility;
 using Dalamud.Interface.Utility.Raii;
-using Dalamud.Utility;
 using System.Globalization;
 using System.Numerics;
 using Dalamud.Interface.Textures.TextureWraps;
@@ -79,7 +78,6 @@ internal sealed class GroupPanel
     private string _syncshellFilter = string.Empty;
     private string _membersFilter = string.Empty;
     private bool _membersSortByType = false;
-    private readonly UmbraProfileManager _profileManager;
     private readonly SyncshellConfigService _syncshellConfig;
     private readonly Dictionary<string, bool> _favoriteMembersExpanded = new(StringComparer.Ordinal);
     private string? _profileWindowGid = null;
@@ -91,7 +89,7 @@ internal sealed class GroupPanel
     public GroupPanel(CompactUi mainUi, UiSharedService uiShared, PairManager pairManager,
         UidDisplayHandler uidDisplayHandler, ServerConfigurationManager serverConfigurationManager,
         CharaDataManager charaDataManager, AutoDetectRequestService autoDetectRequestService,
-        MareConfigService mareConfig, UmbraProfileManager profileManager, SyncshellConfigService syncshellConfig)
+        MareConfigService mareConfig, SyncshellConfigService syncshellConfig)
     {
         _mainUi = mainUi;
         _uiShared = uiShared;
@@ -101,7 +99,6 @@ internal sealed class GroupPanel
         _charaDataManager = charaDataManager;
         _autoDetectRequestService = autoDetectRequestService;
         _mareConfig = mareConfig;
-        _profileManager = profileManager;
         _syncshellConfig = syncshellConfig;
     }
 
@@ -382,10 +379,7 @@ internal sealed class GroupPanel
             float lineStartY = ImGui.GetCursorPosY();
             bool expandedState = _expandedGroupState[groupDto.GID];
             UiSharedService.DrawArrowToggle(ref expandedState, $"##syncshell-toggle-{groupDto.GID}");
-            if (expandedState != _expandedGroupState[groupDto.GID])
-            {
-                _expandedGroupState[groupDto.GID] = expandedState;
-            }
+            _expandedGroupState[groupDto.GID] = expandedState;
             ImGui.SameLine(0f, 6f * ImGuiHelpers.GlobalScale);
 
             var textIsGid = true;
@@ -894,43 +888,7 @@ internal sealed class GroupPanel
                                           + Environment.NewLine + "Note: this setting does not apply to individual pairs that are also in the syncshell.");
 
             // Combo son de notification ciblée pour ce syncshell
-            {
-                var gid = groupDto.Group.GID;
-                var overrides = _mareConfig.Current.GroupTargetSoundOverrides;
-                overrides.TryGetValue(gid, out var currentValue);
-                var hasOverride = overrides.ContainsKey(gid);
-
-                var previewLabel = !hasOverride
-                    ? Loc.Get("Settings.ChatTargetSound.Override.Default")
-                    : currentValue == 0
-                        ? Loc.Get("Settings.ChatTargetSound.Override.Disabled")
-                        : string.Format(CultureInfo.CurrentCulture, Loc.Get("Settings.ChatTargetSound.SoundItem"), currentValue);
-
-                ImGui.SetNextItemWidth(200 * ImGuiHelpers.GlobalScale);
-                if (ImGui.BeginCombo(Loc.Get("Settings.ChatTargetSound.Override.Label") + "##shell_sound_" + gid, previewLabel))
-                {
-                    if (ImGui.Selectable(Loc.Get("Settings.ChatTargetSound.Override.Default"), !hasOverride))
-                    {
-                        overrides.Remove(gid);
-                        _mareConfig.Save();
-                    }
-                    if (ImGui.Selectable(Loc.Get("Settings.ChatTargetSound.Override.Disabled"), hasOverride && currentValue == 0))
-                    {
-                        overrides[gid] = 0;
-                        _mareConfig.Save();
-                    }
-                    for (var i = 1; i <= 16; i++)
-                    {
-                        var label = string.Format(CultureInfo.CurrentCulture, Loc.Get("Settings.ChatTargetSound.SoundItem"), i);
-                        if (ImGui.Selectable(label, hasOverride && currentValue == i))
-                        {
-                            overrides[gid] = i;
-                            _mareConfig.Save();
-                        }
-                    }
-                    ImGui.EndCombo();
-                }
-            }
+            DrawGroupTargetSoundCombo(groupDto);
 
             if (isOwner || groupDto.GroupUserInfo.IsModerator())
             {
@@ -943,6 +901,45 @@ internal sealed class GroupPanel
             }
 
             ImGui.EndPopup();
+        }
+    }
+
+    private void DrawGroupTargetSoundCombo(GroupFullInfoDto groupDto)
+    {
+        var gid = groupDto.Group.GID;
+        var overrides = _mareConfig.Current.GroupTargetSoundOverrides;
+        overrides.TryGetValue(gid, out var currentValue);
+        var hasOverride = overrides.ContainsKey(gid);
+
+        var previewLabel = !hasOverride
+            ? Loc.Get("Settings.ChatTargetSound.Override.Default")
+            : currentValue == 0
+                ? Loc.Get("Settings.ChatTargetSound.Override.Disabled")
+                : string.Format(CultureInfo.CurrentCulture, Loc.Get("Settings.ChatTargetSound.SoundItem"), currentValue);
+
+        ImGui.SetNextItemWidth(200 * ImGuiHelpers.GlobalScale);
+        if (ImGui.BeginCombo(Loc.Get("Settings.ChatTargetSound.Override.Label") + "##shell_sound_" + gid, previewLabel))
+        {
+            if (ImGui.Selectable(Loc.Get("Settings.ChatTargetSound.Override.Default"), !hasOverride))
+            {
+                overrides.Remove(gid);
+                _mareConfig.Save();
+            }
+            if (ImGui.Selectable(Loc.Get("Settings.ChatTargetSound.Override.Disabled"), hasOverride && currentValue == 0))
+            {
+                overrides[gid] = 0;
+                _mareConfig.Save();
+            }
+            for (var i = 1; i <= 16; i++)
+            {
+                var label = string.Format(CultureInfo.CurrentCulture, Loc.Get("Settings.ChatTargetSound.SoundItem"), i);
+                if (ImGui.Selectable(label, hasOverride && currentValue == i))
+                {
+                    overrides[gid] = i;
+                    _mareConfig.Save();
+                }
+            }
+            ImGui.EndCombo();
         }
     }
 

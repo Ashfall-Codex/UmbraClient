@@ -1,5 +1,4 @@
 using Microsoft.Extensions.Logging;
-using UmbraSync.MareConfiguration.Models;
 using UmbraSync.Services.Mediator;
 using PenumbraEnum = global::Penumbra.Api.Enums;
 using PenumbraIpc = global::Penumbra.Api.IpcSubscribers;

@@ -43,7 +43,7 @@ public class DiscoveryConfigProvider
             var json = _tokenProvider.GetStapledWellKnown(_serverManager.CurrentApiUrl);
             if (string.IsNullOrEmpty(json)) return false;
 
-            var root = JsonSerializer.Deserialize<WellKnownRoot>(json!);
+            var root = JsonSerializer.Deserialize<WellKnownRoot>(json);
             if (root == null) return false;
 
             root.NearbyDiscovery?.Hydrate();

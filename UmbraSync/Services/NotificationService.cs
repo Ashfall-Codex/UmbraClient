@@ -237,7 +237,7 @@ public class NotificationService : DisposableMediatorSubscriberBase, IHostedServ
             NotificationType.Warning => DalamudNotificationType.Warning,
             NotificationType.Success => DalamudNotificationType.Success,
             NotificationType.Info => DalamudNotificationType.Info,
-            _ => DalamudNotificationType.Info
+            _ => DalamudNotificationType.Info,
         };
 
         _notificationManager.AddNotification(new DalamudNotification()

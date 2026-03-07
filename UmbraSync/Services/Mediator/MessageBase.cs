@@ -14,7 +14,7 @@ public record SameThreadMessage : MessageBase
 
 public record KeyedMessage(string MessageKey, bool SameThread = false) : MessageBase
 {
-    public override string? SubscriberKey => MessageKey;
+    public override string SubscriberKey => MessageKey;
     public override bool KeepThreadContext => SameThread;
 }
 #pragma warning restore MA0048

@@ -194,6 +194,26 @@
     <value>En attente de connexion au serveur</value>
   </data>
 
+  <!-- Paramètres de téléchargement -->
+  <data name="Settings.Transfer.SpeedLimit" xml:space="preserve">
+    <value>Limite de vitesse globale</value>
+  </data>
+  <data name="Settings.Transfer.SpeedLimit.NoLimit" xml:space="preserve">
+    <value>0 = Pas de limite</value>
+  </data>
+  <data name="Settings.Transfer.ParallelDownloads" xml:space="preserve">
+    <value>Téléchargements parallèles max</value>
+  </data>
+  <data name="Settings.Transfer.ParallelDownloads.Help" xml:space="preserve">
+    <value>Limite le nombre de téléchargements simultanés pour éviter la surcharge. (défaut : 10)</value>
+  </data>
+  <data name="Settings.Transfer.DecompressionThreads" xml:space="preserve">
+    <value>Threads de décompression max</value>
+  </data>
+  <data name="Settings.Transfer.DecompressionThreads.Help" xml:space="preserve">
+    <value>Nombre max de décompressions simultanées. 0 = automatique ({0} sur cette machine). (défaut : 0)</value>
+  </data>
+
   <!-- Paramètres de traitement des pairs -->
   <data name="Settings.Transfer.PairProcessing.Title" xml:space="preserve">
     <value>Traitement des pairs</value>
@@ -293,6 +313,15 @@
   </data>
   <data name="AutoDetect.Notification.AcceptedBody" xml:space="preserve">
     <value>Le jumelage avec {0} est maintenant actif.</value>
+  </data>
+  <data name="AutoDetect.Notification.DisconnectedTitle" xml:space="preserve">
+    <value>Déconnexion</value>
+  </data>
+  <data name="AutoDetect.Notification.DisconnectedIncoming" xml:space="preserve">
+    <value>{0} s'est déconnecté(e). L'invitation reçue a expiré.</value>
+  </data>
+  <data name="AutoDetect.Notification.DisconnectedOutgoing" xml:space="preserve">
+    <value>{0} s'est déconnecté(e). L'invitation envoyée a expiré.</value>
   </data>
   <data name="CompactUi.Connection.DisconnectTooltip" xml:space="preserve">
     <value>Se déconnecter de {0}</value>
@@ -1215,6 +1244,9 @@ Veuillez conserver une copie de votre clé secrète au cas où vous auriez besoi
   </data>
   <data name="AutoDetectUi.Invitations.SentAgo" xml:space="preserve">
     <value>Envoyée il y a {0}</value>
+  </data>
+  <data name="AutoDetectUi.Invitations.ReceivedAgo" xml:space="preserve">
+    <value>Reçue il y a {0}</value>
   </data>
   <data name="AutoDetectUi.Invitations.SentEmpty" xml:space="preserve">
     <value>Aucune invitation envoyée.</value>

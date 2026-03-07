@@ -209,7 +209,7 @@ public sealed partial class CharaDataHubUi
             ImGui.TextUnformatted($"{dataDto.FileGamePaths.Count} associated game paths");
             ImGui.NewLine();
             ImGui.SameLine(pos);
-            ImGui.TextUnformatted($"{dataDto.FileSwaps!.Count} file swaps");
+            ImGui.TextUnformatted($"{dataDto.FileSwaps.Count} file swaps");
             ImGui.NewLine();
             ImGui.SameLine(pos);
             if (!dataDto.HasMissingFiles)

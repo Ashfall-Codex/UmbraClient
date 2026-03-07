@@ -194,6 +194,26 @@
     <value>Waiting for server connection</value>
   </data>
 
+  <!-- Download settings -->
+  <data name="Settings.Transfer.SpeedLimit" xml:space="preserve">
+    <value>Global Download Speed Limit</value>
+  </data>
+  <data name="Settings.Transfer.SpeedLimit.NoLimit" xml:space="preserve">
+    <value>0 = No limit/infinite</value>
+  </data>
+  <data name="Settings.Transfer.ParallelDownloads" xml:space="preserve">
+    <value>Maximum Parallel Downloads</value>
+  </data>
+  <data name="Settings.Transfer.ParallelDownloads.Help" xml:space="preserve">
+    <value>Limits the number of simultaneous downloads to prevent overload. (default: 10)</value>
+  </data>
+  <data name="Settings.Transfer.DecompressionThreads" xml:space="preserve">
+    <value>Maximum Decompression Threads</value>
+  </data>
+  <data name="Settings.Transfer.DecompressionThreads.Help" xml:space="preserve">
+    <value>Maximum number of simultaneous decompressions. 0 = automatic ({0} on this machine). (default: 0)</value>
+  </data>
+
   <!-- Pair Processing settings -->
   <data name="Settings.Transfer.PairProcessing.Title" xml:space="preserve">
     <value>Pair Processing</value>
@@ -255,6 +275,15 @@
   </data>
   <data name="AutoDetect.Notification.AcceptedBody" xml:space="preserve">
     <value>Pairing with {0} is now active.</value>
+  </data>
+  <data name="AutoDetect.Notification.DisconnectedTitle" xml:space="preserve">
+    <value>Disconnection</value>
+  </data>
+  <data name="AutoDetect.Notification.DisconnectedIncoming" xml:space="preserve">
+    <value>{0} disconnected. The incoming invitation has expired.</value>
+  </data>
+  <data name="AutoDetect.Notification.DisconnectedOutgoing" xml:space="preserve">
+    <value>{0} disconnected. The outgoing invitation has expired.</value>
   </data>
   
   <!-- Vanity / Custom ID in Edit Profile -->
@@ -1315,6 +1344,9 @@ Click to change.</value>
   </data>
   <data name="AutoDetectUi.Invitations.SentAgo" xml:space="preserve">
     <value>Sent {0} ago</value>
+  </data>
+  <data name="AutoDetectUi.Invitations.ReceivedAgo" xml:space="preserve">
+    <value>Received {0} ago</value>
   </data>
   <data name="AutoDetectUi.Invitations.SentEmpty" xml:space="preserve">
     <value>No outgoing invitations.</value>

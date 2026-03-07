@@ -1,6 +1,5 @@
 using Dalamud.Bindings.ImGui;
 using Dalamud.Interface;
-using Microsoft.Extensions.Logging;
 using System.Numerics;
 using UmbraSync.API.Data;
 using UmbraSync.API.Dto.Group;

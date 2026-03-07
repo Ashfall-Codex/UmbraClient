@@ -4,7 +4,6 @@ using Dalamud.Interface.Utility;
 using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Client.System.Framework;
 using FFXIVClientStructs.FFXIV.Client.UI;
-using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using Microsoft.Extensions.Logging;
 using System.Numerics;
@@ -172,7 +171,7 @@ public sealed class TypingIndicatorOverlay : WindowMediatorSubscriberBase
             ImGui.ColorConvertFloat4ToU32(new Vector4(1f, 1f, 1f, 0.9f)));
     }
 
-    private unsafe void DrawNameplateIndicators(ImDrawListPtr drawList, IReadOnlyDictionary<string, (UserData User, DateTime FirstSeen, DateTime LastUpdate)> activeTypers,
+    private void DrawNameplateIndicators(ImDrawListPtr drawList, IReadOnlyDictionary<string, (UserData User, DateTime FirstSeen, DateTime LastUpdate)> activeTypers,
         bool selfActive, DateTime now, DateTime selfStart, DateTime selfLast)
     {
         var iconWrap = _textureProvider.GetFromGameIcon(NameplateIconId).GetWrapOrEmpty();
@@ -407,7 +406,7 @@ public sealed class TypingIndicatorOverlay : WindowMediatorSubscriberBase
         if (pair != null)
         {
             var name = pair.PlayerName;
-            if (!string.IsNullOrEmpty(name) && TryGetWorldPositionByName(name!, out position))
+            if (!string.IsNullOrEmpty(name) && TryGetWorldPositionByName(name, out position))
             {
                 _typedLogger.LogTrace("TypingIndicator: resolved by pair name {name}", name);
                 return true;

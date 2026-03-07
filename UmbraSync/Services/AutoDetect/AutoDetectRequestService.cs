@@ -13,7 +13,7 @@ using NotificationType = UmbraSync.MareConfiguration.Models.NotificationType;
 
 namespace UmbraSync.Services.AutoDetect;
 
-public class AutoDetectRequestService
+public class AutoDetectRequestService : IMediatorSubscriber
 {
     private readonly ILogger<AutoDetectRequestService> _logger;
     private readonly DiscoveryConfigProvider _configProvider;
@@ -40,7 +40,11 @@ public class AutoDetectRequestService
         _dalamud = dalamudUtilService;
         _notificationTracker = notificationTracker;
         _apiController = new Lazy<ApiController>(() => serviceProvider.GetRequiredService<ApiController>());
+        _mediator.Subscribe<DisconnectedMessage>(this, _ => ClearAllOnDisconnect());
+        _mediator.Subscribe<PairOfflineMessage>(this, msg => RemoveOutgoingForUser(msg.User.UID));
     }
+
+    public MareMediator Mediator => _mediator;
 
     public async Task<bool> SendRequestAsync(string? token, string? uid = null, string? targetDisplayName = null, CancellationToken ct = default)
     {
@@ -121,7 +125,7 @@ public class AutoDetectRequestService
         var requestUid = requestToken == null ? uid : null;
 
         _logger.LogInformation("Nearby: sending pair request via {endpoint}", endpoint);
-        var ok = await _client.SendRequestAsync(endpoint!, requestToken, requestUid, displayName, ct).ConfigureAwait(false);
+        var ok = await _client.SendRequestAsync(endpoint, requestToken, requestUid, displayName, ct).ConfigureAwait(false);
         if (ok)
         {
             if (!string.IsNullOrEmpty(targetKey))
@@ -143,7 +147,7 @@ public class AutoDetectRequestService
             _mediator.Publish(new NotificationMessage(Loc.Get("Notification.Nearby.Sent.Title"), Loc.Get("Notification.Nearby.Sent.Body"), NotificationType.Info));
             var pendingKey = EnsureTargetKey(targetKey);
             var label = !string.IsNullOrWhiteSpace(targetDisplayName)
-                ? targetDisplayName!
+                ? targetDisplayName
                 : (!string.IsNullOrEmpty(uid) ? uid : (!string.IsNullOrEmpty(token) ? token : pendingKey));
             _pendingRequests[pendingKey] = new PendingRequestInfo(pendingKey, uid, token, label, DateTime.UtcNow);
         }
@@ -200,7 +204,7 @@ public class AutoDetectRequestService
             _logger.LogWarning(ex, "Failed to determine player display name for accept notify");
         }
         _logger.LogInformation("Nearby: sending accept notify via {endpoint}", endpoint);
-        return await _client.SendAcceptAsync(endpoint!, targetUid, displayName, ct).ConfigureAwait(false);
+        return await _client.SendAcceptAsync(endpoint, targetUid, displayName, ct).ConfigureAwait(false);
     }
 
     public async Task<bool> SendDirectUidRequestAsync(string uid, string? targetDisplayName = null, CancellationToken ct = default)
@@ -283,7 +287,7 @@ public class AutoDetectRequestService
 
             _mediator.Publish(new NotificationMessage(Loc.Get("Notification.Nearby.Sent.Title"), Loc.Get("Notification.Nearby.Sent.Body"), NotificationType.Info));
             var pendingKey = EnsureTargetKey(targetKey);
-            var label = !string.IsNullOrWhiteSpace(targetDisplayName) ? targetDisplayName! : uid;
+            var label = !string.IsNullOrWhiteSpace(targetDisplayName) ? targetDisplayName : uid;
             _pendingRequests[pendingKey] = new PendingRequestInfo(pendingKey, uid, null, label, DateTime.UtcNow);
 
             return true;
@@ -362,9 +366,51 @@ public class AutoDetectRequestService
         public DateTime? LockUntil;
     }
 
+    private static readonly TimeSpan OutgoingExpiration = TimeSpan.FromMinutes(10);
+
+    private void ClearAllOnDisconnect()
+    {
+        if (_pendingRequests.IsEmpty) return;
+        _pendingRequests.Clear();
+        _logger.LogInformation("AutoDetectRequest: cleared all outgoing invitations (disconnected)");
+    }
+
+    private void RemoveOutgoingForUser(string uid)
+    {
+        if (string.IsNullOrEmpty(uid)) return;
+        foreach (var kvp in _pendingRequests)
+        {
+            if (string.Equals(kvp.Value.Uid, uid, StringComparison.Ordinal))
+            {
+                if (_pendingRequests.TryRemove(kvp.Key, out var removed))
+                {
+                    _logger.LogInformation("AutoDetectRequest: removed outgoing invite to {uid} (user went offline)", uid);
+                    _mediator.Publish(new NotificationMessage(
+                        Loc.Get("AutoDetect.Notification.DisconnectedTitle"),
+                        string.Format(CultureInfo.CurrentCulture, Loc.Get("AutoDetect.Notification.DisconnectedOutgoing"), removed.TargetDisplayName),
+                        NotificationType.Info, TimeSpan.FromSeconds(5)));
+                }
+                break;
+            }
+        }
+    }
+
     public IReadOnlyCollection<PendingRequestInfo> GetPendingRequestsSnapshot()
     {
+        CleanupExpiredOutgoing();
         return _pendingRequests.Values.OrderByDescending(v => v.SentAt).ToList();
+    }
+
+    private void CleanupExpiredOutgoing()
+    {
+        var cutoff = DateTime.UtcNow - OutgoingExpiration;
+        foreach (var kvp in _pendingRequests)
+        {
+            if (kvp.Value.SentAt < cutoff)
+            {
+                _pendingRequests.TryRemove(kvp.Key, out _);
+            }
+        }
     }
 
     public void RemovePendingRequestByUid(string uid)

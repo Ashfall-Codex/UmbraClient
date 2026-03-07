@@ -30,7 +30,7 @@ public class FileTransferOrchestrator : DisposableMediatorSubscriberBase
             Timeout = TimeSpan.FromSeconds(3000)
         };
         var ver = Assembly.GetExecutingAssembly().GetName().Version;
-        _httpClient.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("UmbraSync", ver!.Major + "." + ver!.Minor + "." + ver!.Build));
+        _httpClient.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("UmbraSync", ver?.Major + "." + ver?.Minor + "." + ver?.Build));
 
         _availableDownloadSlots = mareConfig.Current.ParallelDownloads;
         _downloadSemaphore = new(_availableDownloadSlots, _availableDownloadSlots);
