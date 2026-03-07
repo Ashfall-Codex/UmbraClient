@@ -452,16 +452,27 @@ public class SettingsUi : WindowMediatorSubscriberBase
         }
         UiSharedService.AttachToolTip(Loc.Get("Settings.Transfer.ParallelDownloads.Help"));
 
-        int maxDecompThreads = _configService.Current.MaxDecompressionThreads;
         var cpuCount = Environment.ProcessorCount;
         var autoValue = Math.Clamp(_configService.Current.ParallelDownloads, 1, Math.Min(cpuCount, 4));
-        ImGui.SetNextItemWidth(MathF.Min(250 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X - 200 * ImGuiHelpers.GlobalScale));
-        if (ImGui.SliderInt(Loc.Get("Settings.Transfer.DecompressionThreads"), ref maxDecompThreads, 0, cpuCount))
+        bool isAutoDecomp = _configService.Current.MaxDecompressionThreads <= 0;
+        if (ImGui.Checkbox(Loc.Get("Settings.Transfer.DecompressionThreads.Auto"), ref isAutoDecomp))
         {
-            _configService.Current.MaxDecompressionThreads = maxDecompThreads;
+            _configService.Current.MaxDecompressionThreads = isAutoDecomp ? 0 : autoValue;
             _configService.Save();
         }
-        UiSharedService.AttachToolTip(string.Format(Loc.Get("Settings.Transfer.DecompressionThreads.Help"), autoValue));
+        ImGui.SameLine();
+        ImGui.TextUnformatted(string.Format(CultureInfo.CurrentCulture, Loc.Get("Settings.Transfer.DecompressionThreads.AutoLabel"), autoValue));
+        if (!isAutoDecomp)
+        {
+            int maxDecompThreads = _configService.Current.MaxDecompressionThreads;
+            ImGui.SetNextItemWidth(MathF.Min(250 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X - 200 * ImGuiHelpers.GlobalScale));
+            if (ImGui.SliderInt(Loc.Get("Settings.Transfer.DecompressionThreads"), ref maxDecompThreads, 1, cpuCount))
+            {
+                _configService.Current.MaxDecompressionThreads = maxDecompThreads;
+                _configService.Save();
+            }
+            UiSharedService.AttachToolTip(Loc.Get("Settings.Transfer.DecompressionThreads.Help"));
+        }
 
         ImGui.Spacing();
         _uiShared.BigText(Loc.Get("Settings.Transfer.PairProcessing.Title"));

@@ -208,10 +208,16 @@
     <value>Limits the number of simultaneous downloads to prevent overload. (default: 10)</value>
   </data>
   <data name="Settings.Transfer.DecompressionThreads" xml:space="preserve">
-    <value>Maximum Decompression Threads</value>
+    <value>Decompression Threads</value>
   </data>
   <data name="Settings.Transfer.DecompressionThreads.Help" xml:space="preserve">
-    <value>Maximum number of simultaneous decompressions. 0 = automatic ({0} on this machine). (default: 0)</value>
+    <value>Number of simultaneous decompression threads.</value>
+  </data>
+  <data name="Settings.Transfer.DecompressionThreads.Auto" xml:space="preserve">
+    <value>Automatic decompression threads</value>
+  </data>
+  <data name="Settings.Transfer.DecompressionThreads.AutoLabel" xml:space="preserve">
+    <value>({0} threads)</value>
   </data>
 
   <!-- Pair Processing settings -->

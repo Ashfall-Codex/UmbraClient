@@ -664,29 +664,30 @@ public class DalamudUtilService : IHostedService, IMediatorSubscriber
     private unsafe PlayerInfo GetPlayerInfo(DalamudGameObject chara)
     {
         uint id = chara.EntityId;
+        var currentName = chara.Name.TextValue;
 
-        if (!_playerInfoCache.TryGetValue(id, out var info))
-        {
-            var homeWorldId = ((BattleChara*)chara.Address)->Character.HomeWorld;
-            info = new PlayerInfo
-            {
-                Character = new PlayerCharacter
-                {
-                    ObjectId = id,
-                    Name = chara.Name.TextValue,
-                    HomeWorldId = homeWorldId,
-                    Address = chara.Address
-                },
-                Hash = Crypto.GetHash256(chara.Name.TextValue + homeWorldId.ToString())
-            };
-            _playerInfoCache[id] = info;
-        }
-        else
+        if (_playerInfoCache.TryGetValue(id, out var info)
+            && string.Equals(info.Character.Name, currentName, StringComparison.Ordinal))
         {
             var character = info.Character;
             character.Address = chara.Address;
             info.Character = character;
+            return info;
         }
+
+        var homeWorldId = ((BattleChara*)chara.Address)->Character.HomeWorld;
+        info = new PlayerInfo
+        {
+            Character = new PlayerCharacter
+            {
+                ObjectId = id,
+                Name = currentName,
+                HomeWorldId = homeWorldId,
+                Address = chara.Address
+            },
+            Hash = Crypto.GetHash256(currentName + homeWorldId.ToString())
+        };
+        _playerInfoCache[id] = info;
 
         return info;
     }
