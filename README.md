@@ -1,11 +1,15 @@
 <p align="center">
-  <img src="https://repo.umbra-sync.net/images/Logo-UMBRA-full.png" alt="UmbraSync" width="128" />
+  <img src="https://repo.ashfall-codex.dev/img/umbra-full.png" alt="UmbraSync" width="128" />
 </p>
 
 <h1 align="center">UmbraSync</h1>
 
 <p align="center">
   <b>Plugin Dalamud pour FFXIV</b> : Fork enrichi de Mare Synchronos, pensé avant tout pour les rôlistes. UmbraSync va au-delà de la simple synchronisation de mods pour offrir une expérience roleplay immersive et sociale.
+</p>
+
+<p align="center">
+  <code>v2.3.2</code> &middot; API <code>v3000</code> &middot; C# 13 / .NET 10 &middot; Dalamud SDK 14.0.2
 </p>
 
 ---
@@ -74,7 +78,12 @@
 - **Thème Royal Smoke** : palette sombre matte avec accents violet, conçue pour le confort visuel
 - **Fenêtre de permissions** : contrôle fin par paire (pause, sons, animations, VFX)
 - **Data Analysis** : analyse détaillée des fichiers de votre personnage (taille, triangles, résolution, type)
+- **Player Analysis** : analyse par paire de la latence de synchronisation et des fichiers de mods
+- **Event Viewer** : journal en temps réel des événements du plugin avec filtrage
+- **Syncshell Admin** : interface d'administration dédiée aux propriétaires et modérateurs de groupes
 - **Widget de téléchargement** : suivi en temps réel des transferts upload/download
+- **Widget Server Bar** : indicateur de statut dans la barre de serveur FFXIV avec styles personnalisables
+- **Overlay d'écriture** : indicateur visuel sur les nameplates des joueurs en train d'écrire
 - **Changelog intégré** : affichage automatique des nouveautés à chaque mise à jour
 - **Notifications** : système centralisé avec badge, toast et panneau dédié
 
@@ -161,10 +170,92 @@ dotnet build UmbraSync.sln -c Release --no-restore -p:DALAMUD_DIR="$DALAMUD_DIR"
 
 ---
 
-## Localisation
+## Dépendances
+
+### NuGet
+
+| Package | Version |
+|---|---|
+| `Microsoft.AspNetCore.SignalR.Client` | 9.0.8 |
+| `Microsoft.AspNetCore.SignalR.Protocols.MessagePack` | 9.0.8 |
+| `MessagePack` | 2.5.187 |
+| `Microsoft.Extensions.Hosting` | 9.0.8 |
+| `System.IdentityModel.Tokens.Jwt` | 8.14.0 |
+| `K4os.Compression.LZ4.Streams` | 1.3.8 |
+| `Downloader` | 3.3.4 |
+| `Chaos.NaCl.Standard` | 1.0.0 |
+| `Brio.API` | 3.0.1 |
+| `Penumbra.Api` | 5.13.0 |
+| `Glamourer.Api` | 2.6.0 |
+| `Dalamud.NET.Sdk` | 14.0.2 |
+
+### Submodules git
+
+| Submodule | Source |
+|---|---|
+| `UmbraAPI/` | [Ashfall-Codex/UmbraAPI](https://github.com/Ashfall-Codex/UmbraAPI) |
+| `Penumbra.Api/` | [Ottermandias/Penumbra.Api](https://github.com/Ottermandias/Penumbra.Api) |
+| `Glamourer.Api/` | [Ottermandias/Glamourer.Api](https://github.com/Ottermandias/Glamourer.Api) |
+| `OtterGui/` | [Ottermandias/OtterGui](https://github.com/Ottermandias/OtterGui) |
+
+---
+
+## Langues
 
 - **Francais** (langue par defaut)
 - **English**
+
+Basée sur des fichiers `.resx` (`Localization/Strings.resx` pour le français, `Strings.fr.resx` pour l'anglais) avec plus de 500 clés de traduction. Changement de langue à chaud via les paramètres.
+
+---
+
+## Structure du projet
+
+```
+UmbraSync/
+├── Communication/          # (hérité) Communication WebSocket
+├── FileCache/              # Gestion du cache de mods (compaction, monitoring)
+├── Interop/                # Intégration Dalamud et IPC
+│   ├── Ipc/                # 9 callers IPC (Penumbra, Glamourer, Customize+, etc.)
+│   ├── Penumbra/           # Composants IPC Penumbra
+│   ├── GameModel/          # Interop modèles de jeu
+│   └── ChatTwo/            # Compatibilité ChatTwo
+├── Localization/           # Fichiers .resx (FR/EN)
+├── MareConfiguration/      # 14 classes de configuration
+├── Models/                 # Modèles de données (MoodleStatusInfo, etc.)
+├── PlayerData/             # Gestion des paires et données de synchronisation
+│   ├── Pairs/              # PairManager, Pair, PairAnalyzer
+│   ├── Factories/          # Factories de création
+│   ├── Handlers/           # PairHandler, GameObjectHandler
+│   └── Data/               # Modèles de remplacement de fichiers
+├── Services/               # 36+ services
+│   ├── AutoDetect/         # Détection de proximité et découverte
+│   ├── CharaData/          # Gestion des données personnage (MCDF)
+│   ├── Events/             # Système d'événements (EventAggregator)
+│   ├── Housing/            # Fonctionnalités housing
+│   ├── Mediator/           # Bus de messages central
+│   ├── Notification/       # Système de notifications
+│   └── ServerConfiguration/ # Configuration serveur
+├── UI/                     # 18+ fenêtres ImGui
+│   ├── Components/         # Composants réutilisables (DrawPairBase, GroupPanel, BBCode)
+│   ├── Handlers/           # Handlers UI (TagHandler, UidDisplayHandler)
+│   └── *.cs                # Fenêtres principales
+├── Utils/                  # Utilitaires (crypto, hashing, extensions)
+├── WebAPI/                 # Client HTTP et SignalR
+│   ├── SignalR/            # ApiController (9 modules fonctionnels)
+│   ├── Files/              # Gestion des transferts de fichiers
+│   └── AutoDetect/         # Client API de découverte
+├── Plugin.cs               # Point d'entrée IDalamudPlugin
+├── MarePlugin.cs           # Logique plugin (IHostedService)
+└── UmbraSync.csproj        # Fichier projet
+
+UmbraAPI/
+└── UmbraSyncAPI/
+    ├── SignalR/             # IMareHub (183 méthodes), IMareHubClient
+    ├── Dto/                 # 58 DTOs (User, Group, CharaData, Files, Housing, etc.)
+    ├── Data/                # Enums et modèles de données
+    └── Routes/              # Définitions de routes API
+```
 
 ---
 
