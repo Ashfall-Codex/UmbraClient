@@ -181,6 +181,7 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
                 new("Amélioration : Possibilité de trier la liste des membres syncshell par type de pair où par ordre alphabétique."),
                 new("Amélioration : Révision du système de cache de profil RP & Traits Moodles."),
                 new("Amélioration : Réécriture du système d'envoi / réception d'invitation interactive."),
+                new("Amélioration : Mise à jour API Umbra en version ."),
                 new("Amélioration : Divers ajustement graphique & nettoyage du code."),
 
             }),
