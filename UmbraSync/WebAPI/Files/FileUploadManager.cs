@@ -8,6 +8,7 @@ using UmbraSync.FileCache;
 using UmbraSync.Services.Mediator;
 using UmbraSync.Services.ServerConfiguration;
 using UmbraSync.UI;
+using System.Collections.Concurrent;
 using UmbraSync.WebAPI.Files.Models;
 
 
@@ -18,7 +19,7 @@ public sealed class FileUploadManager : DisposableMediatorSubscriberBase
     private readonly FileCacheManager _fileDbManager;
     private readonly FileTransferOrchestrator _orchestrator;
     private readonly ServerConfigurationManager _serverManager;
-    private readonly Dictionary<string, DateTime> _verifiedUploadedHashes = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, DateTime> _verifiedUploadedHashes = new(StringComparer.Ordinal);
     private CancellationTokenSource? _uploadCancellationTokenSource = new();
 
     public FileUploadManager(ILogger<FileUploadManager> logger, MareMediator mediator,
@@ -166,6 +167,14 @@ public sealed class FileUploadManager : DisposableMediatorSubscriberBase
 
     private HashSet<string> GetUnverifiedFiles(CharacterData data)
     {
+        // Purge stale entries to prevent unbounded growth
+        var cutoff = DateTime.UtcNow.Subtract(TimeSpan.FromMinutes(20));
+        foreach (var key in _verifiedUploadedHashes.Keys.ToList())
+        {
+            if (_verifiedUploadedHashes.TryGetValue(key, out var ts) && ts < cutoff)
+                _verifiedUploadedHashes.TryRemove(key, out _);
+        }
+
         HashSet<string> unverifiedUploadHashes = new(StringComparer.Ordinal);
         foreach (var item in data.FileReplacements.SelectMany(c => c.Value.Where(f => string.IsNullOrEmpty(f.FileSwapPath)).Select(v => v.Hash).Distinct(StringComparer.Ordinal)).Distinct(StringComparer.Ordinal).ToList())
         {
@@ -201,14 +210,39 @@ public sealed class FileUploadManager : DisposableMediatorSubscriberBase
 
         if (uploadToken.IsCancellationRequested) return;
 
-        try
+        const int maxRetries = 3;
+        for (int attempt = 1; attempt <= maxRetries; attempt++)
         {
-            await UploadFileStream(compressedFile, fileHash, munged: false, postProgress, uploadToken).ConfigureAwait(false);
-            _verifiedUploadedHashes[fileHash] = DateTime.UtcNow;
-        }
-        catch (Exception ex)
-        {
-            Logger.LogWarning(ex, "[{hash}] File upload cancelled", fileHash);
+            try
+            {
+                await UploadFileStream(compressedFile, fileHash, munged: false, postProgress, uploadToken).ConfigureAwait(false);
+                _verifiedUploadedHashes[fileHash] = DateTime.UtcNow;
+                return;
+            }
+            catch (OperationCanceledException)
+            {
+                Logger.LogDebug("[{hash}] Upload cancelled", fileHash);
+                return;
+            }
+            catch (Exception ex)
+            {
+                if (attempt >= maxRetries)
+                {
+                    Logger.LogWarning(ex, "[{hash}] Upload failed after {attempts} attempts", fileHash, maxRetries);
+                    return;
+                }
+
+                Logger.LogWarning(ex, "[{hash}] Upload failed (attempt {attempt}/{max}), retrying", fileHash, attempt, maxRetries);
+                try
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(attempt), uploadToken).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    Logger.LogDebug("[{hash}] Upload cancelled during retry delay", fileHash);
+                    return;
+                }
+            }
         }
     }
 
@@ -233,11 +267,19 @@ public sealed class FileUploadManager : DisposableMediatorSubscriberBase
 
         var streamContent = new ProgressableStreamContent(ms, prog);
         streamContent.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
-        HttpResponseMessage response;
-        if (!munged)
-            response = await _orchestrator.SendRequestStreamAsync(HttpMethod.Post, MareFiles.ServerFilesUploadFullPath(_orchestrator.FilesCdnUri!, fileHash), streamContent, uploadToken).ConfigureAwait(false);
-        else
-            response = await _orchestrator.SendRequestStreamAsync(HttpMethod.Post, MareFiles.ServerFilesUploadMunged(_orchestrator.FilesCdnUri!, fileHash), streamContent, uploadToken).ConfigureAwait(false);
+
+        var uploadUri = !munged
+            ? MareFiles.ServerFilesUploadFullPath(_orchestrator.FilesCdnUri!, fileHash)
+            : MareFiles.ServerFilesUploadMunged(_orchestrator.FilesCdnUri!, fileHash);
+
+        using var response = await _orchestrator.SendRequestStreamAsync(HttpMethod.Post, uploadUri, streamContent, uploadToken).ConfigureAwait(false);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            Logger.LogWarning("[{hash}] Upload failed with HTTP {status}", fileHash, (int)response.StatusCode);
+            response.EnsureSuccessStatusCode();
+        }
+
         Logger.LogDebug("[{hash}] Upload Status: {status}", fileHash, response.StatusCode);
     }
 

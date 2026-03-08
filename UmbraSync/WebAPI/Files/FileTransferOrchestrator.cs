@@ -27,7 +27,7 @@ public class FileTransferOrchestrator : DisposableMediatorSubscriberBase
         _tokenProvider = tokenProvider;
         _httpClient = new()
         {
-            Timeout = TimeSpan.FromSeconds(3000)
+            Timeout = TimeSpan.FromSeconds(300)
         };
         var ver = Assembly.GetExecutingAssembly().GetName().Version;
         _httpClient.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("UmbraSync", ver?.Major + "." + ver?.Minor + "." + ver?.Build));
