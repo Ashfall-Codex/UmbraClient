@@ -37,13 +37,13 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
 
     // Circuit breaker for direct CDN downloads - disable after consecutive failures
     private const int MaxConsecutiveDirectDownloadFailures = 3;
-    private int _consecutiveDirectDownloadFailures;
-    private bool _disableDirectDownloads;
+    private volatile int _consecutiveDirectDownloadFailures;
+    private volatile bool _disableDirectDownloads;
 
     // Circuit breaker for CDN enqueue requests - fallback to main server after consecutive failures
     private const int MaxConsecutiveCdnEnqueueFailures = 2;
-    private int _consecutiveCdnEnqueueFailures;
-    private bool _disableCdnEnqueue;
+    private volatile int _consecutiveCdnEnqueueFailures;
+    private volatile bool _disableCdnEnqueue;
 
     public FileDownloadManager(ILogger<FileDownloadManager> logger, MareMediator mediator,
         FileTransferOrchestrator orchestrator,
@@ -85,6 +85,24 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
         _disableDirectDownloads = false;
         _consecutiveCdnEnqueueFailures = 0;
         _disableCdnEnqueue = false;
+    }
+
+    private void ReportCdnMissFireAndForget(string hash)
+    {
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                if (!_orchestrator.IsInitialized) return;
+                var uri = MareFiles.ServerFilesReportCdnMissFullPath(_orchestrator.FilesCdnUri!);
+                await _orchestrator.SendRequestAsync(HttpMethod.Post, uri, new List<string> { hash }, CancellationToken.None).ConfigureAwait(false);
+                Logger.LogDebug("Reported CDN miss for {hash}", hash);
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "Failed to report CDN miss for {hash}", hash);
+            }
+        });
     }
 
     public List<DownloadFileTransfer> CurrentDownloads { get; private set; } = [];
@@ -190,6 +208,9 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
 
     private static (string fileHash, long fileLengthBytes) ReadBlockFileHeader(FileStream fileBlockStream)
     {
+        const int maxHashLen = 64;
+        const int maxLengthLen = 20;
+
         List<char> hashName = [];
         List<char> fileLength = [];
         var separator = (char)ConvertReadByte(fileBlockStream.ReadByte());
@@ -209,8 +230,18 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
                 continue;
             }
             if (readChar == '#') break;
-            if (!readHash) hashName.Add(readChar);
-            else fileLength.Add(readChar);
+            if (!readHash)
+            {
+                if (hashName.Count >= maxHashLen)
+                    throw new InvalidDataException($"Block file header hash exceeds {maxHashLen} chars");
+                hashName.Add(readChar);
+            }
+            else
+            {
+                if (fileLength.Count >= maxLengthLen)
+                    throw new InvalidDataException($"Block file header length exceeds {maxLengthLen} chars");
+                fileLength.Add(readChar);
+            }
         }
         if (fileLength.Count == 0)
             fileLength.Add('0');
@@ -310,6 +341,7 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
                 _activeDownloadStreams.TryRemove(stream, out _);
                 await stream.DisposeAsync().ConfigureAwait(false);
             }
+            response?.Dispose();
         }
     }
 
@@ -329,14 +361,13 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
             catch (Exception ex) { Logger.LogWarning(ex, "Cannot delete existing .lz4tmp file {path}", lz4TmpPath); }
         }
 
-        const int maxRetries = 3;
-        const int firstAttemptTimeoutSeconds = 1;
-        const int subsequentTimeoutSeconds = 5;
-        var retryDelay = TimeSpan.FromSeconds(2);
+        const int maxRetries = 2;
+        const int firstAttemptTimeoutSeconds = 2;
+        const int subsequentTimeoutSeconds = 3;
+        var retryDelay = TimeSpan.FromMilliseconds(500);
 
         for (int attempt = 1; attempt <= maxRetries; attempt++)
         {
-            // Premier essai rapide (1s) : si le CDN est inaccessible, fallback immédiat
             var timeoutSeconds = attempt == 1 ? firstAttemptTimeoutSeconds : subsequentTimeoutSeconds;
             using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
             timeoutCts.CancelAfter(TimeSpan.FromSeconds(timeoutSeconds));
@@ -351,10 +382,15 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
                 if (response.StatusCode == HttpStatusCode.NotFound)
                 {
                     Logger.LogDebug("Direct CDN 404 for {hash}, will fallback", file.Hash);
+                    ReportCdnMissFireAndForget(file.Hash);
                     return false;
                 }
 
-                response.EnsureSuccessStatusCode();
+                if (!response.IsSuccessStatusCode)
+                {
+                    Logger.LogWarning("CDN returned HTTP {status} for {hash}", (int)response.StatusCode, file.Hash);
+                    response.EnsureSuccessStatusCode();
+                }
 
                 ThrottledStream? throttledStream = null;
                 try
@@ -392,6 +428,7 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
             catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
             {
                 Logger.LogDebug("Direct CDN 404 for {hash}, will fallback", file.Hash);
+                ReportCdnMissFireAndForget(file.Hash);
                 return false;
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
@@ -402,13 +439,6 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
             {
                 Logger.LogWarning(ex, "Timeout during CDN download of {hash}. Attempt {attempt}/{max}", file.Hash, attempt, maxRetries);
                 if (File.Exists(lz4TmpPath)) try { File.Delete(lz4TmpPath); } catch (Exception) { /* best-effort cleanup */ }
-
-                // Premier timeout → fallback immédiat, CDN probablement inaccessible
-                if (attempt == 1)
-                {
-                    Logger.LogWarning("CDN timeout on first attempt for {hash}, will fallback immediately", file.Hash);
-                    return false;
-                }
 
                 if (attempt >= maxRetries)
                 {
@@ -423,13 +453,6 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
                 Logger.LogWarning("CDN download timed out ({timeout}s) for {hash}. Attempt {attempt}/{max}", timeoutSeconds, file.Hash, attempt, maxRetries);
                 if (File.Exists(lz4TmpPath)) try { File.Delete(lz4TmpPath); } catch (Exception) { /* best-effort cleanup */ }
 
-                // Premier timeout → fallback immédiat, CDN probablement inaccessible
-                if (attempt == 1)
-                {
-                    Logger.LogWarning("CDN timeout on first attempt for {hash}, will fallback immediately", file.Hash);
-                    return false;
-                }
-
                 if (attempt >= maxRetries)
                 {
                     Logger.LogWarning("Max retries reached for CDN download of {hash}, will fallback", file.Hash);
@@ -442,7 +465,11 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
             {
                 Logger.LogWarning(ex, "Direct CDN download failed for {hash} (attempt {attempt}/{max}), will fallback", file.Hash, attempt, maxRetries);
                 if (File.Exists(lz4TmpPath)) try { File.Delete(lz4TmpPath); } catch (Exception) { /* best-effort cleanup */ }
-                return false;
+
+                if (attempt >= maxRetries)
+                    return false;
+
+                await Task.Delay(retryDelay, ct).ConfigureAwait(false);
             }
         }
 
@@ -676,7 +703,7 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
                 }
 
                 var fileData = fileReplacement.FirstOrDefault(f => string.Equals(f.Hash, file.Hash, StringComparison.OrdinalIgnoreCase));
-                var fileExtension = fileData?.GamePaths[0].Split(".")[^1] ?? "tmp";
+                var fileExtension = (fileData?.GamePaths is { Length: > 0 } ? fileData.GamePaths[0].Split(".")[^1] : null) ?? "tmp";
                 var filePath = _fileDbManager.GetCacheFilePath(file.Hash, fileExtension);
                 var lz4TmpPath = filePath + ".lz4tmp";
                 var cdnTmpPath = filePath + ".cdntmp";
@@ -774,7 +801,11 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
         {
             var firstFile = fileGroup.First();
             var fileCount = fileGroup.Count();
+            const int maxBatchRetries = 2;
+            string blockFile = string.Empty;
 
+            for (int batchAttempt = 1; batchAttempt <= maxBatchRetries; batchAttempt++)
+            {
             var cdnUri = firstFile.DownloadUri;
             var mainServerUri = _orchestrator.FilesCdnUri!;
             var effectiveBaseUri = _disableCdnEnqueue ? mainServerUri : cdnUri;
@@ -808,7 +839,7 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
 
             if (!Guid.TryParse(responseBody.Trim('"'), out Guid requestId)) return;
 
-            var blockFile = _fileDbManager.GetCacheFilePath(requestId.ToString("N"), "blk");
+            blockFile = _fileDbManager.GetCacheFilePath(requestId.ToString("N"), "blk");
             try
             {
                 if (_downloadStatus.TryGetValue(fileGroup.Key, out var slotStatus))
@@ -822,6 +853,7 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
                         value.AddTransferredBytes(bytesDownloaded);
                 });
                 await DownloadAndMungeFileHttpClient(fileGroup.Key, requestId, [.. fileGroup], blockFile, progress, effectiveBaseUri, token).ConfigureAwait(false);
+                break; // Succès, sortir de la boucle retry
             }
             catch (OperationCanceledException)
             {
@@ -834,10 +866,18 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
             {
                 _orchestrator.ReleaseDownloadSlot();
                 if (File.Exists(blockFile)) File.Delete(blockFile);
-                Logger.LogError(ex, "[{id}] Error during download", downloadId);
-                ClearDownload();
-                return;
+
+                if (batchAttempt >= maxBatchRetries)
+                {
+                    Logger.LogError(ex, "[{id}] Batch download failed after {attempts} attempts", downloadId, maxBatchRetries);
+                    ClearDownload();
+                    return;
+                }
+
+                Logger.LogWarning(ex, "[{id}] Batch download failed (attempt {attempt}/{max}), retrying", downloadId, batchAttempt, maxBatchRetries);
+                await Task.Delay(TimeSpan.FromSeconds(batchAttempt * 2), token).ConfigureAwait(false);
             }
+            } // fin boucle retry
 
             if (!File.Exists(blockFile))
             {
@@ -862,7 +902,15 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
                     var chunkPosition = fileBlockStream.Position;
                     fileBlockStream.Position += fileLengthBytes;
 
-                    var fileExtension = fileReplacement.First(f => string.Equals(f.Hash, fileHash, StringComparison.OrdinalIgnoreCase)).GamePaths[0].Split(".")[^1];
+                    var fileData = fileReplacement.FirstOrDefault(f => string.Equals(f.Hash, fileHash, StringComparison.OrdinalIgnoreCase));
+                    if (fileData == null)
+                    {
+                        Logger.LogWarning("[{id}] Block file contains unknown hash {hash}, skipping", downloadId, fileHash);
+                        _deduplicator.Complete(fileHash, false);
+                        pendingFallbackHashes.TryRemove(fileHash, out _);
+                        continue;
+                    }
+                    var fileExtension = fileData.GamePaths.Length > 0 ? fileData.GamePaths[0].Split(".")[^1] : "dat";
                     var tmpPath = _fileDbManager.GetCacheFilePath(Guid.NewGuid().ToString(), "tmp");
                     var filePath = _fileDbManager.GetCacheFilePath(fileHash, fileExtension);
 
@@ -916,6 +964,13 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
 
                             tmpFileStream.Close();
                             _fileCompactor.RenameAndCompact(capturedFilePath, capturedTmpPath);
+
+                            if (!File.Exists(capturedFilePath))
+                            {
+                                Logger.LogWarning("[{id}] RenameAndCompact did not produce {path}", downloadId, capturedFilePath);
+                                return;
+                            }
+
                             PersistFileToStorage(capturedHash, capturedFilePath, capturedLength);
                             hashSuccess = true;
                         }
@@ -1040,7 +1095,7 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
                 }
 
                 var fileData = fileReplacement.FirstOrDefault(f => string.Equals(f.Hash, file.Hash, StringComparison.OrdinalIgnoreCase));
-                var fileExtension = fileData?.GamePaths[0].Split(".")[^1] ?? "tmp";
+                var fileExtension = (fileData?.GamePaths is { Length: > 0 } ? fileData.GamePaths[0].Split(".")[^1] : null) ?? "tmp";
                 var filePath = _fileDbManager.GetCacheFilePath(file.Hash, fileExtension);
                 var lz4TmpPath = filePath + ".lz4tmp";
                 var cdnTmpPath = filePath + ".cdntmp";
@@ -1157,7 +1212,12 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
         {
             var firstFile = fileGroup.First();
             var fileCount = fileGroup.Count();
+            const int maxBatchRetries = 2;
+            string blockFile = string.Empty;
+            FileInfo? fi = null;
 
+            for (int batchAttempt = 1; batchAttempt <= maxBatchRetries; batchAttempt++)
+            {
             // Determine effective base URI: skip CDN if circuit breaker is active
             var cdnUri = firstFile.DownloadUri;
             var mainServerUri = _orchestrator.FilesCdnUri!;
@@ -1215,8 +1275,8 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
 
             Logger.LogDebug("GUID {requestId} for {n} files on server {uri}", requestId, fileCount, effectiveBaseUri);
 
-            var blockFile = _fileDbManager.GetCacheFilePath(requestId.ToString("N"), "blk");
-            FileInfo fi = new(blockFile);
+            blockFile = _fileDbManager.GetCacheFilePath(requestId.ToString("N"), "blk");
+            fi = new FileInfo(blockFile);
             try
             {
                 if (_downloadStatus.TryGetValue(fileGroup.Key, out var slotStatus))
@@ -1241,13 +1301,14 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
                     }
                 });
                 await DownloadAndMungeFileHttpClient(fileGroup.Key, requestId, [.. fileGroup], blockFile, progress, effectiveBaseUri, token).ConfigureAwait(false);
+                break; // Succès, sortir de la boucle retry
             }
             catch (OperationCanceledException)
             {
                 _orchestrator.ReleaseDownloadSlot();
                 if (File.Exists(blockFile))
                     File.Delete(blockFile);
-                Logger.LogDebug("{dlName}: Detected cancellation of download for {id}, aborting file extraction", fi.Name, requestId);
+                Logger.LogDebug("{dlName}: Detected cancellation of download for {id}, aborting file extraction", fi?.Name ?? "?", requestId);
                 ClearDownload();
                 return;
             }
@@ -1256,15 +1317,23 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
                 _orchestrator.ReleaseDownloadSlot();
                 if (File.Exists(blockFile))
                     File.Delete(blockFile);
-                Logger.LogError(ex, "{dlName}: Error during download of {id}", fi.Name, requestId);
-                ClearDownload();
-                return;
+
+                if (batchAttempt >= maxBatchRetries)
+                {
+                    Logger.LogError(ex, "{dlName}: Batch download failed after {attempts} attempts for {id}", fi?.Name ?? "?", maxBatchRetries, requestId);
+                    ClearDownload();
+                    return;
+                }
+
+                Logger.LogWarning(ex, "{dlName}: Batch download failed (attempt {attempt}/{max}), retrying", fi?.Name ?? "?", batchAttempt, maxBatchRetries);
+                await Task.Delay(TimeSpan.FromSeconds(batchAttempt * 2), token).ConfigureAwait(false);
             }
+            } // fin boucle retry
 
             // Verify block file exists before attempting decompression
-            if (!File.Exists(blockFile))
+            if (string.IsNullOrEmpty(blockFile) || !File.Exists(blockFile))
             {
-                Logger.LogError("{dlName}: Block file {blockFile} does not exist, cannot proceed with decompression for {id}", fi.Name, fi.Name, requestId);
+                Logger.LogError("{dlName}: Block file does not exist, cannot proceed with decompression", fi?.Name ?? "?");
                 _orchestrator.ReleaseDownloadSlot();
                 ClearDownload();
                 return;
@@ -1286,11 +1355,19 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
                     var chunkPosition = fileBlockStream.Position;
                     fileBlockStream.Position += fileLengthBytes;
 
-                    var fileExtension = fileReplacement.First(f => string.Equals(f.Hash, fileHash, StringComparison.OrdinalIgnoreCase)).GamePaths[0].Split(".")[^1];
+                    var fileData = fileReplacement.FirstOrDefault(f => string.Equals(f.Hash, fileHash, StringComparison.OrdinalIgnoreCase));
+                    if (fileData == null)
+                    {
+                        Logger.LogWarning("{dlName}: Block file contains unknown hash {hash}, skipping", fi?.Name ?? "?", fileHash);
+                        _deduplicator.Complete(fileHash, false);
+                        pendingFallbackHashes.TryRemove(fileHash, out _);
+                        continue;
+                    }
+                    var fileExtension = fileData.GamePaths.Length > 0 ? fileData.GamePaths[0].Split(".")[^1] : "dat";
                     var tmpPath = _fileDbManager.GetCacheFilePath(Guid.NewGuid().ToString(), "tmp");
                     var filePath = _fileDbManager.GetCacheFilePath(fileHash, fileExtension);
 
-                    Logger.LogDebug("{dlName}: Decompressing {file}:{le} => {dest}", fi.Name, fileHash, fileLengthBytes, filePath);
+                    Logger.LogDebug("{dlName}: Decompressing {file}:{le} => {dest}", fi?.Name ?? "?", fileHash, fileLengthBytes, filePath);
 
                     // Enqueue via decompression gate to bound CPU usage
                     var capturedHash = fileHash;
@@ -1345,19 +1422,26 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
 
                             tmpFileStream.Close();
                             _fileCompactor.RenameAndCompact(capturedFilePath, capturedTmpPath);
+
+                            if (!File.Exists(capturedFilePath))
+                            {
+                                Logger.LogWarning("{dlName}: RenameAndCompact did not produce {path}", fi?.Name ?? "?", capturedFilePath);
+                                return;
+                            }
+
                             PersistFileToStorage(capturedHash, capturedFilePath, capturedLength);
                             hashSuccess = true;
                         }
                         catch (EndOfStreamException)
                         {
-                            Logger.LogWarning("{dlName}: Failure to extract file {fileHash}, stream ended prematurely", fi.Name, capturedHash);
+                            Logger.LogWarning("{dlName}: Failure to extract file {fileHash}, stream ended prematurely", fi?.Name ?? "?", capturedHash);
                         }
                         catch (Exception e)
                         {
-                            Logger.LogWarning(e, "{dlName}: Error during decompression of {hash}", fi.Name, capturedHash);
+                            Logger.LogWarning(e, "{dlName}: Error during decompression of {hash}", fi?.Name ?? "?", capturedHash);
 
                             foreach (var fr in fileReplacement)
-                                Logger.LogWarning(" - {h}: {x}", fr.Hash, fr.GamePaths[0]);
+                                Logger.LogWarning(" - {h}: {x}", fr.Hash, fr.GamePaths.Length > 0 ? fr.GamePaths[0] : "(no paths)");
                         }
                         finally
                         {
@@ -1374,11 +1458,11 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
             }
             catch (EndOfStreamException)
             {
-                Logger.LogDebug("{dlName}: Failure to extract file header data, stream ended", fi.Name);
+                Logger.LogDebug("{dlName}: Failure to extract file header data, stream ended", fi?.Name ?? "?");
             }
             catch (Exception ex)
             {
-                Logger.LogError(ex, "{dlName}: Error during block file read", fi.Name);
+                Logger.LogError(ex, "{dlName}: Error during block file read", fi?.Name ?? "?");
             }
             finally
             {
@@ -1598,12 +1682,13 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
 
     private async Task WaitForDownloadReady(List<DownloadFileTransfer> downloadFileTransfer, Guid requestId, Uri effectiveBaseUri, CancellationToken downloadCt)
     {
-        bool alreadyCancelled = false;
+        CancellationTokenSource? localTimeoutCts = null;
+        CancellationTokenSource? composite = null;
         try
         {
-            CancellationTokenSource localTimeoutCts = new();
+            localTimeoutCts = new();
             localTimeoutCts.CancelAfter(TimeSpan.FromSeconds(5));
-            CancellationTokenSource composite = CancellationTokenSource.CreateLinkedTokenSource(downloadCt, localTimeoutCts.Token);
+            composite = CancellationTokenSource.CreateLinkedTokenSource(downloadCt, localTimeoutCts.Token);
 
             while (!_orchestrator.IsDownloadReady(requestId))
             {
@@ -1615,9 +1700,17 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
                 {
                     if (downloadCt.IsCancellationRequested) throw;
 
-                    var req = await _orchestrator.SendRequestAsync(HttpMethod.Get, MareFiles.RequestCheckQueueFullPath(effectiveBaseUri, requestId),
-                        downloadFileTransfer.Select(c => c.Hash).ToList(), downloadCt).ConfigureAwait(false);
-                    req.EnsureSuccessStatusCode();
+                    try
+                    {
+                        using var req = await _orchestrator.SendRequestAsync(HttpMethod.Get, MareFiles.RequestCheckQueueFullPath(effectiveBaseUri, requestId),
+                            downloadFileTransfer.Select(c => c.Hash).ToList(), downloadCt).ConfigureAwait(false);
+                        req.EnsureSuccessStatusCode();
+                    }
+                    catch (Exception ex) when (ex is not OperationCanceledException)
+                    {
+                        Logger.LogWarning(ex, "CheckQueue failed for {requestId}, will retry", requestId);
+                    }
+
                     localTimeoutCts.Dispose();
                     composite.Dispose();
                     localTimeoutCts = new();
@@ -1626,28 +1719,14 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
                 }
             }
 
-            localTimeoutCts.Dispose();
-            composite.Dispose();
-
             Logger.LogDebug("Download {requestId} ready", requestId);
-        }
-        catch (TaskCanceledException)
-        {
-            try
-            {
-                await _orchestrator.SendRequestAsync(HttpMethod.Get, MareFiles.RequestCancelFullPath(effectiveBaseUri, requestId)).ConfigureAwait(false);
-                alreadyCancelled = true;
-            }
-            catch
-            {
-                // ignore whatever happens here
-            }
-
-            throw;
         }
         finally
         {
-            if (downloadCt.IsCancellationRequested && !alreadyCancelled)
+            localTimeoutCts?.Dispose();
+            composite?.Dispose();
+
+            if (downloadCt.IsCancellationRequested)
             {
                 try
                 {

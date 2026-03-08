@@ -123,12 +123,20 @@ public class ChatEmoteHighlightService : DisposableMediatorSubscriberBase
         var quotesColorKey = QuotesColorKey;
         var chatTwoActive = PluginWatcherService.GetInitialPluginState(_pluginInterface, "ChatTwo")?.IsLoaded == true;
 
-        // Concaténer tous les TextPayload.Text pour que le regex puisse détecter les patterns
+        // Séparer le texte des payloads étrangers.
+        // On enregistre chaque payload non-texte avec sa position en caractères dans le texte plat.
         var flatBuilder = new StringBuilder();
+        var foreignPayloads = new List<(int flatPos, Payload payload)>();
         foreach (var payload in message.Payloads)
         {
             if (payload is TextPayload tp && tp.Text != null)
+            {
                 flatBuilder.Append(tp.Text);
+            }
+            else
+            {
+                foreignPayloads.Add((flatBuilder.Length, payload));
+            }
         }
         var flatText = flatBuilder.ToString();
 
@@ -136,7 +144,7 @@ public class ChatEmoteHighlightService : DisposableMediatorSubscriberBase
         if (matches.Count == 0)
             return;
 
-        // Construire la liste des régions (start, end exclusif, type de groupe)
+        // Construire la liste des régions colorées sur le texte plat.
         var regions = new List<(int start, int end, HighlightKind kind)>(matches.Count);
         foreach (Match m in matches)
         {
@@ -145,120 +153,103 @@ public class ChatEmoteHighlightService : DisposableMediatorSubscriberBase
                      : HighlightKind.Emote;
             regions.Add((m.Index, m.Index + m.Length, kind));
         }
-        
-        // Reconstruire le texte
+
+        // Reconstruire les payloads texte + nos couleurs à partir du texte plat,
+        // puis réinsérer les payloads étrangers à leurs positions d'origine.
         var newPayloads = new List<Payload>();
-        var flatPos = 0;
+        var foreignIdx = 0;
         var regionIdx = 0;
-        var colorOpen = false;
-        var foreignColorOpen = false;
-        ushort activeColorKey = 0;
-        var activeItalic = false;
+        var pos = 0;
 
-        foreach (var payload in message.Payloads)
+        while (pos < flatText.Length)
         {
-            if (payload is TextPayload textPayload && !string.IsNullOrEmpty(textPayload.Text))
+            // Insérer les payloads étrangers qui tombent à cette position
+            while (foreignIdx < foreignPayloads.Count && foreignPayloads[foreignIdx].flatPos <= pos)
             {
-                var text = textPayload.Text;
-                var localPos = 0;
-
-                while (localPos < text.Length)
-                {
-                    if (colorOpen)
-                    {
-                        // Emettre le texte jusqu'à la fin de la région ou du payload
-                        var region = regions[regionIdx];
-                        var endInText = Math.Min(region.end - flatPos, text.Length);
-
-                        if (endInText > localPos)
-                            newPayloads.Add(new TextPayload(text[localPos..endInText]));
-
-                        localPos = endInText;
-
-                        if (flatPos + localPos >= region.end)
-                        {
-                            // Fermer
-                            if (activeItalic)
-                                newPayloads.Add(new EmphasisItalicPayload(false));
-                            newPayloads.Add(UIForegroundPayload.UIForegroundOff);
-                            colorOpen = false;
-                            foreignColorOpen = false;
-                            regionIdx++;
-                        }
-                    }
-                    else
-                    {
-                        if (regionIdx < regions.Count && regions[regionIdx].start < flatPos + text.Length)
-                        {
-                            var region = regions[regionIdx];
-                            var startInText = region.start - flatPos;
-
-                            if (startInText > localPos)
-                                newPayloads.Add(new TextPayload(text[localPos..startInText]));
-
-                            activeColorKey = region.kind switch
-                            {
-                                HighlightKind.Hrp => hrpColorKey,
-                                HighlightKind.Quotes => quotesColorKey,
-                                _ => emoteColorKey,
-                            };
-                            activeItalic = region.kind == HighlightKind.Hrp && _configService.Current.EmoteHighlightParenthesesItalic && !chatTwoActive;
-
-                            newPayloads.Add(new UIForegroundPayload(activeColorKey));
-                            if (activeItalic)
-                                newPayloads.Add(new EmphasisItalicPayload(true));
-                            colorOpen = true;
-
-                            localPos = startInText;
-                        }
-                        else
-                        {
-                            // R.A.S
-                            if (localPos > 0)
-                                newPayloads.Add(new TextPayload(text[localPos..]));
-                            else
-                                newPayloads.Add(payload);
-                            localPos = text.Length;
-                        }
-                    }
-                }
-
-                flatPos += text.Length;
+                newPayloads.Add(foreignPayloads[foreignIdx].payload);
+                foreignIdx++;
             }
-            else if (payload is UIForegroundPayload ufp)
+
+            if (regionIdx < regions.Count && pos >= regions[regionIdx].start)
             {
-                if (colorOpen)
+                // On est dans une région colorée
+                var region = regions[regionIdx];
+                var activeColorKey = region.kind switch
                 {
-                    if (ufp.ColorKey != 0)
+                    HighlightKind.Hrp => hrpColorKey,
+                    HighlightKind.Quotes => quotesColorKey,
+                    _ => emoteColorKey,
+                };
+                var activeItalic = region.kind == HighlightKind.Hrp
+                    && _configService.Current.EmoteHighlightParenthesesItalic
+                    && !chatTwoActive;
+
+                newPayloads.Add(new UIForegroundPayload(activeColorKey));
+                if (activeItalic)
+                    newPayloads.Add(new EmphasisItalicPayload(true));
+
+                // Émettre le texte de la région, en insérant les payloads étrangers au passage
+                var regionEnd = region.end;
+                while (pos < regionEnd && pos < flatText.Length)
+                {
+                    // Chercher le prochain payload étranger dans cette région
+                    var nextForeignPos = (foreignIdx < foreignPayloads.Count && foreignPayloads[foreignIdx].flatPos < regionEnd)
+                        ? foreignPayloads[foreignIdx].flatPos
+                        : regionEnd;
+                    nextForeignPos = Math.Min(nextForeignPos, flatText.Length);
+
+                    if (nextForeignPos > pos)
                     {
-                        // Couleur étrangère, suspendre notre couleur
-                        newPayloads.Add(UIForegroundPayload.UIForegroundOff);
-                        newPayloads.Add(ufp);
-                        foreignColorOpen = true;
+                        var segEnd = Math.Min(nextForeignPos, regionEnd);
+                        newPayloads.Add(new TextPayload(flatText[pos..segEnd]));
+                        pos = segEnd;
                     }
-                    else
+
+                    // Insérer tous les payloads étrangers à cette position
+                    while (foreignIdx < foreignPayloads.Count && foreignPayloads[foreignIdx].flatPos <= pos && pos < regionEnd)
                     {
-                        //  restaurer notre couleur
-                        if (foreignColorOpen)
-                        {
-                            newPayloads.Add(new UIForegroundPayload(activeColorKey));
-                            foreignColorOpen = false;
-                        }
-                        else
-                        {
-                            newPayloads.Add(ufp);
-                        }
+                        newPayloads.Add(foreignPayloads[foreignIdx].payload);
+                        foreignIdx++;
                     }
                 }
-                else
-                {
-                    newPayloads.Add(ufp);
-                }
+
+                if (activeItalic)
+                    newPayloads.Add(new EmphasisItalicPayload(false));
+                newPayloads.Add(UIForegroundPayload.UIForegroundOff);
+                regionIdx++;
             }
             else
             {
-                newPayloads.Add(payload);
+                // Texte hors région — émettre jusqu'au début de la prochaine région ou fin du texte
+                var nextRegionStart = regionIdx < regions.Count ? regions[regionIdx].start : flatText.Length;
+                while (pos < nextRegionStart)
+                {
+                    var nextForeignPos = (foreignIdx < foreignPayloads.Count && foreignPayloads[foreignIdx].flatPos < nextRegionStart)
+                        ? foreignPayloads[foreignIdx].flatPos
+                        : nextRegionStart;
+                    nextForeignPos = Math.Min(nextForeignPos, flatText.Length);
+
+                    if (nextForeignPos > pos)
+                    {
+                        var segEnd = Math.Min(nextForeignPos, nextRegionStart);
+                        newPayloads.Add(new TextPayload(flatText[pos..segEnd]));
+                        pos = segEnd;
+                    }
+
+                    while (foreignIdx < foreignPayloads.Count && foreignPayloads[foreignIdx].flatPos <= pos && pos < nextRegionStart)
+                    {
+                        newPayloads.Add(foreignPayloads[foreignIdx].payload);
+                        foreignIdx++;
+                    }
+                }
             }
+        }
+
+        // Payloads étrangers restants (après tout le texte)
+        while (foreignIdx < foreignPayloads.Count)
+        {
+            newPayloads.Add(foreignPayloads[foreignIdx].payload);
+            foreignIdx++;
         }
 
         message = new SeString(newPayloads);
