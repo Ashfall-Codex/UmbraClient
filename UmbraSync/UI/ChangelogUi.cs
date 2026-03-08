@@ -168,7 +168,7 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
     {
         return new List<ChangelogEntry>
         {
-            new(new Version(2, 3, 3, 3008), "2.3.3.3008", new List<ChangelogLine>
+            new(new Version(2, 3, 3, 3009), "2.3.3.3009", new List<ChangelogLine>
             {
                 new("CORRECTION CRITIQUE : Réécriture client / serveur du chargement et téléchargement de mods."),
                 new("CORRECTION : Meilleure intégration avec ChatAlerts")

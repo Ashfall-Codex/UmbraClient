@@ -22,6 +22,8 @@ public class OnlinePlayerManager : DisposableMediatorSubscriberBase
     private readonly SemaphoreSlim _pushLock = new(1, 1);
     private Task<CharacterData>? _fileUploadTask;
     private readonly CancellationTokenSource _runtimeCts = new();
+    private DateTime _lastUploadFailureUtc = DateTime.MinValue;
+    private static readonly TimeSpan UploadFailureCooldown = TimeSpan.FromSeconds(10);
 
     public OnlinePlayerManager(ILogger<OnlinePlayerManager> logger, ApiController apiController, DalamudUtilService dalamudUtil,
         PairManager pairManager, MareMediator mediator, FileUploadManager fileTransferManager,
@@ -128,6 +130,18 @@ public class OnlinePlayerManager : DisposableMediatorSubscriberBase
             if (_lastCreatedData == null || _usersToPushDataTo.Count == 0)
                 return;
 
+            // Cooldown après un échec d'upload pour éviter le spam serveur
+            if (_lastUploadFailureUtc > DateTime.MinValue)
+            {
+                var elapsed = DateTime.UtcNow - _lastUploadFailureUtc;
+                if (elapsed < UploadFailureCooldown)
+                {
+                    Logger.LogDebug("Upload en cooldown ({elapsed:F1}s / {cooldown}s), report du push",
+                        elapsed.TotalSeconds, UploadFailureCooldown.TotalSeconds);
+                    return;
+                }
+            }
+
             var hashChanged = !string.Equals(_uploadingCharacterData?.DataHash.Value, _lastCreatedData.DataHash.Value, StringComparison.Ordinal);
             forced |= hashChanged;
 
@@ -145,7 +159,19 @@ public class OnlinePlayerManager : DisposableMediatorSubscriberBase
                 _fileUploadTask = _fileTransferManager.UploadFiles(_uploadingCharacterData, uploadTargets);
             }
 
-            var dataToSend = await _fileUploadTask.ConfigureAwait(false);
+            CharacterData dataToSend;
+            try
+            {
+                dataToSend = await _fileUploadTask.ConfigureAwait(false);
+                _lastUploadFailureUtc = DateTime.MinValue;
+            }
+            catch (Exception ex)
+            {
+                _lastUploadFailureUtc = DateTime.UtcNow;
+                Logger.LogWarning(ex, "Upload échoué, cooldown de {cooldown}s avant nouvelle tentative",
+                    UploadFailureCooldown.TotalSeconds);
+                return;
+            }
 
             var users = _usersToPushDataTo.ToList();
             if (users.Count == 0)
