@@ -13,7 +13,6 @@ namespace UmbraSync.UI.Components.Popup;
 public class PopupHandler : WindowMediatorSubscriberBase
 {
     protected bool _openPopup = false;
-    private readonly HashSet<IPopupHandler> _handlers;
     private readonly UiSharedService _uiSharedService;
     private IPopupHandler? _currentHandler = null;
 
@@ -33,12 +32,12 @@ public class PopupHandler : WindowMediatorSubscriberBase
 
         IsOpen = true;
 
-        _handlers = popupHandlers.ToHashSet();
+        var handlers = popupHandlers.ToHashSet();
 
         Mediator.Subscribe<OpenReportPopupMessage>(this, (msg) =>
         {
             _openPopup = true;
-            _currentHandler = _handlers.OfType<ReportPopupHandler>().Single();
+            _currentHandler = handlers.OfType<ReportPopupHandler>().Single();
             ((ReportPopupHandler)_currentHandler).Open(msg);
             IsOpen = true;
         });
@@ -46,7 +45,7 @@ public class PopupHandler : WindowMediatorSubscriberBase
         Mediator.Subscribe<OpenBanUserPopupMessage>(this, (msg) =>
         {
             _openPopup = true;
-            _currentHandler = _handlers.OfType<BanUserPopupHandler>().Single();
+            _currentHandler = handlers.OfType<BanUserPopupHandler>().Single();
             ((BanUserPopupHandler)_currentHandler).Open(msg);
             IsOpen = true;
         });
@@ -54,7 +53,7 @@ public class PopupHandler : WindowMediatorSubscriberBase
         Mediator.Subscribe<OpenSlotPromptMessage>(this, (msg) =>
         {
             _openPopup = true;
-            _currentHandler = _handlers.OfType<SlotPopupHandler>().Single();
+            _currentHandler = handlers.OfType<SlotPopupHandler>().Single();
             ((SlotPopupHandler)_currentHandler).Open(msg);
             IsOpen = true;
         });

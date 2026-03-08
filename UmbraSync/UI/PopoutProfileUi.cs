@@ -110,8 +110,8 @@ public class PopoutProfileUi : WindowMediatorSubscriberBase
 
             var accent = UiSharedService.AccentColor;
             if (accent.W <= 0f) accent = ImGuiColors.ParsedPurple;
-            using (var topTabHoverColor = ImRaii.PushColor(ImGuiCol.TabHovered, accent))
-            using (var topTabActiveColor = ImRaii.PushColor(ImGuiCol.TabActive, accent))
+            using (var _ = ImRaii.PushColor(ImGuiCol.TabHovered, accent))
+            using (var __ = ImRaii.PushColor(ImGuiCol.TabActive, accent))
             {
                 using var tabBar = ImRaii.TabBar("PopoutProfileTabBarV2");
                 if (tabBar)

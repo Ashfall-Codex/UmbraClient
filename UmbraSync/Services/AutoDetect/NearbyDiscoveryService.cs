@@ -35,6 +35,7 @@ public class NearbyDiscoveryService(ILogger<NearbyDiscoveryService> logger, Mare
     private bool _notifiedEnabled;
     private bool _disableSent;
     private bool _lastAutoDetectState;
+    private volatile bool _suppressNextEnabledNotification;
     private DateTime _lastHeartbeat = DateTime.MinValue;
     private static readonly TimeSpan HeartbeatInterval = TimeSpan.FromSeconds(75);
     private readonly System.Threading.Lock _entriesLock = new();
@@ -46,7 +47,14 @@ public class NearbyDiscoveryService(ILogger<NearbyDiscoveryService> logger, Mare
     {
         CancelAndDispose(ref _loopCts);
         _loopCts = new CancellationTokenSource();
-        _mediator.Subscribe<ConnectedMessage>(this, _ => { _isConnected = true; _configProvider.TryLoadFromStapled(); });
+        _mediator.Subscribe<ConnectedMessage>(this, _ =>
+        {
+            _isConnected = true;
+            _configProvider.TryLoadFromStapled();
+            // Supprimer la notification "Enabled" lors de la connexion initiale elle sera intégrée dans la notification de bienvenue du serveur
+            if (_config.Current.EnableAutoDetectDiscovery)
+                _suppressNextEnabledNotification = true;
+        });
         _mediator.Subscribe<DisconnectedMessage>(this, _ => { _isConnected = false; _lastPublishedSignature = null; });
         _mediator.Subscribe<AllowPairRequestsToggled>(this, OnAllowPairRequestsToggled);
         _ = Task.Run(() => Loop(_loopCts.Token));
@@ -104,7 +112,7 @@ public class NearbyDiscoveryService(ILogger<NearbyDiscoveryService> logger, Mare
             if (string.IsNullOrEmpty(displayName)) return;
 
             var selfHash = (saltHex + displayName + meWorld.ToString()).GetHash256();
-            var ok = await _api.PublishAsync(ep!, [selfHash], displayName, ct, _config.Current.AllowAutoDetectPairRequests).ConfigureAwait(false);
+            var ok = await _api.PublishAsync(ep, [selfHash], displayName, ct, _config.Current.AllowAutoDetectPairRequests).ConfigureAwait(false);
             _logger.LogInformation("Nearby publish (manual/immediate): {result}", ok ? "success" : "failed");
             if (ok)
             {
@@ -162,7 +170,7 @@ public class NearbyDiscoveryService(ILogger<NearbyDiscoveryService> logger, Mare
             try
             {
                 bool currentState = _config.Current.EnableAutoDetectDiscovery;
-                if (currentState != _lastAutoDetectState)
+                if (currentState != _lastAutoDetectState && _isConnected)
                 {
                     _lastAutoDetectState = currentState;
                     if (currentState)
@@ -191,7 +199,10 @@ public class NearbyDiscoveryService(ILogger<NearbyDiscoveryService> logger, Mare
 
                         if (!_notifiedEnabled)
                         {
-                            _mediator.Publish(new NotificationMessage(Loc.Get("Notification.NearbyDetection.Title"), Loc.Get("Notification.NearbyDetection.Enabled"), default));
+                            if (_suppressNextEnabledNotification)
+                                _suppressNextEnabledNotification = false;
+                            else
+                                _mediator.Publish(new NotificationMessage(Loc.Get("Notification.NearbyDetection.Title"), Loc.Get("Notification.NearbyDetection.Enabled"), default));
                             _notifiedEnabled = true;
                             _notifiedDisabled = false;
                             _disableSent = false;
@@ -345,7 +356,10 @@ public class NearbyDiscoveryService(ILogger<NearbyDiscoveryService> logger, Mare
                                         _lastHeartbeat = DateTime.UtcNow;
                                         if (!_notifiedEnabled)
                                         {
-                                            _mediator.Publish(new NotificationMessage(Loc.Get("Notification.NearbyDetection.Title"), Loc.Get("Notification.NearbyDetection.Enabled"), default));
+                                            if (_suppressNextEnabledNotification)
+                                                _suppressNextEnabledNotification = false;
+                                            else
+                                                _mediator.Publish(new NotificationMessage(Loc.Get("Notification.NearbyDetection.Title"), Loc.Get("Notification.NearbyDetection.Enabled"), default));
                                             _notifiedEnabled = true;
                                             _notifiedDisabled = false;
                                             _disableSent = false; // allow future /disable when turning off again

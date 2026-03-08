@@ -1,10 +1,6 @@
-using System;
-using System.Collections.Generic;
 using System.Globalization;
-using System.Numerics;
 using System.Reflection;
 using Dalamud.Bindings.ImGui;
-using Dalamud.Interface;
 using Dalamud.Interface.Colors;
 using Dalamud.Interface.Utility.Raii;
 using UmbraSync.Localization;
@@ -172,6 +168,23 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
     {
         return new List<ChangelogEntry>
         {
+            
+            new(new Version(2, 3, 2, 8003), "2.3.2.8003", new List<ChangelogLine>
+            {
+                new("Nouveauté : Il est désormais possible de définir un son lorsque quelqu'un vous écrit et que vous le cibler / votre cible parle."),
+                new("Nouveauté : Il est désormais possible de définir une collection spécifique Penumbra par Syncshell."),
+                new("Amélioration : Les invitations de jumelage (reçues et envoyées) expirent automatiquement au bout de 10 minutes."),
+                new("Amélioration : Les invitations expirent immédiatement si l'autre partie se déconnecte, avec notification de déconnexion."),
+                new("Amélioration : Horodatage « Reçue il y a … » sur les invitations entrantes."),
+                new("Amélioration : Coloration des textes entre guillemets \"...\" en blanc pour distinguer les dialogues dans une émote."),
+                new("Amélioration : Migration vers Brio.API pour l'interconnexion avec Brio et ses fonctionnalités."),
+                new("Amélioration : Possibilité de trier la liste des membres syncshell par type de pair où par ordre alphabétique."),
+                new("Amélioration : Révision du système de cache de profil RP & Traits Moodles."),
+                new("Amélioration : Réécriture du système d'envoi / réception d'invitation interactive."),
+                new("Amélioration : Mise à jour API Umbra en version ."),
+                new("Amélioration : Divers ajustement graphique & nettoyage du code."),
+
+            }),
             new(new Version(2, 3, 1, 3002), "2.3.1.3002", new List<ChangelogLine>
             {   
                 new("Amélioration : Réécriture complète du partage de meubles housing moddé avec une meilleure logique."),

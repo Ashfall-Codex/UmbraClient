@@ -1,11 +1,8 @@
 ﻿using Dalamud.Bindings.ImGui;
-using Dalamud.Game.ClientState.Keys;
-using Dalamud.Game.Text;
 using Dalamud.Interface;
 using Dalamud.Interface.Colors;
 using Dalamud.Interface.Utility;
 using Dalamud.Interface.Utility.Raii;
-using Dalamud.Plugin.Services;
 using Dalamud.Utility;
 using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
@@ -55,6 +52,9 @@ public class SettingsUi : WindowMediatorSubscriberBase
     private readonly UiSharedService _uiShared;
     private readonly ChatTypingDetectionService _chatTypingDetectionService;
     private readonly RgpdDataService _rgpdDataService;
+    private readonly MareConfiguration.SyncshellConfigService _syncshellConfigService;
+    private Dictionary<Guid, string>? _cachedPenumbraCollections;
+    private DateTime _lastCollectionRefresh = DateTime.MinValue;
     private bool _rgpdDeleteConfirmShown;
     private bool _rgpdRevokeConfirmShown;
     private string? _rgpdExportStatusMessage;
@@ -62,6 +62,8 @@ public class SettingsUi : WindowMediatorSubscriberBase
     private bool _deleteAccountPopupModalShown = false;
     private bool _emoteColorPaletteOpen = false;
     private bool _hrpColorPaletteOpen = false;
+    private string _targetSoundPairSearch = string.Empty;
+    private string _targetSoundGroupSearch = string.Empty;
     private string _lastTab = string.Empty;
     private int _activeSettingsTab;
     private bool? _notesSuccessfullyApplied = null;
@@ -124,7 +126,8 @@ public class SettingsUi : WindowMediatorSubscriberBase
         AutoDetectSuppressionService autoDetectSuppressionService,
         PenumbraPrecacheService precacheService,
         ChatTypingDetectionService chatTypingDetectionService,
-        RgpdDataService gdprDataService) : base(logger, mediator, "Umbra Settings", performanceCollector)
+        RgpdDataService gdprDataService,
+        MareConfiguration.SyncshellConfigService syncshellConfigService) : base(logger, mediator, "Umbra Settings", performanceCollector)
     {
         _configService = configService;
         _pairManager = pairManager;
@@ -147,6 +150,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
         _precacheService = precacheService;
         _chatTypingDetectionService = chatTypingDetectionService;
         _rgpdDataService = gdprDataService;
+        _syncshellConfigService = syncshellConfigService;
         AllowClickthrough = false;
         AllowPinning = false;
         _validationProgress = new Progress<(int, int, FileCacheEntity)>(v => _currentProgress = v);
@@ -187,6 +191,142 @@ public class SettingsUi : WindowMediatorSubscriberBase
         _uiShared.EditTrackerPosition = false;
 
         base.OnClose();
+    }
+
+    private void DrawCollectionOverrides()
+    {
+        _uiShared.BigText(Loc.Get("Settings.Transfer.CollectionOverride.Title"));
+        UiSharedService.ColorTextWrapped(Loc.Get("Settings.Transfer.CollectionOverride.Description"), ImGuiColors.DalamudGrey);
+
+        bool enableOverrides = _syncshellConfigService.Current.EnableCollectionOverrides;
+        if (ImGui.Checkbox(Loc.Get("Settings.Transfer.CollectionOverride.Enable"), ref enableOverrides))
+        {
+            _syncshellConfigService.Current.EnableCollectionOverrides = enableOverrides;
+            _syncshellConfigService.Save();
+        }
+
+        if (!enableOverrides) return;
+
+        // Rafraîchir les collections Penumbra toutes les 10 secondes max
+        if ((_cachedPenumbraCollections == null || DateTime.UtcNow - _lastCollectionRefresh > TimeSpan.FromSeconds(10))
+            && _ipcManager.Initialized && _ipcManager.Penumbra.APIAvailable)
+        {
+            _ = Task.Run(async () =>
+            {
+                var collections = await _ipcManager.Penumbra.GetAllCollectionsAsync().ConfigureAwait(false);
+                _cachedPenumbraCollections = collections;
+                _lastCollectionRefresh = DateTime.UtcNow;
+            });
+        }
+
+        if (_cachedPenumbraCollections == null || _cachedPenumbraCollections.Count == 0)
+        {
+            UiSharedService.ColorTextWrapped(Loc.Get("Settings.Transfer.CollectionOverride.NoPenumbra"), ImGuiColors.DalamudYellow);
+            return;
+        }
+
+        // Filtrer les collections temporaires UmbraSync
+        var userCollections = _cachedPenumbraCollections
+            .Where(c => !c.Value.StartsWith("UmbraSync_", StringComparison.Ordinal))
+            .OrderBy(c => c.Value, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var groups = _pairManager.Groups;
+        var overrides = _syncshellConfigService.Current.GroupCollectionOverrides;
+        bool changed = false;
+        string? toRemove = null;
+
+        ImGui.Spacing();
+
+        // Afficher les overrides existants
+        foreach (var (gid, collectionId) in overrides)
+        {
+            // Trouver le nom du syncshell
+            var groupEntry = groups.FirstOrDefault(g => string.Equals(g.Key.GID, gid, StringComparison.Ordinal));
+            var groupName = groupEntry.Key != null
+                ? (!string.IsNullOrEmpty(groupEntry.Key.Alias) ? groupEntry.Key.Alias : groupEntry.Key.GID)
+                : gid;
+
+            // Trouver le nom de la collection
+            var collName = userCollections.FirstOrDefault(c => c.Key == collectionId).Value
+                ?? Loc.Get("Settings.Transfer.CollectionOverride.Unknown");
+
+            // Bouton supprimer
+            ImGui.PushID("removeOverride_" + gid);
+            if (_uiShared.IconButton(FontAwesomeIcon.Trash))
+            {
+                toRemove = gid;
+            }
+            ImGui.PopID();
+            ImGui.SameLine();
+
+            // Combo pour changer la collection
+            ImGui.SetNextItemWidth(MathF.Min(250 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X - 200 * ImGuiHelpers.GlobalScale));
+            if (ImGui.BeginCombo("##collOverride_" + gid, collName))
+            {
+                foreach (var (cId, cName) in userCollections)
+                {
+                    if (ImGui.Selectable(cName, cId == collectionId))
+                    {
+                        overrides[gid] = cId;
+                        changed = true;
+                    }
+                }
+                ImGui.EndCombo();
+            }
+
+            ImGui.SameLine();
+            ImGui.TextUnformatted(groupName);
+        }
+
+        // Supprimer l'entrée marquée
+        if (toRemove != null)
+        {
+            overrides.Remove(toRemove);
+            changed = true;
+        }
+
+        // Bouton "Ajouter une exception"
+        // Trouver les syncshells qui n'ont pas encore d'override
+        var availableGroups = groups
+            .Where(g => !overrides.ContainsKey(g.Key.GID))
+            .ToList();
+
+        if (availableGroups.Count > 0)
+        {
+            ImGui.Spacing();
+            if (_uiShared.IconTextButton(FontAwesomeIcon.Plus, Loc.Get("Settings.Transfer.CollectionOverride.AddException")))
+            {
+                ImGui.OpenPopup("##addCollOverridePopup");
+            }
+
+            if (ImGui.BeginPopup("##addCollOverridePopup"))
+            {
+                ImGui.TextUnformatted(Loc.Get("Settings.Transfer.CollectionOverride.SelectSyncshell"));
+                ImGui.Separator();
+
+                foreach (var (groupData, _) in availableGroups)
+                {
+                    var name = !string.IsNullOrEmpty(groupData.Alias) ? groupData.Alias : groupData.GID;
+                    if (ImGui.Selectable(name))
+                    {
+                        // Ajouter avec la première collection disponible
+                        if (userCollections.Count > 0)
+                        {
+                            overrides[groupData.GID] = userCollections[0].Key;
+                            changed = true;
+                        }
+                        ImGui.CloseCurrentPopup();
+                    }
+                }
+                ImGui.EndPopup();
+            }
+        }
+
+        if (changed)
+        {
+            _syncshellConfigService.Save();
+        }
     }
 
     private void DrawBlockedTransfers()
@@ -277,7 +417,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
         int downloadSpeedLimit = _configService.Current.DownloadSpeedLimitInBytes;
 
         ImGui.AlignTextToFramePadding();
-        ImGui.TextUnformatted("Global Download Speed Limit");
+        ImGui.TextUnformatted(Loc.Get("Settings.Transfer.SpeedLimit"));
         ImGui.SameLine();
         ImGui.SetNextItemWidth(MathF.Min(100 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X * 0.3f));
         if (ImGui.InputInt("###speedlimit", ref downloadSpeedLimit))
@@ -303,14 +443,36 @@ public class SettingsUi : WindowMediatorSubscriberBase
             }, _configService.Current.DownloadSpeedType);
         ImGui.SameLine();
         ImGui.AlignTextToFramePadding();
-        ImGui.TextUnformatted("0 = No limit/infinite");
+        ImGui.TextUnformatted(Loc.Get("Settings.Transfer.SpeedLimit.NoLimit"));
         ImGui.SetNextItemWidth(MathF.Min(250 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X - 200 * ImGuiHelpers.GlobalScale));
-        if (ImGui.SliderInt("Maximum Parallel Downloads", ref maxParallelDownloads, 1, 10))
+        if (ImGui.SliderInt(Loc.Get("Settings.Transfer.ParallelDownloads"), ref maxParallelDownloads, 1, 10))
         {
             _configService.Current.ParallelDownloads = maxParallelDownloads;
             _configService.Save();
         }
-        UiSharedService.AttachToolTip("Limite le nombre de téléchargements simultanés pour éviter la surcharge. (défaut: 10)");
+        UiSharedService.AttachToolTip(Loc.Get("Settings.Transfer.ParallelDownloads.Help"));
+
+        var cpuCount = Environment.ProcessorCount;
+        var autoValue = Math.Clamp(_configService.Current.ParallelDownloads, 1, Math.Min(cpuCount, 4));
+        bool isAutoDecomp = _configService.Current.MaxDecompressionThreads <= 0;
+        if (ImGui.Checkbox(Loc.Get("Settings.Transfer.DecompressionThreads.Auto"), ref isAutoDecomp))
+        {
+            _configService.Current.MaxDecompressionThreads = isAutoDecomp ? 0 : autoValue;
+            _configService.Save();
+        }
+        ImGui.SameLine();
+        ImGui.TextUnformatted(string.Format(CultureInfo.CurrentCulture, Loc.Get("Settings.Transfer.DecompressionThreads.AutoLabel"), autoValue));
+        if (!isAutoDecomp)
+        {
+            int maxDecompThreads = _configService.Current.MaxDecompressionThreads;
+            ImGui.SetNextItemWidth(MathF.Min(250 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X - 200 * ImGuiHelpers.GlobalScale));
+            if (ImGui.SliderInt(Loc.Get("Settings.Transfer.DecompressionThreads"), ref maxDecompThreads, 1, cpuCount))
+            {
+                _configService.Current.MaxDecompressionThreads = maxDecompThreads;
+                _configService.Save();
+            }
+            UiSharedService.AttachToolTip(Loc.Get("Settings.Transfer.DecompressionThreads.Help"));
+        }
 
         ImGui.Spacing();
         _uiShared.BigText(Loc.Get("Settings.Transfer.PairProcessing.Title"));
@@ -337,6 +499,9 @@ public class SettingsUi : WindowMediatorSubscriberBase
         _uiShared.DrawHelpText(Loc.Get("Settings.Transfer.PairProcessing.MaxConcurrent.Help"));
         ImGui.Unindent();
         if (!enableParallelPairProcessing) ImGui.EndDisabled();
+
+        ImGui.Separator();
+        DrawCollectionOverrides();
 
         ImGui.Separator();
         _uiShared.BigText("Transfer UI");
@@ -620,6 +785,14 @@ public class SettingsUi : WindowMediatorSubscriberBase
                     _configService.Save();
                 }
 
+                var quotes = _configService.Current.EmoteHighlightQuotes;
+                if (ImGui.Checkbox(Loc.Get("Settings.EmoteHighlight.Quotes"), ref quotes))
+                {
+                    _configService.Current.EmoteHighlightQuotes = quotes;
+                    _configService.Save();
+                }
+                _uiShared.DrawHelpText(Loc.Get("Settings.EmoteHighlight.Quotes.Help"));
+
                 DrawColorPaletteRow(
                     "emote",
                     Loc.Get("Settings.EmoteHighlight.ColorKey"),
@@ -674,10 +847,321 @@ public class SettingsUi : WindowMediatorSubscriberBase
 
         ImGui.Spacing();
 
+        DrawChatTargetSoundSettings();
+
+        ImGui.Spacing();
+
         _uiShared.BigText(Loc.Get("Settings.Typing.BubbleHeader"));
         using (ImRaii.PushIndent())
         {
             DrawTypingSettings();
+        }
+    }
+
+    private void DrawChatTargetSoundSettings()
+    {
+        _uiShared.BigText(Loc.Get("Settings.ChatTargetSound.Header"));
+
+        var masterEnabled = _configService.Current.ChatTargetSoundMasterEnabled;
+        if (ImGui.Checkbox(Loc.Get("Settings.ChatTargetSound.MasterEnable"), ref masterEnabled))
+        {
+            _configService.Current.ChatTargetSoundMasterEnabled = masterEnabled;
+            _configService.Save();
+        }
+
+        if (!masterEnabled)
+            return;
+
+        using (ImRaii.PushIndent())
+        {
+            var reverse = _configService.Current.ChatTargetSoundReverseEnabled;
+            if (ImGui.Checkbox(Loc.Get("Settings.ChatTargetSound.Reverse"), ref reverse))
+            {
+                _configService.Current.ChatTargetSoundReverseEnabled = reverse;
+                _configService.Save();
+            }
+            _uiShared.DrawHelpText(Loc.Get("Settings.ChatTargetSound.Reverse.Help"));
+
+            var enabled = _configService.Current.ChatTargetSoundEnabled;
+            if (ImGui.Checkbox(Loc.Get("Settings.ChatTargetSound.Enable"), ref enabled))
+            {
+                _configService.Current.ChatTargetSoundEnabled = enabled;
+                _configService.Save();
+            }
+            _uiShared.DrawHelpText(Loc.Get("Settings.ChatTargetSound.Enable.Help"));
+
+            ImGuiHelpers.ScaledDummy(3f);
+
+            var soundIndex = _configService.Current.ChatTargetSoundIndex;
+            ImGui.SetNextItemWidth(200 * ImGuiHelpers.GlobalScale);
+            var preview = string.Format(Loc.Get("Settings.ChatTargetSound.SoundItem"), soundIndex);
+            using (var combo = ImRaii.Combo(Loc.Get("Settings.ChatTargetSound.SoundIndex"), preview))
+            {
+                if (combo)
+                {
+                    for (var i = 1; i <= 16; i++)
+                    {
+                        var isSelected = soundIndex == i;
+                        if (ImGui.Selectable(string.Format(Loc.Get("Settings.ChatTargetSound.SoundItem"), i), isSelected))
+                        {
+                            _configService.Current.ChatTargetSoundIndex = i;
+                            _configService.Save();
+                            FFXIVClientStructs.FFXIV.Client.UI.UIGlobals.PlayChatSoundEffect((uint)i);
+                        }
+                        if (isSelected)
+                            ImGui.SetItemDefaultFocus();
+                    }
+                }
+            }
+
+            ImGuiHelpers.ScaledDummy(5f);
+
+            DrawTargetSoundPairOverrides();
+
+            ImGuiHelpers.ScaledDummy(5f);
+
+            DrawTargetSoundGroupOverrides();
+        }
+    }
+
+    /// <summary>
+    /// Dessine la section de surcharges de son par pair dans les settings.
+    /// </summary>
+    private void DrawTargetSoundPairOverrides()
+    {
+        var pairEnabled = _configService.Current.ChatTargetSoundPairOverridesEnabled;
+        if (ImGui.Checkbox(Loc.Get("Settings.ChatTargetSound.Override.EnablePair"), ref pairEnabled))
+        {
+            _configService.Current.ChatTargetSoundPairOverridesEnabled = pairEnabled;
+            _configService.Save();
+        }
+
+        if (!pairEnabled)
+            return;
+
+        using var indent = ImRaii.PushIndent(20f);
+
+        var overrides = _configService.Current.PairTargetSoundOverrides;
+        var allPairs = _pairManager.DirectPairs;
+        string? toRemove = null;
+
+        // Afficher les surcharges existantes
+        foreach (var (uid, soundValue) in overrides)
+        {
+            using var id = ImRaii.PushId("pair_ov_" + uid);
+
+            // Trouver le nom affiché du pair
+            var pair = allPairs.FirstOrDefault(p => string.Equals(p.UserData.UID, uid, StringComparison.Ordinal));
+            var noteOrName = pair?.GetNoteOrName();
+            var displayName = noteOrName != null
+                ? $"{noteOrName} ({pair!.UserData.AliasOrUID})"
+                : pair?.UserData.AliasOrUID ?? _serverConfigurationManager.GetNoteForUid(uid) ?? uid;
+
+            // Combo de sélection du son
+            var currentSound = soundValue;
+            var soundPreview = currentSound == 0
+                ? Loc.Get("Settings.ChatTargetSound.Override.Disabled")
+                : string.Format(CultureInfo.CurrentCulture, Loc.Get("Settings.ChatTargetSound.SoundItem"), currentSound);
+
+            ImGui.SetNextItemWidth(150 * ImGuiHelpers.GlobalScale);
+            using (var combo = ImRaii.Combo("##sound", soundPreview))
+            {
+                if (combo)
+                {
+                    if (ImGui.Selectable(Loc.Get("Settings.ChatTargetSound.Override.Disabled"), currentSound == 0))
+                    {
+                        overrides[uid] = 0;
+                        _configService.Save();
+                    }
+                    for (var i = 1; i <= 16; i++)
+                    {
+                        if (ImGui.Selectable(string.Format(CultureInfo.CurrentCulture, Loc.Get("Settings.ChatTargetSound.SoundItem"), i), currentSound == i))
+                        {
+                            overrides[uid] = i;
+                            _configService.Save();
+                            FFXIVClientStructs.FFXIV.Client.UI.UIGlobals.PlayChatSoundEffect((uint)i);
+                        }
+                    }
+                }
+            }
+
+            ImGui.SameLine();
+            ImGui.TextUnformatted(displayName);
+
+            ImGui.SameLine();
+            if (_uiShared.IconButton(FontAwesomeIcon.Trash))
+            {
+                toRemove = uid;
+            }
+        }
+
+        if (toRemove != null)
+        {
+            overrides.Remove(toRemove);
+            _configService.Save();
+        }
+
+        // Combo recherchable pour ajouter un nouveau pair
+        var availablePairs = allPairs
+            .Where(p => !overrides.ContainsKey(p.UserData.UID))
+            .OrderBy(p => p.GetNoteOrName() ?? p.UserData.AliasOrUID, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (availablePairs.Count > 0)
+        {
+            ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X);
+            using var combo = ImRaii.Combo("##add_pair_override", Loc.Get("Settings.ChatTargetSound.Override.SelectPair"));
+            if (combo)
+            {
+                ImGui.SetNextItemWidth(-1);
+                ImGui.InputTextWithHint("##pair_search", Loc.Get("Settings.ChatTargetSound.Override.SearchHint"), ref _targetSoundPairSearch, 128);
+                ImGui.Separator();
+
+                var search = _targetSoundPairSearch.Trim();
+                foreach (var pair in availablePairs)
+                {
+                    var noteOrName = pair.GetNoteOrName();
+                    var label = noteOrName != null
+                        ? $"{noteOrName} ({pair.UserData.AliasOrUID})"
+                        : pair.UserData.AliasOrUID;
+
+                    // Filtrer par recherche
+                    if (!string.IsNullOrEmpty(search)
+                        && !label.Contains(search, StringComparison.OrdinalIgnoreCase)
+                        && !pair.UserData.UID.Contains(search, StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    if (ImGui.Selectable(label))
+                    {
+                        overrides[pair.UserData.UID] = _configService.Current.ChatTargetSoundIndex;
+                        _configService.Save();
+                        _targetSoundPairSearch = string.Empty;
+                    }
+                }
+            }
+            else
+            {
+                // Réinitialiser la recherche quand le combo se ferme
+                _targetSoundPairSearch = string.Empty;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Dessine la section de surcharges de son par syncshell dans les settings.
+    /// </summary>
+    private void DrawTargetSoundGroupOverrides()
+    {
+        var groupEnabled = _configService.Current.ChatTargetSoundGroupOverridesEnabled;
+        if (ImGui.Checkbox(Loc.Get("Settings.ChatTargetSound.Override.EnableGroup"), ref groupEnabled))
+        {
+            _configService.Current.ChatTargetSoundGroupOverridesEnabled = groupEnabled;
+            _configService.Save();
+        }
+
+        if (!groupEnabled)
+            return;
+
+        using var indent = ImRaii.PushIndent(20f);
+
+        var overrides = _configService.Current.GroupTargetSoundOverrides;
+        var allGroups = _pairManager.GroupPairs.Keys.ToList();
+        string? toRemove = null;
+
+        // Afficher les surcharges existantes
+        foreach (var (gid, soundValue) in overrides)
+        {
+            using var id = ImRaii.PushId("group_ov_" + gid);
+
+            // Trouver le nom du syncshell
+            var group = allGroups.FirstOrDefault(g => string.Equals(g.Group.GID, gid, StringComparison.Ordinal));
+            var displayName = group?.Group.AliasOrGID ?? _serverConfigurationManager.GetNoteForGid(gid) ?? gid;
+
+            // Combo de sélection du son
+            var currentSound = soundValue;
+            var soundPreview = currentSound == 0
+                ? Loc.Get("Settings.ChatTargetSound.Override.Disabled")
+                : string.Format(CultureInfo.CurrentCulture, Loc.Get("Settings.ChatTargetSound.SoundItem"), currentSound);
+
+            ImGui.SetNextItemWidth(150 * ImGuiHelpers.GlobalScale);
+            using (var combo = ImRaii.Combo("##sound", soundPreview))
+            {
+                if (combo)
+                {
+                    if (ImGui.Selectable(Loc.Get("Settings.ChatTargetSound.Override.Disabled"), currentSound == 0))
+                    {
+                        overrides[gid] = 0;
+                        _configService.Save();
+                    }
+                    for (var i = 1; i <= 16; i++)
+                    {
+                        if (ImGui.Selectable(string.Format(CultureInfo.CurrentCulture, Loc.Get("Settings.ChatTargetSound.SoundItem"), i), currentSound == i))
+                        {
+                            overrides[gid] = i;
+                            _configService.Save();
+                            FFXIVClientStructs.FFXIV.Client.UI.UIGlobals.PlayChatSoundEffect((uint)i);
+                        }
+                    }
+                }
+            }
+
+            ImGui.SameLine();
+            ImGui.TextUnformatted(displayName);
+
+            ImGui.SameLine();
+            if (_uiShared.IconButton(FontAwesomeIcon.Trash))
+            {
+                toRemove = gid;
+            }
+        }
+
+        if (toRemove != null)
+        {
+            overrides.Remove(toRemove);
+            _configService.Save();
+        }
+
+        // Combo recherchable pour ajouter un nouveau syncshell
+        var availableGroups = allGroups
+            .Where(g => !overrides.ContainsKey(g.Group.GID))
+            .OrderBy(g => g.Group.AliasOrGID, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (availableGroups.Count > 0)
+        {
+            ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X);
+            using var combo = ImRaii.Combo("##add_group_override", Loc.Get("Settings.ChatTargetSound.Override.SelectGroup"));
+            if (combo)
+            {
+                ImGui.SetNextItemWidth(-1);
+                ImGui.InputTextWithHint("##group_search", Loc.Get("Settings.ChatTargetSound.Override.SearchHint"), ref _targetSoundGroupSearch, 128);
+                ImGui.Separator();
+
+                var search = _targetSoundGroupSearch.Trim();
+                foreach (var group in availableGroups)
+                {
+                    var label = group.Group.AliasOrGID;
+                    var note = _serverConfigurationManager.GetNoteForGid(group.Group.GID);
+                    var displayLabel = note != null ? $"{note} ({label})" : label;
+
+                    // Filtrer par recherche
+                    if (!string.IsNullOrEmpty(search)
+                        && !displayLabel.Contains(search, StringComparison.OrdinalIgnoreCase)
+                        && !group.Group.GID.Contains(search, StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    if (ImGui.Selectable(displayLabel))
+                    {
+                        overrides[group.Group.GID] = _configService.Current.ChatTargetSoundIndex;
+                        _configService.Save();
+                        _targetSoundGroupSearch = string.Empty;
+                    }
+                }
+            }
+            else
+            {
+                _targetSoundGroupSearch = string.Empty;
+            }
         }
     }
 
@@ -2036,7 +2520,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
                         UiSharedService.DrawCard($"chara-{i}", () =>
                         {
                             using var charaId = ImRaii.PushId("selectedChara" + i);
-                            var availWidth = ImGui.GetContentRegionAvail().X;
+                            var cardWidth = ImGui.GetContentRegionAvail().X;
 
                             // Character name row
                             _uiShared.IconText(thisIsYou ? FontAwesomeIcon.Star : FontAwesomeIcon.User);
@@ -2048,7 +2532,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
                             // Key selector
                             _uiShared.IconText(FontAwesomeIcon.Key);
                             ImGui.SameLine();
-                            var comboWidth = availWidth - ImGui.GetCursorPosX() + ImGui.GetWindowContentRegionMin().X;
+                            var comboWidth = cardWidth - ImGui.GetCursorPosX() + ImGui.GetWindowContentRegionMin().X;
                             ImGui.SetNextItemWidth(comboWidth);
 
                             string selectedKeyName = string.Empty;
@@ -2105,7 +2589,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
                     UiSharedService.DrawCard($"secret-key-{item.Key}", () =>
                     {
                         using var id = ImRaii.PushId("key" + item.Key);
-                        var availWidth = ImGui.GetContentRegionAvail().X;
+                        var cardWidth = ImGui.GetContentRegionAvail().X;
 
                         // Header: name + lock icon
                         var friendlyName = item.Value.FriendlyName;
@@ -2113,7 +2597,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
                         if (keyInUse)
                             UiSharedService.AttachToolTip(Loc.Get("Settings.Account.Keys.InUseWarning"));
                         ImGui.SameLine();
-                        var inputWidth = availWidth - ImGui.GetCursorPosX() + ImGui.GetWindowContentRegionMin().X;
+                        var inputWidth = cardWidth - ImGui.GetCursorPosX() + ImGui.GetWindowContentRegionMin().X;
                         ImGui.SetNextItemWidth(inputWidth);
                         if (ImGui.InputText("##name", ref friendlyName, 255))
                         {
@@ -2287,7 +2771,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
                         (success, paths) =>
                     {
                         if (!success) return;
-                        if (paths.FirstOrDefault() is not string path) return;
+                        if (paths.FirstOrDefault() is not { } path) return;
                         try
                         {
                             var json = File.ReadAllText(path);
@@ -2535,7 +3019,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
 
         if (_apiController.ServerState is ServerState.Connected)
         {
-            string statusText = $"{Loc.Get("Settings.About.Service")} {_serverConfigurationManager.CurrentServer!.ServerName}:";
+            string statusText = $"{Loc.Get("Settings.About.Service")} {_serverConfigurationManager.CurrentServer.ServerName}:";
             string availableText = Loc.Get("Settings.About.Available");
             string usersText = _apiController.OnlineUsers.ToString(CultureInfo.InvariantCulture);
             string onlineText = Loc.Get("Settings.About.UsersOnline");

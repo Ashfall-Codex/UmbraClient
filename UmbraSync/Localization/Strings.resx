@@ -194,6 +194,32 @@
     <value>Waiting for server connection</value>
   </data>
 
+  <!-- Download settings -->
+  <data name="Settings.Transfer.SpeedLimit" xml:space="preserve">
+    <value>Global Download Speed Limit</value>
+  </data>
+  <data name="Settings.Transfer.SpeedLimit.NoLimit" xml:space="preserve">
+    <value>0 = No limit/infinite</value>
+  </data>
+  <data name="Settings.Transfer.ParallelDownloads" xml:space="preserve">
+    <value>Maximum Parallel Downloads</value>
+  </data>
+  <data name="Settings.Transfer.ParallelDownloads.Help" xml:space="preserve">
+    <value>Limits the number of simultaneous downloads to prevent overload. (default: 10)</value>
+  </data>
+  <data name="Settings.Transfer.DecompressionThreads" xml:space="preserve">
+    <value>Decompression Threads</value>
+  </data>
+  <data name="Settings.Transfer.DecompressionThreads.Help" xml:space="preserve">
+    <value>Number of simultaneous decompression threads.</value>
+  </data>
+  <data name="Settings.Transfer.DecompressionThreads.Auto" xml:space="preserve">
+    <value>Automatic decompression threads</value>
+  </data>
+  <data name="Settings.Transfer.DecompressionThreads.AutoLabel" xml:space="preserve">
+    <value>({0} threads)</value>
+  </data>
+
   <!-- Pair Processing settings -->
   <data name="Settings.Transfer.PairProcessing.Title" xml:space="preserve">
     <value>Pair Processing</value>
@@ -211,6 +237,35 @@
     <value>Maximum number of pairs that can be processed at the same time. Higher values are faster but use more resources. Recommended: 4 (default: 4, max: 16)</value>
   </data>
 
+  <!-- Collection Override per Syncshell -->
+  <data name="Settings.Transfer.CollectionOverride.Title" xml:space="preserve">
+    <value>Collection per Syncshell</value>
+  </data>
+  <data name="Settings.Transfer.CollectionOverride.Description" xml:space="preserve">
+    <value>Choose a specific Penumbra collection to send to each syncshell. By default, your current collection is used.</value>
+  </data>
+  <data name="Settings.Transfer.CollectionOverride.NoPenumbra" xml:space="preserve">
+    <value>Penumbra is not available. Connect Penumbra to configure collection overrides.</value>
+  </data>
+  <data name="Settings.Transfer.CollectionOverride.NoSyncshell" xml:space="preserve">
+    <value>No syncshell available. Join a syncshell to configure collection overrides.</value>
+  </data>
+  <data name="Settings.Transfer.CollectionOverride.Enable" xml:space="preserve">
+    <value>Enable collection overrides per syncshell</value>
+  </data>
+  <data name="Settings.Transfer.CollectionOverride.Default" xml:space="preserve">
+    <value>Default (current collection)</value>
+  </data>
+  <data name="Settings.Transfer.CollectionOverride.Unknown" xml:space="preserve">
+    <value>(unknown collection)</value>
+  </data>
+  <data name="Settings.Transfer.CollectionOverride.AddException" xml:space="preserve">
+    <value>Add an exception</value>
+  </data>
+  <data name="Settings.Transfer.CollectionOverride.SelectSyncshell" xml:space="preserve">
+    <value>Select a syncshell</value>
+  </data>
+
   <!-- AutoDetect notifications -->
   <data name="AutoDetect.Notification.IncomingTitle" xml:space="preserve">
     <value>New invitation</value>
@@ -226,6 +281,15 @@
   </data>
   <data name="AutoDetect.Notification.AcceptedBody" xml:space="preserve">
     <value>Pairing with {0} is now active.</value>
+  </data>
+  <data name="AutoDetect.Notification.DisconnectedTitle" xml:space="preserve">
+    <value>Disconnection</value>
+  </data>
+  <data name="AutoDetect.Notification.DisconnectedIncoming" xml:space="preserve">
+    <value>{0} disconnected. The incoming invitation has expired.</value>
+  </data>
+  <data name="AutoDetect.Notification.DisconnectedOutgoing" xml:space="preserve">
+    <value>{0} disconnected. The outgoing invitation has expired.</value>
   </data>
   
   <!-- Vanity / Custom ID in Edit Profile -->
@@ -1286,6 +1350,9 @@ Click to change.</value>
   </data>
   <data name="AutoDetectUi.Invitations.SentAgo" xml:space="preserve">
     <value>Sent {0} ago</value>
+  </data>
+  <data name="AutoDetectUi.Invitations.ReceivedAgo" xml:space="preserve">
+    <value>Received {0} ago</value>
   </data>
   <data name="AutoDetectUi.Invitations.SentEmpty" xml:space="preserve">
     <value>No outgoing invitations.</value>
@@ -2448,6 +2515,12 @@ Click to change.</value>
   <data name="Settings.EmoteHighlight.SquareBrackets" xml:space="preserve">
     <value>Square brackets [...]</value>
   </data>
+  <data name="Settings.EmoteHighlight.Quotes" xml:space="preserve">
+    <value>Quotation marks "..."</value>
+  </data>
+  <data name="Settings.EmoteHighlight.Quotes.Help" xml:space="preserve">
+    <value>Displays text enclosed in double quotes in white to distinguish dialogue from narration in emotes.</value>
+  </data>
   <data name="Settings.EmoteHighlight.DoubleParentheses" xml:space="preserve">
     <value>Double parentheses (( ... ))</value>
   </data>
@@ -2468,6 +2541,72 @@ Click to change.</value>
   </data>
   <data name="Settings.EmoteHighlight.HrpColorKey" xml:space="preserve">
     <value>OOC color</value>
+  </data>
+  <data name="Settings.ChatTargetSound.Header" xml:space="preserve">
+    <value>Target Sound Notification</value>
+  </data>
+  <data name="Settings.ChatTargetSound.Enable" xml:space="preserve">
+    <value>When someone targets me and speaks</value>
+  </data>
+  <data name="Settings.ChatTargetSound.Enable.Help" xml:space="preserve">
+    <value>Plays a sound when a nearby player sends a Say, Yell, or Emote message while targeting your character.</value>
+  </data>
+  <data name="Settings.ChatTargetSound.SoundIndex" xml:space="preserve">
+    <value>Notification sound</value>
+  </data>
+  <data name="Settings.ChatTargetSound.SoundItem" xml:space="preserve">
+    <value>Sound Effect {0}</value>
+  </data>
+  <data name="Settings.ChatTargetSound.MasterEnable" xml:space="preserve">
+    <value>Enable sound notification</value>
+  </data>
+  <data name="Settings.ChatTargetSound.WhenToPlay" xml:space="preserve">
+    <value>Play a sound:</value>
+  </data>
+  <data name="Settings.ChatTargetSound.Reverse" xml:space="preserve">
+    <value>When my target speaks</value>
+  </data>
+  <data name="Settings.ChatTargetSound.Reverse.Help" xml:space="preserve">
+    <value>Plays a sound when the player you are targeting sends a Say, Yell, or Emote message.</value>
+  </data>
+  <data name="Settings.ChatTargetSound.Override.Default" xml:space="preserve">
+    <value>Default (global)</value>
+  </data>
+  <data name="Settings.ChatTargetSound.Override.Disabled" xml:space="preserve">
+    <value>Disabled</value>
+  </data>
+  <data name="Settings.ChatTargetSound.Override.Label" xml:space="preserve">
+    <value>Target notification sound</value>
+  </data>
+  <data name="Settings.ChatTargetSound.Override.PairHeader" xml:space="preserve">
+    <value>Per pair</value>
+  </data>
+  <data name="Settings.ChatTargetSound.Override.GroupHeader" xml:space="preserve">
+    <value>Per syncshell</value>
+  </data>
+  <data name="Settings.ChatTargetSound.Override.AddPair" xml:space="preserve">
+    <value>Add a pair</value>
+  </data>
+  <data name="Settings.ChatTargetSound.Override.AddGroup" xml:space="preserve">
+    <value>Add a syncshell</value>
+  </data>
+  <data name="Settings.ChatTargetSound.Override.Remove" xml:space="preserve">
+    <value>Remove</value>
+  </data>
+  <data name="Settings.ChatTargetSound.Override.SelectPair" xml:space="preserve">
+    <value>Select a pair...</value>
+  </data>
+  <data name="Settings.ChatTargetSound.Override.SelectGroup" xml:space="preserve">
+    <value>Select a syncshell...</value>
+  </data>
+  <data name="Settings.ChatTargetSound.Override.EnablePair" xml:space="preserve">
+    <value>Play a different sound for a specific pair</value>
+  </data>
+  <data name="Settings.ChatTargetSound.Override.EnableGroup" xml:space="preserve">
+    <value>Play a different sound for a specific syncshell</value>
+  </data>
+  <data name="Settings.ChatTargetSound.Override.SearchHint" xml:space="preserve">
+    <value>Search...</value>
   </data>
   <data name="Settings.Typing.BlockedNameColor" xml:space="preserve">
     <value>Blocked name color</value>
@@ -3724,6 +3863,18 @@ Click to change.</value>
   <data name="Syncshell.Members.OfflineSection" xml:space="preserve">
     <value>Offline ({0})</value>
   </data>
+  <data name="Syncshell.Members.DirectPairsSection" xml:space="preserve">
+    <value>Direct Pairs ({0})</value>
+  </data>
+  <data name="Syncshell.Members.SyncshellOnlySection" xml:space="preserve">
+    <value>Syncshell Only ({0})</value>
+  </data>
+  <data name="Syncshell.Members.SortByStatus" xml:space="preserve">
+    <value>Sort by status</value>
+  </data>
+  <data name="Syncshell.Members.SortByType" xml:space="preserve">
+    <value>Sort by type (direct / syncshell)</value>
+  </data>
   <data name="Syncshell.Members.Leave" xml:space="preserve">
     <value>Leave</value>
   </data>
@@ -3849,6 +4000,45 @@ Click to change.</value>
   </data>
   <data name="Notification.NearbyDetection.Disabled" xml:space="preserve">
     <value>AutoDetect disabled: you are not visible.</value>
+  </data>
+  <data name="Notification.Server.Info" xml:space="preserve">
+    <value>Info from</value>
+  </data>
+  <data name="Notification.Server.Warning" xml:space="preserve">
+    <value>Warning from</value>
+  </data>
+  <data name="Notification.Nearby.Blocked.Title" xml:space="preserve">
+    <value>Nearby request blocked</value>
+  </data>
+  <data name="Notification.Nearby.Blocked.Body" xml:space="preserve">
+    <value>Enable 'Allow pair requests' in Settings to send requests.</value>
+  </data>
+  <data name="Notification.Nearby.Sent.Title" xml:space="preserve">
+    <value>Nearby request sent</value>
+  </data>
+  <data name="Notification.Nearby.Sent.Body" xml:space="preserve">
+    <value>The other user will receive a request notification.</value>
+  </data>
+  <data name="Notification.Nearby.Failed.Title" xml:space="preserve">
+    <value>Nearby request failed</value>
+  </data>
+  <data name="Notification.Nearby.Failed.NoEndpoint" xml:space="preserve">
+    <value>Server does not expose request endpoint.</value>
+  </data>
+  <data name="Notification.Nearby.Failed.Rejected" xml:space="preserve">
+    <value>The server rejected the request. Try again soon.</value>
+  </data>
+  <data name="Notification.Nearby.Cooldown.Title" xml:space="preserve">
+    <value>Nearby request pending</value>
+  </data>
+  <data name="Notification.Nearby.Cooldown.Body" xml:space="preserve">
+    <value>Request already sent. Please wait about {0} before retrying.</value>
+  </data>
+  <data name="Notification.Nearby.Locked.Title" xml:space="preserve">
+    <value>Nearby request locked</value>
+  </data>
+  <data name="Notification.Nearby.Locked.Body" xml:space="preserve">
+    <value>Request locked after multiple refusals. Retry in {0}.</value>
   </data>
   <data name="Settings.Section.General.Desc" xml:space="preserve">
     <value>Customize the interface, notes, notifications and display preferences.</value>

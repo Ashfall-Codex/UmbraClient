@@ -106,15 +106,14 @@ public class PlayerAnalysisUI : WindowMediatorSubscriberBase
         ImGui.SameLine();
         ImGui.TextUnformatted(cachedAnalysis.Values.Sum(c => c.Values.Count).ToString(CultureInfo.CurrentCulture));
         ImGui.SameLine();
-        using (var font = ImRaii.PushFont(UiBuilder.IconFont))
+        using (var _ = ImRaii.PushFont(UiBuilder.IconFont))
         {
             ImGui.TextUnformatted(FontAwesomeIcon.InfoCircle.ToIconString());
         }
         if (ImGui.IsItemHovered())
         {
-            string text = "";
             var groupedfiles = cachedAnalysis.Values.SelectMany(f => f.Values).GroupBy(f => f.FileType, StringComparer.Ordinal);
-            text = string.Join(Environment.NewLine, groupedfiles.OrderBy(f => f.Key, StringComparer.Ordinal)
+            var text = string.Join(Environment.NewLine, groupedfiles.OrderBy(f => f.Key, StringComparer.Ordinal)
                 .Select(f => string.Format(CultureInfo.CurrentCulture, Loc.Get("PlayerAnalysis.FileTypeSummary"), f.Key, f.Count(),
                     UiSharedService.ByteToString(f.Sum(v => v.OriginalSize)), UiSharedService.ByteToString(f.Sum(v => v.CompressedSize)))));
             ImGui.SetTooltip(text);
@@ -167,14 +166,13 @@ public class PlayerAnalysisUI : WindowMediatorSubscriberBase
                 ImGui.TextUnformatted(kvp.Value.Count.ToString());
                 ImGui.SameLine();
 
-                using (var font = ImRaii.PushFont(UiBuilder.IconFont))
+                using (var _ = ImRaii.PushFont(UiBuilder.IconFont))
                 {
                     ImGui.TextUnformatted(FontAwesomeIcon.InfoCircle.ToIconString());
                 }
                 if (ImGui.IsItemHovered())
                 {
-                    string text = "";
-                    text = string.Join(Environment.NewLine, groupedfiles
+                    var text = string.Join(Environment.NewLine, groupedfiles
                         .Select(f => f.Key + ": " + f.Count() + " files, size: " + UiSharedService.ByteToString(f.Sum(v => v.OriginalSize))
                         + ", compressed: " + UiSharedService.ByteToString(f.Sum(v => v.CompressedSize))));
                     ImGui.SetTooltip(text);
@@ -215,13 +213,13 @@ public class PlayerAnalysisUI : WindowMediatorSubscriberBase
 
                 using var fileTabBar = ImRaii.TabBar("fileTabs");
 
-                foreach (IGrouping<string, CharacterAnalyzer.FileDataEntry>? fileGroup in groupedfiles)
+                foreach (IGrouping<string, CharacterAnalyzer.FileDataEntry> fileGroup in groupedfiles)
                 {
                     string fileGroupText = fileGroup.Key + " [" + fileGroup.Count() + "]";
                     var requiresCompute = fileGroup.Any(k => !k.IsComputed);
                     using var tabcol = ImRaii.PushColor(ImGuiCol.Tab, UiSharedService.Color(ImGuiColors.DalamudYellow), requiresCompute);
                     ImRaii.IEndObject fileTab;
-                    using (var textcol = ImRaii.PushColor(ImGuiCol.Text, UiSharedService.Color(new(0, 0, 0, 1)),
+                    using (var _ = ImRaii.PushColor(ImGuiCol.Text, UiSharedService.Color(new(0, 0, 0, 1)),
                         requiresCompute && !string.Equals(_selectedFileTypeTab, fileGroup.Key, StringComparison.Ordinal)))
                     {
                         fileTab = ImRaii.TabItem(fileGroupText + "###" + fileGroup.Key);

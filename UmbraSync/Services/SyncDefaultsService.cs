@@ -105,7 +105,7 @@ public sealed class SyncDefaultsService : DisposableMediatorSubscriberBase
             var summary = BuildSummaryMessage(updatedPairs, updatedGroups);
             var primary = BuildPrimaryMessage(message);
             var combined = string.IsNullOrEmpty(primary) ? summary : string.Concat(primary, ' ', summary);
-            Mediator.Publish(new DualNotificationMessage("Préférences appliquées", combined, NotificationType.Info));
+            Mediator.Publish(new DualNotificationMessage("Préférences appliquées", combined, NotificationType.Success));
         }
         catch (Exception ex)
         {
@@ -282,7 +282,7 @@ public sealed class SyncDefaultsService : DisposableMediatorSubscriberBase
     private static bool ApplyDefaults(ref UserPermissions permissions, MareConfig config, SyncOverrideEntry? overrides)
     {
         bool changed = false;
-        if (overrides?.DisableSounds is bool overrideSounds)
+        if (overrides?.DisableSounds is { } overrideSounds)
         {
             if (permissions.IsDisableSounds() != overrideSounds)
             {
@@ -296,7 +296,7 @@ public sealed class SyncDefaultsService : DisposableMediatorSubscriberBase
             changed = true;
         }
 
-        if (overrides?.DisableAnimations is bool overrideAnims)
+        if (overrides?.DisableAnimations is { } overrideAnims)
         {
             if (permissions.IsDisableAnimations() != overrideAnims)
             {
@@ -310,7 +310,7 @@ public sealed class SyncDefaultsService : DisposableMediatorSubscriberBase
             changed = true;
         }
 
-        if (overrides?.DisableVfx is bool overrideVfx)
+        if (overrides?.DisableVfx is { } overrideVfx)
         {
             if (permissions.IsDisableVFX() != overrideVfx)
             {
@@ -324,7 +324,7 @@ public sealed class SyncDefaultsService : DisposableMediatorSubscriberBase
             changed = true;
         }
 
-        if (overrides?.DisableHousingMods is bool overrideHousing)
+        if (overrides?.DisableHousingMods is { } overrideHousing)
         {
             if (permissions.IsDisableHousing() != overrideHousing)
             {
@@ -344,7 +344,7 @@ public sealed class SyncDefaultsService : DisposableMediatorSubscriberBase
     private static bool ApplyDefaults(ref GroupUserPermissions permissions, MareConfig config, SyncOverrideEntry? overrides)
     {
         bool changed = false;
-        if (overrides?.DisableSounds is bool overrideSounds)
+        if (overrides?.DisableSounds is { } overrideSounds)
         {
             if (permissions.IsDisableSounds() != overrideSounds)
             {
@@ -358,7 +358,7 @@ public sealed class SyncDefaultsService : DisposableMediatorSubscriberBase
             changed = true;
         }
 
-        if (overrides?.DisableAnimations is bool overrideAnims)
+        if (overrides?.DisableAnimations is { } overrideAnims)
         {
             if (permissions.IsDisableAnimations() != overrideAnims)
             {
@@ -372,7 +372,7 @@ public sealed class SyncDefaultsService : DisposableMediatorSubscriberBase
             changed = true;
         }
 
-        if (overrides?.DisableVfx is bool overrideVfx)
+        if (overrides?.DisableVfx is { } overrideVfx)
         {
             if (permissions.IsDisableVFX() != overrideVfx)
             {
@@ -386,7 +386,7 @@ public sealed class SyncDefaultsService : DisposableMediatorSubscriberBase
             changed = true;
         }
 
-        if (overrides?.DisableHousingMods is bool overrideHousing)
+        if (overrides?.DisableHousingMods is { } overrideHousing)
         {
             if (permissions.IsDisableHousing() != overrideHousing)
             {

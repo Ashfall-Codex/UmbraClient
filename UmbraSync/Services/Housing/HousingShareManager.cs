@@ -11,7 +11,6 @@ using UmbraSync.FileCache;
 using UmbraSync.Interop.Ipc;
 using UmbraSync.Localization;
 using UmbraSync.MareConfiguration;
-using UmbraSync.MareConfiguration.Configurations;
 using UmbraSync.MareConfiguration.Models;
 using UmbraSync.PlayerData.Factories;
 using UmbraSync.Services.Mediator;
@@ -202,7 +201,7 @@ public sealed class HousingShareManager : IDisposable
             _mediator.Publish(new NotificationMessage(
                 Loc.Get("HousingShare.Notification.ShareTitle"),
                 string.Format(CultureInfo.CurrentCulture, Loc.Get("HousingShare.Success.Published"), furnitureCount),
-                NotificationType.Info,
+                NotificationType.Success,
                 TimeSpan.FromSeconds(4)));
         });
     }
@@ -345,7 +344,7 @@ public sealed class HousingShareManager : IDisposable
         else
         {
             // Ancien format (MessagePack brut) : gamePath → filePath local
-            modPaths = MessagePackSerializer.Deserialize<Dictionary<string, string>>(plaintext) ?? new(StringComparer.Ordinal);
+            modPaths = MessagePackSerializer.Deserialize<Dictionary<string, string>>(plaintext);
         }
 
         if (modPaths.Count == 0)
@@ -420,7 +419,7 @@ public sealed class HousingShareManager : IDisposable
             _mediator.Publish(new NotificationMessage(
                 Loc.Get("HousingShare.Notification.ShareTitle"),
                 Loc.Get("HousingShare.Notification.FurnitureApplied"),
-                NotificationType.Info,
+                NotificationType.Success,
                 TimeSpan.FromSeconds(6)));
         }
         catch (Exception ex)
@@ -721,7 +720,7 @@ public sealed class HousingShareManager : IDisposable
         var defaultMod = new
         {
             Files = filesMapping,
-            FileSwaps = new Dictionary<string, string>(),
+            FileSwaps = new Dictionary<string, string>(StringComparer.Ordinal),
             Manipulations = Array.Empty<object>()
         };
         var defaultModJson = JsonSerializer.Serialize(defaultMod, new JsonSerializerOptions { WriteIndented = true });

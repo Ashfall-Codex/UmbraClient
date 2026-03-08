@@ -3,7 +3,6 @@ using Dalamud.Interface;
 using Dalamud.Interface.Colors;
 using Dalamud.Interface.Utility;
 using Dalamud.Interface.Utility.Raii;
-using Dalamud.Utility;
 using System.Globalization;
 using System.Numerics;
 using Dalamud.Interface.Textures.TextureWraps;
@@ -75,13 +74,10 @@ internal sealed class GroupPanel
     private readonly Dictionary<string, List<Pair>> _sortedPairsCache = new(StringComparer.Ordinal);
     private readonly Dictionary<string, long> _sortedPairsLastUpdate = new(StringComparer.Ordinal);
     private string? _membersWindowGid = null;
-    private bool _membersVisibleExpanded = true;
-    private bool _membersOnlineExpanded = true;
-    private bool _membersOfflineExpanded = false;
     private bool _membersLeaveConfirm = false;
     private string _syncshellFilter = string.Empty;
     private string _membersFilter = string.Empty;
-    private readonly UmbraProfileManager _profileManager;
+    private bool _membersSortByType = false;
     private readonly SyncshellConfigService _syncshellConfig;
     private readonly Dictionary<string, bool> _favoriteMembersExpanded = new(StringComparer.Ordinal);
     private string? _profileWindowGid = null;
@@ -93,7 +89,7 @@ internal sealed class GroupPanel
     public GroupPanel(CompactUi mainUi, UiSharedService uiShared, PairManager pairManager,
         UidDisplayHandler uidDisplayHandler, ServerConfigurationManager serverConfigurationManager,
         CharaDataManager charaDataManager, AutoDetectRequestService autoDetectRequestService,
-        MareConfigService mareConfig, UmbraProfileManager profileManager, SyncshellConfigService syncshellConfig)
+        MareConfigService mareConfig, SyncshellConfigService syncshellConfig)
     {
         _mainUi = mainUi;
         _uiShared = uiShared;
@@ -103,7 +99,6 @@ internal sealed class GroupPanel
         _charaDataManager = charaDataManager;
         _autoDetectRequestService = autoDetectRequestService;
         _mareConfig = mareConfig;
-        _profileManager = profileManager;
         _syncshellConfig = syncshellConfig;
     }
 
@@ -384,10 +379,7 @@ internal sealed class GroupPanel
             float lineStartY = ImGui.GetCursorPosY();
             bool expandedState = _expandedGroupState[groupDto.GID];
             UiSharedService.DrawArrowToggle(ref expandedState, $"##syncshell-toggle-{groupDto.GID}");
-            if (expandedState != _expandedGroupState[groupDto.GID])
-            {
-                _expandedGroupState[groupDto.GID] = expandedState;
-            }
+            _expandedGroupState[groupDto.GID] = expandedState;
             ImGui.SameLine(0f, 6f * ImGuiHelpers.GlobalScale);
 
             var textIsGid = true;
@@ -895,6 +887,9 @@ internal sealed class GroupPanel
                                           + Environment.NewLine + "Note: this setting can be forcefully overridden to 'disabled' through the syncshell owner."
                                           + Environment.NewLine + "Note: this setting does not apply to individual pairs that are also in the syncshell.");
 
+            // Combo son de notification ciblée pour ce syncshell
+            DrawGroupTargetSoundCombo(groupDto);
+
             if (isOwner || groupDto.GroupUserInfo.IsModerator())
             {
                 ImGui.Separator();
@@ -906,6 +901,45 @@ internal sealed class GroupPanel
             }
 
             ImGui.EndPopup();
+        }
+    }
+
+    private void DrawGroupTargetSoundCombo(GroupFullInfoDto groupDto)
+    {
+        var gid = groupDto.Group.GID;
+        var overrides = _mareConfig.Current.GroupTargetSoundOverrides;
+        overrides.TryGetValue(gid, out var currentValue);
+        var hasOverride = overrides.ContainsKey(gid);
+
+        var previewLabel = !hasOverride
+            ? Loc.Get("Settings.ChatTargetSound.Override.Default")
+            : currentValue == 0
+                ? Loc.Get("Settings.ChatTargetSound.Override.Disabled")
+                : string.Format(CultureInfo.CurrentCulture, Loc.Get("Settings.ChatTargetSound.SoundItem"), currentValue);
+
+        ImGui.SetNextItemWidth(200 * ImGuiHelpers.GlobalScale);
+        if (ImGui.BeginCombo(Loc.Get("Settings.ChatTargetSound.Override.Label") + "##shell_sound_" + gid, previewLabel))
+        {
+            if (ImGui.Selectable(Loc.Get("Settings.ChatTargetSound.Override.Default"), !hasOverride))
+            {
+                overrides.Remove(gid);
+                _mareConfig.Save();
+            }
+            if (ImGui.Selectable(Loc.Get("Settings.ChatTargetSound.Override.Disabled"), hasOverride && currentValue == 0))
+            {
+                overrides[gid] = 0;
+                _mareConfig.Save();
+            }
+            for (var i = 1; i <= 16; i++)
+            {
+                var label = string.Format(CultureInfo.CurrentCulture, Loc.Get("Settings.ChatTargetSound.SoundItem"), i);
+                if (ImGui.Selectable(label, hasOverride && currentValue == i))
+                {
+                    overrides[gid] = i;
+                    _mareConfig.Save();
+                }
+            }
+            ImGui.EndCombo();
         }
     }
 
@@ -1127,7 +1161,7 @@ internal sealed class GroupPanel
                         // Send notification
                         var notifTitle = string.Format(CultureInfo.CurrentCulture, Loc.Get("Syncshell.Cards.Notification.Title"), groupName);
                         var notifBody = string.Format(CultureInfo.CurrentCulture, Loc.Get(newState ? "Syncshell.Cards.Notification.SoundDisabled" : "Syncshell.Cards.Notification.SoundEnabled"), totalMembers);
-                        _mainUi.Mediator.Publish(new DualNotificationMessage(notifTitle, notifBody, NotificationType.Info));
+                        _mainUi.Mediator.Publish(new DualNotificationMessage(notifTitle, notifBody, NotificationType.Success));
                     }
                 }
                 UiSharedService.AttachToolTip(Loc.Get(isSoundDisabled ? "Syncshell.Cards.SoundDisabled" : "Syncshell.Cards.SoundEnabled"));
@@ -1154,7 +1188,7 @@ internal sealed class GroupPanel
                         
                         var notifTitle = string.Format(CultureInfo.CurrentCulture, Loc.Get("Syncshell.Cards.Notification.Title"), groupName);
                         var notifBody = string.Format(CultureInfo.CurrentCulture, Loc.Get(newState ? "Syncshell.Cards.Notification.AnimDisabled" : "Syncshell.Cards.Notification.AnimEnabled"), totalMembers);
-                        _mainUi.Mediator.Publish(new DualNotificationMessage(notifTitle, notifBody, NotificationType.Info));
+                        _mainUi.Mediator.Publish(new DualNotificationMessage(notifTitle, notifBody, NotificationType.Success));
                     }
                 }
                 UiSharedService.AttachToolTip(Loc.Get(isAnimDisabled ? "Syncshell.Cards.AnimDisabled" : "Syncshell.Cards.AnimEnabled"));
@@ -1181,7 +1215,7 @@ internal sealed class GroupPanel
                         
                         var notifTitle = string.Format(CultureInfo.CurrentCulture, Loc.Get("Syncshell.Cards.Notification.Title"), groupName);
                         var notifBody = string.Format(CultureInfo.CurrentCulture, Loc.Get(newState ? "Syncshell.Cards.Notification.VfxDisabled" : "Syncshell.Cards.Notification.VfxEnabled"), totalMembers);
-                        _mainUi.Mediator.Publish(new DualNotificationMessage(notifTitle, notifBody, NotificationType.Info));
+                        _mainUi.Mediator.Publish(new DualNotificationMessage(notifTitle, notifBody, NotificationType.Success));
                     }
                 }
                 UiSharedService.AttachToolTip(Loc.Get(isVfxDisabled ? "Syncshell.Cards.VfxDisabled" : "Syncshell.Cards.VfxEnabled"));
@@ -1208,7 +1242,7 @@ internal sealed class GroupPanel
 
                         var notifTitle = string.Format(CultureInfo.CurrentCulture, Loc.Get("Syncshell.Cards.Notification.Title"), groupName);
                         var notifBody = string.Format(CultureInfo.CurrentCulture, Loc.Get(newState ? "Syncshell.Cards.Notification.HousingDisabled" : "Syncshell.Cards.Notification.HousingEnabled"), totalMembers);
-                        _mainUi.Mediator.Publish(new DualNotificationMessage(notifTitle, notifBody, NotificationType.Info));
+                        _mainUi.Mediator.Publish(new DualNotificationMessage(notifTitle, notifBody, NotificationType.Success));
                     }
                 }
                 UiSharedService.AttachToolTip(Loc.Get(isHousingDisabled ? "Syncshell.Cards.HousingDisabled" : "Syncshell.Cards.HousingEnabled"));
@@ -1284,9 +1318,6 @@ internal sealed class GroupPanel
                         else
                         {
                             _membersWindowGid = groupDto.GID;
-                            _membersVisibleExpanded = true;
-                            _membersOnlineExpanded = true;
-                            _membersOfflineExpanded = false;
                             _membersFilter = string.Empty;
                         }
                     }
@@ -1386,6 +1417,20 @@ internal sealed class GroupPanel
             ImGui.SameLine(0f, 6f * ImGuiHelpers.GlobalScale);
             UiSharedService.ColorText(headerLabel, new Vector4(0x9B / 255f, 0x82 / 255f, 0xC0 / 255f, 1f));
 
+            // Bouton de tri par type sur la ligne du header
+            var favSortIcon = _membersSortByType ? FontAwesomeIcon.UserFriends : FontAwesomeIcon.Signal;
+            var favSortTooltip = _membersSortByType
+                ? Loc.Get("Syncshell.Members.SortByStatus")
+                : Loc.Get("Syncshell.Members.SortByType");
+            ImGui.SameLine(ImGui.GetContentRegionAvail().X - _uiShared.GetIconButtonSize(favSortIcon).X);
+            ImGui.PushID($"fav-sort-{groupDto.GID}");
+            if (_uiShared.IconButton(favSortIcon))
+            {
+                _membersSortByType = !_membersSortByType;
+            }
+            ImGui.PopID();
+            UiSharedService.AttachToolTip(favSortTooltip);
+
             if (headerExpanded)
             {
                 ImGui.Indent(20);
@@ -1397,9 +1442,9 @@ internal sealed class GroupPanel
         }
     }
 
-    private void DrawMembersList(GroupFullInfoDto groupDto, List<Pair> pairsInGroup)
+    private List<DrawGroupPair> BuildDrawPairs(GroupFullInfoDto groupDto, IEnumerable<Pair> pairs)
     {
-        var sortedPairs = pairsInGroup
+        var sortedPairs = pairs
             .OrderByDescending(u => string.Equals(u.UserData.UID, groupDto.OwnerUID, StringComparison.Ordinal))
             .ThenByDescending(u => u.GroupPair[groupDto].GroupPairStatusInfo.IsModerator())
             .ThenByDescending(u => u.GroupPair[groupDto].GroupPairStatusInfo.IsPinned())
@@ -1407,10 +1452,7 @@ internal sealed class GroupPanel
             .ThenBy(u => u.GetPairSortKey(), StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        var visibleUsers = new List<DrawGroupPair>();
-        var onlineUsers = new List<DrawGroupPair>();
-        var offlineUsers = new List<DrawGroupPair>();
-
+        var result = new List<DrawGroupPair>();
         foreach (var pair in sortedPairs)
         {
             var cacheKey = groupDto.GID + pair.UserData.UID;
@@ -1439,26 +1481,53 @@ internal sealed class GroupPanel
                 drawPair.UpdateData(groupDto, groupPairFullInfoDto);
             }
 
-            if (pair.IsVisible)
-                visibleUsers.Add(drawPair);
-            else if (pair.IsOnline)
-                onlineUsers.Add(drawPair);
+            result.Add(drawPair);
+        }
+        return result;
+    }
+
+    private void DrawMembersList(GroupFullInfoDto groupDto, List<Pair> pairsInGroup)
+    {
+        var drawPairs = BuildDrawPairs(groupDto, pairsInGroup);
+
+        if (_membersSortByType)
+        {
+            DrawMembersListByType(drawPairs, groupDto.GID, "fav");
+        }
+        else
+        {
+            DrawMembersListByStatus(drawPairs, groupDto.GID, "fav");
+        }
+    }
+
+    private void DrawMembersListByStatus(List<DrawGroupPair> drawPairs, string gid, string prefix)
+    {
+        var visibleUsers = new List<DrawGroupPair>();
+        var onlineUsers = new List<DrawGroupPair>();
+        var offlineUsers = new List<DrawGroupPair>();
+
+        foreach (var dp in drawPairs)
+        {
+            if (dp.Pair.IsVisible)
+                visibleUsers.Add(dp);
+            else if (dp.Pair.IsOnline)
+                onlineUsers.Add(dp);
             else
-                offlineUsers.Add(drawPair);
+                offlineUsers.Add(dp);
         }
 
         bool needsSpacer = false;
 
         if (visibleUsers.Count > 0)
         {
-            var visKey = groupDto.GID + "-visible";
+            var visKey = gid + $"-{prefix}-visible";
             if (!_favoriteMembersExpanded.ContainsKey(visKey)) _favoriteMembersExpanded[visKey] = true;
             var visExpanded = _favoriteMembersExpanded[visKey];
             DrawMembersSectionHeader(
                 string.Format(CultureInfo.CurrentCulture, Loc.Get("Syncshell.Members.VisibleSection"), visibleUsers.Count),
                 new Vector4(0.4f, 0.75f, 1f, 1f),
                 ref visExpanded,
-                $"##fav-visible-{groupDto.GID}");
+                $"##{prefix}-visible-{gid}");
             _favoriteMembersExpanded[visKey] = visExpanded;
 
             if (visExpanded)
@@ -1471,14 +1540,14 @@ internal sealed class GroupPanel
         if (onlineUsers.Count > 0)
         {
             if (needsSpacer) ImGuiHelpers.ScaledDummy(8f);
-            var onKey = groupDto.GID + "-online";
+            var onKey = gid + $"-{prefix}-online";
             if (!_favoriteMembersExpanded.ContainsKey(onKey)) _favoriteMembersExpanded[onKey] = true;
             var onExpanded = _favoriteMembersExpanded[onKey];
             DrawMembersSectionHeader(
                 string.Format(CultureInfo.CurrentCulture, Loc.Get("Syncshell.Members.OnlineSection"), onlineUsers.Count),
                 new Vector4(0.4f, 0.9f, 0.4f, 1f),
                 ref onExpanded,
-                $"##fav-online-{groupDto.GID}");
+                $"##{prefix}-online-{gid}");
             _favoriteMembersExpanded[onKey] = onExpanded;
 
             if (onExpanded)
@@ -1491,14 +1560,14 @@ internal sealed class GroupPanel
         if (offlineUsers.Count > 0)
         {
             if (needsSpacer) ImGuiHelpers.ScaledDummy(8f);
-            var offKey = groupDto.GID + "-offline";
+            var offKey = gid + $"-{prefix}-offline";
             if (!_favoriteMembersExpanded.ContainsKey(offKey)) _favoriteMembersExpanded[offKey] = false;
             var offExpanded = _favoriteMembersExpanded[offKey];
             DrawMembersSectionHeader(
                 string.Format(CultureInfo.CurrentCulture, Loc.Get("Syncshell.Members.OfflineSection"), offlineUsers.Count),
                 ImGuiColors.DalamudGrey,
                 ref offExpanded,
-                $"##fav-offline-{groupDto.GID}");
+                $"##{prefix}-offline-{gid}");
             _favoriteMembersExpanded[offKey] = offExpanded;
 
             if (offExpanded)
@@ -1514,6 +1583,148 @@ internal sealed class GroupPanel
                 }
             }
         }
+    }
+    
+    private void DrawMembersListByType(List<DrawGroupPair> drawPairs, string gid, string prefix)
+    {
+        var visibleUsers = new List<DrawGroupPair>();
+        var onlineUsers = new List<DrawGroupPair>();
+        var offlineUsers = new List<DrawGroupPair>();
+
+        foreach (var dp in drawPairs)
+        {
+            if (dp.Pair.IsVisible)
+                visibleUsers.Add(dp);
+            else if (dp.Pair.IsOnline)
+                onlineUsers.Add(dp);
+            else
+                offlineUsers.Add(dp);
+        }
+
+        bool needsSpacer = false;
+
+        if (visibleUsers.Count > 0)
+        {
+            var visKey = gid + $"-{prefix}-visible";
+            if (!_favoriteMembersExpanded.ContainsKey(visKey)) _favoriteMembersExpanded[visKey] = true;
+            var visExpanded = _favoriteMembersExpanded[visKey];
+            DrawMembersSectionHeader(
+                string.Format(CultureInfo.CurrentCulture, Loc.Get("Syncshell.Members.VisibleSection"), visibleUsers.Count),
+                new Vector4(0.4f, 0.75f, 1f, 1f),
+                ref visExpanded,
+                $"##{prefix}-visible-{gid}");
+            _favoriteMembersExpanded[visKey] = visExpanded;
+
+            if (visExpanded)
+            {
+                DrawTypeSubSections(visibleUsers, gid, $"{prefix}-visible");
+            }
+            needsSpacer = true;
+        }
+
+        if (onlineUsers.Count > 0)
+        {
+            if (needsSpacer) ImGuiHelpers.ScaledDummy(8f);
+            var onKey = gid + $"-{prefix}-online";
+            if (!_favoriteMembersExpanded.ContainsKey(onKey)) _favoriteMembersExpanded[onKey] = true;
+            var onExpanded = _favoriteMembersExpanded[onKey];
+            DrawMembersSectionHeader(
+                string.Format(CultureInfo.CurrentCulture, Loc.Get("Syncshell.Members.OnlineSection"), onlineUsers.Count),
+                new Vector4(0.4f, 0.9f, 0.4f, 1f),
+                ref onExpanded,
+                $"##{prefix}-online-{gid}");
+            _favoriteMembersExpanded[onKey] = onExpanded;
+
+            if (onExpanded)
+            {
+                DrawTypeSubSections(onlineUsers, gid, $"{prefix}-online");
+            }
+            needsSpacer = true;
+        }
+
+        if (offlineUsers.Count > 0)
+        {
+            if (needsSpacer) ImGuiHelpers.ScaledDummy(8f);
+            var offKey = gid + $"-{prefix}-offline";
+            if (!_favoriteMembersExpanded.ContainsKey(offKey)) _favoriteMembersExpanded[offKey] = false;
+            var offExpanded = _favoriteMembersExpanded[offKey];
+            DrawMembersSectionHeader(
+                string.Format(CultureInfo.CurrentCulture, Loc.Get("Syncshell.Members.OfflineSection"), offlineUsers.Count),
+                ImGuiColors.DalamudGrey,
+                ref offExpanded,
+                $"##{prefix}-offline-{gid}");
+            _favoriteMembersExpanded[offKey] = offExpanded;
+
+            if (offExpanded)
+            {
+                bool hideOffline = offlineUsers.Count > 1000;
+                if (hideOffline)
+                {
+                    UiSharedService.ColorText($"    {offlineUsers.Count} offline users omitted from display.", ImGuiColors.DalamudGrey);
+                }
+                else
+                {
+                    DrawTypeSubSections(offlineUsers, gid, $"{prefix}-offline");
+                }
+            }
+        }
+    }
+    
+    private void DrawTypeSubSections(List<DrawGroupPair> pairs, string gid, string subPrefix)
+    {
+        var directPairs = new List<DrawGroupPair>();
+        var syncshellOnlyPairs = new List<DrawGroupPair>();
+
+        foreach (var dp in pairs)
+        {
+            if (dp.Pair.UserPair != null)
+                directPairs.Add(dp);
+            else
+                syncshellOnlyPairs.Add(dp);
+        }
+
+        // S'il n'y a qu'un seul type, pas besoin de sous-sections
+        if (directPairs.Count == 0 || syncshellOnlyPairs.Count == 0)
+        {
+            UidDisplayHandler.RenderPairList(pairs);
+            return;
+        }
+
+        ImGui.Indent(12f * ImGuiHelpers.GlobalScale);
+
+        var dirKey = gid + $"-{subPrefix}-direct";
+        if (!_favoriteMembersExpanded.ContainsKey(dirKey)) _favoriteMembersExpanded[dirKey] = true;
+        var dirExpanded = _favoriteMembersExpanded[dirKey];
+        DrawMembersSectionHeader(
+            string.Format(CultureInfo.CurrentCulture, Loc.Get("Syncshell.Members.DirectPairsSection"), directPairs.Count),
+            new Vector4(0.63f, 0.25f, 1f, 1f),
+            ref dirExpanded,
+            $"##{subPrefix}-direct-{gid}");
+        _favoriteMembersExpanded[dirKey] = dirExpanded;
+
+        if (dirExpanded)
+        {
+            UidDisplayHandler.RenderPairList(directPairs);
+        }
+
+        ImGuiHelpers.ScaledDummy(4f);
+
+        var ssKey = gid + $"-{subPrefix}-ssonly";
+        if (!_favoriteMembersExpanded.ContainsKey(ssKey)) _favoriteMembersExpanded[ssKey] = true;
+        var ssExpanded = _favoriteMembersExpanded[ssKey];
+        DrawMembersSectionHeader(
+            string.Format(CultureInfo.CurrentCulture, Loc.Get("Syncshell.Members.SyncshellOnlySection"), syncshellOnlyPairs.Count),
+            new Vector4(0.6f, 0.6f, 0.6f, 1f),
+            ref ssExpanded,
+            $"##{subPrefix}-ssonly-{gid}");
+        _favoriteMembersExpanded[ssKey] = ssExpanded;
+
+        if (ssExpanded)
+        {
+            UidDisplayHandler.RenderPairList(syncshellOnlyPairs);
+        }
+
+        ImGui.Unindent(12f * ImGuiHelpers.GlobalScale);
     }
 
     private void DrawMembersWindow()
@@ -1548,7 +1759,24 @@ internal sealed class GroupPanel
             ImGui.TextUnformatted(string.Format(CultureInfo.CurrentCulture, Loc.Get("Syncshell.Members.OnlineTotal"), connectedMembers, totalMembers));
 
             var leavePopupId = $"##leave-confirm-{groupDto.GID}";
-            ImGui.SameLine(ImGui.GetContentRegionAvail().X - _uiShared.GetIconTextButtonSize(FontAwesomeIcon.SignOutAlt, Loc.Get("Syncshell.Members.Leave")));
+
+            // Bouton de tri + bouton quitter alignés à droite
+            var sortIcon = _membersSortByType ? FontAwesomeIcon.UserFriends : FontAwesomeIcon.Signal;
+            var sortTooltip = _membersSortByType
+                ? Loc.Get("Syncshell.Members.SortByStatus")
+                : Loc.Get("Syncshell.Members.SortByType");
+            var leaveButtonSize = _uiShared.GetIconTextButtonSize(FontAwesomeIcon.SignOutAlt, Loc.Get("Syncshell.Members.Leave"));
+            var sortButtonSize = _uiShared.GetIconButtonSize(sortIcon);
+            var spacing = ImGui.GetStyle().ItemSpacing.X;
+
+            ImGui.SameLine(ImGui.GetContentRegionAvail().X - leaveButtonSize - sortButtonSize.X - spacing);
+            if (_uiShared.IconButton(sortIcon))
+            {
+                _membersSortByType = !_membersSortByType;
+            }
+            UiSharedService.AttachToolTip(sortTooltip);
+
+            ImGui.SameLine();
             using (ImRaii.PushColor(ImGuiCol.Button, new Vector4(0.6f, 0.15f, 0.15f, 1f)))
             using (ImRaii.PushColor(ImGuiCol.ButtonHovered, new Vector4(0.8f, 0.2f, 0.2f, 1f)))
             using (ImRaii.PushColor(ImGuiCol.ButtonActive, new Vector4(0.5f, 0.1f, 0.1f, 1f)))
@@ -1606,102 +1834,17 @@ internal sealed class GroupPanel
                     (p.PlayerName?.Contains(_membersFilter, StringComparison.OrdinalIgnoreCase) ?? false));
             }
 
-            var sortedPairs = filteredPairs
-                .OrderByDescending(u => string.Equals(u.UserData.UID, groupDto.OwnerUID, StringComparison.Ordinal))
-                .ThenByDescending(u => u.GroupPair[groupDto].GroupPairStatusInfo.IsModerator())
-                .ThenByDescending(u => u.GroupPair[groupDto].GroupPairStatusInfo.IsPinned())
-                .ThenByDescending(u => u.IsOnline)
-                .ThenBy(u => u.GetPairSortKey(), StringComparer.OrdinalIgnoreCase)
-                .ToList();
-
-            var visibleUsers = new List<DrawGroupPair>();
-            var onlineUsers = new List<DrawGroupPair>();
-            var offlineUsers = new List<DrawGroupPair>();
-
-            foreach (var pair in sortedPairs)
-            {
-                var cacheKey = groupDto.GID + pair.UserData.UID;
-                var groupPairFullInfoDto = pair.GroupPair.FirstOrDefault(
-                    g => string.Equals(g.Key.Group.GID, groupDto.GID, StringComparison.Ordinal)
-                ).Value;
-
-                if (groupPairFullInfoDto == null) continue;
-
-                if (!_drawGroupPairCache.TryGetValue(cacheKey, out var drawPair))
-                {
-                    drawPair = new DrawGroupPair(
-                        cacheKey, pair,
-                        ApiController, _mainUi.Mediator, groupDto,
-                        groupPairFullInfoDto,
-                        _uidDisplayHandler,
-                        _uiShared,
-                        _charaDataManager,
-                        _autoDetectRequestService,
-                        _serverConfigurationManager,
-                        _mareConfig);
-                    _drawGroupPairCache[cacheKey] = drawPair;
-                }
-                else
-                {
-                    drawPair.UpdateData(groupDto, groupPairFullInfoDto);
-                }
-
-                if (pair.IsVisible)
-                    visibleUsers.Add(drawPair);
-                else if (pair.IsOnline)
-                    onlineUsers.Add(drawPair);
-                else
-                    offlineUsers.Add(drawPair);
-            }
+            var drawPairs = BuildDrawPairs(groupDto, filteredPairs);
 
             if (ImGui.BeginChild("MembersList", Vector2.Zero, false))
             {
-                bool needsSpacer = false;
-
-                if (visibleUsers.Count > 0)
+                if (_membersSortByType)
                 {
-                    DrawMembersSectionHeader(
-                        string.Format(CultureInfo.CurrentCulture, Loc.Get("Syncshell.Members.VisibleSection"), visibleUsers.Count),
-                        new Vector4(0.4f, 0.75f, 1f, 1f),
-                        ref _membersVisibleExpanded,
-                        $"##members-visible-{groupDto.GID}");
-
-                    if (_membersVisibleExpanded)
-                    {
-                        UidDisplayHandler.RenderPairList(visibleUsers);
-                    }
-                    needsSpacer = true;
+                    DrawMembersListByType(drawPairs, groupDto.GID, "members");
                 }
-
-                if (onlineUsers.Count > 0)
+                else
                 {
-                    if (needsSpacer) ImGuiHelpers.ScaledDummy(8f);
-                    DrawMembersSectionHeader(
-                        string.Format(CultureInfo.CurrentCulture, Loc.Get("Syncshell.Members.OnlineSection"), onlineUsers.Count),
-                        new Vector4(0.4f, 0.9f, 0.4f, 1f),
-                        ref _membersOnlineExpanded,
-                        $"##members-online-{groupDto.GID}");
-
-                    if (_membersOnlineExpanded)
-                    {
-                        UidDisplayHandler.RenderPairList(onlineUsers);
-                    }
-                    needsSpacer = true;
-                }
-
-                if (offlineUsers.Count > 0)
-                {
-                    if (needsSpacer) ImGuiHelpers.ScaledDummy(8f);
-                    DrawMembersSectionHeader(
-                        string.Format(CultureInfo.CurrentCulture, Loc.Get("Syncshell.Members.OfflineSection"), offlineUsers.Count),
-                        ImGuiColors.DalamudGrey,
-                        ref _membersOfflineExpanded,
-                        $"##members-offline-{groupDto.GID}");
-
-                    if (_membersOfflineExpanded)
-                    {
-                        UidDisplayHandler.RenderPairList(offlineUsers);
-                    }
+                    DrawMembersListByStatus(drawPairs, groupDto.GID, "members");
                 }
             }
             ImGui.EndChild();

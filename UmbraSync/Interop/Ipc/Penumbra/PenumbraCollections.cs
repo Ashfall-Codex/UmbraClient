@@ -35,13 +35,10 @@ public sealed class PenumbraCollections : IDisposable
 
     private sealed class CollectionsSubscriber : MediatorSubscriberBase
     {
-        private readonly PenumbraCollections _collections;
-
         public CollectionsSubscriber(ILogger logger, MareMediator mediator, PenumbraCollections collections)
             : base(logger, mediator)
         {
-            _collections = collections;
-            Mediator.Subscribe<PenumbraInitializedMessage>(this, _ => _collections.ScheduleCleanup());
+            Mediator.Subscribe<PenumbraInitializedMessage>(this, _ => collections.ScheduleCleanup());
         }
     }
 
@@ -202,6 +199,14 @@ public sealed class PenumbraCollections : IDisposable
         {
             Interlocked.Exchange(ref _cleanupScheduled, 0);
         }
+    }
+
+    // Récupère la liste de toutes les collections Penumbra (Id → Nom).
+    public async Task<Dictionary<Guid, string>> GetAllCollectionsAsync()
+    {
+        if (!_core.APIAvailable) return new Dictionary<Guid, string>();
+
+        return await _core.DalamudUtil.RunOnFrameworkThread(() => _penumbraGetCollections.Invoke()).ConfigureAwait(false);
     }
 
     private static bool IsUmbraCollectionName(string? name)

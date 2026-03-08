@@ -120,7 +120,7 @@ public sealed partial class CharaDataHubUi
             isDisabled = true;
         }
 
-        float result = start;
+        float result;
         using (ImRaii.Group())
         {
             using var dis = ImRaii.Disabled(isDisabled);
@@ -163,11 +163,11 @@ public sealed partial class CharaDataHubUi
                         || uid.Contains(_filterCodeNote, StringComparison.OrdinalIgnoreCase)))
                     && (string.IsNullOrEmpty(_filterDescription)
                         || (favorite.Value.CustomDescription.Contains(_filterDescription, StringComparison.OrdinalIgnoreCase)
-                        || (metaInfo != null && metaInfo!.Description.Contains(_filterDescription, StringComparison.OrdinalIgnoreCase))))
+                        || (metaInfo != null && metaInfo.Description.Contains(_filterDescription, StringComparison.OrdinalIgnoreCase))))
                     && (!_filterPoseOnly
-                        || (metaInfo != null && metaInfo!.HasPoses))
+                        || (metaInfo != null && metaInfo.HasPoses))
                     && (!_filterWorldOnly
-                        || (metaInfo != null && metaInfo!.HasWorldData));
+                        || (metaInfo != null && metaInfo.HasWorldData));
                 if (addFavorite)
                 {
                     newFiltered[favorite.Key] = (favorite.Value, metaInfo, hasMetaInfo);

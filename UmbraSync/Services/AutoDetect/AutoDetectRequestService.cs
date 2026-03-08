@@ -1,8 +1,10 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
+using System.Globalization;
 using UmbraSync.API.Data;
 using UmbraSync.API.Dto.User;
+using UmbraSync.Localization;
 using UmbraSync.MareConfiguration;
 using UmbraSync.Services.Mediator;
 using UmbraSync.Services.Notification;
@@ -11,7 +13,7 @@ using NotificationType = UmbraSync.MareConfiguration.Models.NotificationType;
 
 namespace UmbraSync.Services.AutoDetect;
 
-public class AutoDetectRequestService
+public class AutoDetectRequestService : IMediatorSubscriber
 {
     private readonly ILogger<AutoDetectRequestService> _logger;
     private readonly DiscoveryConfigProvider _configProvider;
@@ -38,14 +40,18 @@ public class AutoDetectRequestService
         _dalamud = dalamudUtilService;
         _notificationTracker = notificationTracker;
         _apiController = new Lazy<ApiController>(() => serviceProvider.GetRequiredService<ApiController>());
+        _mediator.Subscribe<DisconnectedMessage>(this, _ => ClearAllOnDisconnect());
+        _mediator.Subscribe<PairOfflineMessage>(this, msg => RemoveOutgoingForUser(msg.User.UID));
     }
+
+    public MareMediator Mediator => _mediator;
 
     public async Task<bool> SendRequestAsync(string? token, string? uid = null, string? targetDisplayName = null, CancellationToken ct = default)
     {
         if (!_configService.Current.AllowAutoDetectPairRequests)
         {
             _logger.LogDebug("Nearby request blocked: AllowAutoDetectPairRequests is disabled");
-            _mediator.Publish(new NotificationMessage("Nearby request blocked", "Enable 'Allow pair requests' in Settings to send requests.", NotificationType.Info));
+            _mediator.Publish(new NotificationMessage(Loc.Get("Notification.Nearby.Blocked.Title"), Loc.Get("Notification.Nearby.Blocked.Body"), NotificationType.Info));
             return false;
         }
 
@@ -100,8 +106,8 @@ public class AutoDetectRequestService
         if (string.IsNullOrEmpty(endpoint))
         {
             _logger.LogDebug("No request endpoint configured");
-            _mediator.Publish(new NotificationMessage("Nearby request failed", "Server does not expose request endpoint.", NotificationType.Error));
-            _notificationTracker.Upsert(NotificationEntry.NearbyRequestFailed("Server does not expose request endpoint."));
+            _mediator.Publish(new NotificationMessage(Loc.Get("Notification.Nearby.Failed.Title"), Loc.Get("Notification.Nearby.Failed.NoEndpoint"), NotificationType.Error));
+            _notificationTracker.Upsert(NotificationEntry.NearbyRequestFailed(Loc.Get("Notification.Nearby.Failed.NoEndpoint")));
             return false;
         }
         string? displayName = null;
@@ -119,7 +125,7 @@ public class AutoDetectRequestService
         var requestUid = requestToken == null ? uid : null;
 
         _logger.LogInformation("Nearby: sending pair request via {endpoint}", endpoint);
-        var ok = await _client.SendRequestAsync(endpoint!, requestToken, requestUid, displayName, ct).ConfigureAwait(false);
+        var ok = await _client.SendRequestAsync(endpoint, requestToken, requestUid, displayName, ct).ConfigureAwait(false);
         if (ok)
         {
             if (!string.IsNullOrEmpty(targetKey))
@@ -138,10 +144,10 @@ public class AutoDetectRequestService
                     }
                 }
             }
-            _mediator.Publish(new NotificationMessage("Nearby request sent", "The other user will receive a request notification.", NotificationType.Info));
+            _mediator.Publish(new NotificationMessage(Loc.Get("Notification.Nearby.Sent.Title"), Loc.Get("Notification.Nearby.Sent.Body"), NotificationType.Info));
             var pendingKey = EnsureTargetKey(targetKey);
             var label = !string.IsNullOrWhiteSpace(targetDisplayName)
-                ? targetDisplayName!
+                ? targetDisplayName
                 : (!string.IsNullOrEmpty(uid) ? uid : (!string.IsNullOrEmpty(token) ? token : pendingKey));
             _pendingRequests[pendingKey] = new PendingRequestInfo(pendingKey, uid, token, label, DateTime.UtcNow);
         }
@@ -173,8 +179,8 @@ public class AutoDetectRequestService
                 }
                 _pendingRequests.TryRemove(targetKey, out _);
             }
-            _mediator.Publish(new NotificationMessage("Nearby request failed", "The server rejected the request. Try again soon.", NotificationType.Warning));
-            _notificationTracker.Upsert(NotificationEntry.NearbyRequestFailed("The server rejected the request."));
+            _mediator.Publish(new NotificationMessage(Loc.Get("Notification.Nearby.Failed.Title"), Loc.Get("Notification.Nearby.Failed.Rejected"), NotificationType.Warning));
+            _notificationTracker.Upsert(NotificationEntry.NearbyRequestFailed(Loc.Get("Notification.Nearby.Failed.Rejected")));
         }
         return ok;
     }
@@ -198,7 +204,7 @@ public class AutoDetectRequestService
             _logger.LogWarning(ex, "Failed to determine player display name for accept notify");
         }
         _logger.LogInformation("Nearby: sending accept notify via {endpoint}", endpoint);
-        return await _client.SendAcceptAsync(endpoint!, targetUid, displayName, ct).ConfigureAwait(false);
+        return await _client.SendAcceptAsync(endpoint, targetUid, displayName, ct).ConfigureAwait(false);
     }
 
     public async Task<bool> SendDirectUidRequestAsync(string uid, string? targetDisplayName = null, CancellationToken ct = default)
@@ -206,7 +212,7 @@ public class AutoDetectRequestService
         if (!_configService.Current.AllowAutoDetectPairRequests)
         {
             _logger.LogDebug("Nearby request blocked: AllowAutoDetectPairRequests is disabled");
-            _mediator.Publish(new NotificationMessage("Nearby request blocked", "Enable 'Allow pair requests' in Settings to send requests.", NotificationType.Info));
+            _mediator.Publish(new NotificationMessage(Loc.Get("Notification.Nearby.Blocked.Title"), Loc.Get("Notification.Nearby.Blocked.Body"), NotificationType.Info));
             return false;
         }
 
@@ -279,9 +285,9 @@ public class AutoDetectRequestService
                 }
             }
 
-            _mediator.Publish(new NotificationMessage("Nearby request sent", "The other user will receive a request notification.", NotificationType.Info));
+            _mediator.Publish(new NotificationMessage(Loc.Get("Notification.Nearby.Sent.Title"), Loc.Get("Notification.Nearby.Sent.Body"), NotificationType.Info));
             var pendingKey = EnsureTargetKey(targetKey);
-            var label = !string.IsNullOrWhiteSpace(targetDisplayName) ? targetDisplayName! : uid;
+            var label = !string.IsNullOrWhiteSpace(targetDisplayName) ? targetDisplayName : uid;
             _pendingRequests[pendingKey] = new PendingRequestInfo(pendingKey, uid, null, label, DateTime.UtcNow);
 
             return true;
@@ -316,8 +322,8 @@ public class AutoDetectRequestService
                 _pendingRequests.TryRemove(targetKey, out _);
             }
 
-            _mediator.Publish(new NotificationMessage("Nearby request failed", "The server rejected the request. Try again soon.", NotificationType.Warning));
-            _notificationTracker.Upsert(NotificationEntry.NearbyRequestFailed("The server rejected the request."));
+            _mediator.Publish(new NotificationMessage(Loc.Get("Notification.Nearby.Failed.Title"), Loc.Get("Notification.Nearby.Failed.Rejected"), NotificationType.Warning));
+            _notificationTracker.Upsert(NotificationEntry.NearbyRequestFailed(Loc.Get("Notification.Nearby.Failed.Rejected")));
             return false;
         }
     }
@@ -333,13 +339,13 @@ public class AutoDetectRequestService
     private void PublishCooldownNotification(TimeSpan remaining)
     {
         var durationText = FormatDuration(remaining);
-        _mediator.Publish(new NotificationMessage("Nearby request en attente", $"Nearby request déjà envoyée. Merci d'attendre environ {durationText} avant de réessayer.", NotificationType.Info, TimeSpan.FromSeconds(5)));
+        _mediator.Publish(new NotificationMessage(Loc.Get("Notification.Nearby.Cooldown.Title"), string.Format(CultureInfo.CurrentCulture, Loc.Get("Notification.Nearby.Cooldown.Body"), durationText), NotificationType.Info, TimeSpan.FromSeconds(5)));
     }
 
     private void PublishLockNotification(TimeSpan remaining)
     {
         var durationText = FormatDuration(remaining);
-        _mediator.Publish(new NotificationMessage("Nearby request bloquée", $"Nearby request bloquée après plusieurs refus. Réessayez dans {durationText}.", NotificationType.Warning, TimeSpan.FromSeconds(5)));
+        _mediator.Publish(new NotificationMessage(Loc.Get("Notification.Nearby.Locked.Title"), string.Format(CultureInfo.CurrentCulture, Loc.Get("Notification.Nearby.Locked.Body"), durationText), NotificationType.Warning, TimeSpan.FromSeconds(5)));
     }
 
     private static string FormatDuration(TimeSpan remaining)
@@ -360,9 +366,51 @@ public class AutoDetectRequestService
         public DateTime? LockUntil;
     }
 
+    private static readonly TimeSpan OutgoingExpiration = TimeSpan.FromMinutes(10);
+
+    private void ClearAllOnDisconnect()
+    {
+        if (_pendingRequests.IsEmpty) return;
+        _pendingRequests.Clear();
+        _logger.LogInformation("AutoDetectRequest: cleared all outgoing invitations (disconnected)");
+    }
+
+    private void RemoveOutgoingForUser(string uid)
+    {
+        if (string.IsNullOrEmpty(uid)) return;
+        foreach (var kvp in _pendingRequests)
+        {
+            if (string.Equals(kvp.Value.Uid, uid, StringComparison.Ordinal))
+            {
+                if (_pendingRequests.TryRemove(kvp.Key, out var removed))
+                {
+                    _logger.LogInformation("AutoDetectRequest: removed outgoing invite to {uid} (user went offline)", uid);
+                    _mediator.Publish(new NotificationMessage(
+                        Loc.Get("AutoDetect.Notification.DisconnectedTitle"),
+                        string.Format(CultureInfo.CurrentCulture, Loc.Get("AutoDetect.Notification.DisconnectedOutgoing"), removed.TargetDisplayName),
+                        NotificationType.Info, TimeSpan.FromSeconds(5)));
+                }
+                break;
+            }
+        }
+    }
+
     public IReadOnlyCollection<PendingRequestInfo> GetPendingRequestsSnapshot()
     {
+        CleanupExpiredOutgoing();
         return _pendingRequests.Values.OrderByDescending(v => v.SentAt).ToList();
+    }
+
+    private void CleanupExpiredOutgoing()
+    {
+        var cutoff = DateTime.UtcNow - OutgoingExpiration;
+        foreach (var kvp in _pendingRequests)
+        {
+            if (kvp.Value.SentAt < cutoff)
+            {
+                _pendingRequests.TryRemove(kvp.Key, out _);
+            }
+        }
     }
 
     public void RemovePendingRequestByUid(string uid)

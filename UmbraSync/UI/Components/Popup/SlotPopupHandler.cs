@@ -1,6 +1,5 @@
 using Dalamud.Bindings.ImGui;
 using Dalamud.Interface;
-using Microsoft.Extensions.Logging;
 using System.Numerics;
 using UmbraSync.API.Data;
 using UmbraSync.API.Dto.Group;
@@ -232,7 +231,7 @@ public class SlotPopupHandler : IPopupHandler
                     _mediator.Publish(new NotificationMessage(
                         Loc.Get("SlotPopup.Title"),
                         string.Format(Loc.Get("Slot.Toast.Joined"), slotName),
-                        NotificationType.Info));
+                        NotificationType.Success));
                 });
                 ImGui.CloseCurrentPopup();
             }

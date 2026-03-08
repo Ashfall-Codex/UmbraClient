@@ -88,8 +88,8 @@ public record OpenSyncshellAdminPanel(GroupFullInfoDto GroupInfo) : MessageBase;
 public record OpenSlotPromptMessage(SlotInfoResponseDto SlotInfo) : MessageBase;
 public record OpenPermissionWindow(Pair Pair) : MessageBase;
 public record OpenPairAnalysisWindow(Pair Pair) : MessageBase;
-public record DownloadLimitChangedMessage() : SameThreadMessage;
-public record PairProcessingLimitChangedMessage() : MessageBase;
+public record DownloadLimitChangedMessage : SameThreadMessage;
+public record PairProcessingLimitChangedMessage : MessageBase;
 public record CensusUpdateMessage(byte Gender, byte RaceId, byte TribeId) : MessageBase;
 public record TargetPairMessage(Pair Pair) : MessageBase;
 public record CombatOrPerformanceStartMessage : MessageBase;
@@ -140,6 +140,7 @@ public record PairSyncOverrideChanged(string Uid, bool? DisableSounds, bool? Dis
 public record GroupSyncOverrideChanged(string Gid, bool? DisableSounds, bool? DisableAnimations, bool? DisableVfx, bool? DisableHousingMods = null) : MessageBase;
 public record NotificationStateChanged(int TotalCount) : MessageBase;
 public record PairOnlineMessage(UserData User) : MessageBase;
+public record PairOfflineMessage(UserData User) : MessageBase;
 public record PluginChangeMessage(string InternalName, Version Version, bool IsLoaded) : KeyedMessage(InternalName);
 public record GroupProfileUpdatedMessage(GroupProfileDto Profile) : MessageBase;
 public record QuestSessionJoinMessage(UserData UserData) : MessageBase;

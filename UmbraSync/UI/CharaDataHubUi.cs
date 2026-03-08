@@ -2,7 +2,6 @@
 using Dalamud.Interface;
 using Dalamud.Interface.Colors;
 using Dalamud.Interface.ImGuiFileDialog;
-using Dalamud.Interface.Internal;
 using Dalamud.Interface.Textures.TextureWraps;
 using Dalamud.Interface.Utility;
 using Dalamud.Interface.Utility.Raii;
@@ -534,7 +533,7 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
 
                     ImGuiHelpers.ScaledDummy(5);
 
-                    var max = ImGui.GetWindowContentRegionMax();
+                    Vector2 max;
                     UiSharedService.DrawTree(Loc.Get("CharaDataHub.Apply.Filters.Title"), () =>
                     {
                         var maxIndent = ImGui.GetWindowContentRegionMax();
@@ -640,8 +639,8 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
                                 }
                             }, "Spawn Actor with Brio and apply Character Data", metaInfo, _hasValidGposeTarget, true);
 
-                            string uidText = string.Empty;
                             var uid = favorite.Key.Split(":")[0];
+                            string uidText;
                             if (metaInfo != null)
                             {
                                 uidText = metaInfo.Uploader.AliasOrUID;
@@ -894,7 +893,7 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
                             _fileDialogManager.OpenFileDialog("Pick MCDF file", ".mcdf", (success, paths) =>
                             {
                                 if (!success) return;
-                                if (paths.FirstOrDefault() is not string path) return;
+                                if (paths.FirstOrDefault() is not { } path) return;
 
                                 _configService.Current.LastSavedCharaDataLocation = Path.GetDirectoryName(path) ?? string.Empty;
                                 _configService.Save();

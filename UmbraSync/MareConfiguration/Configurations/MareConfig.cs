@@ -41,6 +41,15 @@ public class MareConfig : IMareConfiguration
     public bool EmoteHighlightParenthesesGray { get; set; } = true;
     public ushort EmoteHighlightParenthesesColorKey { get; set; } = 4;
     public bool EmoteHighlightParenthesesItalic { get; set; } = true;
+    public bool EmoteHighlightQuotes { get; set; } = false;
+    public bool ChatTargetSoundMasterEnabled { get; set; }
+    public bool ChatTargetSoundEnabled { get; set; } = false;
+    public int ChatTargetSoundIndex { get; set; } = 1;
+    public bool ChatTargetSoundReverseEnabled { get; set; }
+    public bool ChatTargetSoundPairOverridesEnabled { get; set; }
+    public Dictionary<string, int> PairTargetSoundOverrides { get; set; } = new(StringComparer.Ordinal);
+    public bool ChatTargetSoundGroupOverridesEnabled { get; set; }
+    public Dictionary<string, int> GroupTargetSoundOverrides { get; set; } = new(StringComparer.Ordinal);
     public bool EnableRightClickMenus { get; set; } = true;
     public NotificationLocation ErrorNotification { get; set; } = NotificationLocation.Both;
     public string ExportFolder { get; set; } = string.Empty;
@@ -57,6 +66,7 @@ public class MareConfig : IMareConfiguration
     public bool EnableDownloadQueue { get; set; } = true;
     public bool EnableParallelPairProcessing { get; set; } = true;
     public int MaxConcurrentPairApplications { get; set; } = 10;
+    public int MaxDecompressionThreads { get; set; }
     public int DownloadSpeedLimitInBytes { get; set; }
     public DownloadSpeeds DownloadSpeedType { get; set; } = DownloadSpeeds.MBps;
     public float ProfileDelay { get; set; } = 1.5f;

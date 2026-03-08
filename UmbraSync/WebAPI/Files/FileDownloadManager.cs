@@ -11,6 +11,7 @@ using UmbraSync.API.Dto.Files;
 using UmbraSync.API.Routes;
 using UmbraSync.FileCache;
 using UmbraSync.MareConfiguration;
+using UmbraSync.MareConfiguration.Configurations;
 using UmbraSync.PlayerData.Handlers;
 using UmbraSync.Services.Mediator;
 using UmbraSync.Utils;
@@ -18,7 +19,7 @@ using UmbraSync.WebAPI.Files.Models;
 
 namespace UmbraSync.WebAPI.Files;
 
-public partial class FileDownloadManager : DisposableMediatorSubscriberBase
+public class FileDownloadManager : DisposableMediatorSubscriberBase
 {
     private readonly ConcurrentDictionary<string, FileDownloadStatus> _downloadStatus;
     private readonly FileCompactor _fileCompactor;
@@ -28,7 +29,9 @@ public partial class FileDownloadManager : DisposableMediatorSubscriberBase
     private readonly FileDownloadDeduplicator _deduplicator;
     private readonly ConcurrentDictionary<ThrottledStream, byte> _activeDownloadStreams;
     private readonly Lock _queueLock = new();
-    private readonly SemaphoreSlim _decompressGate;
+    private SemaphoreSlim _decompressGate;
+    private int _decompressGateCapacity;
+    private readonly Lock _decompressGateLock = new();
     private SemaphoreSlim? _downloadQueueSemaphore;
     private int _downloadQueueCapacity = -1;
 
@@ -54,7 +57,8 @@ public partial class FileDownloadManager : DisposableMediatorSubscriberBase
         _mareConfigService = mareConfigService;
         _deduplicator = deduplicator;
         _activeDownloadStreams = new();
-        _decompressGate = new SemaphoreSlim(CalculateDecompressionLimit(mareConfigService.Current.ParallelDownloads));
+        _decompressGateCapacity = ResolveDecompressionLimit(mareConfigService.Current);
+        _decompressGate = new SemaphoreSlim(_decompressGateCapacity);
 
         Mediator.Subscribe<DownloadLimitChangedMessage>(this, _ =>
         {
@@ -265,7 +269,7 @@ public partial class FileDownloadManager : DisposableMediatorSubscriberBase
                 var bufferSize = response.Content.Headers.ContentLength > 1024 * 1024 ? 65536 : 8196;
                 var buffer = new byte[bufferSize];
 
-                var bytesRead = 0;
+                int bytesRead;
                 var limit = _orchestrator.DownloadLimitPerSlot();
                 Logger.LogTrace("Starting Download of {id} with a speed limit of {limit} to {tempPath}", requestId, limit, tempPath);
                 stream = new ThrottledStream(await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false), limit);
@@ -516,6 +520,32 @@ public partial class FileDownloadManager : DisposableMediatorSubscriberBase
         return Math.Clamp(downloadSlots, 1, cpuBound);
     }
 
+    private static int ResolveDecompressionLimit(MareConfig config)
+    {
+        var userValue = config.MaxDecompressionThreads;
+        if (userValue <= 0) return CalculateDecompressionLimit(config.ParallelDownloads);
+        return Math.Clamp(userValue, 1, Environment.ProcessorCount);
+    }
+
+    private SemaphoreSlim GetDecompressGate()
+    {
+        var desired = ResolveDecompressionLimit(_mareConfigService.Current);
+        if (desired == _decompressGateCapacity) return _decompressGate;
+
+        lock (_decompressGateLock)
+        {
+            if (desired == _decompressGateCapacity) return _decompressGate;
+            if (_decompressGate.CurrentCount == _decompressGateCapacity)
+            {
+                _decompressGate.Dispose();
+                _decompressGateCapacity = desired;
+                _decompressGate = new SemaphoreSlim(desired);
+            }
+        }
+
+        return _decompressGate;
+    }
+
     private static void EnqueueLimitedTask(ConcurrentBag<Task> tasks, SemaphoreSlim limiter, Func<CancellationToken, Task> work, CancellationToken ct)
     {
         var task = Task.Run(async () =>
@@ -664,7 +694,7 @@ public partial class FileDownloadManager : DisposableMediatorSubscriberBase
                         Interlocked.Exchange(ref _consecutiveDirectDownloadFailures, 0);
                         _disableDirectDownloads = false;
 
-                        EnqueueLimitedTask(decompressionTasks, _decompressGate, _ =>
+                        EnqueueLimitedTask(decompressionTasks, GetDecompressGate(), _ =>
                         {
                             var success = false;
                             try
@@ -845,7 +875,8 @@ public partial class FileDownloadManager : DisposableMediatorSubscriberBase
 
                     tasks.Add(Task.Run(async () =>
                     {
-                        await _decompressGate.WaitAsync(CancellationToken.None).ConfigureAwait(false);
+                        var gate = GetDecompressGate();
+                        await gate.WaitAsync(CancellationToken.None).ConfigureAwait(false);
                         var hashSuccess = false;
                         try
                         {
@@ -898,7 +929,7 @@ public partial class FileDownloadManager : DisposableMediatorSubscriberBase
                         }
                         finally
                         {
-                            _decompressGate.Release();
+                            gate.Release();
                             if (File.Exists(capturedTmpPath))
                                 File.Delete(capturedTmpPath);
                             _deduplicator.Complete(capturedHash, hashSuccess);
@@ -1033,7 +1064,7 @@ public partial class FileDownloadManager : DisposableMediatorSubscriberBase
                         _disableDirectDownloads = false;
 
                         // Enqueue decompression — worker is now FREE for next download
-                        EnqueueLimitedTask(decompressionTasks, _decompressGate, _ =>
+                        EnqueueLimitedTask(decompressionTasks, GetDecompressGate(), _ =>
                         {
                             var success = false;
                             try
@@ -1271,7 +1302,8 @@ public partial class FileDownloadManager : DisposableMediatorSubscriberBase
 
                     tasks.Add(Task.Run(async () =>
                     {
-                        await _decompressGate.WaitAsync(CancellationToken.None).ConfigureAwait(false);
+                        var gate = GetDecompressGate();
+                        await gate.WaitAsync(CancellationToken.None).ConfigureAwait(false);
                         var hashSuccess = false;
                         try
                         {
@@ -1329,7 +1361,7 @@ public partial class FileDownloadManager : DisposableMediatorSubscriberBase
                         }
                         finally
                         {
-                            _decompressGate.Release();
+                            gate.Release();
                             if (File.Exists(capturedTmpPath))
                                 File.Delete(capturedTmpPath);
                             _deduplicator.Complete(capturedHash, hashSuccess);

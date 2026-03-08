@@ -16,7 +16,6 @@ public sealed class UiService : DisposableMediatorSubscriberBase
     private readonly ILogger<UiService> _logger;
     private readonly MareConfigService _mareConfigService;
     private readonly WindowSystem _windowSystem;
-    private readonly UiFactory _uiFactory;
 
     public UiService(ILogger<UiService> logger, IUiBuilder uiBuilder,
         MareConfigService mareConfigService, WindowSystem windowSystem,
@@ -29,7 +28,6 @@ public sealed class UiService : DisposableMediatorSubscriberBase
         _uiBuilder = uiBuilder;
         _mareConfigService = mareConfigService;
         _windowSystem = windowSystem;
-        _uiFactory = uiFactory;
         _fileDialogManager = fileDialogManager;
 
         _uiBuilder.DisableGposeUiHide = true;
@@ -47,7 +45,7 @@ public sealed class UiService : DisposableMediatorSubscriberBase
             if (!_createdWindows.Exists(p => p is StandaloneProfileUi ui
                 && string.Equals(ui.Pair.UserData.AliasOrUID, msg.Pair.UserData.AliasOrUID, StringComparison.Ordinal)))
             {
-                var window = _uiFactory.CreateStandaloneProfileUi(msg.Pair);
+                var window = uiFactory.CreateStandaloneProfileUi(msg.Pair);
                 _createdWindows.Add(window);
                 _windowSystem.AddWindow(window);
             }
@@ -58,7 +56,7 @@ public sealed class UiService : DisposableMediatorSubscriberBase
             if (!_createdWindows.Exists(p => p is SyncshellAdminUI ui
                 && string.Equals(ui.GroupFullInfo.GID, msg.GroupInfo.GID, StringComparison.Ordinal)))
             {
-                var window = _uiFactory.CreateSyncshellAdminUi(msg.GroupInfo);
+                var window = uiFactory.CreateSyncshellAdminUi(msg.GroupInfo);
                 _createdWindows.Add(window);
                 _windowSystem.AddWindow(window);
             }
@@ -69,7 +67,7 @@ public sealed class UiService : DisposableMediatorSubscriberBase
             if (!_createdWindows.Exists(p => p is PermissionWindowUI ui
                 && msg.Pair == ui.Pair))
             {
-                var window = _uiFactory.CreatePermissionPopupUi(msg.Pair);
+                var window = uiFactory.CreatePermissionPopupUi(msg.Pair);
                 _createdWindows.Add(window);
                 _windowSystem.AddWindow(window);
             }
@@ -80,7 +78,7 @@ public sealed class UiService : DisposableMediatorSubscriberBase
             if (!_createdWindows.Exists(p => p is PlayerAnalysisUI ui
                 && msg.Pair == ui.Pair))
             {
-                var window = _uiFactory.CreatePlayerAnalysisUi(msg.Pair);
+                var window = uiFactory.CreatePlayerAnalysisUi(msg.Pair);
                 _createdWindows.Add(window);
                 _windowSystem.AddWindow(window);
             }

@@ -1,5 +1,4 @@
 using Dalamud.Game.Text;
-using Dalamud.Game.Text.SeStringHandling;
 using Dalamud.Plugin.Services;
 using Microsoft.Extensions.Logging;
 using UmbraSync.API.Data.Enum;

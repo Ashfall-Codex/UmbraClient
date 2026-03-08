@@ -1,7 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 using UmbraSync.API.Data;
 using UmbraSync.API.Data.Comparer;
-using UmbraSync.PlayerData.Handlers;
 using UmbraSync.Services;
 using UmbraSync.Services.Mediator;
 using UmbraSync.Utils;
@@ -15,6 +14,7 @@ public class OnlinePlayerManager : DisposableMediatorSubscriberBase
     private readonly DalamudUtilService _dalamudUtil;
     private readonly FileUploadManager _fileTransferManager;
     private readonly PairManager _pairManager;
+    private readonly CollectionOverrideResolver _collectionOverrideResolver;
     private CharacterData? _lastCreatedData;
     private CharacterData? _uploadingCharacterData;
     private readonly List<UserData> _previouslyVisiblePlayers = [];
@@ -24,12 +24,14 @@ public class OnlinePlayerManager : DisposableMediatorSubscriberBase
     private readonly CancellationTokenSource _runtimeCts = new();
 
     public OnlinePlayerManager(ILogger<OnlinePlayerManager> logger, ApiController apiController, DalamudUtilService dalamudUtil,
-        PairManager pairManager, MareMediator mediator, FileUploadManager fileTransferManager) : base(logger, mediator)
+        PairManager pairManager, MareMediator mediator, FileUploadManager fileTransferManager,
+        CollectionOverrideResolver collectionOverrideResolver) : base(logger, mediator)
     {
         _apiController = apiController;
         _dalamudUtil = dalamudUtil;
         _pairManager = pairManager;
         _fileTransferManager = fileTransferManager;
+        _collectionOverrideResolver = collectionOverrideResolver;
 
         Mediator.Subscribe<DelayedFrameworkUpdateMessage>(this, (_) => FrameworkOnUpdate());
         Mediator.Subscribe<CharacterDataCreatedMessage>(this, (msg) =>
@@ -149,11 +151,58 @@ public class OnlinePlayerManager : DisposableMediatorSubscriberBase
             if (users.Count == 0)
                 return;
 
-            Logger.LogDebug("Push de {hash} vers {users}",
-                dataToSend.DataHash.Value,
-                string.Join(", ", users.Select(k => k.AliasOrUID)));
+            // Séparer les utilisateurs par collection override
+            if (_collectionOverrideResolver.HasAnyCollectionOverride())
+            {
+                var (defaultUsers, overrideUsers) = _collectionOverrideResolver.SplitUsersByCollection(users);
 
-            await _apiController.PushCharacterData(dataToSend, users).ConfigureAwait(false);
+                // Envoi par défaut (collection courante)
+                if (defaultUsers.Count > 0)
+                {
+                    Logger.LogDebug("Push de {hash} (collection par défaut) vers {users}",
+                        dataToSend.DataHash.Value,
+                        string.Join(", ", defaultUsers.Select(k => k.AliasOrUID)));
+                    await _apiController.PushCharacterData(dataToSend, defaultUsers).ConfigureAwait(false);
+                }
+
+                // Envoi par collection override
+                foreach (var (collectionId, collectionUsers) in overrideUsers)
+                {
+                    try
+                    {
+                        var alternativeData = await _collectionOverrideResolver.BuildAlternativeCharacterData(
+                            dataToSend, collectionId).ConfigureAwait(false);
+
+                        if (alternativeData != null)
+                        {
+                            Logger.LogDebug("Push de collection override {collId} vers {users}",
+                                collectionId,
+                                string.Join(", ", collectionUsers.Select(k => k.AliasOrUID)));
+                            await _apiController.PushCharacterData(alternativeData, collectionUsers).ConfigureAwait(false);
+                        }
+                        else
+                        {
+                            // Fallback: envoyer les données par défaut
+                            Logger.LogWarning("Fallback sur collection par défaut pour {collId}", collectionId);
+                            await _apiController.PushCharacterData(dataToSend, collectionUsers).ConfigureAwait(false);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.LogWarning(ex, "Erreur lors du push avec collection override {collId}, fallback sur défaut", collectionId);
+                        await _apiController.PushCharacterData(dataToSend, collectionUsers).ConfigureAwait(false);
+                    }
+                }
+            }
+            else
+            {
+                // Pas d'override: comportement standard
+                Logger.LogDebug("Push de {hash} vers {users}",
+                    dataToSend.DataHash.Value,
+                    string.Join(", ", users.Select(k => k.AliasOrUID)));
+                await _apiController.PushCharacterData(dataToSend, users).ConfigureAwait(false);
+            }
+
             _usersToPushDataTo.Clear();
         }
         finally

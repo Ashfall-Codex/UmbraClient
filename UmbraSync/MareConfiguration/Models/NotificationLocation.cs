@@ -11,6 +11,7 @@ public enum NotificationLocation
 public enum NotificationType
 {
     Info,
+    Success,
     Warning,
     Error
 }

@@ -228,6 +228,7 @@ public sealed class Plugin : IDalamudPlugin
             collection.AddScoped<CacheCreationService>();
             collection.AddScoped<TransientResourceManager>();
             collection.AddScoped<PlayerDataFactory>();
+            collection.AddScoped<CollectionOverrideResolver>();
             collection.AddScoped<OnlinePlayerManager>();
             collection.AddScoped<UiService>();
             collection.AddScoped<CommandManagerService>();
@@ -236,6 +237,7 @@ public sealed class Plugin : IDalamudPlugin
             collection.AddScoped<ChatNameReplacementService>();
             collection.AddScoped<ChatEmoteHighlightService>();
             collection.AddScoped<ChatProximityBlendService>();
+            collection.AddScoped<ChatTargetSoundService>();
             collection.AddScoped<GuiHookService>();
             collection.AddScoped<ChatTypingDetectionService>();
 

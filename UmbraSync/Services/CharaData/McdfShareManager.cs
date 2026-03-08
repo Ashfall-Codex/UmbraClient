@@ -283,7 +283,7 @@ public sealed class McdfShareManager(ILogger<McdfShareManager> logger, ApiContro
         string toastTitle = Loc.Get("Notification.McdfShare.Created.ToastTitle");
         string toastBody = string.Format(CultureInfo.CurrentCulture, Loc.Get("Notification.McdfShare.Created.ToastBody"), safeDescription, targetSummary);
 
-        _mediator.Publish(new DualNotificationMessage(toastTitle, toastBody, NotificationType.Info, TimeSpan.FromSeconds(4)));
+        _mediator.Publish(new DualNotificationMessage(toastTitle, toastBody, NotificationType.Success, TimeSpan.FromSeconds(4)));
         _notificationTracker.Upsert(NotificationEntry.McdfShareCreated(shareId, safeDescription, individualCount, syncshellCount));
     }
 

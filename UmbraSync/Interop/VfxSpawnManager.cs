@@ -51,7 +51,7 @@ public unsafe class VfxSpawnManager : DisposableMediatorSubscriberBase
         });
     }
 
-    private unsafe void RestoreSpawnVisiblity()
+    private void RestoreSpawnVisiblity()
     {
         foreach (var vfx in _spawnedObjects)
         {
@@ -59,7 +59,7 @@ public unsafe class VfxSpawnManager : DisposableMediatorSubscriberBase
         }
     }
 
-    private unsafe void ChangeSpawnVisibility(float visibility)
+    private void ChangeSpawnVisibility(float visibility)
     {
         foreach (var vfx in _spawnedObjects)
         {
@@ -119,7 +119,7 @@ public unsafe class VfxSpawnManager : DisposableMediatorSubscriberBase
         return guid;
     }
 
-    public unsafe void MoveObject(Guid id, Vector3 newPosition)
+    public void MoveObject(Guid id, Vector3 newPosition)
     {
         if (_spawnedObjects.TryGetValue(id, out var vfxValue))
         {

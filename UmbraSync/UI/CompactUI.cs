@@ -122,7 +122,6 @@ public class CompactUi : WindowMediatorSubscriberBase
         DataAnalysisUi dataAnalysisUi,
         CharaDataHubUi charaDataHubUi,
         NotificationTracker notificationTracker,
-        UmbraProfileManager umbraProfileManager,
         SyncshellConfigService syncshellConfig)
         : base(logger, mediator, "###UmbraSyncMainUI", performanceCollectorService)
     {
@@ -145,7 +144,7 @@ public class CompactUi : WindowMediatorSubscriberBase
         _notificationTracker = notificationTracker;
         var tagHandler = new TagHandler(_serverManager);
 
-        _groupPanel = new(this, uiShared, _pairManager, uidDisplayHandler, _serverManager, _charaDataManager, _autoDetectRequestService, _configService, umbraProfileManager, syncshellConfig);
+        _groupPanel = new(this, uiShared, _pairManager, uidDisplayHandler, _serverManager, _charaDataManager, _autoDetectRequestService, _configService, syncshellConfig);
         _selectGroupForPairUi = new(tagHandler, uidDisplayHandler, _uiSharedService);
         _selectPairsForGroupUi = new(tagHandler, uidDisplayHandler);
         _pairGroupsUi = new(configService, tagHandler, apiController, _selectPairsForGroupUi, _uiSharedService);
@@ -595,13 +594,13 @@ public class CompactUi : WindowMediatorSubscriberBase
     private void DrawAddCharacter()
     {
         ImGui.Dummy(new(10));
-        var keys = _serverManager.CurrentServer!.SecretKeys;
+        var keys = _serverManager.CurrentServer.SecretKeys;
         if (keys.Count > 0)
         {
             if (_secretKeyIdx == -1) _secretKeyIdx = keys.First().Key;
             if (_uiSharedService.IconTextButton(FontAwesomeIcon.Plus, Loc.Get("CompactUi.AddCharacter.AddCurrentWithKey")))
             {
-                _serverManager.CurrentServer!.Authentications.Add(new MareConfiguration.Models.Authentication()
+                _serverManager.CurrentServer.Authentications.Add(new MareConfiguration.Models.Authentication()
                 {
                     CharacterName = _uiSharedService.PlayerName,
                     WorldId = _uiSharedService.WorldId,
@@ -773,7 +772,7 @@ public class CompactUi : WindowMediatorSubscriberBase
             var cacheKey = "Visible" + c.UserData.UID;
             if (!_drawUserPairCache.TryGetValue(cacheKey, out var drawPair))
             {
-                drawPair = new DrawUserPair(cacheKey, c, _uidDisplayHandler, _apiController, Mediator, _selectGroupForPairUi, _uiSharedService, _charaDataManager, _serverManager);
+                drawPair = new DrawUserPair(cacheKey, c, _uidDisplayHandler, _apiController, Mediator, _selectGroupForPairUi, _uiSharedService, _charaDataManager, _serverManager, _configService);
                 _drawUserPairCache[cacheKey] = drawPair;
             }
             else
@@ -789,7 +788,7 @@ public class CompactUi : WindowMediatorSubscriberBase
                 var cacheKey = "Online" + c.UserData.UID;
                 if (!_drawUserPairCache.TryGetValue(cacheKey, out var drawPair))
                 {
-                    drawPair = new DrawUserPair(cacheKey, c, _uidDisplayHandler, _apiController, Mediator, _selectGroupForPairUi, _uiSharedService, _charaDataManager, _serverManager);
+                    drawPair = new DrawUserPair(cacheKey, c, _uidDisplayHandler, _apiController, Mediator, _selectGroupForPairUi, _uiSharedService, _charaDataManager, _serverManager, _configService);
                     _drawUserPairCache[cacheKey] = drawPair;
                 }
                 else
@@ -805,7 +804,7 @@ public class CompactUi : WindowMediatorSubscriberBase
                 var cacheKey = "Offline" + c.UserData.UID;
                 if (!_drawUserPairCache.TryGetValue(cacheKey, out var drawPair))
                 {
-                    drawPair = new DrawUserPair(cacheKey, c, _uidDisplayHandler, _apiController, Mediator, _selectGroupForPairUi, _uiSharedService, _charaDataManager, _serverManager);
+                    drawPair = new DrawUserPair(cacheKey, c, _uidDisplayHandler, _apiController, Mediator, _selectGroupForPairUi, _uiSharedService, _charaDataManager, _serverManager, _configService);
                     _drawUserPairCache[cacheKey] = drawPair;
                 }
                 else
@@ -1594,10 +1593,10 @@ public class CompactUi : WindowMediatorSubscriberBase
         if (nearby != null && !string.IsNullOrWhiteSpace(nearby.Name))
             return nearby.Name;
 
-        if (_nearbyPending.Pending.TryGetValue(uid, out var pendingName)
-            && !string.IsNullOrWhiteSpace(pendingName)
-            && !string.Equals(pendingName, _apiController.DisplayName, StringComparison.OrdinalIgnoreCase))
-            return pendingName;
+        if (_nearbyPending.Pending.TryGetValue(uid, out var pendingEntry)
+            && !string.IsNullOrWhiteSpace(pendingEntry.DisplayName)
+            && !string.Equals(pendingEntry.DisplayName, _apiController.DisplayName, StringComparison.OrdinalIgnoreCase))
+            return pendingEntry.DisplayName;
 
         return string.Empty;
     }

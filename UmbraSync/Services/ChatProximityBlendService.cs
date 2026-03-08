@@ -128,6 +128,7 @@ public class ChatProximityBlendService : DisposableMediatorSubscriberBase
         // Identify the color keys used by ChatEmoteHighlightService
         var emoteColorKey = _configService.Current.EmoteHighlightColorKey;
         var hrpColorKey = _configService.Current.EmoteHighlightParenthesesColorKey;
+        var quotesColorKey = ChatEmoteHighlightService.QuotesColorKey;
 
         // Quick check: does the message contain any UIForeground with our color keys?
         var hasOurColors = false;
@@ -135,7 +136,7 @@ public class ChatProximityBlendService : DisposableMediatorSubscriberBase
         {
             if (payload is UIForegroundPayload fgPayload
                 && fgPayload.ColorKey != 0
-                && (fgPayload.ColorKey == emoteColorKey || fgPayload.ColorKey == hrpColorKey))
+                && (fgPayload.ColorKey == emoteColorKey || fgPayload.ColorKey == hrpColorKey || fgPayload.ColorKey == quotesColorKey))
             {
                 hasOurColors = true;
                 break;
@@ -173,7 +174,7 @@ public class ChatProximityBlendService : DisposableMediatorSubscriberBase
             if (payload is UIForegroundPayload fgPayload)
             {
                 if (fgPayload.ColorKey != 0
-                    && (fgPayload.ColorKey == emoteColorKey || fgPayload.ColorKey == hrpColorKey))
+                    && (fgPayload.ColorKey == emoteColorKey || fgPayload.ColorKey == hrpColorKey || fgPayload.ColorKey == quotesColorKey))
                 {
                     var baseColor = ResolveColorKey(fgPayload.ColorKey);
                     var blended = new Vector4(
@@ -286,9 +287,9 @@ public class ChatProximityBlendService : DisposableMediatorSubscriberBase
     
     private static RawPayload MakeColorPushPayload(Vector4 color)
     {
-        var r = byte.Max((byte)(color.X * 255), (byte)0x01);
-        var g = byte.Max((byte)(color.Y * 255), (byte)0x01);
-        var b = byte.Max((byte)(color.Z * 255), (byte)0x01);
+        var r = byte.Max((byte)(color.X * 255), 0x01);
+        var g = byte.Max((byte)(color.Y * 255), 0x01);
+        var b = byte.Max((byte)(color.Z * 255), 0x01);
         return new RawPayload(unchecked([0x02, 0x13, 0x05, 0xF6, r, g, b, 0x03]));
     }
     

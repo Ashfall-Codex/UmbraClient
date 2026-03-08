@@ -1,7 +1,6 @@
 using Dalamud.Game.ClientState.Objects.Types;
 using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
-using UmbraSync.MareConfiguration.Models;
 using UmbraSync.PlayerData.Handlers;
 using UmbraSync.Services.Mediator;
 using PenumbraApi = global::Penumbra.Api.Helpers;
@@ -48,7 +47,7 @@ public sealed class PenumbraRedraw : IDisposable
             await _core.RedrawManager.PenumbraRedrawInternalAsync(logger, handler, applicationId, (chara) =>
             {
                 logger.LogDebug("[{appid}] Calling on IPC: PenumbraRedraw", applicationId);
-                _penumbraRedraw!.Invoke(chara.ObjectIndex, setting: PenumbraEnum.RedrawType.Redraw);
+                _penumbraRedraw.Invoke(chara.ObjectIndex, setting: PenumbraEnum.RedrawType.Redraw);
 
             }, token).ConfigureAwait(false);
         }

@@ -472,13 +472,11 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
     {
         // Captured inside card callback for moodle positioning after card
         Vector2 nameLineScreen = Vector2.Zero;
-        float cardContentWidth = 0f;
 
         UiSharedService.DrawCard("rp-hero-card", () =>
         {
             var portraitSize = 120f * ImGuiHelpers.GlobalScale;
             var drawList = ImGui.GetWindowDrawList();
-            cardContentWidth = ImGui.GetContentRegionAvail().X;
 
             // Portrait
             var portraitStart = ImGui.GetCursorScreenPos();

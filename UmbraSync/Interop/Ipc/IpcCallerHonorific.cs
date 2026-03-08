@@ -73,7 +73,7 @@ public sealed class IpcCallerHonorific : IIpcCaller
             if (gameObj is IPlayerCharacter c)
             {
                 _logger.LogTrace("Honorific removing for {addr}", c.Address.ToString("X", CultureInfo.InvariantCulture));
-                _honorificClearCharacterTitle!.InvokeAction(c.ObjectIndex);
+                _honorificClearCharacterTitle.InvokeAction(c.ObjectIndex);
             }
         }).ConfigureAwait(false);
     }
@@ -102,11 +102,11 @@ public sealed class IpcCallerHonorific : IIpcCaller
                     string honorificData = string.IsNullOrEmpty(honorificDataB64) ? string.Empty : Encoding.UTF8.GetString(Convert.FromBase64String(honorificDataB64));
                     if (string.IsNullOrEmpty(honorificData))
                     {
-                        _honorificClearCharacterTitle!.InvokeAction(pc.ObjectIndex);
+                        _honorificClearCharacterTitle.InvokeAction(pc.ObjectIndex);
                     }
                     else
                     {
-                        _honorificSetCharacterTitle!.InvokeAction(pc.ObjectIndex, honorificData);
+                        _honorificSetCharacterTitle.InvokeAction(pc.ObjectIndex, honorificData);
                     }
                 }
             }).ConfigureAwait(false);

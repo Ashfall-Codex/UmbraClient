@@ -24,8 +24,8 @@ public class RgpdDataService : DisposableMediatorSubscriberBase
         _configService = configService;
         _configDirectory = pluginInterface.ConfigDirectory.FullName;
 
-        Mediator.Subscribe<RgpdDataExportRequestMessage>(this, (msg) => Task.Run(ExportLocalData));
-        Mediator.Subscribe<RgpdLocalDataDeletionRequestMessage>(this, (msg) => Task.Run(DeleteLocalData));
+        Mediator.Subscribe<RgpdDataExportRequestMessage>(this, (msg) => _ = Task.Run(ExportLocalData));
+        Mediator.Subscribe<RgpdLocalDataDeletionRequestMessage>(this, (msg) => _ = Task.Run(DeleteLocalData));
     }
 
     public bool IsRgpdConsentValid => _configService.Current.RgpdConsentGiven;

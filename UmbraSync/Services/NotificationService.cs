@@ -81,6 +81,7 @@ public class NotificationService : DisposableMediatorSubscriberBase, IHostedServ
         switch (msg.Type)
         {
             case NotificationType.Info:
+            case NotificationType.Success:
                 PrintInfoChat(msg.Message);
                 break;
 
@@ -110,6 +111,7 @@ public class NotificationService : DisposableMediatorSubscriberBase, IHostedServ
         switch (adjustedMsg.Type)
         {
             case NotificationType.Info:
+            case NotificationType.Success:
                 ShowNotificationLocationBased(adjustedMsg, _configurationService.Current.InfoNotification, forceChat, suppressToast);
                 break;
 
@@ -195,10 +197,12 @@ public class NotificationService : DisposableMediatorSubscriberBase, IHostedServ
 
     private static bool IsRequestSentConfirmation(NotificationMessage msg)
     {
-        if (string.Equals(msg.Title, "Nearby request sent", StringComparison.OrdinalIgnoreCase))
+        var sentTitle = Loc.Get("Notification.Nearby.Sent.Title");
+        if (string.Equals(msg.Title, sentTitle, StringComparison.Ordinal))
             return true;
 
-        if (!string.IsNullOrEmpty(msg.Message) && msg.Message.Contains("The other user will receive a request notification.", StringComparison.OrdinalIgnoreCase))
+        var sentBody = Loc.Get("Notification.Nearby.Sent.Body");
+        if (!string.IsNullOrEmpty(msg.Message) && msg.Message.Contains(sentBody, StringComparison.Ordinal))
             return true;
 
         return false;
@@ -231,8 +235,9 @@ public class NotificationService : DisposableMediatorSubscriberBase, IHostedServ
         {
             NotificationType.Error => DalamudNotificationType.Error,
             NotificationType.Warning => DalamudNotificationType.Warning,
+            NotificationType.Success => DalamudNotificationType.Success,
             NotificationType.Info => DalamudNotificationType.Info,
-            _ => DalamudNotificationType.Info
+            _ => DalamudNotificationType.Info,
         };
 
         _notificationManager.AddNotification(new DalamudNotification()
@@ -267,7 +272,9 @@ public class NotificationService : DisposableMediatorSubscriberBase, IHostedServ
     private static bool ContainsNearbyRequest(string? text)
     {
         if (string.IsNullOrEmpty(text)) return false;
+        var nearbyTitle = Loc.Get("Notification.NearbyDetection.Title");
         return text.Contains("Nearby request", StringComparison.OrdinalIgnoreCase)
-            || text.Contains("Nearby Request", StringComparison.Ordinal);
+            || text.Contains("Nearby Request", StringComparison.Ordinal)
+            || text.Contains(nearbyTitle, StringComparison.Ordinal);
     }
 }

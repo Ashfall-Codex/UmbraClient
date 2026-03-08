@@ -155,7 +155,7 @@ public class PlayerPerformanceService : DisposableMediatorSubscriberBase
 
         foreach (var hash in moddedTextureHashes)
         {
-            long fileSize = 0;
+            long fileSize;
 
             var download = toDownloadFiles.Find(f => string.Equals(hash, f.Hash, StringComparison.OrdinalIgnoreCase));
             if (download != null)

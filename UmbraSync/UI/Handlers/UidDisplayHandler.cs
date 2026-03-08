@@ -194,7 +194,7 @@ public class UidDisplayHandler
             }
         }
 
-        return (textIsUid, playerText!);
+        return (textIsUid, playerText);
     }
 
     internal void Clear()

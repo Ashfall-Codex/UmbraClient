@@ -166,15 +166,14 @@ public class DataAnalysisUi : WindowMediatorSubscriberBase
         ImGui.SameLine();
         ImGui.TextUnformatted(cachedAnalysis.Values.Sum(c => c.Values.Count).ToString(CultureInfo.CurrentCulture));
         ImGui.SameLine();
-        using (var font = ImRaii.PushFont(UiBuilder.IconFont))
+        using (var _ = ImRaii.PushFont(UiBuilder.IconFont))
         {
             ImGui.TextUnformatted(FontAwesomeIcon.InfoCircle.ToIconString());
         }
         if (ImGui.IsItemHovered())
         {
-            string text = "";
             var groupedfiles = cachedAnalysis.Values.SelectMany(f => f.Values).GroupBy(f => f.FileType, StringComparer.Ordinal);
-            text = string.Join(Environment.NewLine, groupedfiles.OrderBy(f => f.Key, StringComparer.Ordinal)
+            var text = string.Join(Environment.NewLine, groupedfiles.OrderBy(f => f.Key, StringComparer.Ordinal)
                 .Select(f => string.Format(CultureInfo.CurrentCulture, Loc.Get("DataAnalysis.FileTypeSummary"), f.Key, f.Count(),
                     UiSharedService.ByteToString(f.Sum(v => v.OriginalSize)), UiSharedService.ByteToString(f.Sum(v => v.CompressedSize)))));
             ImGui.SetTooltip(text);

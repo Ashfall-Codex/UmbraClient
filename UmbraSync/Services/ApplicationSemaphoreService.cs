@@ -51,7 +51,7 @@ public sealed class ApplicationSemaphoreService : DisposableMediatorSubscriberBa
 
     public async ValueTask<IAsyncDisposable> AcquireAsync(CancellationToken cancellationToken, bool highPriority = false)
     {
-        PriorityWaiter? waiter = null;
+        PriorityWaiter waiter;
 
         lock (_limitLock)
         {
