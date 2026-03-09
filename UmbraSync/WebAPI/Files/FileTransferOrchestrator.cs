@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
+using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Reflection;
@@ -25,9 +26,18 @@ public class FileTransferOrchestrator : DisposableMediatorSubscriberBase
     {
         _mareConfig = mareConfig;
         _tokenProvider = tokenProvider;
-        _httpClient = new()
+        var handler = new SocketsHttpHandler
         {
-            Timeout = TimeSpan.FromSeconds(300)
+            ConnectTimeout = TimeSpan.FromSeconds(10),
+            PooledConnectionLifetime = TimeSpan.FromMinutes(5),
+            PooledConnectionIdleTimeout = TimeSpan.FromSeconds(90),
+            MaxConnectionsPerServer = 24,
+            AutomaticDecompression = DecompressionMethods.None,
+        };
+        _httpClient = new(handler)
+        {
+            Timeout = TimeSpan.FromSeconds(300),
+            DefaultRequestVersion = HttpVersion.Version11,
         };
         var ver = Assembly.GetExecutingAssembly().GetName().Version;
         _httpClient.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("UmbraSync", ver?.Major + "." + ver?.Minor + "." + ver?.Build));

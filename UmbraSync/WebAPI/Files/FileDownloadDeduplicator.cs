@@ -34,13 +34,15 @@ public sealed class FileDownloadDeduplicator : DisposableMediatorSubscriberBase
         return new DownloadClaim(IsOwner: false, Completion: existing.Task);
     }
 
-    public void Complete(string hash, bool success)
+    public bool Complete(string hash, bool success)
     {
         if (_inFlight.TryRemove(hash, out var tcs))
         {
             Logger.LogDebug("Download complete: hash {hash}, success={success}", hash, success);
             tcs.TrySetResult(success);
+            return true;
         }
+        return false;
     }
 
     public void CompleteAll(bool success)
