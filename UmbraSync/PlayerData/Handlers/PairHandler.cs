@@ -1028,12 +1028,16 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
 
                 toDownloadReplacements = TryCalculateModdedDictionary(applicationBase, charaData, out moddedPaths, downloadToken);
 
-                if (toDownloadReplacements.TrueForAll(c => _downloadManager.ForbiddenTransfers.Exists(f => string.Equals(f.Hash, c.Hash, StringComparison.Ordinal))))
+                if (toDownloadReplacements.TrueForAll(c =>
+                    _downloadManager.ForbiddenTransfers.Exists(f => string.Equals(f.Hash, c.Hash, StringComparison.Ordinal))
+                    || _downloadManager.IsHashOnCooldown(c.Hash)))
                 {
+                    Logger.LogDebug("[BASE-{appBase}] All {count} remaining files are forbidden or on cooldown, stopping download loop", applicationBase, toDownloadReplacements.Count);
                     break;
                 }
 
-                await Task.Delay(TimeSpan.FromSeconds(2), downloadToken).ConfigureAwait(false);
+                var backoffSeconds = Math.Min(2 * Math.Pow(2, attempts - 1), 30);
+                await Task.Delay(TimeSpan.FromSeconds(backoffSeconds), downloadToken).ConfigureAwait(false);
             }
 
             try

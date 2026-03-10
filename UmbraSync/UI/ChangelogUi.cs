@@ -168,6 +168,11 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
     {
         return new List<ChangelogEntry>
         {
+            new(new Version(2, 3, 3, 3010), "2.3.3.3010", new List<ChangelogLine>
+            {
+                new("Divers ajustement / derniers détails pour la mécanique de téléchargement et mises à jours des API Penumbra & Glamourer."),
+
+            }),   
             new(new Version(2, 3, 3, 3009), "2.3.3.3009", new List<ChangelogLine>
             {
                 new("CORRECTION CRITIQUE : Réécriture client / serveur du chargement et téléchargement de mods."),
