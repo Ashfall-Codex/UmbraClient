@@ -1028,16 +1028,47 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
 
                 toDownloadReplacements = TryCalculateModdedDictionary(applicationBase, charaData, out moddedPaths, downloadToken);
 
-                if (toDownloadReplacements.TrueForAll(c =>
-                    _downloadManager.ForbiddenTransfers.Exists(f => string.Equals(f.Hash, c.Hash, StringComparison.Ordinal))
-                    || _downloadManager.IsHashOnCooldown(c.Hash)))
+                var forbiddenOnly = toDownloadReplacements.Where(c =>
+                    _downloadManager.ForbiddenTransfers.Exists(f => string.Equals(f.Hash, c.Hash, StringComparison.Ordinal))).ToList();
+                var onCooldownOnly = toDownloadReplacements.Where(c =>
+                    !_downloadManager.ForbiddenTransfers.Exists(f => string.Equals(f.Hash, c.Hash, StringComparison.Ordinal))
+                    && _downloadManager.IsHashOnCooldown(c.Hash)).ToList();
+                var retriableNow = toDownloadReplacements.Count - forbiddenOnly.Count - onCooldownOnly.Count;
+
+                if (retriableNow == 0)
                 {
-                    Logger.LogDebug("[BASE-{appBase}] All {count} remaining files are forbidden or on cooldown, stopping download loop", applicationBase, toDownloadReplacements.Count);
+                    if (onCooldownOnly.Count > 0)
+                    {
+                        Logger.LogWarning("[BASE-{appBase}] {cooldown} fichiers en cooldown et {forbidden} non accessible sur {total}. Reapply.",
+                            applicationBase, onCooldownOnly.Count, forbiddenOnly.Count, toDownloadReplacements.Count);
+                        _pendingModReapply = true;
+                    }
+                    else
+                    {
+                        Logger.LogDebug("[BASE-{appBase}] All {count} remaining files are permanently forbidden, stopping download loop", applicationBase, forbiddenOnly.Count);
+                    }
                     break;
                 }
 
                 var backoffSeconds = Math.Min(2 * Math.Pow(2, attempts - 1), 30);
                 await Task.Delay(TimeSpan.FromSeconds(backoffSeconds), downloadToken).ConfigureAwait(false);
+            }
+
+            var finalMissing = TryCalculateModdedDictionary(applicationBase, charaData, out moddedPaths, downloadToken);
+            if (finalMissing.Count > 0)
+            {
+                var nonForbiddenMissing = finalMissing.Count(c =>
+                    !_downloadManager.ForbiddenTransfers.Exists(f => string.Equals(f.Hash, c.Hash, StringComparison.Ordinal)));
+                if (nonForbiddenMissing > 0)
+                {
+                    Logger.LogWarning("[BASE-{appBase}] Applying with {missing} missing files ({nonForbidden} non-forbidden) — reapply scheduled",
+                        applicationBase, finalMissing.Count, nonForbiddenMissing);
+                    _pendingModReapply = true;
+                }
+                else
+                {
+                    Logger.LogDebug("[BASE-{appBase}] {count} missing files are all permanently forbidden", applicationBase, finalMissing.Count);
+                }
             }
 
             try
@@ -1109,9 +1140,15 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
         }
 
         var token = _applicationCancellationTokenSource.Token;
+        var hadMissingFiles = _pendingModReapply;
 
         _applicationTask = ApplyCharacterDataAsync(applicationBase, charaData, updatedData, updateModdedPaths, updateManip, moddedPaths, token);
         await _applicationTask.ConfigureAwait(false);
+        if (hadMissingFiles && !_pendingModReapply)
+        {
+            Logger.LogDebug("[BASE-{appBase}] Restoring pendingModReapply: applied with missing files", applicationBase);
+            _pendingModReapply = true;
+        }
     }
 
     private async Task ApplyCharacterDataAsync(Guid applicationBase, CharacterData charaData, Dictionary<ObjectKind, HashSet<PlayerChanges>> updatedData, bool updateModdedPaths, bool updateManip,
