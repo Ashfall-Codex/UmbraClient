@@ -193,7 +193,19 @@ public class EditProfileUi : WindowMediatorSubscriberBase
             var moodles = MoodleStatusInfo.ParseMoodles(_localMoodlesJson);
             if (moodles.Count > 0)
             {
-                SaveMoodlesBackup(_localMoodlesJson, charName, worldId);
+                var profile = _rpConfigService.GetCharacterProfile(charName, worldId);
+                var backupMoodles = MoodleStatusInfo.ParseMoodles(profile.MoodlesBackupJson);
+                var ipcTitles = new HashSet<string>(moodles.Select(m => m.CleanTitle), StringComparer.OrdinalIgnoreCase);
+                var backupTitles = new HashSet<string>(backupMoodles.Select(m => m.CleanTitle), StringComparer.OrdinalIgnoreCase);
+                if (_moodleRestoreAttempted || ipcTitles.SetEquals(backupTitles) || string.IsNullOrEmpty(profile.MoodlesBackupJson))
+                {
+                    SaveMoodlesBackup(_localMoodlesJson, charName, worldId);
+                }
+                else
+                {
+                    _logger.LogWarning("Moodles IPC returned {ipcCount} moodles ({ipcTitles}) but backup has {backupCount} ({backupTitles}) — possible stale data from character switch, skipping backup save",
+                        moodles.Count, string.Join(", ", ipcTitles), backupMoodles.Count, string.Join(", ", backupTitles));
+                }
                 _moodleRestoreAttempted = true;
             }
             else if (!_moodleRestoreAttempted
@@ -243,10 +255,20 @@ public class EditProfileUi : WindowMediatorSubscriberBase
 
     private void SaveMoodlesBackup(string moodlesJson, string charName, uint worldId)
     {
-        var moodles = MoodleStatusInfo.ParseMoodles(moodlesJson);
-        if (moodles.Count == 0) return;
-
         var profile = _rpConfigService.GetCharacterProfile(charName, worldId);
+        var moodles = MoodleStatusInfo.ParseMoodles(moodlesJson);
+        if (moodles.Count == 0)
+        {
+            if (!string.IsNullOrEmpty(profile.MoodlesBackupJson))
+            {
+                _logger.LogInformation("Clearing moodles backup for {char}@{world} (no active traits)", charName, worldId);
+                profile.MoodlesBackupJson = string.Empty;
+                profile.MoodlesBackupTimestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+                _rpConfigService.Save();
+            }
+            return;
+        }
+
         profile.MoodlesBackupJson = moodlesJson;
         profile.MoodlesBackupTimestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         _rpConfigService.Save();

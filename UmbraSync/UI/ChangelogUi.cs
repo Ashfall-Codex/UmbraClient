@@ -168,6 +168,12 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
     {
         return new List<ChangelogEntry>
         {
+            new(new Version(2, 3, 4, 3012), "2.3.4.3012", new List<ChangelogLine>
+            {
+                new("Correction : Dans certains cas, l'application des mods se faisaient avant la fin du téléchargement."),
+                new("Correction : Des traits de personnage (Via Moodles) pouvaient s'appliquer pour des alts"),
+
+            }),   
             new(new Version(2, 3, 3, 3010), "2.3.3.3010", new List<ChangelogLine>
             {
                 new("Divers ajustement / derniers détails pour la mécanique de téléchargement et mises à jours des API Penumbra & Glamourer."),
