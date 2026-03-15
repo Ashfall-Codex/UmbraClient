@@ -11,6 +11,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Numerics;
 using UmbraSync.API.Data.Extensions;
+using UmbraSync.API.Dto.Establishment;
 using UmbraSync.API.Dto.User;
 using UmbraSync.Localization;
 using UmbraSync.MareConfiguration;
@@ -58,6 +59,7 @@ public class CompactUi : WindowMediatorSubscriberBase
     private readonly DataAnalysisUi _dataAnalysisUi;
     private readonly CharaDataHubUi _charaDataHubUi;
     private readonly NotificationTracker _notificationTracker;
+    private readonly EstablishmentConfigService _establishmentConfigService;
     private bool _buttonState;
     private string _characterOrCommentFilter = string.Empty;
     private Pair? _lastAddedUser;
@@ -76,6 +78,15 @@ public class CompactUi : WindowMediatorSubscriberBase
     private const long SelfAnalysisSizeWarningThreshold = 300L * 1024 * 1024;
     private const long SelfAnalysisTriangleWarningThreshold = 150_000;
     private CompactUiSection _activeSection = CompactUiSection.Social;
+
+    // Annuaire state
+    private EstablishmentListResponseDto? _annuaireResults;
+    private List<EstablishmentDto>? _annuaireOwned;
+    private bool _annuaireLoading;
+    private string _annuaireSearch = string.Empty;
+    private int _annuaireCategory = -1;
+    private int _annuairePage;
+    private int _annuaireTab; // 0=browse, 1=bookmarks, 2=mine
     private const float SidebarWidth = 53f;
     private const float SidebarIconSize = 25f;
     private const float ContentFontScale = UiSharedService.ContentFontScale;
@@ -105,7 +116,8 @@ public class CompactUi : WindowMediatorSubscriberBase
     private enum SocialSubSection
     {
         IndividualPairs,
-        Syncshells
+        Syncshells,
+        Annuaire
     }
 
     private readonly Dictionary<string, DrawUserPair> _drawUserPairCache = new(StringComparer.Ordinal);
@@ -122,7 +134,8 @@ public class CompactUi : WindowMediatorSubscriberBase
         DataAnalysisUi dataAnalysisUi,
         CharaDataHubUi charaDataHubUi,
         NotificationTracker notificationTracker,
-        SyncshellConfigService syncshellConfig)
+        SyncshellConfigService syncshellConfig,
+        EstablishmentConfigService establishmentConfigService)
         : base(logger, mediator, "###UmbraSyncMainUI", performanceCollectorService)
     {
         _uiSharedService = uiShared;
@@ -142,6 +155,7 @@ public class CompactUi : WindowMediatorSubscriberBase
         _dataAnalysisUi = dataAnalysisUi;
         _charaDataHubUi = charaDataHubUi;
         _notificationTracker = notificationTracker;
+        _establishmentConfigService = establishmentConfigService;
         var tagHandler = new TagHandler(_serverManager);
 
         _groupPanel = new(this, uiShared, _pairManager, uidDisplayHandler, _serverManager, _charaDataManager, _autoDetectRequestService, _configService, syncshellConfig);
@@ -1301,6 +1315,376 @@ public class CompactUi : WindowMediatorSubscriberBase
         using (ImRaii.PushId("grouping-popup")) _selectGroupForPairUi.Draw();
     }
 
+    private static readonly string[] AnnuaireCategoryNames =
+    [
+        "Taverne", "Boutique", "Temple", "Academie",
+        "Guilde", "Residence", "Atelier", "Autre"
+    ];
+
+    private static readonly FontAwesomeIcon[] AnnuaireCategoryIcons =
+    [
+        FontAwesomeIcon.Beer, FontAwesomeIcon.ShoppingBag, FontAwesomeIcon.Church, FontAwesomeIcon.GraduationCap,
+        FontAwesomeIcon.Shield, FontAwesomeIcon.Home, FontAwesomeIcon.Hammer, FontAwesomeIcon.EllipsisH
+    ];
+
+    private void DrawAnnuaireSection()
+    {
+        // Toolbar: search + category + buttons
+        ImGui.SetNextItemWidth(140);
+        if (ImGui.InputTextWithHint("##annSearch", "Rechercher...", ref _annuaireSearch, 100, ImGuiInputTextFlags.EnterReturnsTrue))
+        {
+            _annuairePage = 0;
+            _ = AnnuaireRefreshList();
+        }
+
+        ImGui.SameLine();
+        ImGui.SetNextItemWidth(120);
+        var catPreview = _annuaireCategory >= 0 && _annuaireCategory < AnnuaireCategoryNames.Length
+            ? AnnuaireCategoryNames[_annuaireCategory] : "Toutes";
+        using (var combo = ImRaii.Combo("##annCat", catPreview))
+        {
+            if (combo)
+            {
+                if (ImGui.Selectable("Toutes", _annuaireCategory == -1))
+                {
+                    _annuaireCategory = -1;
+                    _annuairePage = 0;
+                    _ = AnnuaireRefreshList();
+                }
+                for (int i = 0; i < AnnuaireCategoryNames.Length; i++)
+                {
+                    if (ImGui.Selectable(AnnuaireCategoryNames[i], _annuaireCategory == i))
+                    {
+                        _annuaireCategory = i;
+                        _annuairePage = 0;
+                        _ = AnnuaireRefreshList();
+                    }
+                }
+            }
+        }
+
+        ImGui.SameLine();
+        if (_uiSharedService.IconButton(FontAwesomeIcon.Search))
+        {
+            _annuairePage = 0;
+            _ = AnnuaireRefreshList();
+        }
+        UiSharedService.AttachToolTip("Rechercher");
+
+        ImGui.SameLine();
+        if (_uiSharedService.IconButton(FontAwesomeIcon.Plus))
+            Mediator.Publish(new UiToggleMessage(typeof(EstablishmentRegistrationUi)));
+        UiSharedService.AttachToolTip("Enregistrer un nouvel etablissement");
+
+        ImGui.Spacing();
+
+        // Sub-tabs as styled buttons (hub pattern)
+        DrawAnnuaireTabButtons();
+        ImGuiHelpers.ScaledDummy(4f);
+
+        switch (_annuaireTab)
+        {
+            case 0:
+                DrawAnnuaireBrowse();
+                break;
+            case 1:
+                DrawAnnuaireBookmarks();
+                break;
+            case 2:
+                DrawAnnuaireOwned();
+                break;
+        }
+    }
+
+    private void DrawAnnuaireTabButtons()
+    {
+        var icons = new[] { FontAwesomeIcon.Globe, FontAwesomeIcon.Star, FontAwesomeIcon.Home };
+        var labels = new[] { "Parcourir", "Favoris", "Mes lieux" };
+
+        const float btnH = 28f;
+        const float btnSpacing = 6f;
+        const float rounding = 4f;
+        const float iconTextGap = 4f;
+        const float btnPadX = 8f;
+
+        var dl = ImGui.GetWindowDrawList();
+        var availWidth = ImGui.GetContentRegionAvail().X;
+        var accent = UiSharedService.AccentColor;
+
+        // Measure natural widths
+        var iconStrings = new string[labels.Length];
+        var iconSizes = new Vector2[labels.Length];
+        var labelSizes = new Vector2[labels.Length];
+        var naturalWidths = new float[labels.Length];
+        float totalNatural = btnSpacing * (labels.Length - 1);
+
+        for (int i = 0; i < labels.Length; i++)
+        {
+            ImGui.PushFont(UiBuilder.IconFont);
+            iconStrings[i] = icons[i].ToIconString();
+            iconSizes[i] = ImGui.CalcTextSize(iconStrings[i]);
+            ImGui.PopFont();
+            labelSizes[i] = ImGui.CalcTextSize(labels[i]);
+            naturalWidths[i] = iconSizes[i].X + iconTextGap + labelSizes[i].X + btnPadX;
+            totalNatural += naturalWidths[i];
+        }
+
+        bool iconOnly = totalNatural > availWidth;
+
+        var borderColor = new Vector4(0.29f, 0.21f, 0.41f, 0.7f);
+        var bgColor = new Vector4(0.11f, 0.11f, 0.11f, 0.9f);
+        var hoverBg = new Vector4(0.17f, 0.13f, 0.22f, 1f);
+
+        for (int i = 0; i < labels.Length; i++)
+        {
+            if (i > 0) ImGui.SameLine(0, btnSpacing);
+
+            float btnW = iconOnly ? (availWidth - btnSpacing * (labels.Length - 1)) / labels.Length : naturalWidths[i];
+
+            var p = ImGui.GetCursorScreenPos();
+            ImGui.InvisibleButton($"##annTab_{i}", new Vector2(btnW, btnH));
+            bool hovered = ImGui.IsItemHovered();
+            bool clicked = ImGui.IsItemClicked();
+            bool isActive = _annuaireTab == i;
+
+            var bg = isActive ? accent : hovered ? hoverBg : bgColor;
+            dl.AddRectFilled(p, p + new Vector2(btnW, btnH), ImGui.GetColorU32(bg), rounding);
+            if (!isActive)
+                dl.AddRect(p, p + new Vector2(btnW, btnH), ImGui.GetColorU32(borderColor with { W = hovered ? 0.9f : 0.5f }), rounding);
+
+            var textColor = isActive ? new Vector4(1f, 1f, 1f, 1f)
+                : hovered ? new Vector4(0.9f, 0.85f, 1f, 1f)
+                : new Vector4(0.7f, 0.65f, 0.8f, 1f);
+            var textColorU32 = ImGui.GetColorU32(textColor);
+
+            if (iconOnly)
+            {
+                var ix = p.X + (btnW - iconSizes[i].X) / 2f;
+                ImGui.PushFont(UiBuilder.IconFont);
+                dl.AddText(new Vector2(ix, p.Y + (btnH - iconSizes[i].Y) / 2f), textColorU32, iconStrings[i]);
+                ImGui.PopFont();
+                if (hovered) UiSharedService.AttachToolTip(labels[i]);
+            }
+            else
+            {
+                var contentW = iconSizes[i].X + iconTextGap + labelSizes[i].X;
+                var startX = p.X + (btnW - contentW) / 2f;
+
+                ImGui.PushFont(UiBuilder.IconFont);
+                dl.AddText(new Vector2(startX, p.Y + (btnH - iconSizes[i].Y) / 2f), textColorU32, iconStrings[i]);
+                ImGui.PopFont();
+
+                dl.AddText(new Vector2(startX + iconSizes[i].X + iconTextGap, p.Y + (btnH - labelSizes[i].Y) / 2f), textColorU32, labels[i]);
+            }
+
+            if (hovered) ImGui.SetMouseCursor(ImGuiMouseCursor.Hand);
+            if (clicked)
+            {
+                _annuaireTab = i;
+                if (i == 0) _ = AnnuaireRefreshList();
+                if (i == 2) _ = AnnuaireRefreshOwned();
+            }
+        }
+    }
+
+    private void DrawAnnuaireBrowse()
+    {
+        if (_annuaireLoading)
+        {
+            ImGui.TextDisabled("Chargement...");
+            return;
+        }
+
+        if (_annuaireResults == null)
+        {
+            ImGui.TextDisabled("Appuyez sur Rechercher pour charger l'annuaire.");
+            return;
+        }
+
+        if (_annuaireResults.Establishments.Count == 0)
+        {
+            ImGui.TextDisabled("Aucun etablissement trouve.");
+            return;
+        }
+
+        foreach (var e in _annuaireResults.Establishments)
+            DrawAnnuaireCard(e);
+
+        DrawAnnuairePagination();
+    }
+
+    private void DrawAnnuaireBookmarks()
+    {
+        var bookmarks = _establishmentConfigService.Current.BookmarkedEstablishments;
+        if (bookmarks.Count == 0)
+        {
+            ImGui.TextDisabled("Aucun favori.");
+            return;
+        }
+
+        ImGui.TextDisabled($"{bookmarks.Count} favori(s)");
+        foreach (var id in bookmarks.ToList())
+        {
+            ImGui.PushID(id.ToString());
+            ImGui.BulletText(id.ToString()[..8] + "...");
+            ImGui.SameLine();
+            if (_uiSharedService.IconButton(FontAwesomeIcon.Eye))
+                Mediator.Publish(new OpenEstablishmentDetailMessage(id));
+            UiSharedService.AttachToolTip("Voir le detail");
+            ImGui.SameLine();
+            if (_uiSharedService.IconButton(FontAwesomeIcon.Trash))
+            {
+                bookmarks.Remove(id);
+                _establishmentConfigService.Save();
+            }
+            UiSharedService.AttachToolTip("Retirer des favoris");
+            ImGui.PopID();
+        }
+    }
+
+    private void DrawAnnuaireOwned()
+    {
+        if (_annuaireOwned == null)
+        {
+            ImGui.TextDisabled("Chargement...");
+            return;
+        }
+
+        if (_annuaireOwned.Count == 0)
+        {
+            ImGui.TextDisabled("Aucun etablissement enregistre.");
+            return;
+        }
+
+        foreach (var e in _annuaireOwned)
+            DrawAnnuaireCard(e);
+    }
+
+    private void DrawAnnuaireCard(EstablishmentDto establishment)
+    {
+        ImGui.PushID(establishment.Id.ToString());
+
+        var isBookmarked = _establishmentConfigService.Current.BookmarkedEstablishments.Contains(establishment.Id);
+        var catIndex = establishment.Category;
+        var catIcon = catIndex >= 0 && catIndex < AnnuaireCategoryIcons.Length ? AnnuaireCategoryIcons[catIndex] : FontAwesomeIcon.QuestionCircle;
+        var catName = catIndex >= 0 && catIndex < AnnuaireCategoryNames.Length ? AnnuaireCategoryNames[catIndex] : "?";
+
+        using (var card = ImRaii.Child($"##annCard_{establishment.Id}", new Vector2(ImGui.GetContentRegionAvail().X, 58), true))
+        {
+            if (card)
+            {
+                // Icon + Name + Category
+                using (ImRaii.PushFont(UiBuilder.IconFont))
+                    ImGui.TextColored(UiSharedService.AccentColor, catIcon.ToIconString());
+
+                ImGui.SameLine();
+                _uiSharedService.BigText(establishment.Name);
+
+                ImGui.SameLine();
+                ImGui.TextDisabled($"[{catName}]");
+
+                // Right-aligned buttons
+                var rightOffset = ImGui.GetContentRegionAvail().X;
+                var starSize = _uiSharedService.GetIconButtonSize(FontAwesomeIcon.Star);
+                var eyeSize = _uiSharedService.GetIconButtonSize(FontAwesomeIcon.Eye);
+                ImGui.SameLine(ImGui.GetCursorPosX() + rightOffset - starSize.X - eyeSize.X - ImGui.GetStyle().ItemSpacing.X);
+
+                if (_uiSharedService.IconButton(isBookmarked ? FontAwesomeIcon.Star : FontAwesomeIcon.StarHalfAlt))
+                {
+                    if (isBookmarked)
+                        _establishmentConfigService.Current.BookmarkedEstablishments.Remove(establishment.Id);
+                    else
+                        _establishmentConfigService.Current.BookmarkedEstablishments.Add(establishment.Id);
+                    _establishmentConfigService.Save();
+                }
+                UiSharedService.AttachToolTip(isBookmarked ? "Retirer des favoris" : "Ajouter aux favoris");
+
+                ImGui.SameLine();
+                if (_uiSharedService.IconButton(FontAwesomeIcon.Eye))
+                    Mediator.Publish(new OpenEstablishmentDetailMessage(establishment.Id));
+                UiSharedService.AttachToolTip("Voir le detail");
+
+                // Description or owner
+                if (!string.IsNullOrEmpty(establishment.Description))
+                {
+                    var desc = establishment.Description.Length > 80
+                        ? establishment.Description[..80] + "..."
+                        : establishment.Description;
+                    ImGui.TextDisabled(desc);
+                }
+                else
+                {
+                    var owner = establishment.OwnerAlias ?? establishment.OwnerUID;
+                    ImGui.TextDisabled($"par {owner}");
+                }
+            }
+        }
+
+        ImGui.PopID();
+    }
+
+    private void DrawAnnuairePagination()
+    {
+        if (_annuaireResults == null) return;
+        var totalPages = Math.Max(1, (_annuaireResults.TotalCount + _annuaireResults.PageSize - 1) / Math.Max(_annuaireResults.PageSize, 1));
+
+        if (_annuairePage > 0 && _uiSharedService.IconButton(FontAwesomeIcon.ChevronLeft))
+        {
+            _annuairePage--;
+            _ = AnnuaireRefreshList();
+        }
+
+        ImGui.SameLine();
+        ImGui.Text($"Page {_annuairePage + 1}/{totalPages} ({_annuaireResults.TotalCount})");
+
+        if (_annuairePage < totalPages - 1)
+        {
+            ImGui.SameLine();
+            if (_uiSharedService.IconButton(FontAwesomeIcon.ChevronRight))
+            {
+                _annuairePage++;
+                _ = AnnuaireRefreshList();
+            }
+        }
+    }
+
+    private async Task AnnuaireRefreshList()
+    {
+        if (_annuaireLoading) return;
+        _annuaireLoading = true;
+        try
+        {
+            var request = new EstablishmentListRequestDto
+            {
+                SearchText = string.IsNullOrWhiteSpace(_annuaireSearch) ? null : _annuaireSearch,
+                Category = _annuaireCategory >= 0 ? _annuaireCategory : null,
+                Page = _annuairePage,
+                PageSize = 20
+            };
+            _annuaireResults = await _apiController.EstablishmentList(request).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error refreshing annuaire list");
+        }
+        finally
+        {
+            _annuaireLoading = false;
+        }
+    }
+
+    private async Task AnnuaireRefreshOwned()
+    {
+        try
+        {
+            _annuaireOwned = await _apiController.EstablishmentGetByOwner().ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error loading owned establishments");
+        }
+    }
+
     private void DrawSocialSection()
     {
         DrawDefaultSyncSettings();
@@ -1312,22 +1696,30 @@ public class CompactUi : WindowMediatorSubscriberBase
             new Vector2(0, 0),
             false,
             ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse);
-        if (_socialSubSection == SocialSubSection.IndividualPairs)
+        switch (_socialSubSection)
         {
-            DrawPairSectionBody();
-        }
-        else
-        {
-            DrawSyncshellSection();
+            case SocialSubSection.IndividualPairs:
+                DrawPairSectionBody();
+                break;
+            case SocialSubSection.Syncshells:
+                DrawSyncshellSection();
+                break;
+            case SocialSubSection.Annuaire:
+                DrawAnnuaireSection();
+                break;
         }
     }
+
+    private static readonly SocialSubSection[] SocialSubSections =
+        [SocialSubSection.IndividualPairs, SocialSubSection.Syncshells, SocialSubSection.Annuaire];
 
     private void DrawSocialSwitchButtons()
     {
         var individualLabel = Loc.Get("CompactUi.Sidebar.IndividualPairs");
         var syncshellLabel = Loc.Get("CompactUi.Sidebar.Syncshells");
-        var icons = new[] { FontAwesomeIcon.User, FontAwesomeIcon.UserFriends };
-        var labels = new[] { individualLabel, syncshellLabel };
+        var annuaireLabel = "Annuaire";
+        var icons = new[] { FontAwesomeIcon.User, FontAwesomeIcon.UserFriends, FontAwesomeIcon.Book };
+        var labels = new[] { individualLabel, syncshellLabel, annuaireLabel };
 
         const float btnH = 32f;
         const float btnSpacing = 8f;
@@ -1350,8 +1742,7 @@ public class CompactUi : WindowMediatorSubscriberBase
             var p = ImGui.GetCursorScreenPos();
             bool clicked = ImGui.InvisibleButton($"##socialTab_{i}", new Vector2(btnW, btnH));
             bool hovered = ImGui.IsItemHovered();
-            bool isActive = (i == 0 && _socialSubSection == SocialSubSection.IndividualPairs)
-                         || (i == 1 && _socialSubSection == SocialSubSection.Syncshells);
+            bool isActive = _socialSubSection == SocialSubSections[i];
 
             var bg = isActive ? accent : hovered ? hoverBg : bgColor;
             dl.AddRectFilled(p, p + new Vector2(btnW, btnH), ImGui.GetColorU32(bg), rounding);
@@ -1382,7 +1773,7 @@ public class CompactUi : WindowMediatorSubscriberBase
             if (hovered) ImGui.SetMouseCursor(ImGuiMouseCursor.Hand);
             if (clicked)
             {
-                _socialSubSection = i == 0 ? SocialSubSection.IndividualPairs : SocialSubSection.Syncshells;
+                _socialSubSection = SocialSubSections[i];
             }
         }
     }

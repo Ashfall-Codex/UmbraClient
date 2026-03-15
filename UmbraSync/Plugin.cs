@@ -166,6 +166,9 @@ public sealed class Plugin : IDalamudPlugin
             collection.AddSingleton<HousingShareManager>();
             collection.AddSingleton<HousingFurnitureSyncService>();
             collection.AddSingleton<RgpdDataService>();
+            collection.AddSingleton<EstablishmentProximityService>();
+            collection.AddSingleton<EstablishmentReminderService>();
+            collection.AddSingleton<EstablishmentSyncSlotService>();
 
             collection.AddSingleton((s) => new RpConfigService(pluginInterface.ConfigDirectory.FullName, s.GetRequiredService<DalamudUtilService>()));
             collection.AddSingleton((s) => new MareConfigService(pluginInterface.ConfigDirectory.FullName));
@@ -173,6 +176,7 @@ public sealed class Plugin : IDalamudPlugin
             collection.AddSingleton((s) => new NotesConfigService(pluginInterface.ConfigDirectory.FullName));
             collection.AddSingleton((s) => new ServerTagConfigService(pluginInterface.ConfigDirectory.FullName));
             collection.AddSingleton((s) => new SyncshellConfigService(pluginInterface.ConfigDirectory.FullName));
+            collection.AddSingleton((s) => new EstablishmentConfigService(pluginInterface.ConfigDirectory.FullName));
             collection.AddSingleton((s) => new TransientConfigService(pluginInterface.ConfigDirectory.FullName));
             collection.AddSingleton((s) => new XivDataStorageService(pluginInterface.ConfigDirectory.FullName));
             collection.AddSingleton((s) => new PlayerPerformanceConfigService(pluginInterface.ConfigDirectory.FullName));
@@ -185,6 +189,7 @@ public sealed class Plugin : IDalamudPlugin
             collection.AddSingleton<IConfigService<IMareConfiguration>>(s => s.GetRequiredService<NotesConfigService>());
             collection.AddSingleton<IConfigService<IMareConfiguration>>(s => s.GetRequiredService<ServerTagConfigService>());
             collection.AddSingleton<IConfigService<IMareConfiguration>>(s => s.GetRequiredService<SyncshellConfigService>());
+            collection.AddSingleton<IConfigService<IMareConfiguration>>(s => s.GetRequiredService<EstablishmentConfigService>());
             collection.AddSingleton<IConfigService<IMareConfiguration>>(s => s.GetRequiredService<TransientConfigService>());
             collection.AddSingleton<IConfigService<IMareConfiguration>>(s => s.GetRequiredService<XivDataStorageService>());
             collection.AddSingleton<IConfigService<IMareConfiguration>>(s => s.GetRequiredService<PlayerPerformanceConfigService>());
@@ -225,6 +230,12 @@ public sealed class Plugin : IDalamudPlugin
             collection.AddScoped<WindowMediatorSubscriberBase, CharaDataHubUi>();
             collection.AddScoped<WindowMediatorSubscriberBase>(sp => sp.GetRequiredService<EditProfileUi>());
             collection.AddScoped<WindowMediatorSubscriberBase, TypingIndicatorOverlay>();
+            collection.AddScoped<EstablishmentDirectoryUi>();
+            collection.AddScoped<WindowMediatorSubscriberBase>(sp => sp.GetRequiredService<EstablishmentDirectoryUi>());
+            collection.AddScoped<EstablishmentDetailUi>();
+            collection.AddScoped<WindowMediatorSubscriberBase>(sp => sp.GetRequiredService<EstablishmentDetailUi>());
+            collection.AddScoped<EstablishmentRegistrationUi>();
+            collection.AddScoped<WindowMediatorSubscriberBase>(sp => sp.GetRequiredService<EstablishmentRegistrationUi>());
             collection.AddScoped<CacheCreationService>();
             collection.AddScoped<TransientResourceManager>();
             collection.AddScoped<PlayerDataFactory>();

@@ -154,5 +154,8 @@ public record RgpdDataExportReadyMessage(string ExportPath) : MessageBase;
 public record RgpdLocalDataDeletionRequestMessage : MessageBase;
 public record RgpdLocalDataDeletionCompleteMessage : MessageBase;
 public record SwitchToRgpdConsentUiMessage : MessageBase;
+public record EstablishmentEnteredMessage(UmbraSync.API.Dto.Establishment.EstablishmentDto Establishment) : MessageBase;
+public record EstablishmentLeftMessage : MessageBase;
+public record OpenEstablishmentDetailMessage(Guid EstablishmentId) : MessageBase;
 #pragma warning restore S2094
 #pragma warning restore MA0048
