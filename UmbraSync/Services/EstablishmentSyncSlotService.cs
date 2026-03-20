@@ -8,16 +8,14 @@ namespace UmbraSync.Services;
 
 public class EstablishmentSyncSlotService : MediatorSubscriberBase, IDisposable
 {
-    private readonly ApiController _apiController;
     private readonly EstablishmentConfigService _configService;
     private readonly SlotService _slotService;
     private Guid? _currentEstablishmentId;
 
     public EstablishmentSyncSlotService(ILogger<EstablishmentSyncSlotService> logger, MareMediator mediator,
-        ApiController apiController, EstablishmentConfigService configService, SlotService slotService)
+        EstablishmentConfigService configService, SlotService slotService)
         : base(logger, mediator)
     {
-        _apiController = apiController;
         _configService = configService;
         _slotService = slotService;
 

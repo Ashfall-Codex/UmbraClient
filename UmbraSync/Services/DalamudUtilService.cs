@@ -418,7 +418,7 @@ public class DalamudUtilService : IHostedService, IMediatorSubscriber
         uint wardId = houseMan == null ? 0 : (uint)(houseMan->GetCurrentWard() + 1);
         uint houseId;
         var tempHouseId = houseMan == null ? 0 : (houseMan->GetCurrentPlot() + 1);
-        if (!houseMan->IsInside()) tempHouseId = 0;
+        if (houseMan != null && !houseMan->IsInside()) tempHouseId = 0;
         if (tempHouseId < 0) // Should not happen with +1 but keep logic
         {
             divisionId = tempHouseId == -126 ? 2 : (uint)1;

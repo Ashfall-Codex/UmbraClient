@@ -10,7 +10,6 @@ public class EstablishmentProximityService : MediatorSubscriberBase, IDisposable
 {
     private readonly ApiController _apiController;
     private readonly EstablishmentConfigService _configService;
-    private readonly MareConfigService _mareConfigService;
 
     private Vector3 _lastQueryPosition = Vector3.Zero;
     private EstablishmentDto? _currentEstablishment;
@@ -19,12 +18,11 @@ public class EstablishmentProximityService : MediatorSubscriberBase, IDisposable
     public EstablishmentDto? CurrentEstablishment => _currentEstablishment;
 
     public EstablishmentProximityService(ILogger<EstablishmentProximityService> logger, MareMediator mediator,
-        ApiController apiController, EstablishmentConfigService configService, MareConfigService mareConfigService)
+        ApiController apiController, EstablishmentConfigService configService)
         : base(logger, mediator)
     {
         _apiController = apiController;
         _configService = configService;
-        _mareConfigService = mareConfigService;
 
         Mediator.Subscribe<ConnectedMessage>(this, _ => StartPolling());
         Mediator.Subscribe<DisconnectedMessage>(this, _ => StopPolling());

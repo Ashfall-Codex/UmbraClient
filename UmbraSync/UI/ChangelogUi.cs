@@ -171,8 +171,7 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
             new(new Version(2, 4, 0, 0), "2.4.0.0", new List<ChangelogLine>
             {
                 new("Nouveauté : Système d'annuaire d'établissement, vous pouvez désormais lister votre établissement."),
-                new("Correction : Un problème de permission rendait la pause Syncshell-user inutilisable"),
-
+                new("Amélioration : Réécriture de la logique des Pause Syncshell / Individuelle."),
             }),   
             new(new Version(2, 3, 4, 3012), "2.3.4.3012", new List<ChangelogLine>
             {

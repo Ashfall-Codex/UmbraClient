@@ -138,6 +138,7 @@ public sealed class Plugin : IDalamudPlugin
             collection.AddSingleton<DalamudUtilService>();
             collection.AddSingleton<DtrEntry>();
             collection.AddSingleton<PairManager>();
+            collection.AddSingleton<PauseCoordinator>();
             collection.AddSingleton<PairHandlerRegistry>();
             collection.AddSingleton<PairStateCache>();
             collection.AddSingleton<PairLedger>();
@@ -299,6 +300,7 @@ public sealed class Plugin : IDalamudPlugin
         {
             pluginLog.Warning(e, "Failed to initialize PartyListTypingService draw hook");
         }
+
 
         _ = Task.Run(async () =>
         {

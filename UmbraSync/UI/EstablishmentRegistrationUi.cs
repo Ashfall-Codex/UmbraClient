@@ -596,7 +596,7 @@ internal class EstablishmentRegistrationUi : WindowMediatorSubscriberBase
             var location = new EstablishmentLocationDto
             {
                 LocationType = _locationType,
-                TerritoryId = _locationType == 0 ? ResidentialDistricts[_selectedDistrictIndex].TerritoryId : _dalamudUtilService.GetMapData().TerritoryId,
+                TerritoryId = _locationType == 0 ? ResidentialDistricts[_selectedDistrictIndex].TerritoryId : _dalamudUtilService.GetMapDataAsync().GetAwaiter().GetResult().TerritoryId,
                 ServerId = _selectedWorldId != 0 ? _selectedWorldId : null,
                 WardId = _locationType == 0 ? (uint)_ward : null,
                 PlotId = _locationType == 0 ? (uint)_plot : null,

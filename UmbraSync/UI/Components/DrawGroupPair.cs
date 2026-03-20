@@ -274,8 +274,7 @@ public class DrawGroupPair : DrawPairBase
         );
         float plusW = _uiSharedService.GetIconButtonSize(FontAwesomeIcon.Plus).X;
         bool pausedByYou = _pair.UserPair != null
-            ? _pair.UserPair.OwnPermissions.IsPaused()
-            : _group.GroupUserPermissions.IsPaused();
+            ? _pair.UserPair.OwnPermissions.IsPaused() : _fullInfoDto.GroupUserPermissions.IsPaused();
         var pauseIcon = pausedByYou ? FontAwesomeIcon.Play : FontAwesomeIcon.Pause;
         float pauseMaxW = MathF.Max(
             _uiSharedService.GetIconButtonSize(FontAwesomeIcon.Pause).X,
@@ -426,17 +425,11 @@ public class DrawGroupPair : DrawPairBase
                 {
                     if (_pair.UserPair != null)
                     {
-                        _apiController.Pause(_pair.UserData);
+                        _mediator.Publish(new PauseMessage(_pair.UserData));
                     }
                     else
                     {
-                        var groupPerm = _group.GroupUserPermissions;
-                        groupPerm.SetPaused(!groupPerm.IsPaused());
-                        _ = _apiController.GroupChangeIndividualPermissionState(new GroupPairUserPermissionDto(
-                            _group.Group,
-                            _pair.UserData,
-                            groupPerm
-                        ));
+                        _mediator.Publish(new GroupPairPauseMessage(_group.Group, _pair.UserData, _fullInfoDto.GroupUserPermissions));
                     }
                 }
                 UiSharedService.AttachToolTip(AppendSeenInfo((pausedByYou ? "Resume" : "Pause") + " syncing with " + entryUID));

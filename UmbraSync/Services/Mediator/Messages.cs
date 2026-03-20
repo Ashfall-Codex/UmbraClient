@@ -2,6 +2,7 @@
 using System.Collections.Concurrent;
 using System.Numerics;
 using UmbraSync.API.Data;
+using UmbraSync.API.Data.Enum;
 using UmbraSync.API.Dto;
 using UmbraSync.API.Dto.CharaData;
 using UmbraSync.API.Dto.Group;
@@ -76,6 +77,8 @@ public record PlayerUploadingMessage(GameObjectHandler Handler, bool IsUploading
 public record ClearProfileDataMessage(UserData? UserData = null, string? CharacterName = null, uint? WorldId = null) : MessageBase;
 public record CyclePauseMessage(UserData UserData) : MessageBase;
 public record PauseMessage(UserData UserData) : MessageBase;
+public record GroupPairPauseMessage(GroupData Group, UserData UserData, GroupUserPermissions CurrentPermissions) : MessageBase;
+public record GroupWidePauseMessage(GroupData Group, GroupUserPermissions CurrentPermissions, string CallerUID) : MessageBase;
 public record ProfilePopoutToggle(Pair? Pair) : MessageBase;
 public record CompactUiChange(Vector2 Size, Vector2 Position) : MessageBase;
 public record ProfileOpenStandaloneMessage(Pair Pair) : MessageBase;

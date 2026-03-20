@@ -1089,6 +1089,9 @@ Veuillez conserver une copie de votre clé secrète au cas où vous auriez besoi
   <data name="Slot.Toast.Joined" xml:space="preserve">
     <value>Vous avez rejoint la Syncshell de {0}</value>
   </data>
+  <data name="Slot.Toast.JoinFailed" xml:space="preserve">
+    <value>Impossible de rejoindre la Syncshell de {0}. Veuillez réessayer.</value>
+  </data>
   <data name="Slot.Toast.AutoLeft" xml:space="preserve">
     <value>Vous avez quitté la Syncshell {0} après 5 minutes d'inactivité dans la zone.</value>
   </data>

@@ -38,7 +38,10 @@ public class EstablishmentReminderService : MediatorSubscriberBase, IDisposable
                     await Task.Delay(TimeSpan.FromMinutes(30), _timerCts.Token).ConfigureAwait(false);
                 }
             }
-            catch (OperationCanceledException) { }
+            catch (OperationCanceledException)
+            {
+                // Timer cancelled during shutdown — expected, nothing to do
+            }
             catch (Exception ex)
             {
                 Logger.LogError(ex, "Error in EstablishmentReminderService timer");

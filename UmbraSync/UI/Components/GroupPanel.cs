@@ -808,8 +808,7 @@ internal sealed class GroupPanel
             : _uiShared.IconButtonCentered(pauseIcon, pauseIconSize.Y);
         if (clickedPause)
         {
-            var userPerm = groupDto.GroupUserPermissions ^ GroupUserPermissions.Paused;
-            _ = ApiController.GroupChangeIndividualPermissionState(new GroupPairUserPermissionDto(groupDto.Group, new UserData(ApiController.UID), userPerm));
+            _mainUi.Mediator.Publish(new GroupWidePauseMessage(groupDto.Group, groupDto.GroupUserPermissions, ApiController.UID));
         }
         UiSharedService.AttachToolTip((groupDto.GroupUserPermissions.IsPaused() ? "Resume" : "Pause") + " pairing with all users in this Syncshell");
         ImGui.SameLine();

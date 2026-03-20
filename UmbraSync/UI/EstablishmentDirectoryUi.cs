@@ -356,10 +356,10 @@ internal class EstablishmentDirectoryUi : WindowMediatorSubscriberBase
         }
     }
 
-    private async Task RefreshBookmarks()
+    private static Task RefreshBookmarks()
     {
         // Bookmarks are local, no server call needed for the tab display
-        await Task.CompletedTask;
+        return Task.CompletedTask;
     }
 
     private async Task RefreshOwned()

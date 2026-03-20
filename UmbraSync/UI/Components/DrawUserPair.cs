@@ -196,7 +196,7 @@ public class DrawUserPair : DrawPairBase
         {
             if (pauseIcon == FontAwesomeIcon.Pause ? _uiSharedService.IconPauseButtonCentered() : _uiSharedService.IconButtonCentered(pauseIcon))
             {
-                _apiController.Pause(_pair.UserData);
+                _mediator.Publish(new PauseMessage(_pair.UserData));
             }
             var pauseKey = !_pair.IsPaused ? "DrawUserPair.Pause" : "DrawUserPair.Resume";
             UiSharedService.AttachToolTip(AppendSeenInfo(string.Format(CultureInfo.CurrentCulture, Loc.Get(pauseKey), entryUID)));
@@ -345,7 +345,7 @@ public class DrawUserPair : DrawPairBase
 
         if (_uiSharedService.IconTextButton(FontAwesomeIcon.PlayCircle, Loc.Get("DrawUserPair.Menu.CyclePause")))
         {
-            _apiController.Pause(entry.UserData);
+            _mediator.Publish(new CyclePauseMessage(entry.UserData));
             ImGui.CloseCurrentPopup();
         }
         var entryUID = entry.UserData.AliasOrUID;
