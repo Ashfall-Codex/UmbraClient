@@ -11,6 +11,7 @@ using UmbraSync.API.Dto.Establishment;
 using UmbraSync.MareConfiguration;
 using UmbraSync.MareConfiguration.Models;
 using UmbraSync.PlayerData.Pairs;
+using UmbraSync.Localization;
 using UmbraSync.Services;
 using UmbraSync.Services.Mediator;
 
@@ -40,6 +41,15 @@ internal class EstablishmentDetailUi : WindowMediatorSubscriberBase
     // Event creation
     private string _newEventTitle = string.Empty;
     private string _newEventDescription = string.Empty;
+    private int _newEventDay = DateTime.Now.Day;
+    private int _newEventMonth = DateTime.Now.Month;
+    private int _newEventYear = DateTime.Now.Year;
+    private int _newEventHour = 21;
+    private int _newEventMinute;
+    private bool _newEventHasEndTime;
+    private int _newEventEndHour = 23;
+    private int _newEventEndMinute;
+    private int _newEventRecurrence; // 0=Unique, 1=Quotidien, 2=Hebdomadaire, 3=Mensuel
 
     // SyncSlot binding
     private string _syncSlotGid = string.Empty;
@@ -52,16 +62,20 @@ internal class EstablishmentDetailUi : WindowMediatorSubscriberBase
     private IDalamudTextureWrap? _editLogoTexture;
     private IDalamudTextureWrap? _editBannerTexture;
     private string? _imageMessage;
+    private bool _pendingLogoLoad;
+    private bool _pendingBannerLoad;
 
     // Eligible groups cache (owned + has SyncSlot)
     private List<(string Gid, string Display)> _eligibleGroups = [];
     private bool _eligibleGroupsLoading;
     private bool _eligibleGroupsLoaded;
 
-    private static readonly string[] CategoryNames =
+    private static string[] CategoryNames =>
     [
-        "Taverne", "Boutique", "Temple", "Academie",
-        "Guilde", "Residence", "Atelier", "Autre"
+        Loc.Get("Establishment.Category.Tavern"), Loc.Get("Establishment.Category.Shop"),
+        Loc.Get("Establishment.Category.Temple"), Loc.Get("Establishment.Category.Academy"),
+        Loc.Get("Establishment.Category.Guild"), Loc.Get("Establishment.Category.Residence"),
+        Loc.Get("Establishment.Category.Workshop"), Loc.Get("Establishment.Category.Other")
     ];
 
     private static readonly Dictionary<uint, string> DistrictNamesByTerritory = new()
@@ -83,7 +97,7 @@ internal class EstablishmentDetailUi : WindowMediatorSubscriberBase
         ApiController apiController, EstablishmentConfigService configService,
         UiSharedService uiSharedService, PairManager pairManager,
         FileDialogManager fileDialogManager, PerformanceCollectorService performanceCollectorService)
-        : base(logger, mediator, "Detail etablissement###EstablishmentDetail", performanceCollectorService)
+        : base(logger, mediator, "D\u00e9tail \u00e9tablissement###EstablishmentDetail", performanceCollectorService)
     {
         _apiController = apiController;
         _configService = configService;
@@ -112,13 +126,13 @@ internal class EstablishmentDetailUi : WindowMediatorSubscriberBase
     {
         if (_isLoading)
         {
-            ImGui.TextDisabled("Chargement...");
+            ImGui.TextDisabled(Loc.Get("Establishment.Detail.Loading"));
             return;
         }
 
         if (_establishment == null)
         {
-            UiSharedService.ColorTextWrapped("Etablissement introuvable ou supprime.", ImGuiColors.DalamudRed);
+            UiSharedService.ColorTextWrapped(Loc.Get("Establishment.Detail.NotFound"), ImGuiColors.DalamudRed);
             return;
         }
 
@@ -130,7 +144,7 @@ internal class EstablishmentDetailUi : WindowMediatorSubscriberBase
         using var tabBar = ImRaii.TabBar("##detailTabs");
         if (!tabBar) return;
 
-        using (var infoTab = ImRaii.TabItem("Informations"))
+        using (var infoTab = ImRaii.TabItem(Loc.Get("Establishment.Detail.Tab.Info")))
         {
             if (infoTab)
             {
@@ -141,19 +155,19 @@ internal class EstablishmentDetailUi : WindowMediatorSubscriberBase
             }
         }
 
-        using (var eventsTab = ImRaii.TabItem($"Evenements ({_establishment.Events.Count})"))
+        using (var eventsTab = ImRaii.TabItem($"{Loc.Get("Establishment.Detail.Tab.Events")} ({_establishment.Events.Count})"))
         {
             if (eventsTab)
                 DrawEventsTab(isOwner);
         }
 
-        using (var imagesTab = ImRaii.TabItem("Images"))
+        using (var imagesTab = ImRaii.TabItem(Loc.Get("Establishment.Detail.Tab.Images")))
         {
             if (imagesTab)
                 DrawImagesTab(isOwner);
         }
 
-        using (var syncTab = ImRaii.TabItem("Liaison Sync"))
+        using (var syncTab = ImRaii.TabItem(Loc.Get("Establishment.Detail.Tab.Sync")))
         {
             if (syncTab)
                 DrawSyncSlotTab();
@@ -166,23 +180,40 @@ internal class EstablishmentDetailUi : WindowMediatorSubscriberBase
         var catIcon = catIndex >= 0 && catIndex < CategoryIcons.Length ? CategoryIcons[catIndex] : FontAwesomeIcon.QuestionCircle;
         var catName = catIndex >= 0 && catIndex < CategoryNames.Length ? CategoryNames[catIndex] : "?";
 
-        // Category icon
-        using (ImRaii.PushFont(UiBuilder.IconFont))
-            ImGui.TextColored(UiSharedService.AccentColor, catIcon.ToIconString());
-        ImGui.SameLine();
+        // Logo or category icon
+        if (_logoTexture != null)
+        {
+            float logoSize = 24f;
+            float logoRounding = 4f;
+            var dl = ImGui.GetWindowDrawList();
+            var p = ImGui.GetCursorScreenPos();
+            var textH = ImGui.GetTextLineHeight();
+            var logoY = p.Y + (textH - logoSize) / 2f;
+            var logoMin = new Vector2(p.X, logoY);
+            dl.AddImageRounded(_logoTexture.Handle, logoMin, logoMin + new Vector2(logoSize, logoSize),
+                Vector2.Zero, Vector2.One, ImGui.ColorConvertFloat4ToU32(Vector4.One), logoRounding);
+            ImGui.Dummy(new Vector2(logoSize, textH));
+            ImGui.SameLine();
+        }
+        else
+        {
+            using (ImRaii.PushFont(UiBuilder.IconFont))
+                ImGui.TextColored(UiSharedService.AccentColor, catIcon.ToIconString());
+            ImGui.SameLine();
+        }
 
         // Title
         _uiSharedService.BigText(_establishment.Name);
-        ImGui.SameLine();
-        ImGui.TextDisabled($"[{catName}]");
 
         // Right-aligned buttons
-        var rightX = ImGui.GetContentRegionAvail().X;
-        var iconSizes = 0f;
-        if (isOwner) iconSizes += _uiSharedService.GetIconButtonSize(FontAwesomeIcon.Edit).X + ImGui.GetStyle().ItemSpacing.X;
-        iconSizes += _uiSharedService.GetIconButtonSize(FontAwesomeIcon.Star).X + ImGui.GetStyle().ItemSpacing.X;
-        if (isOwner) iconSizes += _uiSharedService.GetIconButtonSize(FontAwesomeIcon.Trash).X + ImGui.GetStyle().ItemSpacing.X;
-        ImGui.SameLine(ImGui.GetCursorPosX() + rightX - iconSizes);
+        var starSize = _uiSharedService.GetIconButtonSize(FontAwesomeIcon.Star);
+        var buttonsWidth = starSize.X + ImGui.GetStyle().ItemSpacing.X;
+        if (isOwner)
+        {
+            buttonsWidth += _uiSharedService.GetIconButtonSize(FontAwesomeIcon.Edit).X + ImGui.GetStyle().ItemSpacing.X;
+            buttonsWidth += _uiSharedService.GetIconButtonSize(FontAwesomeIcon.Trash).X + ImGui.GetStyle().ItemSpacing.X;
+        }
+        ImGui.SameLine(ImGui.GetWindowContentRegionMax().X - buttonsWidth);
 
         // Bookmark
         var isBookmarked = _configService.Current.BookmarkedEstablishments.Contains(_establishment.Id);
@@ -194,7 +225,7 @@ internal class EstablishmentDetailUi : WindowMediatorSubscriberBase
                 _configService.Current.BookmarkedEstablishments.Add(_establishment.Id);
             _configService.Save();
         }
-        UiSharedService.AttachToolTip(isBookmarked ? "Retirer des favoris" : "Ajouter aux favoris");
+        UiSharedService.AttachToolTip(isBookmarked ? Loc.Get("Establishment.Directory.RemoveFavorite") : Loc.Get("Establishment.Directory.AddFavorite"));
 
         if (isOwner)
         {
@@ -204,23 +235,42 @@ internal class EstablishmentDetailUi : WindowMediatorSubscriberBase
                 if (!_isEditing) PopulateEditFields();
                 _isEditing = !_isEditing;
             }
-            UiSharedService.AttachToolTip(_isEditing ? "Annuler les modifications" : "Modifier");
+            UiSharedService.AttachToolTip(_isEditing ? Loc.Get("Establishment.Detail.CancelEdit") : Loc.Get("Establishment.Detail.Edit"));
 
             ImGui.SameLine();
             using var red = ImRaii.PushColor(ImGuiCol.Button, new Vector4(0.6f, 0.1f, 0.1f, 1f));
             if (_uiSharedService.IconButton(FontAwesomeIcon.Trash))
                 _ = DeleteEstablishment();
-            UiSharedService.AttachToolTip("Supprimer cet etablissement");
+            UiSharedService.AttachToolTip(Loc.Get("Establishment.Detail.Delete"));
         }
 
-        // Owner line
+        // Category + Owner line
+        ImGui.TextColored(UiSharedService.AccentColor, $"[{catName}]");
+        ImGui.SameLine();
         var owner = _establishment.OwnerAlias ?? _establishment.OwnerUID;
-        ImGui.TextDisabled($"Proprietaire: {owner}  |  Derniere MAJ: {_establishment.UpdatedUtc:g}");
+        ImGui.TextDisabled(string.Format(Loc.Get("Establishment.Detail.Owner"), owner, _establishment.UpdatedUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm")));
     }
 
     private void DrawViewMode()
     {
         ImGui.Spacing();
+
+        // Banner at top of info
+        if (_bannerTexture != null)
+        {
+            float availWidth = ImGui.GetContentRegionAvail().X;
+            float bannerHeight = availWidth * (260f / 840f);
+            float bannerRounding = 8f * ImGuiHelpers.GlobalScale;
+            var bannerDrawList = ImGui.GetWindowDrawList();
+            var bannerMin = ImGui.GetCursorScreenPos();
+            var bannerMax = new Vector2(bannerMin.X + availWidth, bannerMin.Y + bannerHeight);
+            bannerDrawList.AddImageRounded(
+                _bannerTexture.Handle, bannerMin, bannerMax,
+                Vector2.Zero, Vector2.One,
+                ImGui.ColorConvertFloat4ToU32(Vector4.One), bannerRounding);
+            ImGui.Dummy(new Vector2(availWidth, bannerHeight));
+            ImGui.Spacing();
+        }
 
         if (!string.IsNullOrEmpty(_establishment!.Description))
         {
@@ -243,14 +293,6 @@ internal class EstablishmentDetailUi : WindowMediatorSubscriberBase
                 ImGui.TextColored(UiSharedService.AccentColor, FontAwesomeIcon.Flag.ToIconString());
             ImGui.SameLine();
             ImGui.Text(_establishment.FactionTag);
-        }
-
-        if (_establishment.Languages.Length > 0)
-        {
-            using (ImRaii.PushFont(UiBuilder.IconFont))
-                ImGui.TextColored(UiSharedService.AccentColor, FontAwesomeIcon.Globe.ToIconString());
-            ImGui.SameLine();
-            ImGui.Text(string.Join(", ", _establishment.Languages));
         }
 
         if (_establishment.Tags.Length > 0)
@@ -278,8 +320,8 @@ internal class EstablishmentDetailUi : WindowMediatorSubscriberBase
                 var serverName = loc.ServerId.HasValue && _uiSharedService.WorldData.TryGetValue((ushort)loc.ServerId.Value, out var sn)
                     ? sn : loc.ServerId?.ToString() ?? "?";
                 var districtName = ResolveDistrictName(loc.TerritoryId);
-                var subdivText = loc.DivisionId > 1 ? " (Subdivision)" : string.Empty;
-                ImGui.Text($"{districtName} — {serverName}, Secteur {loc.WardId}, Parcelle {loc.PlotId}{subdivText}");
+                var subdivText = loc.DivisionId > 1 ? $" {Loc.Get("Establishment.Detail.Subdivision")}" : string.Empty;
+                ImGui.Text($"{districtName} — {serverName}, {string.Format(Loc.Get("Establishment.Detail.Ward"), loc.WardId, loc.PlotId)}{subdivText}");
             }
             else
             {
@@ -294,27 +336,58 @@ internal class EstablishmentDetailUi : WindowMediatorSubscriberBase
 
         ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X);
         ImGui.InputText("##editName", ref _editName, 100);
-        UiSharedService.AttachToolTip("Nom de l'etablissement");
+        UiSharedService.AttachToolTip(Loc.Get("Establishment.Detail.NameTooltip"));
 
         ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X);
         ImGui.InputTextMultiline("##editDesc", ref _editDescription, 2000, new Vector2(ImGui.GetContentRegionAvail().X, 80));
 
         ImGui.SetNextItemWidth(200);
-        ImGui.Combo("Categorie##edit", ref _editCategory, CategoryNames, CategoryNames.Length);
+        ImGui.Combo($"{Loc.Get("Establishment.Field.Category")}##edit", ref _editCategory, CategoryNames, CategoryNames.Length);
 
         ImGui.SetNextItemWidth(200);
-        ImGui.InputText("Horaires##edit", ref _editSchedule, 200);
+        ImGui.InputTextWithHint($"{Loc.Get("Establishment.Field.Schedule")}##edit", Loc.Get("Establishment.Field.ScheduleHint"), ref _editSchedule, 200);
 
         ImGui.SetNextItemWidth(200);
-        ImGui.InputText("Faction##edit", ref _editFactionTag, 50);
+        ImGui.InputTextWithHint($"{Loc.Get("Establishment.Field.Faction")}##edit", Loc.Get("Establishment.Field.Optional"), ref _editFactionTag, 50);
 
-        ImGui.Checkbox("Public##edit", ref _editIsPublic);
+        ImGui.Checkbox($"{Loc.Get("Establishment.Field.PublicDirectory")}##edit", ref _editIsPublic);
 
         ImGui.Spacing();
         using var accent = ImRaii.PushColor(ImGuiCol.Button, UiSharedService.AccentColor);
-        if (ImGui.Button("Sauvegarder", new Vector2(120, 0)))
+        if (ImGui.Button(Loc.Get("Establishment.Detail.Save"), new Vector2(120, 0)))
             _ = SaveChanges();
     }
+
+    private static readonly string[] DayNamesShort = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
+
+    private static string FormatEventTime(EstablishmentEventDto evt)
+    {
+        var local = evt.StartsAtUtc.ToLocalTime();
+        var dayName = DayNamesShort[(int)local.DayOfWeek == 0 ? 6 : (int)local.DayOfWeek - 1];
+        var date = $"{dayName} {local:dd/MM} - {local:HH}h{local:mm}";
+        if (evt.EndsAtUtc.HasValue)
+        {
+            var endLocal = evt.EndsAtUtc.Value.ToLocalTime();
+            date += $" > {endLocal:HH}h{endLocal:mm}";
+        }
+        return date;
+    }
+
+    private static string GetRecurrenceLabel(int recurrence) => recurrence switch
+    {
+        1 => Loc.Get("Establishment.Event.Recurrence.Daily"),
+        2 => Loc.Get("Establishment.Event.Recurrence.Weekly"),
+        3 => Loc.Get("Establishment.Event.Recurrence.Monthly"),
+        _ => Loc.Get("Establishment.Event.Recurrence.Unique")
+    };
+
+    private static FontAwesomeIcon GetRecurrenceIcon(int recurrence) => recurrence switch
+    {
+        1 => FontAwesomeIcon.Redo,
+        2 => FontAwesomeIcon.CalendarWeek,
+        3 => FontAwesomeIcon.CalendarAlt,
+        _ => FontAwesomeIcon.Calendar
+    };
 
     private void DrawEventsTab(bool isOwner)
     {
@@ -322,45 +395,30 @@ internal class EstablishmentDetailUi : WindowMediatorSubscriberBase
 
         if (_establishment!.Events.Count == 0)
         {
-            ImGui.TextDisabled("Aucun evenement programme.");
+            ImGui.TextDisabled(Loc.Get("Establishment.Event.NoEvents"));
         }
         else
         {
-            foreach (var evt in _establishment.Events.OrderBy(e => e.StartsAtUtc))
+            var now = DateTime.UtcNow;
+            var futureEvents = _establishment.Events
+                .Where(e => e.StartsAtUtc >= now || (e.EndsAtUtc.HasValue && e.EndsAtUtc.Value >= now) || e.Recurrence > 0)
+                .OrderBy(e => e.StartsAtUtc)
+                .ToList();
+            var pastEvents = _establishment.Events
+                .Where(e => e.StartsAtUtc < now && (!e.EndsAtUtc.HasValue || e.EndsAtUtc.Value < now) && e.Recurrence == 0)
+                .OrderByDescending(e => e.StartsAtUtc)
+                .ToList();
+
+            foreach (var evt in futureEvents)
+                DrawEventCard(evt, isOwner, false);
+
+            if (pastEvents.Count > 0)
             {
-                ImGui.PushID(evt.Id.ToString());
-
-                using (ImRaii.PushFont(UiBuilder.IconFont))
-                    ImGui.TextColored(UiSharedService.AccentColor, FontAwesomeIcon.Calendar.ToIconString());
-                ImGui.SameLine();
-                UiSharedService.ColorText(evt.Title, new Vector4(1f, 0.9f, 0.6f, 1f));
-                ImGui.SameLine();
-                ImGui.TextDisabled($"— {evt.StartsAtUtc:g}");
-
-                if (evt.EndsAtUtc.HasValue)
-                {
-                    ImGui.SameLine();
-                    ImGui.TextDisabled($"a {evt.EndsAtUtc.Value:t}");
-                }
-
-                if (isOwner)
-                {
-                    ImGui.SameLine();
-                    using var red = ImRaii.PushColor(ImGuiCol.Button, new Vector4(0.5f, 0.1f, 0.1f, 1f));
-                    if (_uiSharedService.IconButton(FontAwesomeIcon.Trash))
-                        _ = DeleteEvent(evt.Id);
-                    UiSharedService.AttachToolTip("Supprimer cet evenement");
-                }
-
-                if (!string.IsNullOrEmpty(evt.Description))
-                {
-                    ImGui.Indent(24);
-                    ImGui.TextDisabled(evt.Description);
-                    ImGui.Unindent(24);
-                }
-
-                ImGui.PopID();
-                ImGui.Spacing();
+                ImGuiHelpers.ScaledDummy(4f);
+                ImGui.TextDisabled($"--- {Loc.Get("Establishment.Event.Past")} ({pastEvents.Count}) ---");
+                ImGuiHelpers.ScaledDummy(2f);
+                foreach (var evt in pastEvents)
+                    DrawEventCard(evt, isOwner, true);
             }
         }
 
@@ -368,19 +426,161 @@ internal class EstablishmentDetailUi : WindowMediatorSubscriberBase
         {
             ImGui.Separator();
             ImGui.Spacing();
+            DrawEventCreationForm();
+        }
+    }
+
+    private void DrawEventCard(EstablishmentEventDto evt, bool isOwner, bool isPast)
+    {
+        ImGui.PushID(evt.Id.ToString());
+
+        UiSharedService.DrawCard($"evt_{evt.Id}", () =>
+        {
+            // Row 1: Icon + Title + Delete button
+            var recIcon = GetRecurrenceIcon(evt.Recurrence);
             using (ImRaii.PushFont(UiBuilder.IconFont))
-                ImGui.TextColored(UiSharedService.AccentColor, FontAwesomeIcon.PlusCircle.ToIconString());
+                ImGui.TextColored(isPast ? ImGuiColors.DalamudGrey : UiSharedService.AccentColor, recIcon.ToIconString());
             ImGui.SameLine();
-            ImGui.Text("Nouvel evenement");
+            var titleColor = isPast ? ImGuiColors.DalamudGrey : new Vector4(1f, 0.9f, 0.6f, 1f);
+            UiSharedService.ColorText(evt.Title, titleColor);
 
-            ImGui.SetNextItemWidth(250);
-            ImGui.InputText("Titre##newevent", ref _newEventTitle, 100);
+            if (isOwner)
+            {
+                var trashSize = _uiSharedService.GetIconButtonSize(FontAwesomeIcon.Trash);
+                ImGui.SameLine(ImGui.GetWindowContentRegionMax().X - trashSize.X - ImGui.GetStyle().ItemSpacing.X * 3);
+                using var red = ImRaii.PushColor(ImGuiCol.Button, new Vector4(0.5f, 0.1f, 0.1f, 1f));
+                if (_uiSharedService.IconButton(FontAwesomeIcon.Trash))
+                    _ = DeleteEvent(evt.Id);
+                UiSharedService.AttachToolTip(Loc.Get("Establishment.Event.Delete"));
+            }
 
-            ImGui.SetNextItemWidth(250);
-            ImGui.InputText("Description##newevent", ref _newEventDescription, 500);
+            // Row 2: Date/time + recurrence badge
+            using (ImRaii.PushFont(UiBuilder.IconFont))
+                ImGui.TextColored(ImGuiColors.DalamudGrey, FontAwesomeIcon.Clock.ToIconString());
+            ImGui.SameLine();
+            ImGui.TextColored(ImGuiColors.DalamudGrey, FormatEventTime(evt));
 
+            if (evt.Recurrence > 0)
+            {
+                ImGui.SameLine();
+                ImGui.TextColored(UiSharedService.AccentColor, $"[{GetRecurrenceLabel(evt.Recurrence)}]");
+            }
+
+            // Row 3: Description
+            if (!string.IsNullOrEmpty(evt.Description))
+            {
+                ImGuiHelpers.ScaledDummy(1f);
+                ImGui.TextDisabled(evt.Description);
+            }
+        }, stretchWidth: true);
+
+        ImGui.PopID();
+    }
+
+    private void DrawEventCreationForm()
+    {
+        using (ImRaii.PushFont(UiBuilder.IconFont))
+            ImGui.TextColored(UiSharedService.AccentColor, FontAwesomeIcon.PlusCircle.ToIconString());
+        ImGui.SameLine();
+        ImGui.Text(Loc.Get("Establishment.Event.New"));
+        ImGui.Spacing();
+
+        // Title + Description
+        ImGui.SetNextItemWidth(-1);
+        ImGui.InputTextWithHint("##evtTitle", Loc.Get("Establishment.Event.TitleHint"), ref _newEventTitle, 100);
+
+        ImGui.SetNextItemWidth(-1);
+        ImGui.InputTextWithHint("##evtDesc", Loc.Get("Establishment.Event.DescriptionHint"), ref _newEventDescription, 500);
+
+        ImGui.Spacing();
+
+        // Date row
+        ImGui.TextColored(ImGuiColors.DalamudGrey, Loc.Get("Establishment.Event.DateTimeLabel"));
+
+        ImGui.SetNextItemWidth(60);
+        ImGui.InputInt("##evtDay", ref _newEventDay, 0, 0);
+        var maxDay = DateTime.DaysInMonth(Math.Max(_newEventYear, 1), Math.Clamp(_newEventMonth, 1, 12));
+        _newEventDay = Math.Clamp(_newEventDay, 1, maxDay);
+
+        ImGui.SameLine();
+        ImGui.SetNextItemWidth(100);
+        var monthNames = new[] { "Janvier", "Fevrier", "Mars", "Avril", "Mai", "Juin",
+            "Juillet", "Aout", "Septembre", "Octobre", "Novembre", "Decembre" };
+        var monthIdx = _newEventMonth - 1;
+        if (ImGui.Combo("##evtMonth", ref monthIdx, monthNames, monthNames.Length))
+            _newEventMonth = monthIdx + 1;
+        _newEventMonth = Math.Clamp(_newEventMonth, 1, 12);
+
+        ImGui.SameLine();
+        ImGui.SetNextItemWidth(70);
+        ImGui.InputInt("##evtYear", ref _newEventYear, 0, 0);
+        _newEventYear = Math.Clamp(_newEventYear, DateTime.Now.Year, DateTime.Now.Year + 2);
+
+        // Time row
+        ImGui.SetNextItemWidth(50);
+        ImGui.InputInt("##evtHour", ref _newEventHour, 0, 0);
+        _newEventHour = Math.Clamp(_newEventHour, 0, 23);
+        ImGui.SameLine();
+        ImGui.Text(":");
+        ImGui.SameLine();
+        ImGui.SetNextItemWidth(50);
+        ImGui.InputInt("##evtMin", ref _newEventMinute, 0, 0);
+        _newEventMinute = Math.Clamp(_newEventMinute, 0, 59);
+
+        // End time
+        ImGui.SameLine();
+        ImGuiHelpers.ScaledDummy(10f, 0);
+        ImGui.SameLine();
+        ImGui.Checkbox(Loc.Get("Establishment.Event.EndTime"), ref _newEventHasEndTime);
+        if (_newEventHasEndTime)
+        {
+            ImGui.SameLine();
+            ImGui.SetNextItemWidth(50);
+            ImGui.InputInt("##evtEndHour", ref _newEventEndHour, 0, 0);
+            _newEventEndHour = Math.Clamp(_newEventEndHour, 0, 23);
+            ImGui.SameLine();
+            ImGui.Text(":");
+            ImGui.SameLine();
+            ImGui.SetNextItemWidth(50);
+            ImGui.InputInt("##evtEndMin", ref _newEventEndMinute, 0, 0);
+            _newEventEndMinute = Math.Clamp(_newEventEndMinute, 0, 59);
+        }
+
+        // Recurrence
+        ImGui.TextColored(ImGuiColors.DalamudGrey, Loc.Get("Establishment.Event.Recurrence"));
+        var recLabels = new[]
+        {
+            Loc.Get("Establishment.Event.Recurrence.Unique"),
+            Loc.Get("Establishment.Event.Recurrence.Daily"),
+            Loc.Get("Establishment.Event.Recurrence.Weekly"),
+            Loc.Get("Establishment.Event.Recurrence.Monthly")
+        };
+        ImGui.SetNextItemWidth(200);
+        ImGui.Combo("##evtRecurrence", ref _newEventRecurrence, recLabels, recLabels.Length);
+
+        // Validation
+        var canCreate = !string.IsNullOrWhiteSpace(_newEventTitle);
+        try
+        {
+            var localStart = new DateTime(_newEventYear, _newEventMonth, _newEventDay,
+                _newEventHour, _newEventMinute, 0, DateTimeKind.Local);
+            if (localStart < DateTime.Now.AddMinutes(-5))
+            {
+                canCreate = false;
+                ImGui.TextColored(ImGuiColors.DalamudOrange, Loc.Get("Establishment.Event.FutureRequired"));
+            }
+        }
+        catch
+        {
+            canCreate = false;
+            ImGui.TextColored(ImGuiColors.DalamudOrange, Loc.Get("Establishment.Event.InvalidDate"));
+        }
+
+        ImGui.Spacing();
+        using (ImRaii.Disabled(!canCreate))
+        {
             using var accent = ImRaii.PushColor(ImGuiCol.Button, UiSharedService.AccentColor);
-            if (ImGui.Button("Ajouter##newevent") && !string.IsNullOrWhiteSpace(_newEventTitle))
+            if (ImGui.Button(Loc.Get("Establishment.Event.Add"), new Vector2(ImGui.GetContentRegionAvail().X, 0)))
                 _ = CreateEvent();
         }
     }
@@ -511,11 +711,18 @@ internal class EstablishmentDetailUi : WindowMediatorSubscriberBase
         using (ImRaii.PushFont(UiBuilder.IconFont))
             ImGui.TextColored(UiSharedService.AccentColor, FontAwesomeIcon.Image.ToIconString());
         ImGui.SameLine();
-        ImGui.Text("Banniere");
+        ImGui.Text(Loc.Get("Establishment.Image.Banner"));
+        ImGui.TextDisabled(Loc.Get("Establishment.Image.BannerHint"));
 
-        var bannerTex = isOwner && _isEditing && _editBannerTexture != null ? _editBannerTexture : _bannerTexture;
-        var bannerBytes = isOwner && _isEditing ? _editBannerBytes : null;
-        var hasBanner = bannerTex != null && (bannerBytes == null ? _establishment!.BannerImageBase64 is { Length: > 0 } : bannerBytes.Length > 0);
+        var bannerTex = _editBannerTexture ?? _bannerTexture;
+        var hasBanner = bannerTex != null || _editBannerBytes.Length > 0;
+
+        if (bannerTex == null && _editBannerBytes.Length > 0)
+        {
+            _editBannerTexture = _uiSharedService.LoadImage(_editBannerBytes);
+            bannerTex = _editBannerTexture;
+            hasBanner = bannerTex != null;
+        }
 
         if (hasBanner && bannerTex != null)
         {
@@ -533,31 +740,44 @@ internal class EstablishmentDetailUi : WindowMediatorSubscriberBase
         }
         else
         {
-            ImGui.TextDisabled("Aucune banniere.");
+            ImGui.TextDisabled(Loc.Get("Establishment.Image.NoBanner"));
         }
 
         if (isOwner)
         {
-            if (_uiSharedService.IconTextButton(FontAwesomeIcon.Upload, "Charger une banniere"))
+            using var _bannerUploadId = ImRaii.PushId("uploadBanner");
+            if (_uiSharedService.IconTextButton(FontAwesomeIcon.Upload, Loc.Get("Establishment.Image.Upload")))
             {
+                _logger.LogInformation("Opening file dialog for banner upload");
                 _fileDialogManager.OpenFileDialog(
-                    "Choisir une banniere",
+                    Loc.Get("Establishment.Image.ChooseBanner"),
                     "Image files{.png,.jpg,.jpeg}",
                     (success, name) =>
                     {
+                        _logger.LogInformation("Banner file dialog callback: success={success}, path={path}", success, name);
                         if (!success) return;
                         _ = Task.Run(async () =>
                         {
-                            var bytes = await File.ReadAllBytesAsync(name).ConfigureAwait(false);
-                            if (bytes.Length > 2 * 1024 * 1024)
+                            try
                             {
-                                _imageMessage = "Image trop volumineuse (max 2 Mo).";
-                                return;
+                                var bytes = await File.ReadAllBytesAsync(name).ConfigureAwait(false);
+                                _logger.LogInformation("Banner file read: {size} bytes", bytes.Length);
+                                if (bytes.Length > 2 * 1024 * 1024)
+                                {
+                                    _imageMessage = Loc.Get("Establishment.Image.TooLarge");
+                                    return;
+                                }
+                                _imageMessage = null;
+                                _editBannerBytes = bytes;
+                                _editBannerTexture?.Dispose();
+                                _editBannerTexture = _uiSharedService.LoadImage(bytes);
+                                _logger.LogInformation("Banner texture loaded: {ok}, bytes={len}", _editBannerTexture != null, bytes.Length);
                             }
-                            _imageMessage = null;
-                            _editBannerBytes = bytes;
-                            _editBannerTexture?.Dispose();
-                            _editBannerTexture = _uiSharedService.LoadImage(bytes);
+                            catch (Exception ex)
+                            {
+                                _logger.LogWarning(ex, "Error loading banner image");
+                                _imageMessage = Loc.Get("Establishment.Image.LoadError");
+                            }
                         });
                     });
             }
@@ -566,7 +786,7 @@ internal class EstablishmentDetailUi : WindowMediatorSubscriberBase
             {
                 using (ImRaii.PushId("clearBanner"))
                 {
-                    if (_uiSharedService.IconTextButton(FontAwesomeIcon.Trash, "Retirer"))
+                    if (_uiSharedService.IconTextButton(FontAwesomeIcon.Trash, Loc.Get("Establishment.Image.Remove")))
                     {
                         _editBannerBytes = [];
                         _editBannerTexture?.Dispose();
@@ -582,7 +802,7 @@ internal class EstablishmentDetailUi : WindowMediatorSubscriberBase
             {
                 using (ImRaii.PushId("saveBanner"))
                 {
-                    if (_uiSharedService.IconTextButton(FontAwesomeIcon.Save, "Sauvegarder"))
+                    if (_uiSharedService.IconTextButton(FontAwesomeIcon.Save, Loc.Get("Establishment.Detail.Save")))
                         _ = SaveImages();
                 }
             }
@@ -596,11 +816,20 @@ internal class EstablishmentDetailUi : WindowMediatorSubscriberBase
         using (ImRaii.PushFont(UiBuilder.IconFont))
             ImGui.TextColored(UiSharedService.AccentColor, FontAwesomeIcon.Portrait.ToIconString());
         ImGui.SameLine();
-        ImGui.Text("Logo");
+        ImGui.Text(Loc.Get("Establishment.Image.Logo"));
+        ImGui.TextDisabled(Loc.Get("Establishment.Image.LogoHint"));
 
-        var logoTex = isOwner && _editLogoTexture != null ? _editLogoTexture : _logoTexture;
-        var logoBytes = isOwner ? _editLogoBytes : null;
-        var hasLogo = logoTex != null && (logoBytes == null ? _establishment!.LogoImageBase64 is { Length: > 0 } : logoBytes.Length > 0);
+        // Use edit texture if available, otherwise server texture
+        var logoTex = _editLogoTexture ?? _logoTexture;
+        var hasLogo = logoTex != null || _editLogoBytes.Length > 0;
+
+        // Lazy-create texture on main thread if bytes exist but texture doesn't
+        if (logoTex == null && _editLogoBytes.Length > 0)
+        {
+            _editLogoTexture = _uiSharedService.LoadImage(_editLogoBytes);
+            logoTex = _editLogoTexture;
+            hasLogo = logoTex != null;
+        }
 
         if (hasLogo && logoTex != null)
         {
@@ -617,31 +846,44 @@ internal class EstablishmentDetailUi : WindowMediatorSubscriberBase
         }
         else
         {
-            ImGui.TextDisabled("Aucun logo.");
+            ImGui.TextDisabled(Loc.Get("Establishment.Image.NoLogo"));
         }
 
         if (isOwner)
         {
-            if (_uiSharedService.IconTextButton(FontAwesomeIcon.Upload, "Charger un logo"))
+            using var _logoUploadId = ImRaii.PushId("uploadLogo");
+            if (_uiSharedService.IconTextButton(FontAwesomeIcon.Upload, Loc.Get("Establishment.Image.Upload")))
             {
+                _logger.LogInformation("Opening file dialog for logo upload");
                 _fileDialogManager.OpenFileDialog(
-                    "Choisir un logo",
+                    Loc.Get("Establishment.Image.ChooseLogo"),
                     "Image files{.png,.jpg,.jpeg}",
                     (success, name) =>
                     {
+                        _logger.LogInformation("Logo file dialog callback: success={success}, path={path}", success, name);
                         if (!success) return;
                         _ = Task.Run(async () =>
                         {
-                            var bytes = await File.ReadAllBytesAsync(name).ConfigureAwait(false);
-                            if (bytes.Length > 2 * 1024 * 1024)
+                            try
                             {
-                                _imageMessage = "Image trop volumineuse (max 2 Mo).";
-                                return;
+                                var bytes = await File.ReadAllBytesAsync(name).ConfigureAwait(false);
+                                _logger.LogInformation("Logo file read: {size} bytes", bytes.Length);
+                                if (bytes.Length > 2 * 1024 * 1024)
+                                {
+                                    _imageMessage = Loc.Get("Establishment.Image.TooLarge");
+                                    return;
+                                }
+                                _imageMessage = null;
+                                _editLogoBytes = bytes;
+                                _editLogoTexture?.Dispose();
+                                _editLogoTexture = _uiSharedService.LoadImage(bytes);
+                                _logger.LogInformation("Logo texture loaded: {ok}, bytes={len}", _editLogoTexture != null, bytes.Length);
                             }
-                            _imageMessage = null;
-                            _editLogoBytes = bytes;
-                            _editLogoTexture?.Dispose();
-                            _editLogoTexture = _uiSharedService.LoadImage(bytes);
+                            catch (Exception ex)
+                            {
+                                _logger.LogWarning(ex, "Error loading logo image");
+                                _imageMessage = Loc.Get("Establishment.Image.LoadError");
+                            }
                         });
                     });
             }
@@ -650,7 +892,7 @@ internal class EstablishmentDetailUi : WindowMediatorSubscriberBase
             {
                 using (ImRaii.PushId("clearLogo"))
                 {
-                    if (_uiSharedService.IconTextButton(FontAwesomeIcon.Trash, "Retirer"))
+                    if (_uiSharedService.IconTextButton(FontAwesomeIcon.Trash, Loc.Get("Establishment.Image.Remove")))
                     {
                         _editLogoBytes = [];
                         _editLogoTexture?.Dispose();
@@ -666,7 +908,7 @@ internal class EstablishmentDetailUi : WindowMediatorSubscriberBase
             {
                 using (ImRaii.PushId("saveLogo"))
                 {
-                    if (_uiSharedService.IconTextButton(FontAwesomeIcon.Save, "Sauvegarder"))
+                    if (_uiSharedService.IconTextButton(FontAwesomeIcon.Save, Loc.Get("Establishment.Detail.Save")))
                         _ = SaveImages();
                 }
             }
@@ -692,7 +934,7 @@ internal class EstablishmentDetailUi : WindowMediatorSubscriberBase
         var success = await _apiController.EstablishmentUpdate(request).ConfigureAwait(false);
         if (success)
         {
-            Mediator.Publish(new NotificationMessage("Etablissement", "Images sauvegardees", NotificationType.Info));
+            Mediator.Publish(new NotificationMessage(Loc.Get("Establishment.Detail.Title"), Loc.Get("Establishment.Detail.ImagesSaved"), NotificationType.Info));
             _editLogoBytes = [];
             _editBannerBytes = [];
             await LoadEstablishment().ConfigureAwait(false);
@@ -711,64 +953,152 @@ internal class EstablishmentDetailUi : WindowMediatorSubscriberBase
 
     private async Task SaveChanges()
     {
-        var request = new EstablishmentUpdateRequestDto
+        _logger.LogInformation("Saving establishment changes for {id}", _establishment!.Id);
+        try
         {
-            Id = _establishment!.Id,
-            Name = _editName,
-            Description = string.IsNullOrWhiteSpace(_editDescription) ? null : _editDescription,
-            Category = _editCategory,
-            Schedule = string.IsNullOrWhiteSpace(_editSchedule) ? null : _editSchedule,
-            FactionTag = string.IsNullOrWhiteSpace(_editFactionTag) ? null : _editFactionTag,
-            IsPublic = _editIsPublic,
-            LogoImageBase64 = _establishment.LogoImageBase64,
-            BannerImageBase64 = _establishment.BannerImageBase64,
-            Location = _establishment.Location
-        };
+            var request = new EstablishmentUpdateRequestDto
+            {
+                Id = _establishment.Id,
+                Name = _editName,
+                Description = string.IsNullOrWhiteSpace(_editDescription) ? null : _editDescription,
+                Category = _editCategory,
+                Schedule = string.IsNullOrWhiteSpace(_editSchedule) ? null : _editSchedule,
+                FactionTag = string.IsNullOrWhiteSpace(_editFactionTag) ? null : _editFactionTag,
+                IsPublic = _editIsPublic,
+                LogoImageBase64 = _establishment.LogoImageBase64,
+                BannerImageBase64 = _establishment.BannerImageBase64,
+                Location = _establishment.Location
+            };
 
-        var success = await _apiController.EstablishmentUpdate(request).ConfigureAwait(false);
-        if (success)
+            var success = await _apiController.EstablishmentUpdate(request).ConfigureAwait(false);
+            if (success)
+            {
+                _logger.LogInformation("Establishment {id} updated successfully", _establishment.Id);
+                _isEditing = false;
+                Mediator.Publish(new NotificationMessage(Loc.Get("Establishment.Detail.Title"), Loc.Get("Establishment.Detail.ChangesSaved"), NotificationType.Info));
+                Mediator.Publish(new EstablishmentChangedMessage());
+                await LoadEstablishment().ConfigureAwait(false);
+            }
+            else
+            {
+                _logger.LogWarning("Failed to update establishment {id}", _establishment.Id);
+            }
+        }
+        catch (Exception ex)
         {
-            _isEditing = false;
-            Mediator.Publish(new NotificationMessage("Etablissement", "Modifications sauvegardees", NotificationType.Info));
-            await LoadEstablishment().ConfigureAwait(false);
+            _logger.LogError(ex, "Error saving establishment changes for {id}", _establishment.Id);
         }
     }
 
     private async Task DeleteEstablishment()
     {
-        var success = await _apiController.EstablishmentDelete(_establishment!.Id).ConfigureAwait(false);
-        if (success)
+        _logger.LogInformation("Deleting establishment {id}", _establishment!.Id);
+        try
         {
-            Mediator.Publish(new NotificationMessage("Etablissement", "Etablissement supprime", NotificationType.Info));
-            _establishment = null;
-            IsOpen = false;
+            var success = await _apiController.EstablishmentDelete(_establishment.Id).ConfigureAwait(false);
+            if (success)
+            {
+                _logger.LogInformation("Establishment {id} deleted", _establishment.Id);
+                Mediator.Publish(new NotificationMessage(Loc.Get("Establishment.Detail.Title"), Loc.Get("Establishment.Detail.Deleted"), NotificationType.Info));
+                Mediator.Publish(new EstablishmentChangedMessage());
+                _establishment = null;
+                IsOpen = false;
+            }
+            else
+            {
+                _logger.LogWarning("Failed to delete establishment {id}", _establishment.Id);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error deleting establishment {id}", _establishment?.Id);
         }
     }
 
     private async Task CreateEvent()
     {
-        var request = new EstablishmentEventUpsertRequestDto
+        _logger.LogInformation("Creating event for establishment {id}", _establishment!.Id);
+        try
         {
-            EstablishmentId = _establishment!.Id,
-            Title = _newEventTitle.Trim(),
-            Description = string.IsNullOrWhiteSpace(_newEventDescription) ? null : _newEventDescription,
-            StartsAtUtc = DateTime.UtcNow.AddHours(1)
-        };
+            var localStart = new DateTime(_newEventYear, _newEventMonth, _newEventDay,
+                _newEventHour, _newEventMinute, 0, DateTimeKind.Local);
 
-        var result = await _apiController.EstablishmentEventUpsert(request).ConfigureAwait(false);
-        if (result != null)
-        {
-            _newEventTitle = string.Empty;
-            _newEventDescription = string.Empty;
-            await LoadEstablishment().ConfigureAwait(false);
+            DateTime? localEnd = null;
+            if (_newEventHasEndTime)
+            {
+                localEnd = new DateTime(_newEventYear, _newEventMonth, _newEventDay,
+                    _newEventEndHour, _newEventEndMinute, 0, DateTimeKind.Local);
+                if (localEnd <= localStart)
+                    localEnd = localStart.AddHours(1);
+            }
+
+            var request = new EstablishmentEventUpsertRequestDto
+            {
+                EstablishmentId = _establishment.Id,
+                Title = _newEventTitle.Trim(),
+                Description = string.IsNullOrWhiteSpace(_newEventDescription) ? null : _newEventDescription,
+                StartsAtUtc = localStart.ToUniversalTime(),
+                EndsAtUtc = localEnd?.ToUniversalTime(),
+                Recurrence = _newEventRecurrence
+            };
+
+            _logger.LogDebug("Event: {title}, starts {start}, ends {end}", request.Title, request.StartsAtUtc, request.EndsAtUtc);
+            var result = await _apiController.EstablishmentEventUpsert(request).ConfigureAwait(false);
+            if (result != null)
+            {
+                _logger.LogInformation("Event '{title}' created for establishment {id}", result.Title, _establishment.Id);
+                _newEventTitle = string.Empty;
+                _newEventDescription = string.Empty;
+                ResetEventDateFields();
+                Mediator.Publish(new EstablishmentChangedMessage());
+                await LoadEstablishment().ConfigureAwait(false);
+            }
+            else
+            {
+                _logger.LogWarning("Failed to create event for establishment {id}", _establishment.Id);
+            }
         }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error creating event for establishment {id}", _establishment.Id);
+        }
+    }
+
+    private void ResetEventDateFields()
+    {
+        var now = DateTime.Now;
+        _newEventDay = now.Day;
+        _newEventMonth = now.Month;
+        _newEventYear = now.Year;
+        _newEventHour = 21;
+        _newEventMinute = 0;
+        _newEventHasEndTime = false;
+        _newEventEndHour = 23;
+        _newEventEndMinute = 0;
+        _newEventRecurrence = 0;
     }
 
     private async Task DeleteEvent(Guid eventId)
     {
-        var success = await _apiController.EstablishmentEventDelete(eventId).ConfigureAwait(false);
-        if (success)
-            await LoadEstablishment().ConfigureAwait(false);
+        _logger.LogInformation("Deleting event {eventId}", eventId);
+        try
+        {
+            var success = await _apiController.EstablishmentEventDelete(eventId).ConfigureAwait(false);
+            if (success)
+            {
+                _logger.LogInformation("Event {eventId} deleted", eventId);
+                Mediator.Publish(new EstablishmentChangedMessage());
+                await LoadEstablishment().ConfigureAwait(false);
+            }
+            else
+            {
+                _logger.LogWarning("Failed to delete event {eventId}", eventId);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error deleting event {eventId}", eventId);
+        }
     }
 
     private async Task LoadEstablishment()
@@ -791,15 +1121,29 @@ internal class EstablishmentDetailUi : WindowMediatorSubscriberBase
             _editBannerBytes = [];
             _imageMessage = null;
 
+            var hasLogoB64 = _establishment?.LogoImageBase64 is { Length: > 0 };
+            var hasBannerB64 = _establishment?.BannerImageBase64 is { Length: > 0 };
+            _logger.LogInformation("LoadEstablishment: hasLogo={hasLogo}, hasBanner={hasBanner}", hasLogoB64, hasBannerB64);
+
             if (_establishment?.LogoImageBase64 is { Length: > 0 } logoB64)
             {
-                try { _logoTexture = _uiSharedService.LoadImage(Convert.FromBase64String(logoB64)); }
-                catch { /* ignore invalid image */ }
+                try
+                {
+                    var logoBytes = Convert.FromBase64String(logoB64);
+                    _logoTexture = _uiSharedService.LoadImage(logoBytes);
+                    _logger.LogInformation("Server logo texture: {ok}, b64Len={len}", _logoTexture != null, logoB64.Length);
+                }
+                catch (Exception ex) { _logger.LogWarning(ex, "Failed to load logo texture for establishment {id}", _currentId); }
             }
             if (_establishment?.BannerImageBase64 is { Length: > 0 } bannerB64)
             {
-                try { _bannerTexture = _uiSharedService.LoadImage(Convert.FromBase64String(bannerB64)); }
-                catch { /* ignore invalid image */ }
+                try
+                {
+                    var bannerBytes = Convert.FromBase64String(bannerB64);
+                    _bannerTexture = _uiSharedService.LoadImage(bannerBytes);
+                    _logger.LogInformation("Server banner texture: {ok}, b64Len={len}", _bannerTexture != null, bannerB64.Length);
+                }
+                catch (Exception ex) { _logger.LogWarning(ex, "Failed to load banner texture for establishment {id}", _currentId); }
             }
         }
         catch (Exception ex)

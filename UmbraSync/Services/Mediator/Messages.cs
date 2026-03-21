@@ -160,5 +160,6 @@ public record SwitchToRgpdConsentUiMessage : MessageBase;
 public record EstablishmentEnteredMessage(UmbraSync.API.Dto.Establishment.EstablishmentDto Establishment) : MessageBase;
 public record EstablishmentLeftMessage : MessageBase;
 public record OpenEstablishmentDetailMessage(Guid EstablishmentId) : MessageBase;
+public record EstablishmentChangedMessage : MessageBase;
 #pragma warning restore S2094
 #pragma warning restore MA0048

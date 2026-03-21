@@ -11,6 +11,7 @@ using UmbraSync.API.Dto.Establishment;
 using UmbraSync.MareConfiguration;
 using UmbraSync.MareConfiguration.Models;
 using UmbraSync.PlayerData.Pairs;
+using UmbraSync.Localization;
 using UmbraSync.Services;
 using UmbraSync.Services.Mediator;
 
@@ -31,7 +32,7 @@ internal class EstablishmentRegistrationUi : WindowMediatorSubscriberBase
     private string _schedule = string.Empty;
     private string _factionTag = string.Empty;
     private bool _isPublic = true;
-    private int _locationType; // 0=Housing, 1=Zone
+    private int _housingType; // 0=Maison, 1=Appartement
     private bool _isSubmitting;
 
     // Housing fields
@@ -41,12 +42,7 @@ internal class EstablishmentRegistrationUi : WindowMediatorSubscriberBase
     private int _ward = 1;
     private int _plot = 1;
     private bool _isSubdivision;
-    private bool _isApartment;
-    private int _roomNumber;
-
-    // Zone fields
-    private float _x, _y, _z;
-    private float _radius = 30f;
+    private int _roomNumber = 1;
 
     // SyncSlot link
     private string? _linkedSyncshellGid;
@@ -64,13 +60,13 @@ internal class EstablishmentRegistrationUi : WindowMediatorSubscriberBase
     private bool _eligibleGroupsLoading;
     private bool _eligibleGroupsLoaded;
 
-    private static readonly string[] CategoryNames =
+    private static string[] CategoryNames =>
     [
-        "Taverne", "Boutique", "Temple", "Academie",
-        "Guilde", "Residence", "Atelier", "Autre"
+        Loc.Get("Establishment.Category.Tavern"), Loc.Get("Establishment.Category.Shop"),
+        Loc.Get("Establishment.Category.Temple"), Loc.Get("Establishment.Category.Academy"),
+        Loc.Get("Establishment.Category.Guild"), Loc.Get("Establishment.Category.Residence"),
+        Loc.Get("Establishment.Category.Workshop"), Loc.Get("Establishment.Category.Other")
     ];
-
-    private static readonly string[] LocationTypeNames = ["Housing", "Zone ouverte"];
 
     private static readonly (string NameFr, string NameEn, uint TerritoryId)[] ResidentialDistricts =
     [
@@ -87,7 +83,7 @@ internal class EstablishmentRegistrationUi : WindowMediatorSubscriberBase
         ApiController apiController, DalamudUtilService dalamudUtilService, UiSharedService uiSharedService,
         PairManager pairManager, EstablishmentConfigService establishmentConfigService,
         FileDialogManager fileDialogManager, PerformanceCollectorService performanceCollectorService)
-        : base(logger, mediator, "Enregistrer un etablissement###EstablishmentRegistration", performanceCollectorService)
+        : base(logger, mediator, "Enregistrer un \u00e9tablissement###EstablishmentRegistration", performanceCollectorService)
     {
         _apiController = apiController;
         _dalamudUtilService = dalamudUtilService;
@@ -98,8 +94,8 @@ internal class EstablishmentRegistrationUi : WindowMediatorSubscriberBase
 
         SizeConstraints = new()
         {
-            MinimumSize = new(480, 500),
-            MaximumSize = new(600, 700)
+            MinimumSize = new(480, 520),
+            MaximumSize = new(600, 800)
         };
     }
 
@@ -107,117 +103,340 @@ internal class EstablishmentRegistrationUi : WindowMediatorSubscriberBase
     {
         if (!_apiController.IsConnected)
         {
-            UiSharedService.ColorTextWrapped("Non connecte au serveur.", ImGuiColors.DalamudRed);
+            UiSharedService.ColorTextWrapped(Loc.Get("Establishment.Registration.NotConnected"), ImGuiColors.DalamudRed);
             return;
         }
 
-        // Header
+        DrawHeader();
+        ImGuiHelpers.ScaledDummy(6f);
+
+        UiSharedService.DrawCard("reg-general", () =>
+        {
+            DrawCardSectionHeader(FontAwesomeIcon.InfoCircle, Loc.Get("Establishment.Section.GeneralInfo"));
+            DrawGeneralFields();
+        }, stretchWidth: true);
+        ImGuiHelpers.ScaledDummy(6f);
+
+        UiSharedService.DrawCard("reg-images", () =>
+        {
+            DrawCardSectionHeader(FontAwesomeIcon.Image, Loc.Get("Establishment.Section.Images"));
+            DrawImageFields();
+        }, stretchWidth: true);
+        ImGuiHelpers.ScaledDummy(6f);
+
+        UiSharedService.DrawCard("reg-location", () =>
+        {
+            DrawCardSectionHeader(FontAwesomeIcon.MapMarkerAlt, Loc.Get("Establishment.Section.Location"));
+            DrawLocationFields();
+        }, stretchWidth: true);
+        ImGuiHelpers.ScaledDummy(6f);
+
+        UiSharedService.DrawCard("reg-syncshell", () =>
+        {
+            DrawCardSectionHeader(FontAwesomeIcon.Link, Loc.Get("Establishment.Section.SyncshellLink"));
+            DrawSyncSlotFields();
+        }, stretchWidth: true);
+        ImGuiHelpers.ScaledDummy(8f);
+
+        DrawSubmitArea();
+    }
+
+    private void DrawHeader()
+    {
         using (ImRaii.PushFont(UiBuilder.IconFont))
             ImGui.TextColored(UiSharedService.AccentColor, FontAwesomeIcon.PlusCircle.ToIconString());
         ImGui.SameLine();
-        _uiSharedService.BigText("Nouvel etablissement");
-        ImGui.Separator();
-        ImGui.Spacing();
-
-        // General info section
-        DrawSectionHeader(FontAwesomeIcon.InfoCircle, "Informations generales");
-
-        ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X);
-        ImGui.InputTextWithHint("##name", "Nom de l'etablissement *", ref _name, 100);
-
-        ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X);
-        ImGui.InputTextMultiline("##desc", ref _description, 2000, new Vector2(ImGui.GetContentRegionAvail().X, 60));
-
-        ImGui.SetNextItemWidth(200);
-        ImGui.Combo("Categorie", ref _category, CategoryNames, CategoryNames.Length);
-
-        ImGui.SetNextItemWidth(200);
-        ImGui.InputTextWithHint("##schedule", "Horaires (ex: Ven-Sam 21h-1h)", ref _schedule, 200);
-
-        ImGui.SetNextItemWidth(200);
-        ImGui.InputTextWithHint("##faction", "Faction / Organisation", ref _factionTag, 50);
-
-        ImGui.Checkbox("Visible dans l'annuaire public", ref _isPublic);
-
-        ImGui.Spacing();
-        ImGui.Separator();
-        ImGui.Spacing();
-
-        // Images section
-        DrawImageSection();
-
-        ImGui.Spacing();
-        ImGui.Separator();
-        ImGui.Spacing();
-
-        // Location section
-        DrawSectionHeader(FontAwesomeIcon.MapMarkerAlt, "Localisation");
-
-        ImGui.SetNextItemWidth(200);
-        ImGui.Combo("Type de lieu", ref _locationType, LocationTypeNames, LocationTypeNames.Length);
-
-        ImGui.Spacing();
-
-        if (_locationType == 0)
-            DrawHousingFields();
-        else
-            DrawZoneFields();
-
-        ImGui.Spacing();
-        ImGui.Separator();
-        ImGui.Spacing();
-
-        // SyncSlot link section
-        DrawSyncSlotLink();
-
-        ImGui.Spacing();
-        ImGui.Separator();
-        ImGui.Spacing();
-
-        // Submit
-        if (_isSubmitting)
-        {
-            ImGui.TextDisabled("Creation en cours...");
-        }
-        else
-        {
-            var canSubmit = !string.IsNullOrWhiteSpace(_name);
-            if (!canSubmit) ImGui.BeginDisabled();
-
-            using var accent = ImRaii.PushColor(ImGuiCol.Button, UiSharedService.AccentColor);
-            if (ImGui.Button("Creer l'etablissement", new Vector2(ImGui.GetContentRegionAvail().X, 32)))
-                _ = Submit();
-
-            if (!canSubmit) ImGui.EndDisabled();
-
-            if (!canSubmit)
-                ImGui.TextColored(ImGuiColors.DalamudOrange, "Le nom est obligatoire.");
-        }
+        _uiSharedService.BigText(Loc.Get("Establishment.Registration.Header"));
+        ImGui.TextColored(ImGuiColors.DalamudGrey, Loc.Get("Establishment.Registration.Subtitle"));
     }
 
-    private static void DrawSectionHeader(FontAwesomeIcon icon, string title)
+    private static void DrawCardSectionHeader(FontAwesomeIcon icon, string title)
     {
         using (ImRaii.PushFont(UiBuilder.IconFont))
             ImGui.TextColored(UiSharedService.AccentColor, icon.ToIconString());
         ImGui.SameLine();
-        ImGui.Text(title);
-        ImGui.Spacing();
+        UiSharedService.ColorText(title, UiSharedService.AccentColor);
+        ImGuiHelpers.ScaledDummy(2f);
     }
 
-    private void DrawHousingFields()
+    private void DrawGeneralFields()
     {
-        // Serveur
+        ImGui.TextColored(ImGuiColors.DalamudGrey, Loc.Get("Establishment.Field.Name"));
+        ImGui.SetNextItemWidth(-1);
+        ImGui.InputTextWithHint("##name", Loc.Get("Establishment.Field.NameHint"), ref _name, 100);
+        ImGuiHelpers.ScaledDummy(2f);
+
+        ImGui.TextColored(ImGuiColors.DalamudGrey, Loc.Get("Establishment.Field.Description"));
+        ImGui.SetNextItemWidth(-1);
+        ImGui.InputTextMultiline("##desc", ref _description, 2000,
+            new Vector2(-1, 60 * ImGuiHelpers.GlobalScale));
+        ImGuiHelpers.ScaledDummy(2f);
+
+        var availW = ImGui.GetContentRegionAvail().X;
+        var halfW = (availW - ImGui.GetStyle().ItemSpacing.X) / 2f;
+
+        ImGui.BeginGroup();
+        ImGui.TextColored(ImGuiColors.DalamudGrey, Loc.Get("Establishment.Field.Category"));
+        ImGui.SetNextItemWidth(halfW);
+        ImGui.Combo("##category", ref _category, CategoryNames, CategoryNames.Length);
+        ImGui.EndGroup();
+
+        ImGui.SameLine();
+
+        ImGui.BeginGroup();
+        ImGui.TextColored(ImGuiColors.DalamudGrey, Loc.Get("Establishment.Field.Schedule"));
+        ImGui.SetNextItemWidth(halfW);
+        ImGui.InputTextWithHint("##schedule", Loc.Get("Establishment.Field.ScheduleHint"), ref _schedule, 200);
+        ImGui.EndGroup();
+
+        ImGuiHelpers.ScaledDummy(2f);
+
+        ImGui.TextColored(ImGuiColors.DalamudGrey, Loc.Get("Establishment.Field.Faction"));
+        ImGui.SetNextItemWidth(availW * 0.6f);
+        ImGui.InputTextWithHint("##faction", Loc.Get("Establishment.Field.Optional"), ref _factionTag, 50);
+        ImGuiHelpers.ScaledDummy(2f);
+
+        ImGui.Checkbox(Loc.Get("Establishment.Field.PublicDirectory"), ref _isPublic);
+        UiSharedService.AttachToolTip(Loc.Get("Establishment.Field.PublicDirectoryTooltip"));
+    }
+
+    private void DrawImageFields()
+    {
+        if (!string.IsNullOrEmpty(_imageMessage))
+        {
+            ImGui.TextColored(ImGuiColors.DalamudOrange, _imageMessage);
+            ImGuiHelpers.ScaledDummy(2f);
+        }
+
+        // Logo
+        ImGui.TextColored(ImGuiColors.DalamudGrey, Loc.Get("Establishment.Image.Logo"));
+        ImGui.TextDisabled(Loc.Get("Establishment.Image.LogoHint"));
+        float imgSize = 80f * ImGuiHelpers.GlobalScale;
+        float imgRounding = 8f * ImGuiHelpers.GlobalScale;
+
+        if (_logoTexture != null && _logoImageBytes.Length > 0)
+        {
+            var drawList = ImGui.GetWindowDrawList();
+            var imgMin = ImGui.GetCursorScreenPos();
+            var imgMax = new Vector2(imgMin.X + imgSize, imgMin.Y + imgSize);
+            drawList.AddImageRounded(
+                _logoTexture.Handle, imgMin, imgMax,
+                Vector2.Zero, Vector2.One,
+                ImGui.ColorConvertFloat4ToU32(Vector4.One), imgRounding);
+            ImGui.Dummy(new Vector2(imgSize, imgSize));
+        }
+        else
+        {
+            DrawImagePlaceholder(imgSize, imgSize, imgRounding, FontAwesomeIcon.UserCircle);
+        }
+
+        if (_uiSharedService.IconTextButton(FontAwesomeIcon.Upload, Loc.Get("Establishment.Image.Upload")))
+        {
+            _fileDialogManager.OpenFileDialog(
+                Loc.Get("Establishment.Image.ChooseLogo"),
+                "Image files{.png,.jpg,.jpeg}",
+                (success, name) =>
+                {
+                    if (!success) return;
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            var bytes = await File.ReadAllBytesAsync(name).ConfigureAwait(false);
+                            if (bytes.Length > 2 * 1024 * 1024)
+                            {
+                                _imageMessage = Loc.Get("Establishment.Image.TooLarge");
+                                return;
+                            }
+                            _imageMessage = null;
+                            _logoImageBytes = bytes;
+                            _logoTexture?.Dispose();
+                            _logoTexture = _uiSharedService.LoadImage(bytes);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Error loading logo image");
+                            _imageMessage = Loc.Get("Establishment.Image.LoadError");
+                        }
+                    });
+                });
+        }
+        ImGui.SameLine();
+        using (ImRaii.Disabled(_logoImageBytes.Length == 0))
+        {
+            using (ImRaii.PushId("clearLogo"))
+            {
+                if (_uiSharedService.IconTextButton(FontAwesomeIcon.Trash, Loc.Get("Establishment.Image.Remove")))
+                {
+                    _logoImageBytes = [];
+                    _logoTexture?.Dispose();
+                    _logoTexture = null;
+                }
+            }
+        }
+
+        ImGuiHelpers.ScaledDummy(4f);
+
+        // Banner
+        ImGui.TextColored(ImGuiColors.DalamudGrey, Loc.Get("Establishment.Image.Banner"));
+        ImGui.TextDisabled(Loc.Get("Establishment.Image.BannerHint"));
+        float availWidth = ImGui.GetContentRegionAvail().X;
+        float bannerRounding = 8f * ImGuiHelpers.GlobalScale;
+
+        if (_bannerTexture != null && _bannerImageBytes.Length > 0)
+        {
+            float bannerHeight = availWidth * (260f / 840f);
+            var bannerDrawList = ImGui.GetWindowDrawList();
+            var bannerMin = ImGui.GetCursorScreenPos();
+            var bannerMax = new Vector2(bannerMin.X + availWidth, bannerMin.Y + bannerHeight);
+            bannerDrawList.AddImageRounded(
+                _bannerTexture.Handle, bannerMin, bannerMax,
+                Vector2.Zero, Vector2.One,
+                ImGui.ColorConvertFloat4ToU32(Vector4.One), bannerRounding);
+            ImGui.Dummy(new Vector2(availWidth, bannerHeight));
+        }
+        else
+        {
+            DrawImagePlaceholder(availWidth, 60f * ImGuiHelpers.GlobalScale, bannerRounding, FontAwesomeIcon.Image);
+        }
+
+        if (_uiSharedService.IconTextButton(FontAwesomeIcon.Upload, Loc.Get("Establishment.Image.Upload")))
+        {
+            _fileDialogManager.OpenFileDialog(
+                Loc.Get("Establishment.Image.ChooseBanner"),
+                "Image files{.png,.jpg,.jpeg}",
+                (success, name) =>
+                {
+                    if (!success) return;
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            var bytes = await File.ReadAllBytesAsync(name).ConfigureAwait(false);
+                            if (bytes.Length > 2 * 1024 * 1024)
+                            {
+                                _imageMessage = Loc.Get("Establishment.Image.TooLarge");
+                                return;
+                            }
+                            _imageMessage = null;
+                            _bannerImageBytes = bytes;
+                            _bannerTexture?.Dispose();
+                            _bannerTexture = _uiSharedService.LoadImage(bytes);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Error loading banner image");
+                            _imageMessage = Loc.Get("Establishment.Image.LoadError");
+                        }
+                    });
+                });
+        }
+        ImGui.SameLine();
+        using (ImRaii.Disabled(_bannerImageBytes.Length == 0))
+        {
+            using (ImRaii.PushId("clearBanner"))
+            {
+                if (_uiSharedService.IconTextButton(FontAwesomeIcon.Trash, Loc.Get("Establishment.Image.Remove")))
+                {
+                    _bannerImageBytes = [];
+                    _bannerTexture?.Dispose();
+                    _bannerTexture = null;
+                }
+            }
+        }
+    }
+
+    private static void DrawImagePlaceholder(float width, float height, float rounding, FontAwesomeIcon icon)
+    {
+        var drawList = ImGui.GetWindowDrawList();
+        var min = ImGui.GetCursorScreenPos();
+        var max = new Vector2(min.X + width, min.Y + height);
+
+        drawList.AddRectFilled(min, max,
+            ImGui.ColorConvertFloat4ToU32(new Vector4(0.1f, 0.1f, 0.1f, 0.5f)), rounding);
+        drawList.AddRect(min, max,
+            ImGui.ColorConvertFloat4ToU32(new Vector4(0.3f, 0.3f, 0.3f, 0.5f)), rounding);
+
+        using (ImRaii.PushFont(UiBuilder.IconFont))
+        {
+            var iconStr = icon.ToIconString();
+            var iconSize = ImGui.CalcTextSize(iconStr);
+            var center = new Vector2((min.X + max.X) / 2f, (min.Y + max.Y) / 2f);
+            ImGui.SetCursorScreenPos(new Vector2(center.X - iconSize.X / 2f, center.Y - iconSize.Y / 2f));
+            ImGui.TextColored(new Vector4(0.4f, 0.4f, 0.4f, 0.6f), iconStr);
+        }
+
+        ImGui.SetCursorScreenPos(new Vector2(min.X, max.Y + ImGui.GetStyle().ItemSpacing.Y));
+    }
+
+    private void DrawLocationFields()
+    {
+        // Housing type toggle
+        var availW = ImGui.GetContentRegionAvail().X;
+        var btnW = (availW - ImGui.GetStyle().ItemSpacing.X) / 2f;
+        var btnH = 28f * ImGuiHelpers.GlobalScale;
+
+        bool isMaison = _housingType == 0;
+        using (ImRaii.PushColor(ImGuiCol.Button, isMaison ? UiSharedService.AccentColor : UiSharedService.ThemeButtonBg))
+        using (ImRaii.PushColor(ImGuiCol.ButtonHovered, isMaison ? UiSharedService.AccentColor : UiSharedService.ThemeButtonHovered))
+        using (ImRaii.PushColor(ImGuiCol.ButtonActive, UiSharedService.AccentColor))
+        {
+            if (ImGui.Button(Loc.Get("Establishment.Location.House"), new Vector2(btnW, btnH)))
+                _housingType = 0;
+        }
+
+        ImGui.SameLine();
+
+        bool isAppt = _housingType == 1;
+        using (ImRaii.PushColor(ImGuiCol.Button, isAppt ? UiSharedService.AccentColor : UiSharedService.ThemeButtonBg))
+        using (ImRaii.PushColor(ImGuiCol.ButtonHovered, isAppt ? UiSharedService.AccentColor : UiSharedService.ThemeButtonHovered))
+        using (ImRaii.PushColor(ImGuiCol.ButtonActive, UiSharedService.AccentColor))
+        {
+            if (ImGui.Button(Loc.Get("Establishment.Location.Apartment"), new Vector2(btnW, btnH)))
+                _housingType = 1;
+        }
+
+        ImGuiHelpers.ScaledDummy(4f);
+
+        // Auto-fill button
+        if (_uiSharedService.IconTextButton(FontAwesomeIcon.Crosshairs,
+            Loc.Get("Establishment.Location.AutoFill"), ImGui.GetContentRegionAvail().X))
+        {
+            AutoFillHousing();
+        }
+        UiSharedService.AttachToolTip(Loc.Get("Establishment.Location.AutoFillTooltip"));
+
+        ImGuiHelpers.ScaledDummy(4f);
+
+        // Shared housing fields
+        DrawSharedHousingFields();
+
+        // Type-specific fields
+        if (_housingType == 0)
+            DrawMaisonFields();
+        else
+            DrawAppartementFields();
+    }
+
+    private void DrawSharedHousingFields()
+    {
+        var availW = ImGui.GetContentRegionAvail().X;
+        var halfW = (availW - ImGui.GetStyle().ItemSpacing.X) / 2f;
+
+        // Serveur + Quartier
+        ImGui.BeginGroup();
+        ImGui.TextColored(ImGuiColors.DalamudGrey, Loc.Get("Establishment.Location.Server"));
         var previewName = _selectedWorldId != 0 && _uiSharedService.WorldData.TryGetValue(_selectedWorldId, out var wn)
-            ? wn : "Choisir un serveur...";
-        ImGui.SetNextItemWidth(280);
-        using (var combo = ImRaii.Combo("Serveur", previewName))
+            ? wn : Loc.Get("Establishment.Location.ServerChoose");
+        ImGui.SetNextItemWidth(halfW);
+        using (var combo = ImRaii.Combo("##server", previewName))
         {
             if (combo)
             {
                 ImGui.SetNextItemWidth(-1);
                 if (ImGui.IsWindowAppearing())
                     ImGui.SetKeyboardFocusHere();
-                ImGui.InputTextWithHint("##worldSearch", "Rechercher...", ref _worldSearchFilter, 50);
+                ImGui.InputTextWithHint("##worldSearch", Loc.Get("Establishment.Location.SearchHint"), ref _worldSearchFilter, 50);
 
                 var filtered = _uiSharedService.WorldData
                     .Where(w => string.IsNullOrEmpty(_worldSearchFilter)
@@ -239,219 +458,90 @@ internal class EstablishmentRegistrationUi : WindowMediatorSubscriberBase
                 _worldSearchFilter = string.Empty;
             }
         }
+        ImGui.EndGroup();
 
-        // Quartier résidentiel
-        ImGui.SetNextItemWidth(280);
-        ImGui.Combo("Quartier", ref _selectedDistrictIndex, DistrictNames, DistrictNames.Length);
+        ImGui.SameLine();
 
-        // Ward / Plot
-        ImGui.SetNextItemWidth(100);
-        ImGui.InputInt("Secteur (Ward)", ref _ward, 1, 1);
+        ImGui.BeginGroup();
+        ImGui.TextColored(ImGuiColors.DalamudGrey, Loc.Get("Establishment.Location.District"));
+        ImGui.SetNextItemWidth(halfW);
+        ImGui.Combo("##district", ref _selectedDistrictIndex, DistrictNames, DistrictNames.Length);
+        ImGui.EndGroup();
+
+        ImGuiHelpers.ScaledDummy(2f);
+
+        // Secteur
+        ImGui.TextColored(ImGuiColors.DalamudGrey, Loc.Get("Establishment.Location.Ward"));
+        ImGui.SetNextItemWidth(halfW);
+        ImGui.InputInt("##ward", ref _ward, 1, 1);
         _ward = Math.Clamp(_ward, 1, 30);
+    }
 
-        ImGui.SetNextItemWidth(100);
-        ImGui.InputInt("Parcelle (Plot)", ref _plot, 1, 1);
+    private void DrawMaisonFields()
+    {
+        ImGuiHelpers.ScaledDummy(2f);
+        ImGui.TextColored(ImGuiColors.DalamudGrey, Loc.Get("Establishment.Location.Plot"));
+        ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X * 0.5f);
+        ImGui.InputInt("##plot", ref _plot, 1, 1);
         _plot = Math.Clamp(_plot, 1, 60);
 
-        // Subdivision
-        ImGui.Checkbox("Subdivision", ref _isSubdivision);
-        UiSharedService.AttachToolTip("Cocher si le plot est dans la subdivision du quartier");
-
-        // Appartement
-        ImGui.Checkbox("Appartement", ref _isApartment);
-        if (_isApartment)
-        {
-            ImGui.SameLine();
-            ImGui.SetNextItemWidth(80);
-            ImGui.InputInt("Chambre", ref _roomNumber, 1, 1);
-            _roomNumber = Math.Max(_roomNumber, 0);
-        }
-
-        // Auto-fill
-        ImGui.Spacing();
-        if (_uiSharedService.IconButton(FontAwesomeIcon.Crosshairs))
-            AutoFillHousing();
-        UiSharedService.AttachToolTip("Remplir depuis votre position actuelle");
+        _isSubdivision = _plot > 30;
+        ImGui.TextColored(ImGuiColors.DalamudGrey,
+            _isSubdivision ? Loc.Get("Establishment.Location.Subdivision") : Loc.Get("Establishment.Location.Main"));
     }
 
-    private void DrawZoneFields()
+    private void DrawAppartementFields()
     {
-        ImGui.TextDisabled("Definissez la zone a l'aide de coordonnees et d'un rayon.");
-        ImGui.Spacing();
+        ImGuiHelpers.ScaledDummy(2f);
 
-        ImGui.SetNextItemWidth(120);
-        ImGui.DragFloat("X##zone", ref _x);
+        var availW = ImGui.GetContentRegionAvail().X;
+        var halfW = (availW - ImGui.GetStyle().ItemSpacing.X) / 2f;
+
+        ImGui.BeginGroup();
+        ImGui.TextColored(ImGuiColors.DalamudGrey, Loc.Get("Establishment.Location.RoomNumber"));
+        ImGui.SetNextItemWidth(halfW);
+        ImGui.InputInt("##roomNumber", ref _roomNumber, 1, 1);
+        _roomNumber = Math.Max(_roomNumber, 1);
+        ImGui.EndGroup();
+
         ImGui.SameLine();
-        ImGui.SetNextItemWidth(120);
-        ImGui.DragFloat("Y##zone", ref _y);
-        ImGui.SameLine();
-        ImGui.SetNextItemWidth(120);
-        ImGui.DragFloat("Z##zone", ref _z);
 
-        ImGui.SetNextItemWidth(200);
-        ImGui.SliderFloat("Rayon de detection", ref _radius, 5f, 200f, "%.0f");
-
-        ImGui.Spacing();
-        if (_uiSharedService.IconButton(FontAwesomeIcon.Crosshairs))
-            DetectCurrentPosition();
-        UiSharedService.AttachToolTip("Detecter votre position actuelle");
+        ImGui.BeginGroup();
+        ImGui.TextColored(ImGuiColors.DalamudGrey, Loc.Get("Establishment.Location.Annex"));
+        ImGui.Checkbox("##annexe", ref _isSubdivision);
+        UiSharedService.AttachToolTip(Loc.Get("Establishment.Location.AnnexTooltip"));
+        ImGui.EndGroup();
     }
 
-    private void DrawImageSection()
+    private void DrawSyncSlotFields()
     {
-        DrawSectionHeader(FontAwesomeIcon.Image, "Images");
-
-        if (!string.IsNullOrEmpty(_imageMessage))
-        {
-            ImGui.TextColored(ImGuiColors.DalamudOrange, _imageMessage);
-            ImGui.Spacing();
-        }
-
-        // Logo
-        ImGui.TextUnformatted("Logo");
-        if (_logoTexture != null && _logoImageBytes.Length > 0)
-        {
-            float imgSize = 100f * ImGuiHelpers.GlobalScale;
-            float imgRounding = 8f * ImGuiHelpers.GlobalScale;
-            var drawList = ImGui.GetWindowDrawList();
-            var imgMin = ImGui.GetCursorScreenPos();
-            var imgMax = new Vector2(imgMin.X + imgSize, imgMin.Y + imgSize);
-            drawList.AddImageRounded(
-                _logoTexture.Handle, imgMin, imgMax,
-                Vector2.Zero, Vector2.One,
-                ImGui.ColorConvertFloat4ToU32(Vector4.One), imgRounding);
-            ImGui.Dummy(new Vector2(imgSize, imgSize));
-        }
-        else
-        {
-            ImGui.TextDisabled("Aucun logo.");
-        }
-        if (_uiSharedService.IconTextButton(FontAwesomeIcon.Upload, "Charger un logo"))
-        {
-            _fileDialogManager.OpenFileDialog(
-                "Choisir un logo",
-                "Image files{.png,.jpg,.jpeg}",
-                (success, name) =>
-                {
-                    if (!success) return;
-                    _ = Task.Run(async () =>
-                    {
-                        var bytes = await File.ReadAllBytesAsync(name).ConfigureAwait(false);
-                        if (bytes.Length > 2 * 1024 * 1024)
-                        {
-                            _imageMessage = "Image trop volumineuse (max 2 Mo).";
-                            return;
-                        }
-                        _imageMessage = null;
-                        _logoImageBytes = bytes;
-                        _logoTexture?.Dispose();
-                        _logoTexture = _uiSharedService.LoadImage(bytes);
-                    });
-                });
-        }
-        ImGui.SameLine();
-        using (ImRaii.Disabled(_logoImageBytes.Length == 0))
-        {
-            using (ImRaii.PushId("clearLogo"))
-            {
-                if (_uiSharedService.IconTextButton(FontAwesomeIcon.Trash, "Retirer"))
-                {
-                    _logoImageBytes = [];
-                    _logoTexture?.Dispose();
-                    _logoTexture = null;
-                }
-            }
-        }
-
-        ImGui.Spacing();
-
-        // Banner
-        ImGui.TextUnformatted("Banniere");
-        if (_bannerTexture != null && _bannerImageBytes.Length > 0)
-        {
-            float availWidth = ImGui.GetContentRegionAvail().X;
-            float bannerHeight = availWidth * (260f / 840f);
-            float bannerRounding = 8f * ImGuiHelpers.GlobalScale;
-            var bannerDrawList = ImGui.GetWindowDrawList();
-            var bannerMin = ImGui.GetCursorScreenPos();
-            var bannerMax = new Vector2(bannerMin.X + availWidth, bannerMin.Y + bannerHeight);
-            bannerDrawList.AddImageRounded(
-                _bannerTexture.Handle, bannerMin, bannerMax,
-                Vector2.Zero, Vector2.One,
-                ImGui.ColorConvertFloat4ToU32(Vector4.One), bannerRounding);
-            ImGui.Dummy(new Vector2(availWidth, bannerHeight));
-        }
-        else
-        {
-            ImGui.TextDisabled("Aucune banniere.");
-        }
-        if (_uiSharedService.IconTextButton(FontAwesomeIcon.Upload, "Charger une banniere"))
-        {
-            _fileDialogManager.OpenFileDialog(
-                "Choisir une banniere",
-                "Image files{.png,.jpg,.jpeg}",
-                (success, name) =>
-                {
-                    if (!success) return;
-                    _ = Task.Run(async () =>
-                    {
-                        var bytes = await File.ReadAllBytesAsync(name).ConfigureAwait(false);
-                        if (bytes.Length > 2 * 1024 * 1024)
-                        {
-                            _imageMessage = "Image trop volumineuse (max 2 Mo).";
-                            return;
-                        }
-                        _imageMessage = null;
-                        _bannerImageBytes = bytes;
-                        _bannerTexture?.Dispose();
-                        _bannerTexture = _uiSharedService.LoadImage(bytes);
-                    });
-                });
-        }
-        ImGui.SameLine();
-        using (ImRaii.Disabled(_bannerImageBytes.Length == 0))
-        {
-            using (ImRaii.PushId("clearBanner"))
-            {
-                if (_uiSharedService.IconTextButton(FontAwesomeIcon.Trash, "Retirer"))
-                {
-                    _bannerImageBytes = [];
-                    _bannerTexture?.Dispose();
-                    _bannerTexture = null;
-                }
-            }
-        }
-    }
-
-    private void DrawSyncSlotLink()
-    {
-        DrawSectionHeader(FontAwesomeIcon.Link, "Liaison Syncshell");
-
-        ImGui.TextDisabled("Seules les syncshells dont vous etes proprietaire et qui possedent un SyncSlot sont disponibles.");
-        ImGui.Spacing();
+        ImGui.TextColored(ImGuiColors.DalamudGrey,
+            Loc.Get("Establishment.Syncshell.Description"));
+        ImGuiHelpers.ScaledDummy(2f);
 
         if (!_eligibleGroupsLoaded && !_eligibleGroupsLoading)
             _ = LoadEligibleGroups();
 
         if (_eligibleGroupsLoading)
         {
-            ImGui.TextDisabled("Chargement des syncshells eligibles...");
+            ImGui.TextDisabled(Loc.Get("Establishment.Syncshell.Loading"));
             return;
         }
 
         if (_eligibleGroups.Count == 0)
         {
-            ImGui.TextDisabled("Aucune syncshell eligible (vous devez etre proprietaire d'une syncshell avec un SyncSlot).");
+            ImGui.TextDisabled(Loc.Get("Establishment.Syncshell.NoEligible"));
+            UiSharedService.AttachToolTip(Loc.Get("Establishment.Syncshell.NoEligibleTooltip"));
             return;
         }
 
-        var preview = _linkedSyncshellGid != null ? _linkedSyncshellDisplay : "Aucune";
-        ImGui.SetNextItemWidth(280);
+        var preview = _linkedSyncshellGid != null ? _linkedSyncshellDisplay : Loc.Get("Establishment.Syncshell.None");
+        ImGui.SetNextItemWidth(-1);
         using (var combo = ImRaii.Combo("##syncslotLink", preview))
         {
             if (combo)
             {
-                if (ImGui.Selectable("Aucune", _linkedSyncshellGid == null))
+                if (ImGui.Selectable(Loc.Get("Establishment.Syncshell.None"), _linkedSyncshellGid == null))
                 {
                     _linkedSyncshellGid = null;
                     _linkedSyncshellDisplay = string.Empty;
@@ -476,13 +566,48 @@ internal class EstablishmentRegistrationUi : WindowMediatorSubscriberBase
                 _linkedSyncshellGid = null;
                 _linkedSyncshellDisplay = string.Empty;
             }
-            UiSharedService.AttachToolTip("Retirer la liaison");
+            UiSharedService.AttachToolTip(Loc.Get("Establishment.Syncshell.Unlink"));
         }
 
         ImGui.SameLine();
         if (_uiSharedService.IconButton(FontAwesomeIcon.Sync))
             _ = LoadEligibleGroups();
-        UiSharedService.AttachToolTip("Rafraichir la liste");
+        UiSharedService.AttachToolTip(Loc.Get("Establishment.Syncshell.Refresh"));
+    }
+
+    private void DrawSubmitArea()
+    {
+        var canSubmit = !string.IsNullOrWhiteSpace(_name);
+
+        if (_isSubmitting)
+        {
+            var text = Loc.Get("Establishment.Submit.Creating");
+            var textW = ImGui.CalcTextSize(text).X;
+            ImGui.SetCursorPosX(ImGui.GetCursorPosX() + (ImGui.GetContentRegionAvail().X - textW) / 2f);
+            ImGui.TextDisabled(text);
+            return;
+        }
+
+        if (!canSubmit)
+        {
+            ImGui.TextColored(ImGuiColors.DalamudOrange, Loc.Get("Establishment.Submit.NameRequired"));
+            ImGuiHelpers.ScaledDummy(2f);
+        }
+
+        using (ImRaii.Disabled(!canSubmit))
+        {
+            using var accent = ImRaii.PushColor(ImGuiCol.Button, UiSharedService.AccentColor);
+            using var hovered = ImRaii.PushColor(ImGuiCol.ButtonHovered,
+                new Vector4(
+                    Math.Min(UiSharedService.AccentColor.X * 1.15f, 1f),
+                    Math.Min(UiSharedService.AccentColor.Y * 1.15f, 1f),
+                    Math.Min(UiSharedService.AccentColor.Z * 1.15f, 1f), 1f));
+            if (ImGui.Button(Loc.Get("Establishment.Submit.Create"),
+                new Vector2(ImGui.GetContentRegionAvail().X, 36f * ImGuiHelpers.GlobalScale)))
+            {
+                _ = Submit();
+            }
+        }
     }
 
     private async Task LoadEligibleGroups()
@@ -524,21 +649,11 @@ internal class EstablishmentRegistrationUi : WindowMediatorSubscriberBase
 
         if (slotLoc.WardId > 0)
         {
-            _locationType = 0;
+            _housingType = 0;
             _selectedDistrictIndex = ResolveDistrictIndex(slotLoc.TerritoryId);
             _ward = (int)slotLoc.WardId;
             _plot = slotLoc.PlotId > 0 ? (int)slotLoc.PlotId : 1;
             _isSubdivision = slotLoc.DivisionId > 1;
-            _isApartment = false;
-            _roomNumber = 0;
-        }
-        else
-        {
-            _locationType = 1;
-            _x = slotLoc.X;
-            _y = slotLoc.Y;
-            _z = slotLoc.Z;
-            _radius = slotLoc.Radius;
         }
     }
 
@@ -550,9 +665,18 @@ internal class EstablishmentRegistrationUi : WindowMediatorSubscriberBase
             _selectedWorldId = (ushort)loc.ServerId;
             _selectedDistrictIndex = ResolveDistrictIndex(loc.TerritoryId);
             _ward = loc.WardId > 0 ? (int)loc.WardId : 1;
-            _plot = loc.HouseId > 0 ? (int)loc.HouseId : 1;
             _isSubdivision = loc.DivisionId > 1;
-            _roomNumber = loc.RoomId > 0 ? (int)loc.RoomId : 0;
+
+            if (loc.RoomId > 0)
+            {
+                _housingType = 1;
+                _roomNumber = (int)loc.RoomId;
+            }
+            else
+            {
+                _housingType = 0;
+                _plot = loc.HouseId > 0 ? (int)loc.HouseId : 1;
+            }
         }
         catch (Exception ex)
         {
@@ -570,43 +694,23 @@ internal class EstablishmentRegistrationUi : WindowMediatorSubscriberBase
         return 0;
     }
 
-    private void DetectCurrentPosition()
-    {
-        try
-        {
-            var player = _dalamudUtilService.GetPlayerCharacter();
-            if (player != null)
-            {
-                _x = player.Position.X;
-                _y = player.Position.Y;
-                _z = player.Position.Z;
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Error detecting current position");
-        }
-    }
-
     private async Task Submit()
     {
         _isSubmitting = true;
+        _logger.LogInformation("Creating establishment '{name}', type={type}", _name, _housingType == 0 ? "Maison" : "Appartement");
         try
         {
+            var isApt = _housingType == 1;
             var location = new EstablishmentLocationDto
             {
-                LocationType = _locationType,
-                TerritoryId = _locationType == 0 ? ResidentialDistricts[_selectedDistrictIndex].TerritoryId : _dalamudUtilService.GetMapDataAsync().GetAwaiter().GetResult().TerritoryId,
+                LocationType = 0,
+                TerritoryId = ResidentialDistricts[_selectedDistrictIndex].TerritoryId,
                 ServerId = _selectedWorldId != 0 ? _selectedWorldId : null,
-                WardId = _locationType == 0 ? (uint)_ward : null,
-                PlotId = _locationType == 0 ? (uint)_plot : null,
-                DivisionId = _locationType == 0 ? (_isSubdivision ? 2u : 1u) : null,
-                IsApartment = _isApartment ? true : null,
-                RoomId = _isApartment && _roomNumber > 0 ? (uint)_roomNumber : null,
-                X = _locationType == 1 ? _x : null,
-                Y = _locationType == 1 ? _y : null,
-                Z = _locationType == 1 ? _z : null,
-                Radius = _locationType == 1 ? _radius : null
+                WardId = (uint)_ward,
+                PlotId = isApt ? null : (uint)_plot,
+                DivisionId = _isSubdivision ? 2u : 1u,
+                IsApartment = isApt ? true : null,
+                RoomId = isApt && _roomNumber > 0 ? (uint)_roomNumber : null,
             };
 
             var request = new EstablishmentCreateRequestDto
@@ -622,30 +726,33 @@ internal class EstablishmentRegistrationUi : WindowMediatorSubscriberBase
                 Location = location
             };
 
+            _logger.LogDebug("Submitting establishment creation request: {name}, category={cat}, location=Ward{ward}", request.Name, request.Category, _ward);
             var result = await _apiController.EstablishmentCreate(request).ConfigureAwait(false);
             if (result != null)
             {
-                // Save syncshell binding if linked
+                _logger.LogInformation("Establishment '{name}' created with id {id}", result.Name, result.Id);
                 if (!string.IsNullOrEmpty(_linkedSyncshellGid))
                 {
                     _establishmentConfigService.Current.EstablishmentSyncSlotBindings[result.Id] = _linkedSyncshellGid;
                     _establishmentConfigService.Save();
                 }
 
-                Mediator.Publish(new NotificationMessage("Etablissement", $"'{result.Name}' cree avec succes !", NotificationType.Info));
+                Mediator.Publish(new NotificationMessage(Loc.Get("Establishment.Detail.Title"), $"'{result.Name}' {Loc.Get("Establishment.Notification.Created")}", NotificationType.Info));
+                Mediator.Publish(new EstablishmentChangedMessage());
                 Mediator.Publish(new OpenEstablishmentDetailMessage(result.Id));
                 IsOpen = false;
                 ResetFields();
             }
             else
             {
-                Mediator.Publish(new NotificationMessage("Etablissement", "Erreur lors de la creation", NotificationType.Error));
+                _logger.LogWarning("Establishment creation returned null for '{name}'", _name);
+                Mediator.Publish(new NotificationMessage(Loc.Get("Establishment.Detail.Title"), Loc.Get("Establishment.Notification.CreateError"), NotificationType.Error));
             }
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Error creating establishment");
-            Mediator.Publish(new NotificationMessage("Etablissement", "Erreur inattendue", NotificationType.Error));
+            Mediator.Publish(new NotificationMessage(Loc.Get("Establishment.Detail.Title"), Loc.Get("Establishment.Notification.UnexpectedError"), NotificationType.Error));
         }
         finally
         {
@@ -661,16 +768,14 @@ internal class EstablishmentRegistrationUi : WindowMediatorSubscriberBase
         _schedule = string.Empty;
         _factionTag = string.Empty;
         _isPublic = true;
+        _housingType = 0;
         _selectedWorldId = 0;
         _worldSearchFilter = string.Empty;
         _selectedDistrictIndex = 0;
         _ward = 1;
         _plot = 1;
         _isSubdivision = false;
-        _isApartment = false;
-        _roomNumber = 0;
-        _x = _y = _z = 0;
-        _radius = 30f;
+        _roomNumber = 1;
         _linkedSyncshellGid = null;
         _linkedSyncshellDisplay = string.Empty;
         _eligibleGroupsLoaded = false;

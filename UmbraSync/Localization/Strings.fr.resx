@@ -4625,4 +4625,380 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
   <data name="HousingShare.Error.DownloadFailed" xml:space="preserve">
     <value>&#xC9;chec du t&#xE9;l&#xE9;chargement des fichiers de mods depuis le serveur.</value>
   </data>
+  <!-- Establishment Registration -->
+  <data name="Establishment.Registration.Title" xml:space="preserve">
+    <value>Enregistrer un &#xE9;tablissement</value>
+  </data>
+  <data name="Establishment.Registration.Header" xml:space="preserve">
+    <value>Nouvel &#xE9;tablissement</value>
+  </data>
+  <data name="Establishment.Registration.Subtitle" xml:space="preserve">
+    <value>Remplissez les informations ci-dessous pour enregistrer votre &#xE9;tablissement.</value>
+  </data>
+  <data name="Establishment.Registration.NotConnected" xml:space="preserve">
+    <value>Non connect&#xE9; au serveur.</value>
+  </data>
+  <data name="Establishment.Section.GeneralInfo" xml:space="preserve">
+    <value>Informations g&#xE9;n&#xE9;rales</value>
+  </data>
+  <data name="Establishment.Section.Images" xml:space="preserve">
+    <value>Images</value>
+  </data>
+  <data name="Establishment.Section.Location" xml:space="preserve">
+    <value>Localisation</value>
+  </data>
+  <data name="Establishment.Section.SyncshellLink" xml:space="preserve">
+    <value>Liaison Syncshell</value>
+  </data>
+  <data name="Establishment.Field.Name" xml:space="preserve">
+    <value>Nom *</value>
+  </data>
+  <data name="Establishment.Field.NameHint" xml:space="preserve">
+    <value>Nom de l'&#xE9;tablissement</value>
+  </data>
+  <data name="Establishment.Field.Description" xml:space="preserve">
+    <value>Description</value>
+  </data>
+  <data name="Establishment.Field.Category" xml:space="preserve">
+    <value>Cat&#xE9;gorie</value>
+  </data>
+  <data name="Establishment.Field.Schedule" xml:space="preserve">
+    <value>Horaires</value>
+  </data>
+  <data name="Establishment.Field.ScheduleHint" xml:space="preserve">
+    <value>ex: Ven-Sam 21h-1h</value>
+  </data>
+  <data name="Establishment.Field.Faction" xml:space="preserve">
+    <value>Faction / Organisation</value>
+  </data>
+  <data name="Establishment.Field.Optional" xml:space="preserve">
+    <value>Optionnel</value>
+  </data>
+  <data name="Establishment.Field.PublicDirectory" xml:space="preserve">
+    <value>Visible dans l'annuaire public</value>
+  </data>
+  <data name="Establishment.Field.PublicDirectoryTooltip" xml:space="preserve">
+    <value>Si coch&#xE9;, votre &#xE9;tablissement sera visible par tous dans l'annuaire.</value>
+  </data>
+  <data name="Establishment.Image.Logo" xml:space="preserve">
+    <value>Logo</value>
+  </data>
+  <data name="Establishment.Image.LogoHint" xml:space="preserve">
+    <value>Carr&#xE9;, 128x128 recommand&#xE9; (256x256 max). 2 Mo max.</value>
+  </data>
+  <data name="Establishment.Image.Banner" xml:space="preserve">
+    <value>Banni&#xE8;re</value>
+  </data>
+  <data name="Establishment.Image.BannerHint" xml:space="preserve">
+    <value>Format paysage, 840x260 recommand&#xE9; (1680x520 max). 2 Mo max.</value>
+  </data>
+  <data name="Establishment.Image.Upload" xml:space="preserve">
+    <value>Charger</value>
+  </data>
+  <data name="Establishment.Image.Remove" xml:space="preserve">
+    <value>Retirer</value>
+  </data>
+  <data name="Establishment.Image.TooLarge" xml:space="preserve">
+    <value>Image trop volumineuse (max 2 Mo).</value>
+  </data>
+  <data name="Establishment.Image.NoLogo" xml:space="preserve">
+    <value>Aucun logo.</value>
+  </data>
+  <data name="Establishment.Image.NoBanner" xml:space="preserve">
+    <value>Aucune banni&#xE8;re.</value>
+  </data>
+  <data name="Establishment.Image.LoadError" xml:space="preserve">
+    <value>Impossible de charger l'image. V&#xE9;rifiez le format (PNG, JPG).</value>
+  </data>
+  <data name="Establishment.Image.ChooseLogo" xml:space="preserve">
+    <value>Choisir un logo</value>
+  </data>
+  <data name="Establishment.Image.ChooseBanner" xml:space="preserve">
+    <value>Choisir une banni&#xE8;re</value>
+  </data>
+  <data name="Establishment.Location.House" xml:space="preserve">
+    <value>Maison</value>
+  </data>
+  <data name="Establishment.Location.Apartment" xml:space="preserve">
+    <value>Appartement</value>
+  </data>
+  <data name="Establishment.Location.AutoFill" xml:space="preserve">
+    <value>Remplir depuis votre position</value>
+  </data>
+  <data name="Establishment.Location.AutoFillTooltip" xml:space="preserve">
+    <value>D&#xE9;tecte votre position actuelle et remplit automatiquement les champs de localisation.&#x0A;Vous devez &#xEA;tre &#xE0; l'int&#xE9;rieur de votre maison ou appartement.</value>
+  </data>
+  <data name="Establishment.Location.Server" xml:space="preserve">
+    <value>Serveur</value>
+  </data>
+  <data name="Establishment.Location.ServerChoose" xml:space="preserve">
+    <value>Choisir...</value>
+  </data>
+  <data name="Establishment.Location.SearchHint" xml:space="preserve">
+    <value>Rechercher...</value>
+  </data>
+  <data name="Establishment.Location.District" xml:space="preserve">
+    <value>Quartier</value>
+  </data>
+  <data name="Establishment.Location.Ward" xml:space="preserve">
+    <value>Secteur (Ward)</value>
+  </data>
+  <data name="Establishment.Location.Plot" xml:space="preserve">
+    <value>Parcelle (Plot)</value>
+  </data>
+  <data name="Establishment.Location.Subdivision" xml:space="preserve">
+    <value>Subdivision (parcelles 31-60)</value>
+  </data>
+  <data name="Establishment.Location.Main" xml:space="preserve">
+    <value>Principal (parcelles 1-30)</value>
+  </data>
+  <data name="Establishment.Location.RoomNumber" xml:space="preserve">
+    <value>Num&#xE9;ro de chambre</value>
+  </data>
+  <data name="Establishment.Location.Annex" xml:space="preserve">
+    <value>Annexe</value>
+  </data>
+  <data name="Establishment.Location.AnnexTooltip" xml:space="preserve">
+    <value>Cocher si l'appartement est dans l'annexe du quartier</value>
+  </data>
+  <data name="Establishment.Syncshell.Description" xml:space="preserve">
+    <value>Seules les syncshells dont vous &#xEA;tes propri&#xE9;taire et qui poss&#xE8;dent un SyncSlot sont disponibles.</value>
+  </data>
+  <data name="Establishment.Syncshell.None" xml:space="preserve">
+    <value>Aucune</value>
+  </data>
+  <data name="Establishment.Syncshell.NoEligible" xml:space="preserve">
+    <value>Aucune syncshell &#xE9;ligible.</value>
+  </data>
+  <data name="Establishment.Syncshell.NoEligibleTooltip" xml:space="preserve">
+    <value>Vous devez &#xEA;tre propri&#xE9;taire d'une syncshell avec un SyncSlot.</value>
+  </data>
+  <data name="Establishment.Syncshell.Loading" xml:space="preserve">
+    <value>Chargement des syncshells &#xE9;ligibles...</value>
+  </data>
+  <data name="Establishment.Syncshell.Unlink" xml:space="preserve">
+    <value>Retirer la liaison</value>
+  </data>
+  <data name="Establishment.Syncshell.Refresh" xml:space="preserve">
+    <value>Rafra&#xEE;chir la liste</value>
+  </data>
+  <data name="Establishment.Submit.Create" xml:space="preserve">
+    <value>Cr&#xE9;er l'&#xE9;tablissement</value>
+  </data>
+  <data name="Establishment.Submit.Creating" xml:space="preserve">
+    <value>Cr&#xE9;ation en cours...</value>
+  </data>
+  <data name="Establishment.Submit.NameRequired" xml:space="preserve">
+    <value>Le nom est obligatoire.</value>
+  </data>
+  <data name="Establishment.Notification.Created" xml:space="preserve">
+    <value>cr&#xE9;&#xE9; avec succ&#xE8;s !</value>
+  </data>
+  <data name="Establishment.Notification.CreateError" xml:space="preserve">
+    <value>Erreur lors de la cr&#xE9;ation</value>
+  </data>
+  <data name="Establishment.Notification.UnexpectedError" xml:space="preserve">
+    <value>Erreur inattendue</value>
+  </data>
+  <!-- Establishment Directory -->
+  <data name="Establishment.Directory.Title" xml:space="preserve">
+    <value>Annuaire des &#xE9;tablissements</value>
+  </data>
+  <data name="Establishment.Directory.SearchHint" xml:space="preserve">
+    <value>Rechercher...</value>
+  </data>
+  <data name="Establishment.Directory.AllCategories" xml:space="preserve">
+    <value>Toutes cat&#xE9;gories</value>
+  </data>
+  <data name="Establishment.Directory.Search" xml:space="preserve">
+    <value>Rechercher</value>
+  </data>
+  <data name="Establishment.Directory.Refresh" xml:space="preserve">
+    <value>Rafra&#xEE;chir</value>
+  </data>
+  <data name="Establishment.Directory.Register" xml:space="preserve">
+    <value>Enregistrer un nouvel &#xE9;tablissement</value>
+  </data>
+  <data name="Establishment.Directory.Tab.Browse" xml:space="preserve">
+    <value>Parcourir</value>
+  </data>
+  <data name="Establishment.Directory.Tab.Favorites" xml:space="preserve">
+    <value>Lieux favoris</value>
+  </data>
+  <data name="Establishment.Directory.Tab.Mine" xml:space="preserve">
+    <value>Mes lieux</value>
+  </data>
+  <data name="Establishment.Directory.Tab.Upcoming" xml:space="preserve">
+    <value>&#xC0; venir</value>
+  </data>
+  <data name="Establishment.Directory.NoUpcoming" xml:space="preserve">
+    <value>Aucun &#xE9;v&#xE9;nement &#xE0; venir cette semaine.</value>
+  </data>
+  <data name="Establishment.Directory.UpcomingLoading" xml:space="preserve">
+    <value>Chargement des &#xE9;v&#xE9;nements &#xE0; venir...</value>
+  </data>
+  <data name="Establishment.Directory.Loading" xml:space="preserve">
+    <value>Chargement...</value>
+  </data>
+  <data name="Establishment.Directory.PressSearch" xml:space="preserve">
+    <value>Appuyez sur Rechercher pour charger l'annuaire.</value>
+  </data>
+  <data name="Establishment.Directory.NoResults" xml:space="preserve">
+    <value>Aucun &#xE9;tablissement trouv&#xE9;.</value>
+  </data>
+  <data name="Establishment.Directory.NoFavorites" xml:space="preserve">
+    <value>Aucun favori. Ajoutez des &#xE9;tablissements en cliquant sur l'&#xE9;toile.</value>
+  </data>
+  <data name="Establishment.Directory.NoOwned" xml:space="preserve">
+    <value>Vous n'avez aucun &#xE9;tablissement enregistr&#xE9;.</value>
+  </data>
+  <data name="Establishment.Directory.ViewDetail" xml:space="preserve">
+    <value>Voir le d&#xE9;tail</value>
+  </data>
+  <data name="Establishment.Directory.AddFavorite" xml:space="preserve">
+    <value>Ajouter aux favoris</value>
+  </data>
+  <data name="Establishment.Directory.RemoveFavorite" xml:space="preserve">
+    <value>Retirer des favoris</value>
+  </data>
+  <data name="Establishment.Directory.Tonight" xml:space="preserve">
+    <value>Ce soir</value>
+  </data>
+  <data name="Establishment.Directory.ThisWeek" xml:space="preserve">
+    <value>Cette semaine</value>
+  </data>
+  <data name="Establishment.Directory.Until" xml:space="preserve">
+    <value>jusqu'&#xE0;</value>
+  </data>
+  <data name="Establishment.Directory.PageInfo" xml:space="preserve">
+    <value>Page {0} / {1}  ({2} r&#xE9;sultats)</value>
+  </data>
+  <!-- Establishment Detail - Events -->
+  <data name="Establishment.Event.NoEvents" xml:space="preserve">
+    <value>Aucun &#xE9;v&#xE9;nement programm&#xE9;.</value>
+  </data>
+  <data name="Establishment.Event.Delete" xml:space="preserve">
+    <value>Supprimer cet &#xE9;v&#xE9;nement</value>
+  </data>
+  <data name="Establishment.Event.New" xml:space="preserve">
+    <value>Nouvel &#xE9;v&#xE9;nement</value>
+  </data>
+  <data name="Establishment.Event.TitleHint" xml:space="preserve">
+    <value>Titre de l'&#xE9;v&#xE9;nement *</value>
+  </data>
+  <data name="Establishment.Event.DescriptionHint" xml:space="preserve">
+    <value>Description (optionnel)</value>
+  </data>
+  <data name="Establishment.Event.DateTimeLabel" xml:space="preserve">
+    <value>Date et heure de d&#xE9;but</value>
+  </data>
+  <data name="Establishment.Event.EndTime" xml:space="preserve">
+    <value>Heure de fin</value>
+  </data>
+  <data name="Establishment.Event.FutureRequired" xml:space="preserve">
+    <value>La date doit &#xEA;tre dans le futur.</value>
+  </data>
+  <data name="Establishment.Event.InvalidDate" xml:space="preserve">
+    <value>Date invalide.</value>
+  </data>
+  <data name="Establishment.Event.Add" xml:space="preserve">
+    <value>Ajouter l'&#xE9;v&#xE9;nement</value>
+  </data>
+  <data name="Establishment.Event.Past" xml:space="preserve">
+    <value>&#xC9;v&#xE9;nements pass&#xE9;s</value>
+  </data>
+  <data name="Establishment.Event.Recurrence" xml:space="preserve">
+    <value>R&#xE9;currence</value>
+  </data>
+  <data name="Establishment.Event.Recurrence.Unique" xml:space="preserve">
+    <value>Ponctuel</value>
+  </data>
+  <data name="Establishment.Event.Recurrence.Daily" xml:space="preserve">
+    <value>Quotidien</value>
+  </data>
+  <data name="Establishment.Event.Recurrence.Weekly" xml:space="preserve">
+    <value>Hebdomadaire</value>
+  </data>
+  <data name="Establishment.Event.Recurrence.Monthly" xml:space="preserve">
+    <value>Mensuel</value>
+  </data>
+  <!-- Establishment Detail -->
+  <data name="Establishment.Detail.Loading" xml:space="preserve">
+    <value>Chargement...</value>
+  </data>
+  <data name="Establishment.Detail.NotFound" xml:space="preserve">
+    <value>&#xC9;tablissement introuvable ou supprim&#xE9;.</value>
+  </data>
+  <data name="Establishment.Detail.Tab.Info" xml:space="preserve">
+    <value>Informations</value>
+  </data>
+  <data name="Establishment.Detail.Tab.Events" xml:space="preserve">
+    <value>&#xC9;v&#xE9;nements</value>
+  </data>
+  <data name="Establishment.Detail.Tab.Images" xml:space="preserve">
+    <value>Images</value>
+  </data>
+  <data name="Establishment.Detail.Tab.Sync" xml:space="preserve">
+    <value>Liaison Sync</value>
+  </data>
+  <data name="Establishment.Detail.Owner" xml:space="preserve">
+    <value>Propri&#xE9;taire: {0}  |  Derni&#xE8;re MAJ: {1}</value>
+  </data>
+  <data name="Establishment.Detail.CancelEdit" xml:space="preserve">
+    <value>Annuler les modifications</value>
+  </data>
+  <data name="Establishment.Detail.Edit" xml:space="preserve">
+    <value>Modifier</value>
+  </data>
+  <data name="Establishment.Detail.Delete" xml:space="preserve">
+    <value>Supprimer cet &#xE9;tablissement</value>
+  </data>
+  <data name="Establishment.Detail.Save" xml:space="preserve">
+    <value>Sauvegarder</value>
+  </data>
+  <data name="Establishment.Detail.ImagesSaved" xml:space="preserve">
+    <value>Images sauvegard&#xE9;es</value>
+  </data>
+  <data name="Establishment.Detail.ChangesSaved" xml:space="preserve">
+    <value>Modifications sauvegard&#xE9;es</value>
+  </data>
+  <data name="Establishment.Detail.Deleted" xml:space="preserve">
+    <value>&#xC9;tablissement supprim&#xE9;</value>
+  </data>
+  <data name="Establishment.Detail.Title" xml:space="preserve">
+    <value>&#xC9;tablissement</value>
+  </data>
+  <data name="Establishment.Detail.NameTooltip" xml:space="preserve">
+    <value>Nom de l'&#xE9;tablissement</value>
+  </data>
+  <data name="Establishment.Detail.Ward" xml:space="preserve">
+    <value>Secteur {0}, Parcelle {1}</value>
+  </data>
+  <data name="Establishment.Detail.Subdivision" xml:space="preserve">
+    <value>(Subdivision)</value>
+  </data>
+  <data name="Establishment.Category.Tavern" xml:space="preserve">
+    <value>Taverne</value>
+  </data>
+  <data name="Establishment.Category.Shop" xml:space="preserve">
+    <value>Boutique</value>
+  </data>
+  <data name="Establishment.Category.Temple" xml:space="preserve">
+    <value>Temple</value>
+  </data>
+  <data name="Establishment.Category.Academy" xml:space="preserve">
+    <value>Acad&#xE9;mie</value>
+  </data>
+  <data name="Establishment.Category.Guild" xml:space="preserve">
+    <value>Guilde</value>
+  </data>
+  <data name="Establishment.Category.Residence" xml:space="preserve">
+    <value>R&#xE9;sidence</value>
+  </data>
+  <data name="Establishment.Category.Workshop" xml:space="preserve">
+    <value>Atelier</value>
+  </data>
+  <data name="Establishment.Category.Other" xml:space="preserve">
+    <value>Autre</value>
+  </data>
 </root>

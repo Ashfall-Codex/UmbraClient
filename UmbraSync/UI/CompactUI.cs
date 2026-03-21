@@ -1,6 +1,7 @@
 ﻿using Dalamud.Bindings.ImGui;
 using Dalamud.Interface;
 using Dalamud.Interface.Colors;
+using Dalamud.Interface.Textures.TextureWraps;
 using Dalamud.Interface.Utility;
 using Dalamud.Interface.Utility.Raii;
 using Dalamud.Utility;
@@ -86,7 +87,13 @@ public class CompactUi : WindowMediatorSubscriberBase
     private string _annuaireSearch = string.Empty;
     private int _annuaireCategory = -1;
     private int _annuairePage;
-    private int _annuaireTab; // 0=browse, 1=bookmarks, 2=mine
+    private int _annuaireTab;
+    private bool _annuaireNeedsRefresh = true;
+    private List<(EstablishmentDto Establishment, EstablishmentEventDto Event)>? _annuaireUpcoming;
+    private bool _annuaireUpcomingLoading;
+    private readonly Dictionary<Guid, IDalamudTextureWrap?> _annuaireLogoCache = new();
+    private List<EstablishmentDto>? _annuaireBookmarkResults;
+    private bool _annuaireBookmarksLoading;
     private const float SidebarWidth = 53f;
     private const float SidebarIconSize = 25f;
     private const float ContentFontScale = UiSharedService.ContentFontScale;
@@ -190,6 +197,7 @@ public class CompactUi : WindowMediatorSubscriberBase
             }
         });
         Mediator.Subscribe<NotificationStateChanged>(this, msg => _notificationCount = msg.TotalCount);
+        Mediator.Subscribe<EstablishmentChangedMessage>(this, (_) => AnnuaireRefreshAll());
         Mediator.Subscribe<DisconnectedMessage>(this, (_) =>
         {
             _drawUserPairCache.Clear();
@@ -1315,10 +1323,12 @@ public class CompactUi : WindowMediatorSubscriberBase
         using (ImRaii.PushId("grouping-popup")) _selectGroupForPairUi.Draw();
     }
 
-    private static readonly string[] AnnuaireCategoryNames =
+    private static string[] AnnuaireCategoryNames =>
     [
-        "Taverne", "Boutique", "Temple", "Academie",
-        "Guilde", "Residence", "Atelier", "Autre"
+        Loc.Get("Establishment.Category.Tavern"), Loc.Get("Establishment.Category.Shop"),
+        Loc.Get("Establishment.Category.Temple"), Loc.Get("Establishment.Category.Academy"),
+        Loc.Get("Establishment.Category.Guild"), Loc.Get("Establishment.Category.Residence"),
+        Loc.Get("Establishment.Category.Workshop"), Loc.Get("Establishment.Category.Other")
     ];
 
     private static readonly FontAwesomeIcon[] AnnuaireCategoryIcons =
@@ -1329,6 +1339,13 @@ public class CompactUi : WindowMediatorSubscriberBase
 
     private void DrawAnnuaireSection()
     {
+        // Auto-refresh on first display
+        if (_annuaireNeedsRefresh)
+        {
+            _annuaireNeedsRefresh = false;
+            _ = AnnuaireRefreshOwned();
+        }
+
         // Toolbar: search + category + buttons
         ImGui.SetNextItemWidth(140);
         if (ImGui.InputTextWithHint("##annSearch", "Rechercher...", ref _annuaireSearch, 100, ImGuiInputTextFlags.EnterReturnsTrue))
@@ -1369,12 +1386,17 @@ public class CompactUi : WindowMediatorSubscriberBase
             _annuairePage = 0;
             _ = AnnuaireRefreshList();
         }
-        UiSharedService.AttachToolTip("Rechercher");
+        UiSharedService.AttachToolTip(Loc.Get("Establishment.Directory.Search"));
+
+        ImGui.SameLine();
+        if (_uiSharedService.IconButton(FontAwesomeIcon.Sync))
+            AnnuaireRefreshAll();
+        UiSharedService.AttachToolTip(Loc.Get("Establishment.Directory.Refresh"));
 
         ImGui.SameLine();
         if (_uiSharedService.IconButton(FontAwesomeIcon.Plus))
             Mediator.Publish(new UiToggleMessage(typeof(EstablishmentRegistrationUi)));
-        UiSharedService.AttachToolTip("Enregistrer un nouvel etablissement");
+        UiSharedService.AttachToolTip(Loc.Get("Establishment.Directory.Register"));
 
         ImGui.Spacing();
 
@@ -1385,21 +1407,29 @@ public class CompactUi : WindowMediatorSubscriberBase
         switch (_annuaireTab)
         {
             case 0:
-                DrawAnnuaireBrowse();
+                DrawAnnuaireOwned();
                 break;
             case 1:
                 DrawAnnuaireBookmarks();
                 break;
             case 2:
-                DrawAnnuaireOwned();
+                DrawAnnuaireBrowse();
+                break;
+            case 3:
+                DrawAnnuaireUpcoming();
                 break;
         }
     }
 
     private void DrawAnnuaireTabButtons()
     {
-        var icons = new[] { FontAwesomeIcon.Globe, FontAwesomeIcon.Star, FontAwesomeIcon.Home };
-        var labels = new[] { "Parcourir", "Favoris", "Mes lieux" };
+        var icons = new[] { FontAwesomeIcon.Home, FontAwesomeIcon.Star, FontAwesomeIcon.Globe, FontAwesomeIcon.CalendarAlt };
+        var labels = new[] {
+            Loc.Get("Establishment.Directory.Tab.Mine"),
+            Loc.Get("Establishment.Directory.Tab.Favorites"),
+            Loc.Get("Establishment.Directory.Tab.Browse"),
+            Loc.Get("Establishment.Directory.Tab.Upcoming")
+        };
 
         const float btnH = 28f;
         const float btnSpacing = 6f;
@@ -1481,8 +1511,10 @@ public class CompactUi : WindowMediatorSubscriberBase
             if (clicked)
             {
                 _annuaireTab = i;
-                if (i == 0) _ = AnnuaireRefreshList();
-                if (i == 2) _ = AnnuaireRefreshOwned();
+                if (i == 0) _ = AnnuaireRefreshOwned();
+                if (i == 1) _ = AnnuaireRefreshBookmarks();
+                if (i == 2) _ = AnnuaireRefreshList();
+                if (i == 3) _ = AnnuaireRefreshUpcoming();
             }
         }
     }
@@ -1518,27 +1550,54 @@ public class CompactUi : WindowMediatorSubscriberBase
         var bookmarks = _establishmentConfigService.Current.BookmarkedEstablishments;
         if (bookmarks.Count == 0)
         {
-            ImGui.TextDisabled("Aucun favori.");
+            ImGui.TextDisabled(Loc.Get("Establishment.Directory.NoFavorites"));
             return;
         }
 
-        ImGui.TextDisabled($"{bookmarks.Count} favori(s)");
-        foreach (var id in bookmarks.ToList())
+        if (!_annuaireBookmarksLoading && _annuaireBookmarkResults == null)
+            _ = AnnuaireRefreshBookmarks();
+
+        if (_annuaireBookmarksLoading)
         {
-            ImGui.PushID(id.ToString());
-            ImGui.BulletText(id.ToString()[..8] + "...");
-            ImGui.SameLine();
-            if (_uiSharedService.IconButton(FontAwesomeIcon.Eye))
-                Mediator.Publish(new OpenEstablishmentDetailMessage(id));
-            UiSharedService.AttachToolTip("Voir le detail");
-            ImGui.SameLine();
-            if (_uiSharedService.IconButton(FontAwesomeIcon.Trash))
+            ImGui.TextDisabled(Loc.Get("Establishment.Directory.Loading"));
+            return;
+        }
+
+        if (_annuaireBookmarkResults != null)
+        {
+            foreach (var establishment in _annuaireBookmarkResults)
+                DrawAnnuaireCard(establishment);
+        }
+    }
+
+    private async Task AnnuaireRefreshBookmarks()
+    {
+        if (_annuaireBookmarksLoading) return;
+        _annuaireBookmarksLoading = true;
+        try
+        {
+            var bookmarks = _establishmentConfigService.Current.BookmarkedEstablishments;
+            var results = new List<EstablishmentDto>();
+            foreach (var id in bookmarks.ToList())
             {
-                bookmarks.Remove(id);
-                _establishmentConfigService.Save();
+                var estab = await _apiController.EstablishmentGetById(id).ConfigureAwait(false);
+                if (estab != null)
+                    results.Add(estab);
+                else
+                {
+                    bookmarks.Remove(id);
+                    _establishmentConfigService.Save();
+                }
             }
-            UiSharedService.AttachToolTip("Retirer des favoris");
-            ImGui.PopID();
+            _annuaireBookmarkResults = results;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error loading bookmarked establishments");
+        }
+        finally
+        {
+            _annuaireBookmarksLoading = false;
         }
     }
 
@@ -1569,25 +1628,66 @@ public class CompactUi : WindowMediatorSubscriberBase
         var catIcon = catIndex >= 0 && catIndex < AnnuaireCategoryIcons.Length ? AnnuaireCategoryIcons[catIndex] : FontAwesomeIcon.QuestionCircle;
         var catName = catIndex >= 0 && catIndex < AnnuaireCategoryNames.Length ? AnnuaireCategoryNames[catIndex] : "?";
 
-        using (var card = ImRaii.Child($"##annCard_{establishment.Id}", new Vector2(ImGui.GetContentRegionAvail().X, 58), true))
+        var cardWidth = ImGui.GetContentRegionAvail().X;
+        var hasLogo = establishment.LogoImageBase64 is { Length: > 0 };
+        var cardHeight = 58f;
+        using (var card = ImRaii.Child($"##annCard_{establishment.Id}", new Vector2(cardWidth, cardHeight), true,
+            ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse))
         {
             if (card)
             {
-                // Icon + Name + Category
-                using (ImRaii.PushFont(UiBuilder.IconFont))
-                    ImGui.TextColored(UiSharedService.AccentColor, catIcon.ToIconString());
+                // Logo thumbnail if available
+                if (establishment.LogoImageBase64 is { Length: > 0 })
+                {
+                    var logoKey = $"annLogo_{establishment.Id}";
+                    if (!_annuaireLogoCache.TryGetValue(establishment.Id, out var logoTex))
+                    {
+                        try
+                        {
+                            logoTex = _uiSharedService.LoadImage(Convert.FromBase64String(establishment.LogoImageBase64));
+                            _annuaireLogoCache[establishment.Id] = logoTex;
+                        }
+                        catch { /* ignore */ }
+                    }
+                    if (logoTex != null)
+                    {
+                        float logoSize = 24f;
+                        float logoRounding = 4f;
+                        var dl = ImGui.GetWindowDrawList();
+                        var p = ImGui.GetCursorScreenPos();
+                        var textH = ImGui.GetTextLineHeight();
+                        var logoY = p.Y + (textH - logoSize) / 2f;
+                        var logoMin = new Vector2(p.X, logoY);
+                        dl.AddImageRounded(logoTex.Handle, logoMin, logoMin + new Vector2(logoSize, logoSize),
+                            Vector2.Zero, Vector2.One, ImGui.ColorConvertFloat4ToU32(Vector4.One), logoRounding);
+                        ImGui.Dummy(new Vector2(logoSize, textH));
+                        ImGui.SameLine();
+                    }
+                    else
+                    {
+                        using (ImRaii.PushFont(UiBuilder.IconFont))
+                            ImGui.TextColored(UiSharedService.AccentColor, catIcon.ToIconString());
+                        ImGui.SameLine();
+                    }
+                }
+                else
+                {
+                    using (ImRaii.PushFont(UiBuilder.IconFont))
+                        ImGui.TextColored(UiSharedService.AccentColor, catIcon.ToIconString());
+                    ImGui.SameLine();
+                }
 
-                ImGui.SameLine();
                 _uiSharedService.BigText(establishment.Name);
 
-                ImGui.SameLine();
-                ImGui.TextDisabled($"[{catName}]");
-
-                // Right-aligned buttons
-                var rightOffset = ImGui.GetContentRegionAvail().X;
+                // Right-aligned buttons — reserve space before placing
                 var starSize = _uiSharedService.GetIconButtonSize(FontAwesomeIcon.Star);
                 var eyeSize = _uiSharedService.GetIconButtonSize(FontAwesomeIcon.Eye);
-                ImGui.SameLine(ImGui.GetCursorPosX() + rightOffset - starSize.X - eyeSize.X - ImGui.GetStyle().ItemSpacing.X);
+                var buttonsWidth = starSize.X + eyeSize.X + ImGui.GetStyle().ItemSpacing.X * 2;
+                var availX = ImGui.GetContentRegionAvail().X;
+                if (availX > buttonsWidth)
+                {
+                    ImGui.SameLine(ImGui.GetWindowContentRegionMax().X - buttonsWidth);
+                }
 
                 if (_uiSharedService.IconButton(isBookmarked ? FontAwesomeIcon.Star : FontAwesomeIcon.StarHalfAlt))
                 {
@@ -1597,18 +1697,22 @@ public class CompactUi : WindowMediatorSubscriberBase
                         _establishmentConfigService.Current.BookmarkedEstablishments.Add(establishment.Id);
                     _establishmentConfigService.Save();
                 }
-                UiSharedService.AttachToolTip(isBookmarked ? "Retirer des favoris" : "Ajouter aux favoris");
+                UiSharedService.AttachToolTip(isBookmarked
+                    ? Loc.Get("Establishment.Directory.RemoveFavorite")
+                    : Loc.Get("Establishment.Directory.AddFavorite"));
 
                 ImGui.SameLine();
                 if (_uiSharedService.IconButton(FontAwesomeIcon.Eye))
                     Mediator.Publish(new OpenEstablishmentDetailMessage(establishment.Id));
-                UiSharedService.AttachToolTip("Voir le detail");
+                UiSharedService.AttachToolTip(Loc.Get("Establishment.Directory.ViewDetail"));
 
-                // Description or owner
+                // Row 2: [Category] + Description or owner
+                ImGui.TextColored(UiSharedService.AccentColor, $"[{catName}]");
+                ImGui.SameLine();
                 if (!string.IsNullOrEmpty(establishment.Description))
                 {
-                    var desc = establishment.Description.Length > 80
-                        ? establishment.Description[..80] + "..."
+                    var desc = establishment.Description.Length > 70
+                        ? establishment.Description[..70] + "..."
                         : establishment.Description;
                     ImGui.TextDisabled(desc);
                 }
@@ -1683,6 +1787,188 @@ public class CompactUi : WindowMediatorSubscriberBase
         {
             _logger.LogWarning(ex, "Error loading owned establishments");
         }
+    }
+
+    private void AnnuaireRefreshAll()
+    {
+        _annuairePage = 0;
+        foreach (var tex in _annuaireLogoCache.Values)
+            tex?.Dispose();
+        _annuaireLogoCache.Clear();
+        _annuaireBookmarkResults = null;
+        _ = AnnuaireRefreshList();
+        _ = AnnuaireRefreshOwned();
+        _ = AnnuaireRefreshBookmarks();
+        _ = AnnuaireRefreshUpcoming();
+    }
+
+    private static readonly string[] _dayNames = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
+
+    private async Task AnnuaireRefreshUpcoming()
+    {
+        if (_annuaireUpcomingLoading) return;
+        _annuaireUpcomingLoading = true;
+        try
+        {
+            var request = new EstablishmentListRequestDto { Page = 0, PageSize = 100 };
+            var result = await _apiController.EstablishmentList(request).ConfigureAwait(false);
+            if (result != null)
+            {
+                var now = DateTime.Now;
+                var weekEnd = now.Date.AddDays(7);
+                var upcoming = new List<(EstablishmentDto, EstablishmentEventDto)>();
+
+                foreach (var estab in result.Establishments)
+                {
+                    foreach (var evt in estab.Events)
+                    {
+                        var localTime = evt.StartsAtUtc.ToLocalTime();
+                        if (localTime >= now.AddHours(-1) && localTime.Date < weekEnd)
+                            upcoming.Add((estab, evt));
+                    }
+                }
+
+                _annuaireUpcoming = upcoming.OrderBy(e => e.Item2.StartsAtUtc).ToList();
+                _logger.LogDebug("Found {count} upcoming events", _annuaireUpcoming.Count);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error loading upcoming events");
+        }
+        finally
+        {
+            _annuaireUpcomingLoading = false;
+        }
+    }
+
+    private void DrawAnnuaireUpcoming()
+    {
+        if (_annuaireUpcomingLoading)
+        {
+            ImGui.TextDisabled(Loc.Get("Establishment.Directory.UpcomingLoading"));
+            return;
+        }
+
+        if (_annuaireUpcoming == null || _annuaireUpcoming.Count == 0)
+        {
+            ImGui.TextDisabled(Loc.Get("Establishment.Directory.NoUpcoming"));
+            return;
+        }
+
+        var now = DateTime.Now;
+        var today = now.Date;
+
+        var tonightEvents = _annuaireUpcoming
+            .Where(e => e.Event.StartsAtUtc.ToLocalTime().Date == today && e.Event.StartsAtUtc.ToLocalTime() > now.AddHours(-1))
+            .OrderBy(e => e.Event.StartsAtUtc)
+            .ToList();
+
+        var weekEvents = _annuaireUpcoming
+            .Where(e => e.Event.StartsAtUtc.ToLocalTime().Date > today)
+            .OrderBy(e => e.Event.StartsAtUtc)
+            .ToList();
+
+        if (tonightEvents.Count == 0 && weekEvents.Count == 0)
+        {
+            ImGui.TextDisabled(Loc.Get("Establishment.Directory.NoUpcoming"));
+            return;
+        }
+
+        if (tonightEvents.Count > 0)
+        {
+            using (ImRaii.PushFont(UiBuilder.IconFont))
+                ImGui.TextColored(UiSharedService.AccentColor, FontAwesomeIcon.Fire.ToIconString());
+            ImGui.SameLine();
+            UiSharedService.ColorText(Loc.Get("Establishment.Directory.Tonight"), UiSharedService.AccentColor);
+            ImGuiHelpers.ScaledDummy(2f);
+            foreach (var (estab, evt) in tonightEvents)
+                DrawAnnuaireUpcomingCard(estab, evt);
+            ImGuiHelpers.ScaledDummy(6f);
+        }
+
+        if (weekEvents.Count > 0)
+        {
+            using (ImRaii.PushFont(UiBuilder.IconFont))
+                ImGui.TextColored(UiSharedService.AccentColor, FontAwesomeIcon.CalendarAlt.ToIconString());
+            ImGui.SameLine();
+            UiSharedService.ColorText(Loc.Get("Establishment.Directory.ThisWeek"), UiSharedService.AccentColor);
+            ImGuiHelpers.ScaledDummy(2f);
+            foreach (var (estab, evt) in weekEvents)
+                DrawAnnuaireUpcomingCard(estab, evt);
+        }
+    }
+
+    private void DrawAnnuaireUpcomingCard(EstablishmentDto establishment, EstablishmentEventDto evt)
+    {
+        ImGui.PushID($"upcoming_{establishment.Id}_{evt.Id}");
+
+        var catIndex = establishment.Category;
+        var catIcon = catIndex >= 0 && catIndex < AnnuaireCategoryIcons.Length ? AnnuaireCategoryIcons[catIndex] : FontAwesomeIcon.QuestionCircle;
+
+        UiSharedService.DrawCard($"upc_{evt.Id}", () =>
+        {
+            // Logo or category icon
+            var hasUpcomingLogo = false;
+            if (establishment.LogoImageBase64 is { Length: > 0 })
+            {
+                if (!_annuaireLogoCache.TryGetValue(establishment.Id, out var logoTex))
+                {
+                    try
+                    {
+                        logoTex = _uiSharedService.LoadImage(Convert.FromBase64String(establishment.LogoImageBase64));
+                        _annuaireLogoCache[establishment.Id] = logoTex;
+                    }
+                    catch { /* ignore */ }
+                }
+                if (logoTex != null)
+                {
+                    float logoSize = 24f;
+                    float logoRounding = 4f;
+                    var dl = ImGui.GetWindowDrawList();
+                    var p = ImGui.GetCursorScreenPos();
+                    var textH = ImGui.GetTextLineHeight();
+                    var logoY = p.Y + (textH - logoSize) / 2f;
+                    var logoMin = new Vector2(p.X, logoY);
+                    dl.AddImageRounded(logoTex.Handle, logoMin, logoMin + new Vector2(logoSize, logoSize),
+                        Vector2.Zero, Vector2.One, ImGui.ColorConvertFloat4ToU32(Vector4.One), logoRounding);
+                    ImGui.Dummy(new Vector2(logoSize, textH));
+                    ImGui.SameLine();
+                    hasUpcomingLogo = true;
+                }
+            }
+            if (!hasUpcomingLogo)
+            {
+                using (ImRaii.PushFont(UiBuilder.IconFont))
+                    ImGui.TextColored(UiSharedService.AccentColor, catIcon.ToIconString());
+                ImGui.SameLine();
+            }
+            ImGui.TextUnformatted(establishment.Name);
+
+            var localTime = evt.StartsAtUtc.ToLocalTime();
+            var dayOfWeek = _dayNames[(int)localTime.DayOfWeek == 0 ? 6 : (int)localTime.DayOfWeek - 1];
+            var timeStr = localTime.Date == DateTime.Now.Date
+                ? $"{localTime:HH}h{localTime:mm}"
+                : $"{dayOfWeek} {localTime:HH}h{localTime:mm}";
+
+            ImGui.SameLine();
+            using (ImRaii.PushFont(UiBuilder.IconFont))
+                ImGui.TextColored(ImGuiColors.DalamudGrey, FontAwesomeIcon.Clock.ToIconString());
+            ImGui.SameLine();
+            ImGui.TextColored(ImGuiColors.DalamudGrey, timeStr);
+
+            var eyeSize = _uiSharedService.GetIconButtonSize(FontAwesomeIcon.Eye);
+            var availX = ImGui.GetContentRegionAvail().X;
+            if (availX > eyeSize.X)
+                ImGui.SameLine(ImGui.GetWindowContentRegionMax().X - eyeSize.X - ImGui.GetStyle().ItemSpacing.X * 3);
+            if (_uiSharedService.IconButton(FontAwesomeIcon.Eye))
+                Mediator.Publish(new OpenEstablishmentDetailMessage(establishment.Id));
+            UiSharedService.AttachToolTip(Loc.Get("Establishment.Directory.ViewDetail"));
+
+            UiSharedService.ColorText(evt.Title, new Vector4(1f, 0.9f, 0.6f, 1f));
+        }, stretchWidth: true);
+
+        ImGui.PopID();
     }
 
     private void DrawSocialSection()
