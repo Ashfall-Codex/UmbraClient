@@ -4977,6 +4977,31 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
   <data name="Establishment.Detail.Subdivision" xml:space="preserve">
     <value>(Subdivision)</value>
   </data>
+  <!-- Honorific -->
+  <data name="EditProfile.Honorific.Section" xml:space="preserve">
+    <value>Titre Complet</value>
+  </data>
+  <data name="EditProfile.Honorific.TitleHint" xml:space="preserve">
+    <value>Titre du personnage (Honorific)</value>
+  </data>
+  <data name="EditProfile.Honorific.IsPrefix" xml:space="preserve">
+    <value>Pr&#xE9;fixe (avant le nom)</value>
+  </data>
+  <data name="EditProfile.Honorific.Color" xml:space="preserve">
+    <value>Couleur du texte</value>
+  </data>
+  <data name="EditProfile.Honorific.Glow" xml:space="preserve">
+    <value>Glow</value>
+  </data>
+  <data name="EditProfile.Honorific.Apply" xml:space="preserve">
+    <value>Appliquer</value>
+  </data>
+  <data name="EditProfile.Honorific.Clear" xml:space="preserve">
+    <value>Effacer</value>
+  </data>
+  <data name="EditProfile.Honorific.NotInstalled" xml:space="preserve">
+    <value>Plugin Honorific non install&#xE9;. Installez-le pour utiliser les titres.</value>
+  </data>
   <data name="Establishment.Detail.Manager" xml:space="preserve">
     <value>G&#xE9;rant</value>
   </data>

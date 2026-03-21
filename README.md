@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <code>v2.3.2</code> &middot; API <code>v3000</code> &middot; C# 13 / .NET 10 &middot; Dalamud SDK 14.0.2
+  <code>v2.4.0</code> &middot; API <code>v3000</code> &middot; C# 13 / .NET 10 &middot; Dalamud SDK 14.0.2
 </p>
 
 ---
@@ -36,7 +36,9 @@
 
 - **Profil RP** : fiche personnage complète (prénom, nom, titre, âge, race, taille, résidence, occupation, alignement, etc.) avec champs personnalisés, photo dédiée et couleur de nom configurable
 - **Profil classique** : photo de profil, description personnelle, statut NSFW
+- **Titre Honorific intégré** : édition du titre complet directement depuis la fiche RP avec color picker (couleur + glow), préfixe optionnel. Synchronisé automatiquement via Honorific
 - **Moodles RP** : intégration des Moodles dans les profils avec cache local de sauvegarde
+- **Annuaire d'établissements** : création et gestion d'établissements RP (tavernes, boutiques, temples, etc.) avec logo, bannière, localisation housing, gérant lié à une fiche RP, événements programmés (ponctuels ou récurrents) et calendrier "À venir"
 - **Bulle d'écriture** : indicateur de saisie en temps réel sur les nameplates et la Party List, compatible avec le chat natif et ChatTwo *(inspiré de [RTyping](https://github.com/apetih/rtyping))*
 - **Colorisation des émotes** : mise en évidence des emotes dans le chat (entre `<>`, `*` et `[]`)
 - **Contenu HRP** : les messages entre parenthèses (simples et doubles) sont affichés en gris italique
@@ -74,7 +76,7 @@
 
 ### Interface utilisateur
 
-- **UI compacte** : interface revisitée avec navigation par sidebar et onglets, tout dans une même fenêtre
+- **UI compacte** : interface revisitée avec navigation par sidebar et onglets, tout dans une même fenêtre. Annuaire intégré avec onglets Mes lieux, Lieux favoris, Parcourir et À venir
 - **Thème Royal Smoke** : palette sombre matte avec accents violet, conçue pour le confort visuel
 - **Fenêtre de permissions** : contrôle fin par paire (pause, sons, animations, VFX)
 - **Data Analysis** : analyse détaillée des fichiers de votre personnage (taille, triangles, résolution, type)
@@ -109,7 +111,7 @@ Le projet est composé de plusieurs modules :
 | Composant | Technologie | Description |
 |---|---|---|
 | `UmbraSync/` | C# 13 / .NET 10 / Dalamud SDK | Plugin FFXIV principal |
-| `UmbraAPI/` | C# / .NET 10 | API partagée (contrats et DTOs) |
+| `UmbraAPI/` | C# / .NET 10 | API partagée (contrats et DTOs : 60+ DTOs) |
 | `Penumbra.Api/` | Submodule git | API d'intégration Penumbra |
 | `Glamourer.Api/` | Submodule git | API d'intégration Glamourer |
 | `OtterGui/` | Submodule git | Bibliothèque UI ImGui |

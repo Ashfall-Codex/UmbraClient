@@ -473,6 +473,62 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
         DrawLinkedEstablishment(cardSpacing);
     }
 
+    private void DrawHonorificInHero()
+    {
+        // Get Honorific data
+        string? honorificB64 = null;
+        bool isSelf = string.Equals(Pair.UserData.UID, _apiController.UID, StringComparison.Ordinal);
+
+        if (isSelf)
+        {
+            if (_ipcManager.Honorific.APIAvailable && string.IsNullOrEmpty(_localHonorificB64))
+                _ = RefreshLocalHonorificAsync();
+            honorificB64 = _localHonorificB64;
+        }
+        else
+        {
+            honorificB64 = Pair.LastReceivedCharacterData?.HonorificData;
+        }
+
+        if (string.IsNullOrEmpty(honorificB64)) return;
+
+        try
+        {
+            var json = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(honorificB64));
+            var doc = System.Text.Json.JsonDocument.Parse(json);
+            var root = doc.RootElement;
+
+            var title = root.TryGetProperty("Title", out var t) ? t.GetString() : null;
+            if (string.IsNullOrEmpty(title)) return;
+
+            var color = Vector4.One;
+            if (root.TryGetProperty("Color", out var c) && c.ValueKind == System.Text.Json.JsonValueKind.Object)
+            {
+                color = new Vector4(
+                    (c.TryGetProperty("X", out var cx) || c.TryGetProperty("x", out cx)) ? cx.GetSingle() : 1f,
+                    (c.TryGetProperty("Y", out var cy) || c.TryGetProperty("y", out cy)) ? cy.GetSingle() : 1f,
+                    (c.TryGetProperty("Z", out var cz) || c.TryGetProperty("z", out cz)) ? cz.GetSingle() : 1f,
+                    1f);
+            }
+
+            using var _ = _uiSharedService.GameFont.Push();
+            ImGui.TextColored(color, title);
+        }
+        catch { /* ignore parse errors */ }
+    }
+
+    private string _localHonorificB64 = string.Empty;
+
+    private async Task RefreshLocalHonorificAsync()
+    {
+        if (!_ipcManager.Honorific.APIAvailable) return;
+        try
+        {
+            _localHonorificB64 = await _ipcManager.Honorific.GetTitle().ConfigureAwait(false);
+        }
+        catch { /* ignore */ }
+    }
+
     private static string[] CategoryNames =>
     [
         Loc.Get("Establishment.Category.Tavern"), Loc.Get("Establishment.Category.Shop"),
@@ -622,15 +678,16 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
 
             var nameColor = _configService.Current.UseRpNameColors && !string.IsNullOrEmpty(profile.RpNameColor) ? UiSharedService.HexToVector4(profile.RpNameColor) : accent;
 
-            using (_uiSharedService.UidFont.Push())
-                UiSharedService.ColorText(fullName, nameColor);
+            // Name with title as prefix
+            var displayName = !string.IsNullOrEmpty(profile.RpTitle)
+                ? $"{profile.RpTitle} {fullName}"
+                : fullName;
 
-            // Title
-            if (!string.IsNullOrEmpty(profile.RpTitle))
-            {
-                using var _ = _uiSharedService.GameFont.Push();
-                UiSharedService.ColorText(profile.RpTitle, nameColor);
-            }
+            using (_uiSharedService.UidFont.Push())
+                UiSharedService.ColorText(displayName, nameColor);
+
+            // Honorific title
+            DrawHonorificInHero();
 
             // Race · Ethnicity
             var race = profile.RpRace ?? string.Empty;

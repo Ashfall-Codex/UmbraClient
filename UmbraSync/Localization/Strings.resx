@@ -5068,6 +5068,31 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
   <data name="Establishment.Detail.Subdivision" xml:space="preserve">
     <value>(Subdivision)</value>
   </data>
+  <!-- Honorific -->
+  <data name="EditProfile.Honorific.Section" xml:space="preserve">
+    <value>Full Title</value>
+  </data>
+  <data name="EditProfile.Honorific.TitleHint" xml:space="preserve">
+    <value>Character title (Honorific)</value>
+  </data>
+  <data name="EditProfile.Honorific.IsPrefix" xml:space="preserve">
+    <value>Prefix (before name)</value>
+  </data>
+  <data name="EditProfile.Honorific.Color" xml:space="preserve">
+    <value>Text color</value>
+  </data>
+  <data name="EditProfile.Honorific.Glow" xml:space="preserve">
+    <value>Glow</value>
+  </data>
+  <data name="EditProfile.Honorific.Apply" xml:space="preserve">
+    <value>Apply</value>
+  </data>
+  <data name="EditProfile.Honorific.Clear" xml:space="preserve">
+    <value>Clear</value>
+  </data>
+  <data name="EditProfile.Honorific.NotInstalled" xml:space="preserve">
+    <value>Honorific plugin not installed. Install it to use titles.</value>
+  </data>
   <data name="Establishment.Detail.Manager" xml:space="preserve">
     <value>Manager</value>
   </data>

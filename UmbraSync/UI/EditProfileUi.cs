@@ -40,6 +40,17 @@ public class EditProfileUi : WindowMediatorSubscriberBase
     private readonly NotificationTracker _notificationTracker;
     private readonly IDataManager _dataManager;
     private string _localMoodlesJson = string.Empty;
+    private string _honorificTitle = string.Empty;
+    private bool _honorificIsPrefix;
+    private Vector3 _honorificColor = Vector3.One;
+    private Vector3 _honorificGlow = Vector3.One;
+    private bool _honorificHasGlow;
+    private bool _honorificLoaded;
+    private string _savedHonorificTitle = string.Empty;
+    private bool _savedHonorificIsPrefix;
+    private Vector3 _savedHonorificColor = Vector3.One;
+    private Vector3 _savedHonorificGlow = Vector3.One;
+    private bool _savedHonorificHasGlow;
     private string _descriptionText = string.Empty;
     private string _rpDescriptionText = string.Empty;
     private string _rpFirstNameText = string.Empty;
@@ -157,6 +168,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
             }
         });
         Mediator.Subscribe<MoodlesMessage>(this, (msg) => _ = Task.Run(RefreshLocalMoodlesAsync));
+        Mediator.Subscribe<HonorificMessage>(this, (msg) => RefreshHonorificFromData(msg.NewHonorificTitle));
         Mediator.Subscribe<ConnectedMessage>(this, (msg) => _ = Task.Run(async () =>
         {
             // Boucle de restauration de moodles au démarrage
@@ -250,6 +262,108 @@ public class EditProfileUi : WindowMediatorSubscriberBase
         finally
         {
             _moodlesFetching = false;
+        }
+    }
+
+    private async Task RefreshLocalHonorificAsync()
+    {
+        if (!_ipcManager.Honorific.APIAvailable) return;
+        try
+        {
+            var b64 = await _ipcManager.Honorific.GetTitle().ConfigureAwait(false);
+            RefreshHonorificFromData(b64);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error refreshing Honorific data");
+        }
+    }
+
+    private void RefreshHonorificFromData(string b64Data)
+    {
+        _honorificLoaded = true;
+        if (string.IsNullOrEmpty(b64Data))
+        {
+            _honorificTitle = string.Empty;
+            _honorificIsPrefix = false;
+            _honorificColor = Vector3.One;
+            _honorificGlow = Vector3.One;
+            return;
+        }
+
+        try
+        {
+            var json = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(b64Data));
+            _logger.LogInformation("Honorific raw JSON: {json}", json);
+            var doc = System.Text.Json.JsonDocument.Parse(json);
+            var root = doc.RootElement;
+
+            _honorificTitle = root.TryGetProperty("Title", out var t) ? t.GetString() ?? string.Empty : string.Empty;
+            _honorificIsPrefix = root.TryGetProperty("IsPrefix", out var p) && p.GetBoolean();
+
+            if (root.TryGetProperty("Color", out var c) && c.ValueKind == System.Text.Json.JsonValueKind.Object)
+            {
+                _honorificColor = new Vector3(
+                    (c.TryGetProperty("X", out var cx) || c.TryGetProperty("x", out cx)) ? cx.GetSingle() : 1f,
+                    (c.TryGetProperty("Y", out var cy) || c.TryGetProperty("y", out cy)) ? cy.GetSingle() : 1f,
+                    (c.TryGetProperty("Z", out var cz) || c.TryGetProperty("z", out cz)) ? cz.GetSingle() : 1f);
+            }
+            else _honorificColor = Vector3.One;
+
+            if (root.TryGetProperty("Glow", out var g) && g.ValueKind == System.Text.Json.JsonValueKind.Object)
+            {
+                _honorificHasGlow = true;
+                _honorificGlow = new Vector3(
+                    (g.TryGetProperty("X", out var gx) || g.TryGetProperty("x", out gx)) ? gx.GetSingle() : 1f,
+                    (g.TryGetProperty("Y", out var gy) || g.TryGetProperty("y", out gy)) ? gy.GetSingle() : 1f,
+                    (g.TryGetProperty("Z", out var gz) || g.TryGetProperty("z", out gz)) ? gz.GetSingle() : 1f);
+            }
+            else
+            {
+                _honorificHasGlow = false;
+                _honorificGlow = Vector3.One;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error parsing Honorific data");
+        }
+    }
+
+    private async Task ApplyHonorificTitle()
+    {
+        if (!_ipcManager.Honorific.APIAvailable) return;
+        try
+        {
+            string json;
+            if (string.IsNullOrWhiteSpace(_honorificTitle))
+            {
+                json = string.Empty;
+            }
+            else
+            {
+                var colorObj = new { X = _honorificColor.X, Y = _honorificColor.Y, Z = _honorificColor.Z };
+                object? glowObj = _honorificHasGlow
+                    ? new { X = _honorificGlow.X, Y = _honorificGlow.Y, Z = _honorificGlow.Z }
+                    : null;
+                json = System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    Title = _honorificTitle.Trim(),
+                    IsPrefix = _honorificIsPrefix,
+                    IsOriginal = false,
+                    Color = colorObj,
+                    Glow = glowObj
+                });
+            }
+
+            var b64 = string.IsNullOrEmpty(json) ? string.Empty : Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(json));
+            var ptr = await _dalamudUtil.GetPlayerPointerAsync().ConfigureAwait(false);
+            await _ipcManager.Honorific.SetTitleAsync(ptr, b64).ConfigureAwait(false);
+            _logger.LogInformation("Applied Honorific title: {title}", _honorificTitle);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error applying Honorific title");
         }
     }
 
@@ -690,6 +804,13 @@ public class EditProfileUi : WindowMediatorSubscriberBase
             ImGui.Separator();
             ImGuiHelpers.ScaledDummy(new Vector2(0f, 4f));
 
+            // Honorific title section
+            DrawHonorificSection();
+
+            ImGuiHelpers.ScaledDummy(new Vector2(0f, 4f));
+            ImGui.Separator();
+            ImGuiHelpers.ScaledDummy(new Vector2(0f, 4f));
+
             DrawField(Loc.Get("UserProfile.RpResidence"), ref _rpResidenceText, 100, w);
             DrawField(Loc.Get("UserProfile.RpOccupation"), ref _rpOccupationText, 100, w);
             DrawField(Loc.Get("UserProfile.RpAffiliation"), ref _rpAffiliationText, 100, w);
@@ -910,6 +1031,38 @@ public class EditProfileUi : WindowMediatorSubscriberBase
         {
             customFields.RemoveAt(removeIndex.Value);
             for (int i = 0; i < customFields.Count; i++) customFields[i].Order = i;
+        }
+    }
+
+    private void DrawHonorificSection()
+    {
+        if (!_ipcManager.Honorific.APIAvailable)
+            return;
+
+        if (!_honorificLoaded)
+            _ = RefreshLocalHonorificAsync();
+
+        // Title field (same style as other DrawField)
+        ImGui.TextColored(ImGuiColors.DalamudGrey, Loc.Get("EditProfile.Honorific.Section"));
+        ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X);
+        ImGui.InputTextWithHint("##honorificTitle", Loc.Get("EditProfile.Honorific.TitleHint"), ref _honorificTitle, 100);
+
+        // Options row: Prefix + Color + Glow
+        ImGui.Checkbox(Loc.Get("EditProfile.Honorific.IsPrefix"), ref _honorificIsPrefix);
+        ImGui.SameLine();
+        ImGuiHelpers.ScaledDummy(12f, 0);
+        ImGui.SameLine();
+        ImGui.TextColored(ImGuiColors.DalamudGrey, Loc.Get("EditProfile.Honorific.Color"));
+        ImGui.SameLine();
+        ImGui.ColorEdit3("##honorificColor", ref _honorificColor, ImGuiColorEditFlags.NoInputs);
+        ImGui.SameLine();
+        ImGuiHelpers.ScaledDummy(12f, 0);
+        ImGui.SameLine();
+        ImGui.Checkbox(Loc.Get("EditProfile.Honorific.Glow"), ref _honorificHasGlow);
+        if (_honorificHasGlow)
+        {
+            ImGui.SameLine();
+            ImGui.ColorEdit3("##honorificGlow", ref _honorificGlow, ImGuiColorEditFlags.NoInputs);
         }
     }
 
@@ -1690,6 +1843,10 @@ public class EditProfileUi : WindowMediatorSubscriberBase
                     Mediator.Publish(new ClearProfileDataMessage(new UserData(_apiController.UID), charName, worldId));
                     Mediator.Publish(new NotificationMessage(Loc.Get("EditProfile.SaveSuccessTitle"), Loc.Get("EditProfile.SaveSuccessBody"), NotificationType.Success));
                     SnapshotSavedState(isRp, customFieldsJsonSnapshot);
+
+                    // Apply Honorific title if changed
+                    if (isRp && _ipcManager.Honorific.APIAvailable)
+                        _ = ApplyHonorificTitle();
                     _saveConfirmTime = DateTime.UtcNow;
                 }
                 catch (Exception ex)
@@ -1739,6 +1896,11 @@ public class EditProfileUi : WindowMediatorSubscriberBase
             {
                 _savedRpCustomFieldsJson = System.Text.Json.JsonSerializer.Serialize(_rpCustomFields);
             }
+            _savedHonorificTitle = _honorificTitle;
+            _savedHonorificIsPrefix = _honorificIsPrefix;
+            _savedHonorificColor = _honorificColor;
+            _savedHonorificGlow = _honorificGlow;
+            _savedHonorificHasGlow = _honorificHasGlow;
         }
         else
         {
@@ -1766,7 +1928,12 @@ public class EditProfileUi : WindowMediatorSubscriberBase
                 || !string.Equals(UiSharedService.Vector4ToHex(new Vector4(_rpNameColorVec, 1f)), _savedRpNameColorHex, StringComparison.Ordinal)
                 || !string.Equals(
                     System.Text.Json.JsonSerializer.Serialize(_rpCustomFields),
-                    _savedRpCustomFieldsJson, StringComparison.Ordinal);
+                    _savedRpCustomFieldsJson, StringComparison.Ordinal)
+                || !string.Equals(_honorificTitle, _savedHonorificTitle, StringComparison.Ordinal)
+                || _honorificIsPrefix != _savedHonorificIsPrefix
+                || _honorificColor != _savedHonorificColor
+                || _honorificHasGlow != _savedHonorificHasGlow
+                || (_honorificHasGlow && _honorificGlow != _savedHonorificGlow);
         }
         else
         {

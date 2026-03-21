@@ -168,10 +168,12 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
     {
         return new List<ChangelogEntry>
         {
-            new(new Version(2, 4, 0, 0), "2.4.0.0", new List<ChangelogLine>
+            new(new Version(2, 4, 0, 0), "2.4.0.3021", new List<ChangelogLine>
             {
                 new("Nouveauté : Système d'annuaire d'établissement, vous pouvez désormais lister votre établissement."),
                 new("Amélioration : Réécriture de la logique des Pause Syncshell / Individuelle."),
+                new("Amélioration : Il est désormais possible de gérer le sous-titre honorific dans la fiche de personnage."),
+                new("Mise à jour API Penumbra & Glamourer."),
             }),   
             new(new Version(2, 3, 4, 3012), "2.3.4.3012", new List<ChangelogLine>
             {
