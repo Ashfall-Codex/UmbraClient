@@ -4977,6 +4977,27 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
   <data name="Establishment.Detail.Subdivision" xml:space="preserve">
     <value>(Subdivision)</value>
   </data>
+  <data name="Establishment.Detail.Manager" xml:space="preserve">
+    <value>G&#xE9;rant</value>
+  </data>
+  <data name="Establishment.Detail.Manager.ViewProfile" xml:space="preserve">
+    <value>Voir la fiche RP</value>
+  </data>
+  <data name="Establishment.Detail.Manager.Self" xml:space="preserve">
+    <value>Moi-m&#xEA;me</value>
+  </data>
+  <data name="Establishment.Detail.Manager.Choose" xml:space="preserve">
+    <value>G&#xE9;rant</value>
+  </data>
+  <data name="Establishment.Detail.ShowOnProfile" xml:space="preserve">
+    <value>Afficher sur la fiche RP du g&#xE9;rant</value>
+  </data>
+  <data name="Profile.Establishment.Title" xml:space="preserve">
+    <value>&#xC9;tablissement</value>
+  </data>
+  <data name="Profile.Establishment.View" xml:space="preserve">
+    <value>Voir l'&#xE9;tablissement</value>
+  </data>
   <data name="Establishment.Category.Tavern" xml:space="preserve">
     <value>Taverne</value>
   </data>

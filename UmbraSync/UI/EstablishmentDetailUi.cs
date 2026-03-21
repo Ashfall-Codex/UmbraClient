@@ -8,6 +8,7 @@ using Dalamud.Interface.Utility.Raii;
 using Microsoft.Extensions.Logging;
 using System.Numerics;
 using UmbraSync.API.Dto.Establishment;
+using UmbraSync.API.Dto.User;
 using UmbraSync.MareConfiguration;
 using UmbraSync.MareConfiguration.Models;
 using UmbraSync.PlayerData.Pairs;
@@ -37,6 +38,16 @@ internal class EstablishmentDetailUi : WindowMediatorSubscriberBase
     private string _editSchedule = string.Empty;
     private string _editFactionTag = string.Empty;
     private bool _editIsPublic = true;
+    private int? _editManagerRpProfileId;
+    private bool _editShowManagerOnProfile = true;
+
+    // Manager profile cache
+    private IDalamudTextureWrap? _managerProfileTexture;
+    private int? _lastManagerRpProfileId;
+
+    // Own RP profiles for combo
+    private List<RpProfileSummaryDto>? _ownRpProfiles;
+    private bool _ownRpProfilesLoading;
 
     // Event creation
     private string _newEventTitle = string.Empty;
@@ -62,8 +73,6 @@ internal class EstablishmentDetailUi : WindowMediatorSubscriberBase
     private IDalamudTextureWrap? _editLogoTexture;
     private IDalamudTextureWrap? _editBannerTexture;
     private string? _imageMessage;
-    private bool _pendingLogoLoad;
-    private bool _pendingBannerLoad;
 
     // Eligible groups cache (owned + has SyncSlot)
     private List<(string Gid, string Display)> _eligibleGroups = [];
@@ -328,6 +337,77 @@ internal class EstablishmentDetailUi : WindowMediatorSubscriberBase
                 ImGui.Text($"Zone — Position ({loc.X:F0}, {loc.Y:F0}, {loc.Z:F0}), Rayon {loc.Radius:F0}");
             }
         }
+
+        // Manager section
+        if (_establishment.ManagerRpProfileId.HasValue)
+        {
+            ImGui.Spacing();
+            ImGui.Separator();
+            ImGui.Spacing();
+            DrawManagerSection();
+        }
+    }
+
+    private void DrawManagerSection()
+    {
+        using (ImRaii.PushFont(UiBuilder.IconFont))
+            ImGui.TextColored(UiSharedService.AccentColor, FontAwesomeIcon.UserTie.ToIconString());
+        ImGui.SameLine();
+        UiSharedService.ColorText(Loc.Get("Establishment.Detail.Manager"), UiSharedService.AccentColor);
+        ImGui.Spacing();
+
+        // Load texture if needed
+        var profileId = _establishment!.ManagerRpProfileId;
+        if (profileId != _lastManagerRpProfileId)
+        {
+            _lastManagerRpProfileId = profileId;
+            _managerProfileTexture?.Dispose();
+            _managerProfileTexture = null;
+            if (_establishment.ManagerRpProfilePictureBase64 is { Length: > 0 } picB64)
+            {
+                try { _managerProfileTexture = _uiSharedService.LoadImage(Convert.FromBase64String(picB64)); }
+                catch { /* ignore */ }
+            }
+        }
+
+        // Profile picture thumbnail
+        if (_managerProfileTexture != null)
+        {
+            float picSize = 32f;
+            float picRounding = 16f;
+            var dl = ImGui.GetWindowDrawList();
+            var p = ImGui.GetCursorScreenPos();
+            dl.AddImageRounded(_managerProfileTexture.Handle, p, p + new Vector2(picSize, picSize),
+                Vector2.Zero, Vector2.One, ImGui.ColorConvertFloat4ToU32(Vector4.One), picRounding);
+            ImGui.Dummy(new Vector2(picSize, picSize));
+            ImGui.SameLine();
+        }
+
+        // RP Name
+        var rpName = $"{_establishment.ManagerRpFirstName} {_establishment.ManagerRpLastName}".Trim();
+        if (string.IsNullOrEmpty(rpName))
+            rpName = _establishment.ManagerCharacterName ?? _establishment.OwnerAlias ?? _establishment.OwnerUID;
+        ImGui.TextUnformatted(rpName);
+    }
+
+    private async Task LoadOwnRpProfiles()
+    {
+        if (_ownRpProfilesLoading) return;
+        _ownRpProfilesLoading = true;
+        try
+        {
+            _ownRpProfiles = await _apiController.EstablishmentGetOwnRpProfiles().ConfigureAwait(false);
+            _logger.LogDebug("Loaded {count} own RP profiles", _ownRpProfiles.Count);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error loading own RP profiles");
+            _ownRpProfiles = [];
+        }
+        finally
+        {
+            _ownRpProfilesLoading = false;
+        }
     }
 
     private void DrawEditMode()
@@ -351,6 +431,52 @@ internal class EstablishmentDetailUi : WindowMediatorSubscriberBase
         ImGui.InputTextWithHint($"{Loc.Get("Establishment.Field.Faction")}##edit", Loc.Get("Establishment.Field.Optional"), ref _editFactionTag, 50);
 
         ImGui.Checkbox($"{Loc.Get("Establishment.Field.PublicDirectory")}##edit", ref _editIsPublic);
+
+        ImGui.Spacing();
+        ImGui.Separator();
+        ImGui.Spacing();
+
+        // Manager RP profile selection
+        ImGui.TextColored(ImGuiColors.DalamudGrey, Loc.Get("Establishment.Detail.Manager.Choose"));
+
+        if (_ownRpProfiles == null && !_ownRpProfilesLoading)
+            _ = LoadOwnRpProfiles();
+
+        if (_ownRpProfiles == null)
+        {
+            ImGui.TextDisabled(Loc.Get("Establishment.Directory.Loading"));
+        }
+        else
+        {
+            var currentProfile = _ownRpProfiles.FirstOrDefault(p => p.Id == _editManagerRpProfileId);
+            var managerPreview = currentProfile != null
+                ? $"{currentProfile.RpFirstName} {currentProfile.RpLastName}".Trim()
+                : Loc.Get("Establishment.Syncshell.None");
+            if (string.IsNullOrEmpty(managerPreview))
+                managerPreview = currentProfile?.CharacterName ?? Loc.Get("Establishment.Syncshell.None");
+
+            ImGui.SetNextItemWidth(250);
+            using (var combo = ImRaii.Combo("##editManager", managerPreview))
+            {
+                if (combo)
+                {
+                    if (ImGui.Selectable(Loc.Get("Establishment.Syncshell.None"), _editManagerRpProfileId == null))
+                        _editManagerRpProfileId = null;
+
+                    foreach (var profile in _ownRpProfiles)
+                    {
+                        var rpName = $"{profile.RpFirstName} {profile.RpLastName}".Trim();
+                        var display = string.IsNullOrEmpty(rpName)
+                            ? profile.CharacterName
+                            : $"{rpName} ({profile.CharacterName})";
+                        if (ImGui.Selectable(display, _editManagerRpProfileId == profile.Id))
+                            _editManagerRpProfileId = profile.Id;
+                    }
+                }
+            }
+        }
+
+        ImGui.Checkbox(Loc.Get("Establishment.Detail.ShowOnProfile"), ref _editShowManagerOnProfile);
 
         ImGui.Spacing();
         using var accent = ImRaii.PushColor(ImGuiCol.Button, UiSharedService.AccentColor);
@@ -928,6 +1054,8 @@ internal class EstablishmentDetailUi : WindowMediatorSubscriberBase
             IsPublic = _establishment.IsPublic,
             LogoImageBase64 = clearLogo ? null : (_editLogoBytes.Length > 0 ? Convert.ToBase64String(_editLogoBytes) : _establishment.LogoImageBase64),
             BannerImageBase64 = clearBanner ? null : (_editBannerBytes.Length > 0 ? Convert.ToBase64String(_editBannerBytes) : _establishment.BannerImageBase64),
+            ManagerRpProfileId = _establishment.ManagerRpProfileId,
+            ShowManagerOnProfile = _establishment.ShowManagerOnProfile,
             Location = _establishment.Location
         };
 
@@ -949,6 +1077,10 @@ internal class EstablishmentDetailUi : WindowMediatorSubscriberBase
         _editSchedule = _establishment.Schedule ?? string.Empty;
         _editFactionTag = _establishment.FactionTag ?? string.Empty;
         _editIsPublic = _establishment.IsPublic;
+        _editManagerRpProfileId = _establishment.ManagerRpProfileId;
+        _editShowManagerOnProfile = _establishment.ShowManagerOnProfile;
+        _ownRpProfiles = null;
+        _ownRpProfilesLoading = false;
     }
 
     private async Task SaveChanges()
@@ -967,6 +1099,8 @@ internal class EstablishmentDetailUi : WindowMediatorSubscriberBase
                 IsPublic = _editIsPublic,
                 LogoImageBase64 = _establishment.LogoImageBase64,
                 BannerImageBase64 = _establishment.BannerImageBase64,
+                ManagerRpProfileId = _editManagerRpProfileId,
+                ShowManagerOnProfile = _editShowManagerOnProfile,
                 Location = _establishment.Location
             };
 

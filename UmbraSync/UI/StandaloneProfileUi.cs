@@ -6,6 +6,8 @@ using Dalamud.Interface.Textures.TextureWraps;
 using Dalamud.Interface.Utility;
 using Microsoft.Extensions.Logging;
 using System.Numerics;
+using Dalamud.Interface.Utility.Raii;
+using UmbraSync.API.Dto.Establishment;
 using UmbraSync.Interop.Ipc;
 using UmbraSync.Localization;
 using UmbraSync.MareConfiguration;
@@ -465,6 +467,103 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
                 using var _ = _uiSharedService.GameFont.Push();
                 BbCodeRenderer.Render(profile.RpAdditionalInfo, wrapWidth);
             }, stretchWidth: true);
+        }
+
+        // Establishment managed by this user
+        DrawLinkedEstablishment(cardSpacing);
+    }
+
+    private static string[] CategoryNames =>
+    [
+        Loc.Get("Establishment.Category.Tavern"), Loc.Get("Establishment.Category.Shop"),
+        Loc.Get("Establishment.Category.Temple"), Loc.Get("Establishment.Category.Academy"),
+        Loc.Get("Establishment.Category.Guild"), Loc.Get("Establishment.Category.Residence"),
+        Loc.Get("Establishment.Category.Workshop"), Loc.Get("Establishment.Category.Other")
+    ];
+
+    private EstablishmentDto? _linkedEstablishment;
+    private bool _linkedEstablishmentLoaded;
+    private IDalamudTextureWrap? _linkedEstablishmentLogo;
+
+    private void DrawLinkedEstablishment(float cardSpacing)
+    {
+        var uid = Pair.UserData.UID;
+
+        // Lazy load: check if this user manages an establishment
+        if (!_linkedEstablishmentLoaded)
+        {
+            _linkedEstablishmentLoaded = true;
+            _ = LoadLinkedEstablishment(uid);
+        }
+
+        if (_linkedEstablishment == null || !_linkedEstablishment.ShowManagerOnProfile)
+            return;
+
+        ImGuiHelpers.ScaledDummy(cardSpacing / ImGuiHelpers.GlobalScale);
+
+        var catNames = CategoryNames;
+        var catIndex = _linkedEstablishment.Category;
+        var catName = catIndex >= 0 && catIndex < catNames.Length ? catNames[catIndex] : "?";
+
+        UiSharedService.DrawCard("rp-establishment-card", () =>
+        {
+            DrawSectionTitle(Loc.Get("Profile.Establishment.Title"));
+
+            // Logo
+            if (_linkedEstablishmentLogo != null)
+            {
+                float logoSize = 32f;
+                float logoRounding = 4f;
+                var dl = ImGui.GetWindowDrawList();
+                var p = ImGui.GetCursorScreenPos();
+                var textH = ImGui.GetTextLineHeight();
+                var logoY = p.Y + (textH - logoSize) / 2f;
+                dl.AddImageRounded(_linkedEstablishmentLogo.Handle,
+                    new Vector2(p.X, logoY), new Vector2(p.X + logoSize, logoY + logoSize),
+                    Vector2.Zero, Vector2.One, ImGui.ColorConvertFloat4ToU32(Vector4.One), logoRounding);
+                ImGui.Dummy(new Vector2(logoSize, textH));
+                ImGui.SameLine();
+            }
+
+            _uiSharedService.BigText(_linkedEstablishment.Name);
+            ImGui.TextColored(UiSharedService.AccentColor, $"[{catName}]");
+
+            if (!string.IsNullOrEmpty(_linkedEstablishment.Description))
+            {
+                ImGui.SameLine();
+                ImGui.TextDisabled(_linkedEstablishment.Description.Length > 60
+                    ? _linkedEstablishment.Description[..60] + "..."
+                    : _linkedEstablishment.Description);
+            }
+
+            ImGuiHelpers.ScaledDummy(2f);
+            if (_uiSharedService.IconTextButton(FontAwesomeIcon.Eye, Loc.Get("Profile.Establishment.View")))
+                Mediator.Publish(new OpenEstablishmentDetailMessage(_linkedEstablishment.Id));
+        }, stretchWidth: true);
+    }
+
+    private async Task LoadLinkedEstablishment(string uid)
+    {
+        try
+        {
+            // Search all establishments to find one where this user is the manager
+            var request = new EstablishmentListRequestDto { Page = 0, PageSize = 100 };
+            var result = await _apiController.EstablishmentList(request).ConfigureAwait(false);
+            if (result != null)
+            {
+                _linkedEstablishment = result.Establishments
+                    .FirstOrDefault(e => string.Equals(e.OwnerUID, uid, StringComparison.Ordinal));
+
+                if (_linkedEstablishment?.LogoImageBase64 is { Length: > 0 } logoB64)
+                {
+                    try { _linkedEstablishmentLogo = _uiSharedService.LoadImage(Convert.FromBase64String(logoB64)); }
+                    catch { /* ignore */ }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error loading linked establishment for {uid}", uid);
         }
     }
 

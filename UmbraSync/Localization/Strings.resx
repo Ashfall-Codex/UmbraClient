@@ -5068,6 +5068,27 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
   <data name="Establishment.Detail.Subdivision" xml:space="preserve">
     <value>(Subdivision)</value>
   </data>
+  <data name="Establishment.Detail.Manager" xml:space="preserve">
+    <value>Manager</value>
+  </data>
+  <data name="Establishment.Detail.Manager.ViewProfile" xml:space="preserve">
+    <value>View RP profile</value>
+  </data>
+  <data name="Establishment.Detail.Manager.Self" xml:space="preserve">
+    <value>Myself</value>
+  </data>
+  <data name="Establishment.Detail.Manager.Choose" xml:space="preserve">
+    <value>Manager</value>
+  </data>
+  <data name="Establishment.Detail.ShowOnProfile" xml:space="preserve">
+    <value>Show on manager's RP profile</value>
+  </data>
+  <data name="Profile.Establishment.Title" xml:space="preserve">
+    <value>Establishment</value>
+  </data>
+  <data name="Profile.Establishment.View" xml:space="preserve">
+    <value>View establishment</value>
+  </data>
   <data name="Establishment.Category.Tavern" xml:space="preserve">
     <value>Tavern</value>
   </data>

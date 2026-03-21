@@ -104,6 +104,20 @@ public partial class ApiController
         }
     }
 
+    public async Task<List<RpProfileSummaryDto>> EstablishmentGetOwnRpProfiles()
+    {
+        if (!IsConnected) return [];
+        try
+        {
+            return await _mareHub!.InvokeAsync<List<RpProfileSummaryDto>>(nameof(EstablishmentGetOwnRpProfiles)).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Error getting own RP profiles");
+            return [];
+        }
+    }
+
     public async Task<EstablishmentEventDto?> EstablishmentEventUpsert(EstablishmentEventUpsertRequestDto request)
     {
         if (!IsConnected) return null;
