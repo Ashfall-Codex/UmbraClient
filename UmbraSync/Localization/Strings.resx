@@ -2188,6 +2188,149 @@ Click to change.</value>
   <data name="CharaDataHub.Apply.Tabs.Favorites" xml:space="preserve">
     <value>Favorites</value>
   </data>
+  <data name="CharaDataHub.Apply.Tabs.Code" xml:space="preserve">
+    <value>Code</value>
+  </data>
+  <data name="CharaDataHub.Apply.Tabs.YourOwn" xml:space="preserve">
+    <value>Your Own</value>
+  </data>
+  <data name="CharaDataHub.Apply.Tabs.SharedWithYou" xml:space="preserve">
+    <value>Shared With You</value>
+  </data>
+  <data name="CharaDataHub.Apply.Tabs.FromMcdf" xml:space="preserve">
+    <value>From MCDF</value>
+  </data>
+  <data name="CharaDataHub.Apply.LastUse" xml:space="preserve">
+    <value>Last Use: </value>
+  </data>
+  <data name="CharaDataHub.Apply.Never" xml:space="preserve">
+    <value>Never</value>
+  </data>
+  <data name="CharaDataHub.Apply.FavoriteDescPlaceholder" xml:space="preserve">
+    <value>Custom Description for Favorite</value>
+  </data>
+  <data name="CharaDataHub.Apply.NoFavorites" xml:space="preserve">
+    <value>You have no favorites added. Add Favorites through the other tabs before you can use this tab.</value>
+  </data>
+  <data name="CharaDataHub.Apply.Favorites.ApplyTooltip" xml:space="preserve">
+    <value>Apply Character Data to GPose Target</value>
+  </data>
+  <data name="CharaDataHub.Apply.Favorites.SpawnTooltip" xml:space="preserve">
+    <value>Spawn Actor with Brio and apply Character Data</value>
+  </data>
+  <data name="CharaDataHub.Apply.Code.Help" xml:space="preserve">
+    <value>You can apply character data you have a code for in this tab. Provide the code in it's given format "OwnerUID:DataId" into the field below and click on "Get Info from Code". This will provide you basic information about the data behind the code. Afterwards select an actor in GPose and press on "Download and apply to &lt;actor&gt;".
+
+Description: as set by the owner of the code to give you more or additional information of what this code may contain.
+Last Update: the date and time the owner of the code has last updated the data.
+Is Downloadable: whether or not the code is downloadable and applicable. If the code is not downloadable, contact the owner so they can attempt to fix it.
+
+To download a code the code requires correct access permissions to be set by the owner. If getting info from the code fails, contact the owner to make sure they set their Access Permissions for the code correctly.</value>
+  </data>
+  <data name="CharaDataHub.Apply.Code.Placeholder" xml:space="preserve">
+    <value>Enter Data Code</value>
+  </data>
+  <data name="CharaDataHub.Apply.Code.GetInfo" xml:space="preserve">
+    <value>Get Info from Code</value>
+  </data>
+  <data name="CharaDataHub.Apply.DownloadAndApply" xml:space="preserve">
+    <value>Download and Apply</value>
+  </data>
+  <data name="CharaDataHub.Apply.DownloadAndApply.Tooltip" xml:space="preserve">
+    <value>Apply this Character Data to the current GPose actor</value>
+  </data>
+  <data name="CharaDataHub.Apply.DownloadAndSpawn" xml:space="preserve">
+    <value>Download and Spawn</value>
+  </data>
+  <data name="CharaDataHub.Apply.DownloadAndSpawn.Tooltip" xml:space="preserve">
+    <value>Spawn a new Brio actor and apply this Character Data</value>
+  </data>
+  <data name="CharaDataHub.Apply.Code.Downloading" xml:space="preserve">
+    <value>Downloading meta info. Please wait.</value>
+  </data>
+  <data name="CharaDataHub.Apply.Description" xml:space="preserve">
+    <value>Description</value>
+  </data>
+  <data name="CharaDataHub.Apply.LastUpdate" xml:space="preserve">
+    <value>Last Update</value>
+  </data>
+  <data name="CharaDataHub.Apply.IsDownloadable" xml:space="preserve">
+    <value>Is Downloadable</value>
+  </data>
+  <data name="CharaDataHub.Apply.Poses" xml:space="preserve">
+    <value>Poses</value>
+  </data>
+  <data name="CharaDataHub.Apply.YourOwn.Help" xml:space="preserve">
+    <value>You can apply character data you created yourself in this tab. If the list is not populated press on "Download your Character Data".
+
+To create new and edit your existing character data use the "Online Data" tab.</value>
+  </data>
+  <data name="CharaDataHub.Apply.YourOwn.Download" xml:space="preserve">
+    <value>Download your Character Data</value>
+  </data>
+  <data name="CharaDataHub.Apply.YourOwn.Cooldown" xml:space="preserve">
+    <value>You can only refresh all character data from server every minute. Please wait.</value>
+  </data>
+  <data name="CharaDataHub.Apply.SharedWithYou.Help" xml:space="preserve">
+    <value>You can apply character data shared with you implicitly in this tab. Shared Character Data are Character Data entries that have "Sharing" set to "Shared" and you have access through those by meeting the access restrictions, i.e. you were specified by your UID to gain access or are paired with the other user according to the Access Restrictions setting.
+
+Filter if needed to find a specific entry, then just press on "Apply to &lt;actor&gt;" and it will download and apply the Character Data to the currently targeted GPose actor.
+
+Note: Shared Data of Pairs you have paused will not be shown here.</value>
+  </data>
+  <data name="CharaDataHub.Apply.Filters" xml:space="preserve">
+    <value>Filters</value>
+  </data>
+  <data name="CharaDataHub.Apply.FiltersActive" xml:space="preserve">
+    <value>Filters ({0} active)</value>
+  </data>
+  <data name="CharaDataHub.Apply.FilterByUid" xml:space="preserve">
+    <value>Filter by UID/Note</value>
+  </data>
+  <data name="CharaDataHub.Apply.FilterByDesc" xml:space="preserve">
+    <value>Filter by Description</value>
+  </data>
+  <data name="CharaDataHub.Apply.OnlyDownloadable" xml:space="preserve">
+    <value>Only show downloadable</value>
+  </data>
+  <data name="CharaDataHub.Apply.Mcdf.Help" xml:space="preserve">
+    <value>You can apply character data shared with you using a MCDF file in this tab.
+
+Load the MCDF first via the "Load MCDF" button which will give you the basic description that the owner has set during export.
+You can then apply it to any handled GPose actor.
+
+MCDF to share with others can be generated using the "MCDF Export" tab at the top.</value>
+  </data>
+  <data name="CharaDataHub.Apply.Mcdf.Load" xml:space="preserve">
+    <value>Load MCDF</value>
+  </data>
+  <data name="CharaDataHub.Apply.Mcdf.LoadTooltip" xml:space="preserve">
+    <value>Load MCDF Metadata into memory</value>
+  </data>
+  <data name="CharaDataHub.Apply.Mcdf.LoadedFile" xml:space="preserve">
+    <value>Loaded file</value>
+  </data>
+  <data name="CharaDataHub.Apply.Mcdf.Apply" xml:space="preserve">
+    <value>Apply</value>
+  </data>
+  <data name="CharaDataHub.Apply.Mcdf.ApplyTooltip" xml:space="preserve">
+    <value>Apply to {0}</value>
+  </data>
+  <data name="CharaDataHub.Apply.Mcdf.SpawnAndApply" xml:space="preserve">
+    <value>Spawn Actor and Apply</value>
+  </data>
+  <data name="CharaDataHub.Apply.Mcdf.ReadError" xml:space="preserve">
+    <value>Failure to read MCDF file. MCDF file is possibly corrupt. Re-export the MCDF file and try again.</value>
+  </data>
+  <data name="CharaDataHub.Apply.Mcdf.ReadErrorNote" xml:space="preserve">
+    <value>Note: if this is your MCDF, try redrawing yourself, wait and re-export the file. If you received it from someone else have them do the same.</value>
+  </data>
+  <data name="CharaDataHub.Apply.Mcdf.Loading" xml:space="preserve">
+    <value>Loading Character...</value>
+  </data>
+  <data name="CharaDataHub.Apply.Mcdf.PickFile" xml:space="preserve">
+    <value>Pick MCDF file</value>
+  </data>
   <data name="CharaDataHub.Apply.Title" xml:space="preserve">
     <value>Apply Character Appearance</value>
   </data>
@@ -3397,11 +3540,23 @@ Click to change.</value>
   <data name="CharaDataHub.Tab.DataCreation" xml:space="preserve">
     <value>Data Creation</value>
   </data>
+  <data name="CharaDataHub.GposeOnlyTooltip" xml:space="preserve">
+    <value>GPose Actors are only available while in GPose.</value>
+  </data>
   <data name="CharaDataHub.Tab.GposeActors" xml:space="preserve">
     <value>GPose Actors</value>
   </data>
   <data name="CharaDataHub.Tab.GposeTogether" xml:space="preserve">
     <value>GPose Together</value>
+  </data>
+  <data name="CharaDataHub.Tab.Lobby" xml:space="preserve">
+    <value>Lobby</value>
+  </data>
+  <data name="CharaDataHub.Lobby.GposeTogether" xml:space="preserve">
+    <value>GPose Together</value>
+  </data>
+  <data name="CharaDataHub.Lobby.QuestSync" xml:space="preserve">
+    <value>Quest Sync</value>
   </data>
   <data name="CharaDataHub.Tab.Mcdf" xml:space="preserve">
     <value>MCDF</value>
@@ -4285,6 +4440,42 @@ Click to change.</value>
   </data>
   <data name="Settings.Advanced.SerialApply.Help" xml:space="preserve">
     <value>Experimental - May reduce issues in crowded areas</value>
+  </data>
+  <data name="Settings.Advanced.CharaData" xml:space="preserve">
+    <value>Character Data</value>
+  </data>
+  <data name="Settings.Advanced.CharaData.OpenGpose" xml:space="preserve">
+    <value>Open Character Data Hub when GPose loads</value>
+  </data>
+  <data name="Settings.Advanced.CharaData.OpenGpose.Help" xml:space="preserve">
+    <value>This will automatically open the import menu when loading into Gpose. If unchecked you can open the menu manually with /sync gpose</value>
+  </data>
+  <data name="Settings.Advanced.CharaData.DownloadOnConnect" xml:space="preserve">
+    <value>Download Online Character Data on connecting</value>
+  </data>
+  <data name="Settings.Advanced.CharaData.DownloadOnConnect.Help" xml:space="preserve">
+    <value>This will automatically download Online Character Data data (Your Own and Shared with You) once a connection is established to the server.</value>
+  </data>
+  <data name="Settings.Advanced.CharaData.ShowHelp" xml:space="preserve">
+    <value>Show help panels</value>
+  </data>
+  <data name="Settings.Advanced.CharaData.AbbreviateNames" xml:space="preserve">
+    <value>Abbreviate Character Names</value>
+  </data>
+  <data name="Settings.Advanced.CharaData.AbbreviateNames.Help" xml:space="preserve">
+    <value>This setting will abbreviate displayed names in the Character Data Hub.</value>
+  </data>
+  <data name="Settings.Advanced.CharaData.LastExportFolder" xml:space="preserve">
+    <value>Last Export Folder</value>
+  </data>
+  <data name="Settings.Advanced.CharaData.NotSet" xml:space="preserve">
+    <value>Not set</value>
+  </data>
+  <data name="Settings.Advanced.CharaData.ClearExportFolder" xml:space="preserve">
+    <value>Clear Last Export Folder</value>
+  </data>
+  <data name="Settings.Advanced.CharaData.ClearExportFolder.Help" xml:space="preserve">
+    <value>Use this if the Load or Save MCDF file dialog does not open</value>
   </data>
   <data name="Settings.Advanced.Debug" xml:space="preserve">
     <value>Debug</value>

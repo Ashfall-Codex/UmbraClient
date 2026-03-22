@@ -17,4 +17,5 @@ public class CharaDataConfig : IMareConfiguration
     public bool NearbyShowOwnData { get; set; } = false;
     public bool ShowHelpTexts { get; set; } = true;
     public bool NearbyShowAlways { get; set; } = false;
+    public bool AbbreviateCharaNames { get; set; } = false;
 }

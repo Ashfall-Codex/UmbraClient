@@ -688,7 +688,7 @@ Veuillez conserver une copie de votre clé secrète au cas où vous auriez besoi
     <value>Analyse de personnage</value>
   </data>
   <data name="CompactUi.Sidebar.CharacterDataHub" xml:space="preserve">
-    <value>Hub de données de personnage</value>
+    <value>Hub de Donnée</value>
   </data>
   <data name="CompactUi.Sidebar.EditProfile" xml:space="preserve">
     <value>Mon Profil</value>
@@ -2088,6 +2088,149 @@ Veuillez conserver une copie de votre clé secrète au cas où vous auriez besoi
   <data name="CharaDataHub.Apply.Tabs.Favorites" xml:space="preserve">
     <value />
   </data>
+  <data name="CharaDataHub.Apply.Tabs.Code" xml:space="preserve">
+    <value>Code</value>
+  </data>
+  <data name="CharaDataHub.Apply.Tabs.YourOwn" xml:space="preserve">
+    <value>Les v&#xF4;tres</value>
+  </data>
+  <data name="CharaDataHub.Apply.Tabs.SharedWithYou" xml:space="preserve">
+    <value>Partag&#xE9;s avec vous</value>
+  </data>
+  <data name="CharaDataHub.Apply.Tabs.FromMcdf" xml:space="preserve">
+    <value>Depuis MCDF</value>
+  </data>
+  <data name="CharaDataHub.Apply.LastUse" xml:space="preserve">
+    <value>Derni&#xE8;re utilisation : </value>
+  </data>
+  <data name="CharaDataHub.Apply.Never" xml:space="preserve">
+    <value>Jamais</value>
+  </data>
+  <data name="CharaDataHub.Apply.FavoriteDescPlaceholder" xml:space="preserve">
+    <value>Description personnalis&#xE9;e</value>
+  </data>
+  <data name="CharaDataHub.Apply.NoFavorites" xml:space="preserve">
+    <value>Vous n'avez aucun favori. Ajoutez des favoris via les autres onglets.</value>
+  </data>
+  <data name="CharaDataHub.Apply.Favorites.ApplyTooltip" xml:space="preserve">
+    <value>Appliquer les donn&#xE9;es au personnage GPose</value>
+  </data>
+  <data name="CharaDataHub.Apply.Favorites.SpawnTooltip" xml:space="preserve">
+    <value>Cr&#xE9;er un acteur Brio et appliquer les donn&#xE9;es</value>
+  </data>
+  <data name="CharaDataHub.Apply.Code.Help" xml:space="preserve">
+    <value>Vous pouvez appliquer des donn&#xE9;es de personnage dont vous avez le code dans cet onglet. Entrez le code au format &#xAB; OwnerUID:DataId &#xBB; dans le champ ci-dessous et cliquez sur &#xAB; Obtenir les infos &#xBB;. Vous obtiendrez les informations de base sur les donn&#xE9;es derri&#xE8;re ce code. S&#xE9;lectionnez ensuite un acteur en GPose et appuyez sur &#xAB; T&#xE9;l&#xE9;charger et appliquer &#xBB;.
+
+Description : d&#xE9;finie par le propri&#xE9;taire du code pour donner des informations suppl&#xE9;mentaires sur le contenu.
+Derni&#xE8;re mise &#xE0; jour : date et heure de la derni&#xE8;re modification des donn&#xE9;es par le propri&#xE9;taire.
+T&#xE9;l&#xE9;chargeable : indique si le code peut &#xEA;tre t&#xE9;l&#xE9;charg&#xE9; et appliqu&#xE9;. Si non, contactez le propri&#xE9;taire.
+
+Pour t&#xE9;l&#xE9;charger un code, les permissions d'acc&#xE8;s doivent &#xEA;tre correctement configur&#xE9;es par le propri&#xE9;taire. Si l'obtention des infos &#xE9;choue, contactez le propri&#xE9;taire pour v&#xE9;rifier ses permissions d'acc&#xE8;s.</value>
+  </data>
+  <data name="CharaDataHub.Apply.Code.Placeholder" xml:space="preserve">
+    <value>Entrer un code de donn&#xE9;es</value>
+  </data>
+  <data name="CharaDataHub.Apply.Code.GetInfo" xml:space="preserve">
+    <value>Obtenir les infos</value>
+  </data>
+  <data name="CharaDataHub.Apply.DownloadAndApply" xml:space="preserve">
+    <value>T&#xE9;l&#xE9;charger et appliquer</value>
+  </data>
+  <data name="CharaDataHub.Apply.DownloadAndApply.Tooltip" xml:space="preserve">
+    <value>Appliquer ces donn&#xE9;es au personnage GPose actuel</value>
+  </data>
+  <data name="CharaDataHub.Apply.DownloadAndSpawn" xml:space="preserve">
+    <value>T&#xE9;l&#xE9;charger et cr&#xE9;er</value>
+  </data>
+  <data name="CharaDataHub.Apply.DownloadAndSpawn.Tooltip" xml:space="preserve">
+    <value>Cr&#xE9;er un nouvel acteur Brio et appliquer ces donn&#xE9;es</value>
+  </data>
+  <data name="CharaDataHub.Apply.Code.Downloading" xml:space="preserve">
+    <value>T&#xE9;l&#xE9;chargement des m&#xE9;tadonn&#xE9;es en cours...</value>
+  </data>
+  <data name="CharaDataHub.Apply.Description" xml:space="preserve">
+    <value>Description</value>
+  </data>
+  <data name="CharaDataHub.Apply.LastUpdate" xml:space="preserve">
+    <value>Derni&#xE8;re mise &#xE0; jour</value>
+  </data>
+  <data name="CharaDataHub.Apply.IsDownloadable" xml:space="preserve">
+    <value>T&#xE9;l&#xE9;chargeable</value>
+  </data>
+  <data name="CharaDataHub.Apply.Poses" xml:space="preserve">
+    <value>Poses</value>
+  </data>
+  <data name="CharaDataHub.Apply.YourOwn.Help" xml:space="preserve">
+    <value>Vous pouvez appliquer les donn&#xE9;es de personnage que vous avez cr&#xE9;&#xE9;es dans cet onglet. Si la liste est vide, cliquez sur &#xAB; T&#xE9;l&#xE9;charger vos donn&#xE9;es &#xBB;.
+
+Pour cr&#xE9;er ou modifier vos donn&#xE9;es, utilisez l'onglet &#xAB; Donn&#xE9;es en ligne &#xBB;.</value>
+  </data>
+  <data name="CharaDataHub.Apply.YourOwn.Download" xml:space="preserve">
+    <value>T&#xE9;l&#xE9;charger vos donn&#xE9;es</value>
+  </data>
+  <data name="CharaDataHub.Apply.YourOwn.Cooldown" xml:space="preserve">
+    <value>Vous ne pouvez actualiser les donn&#xE9;es que toutes les minutes.</value>
+  </data>
+  <data name="CharaDataHub.Apply.SharedWithYou.Help" xml:space="preserve">
+    <value>Vous pouvez appliquer les donn&#xE9;es de personnage partag&#xE9;es implicitement avec vous dans cet onglet. Les donn&#xE9;es partag&#xE9;es sont celles dont le param&#xE8;tre &#xAB; Partage &#xBB; est d&#xE9;fini sur &#xAB; Partag&#xE9; &#xBB; et auxquelles vous avez acc&#xE8;s selon les restrictions d'acc&#xE8;s (votre UID a &#xE9;t&#xE9; sp&#xE9;cifi&#xE9; ou vous &#xEA;tes appair&#xE9; avec l'autre utilisateur).
+
+Filtrez si n&#xE9;cessaire, puis appuyez sur &#xAB; Appliquer &#xBB; pour t&#xE9;l&#xE9;charger et appliquer les donn&#xE9;es &#xE0; l'acteur GPose cibl&#xE9;.
+
+Note : les donn&#xE9;es des pairs que vous avez mis en pause ne sont pas affich&#xE9;es ici.</value>
+  </data>
+  <data name="CharaDataHub.Apply.Filters" xml:space="preserve">
+    <value>Filtres</value>
+  </data>
+  <data name="CharaDataHub.Apply.FiltersActive" xml:space="preserve">
+    <value>Filtres ({0} actifs)</value>
+  </data>
+  <data name="CharaDataHub.Apply.FilterByUid" xml:space="preserve">
+    <value>Filtrer par UID/Note</value>
+  </data>
+  <data name="CharaDataHub.Apply.FilterByDesc" xml:space="preserve">
+    <value>Filtrer par description</value>
+  </data>
+  <data name="CharaDataHub.Apply.OnlyDownloadable" xml:space="preserve">
+    <value>Afficher uniquement les t&#xE9;l&#xE9;chargeables</value>
+  </data>
+  <data name="CharaDataHub.Apply.Mcdf.Help" xml:space="preserve">
+    <value>Vous pouvez appliquer des donn&#xE9;es de personnage partag&#xE9;es via un fichier MCDF dans cet onglet.
+
+Chargez d'abord le MCDF via le bouton &#xAB; Charger un MCDF &#xBB; pour obtenir la description d&#xE9;finie par le propri&#xE9;taire lors de l'export.
+Vous pourrez ensuite l'appliquer &#xE0; tout acteur GPose g&#xE9;r&#xE9;.
+
+Les MCDF &#xE0; partager se g&#xE9;n&#xE8;rent via l'onglet &#xAB; Export MCDF &#xBB; en haut.</value>
+  </data>
+  <data name="CharaDataHub.Apply.Mcdf.Load" xml:space="preserve">
+    <value>Charger un MCDF</value>
+  </data>
+  <data name="CharaDataHub.Apply.Mcdf.LoadTooltip" xml:space="preserve">
+    <value>Charger les m&#xE9;tadonn&#xE9;es du MCDF en m&#xE9;moire</value>
+  </data>
+  <data name="CharaDataHub.Apply.Mcdf.LoadedFile" xml:space="preserve">
+    <value>Fichier charg&#xE9;</value>
+  </data>
+  <data name="CharaDataHub.Apply.Mcdf.Apply" xml:space="preserve">
+    <value>Appliquer</value>
+  </data>
+  <data name="CharaDataHub.Apply.Mcdf.ApplyTooltip" xml:space="preserve">
+    <value>Appliquer &#xE0; {0}</value>
+  </data>
+  <data name="CharaDataHub.Apply.Mcdf.SpawnAndApply" xml:space="preserve">
+    <value>Cr&#xE9;er un acteur et appliquer</value>
+  </data>
+  <data name="CharaDataHub.Apply.Mcdf.ReadError" xml:space="preserve">
+    <value>&#xC9;chec de lecture du fichier MCDF. Le fichier est peut-&#xEA;tre corrompu. R&#xE9;-exportez-le et r&#xE9;essayez.</value>
+  </data>
+  <data name="CharaDataHub.Apply.Mcdf.ReadErrorNote" xml:space="preserve">
+    <value>Note : s'il s'agit de votre MCDF, essayez de vous redessiner, attendez puis r&#xE9;-exportez. Si vous l'avez re&#xE7;u d'un tiers, demandez-lui de faire de m&#xEA;me.</value>
+  </data>
+  <data name="CharaDataHub.Apply.Mcdf.Loading" xml:space="preserve">
+    <value>Chargement du personnage...</value>
+  </data>
+  <data name="CharaDataHub.Apply.Mcdf.PickFile" xml:space="preserve">
+    <value>S&#xE9;lectionner un fichier MCDF</value>
+  </data>
   <data name="CharaDataHub.Apply.Title" xml:space="preserve">
     <value />
   </data>
@@ -3202,10 +3345,10 @@ Veuillez conserver une copie de votre clé secrète au cas où vous auriez besoi
     <value />
   </data>
   <data name="CharaDataHub.NearbyPoses.GposeOnly" xml:space="preserve">
-    <value />
+    <value>L'application de poses n'est disponible qu'en mode GPose.</value>
   </data>
   <data name="CharaDataHub.NearbyPoses.Help" xml:space="preserve">
-    <value />
+    <value>Affiche les poses partag&#233;es par d'autres joueurs &#224; proximit&#233;. Utilisez les filtres pour affiner les r&#233;sultats.</value>
   </data>
   <data name="CharaDataHub.NearbyPoses.IgnoreHousing" xml:space="preserve">
     <value>Ignorer les limites de housing</value>
@@ -3217,70 +3360,70 @@ Veuillez conserver une copie de votre clé secrète au cas où vous auriez besoi
     <value>Note : Les poses utilisant des accessoires de housing, meubles, etc. ne s'afficheront pas correctement si elles ne sont pas dans le bon emplacement.</value>
   </data>
   <data name="CharaDataHub.NearbyPoses.MapTooltip" xml:space="preserve">
-    <value />
+    <value>Cliquez pour ouvrir la carte et placer un marqueur</value>
   </data>
   <data name="CharaDataHub.NearbyPoses.MaxWisps" xml:space="preserve">
-    <value />
+    <value>Nombre maximum de feux follets</value>
   </data>
   <data name="CharaDataHub.NearbyPoses.MaxWispsHelp" xml:space="preserve">
-    <value />
+    <value>Limite le nombre de feux follets actifs simultan&#233;ment. Mettez 0 pour d&#233;sactiver les feux follets m&#234;me s'ils sont activ&#233;s.</value>
   </data>
   <data name="CharaDataHub.NearbyPoses.NoDescription" xml:space="preserve">
-    <value />
+    <value>Aucune description de pose d&#233;finie</value>
   </data>
   <data name="CharaDataHub.NearbyPoses.NoneFound" xml:space="preserve">
-    <value />
+    <value>Aucune pose partag&#233;e trouv&#233;e &#224; proximit&#233;.</value>
   </data>
   <data name="CharaDataHub.NearbyPoses.OnlyCurrentWorld" xml:space="preserve">
-    <value />
+    <value>Afficher uniquement les poses du monde actuel</value>
   </data>
   <data name="CharaDataHub.NearbyPoses.OnlyCurrentWorldHelp" xml:space="preserve">
-    <value />
+    <value>Affiche uniquement les poses partag&#233;es avec des donn&#233;es de monde provenant du monde actuel</value>
   </data>
   <data name="CharaDataHub.NearbyPoses.PoseBy" xml:space="preserve">
-    <value />
+    <value>Pose par</value>
   </data>
   <data name="CharaDataHub.NearbyPoses.SettingsTitle" xml:space="preserve">
-    <value />
+    <value>Param&#232;tres &amp; Filtres</value>
   </data>
   <data name="CharaDataHub.NearbyPoses.ShowAlways" xml:space="preserve">
-    <value />
+    <value>Garder actif en dehors de l'onglet Poses</value>
   </data>
   <data name="CharaDataHub.NearbyPoses.ShowAlwaysHelp" xml:space="preserve">
-    <value />
+    <value>Continue le calcul de la position des feux follets, etc. en dehors de l'onglet &#171; Poses &#224; proximit&#233; &#187;.</value>
   </data>
   <data name="CharaDataHub.NearbyPoses.ShowAlwaysNote" xml:space="preserve">
-    <value />
+    <value>Note : Les feux follets disparaissent pendant le combat et les repr&#233;sentations.</value>
   </data>
   <data name="CharaDataHub.NearbyPoses.ShowOwnData" xml:space="preserve">
-    <value />
+    <value>Afficher &#233;galement vos propres donn&#233;es</value>
   </data>
   <data name="CharaDataHub.NearbyPoses.ShowOwnDataHelp" xml:space="preserve">
-    <value />
+    <value>Affiche &#233;galement vos propres poses</value>
   </data>
   <data name="CharaDataHub.NearbyPoses.ShowWisps" xml:space="preserve">
-    <value />
+    <value>Afficher les feux follets dans le monde</value>
   </data>
   <data name="CharaDataHub.NearbyPoses.ShowWispsHelp" xml:space="preserve">
-    <value />
+    <value>Dessine des feux follets flottants &#224; l'emplacement des poses des autres joueurs.</value>
   </data>
   <data name="CharaDataHub.NearbyPoses.SpawnAndPose" xml:space="preserve">
-    <value />
+    <value>Cr&#233;er et poser</value>
   </data>
   <data name="CharaDataHub.NearbyPoses.SpawnAndPoseTooltip" xml:space="preserve">
-    <value />
+    <value>Cr&#233;er un acteur et appliquer la pose et la position</value>
   </data>
   <data name="CharaDataHub.NearbyPoses.Title" xml:space="preserve">
-    <value />
+    <value>Poses &#224; proximit&#233;</value>
   </data>
   <data name="CharaDataHub.NearbyPoses.UpdateShared" xml:space="preserve">
-    <value />
+    <value>Mettre &#224; jour les donn&#233;es partag&#233;es</value>
   </data>
   <data name="CharaDataHub.NearbyPoses.UpdateSharedCooldown" xml:space="preserve">
-    <value />
+    <value>Vous ne pouvez actualiser les donn&#233;es que toutes les minutes.</value>
   </data>
   <data name="CharaDataHub.NearbyPoses.YouLabel" xml:space="preserve">
-    <value />
+    <value>VOUS</value>
   </data>
   <data name="CharaDataHub.ShareType.CodeOnly" xml:space="preserve">
     <value>Code uniquement</value>
@@ -3297,11 +3440,23 @@ Veuillez conserver une copie de votre clé secrète au cas où vous auriez besoi
   <data name="CharaDataHub.Tab.DataCreation" xml:space="preserve">
     <value>Création de données</value>
   </data>
+  <data name="CharaDataHub.GposeOnlyTooltip" xml:space="preserve">
+    <value>Les acteurs GPose ne sont disponibles qu'en mode GPose.</value>
+  </data>
   <data name="CharaDataHub.Tab.GposeActors" xml:space="preserve">
     <value>Acteurs GPose</value>
   </data>
   <data name="CharaDataHub.Tab.GposeTogether" xml:space="preserve">
     <value>GPose Together</value>
+  </data>
+  <data name="CharaDataHub.Tab.Lobby" xml:space="preserve">
+    <value>Lobby</value>
+  </data>
+  <data name="CharaDataHub.Lobby.GposeTogether" xml:space="preserve">
+    <value>GPose Together</value>
+  </data>
+  <data name="CharaDataHub.Lobby.QuestSync" xml:space="preserve">
+    <value>Quest Sync</value>
   </data>
   <data name="CharaDataHub.Tab.Mcdf" xml:space="preserve">
     <value>MCDF</value>
@@ -4194,6 +4349,42 @@ Veuillez conserver une copie de votre clé secrète au cas où vous auriez besoi
   </data>
   <data name="Settings.Advanced.SerialApply.Help" xml:space="preserve">
     <value>Expérimental — Peut réduire les problèmes dans les zones peuplées</value>
+  </data>
+  <data name="Settings.Advanced.CharaData" xml:space="preserve">
+    <value>Données de personnage</value>
+  </data>
+  <data name="Settings.Advanced.CharaData.OpenGpose" xml:space="preserve">
+    <value>Ouvrir le Hub de données au chargement du GPose</value>
+  </data>
+  <data name="Settings.Advanced.CharaData.OpenGpose.Help" xml:space="preserve">
+    <value>Ouvre automatiquement le menu d'importation au lancement du GPose. Si décoché, utilisez /sync gpose pour l'ouvrir manuellement.</value>
+  </data>
+  <data name="Settings.Advanced.CharaData.DownloadOnConnect" xml:space="preserve">
+    <value>Télécharger les données en ligne à la connexion</value>
+  </data>
+  <data name="Settings.Advanced.CharaData.DownloadOnConnect.Help" xml:space="preserve">
+    <value>Télécharge automatiquement les données de personnage en ligne (les vôtres et celles partagées avec vous) dès qu'une connexion au serveur est établie.</value>
+  </data>
+  <data name="Settings.Advanced.CharaData.ShowHelp" xml:space="preserve">
+    <value>Afficher les volets "Qu'est-ce que c'est ? (Explication / Aide)"</value>
+  </data>
+  <data name="Settings.Advanced.CharaData.AbbreviateNames" xml:space="preserve">
+    <value>Abréger les noms de personnage</value>
+  </data>
+  <data name="Settings.Advanced.CharaData.AbbreviateNames.Help" xml:space="preserve">
+    <value>Abrège les noms affichés dans le Hub de données de personnage.</value>
+  </data>
+  <data name="Settings.Advanced.CharaData.LastExportFolder" xml:space="preserve">
+    <value>Dernier dossier d'export</value>
+  </data>
+  <data name="Settings.Advanced.CharaData.NotSet" xml:space="preserve">
+    <value>Non défini</value>
+  </data>
+  <data name="Settings.Advanced.CharaData.ClearExportFolder" xml:space="preserve">
+    <value>Effacer le dernier dossier d'export</value>
+  </data>
+  <data name="Settings.Advanced.CharaData.ClearExportFolder.Help" xml:space="preserve">
+    <value>Utilisez ceci si la boîte de dialogue de chargement/sauvegarde MCDF ne s'ouvre pas.</value>
   </data>
   <data name="Settings.Advanced.Debug" xml:space="preserve">
     <value>Débogage</value>

@@ -53,6 +53,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
     private readonly ChatTypingDetectionService _chatTypingDetectionService;
     private readonly RgpdDataService _rgpdDataService;
     private readonly MareConfiguration.SyncshellConfigService _syncshellConfigService;
+    private readonly MareConfiguration.CharaDataConfigService _charaDataConfigService;
     private Dictionary<Guid, string>? _cachedPenumbraCollections;
     private DateTime _lastCollectionRefresh = DateTime.MinValue;
     private bool _rgpdDeleteConfirmShown;
@@ -127,7 +128,8 @@ public class SettingsUi : WindowMediatorSubscriberBase
         PenumbraPrecacheService precacheService,
         ChatTypingDetectionService chatTypingDetectionService,
         RgpdDataService gdprDataService,
-        MareConfiguration.SyncshellConfigService syncshellConfigService) : base(logger, mediator, "Umbra Settings", performanceCollector)
+        MareConfiguration.SyncshellConfigService syncshellConfigService,
+        MareConfiguration.CharaDataConfigService charaDataConfigService) : base(logger, mediator, "Umbra Settings", performanceCollector)
     {
         _configService = configService;
         _pairManager = pairManager;
@@ -151,6 +153,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
         _chatTypingDetectionService = chatTypingDetectionService;
         _rgpdDataService = gdprDataService;
         _syncshellConfigService = syncshellConfigService;
+        _charaDataConfigService = charaDataConfigService;
         AllowClickthrough = false;
         AllowPinning = false;
         _validationProgress = new Progress<(int, int, FileCacheEntity)>(v => _currentProgress = v);
@@ -1544,6 +1547,65 @@ public class SettingsUi : WindowMediatorSubscriberBase
                 _configService.Save();
             }
             _uiShared.DrawHelpText(Loc.Get("Settings.Advanced.SerialApply.Help"));
+        });
+
+        ImGuiHelpers.ScaledDummy(4f);
+
+        // --- Character Data Settings ---
+        _uiShared.BigText(Loc.Get("Settings.Advanced.CharaData"));
+        UiSharedService.DrawCard("charadata-settings-card", () =>
+        {
+            bool openInGpose = _charaDataConfigService.Current.OpenMareHubOnGposeStart;
+            if (ImGui.Checkbox(Loc.Get("Settings.Advanced.CharaData.OpenGpose"), ref openInGpose))
+            {
+                _charaDataConfigService.Current.OpenMareHubOnGposeStart = openInGpose;
+                _charaDataConfigService.Save();
+            }
+            _uiShared.DrawHelpText(Loc.Get("Settings.Advanced.CharaData.OpenGpose.Help"));
+
+            ImGuiHelpers.ScaledDummy(2f);
+
+            bool downloadDataOnConnection = _charaDataConfigService.Current.DownloadMcdDataOnConnection;
+            if (ImGui.Checkbox(Loc.Get("Settings.Advanced.CharaData.DownloadOnConnect"), ref downloadDataOnConnection))
+            {
+                _charaDataConfigService.Current.DownloadMcdDataOnConnection = downloadDataOnConnection;
+                _charaDataConfigService.Save();
+            }
+            _uiShared.DrawHelpText(Loc.Get("Settings.Advanced.CharaData.DownloadOnConnect.Help"));
+
+            ImGuiHelpers.ScaledDummy(2f);
+
+            bool showHelpTexts = _charaDataConfigService.Current.ShowHelpTexts;
+            if (ImGui.Checkbox(Loc.Get("Settings.Advanced.CharaData.ShowHelp"), ref showHelpTexts))
+            {
+                _charaDataConfigService.Current.ShowHelpTexts = showHelpTexts;
+                _charaDataConfigService.Save();
+            }
+
+            ImGuiHelpers.ScaledDummy(2f);
+
+            bool abbreviateNames = _charaDataConfigService.Current.AbbreviateCharaNames;
+            if (ImGui.Checkbox(Loc.Get("Settings.Advanced.CharaData.AbbreviateNames"), ref abbreviateNames))
+            {
+                _charaDataConfigService.Current.AbbreviateCharaNames = abbreviateNames;
+                _charaDataConfigService.Save();
+            }
+            _uiShared.DrawHelpText(Loc.Get("Settings.Advanced.CharaData.AbbreviateNames.Help"));
+
+            ImGuiHelpers.ScaledDummy(2f);
+
+            ImGui.AlignTextToFramePadding();
+            ImGui.TextUnformatted(Loc.Get("Settings.Advanced.CharaData.LastExportFolder"));
+            ImGui.SameLine(300);
+            ImGui.AlignTextToFramePadding();
+            var exportFolder = _charaDataConfigService.Current.LastSavedCharaDataLocation;
+            ImGui.TextUnformatted(string.IsNullOrEmpty(exportFolder) ? Loc.Get("Settings.Advanced.CharaData.NotSet") : exportFolder);
+            if (_uiShared.IconTextButton(FontAwesomeIcon.Ban, Loc.Get("Settings.Advanced.CharaData.ClearExportFolder")))
+            {
+                _charaDataConfigService.Current.LastSavedCharaDataLocation = string.Empty;
+                _charaDataConfigService.Save();
+            }
+            _uiShared.DrawHelpText(Loc.Get("Settings.Advanced.CharaData.ClearExportFolder.Help"));
         });
 
         ImGuiHelpers.ScaledDummy(4f);
