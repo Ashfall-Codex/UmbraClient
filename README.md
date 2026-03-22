@@ -181,10 +181,10 @@ dotnet build UmbraSync.sln -c Release --no-restore -p:DALAMUD_DIR="$DALAMUD_DIR"
 
 | Package | Version |
 |---|---|
-| `Microsoft.AspNetCore.SignalR.Client` | 11.0.0-preview.2 |
-| `Microsoft.AspNetCore.SignalR.Protocols.MessagePack` | 11.0.0-preview.2 |
+| `Microsoft.AspNetCore.SignalR.Client` | 10.0.5 |
+| `Microsoft.AspNetCore.SignalR.Protocols.MessagePack` | 10.0.5 |
 | `MessagePack` | 3.1.4 |
-| `Microsoft.Extensions.Hosting` | 11.0.0-preview.2 |
+| `Microsoft.Extensions.Hosting` | 10.0.5 |
 | `System.IdentityModel.Tokens.Jwt` | 8.16.0 |
 | `K4os.Compression.LZ4.Streams` | 1.3.8 |
 | `Downloader` | 5.1.0 |
