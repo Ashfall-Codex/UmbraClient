@@ -178,24 +178,4 @@ public sealed partial class CharaDataHubUi
         });
     }
 
-    private void UpdateFilteredItems()
-    {
-        if (_charaDataManager.GetSharedWithYouTask == null)
-        {
-            _filteredDict = _charaDataManager.SharedWithYouData
-                .SelectMany(k => k.Value)
-                .Where(k =>
-                    (!_sharedWithYouDownloadableFilter || k.CanBeDownloaded)
-                    && (string.IsNullOrEmpty(_sharedWithYouDescriptionFilter) || k.Description.Contains(_sharedWithYouDescriptionFilter, StringComparison.OrdinalIgnoreCase)))
-                .GroupBy(k => k.Uploader)
-                    .ToDictionary(k =>
-                    {
-                        var note = _serverConfigurationManager.GetNoteForUid(k.Key.UID);
-                        return string.IsNullOrEmpty(note) ? k.Key.AliasOrUID : $"{note} ({k.Key.AliasOrUID})";
-                    }, k => k.ToList(), StringComparer.OrdinalIgnoreCase)
-                    .Where(k => string.IsNullOrEmpty(_sharedWithYouOwnerFilter) || k.Key.Contains(_sharedWithYouOwnerFilter, StringComparison.OrdinalIgnoreCase))
-                    .OrderBy(k => k.Key, StringComparer.OrdinalIgnoreCase)
-                    .ToDictionary(k => k.Key, k => k.Value, StringComparer.OrdinalIgnoreCase);
-        }
-    }
 }

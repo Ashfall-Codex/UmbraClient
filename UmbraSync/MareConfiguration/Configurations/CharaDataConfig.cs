@@ -18,4 +18,5 @@ public class CharaDataConfig : IMareConfiguration
     public bool ShowHelpTexts { get; set; } = true;
     public bool NearbyShowAlways { get; set; } = false;
     public bool AbbreviateCharaNames { get; set; } = false;
+    public string McdfLocalFolder { get; set; } = string.Empty;
 }

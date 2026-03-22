@@ -1990,6 +1990,9 @@ Click to change.</value>
   <data name="CharaDataHub.Mcd.Online.DownloadAll" xml:space="preserve">
     <value>Download your Online Character Data from Server</value>
   </data>
+  <data name="CharaDataHub.Mcd.Online.Refresh" xml:space="preserve">
+    <value>Refresh</value>
+  </data>
   <data name="CharaDataHub.Mcd.Online.DownloadAllCooldown" xml:space="preserve">
     <value>You can only refresh all character data from server every minute. Please wait.</value>
   </data>
@@ -1997,13 +2000,18 @@ Click to change.</value>
     <value>Chara Data Entries on Server: {0}/{1}</value>
   </data>
   <data name="CharaDataHub.Mcd.Online.Help" xml:space="preserve">
-    <value>In this tab you can create, view and edit your own Character Data that is stored on the server.&#x0A;&#x0A;Character Data Online functions similar to the previous MCDF standard for exporting your character, except that you do not have to send a file to the other person but solely a code.&#x0A;&#x0A;There would be a bit too much to explain here on what you can do here in its entirety, however, all elements in this tab have help texts attached what they are used for. Please review them carefully.&#x0A;&#x0A;Be mindful that when you share your Character Data with other people there is a chance that, with the help of unsanctioned 3rd party plugins, your appearance could be stolen irreversibly, just like when using MCDF.</value>
+    <value>This tab centralizes your character data, whether stored on the server or locally on your machine.
+There are two types of server entries:
+- Live: editable entry (appearance, poses, access settings). You can update it at any time.
+- MCDF: frozen snapshot of your character, uploaded from a local file. Cannot be edited after upload.
+The bottom section lists MCDF files from your local folder. You can upload them to the server or delete them.
+Sharing with other players is managed in the "Shares" tab.</value>
   </data>
   <data name="CharaDataHub.Mcd.Online.InitNotice" xml:space="preserve">
     <value>Please use the button "Get Own Chara Data" once before you can add new data entries.</value>
   </data>
   <data name="CharaDataHub.Mcd.Online.NewEntry" xml:space="preserve">
-    <value>New Character Data Entry</value>
+    <value>Generate a Live file</value>
   </data>
   <data name="CharaDataHub.Mcd.Online.NewEntryCooldown" xml:space="preserve">
     <value>You can only create new character data every few seconds. Please wait.</value>
@@ -2016,6 +2024,15 @@ Click to change.</value>
   </data>
   <data name="CharaDataHub.Mcd.Online.Table.Customize" xml:space="preserve">
     <value>Customize+</value>
+  </data>
+  <data name="CharaDataHub.Mcd.Online.Table.Type" xml:space="preserve">
+    <value>Type</value>
+  </data>
+  <data name="CharaDataHub.Mcd.Online.TypeCharaData" xml:space="preserve">
+    <value>Live</value>
+  </data>
+  <data name="CharaDataHub.Mcd.Online.TypeMcdf" xml:space="preserve">
+    <value>MCDF</value>
   </data>
   <data name="CharaDataHub.Mcd.Online.Table.Description" xml:space="preserve">
     <value>Description</value>
@@ -2261,9 +2278,8 @@ To download a code the code requires correct access permissions to be set by the
     <value>Poses</value>
   </data>
   <data name="CharaDataHub.Apply.YourOwn.Help" xml:space="preserve">
-    <value>You can apply character data you created yourself in this tab. If the list is not populated press on "Download your Character Data".
-
-To create new and edit your existing character data use the "Online Data" tab.</value>
+    <value>This tab lists your character data (Live and MCDF) stored on the server. Click "Refresh" to update the list.
+To create or manage your data, go to "Data Creation" &gt; "MCDF" &gt; "My Data".</value>
   </data>
   <data name="CharaDataHub.Apply.YourOwn.Download" xml:space="preserve">
     <value>Download your Character Data</value>
@@ -2333,6 +2349,238 @@ MCDF to share with others can be generated using the "MCDF Export" tab at the to
   </data>
   <data name="CharaDataHub.Apply.Title" xml:space="preserve">
     <value>Apply Character Appearance</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Import.Title" xml:space="preserve">
+    <value>Import MCDF File</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Import.Help" xml:space="preserve">
+    <value>You can apply character data shared with you using a MCDF file in this section.
+
+Load the MCDF first via the "Load MCDF" button which will give you the basic description that the owner has set during export.
+You can then apply it to any handled GPose actor.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Import.Load" xml:space="preserve">
+    <value>Load MCDF</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Import.PickFile" xml:space="preserve">
+    <value>Pick MCDF file</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Import.LoadTooltip" xml:space="preserve">
+    <value>Load MCDF Metadata into memory</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Import.LoadedFile" xml:space="preserve">
+    <value>Loaded file</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Import.Apply" xml:space="preserve">
+    <value>Apply</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Import.ApplyTooltip" xml:space="preserve">
+    <value>Apply to {0}</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Import.SpawnAndApply" xml:space="preserve">
+    <value>Spawn Actor and Apply</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Import.ReadError" xml:space="preserve">
+    <value>Failure to read MCDF file. MCDF file is possibly corrupt. Re-export the MCDF file and try again.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Import.ReadErrorNote" xml:space="preserve">
+    <value>Note: if this is your MCDF, try redrawing yourself, wait and re-export the file. If you received it from someone else have them do the same.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Import.Loading" xml:space="preserve">
+    <value>Loading Character...</value>
+  </data>
+  <data name="CharaDataHub.Apply.Favorite.CustomDesc" xml:space="preserve">
+    <value>Custom Description: {0}</value>
+  </data>
+  <data name="CharaDataHub.Apply.Favorite.RemoveTooltip" xml:space="preserve">
+    <value>Click to remove from Favorites</value>
+  </data>
+  <data name="CharaDataHub.Apply.Favorite.AddTooltip" xml:space="preserve">
+    <value>Click to add to Favorites</value>
+  </data>
+  <data name="CharaDataHub.Apply.Meta.Incomplete" xml:space="preserve">
+    <value>This data is incomplete on the server and cannot be downloaded. Contact the owner so they can fix it. If you are the owner, review the data in the Online Data tab.</value>
+  </data>
+  <data name="CharaDataHub.Apply.Meta.LastUpdate" xml:space="preserve">
+    <value>Last Update: {0}</value>
+  </data>
+  <data name="CharaDataHub.Apply.Meta.ApplyToTarget" xml:space="preserve">
+    <value>Apply Character data to {0}</value>
+  </data>
+  <data name="CharaDataHub.Apply.Meta.SpawnAndApply" xml:space="preserve">
+    <value>Spawn and Apply Character data</value>
+  </data>
+  <data name="CharaDataHub.Apply.Meta.OpenEditor" xml:space="preserve">
+    <value>Open in Online Data Editor</value>
+  </data>
+  <data name="CharaDataHub.Apply.Meta.CannotWhileApplied" xml:space="preserve">
+    <value>Cannot use Online Data while having Character Data applied to self.</value>
+  </data>
+  <data name="CharaDataHub.Apply.Meta.NoDescription" xml:space="preserve">
+    <value>No description set</value>
+  </data>
+  <data name="CharaDataHub.Apply.Pose.NoDescription" xml:space="preserve">
+    <value>No description set</value>
+  </data>
+  <data name="CharaDataHub.Apply.Pose.Description" xml:space="preserve">
+    <value>Pose Description: {0}</value>
+  </data>
+  <data name="CharaDataHub.Apply.Pose.ShowOnMap" xml:space="preserve">
+    <value>Click to show on Map</value>
+  </data>
+  <data name="CharaDataHub.Apply.Pose.ApplyToTarget" xml:space="preserve">
+    <value>Left Click: Apply this pose to {0}</value>
+  </data>
+  <data name="CharaDataHub.Apply.Pose.ApplyWorldPos" xml:space="preserve">
+    <value>CTRL+Right Click: Apply world position to {0}.</value>
+  </data>
+  <data name="CharaDataHub.Apply.Pose.WorldPosCaution" xml:space="preserve">
+    <value>!!! CAUTION: Applying world position will likely yeet this actor into nirvana. Use at your own risk !!!</value>
+  </data>
+  <data name="CharaDataHub.Apply.SharedWithYou.DataSets" xml:space="preserve">
+    <value>{0} - [{1} Character Data Sets]</value>
+  </data>
+  <data name="CharaDataHub.Apply.SharedWithYou.Refresh" xml:space="preserve">
+    <value>Refresh shares</value>
+  </data>
+  <data name="CharaDataHub.Apply.SharedWithYou.None" xml:space="preserve">
+    <value>No MCDF shares received.</value>
+  </data>
+  <data name="CharaDataHub.Apply.SharedWithYou.Owner" xml:space="preserve">
+    <value>Owner</value>
+  </data>
+  <data name="CharaDataHub.Apply.SharedWithYou.Expires" xml:space="preserve">
+    <value>Expires</value>
+  </data>
+  <data name="CharaDataHub.Apply.SharedWithYou.ApplyTarget" xml:space="preserve">
+    <value>Apply to target</value>
+  </data>
+  <data name="CharaDataHub.Apply.SharedWithYou.Save" xml:space="preserve">
+    <value>Save</value>
+  </data>
+  <data name="CharaDataHub.Apply.SharedWithYou.SaveDialog" xml:space="preserve">
+    <value>Save MCDF share</value>
+  </data>
+  <data name="CharaDataHub.Apply.SharedWithYou.OwnerUid" xml:space="preserve">
+    <value>Owner UID: {0}</value>
+  </data>
+  <data name="CharaDataHub.Edit.Appearance" xml:space="preserve">
+    <value>Appearance</value>
+  </data>
+  <data name="CharaDataHub.Edit.SetAppearance" xml:space="preserve">
+    <value>Set Appearance to Current Appearance</value>
+  </data>
+  <data name="CharaDataHub.Edit.SetAppearance.Help" xml:space="preserve">
+    <value>This will overwrite the appearance data currently stored in this Character Data entry with your current appearance.</value>
+  </data>
+  <data name="CharaDataHub.Edit.PreviewAppearance" xml:space="preserve">
+    <value>Preview Saved Appearance on Self</value>
+  </data>
+  <data name="CharaDataHub.Edit.PreviewAppearance.Help" xml:space="preserve">
+    <value>This will download and apply the saved character data to yourself. Once loaded it will automatically revert itself within 15 seconds.
+Note: Weapons will not be displayed correctly unless using the same job as the saved data.</value>
+  </data>
+  <data name="CharaDataHub.Edit.HasGlamourer" xml:space="preserve">
+    <value>Contains Glamourer Data</value>
+  </data>
+  <data name="CharaDataHub.Edit.HasFiles" xml:space="preserve">
+    <value>Contains Files</value>
+  </data>
+  <data name="CharaDataHub.Edit.FileHashCount" xml:space="preserve">
+    <value>{0} unique file hashes (original upload: {1} file hashes)</value>
+  </data>
+  <data name="CharaDataHub.Edit.GamePaths" xml:space="preserve">
+    <value>{0} associated game paths</value>
+  </data>
+  <data name="CharaDataHub.Edit.FileSwaps" xml:space="preserve">
+    <value>{0} file swaps</value>
+  </data>
+  <data name="CharaDataHub.Edit.FilesPresent" xml:space="preserve">
+    <value>All files to download this character data are present on the server</value>
+  </data>
+  <data name="CharaDataHub.Edit.FilesMissing" xml:space="preserve">
+    <value>{0} files to download this character data are missing on the server</value>
+  </data>
+  <data name="CharaDataHub.Edit.UploadMissing" xml:space="preserve">
+    <value>Attempt to upload missing files and restore Character Data</value>
+  </data>
+  <data name="CharaDataHub.Edit.NewDataSet" xml:space="preserve">
+    <value>New data was set. It may contain files that require to be uploaded (will happen on Saving to server)</value>
+  </data>
+  <data name="CharaDataHub.Edit.HasManipulation" xml:space="preserve">
+    <value>Contains Manipulation Data</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Upload.Button" xml:space="preserve">
+    <value>Upload from MCDF</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.NewSnapshot" xml:space="preserve">
+    <value>Generate a MCDF</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.NewSnapshot.Placeholder" xml:space="preserve">
+    <value>MCDF name</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.NewSnapshot.Tooltip" xml:space="preserve">
+    <value>Capture your current character appearance and upload it as a MCDF on the server.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Upload.Tooltip" xml:space="preserve">
+    <value>Upload a MCDF file as a share on the server. The file will be available in your shares.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Upload.Success" xml:space="preserve">
+    <value>MCDF share created from file.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Upload.FileNotFound" xml:space="preserve">
+    <value>MCDF file not found.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Upload.EmptyFile" xml:space="preserve">
+    <value>MCDF file is empty.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Local.Title" xml:space="preserve">
+    <value>Local MCDF Files</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Local.FolderPlaceholder" xml:space="preserve">
+    <value>Path to local MCDF folder</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Local.PickFolder" xml:space="preserve">
+    <value>Select MCDF folder</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Local.Refresh" xml:space="preserve">
+    <value>Refresh file list</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Local.NoFolder" xml:space="preserve">
+    <value>Configure a local folder to list your MCDF files.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Local.FolderNotFound" xml:space="preserve">
+    <value>The configured folder does not exist.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Local.NoFiles" xml:space="preserve">
+    <value>No MCDF files found in this folder.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Local.ColName" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Local.ColSize" xml:space="preserve">
+    <value>Size</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Local.ColDate" xml:space="preserve">
+    <value>Modified</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Local.Upload" xml:space="preserve">
+    <value>Upload</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Local.Uploading" xml:space="preserve">
+    <value>Uploading MCDF to server, please wait...</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.OwnShares.Title" xml:space="preserve">
+    <value>Server MCDF Files</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.OwnShares.None" xml:space="preserve">
+    <value>No MCDF files on server. Upload a local file to get started.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.OwnShares.Downloads" xml:space="preserve">
+    <value>DL</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Local.Delete" xml:space="preserve">
+    <value>Delete</value>
   </data>
   <data name="DataAnalysis.AndMore" xml:space="preserve">
     <value>(and {0} more)</value>
@@ -3566,6 +3814,120 @@ MCDF to share with others can be generated using the "MCDF Export" tab at the to
   </data>
   <data name="CharaDataHub.Tab.McdfShare" xml:space="preserve">
     <value>MCDF Share</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Share.CreateTitle" xml:space="preserve">
+    <value>Create a MCDF share</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Share.Source" xml:space="preserve">
+    <value>Source MCDF:</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Share.SelectSource" xml:space="preserve">
+    <value>Select a MCDF to share...</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Share.NoSources" xml:space="preserve">
+    <value>No MCDF available. Create one in "My Data" first.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Share.LocalWarning" xml:space="preserve">
+    <value>This is a local file. It will be uploaded to the server for sharing.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Share.Expiration" xml:space="preserve">
+    <value>Expiration (days, 0 = never)</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Share.TagOnline" xml:space="preserve">
+    <value>Online</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Share.TagLocal" xml:space="preserve">
+    <value>Local</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Share.Create" xml:space="preserve">
+    <value>Share</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Share.MyShares" xml:space="preserve">
+    <value>My shares</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Share.NoShares" xml:space="preserve">
+    <value>You haven't shared any MCDF yet.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Share.Access" xml:space="preserve">
+    <value>Access</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Share.AllowedUids" xml:space="preserve">
+    <value>Allowed pairs:</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Share.AllowedSyncshells" xml:space="preserve">
+    <value>Allowed Syncshells:</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Share.AccessSummary" xml:space="preserve">
+    <value>Pairs: {0}, Syncshells: {1}</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Share.PairPlaceholder" xml:space="preserve">
+    <value>Name or identifier</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Share.PairLabel" xml:space="preserve">
+    <value>Pair to add</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Share.PairHelp" xml:space="preserve">
+    <value>Select a synchronized pair from the list or enter an identifier. Listed users will be able to access this MCDF share.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Share.SyncshellPlaceholder" xml:space="preserve">
+    <value>Name or identifier</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Share.SyncshellLabel" xml:space="preserve">
+    <value>Syncshell to add</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Share.SyncshellHelp" xml:space="preserve">
+    <value>Select a synchronized syncshell or enter an identifier. Listed syncshells will have access to this share.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Share.ShareSuccess" xml:space="preserve">
+    <value>MCDF shared successfully.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Share.SaveSuccess" xml:space="preserve">
+    <value>MCDF saved to server.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Delete.Success" xml:space="preserve">
+    <value>MCDF deleted.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Delete.Error" xml:space="preserve">
+    <value>The server refused to delete this MCDF.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Update.Error" xml:space="preserve">
+    <value>The server refused to update this share.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Upload.PrepareFailed" xml:space="preserve">
+    <value>Failed to prepare MCDF data.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Share.Revoke" xml:space="preserve">
+    <value>Revoke</value>
+  </data>
+  <data name="Notification.McdfSave.ToastTitle" xml:space="preserve">
+    <value>MCDF saved</value>
+  </data>
+  <data name="Notification.McdfSave.ToastBody" xml:space="preserve">
+    <value>"{0}" saved to server</value>
+  </data>
+  <data name="Notification.LiveSave.ToastTitle" xml:space="preserve">
+    <value>Live file created</value>
+  </data>
+  <data name="Notification.LiveSave.ToastBody" xml:space="preserve">
+    <value>Live character data entry created on server</value>
+  </data>
+  <data name="CharaDataHub.Mcd.Live.Created" xml:space="preserve">
+    <value>Live file created</value>
+  </data>
+  <data name="CharaDataHub.Mcd.Live.CreateFailed" xml:space="preserve">
+    <value>Failed to create character data, see log for more information</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Tab.Export" xml:space="preserve">
+    <value>Export</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Tab.Import" xml:space="preserve">
+    <value>Import</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Tab.MyData" xml:space="preserve">
+    <value>My Data</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Tab.Shares" xml:space="preserve">
+    <value>Shares</value>
   </data>
   <data name="CharaDataHub.Tab.OnlineData" xml:space="preserve">
     <value>Online Data</value>

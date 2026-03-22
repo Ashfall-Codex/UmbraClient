@@ -472,6 +472,19 @@ public partial class ApiController
     }
 
 
+    public Task Client_McdfShareReceived(string ownerUid, string description)
+    {
+        Logger.LogInformation("Client_McdfShareReceived from {OwnerUid}: {Description}", ownerUid, description);
+        Mediator.Publish(new McdfShareReceivedMessage(ownerUid, description));
+        return Task.CompletedTask;
+    }
+
+    public void OnMcdfShareReceived(Action<string, string> act)
+    {
+        if (_initialized) return;
+        _mareHub!.On(nameof(Client_McdfShareReceived), act);
+    }
+
     private void ExecuteSafely(Action act)
     {
         try

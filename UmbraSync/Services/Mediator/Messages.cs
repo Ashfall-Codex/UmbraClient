@@ -38,6 +38,7 @@ public record CutsceneEndMessage : MessageBase;
 public record CutsceneFrameworkUpdateMessage : SameThreadMessage;
 public record ConnectedMessage(ConnectionDto Connection) : MessageBase;
 public record DisconnectedMessage : SameThreadMessage;
+public record McdfShareReceivedMessage(string OwnerUid, string Description) : MessageBase;
 public record PenumbraModSettingChangedMessage : MessageBase;
 public record PenumbraInitializedMessage : MessageBase;
 public record PenumbraDisposedMessage : MessageBase;

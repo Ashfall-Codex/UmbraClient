@@ -353,6 +353,7 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
         OnQuestSessionStateUpdate((sender, state) => _ = Client_QuestSessionStateUpdate(sender, state));
         OnQuestSessionEventTriggered((sender, trigger) => _ = Client_QuestSessionEventTriggered(sender, trigger));
         OnQuestSessionBranchingChoice((sender, choice) => _ = Client_QuestSessionBranchingChoice(sender, choice));
+        OnMcdfShareReceived((ownerUid, description) => _ = Client_McdfShareReceived(ownerUid, description));
 
         _healthCheckTokenSource?.Cancel();
         _healthCheckTokenSource?.Dispose();
