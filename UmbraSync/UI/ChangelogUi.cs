@@ -168,7 +168,7 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
     {
         return new List<ChangelogEntry>
         {
-            new(new Version(2, 4, 0, 3022), "2.4.0.3022", new List<ChangelogLine>
+            new(new Version(2, 4, 0, 3023), "2.4.0.3023", new List<ChangelogLine>
             {
                 new("Nouveauté : Système d'annuaire d'établissement, vous pouvez désormais lister votre établissement."),
                 new("Nouveauté : Un système de cooldown est désormais disponible quand vous refusez une invitation AutoDetect."),

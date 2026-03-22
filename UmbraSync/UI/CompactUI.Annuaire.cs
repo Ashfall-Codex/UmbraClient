@@ -244,7 +244,7 @@ public partial class CompactUi
 
         if (_annuaireResults.Establishments.Count == 0)
         {
-            ImGui.TextDisabled("Aucun etablissement trouve.");
+            ImGui.TextDisabled(Loc.Get("Establishment.Directory.NoResults"));
             return;
         }
 
@@ -320,7 +320,7 @@ public partial class CompactUi
 
         if (_annuaireOwned.Count == 0)
         {
-            ImGui.TextDisabled("Aucun etablissement enregistre.");
+            ImGui.TextDisabled(Loc.Get("Establishment.Directory.NoOwned"));
             return;
         }
 
