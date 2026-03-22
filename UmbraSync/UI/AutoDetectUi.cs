@@ -206,8 +206,14 @@ public class AutoDetectUi : WindowMediatorSubscriberBase
                     ImGui.SameLine();
                     if (ImGui.Button(Loc.Get("AutoDetectUi.Invitations.Decline")))
                     {
-                        _pendingService.Remove(uid);
+                        _pendingService.Decline(uid);
                     }
+                    ImGui.SameLine();
+                    if (ImGui.Button(Loc.Get("AutoDetect.Block")))
+                    {
+                        _pendingService.Block(uid);
+                    }
+                    UiSharedService.AttachToolTip(Loc.Get("AutoDetect.Block.Tooltip"));
                 }
                 ImGui.Separator();
             }

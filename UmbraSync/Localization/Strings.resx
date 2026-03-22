@@ -2843,6 +2843,30 @@ Note: Weapons will not be displayed correctly unless using the same job as the s
   <data name="Settings.AutoDetect.EnableSlotNotificationsHelp" xml:space="preserve">
     <value>If enabled, you will be prompted to join a Syncshell when approaching a registered housing location (Slot).</value>
   </data>
+  <data name="Settings.AutoDetect.AntiSpam.Header" xml:space="preserve">
+    <value>Anti-spam</value>
+  </data>
+  <data name="Settings.AutoDetect.DeclineCooldown" xml:space="preserve">
+    <value>Decline cooldown (minutes)</value>
+  </data>
+  <data name="Settings.AutoDetect.DeclineCooldown.Help" xml:space="preserve">
+    <value>After declining an invitation, the same player won&apos;t be able to send you another one for this duration.</value>
+  </data>
+  <data name="Settings.AutoDetect.BlockedPlayers" xml:space="preserve">
+    <value>Blocked players ({0})</value>
+  </data>
+  <data name="Settings.AutoDetect.BlockedPlayers.Empty" xml:space="preserve">
+    <value>No blocked players.</value>
+  </data>
+  <data name="Settings.AutoDetect.BlockedPlayers.Unblock" xml:space="preserve">
+    <value>Unblock</value>
+  </data>
+  <data name="AutoDetect.Block" xml:space="preserve">
+    <value>Block</value>
+  </data>
+  <data name="AutoDetect.Block.Tooltip" xml:space="preserve">
+    <value>Block this player permanently. They won&apos;t be able to send you invitations.</value>
+  </data>
   <data name="Settings.AutoDetect.LockedInInstance" xml:space="preserve">
     <value>AutoDetect is locked while you remain in an instanced area.</value>
   </data>

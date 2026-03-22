@@ -2744,6 +2744,30 @@ Note : Les armes ne s'afficheront pas correctement sauf si vous utilisez le m&#x
   <data name="Settings.AutoDetect.EnableSlotNotificationsHelp" xml:space="preserve">
     <value>Si activé, une fenêtre apparaîtra pour vous proposer de rejoindre une Syncshell lorsque vous approchez d'un lieu de housing enregistré (Slot).</value>
   </data>
+  <data name="Settings.AutoDetect.AntiSpam.Header" xml:space="preserve">
+    <value>Anti-spam</value>
+  </data>
+  <data name="Settings.AutoDetect.DeclineCooldown" xml:space="preserve">
+    <value>Cooldown apr&#232;s refus (minutes)</value>
+  </data>
+  <data name="Settings.AutoDetect.DeclineCooldown.Help" xml:space="preserve">
+    <value>Apr&#232;s avoir refus&#233; une invitation, le m&#234;me joueur ne pourra pas vous en renvoyer une pendant cette dur&#233;e.</value>
+  </data>
+  <data name="Settings.AutoDetect.BlockedPlayers" xml:space="preserve">
+    <value>Joueurs bloqu&#233;s ({0})</value>
+  </data>
+  <data name="Settings.AutoDetect.BlockedPlayers.Empty" xml:space="preserve">
+    <value>Aucun joueur bloqu&#233;.</value>
+  </data>
+  <data name="Settings.AutoDetect.BlockedPlayers.Unblock" xml:space="preserve">
+    <value>D&#233;bloquer</value>
+  </data>
+  <data name="AutoDetect.Block" xml:space="preserve">
+    <value>Bloquer</value>
+  </data>
+  <data name="AutoDetect.Block.Tooltip" xml:space="preserve">
+    <value>Bloquer ce joueur d&#233;finitivement. Il ne pourra plus vous envoyer d&apos;invitations.</value>
+  </data>
   <data name="Settings.AutoDetect.LockedInInstance" xml:space="preserve">
     <value>AutoDetect est verrouillé tant que vous restez dans une zone instanciée.</value>
   </data>

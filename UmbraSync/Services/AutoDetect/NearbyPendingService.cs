@@ -23,6 +23,7 @@ public sealed class NearbyPendingService : IMediatorSubscriber
     private readonly NotificationTracker _notificationTracker;
     private readonly MareConfigService _configService;
     private readonly ConcurrentDictionary<string, PendingEntry> _pending = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, DateTime> _declineCooldowns = new(StringComparer.Ordinal);
     private static readonly TimeSpan RegexTimeout = TimeSpan.FromSeconds(1);
     private static readonly Regex ReqRegex = new(@"^Nearby Request: .+ \[(?<uid>[A-Z0-9]+)\]$", RegexOptions.Compiled | RegexOptions.ExplicitCapture, RegexTimeout);
     private static readonly Regex AcceptRegex = new(@"^Nearby Accept: .+ \[(?<uid>[A-Z0-9]+)\]$", RegexOptions.Compiled | RegexOptions.ExplicitCapture, RegexTimeout);
@@ -40,6 +41,14 @@ public sealed class NearbyPendingService : IMediatorSubscriber
         _mediator.Subscribe<DelayedFrameworkUpdateMessage>(this, _ => CleanupExpired());
         _mediator.Subscribe<DisconnectedMessage>(this, _ => ClearAllOnDisconnect());
         _mediator.Subscribe<PairOfflineMessage>(this, msg => RemoveIfPending(msg.User.UID));
+        _mediator.Subscribe<NearbyDetectionToggled>(this, msg =>
+        {
+            if (!msg.Enabled)
+            {
+                ClearAllOnDisconnect();
+                _logger.LogInformation("NearbyPending: cleared all invitations (AutoDetect disabled)");
+            }
+        });
     }
 
     public MareMediator Mediator => _mediator;
@@ -105,6 +114,24 @@ public sealed class NearbyPendingService : IMediatorSubscriber
 
     private void RegisterPending(string uid, string displayName)
     {
+        // Vérifier la blacklist persistante
+        if (_configService.Current.AutoDetectBlockedUids.Contains(uid, StringComparer.Ordinal))
+        {
+            _logger.LogDebug("NearbyPending: invitation from {uid} ignored (player blocked)", uid);
+            return;
+        }
+
+        // Vérifier le cooldown de refus
+        if (_declineCooldowns.TryGetValue(uid, out var expiresAt))
+        {
+            if (DateTime.UtcNow < expiresAt)
+            {
+                _logger.LogDebug("NearbyPending: invitation from {uid} ignored (decline cooldown active until {expires})", uid, expiresAt);
+                return;
+            }
+            _declineCooldowns.TryRemove(uid, out _);
+        }
+
         _pending[uid] = new PendingEntry(displayName, DateTime.UtcNow);
         _logger.LogInformation("NearbyPending: received request from {uid} ({name})", uid, displayName);
         _notificationTracker.Upsert(NotificationEntry.AutoDetect(uid, displayName));
@@ -155,11 +182,40 @@ public sealed class NearbyPendingService : IMediatorSubscriber
         _logger.LogInformation("NearbyPending: cleared all incoming invitations (disconnected)");
     }
 
-    public void Remove(string uid)
+    public void Decline(string uid)
     {
         _pending.TryRemove(uid, out _);
         _requestService.RemovePendingRequestByUid(uid);
         _notificationTracker.Remove(NotificationCategory.AutoDetect, uid);
+
+        var cooldownMinutes = _configService.Current.AutoDetectDeclineCooldownMinutes;
+        if (cooldownMinutes > 0)
+        {
+            _declineCooldowns[uid] = DateTime.UtcNow.AddMinutes(cooldownMinutes);
+            _logger.LogInformation("NearbyPending: declined {uid}, cooldown {minutes} min", uid, cooldownMinutes);
+        }
+    }
+
+    public void Block(string uid)
+    {
+        _pending.TryRemove(uid, out _);
+        _requestService.RemovePendingRequestByUid(uid);
+        _notificationTracker.Remove(NotificationCategory.AutoDetect, uid);
+
+        var blockedList = _configService.Current.AutoDetectBlockedUids;
+        if (!blockedList.Contains(uid, StringComparer.Ordinal))
+        {
+            blockedList.Add(uid);
+            _configService.Save();
+            _logger.LogInformation("NearbyPending: blocked {uid} permanently", uid);
+        }
+    }
+
+    public void Unblock(string uid)
+    {
+        _configService.Current.AutoDetectBlockedUids.RemoveAll(u => string.Equals(u, uid, StringComparison.Ordinal));
+        _configService.Save();
+        _logger.LogInformation("NearbyPending: unblocked {uid}", uid);
     }
 
     public async Task<bool> AcceptAsync(string uid)

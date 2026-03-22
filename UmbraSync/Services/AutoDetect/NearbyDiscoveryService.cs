@@ -224,6 +224,11 @@ public class NearbyDiscoveryService(ILogger<NearbyDiscoveryService> logger, Mare
                                 _logger.LogDebug(ex, "Failed to notify server of nearby disable");
                             }
                         }
+
+                        // Nettoyer les entrées locales et la signature de publish
+                        UpdateSnapshot([]);
+                        _lastPublishedSignature = null;
+
                         if (!_notifiedDisabled)
                         {
                             _mediator.Publish(new NotificationMessage(Loc.Get("Notification.NearbyDetection.Title"), Loc.Get("Notification.NearbyDetection.Disabled"), default));

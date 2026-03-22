@@ -106,8 +106,14 @@ public partial class CompactUi
                     ImGui.SameLine();
                     if (ImGui.Button(Loc.Get("CompactUi.Notifications.Decline")))
                     {
-                        _nearbyPending.Remove(notification.Id);
+                        _nearbyPending.Decline(notification.Id);
                     }
+                    ImGui.SameLine();
+                    if (ImGui.Button(Loc.Get("AutoDetect.Block")))
+                    {
+                        _nearbyPending.Block(notification.Id);
+                    }
+                    UiSharedService.AttachToolTip(Loc.Get("AutoDetect.Block.Tooltip"));
                 }
 
                 if (!hasPending)

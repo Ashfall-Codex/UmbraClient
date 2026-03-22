@@ -42,9 +42,9 @@ public class ConfigurationMigrator(ILogger<ConfigurationMigrator> logger, MareCo
             }
             if (root.TryGetProperty("AutoSyncMuteMinutes", out var muteSync) &&
                 muteSync.TryGetInt32(out var mm) &&
-                _mareConfig.Current.AutoDetectMuteMinutes != mm)
+                _mareConfig.Current.AutoDetectDeclineCooldownMinutes != mm)
             {
-                _mareConfig.Current.AutoDetectMuteMinutes = mm;
+                _mareConfig.Current.AutoDetectDeclineCooldownMinutes = mm;
                 changed = true;
             }
 

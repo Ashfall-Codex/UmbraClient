@@ -3488,6 +3488,70 @@ public class SettingsUi : WindowMediatorSubscriberBase
             _uiShared.DrawHelpText(Loc.Get("Settings.AutoDetect.UseInteractivePopupHelp"));
         }
 
+        ImGuiHelpers.ScaledDummy(5f);
+        ImGui.Separator();
+        ImGuiHelpers.ScaledDummy(3f);
+
+        // --- Section Anti-spam ---
+        ImGui.TextColored(ImGuiColors.DalamudOrange, Loc.Get("Settings.AutoDetect.AntiSpam.Header"));
+        ImGuiHelpers.ScaledDummy(3f);
+
+        using (ImRaii.Disabled(isAutoDetectSuppressed || !enableDiscovery || !_configService.Current.AllowAutoDetectPairRequests))
+        {
+            int[] cooldownOptions = [1, 5, 10, 20, 30, 60];
+            string[] cooldownLabels = ["1 min", "5 min", "10 min", "20 min", "30 min", "1h"];
+            int currentCooldown = _configService.Current.AutoDetectDeclineCooldownMinutes;
+            int selectedIndex = Array.IndexOf(cooldownOptions, currentCooldown);
+            if (selectedIndex < 0) selectedIndex = 2; // fallback 10 min
+
+            ImGui.SetNextItemWidth(120 * ImGuiHelpers.GlobalScale);
+            if (ImGui.Combo(Loc.Get("Settings.AutoDetect.DeclineCooldown"), ref selectedIndex, cooldownLabels, cooldownLabels.Length))
+            {
+                _configService.Current.AutoDetectDeclineCooldownMinutes = cooldownOptions[selectedIndex];
+                _configService.Save();
+            }
+            _uiShared.DrawHelpText(Loc.Get("Settings.AutoDetect.DeclineCooldown.Help"));
+        }
+
+        ImGuiHelpers.ScaledDummy(3f);
+
+        // Blacklist — joueurs bloqués
+        var blockedUids = _configService.Current.AutoDetectBlockedUids;
+        if (ImGui.TreeNode(string.Format(CultureInfo.CurrentCulture, Loc.Get("Settings.AutoDetect.BlockedPlayers"), blockedUids.Count)))
+        {
+            if (blockedUids.Count == 0)
+            {
+                ImGui.TextDisabled(Loc.Get("Settings.AutoDetect.BlockedPlayers.Empty"));
+            }
+            else
+            {
+                string? uidToRemove = null;
+                foreach (var blockedUid in blockedUids)
+                {
+                    using var id = ImRaii.PushId(blockedUid);
+                    using (ImRaii.PushColor(ImGuiCol.Button, ImGuiColors.DalamudRed))
+                    using (ImRaii.PushColor(ImGuiCol.ButtonHovered, new Vector4(0.8f, 0.2f, 0.2f, 1f)))
+                    {
+                        if (ImGui.SmallButton(Loc.Get("Settings.AutoDetect.BlockedPlayers.Unblock")))
+                        {
+                            uidToRemove = blockedUid;
+                        }
+                    }
+                    ImGui.SameLine();
+                    ImGui.TextUnformatted(blockedUid);
+                }
+                if (uidToRemove != null)
+                {
+                    blockedUids.RemoveAll(u => string.Equals(u, uidToRemove, StringComparison.Ordinal));
+                    _configService.Save();
+                }
+            }
+            ImGui.TreePop();
+        }
+
+        ImGuiHelpers.ScaledDummy(5f);
+        ImGui.Separator();
+        ImGuiHelpers.ScaledDummy(3f);
         var enableSlotNotifications = _configService.Current.EnableSlotNotifications;
         if (ImGui.Checkbox(Loc.Get("Settings.AutoDetect.EnableSlotNotifications"), ref enableSlotNotifications))
         {
