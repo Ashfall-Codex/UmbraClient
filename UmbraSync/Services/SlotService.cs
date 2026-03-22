@@ -187,8 +187,16 @@ public class SlotService : MediatorSubscriberBase, IDisposable
             }
             else if (slotInfo == null)
             {
+                // Si on est à l'intérieur d'un housing, les coordonnées intérieures ne correspondent plus
+                // au slot extérieur. On préserve l'état et on laisse la détection par distance reprendre
+                // quand le joueur ressortira.
+                if (_currentPlot != null)
+                {
+                    return;
+                }
+
                 // Si on était dans un slot via le système de Slot, on lance le timer de 5 minutes si on s'éloigne
-                if (_joinedViaSlot && _currentSlotSyncshell != null && _leaveTimerCts == null && _currentPlot == null)
+                if (_joinedViaSlot && _currentSlotSyncshell != null && _leaveTimerCts == null)
                 {
                     StartLeaveTimer();
                 }
@@ -363,18 +371,11 @@ public class SlotService : MediatorSubscriberBase, IDisposable
     {
         Logger.LogInformation("Left housing plot");
         _currentPlot = null;
-
-        if (_lastNotifiedSlot != null)
-        {
-            var isMember = _pairManager.Groups.Any(g => _lastNotifiedSlot.AssociatedSyncshell != null && string.Equals(g.Key.GID, _lastNotifiedSlot.AssociatedSyncshell.Gid, StringComparison.Ordinal));
-            if (isMember && !_joinedViaSlot)
-            {
-                Mediator.Publish(new NotificationMessage(Loc.Get("SlotPopup.Title"), string.Format(Loc.Get("Slot.Toast.Leaving"), _lastNotifiedSlot.SlotName), MareConfiguration.Models.NotificationType.Info));
-            }
-            _lastNotifiedSlot = null;
-        }
-
-        StartLeaveTimer();
+        // Ne pas envoyer de notification ni démarrer le timer ici.
+        // Le joueur retourne à l'extérieur où la détection par distance (OnHousingPositionUpdate)
+        // reprendra automatiquement au prochain tick de position.
+        // Si le slot est toujours à proximité, aucune notification de sortie ne sera envoyée.
+        // Si le joueur s'éloigne réellement, la logique de détection par distance s'en chargera.
     }
 
     private async Task LeaveSlotSyncshell()
