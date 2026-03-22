@@ -3444,6 +3444,11 @@ public class SettingsUi : WindowMediatorSubscriberBase
                     _configService.Save();
                     Mediator.Publish(new AllowPairRequestsToggled(false));
                 }
+
+                // toast + chat notification
+                var title = Loc.Get("Notification.NearbyDetection.Title");
+                var body = enableDiscovery ? Loc.Get("Notification.NearbyDetection.Enabled") : Loc.Get("Notification.NearbyDetection.Disabled");
+                Mediator.Publish(new DualNotificationMessage(title, body, NotificationType.Info, TimeSpan.FromSeconds(4)));
             }
             if (isAutoDetectSuppressed && ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
             {
@@ -3451,7 +3456,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
             }
         }
 
-        // Allow Pair Requests is disabled when Nearby is OFF
+        // Tout le reste est grisé quand AutoDetect est OFF
         using (ImRaii.Disabled(isAutoDetectSuppressed || !enableDiscovery))
         {
             bool allowRequests = _configService.Current.AllowAutoDetectPairRequests;
@@ -3474,35 +3479,38 @@ public class SettingsUi : WindowMediatorSubscriberBase
             {
                 UiSharedService.AttachToolTip(Loc.Get("Settings.AutoDetect.SuppressedTooltip"));
             }
-        }
 
-        // Interactive popup for pair requests is disabled when Nearby or Pair Requests are OFF
-        using (ImRaii.Disabled(isAutoDetectSuppressed || !enableDiscovery || !_configService.Current.AllowAutoDetectPairRequests))
-        {
-            bool useInteractivePopup = _configService.Current.UseInteractivePairRequestPopup;
-            if (ImGui.Checkbox(Loc.Get("Settings.AutoDetect.UseInteractivePopup"), ref useInteractivePopup))
+            // Interactive popup for pair requests
+            using (ImRaii.Disabled(!_configService.Current.AllowAutoDetectPairRequests))
             {
-                _configService.Current.UseInteractivePairRequestPopup = useInteractivePopup;
-                _configService.Save();
+                bool useInteractivePopup = _configService.Current.UseInteractivePairRequestPopup;
+                if (ImGui.Checkbox(Loc.Get("Settings.AutoDetect.UseInteractivePopup"), ref useInteractivePopup))
+                {
+                    _configService.Current.UseInteractivePairRequestPopup = useInteractivePopup;
+                    _configService.Save();
+                }
+                _uiShared.DrawHelpText(Loc.Get("Settings.AutoDetect.UseInteractivePopupHelp"));
             }
-            _uiShared.DrawHelpText(Loc.Get("Settings.AutoDetect.UseInteractivePopupHelp"));
-        }
 
-        ImGuiHelpers.ScaledDummy(5f);
-        ImGui.Separator();
-        ImGuiHelpers.ScaledDummy(3f);
+            ImGuiHelpers.ScaledDummy(5f);
+            ImGui.Separator();
+            ImGuiHelpers.ScaledDummy(3f);
 
-        // --- Section Anti-spam ---
-        ImGui.TextColored(ImGuiColors.DalamudOrange, Loc.Get("Settings.AutoDetect.AntiSpam.Header"));
-        ImGuiHelpers.ScaledDummy(3f);
+            // --- Section Anti-spam ---
+            ImGui.TextColored(ImGuiColors.DalamudOrange, Loc.Get("Settings.AutoDetect.AntiSpam.Header"));
+            ImGuiHelpers.ScaledDummy(3f);
 
-        using (ImRaii.Disabled(isAutoDetectSuppressed || !enableDiscovery || !_configService.Current.AllowAutoDetectPairRequests))
-        {
-            int[] cooldownOptions = [1, 5, 10, 20, 30, 60];
-            string[] cooldownLabels = ["1 min", "5 min", "10 min", "20 min", "30 min", "1h"];
+            using (ImRaii.Disabled(!_configService.Current.AllowAutoDetectPairRequests))
+            {
+            int[] cooldownOptions = [0, 1, 5, 10, 20, 30, 60];
+            string[] cooldownLabels =
+            [
+                Loc.Get("Settings.AutoDetect.DeclineCooldown.Disabled"),
+                "1 min", "5 min", "10 min", "20 min", "30 min", "1h"
+            ];
             int currentCooldown = _configService.Current.AutoDetectDeclineCooldownMinutes;
             int selectedIndex = Array.IndexOf(cooldownOptions, currentCooldown);
-            if (selectedIndex < 0) selectedIndex = 2; // fallback 10 min
+            if (selectedIndex < 0) selectedIndex = 3; // fallback 10 min
 
             ImGui.SetNextItemWidth(120 * ImGuiHelpers.GlobalScale);
             if (ImGui.Combo(Loc.Get("Settings.AutoDetect.DeclineCooldown"), ref selectedIndex, cooldownLabels, cooldownLabels.Length))
@@ -3548,6 +3556,8 @@ public class SettingsUi : WindowMediatorSubscriberBase
             }
             ImGui.TreePop();
         }
+
+        } // fin du using Disabled(!enableDiscovery)
 
         ImGuiHelpers.ScaledDummy(5f);
         ImGui.Separator();

@@ -2849,6 +2849,9 @@ Note: Weapons will not be displayed correctly unless using the same job as the s
   <data name="Settings.AutoDetect.DeclineCooldown" xml:space="preserve">
     <value>Decline cooldown (minutes)</value>
   </data>
+  <data name="Settings.AutoDetect.DeclineCooldown.Disabled" xml:space="preserve">
+    <value>Disabled</value>
+  </data>
   <data name="Settings.AutoDetect.DeclineCooldown.Help" xml:space="preserve">
     <value>After declining an invitation, the same player won&apos;t be able to send you another one for this duration.</value>
   </data>
@@ -2866,6 +2869,30 @@ Note: Weapons will not be displayed correctly unless using the same job as the s
   </data>
   <data name="AutoDetect.Block.Tooltip" xml:space="preserve">
     <value>Block this player permanently. They won&apos;t be able to send you invitations.</value>
+  </data>
+  <data name="AutoDetect.Suppression.DisabledTitle" xml:space="preserve">
+    <value>AutoDetect paused</value>
+  </data>
+  <data name="AutoDetect.Suppression.DisabledBody" xml:space="preserve">
+    <value>Instanced zone detected: AutoDetect/Nearby features are paused to save bandwidth.</value>
+  </data>
+  <data name="AutoDetect.Suppression.RestoredTitle" xml:space="preserve">
+    <value>AutoDetect restored</value>
+  </data>
+  <data name="AutoDetect.Suppression.RestoredBody" xml:space="preserve">
+    <value>You left the instanced zone: AutoDetect/Nearby features are active again.</value>
+  </data>
+  <data name="AutoDetect.Syncshell.PublicTitle" xml:space="preserve">
+    <value>Public Syncshell: {0}</value>
+  </data>
+  <data name="AutoDetect.Syncshell.PublicBody" xml:space="preserve">
+    <value>The Syncshell is now visible via AutoDetect.</value>
+  </data>
+  <data name="AutoDetect.Syncshell.NotPublicTitle" xml:space="preserve">
+    <value>Non-public Syncshell: {0}</value>
+  </data>
+  <data name="AutoDetect.Syncshell.NotPublicBody" xml:space="preserve">
+    <value>The Syncshell is no longer visible via AutoDetect.</value>
   </data>
   <data name="Settings.AutoDetect.LockedInInstance" xml:space="preserve">
     <value>AutoDetect is locked while you remain in an instanced area.</value>

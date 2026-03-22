@@ -168,12 +168,19 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
     {
         return new List<ChangelogEntry>
         {
-            new(new Version(2, 4, 0, 0), "2.4.0.3021", new List<ChangelogLine>
+            new(new Version(2, 4, 0, 3022), "2.4.0.3022", new List<ChangelogLine>
             {
                 new("Nouveauté : Système d'annuaire d'établissement, vous pouvez désormais lister votre établissement."),
+                new("Nouveauté : Un système de cooldown est désormais disponible quand vous refusez une invitation AutoDetect."),
                 new("Amélioration : Réécriture de la logique des Pause Syncshell / Individuelle."),
                 new("Amélioration : Il est désormais possible de gérer le sous-titre honorific dans la fiche de personnage."),
+                new("Amélioration : Réécriture du Hub de Données."),
+                new("Correction : Le système de SyncSlot lançait le timer dans le Housing."),
+                new("Correction : Les notifications pouvaient persister malgré la désactivation dans les réglages."),
+                new("Amélioration : Diverses améliorations de l'Interface."),
+                new("Amélioration : Optimisation du code."),
                 new("Mise à jour API Penumbra & Glamourer."),
+                new("Mise à jour des dépendances du code source."),
             }),   
             new(new Version(2, 3, 4, 3012), "2.3.4.3012", new List<ChangelogLine>
             {

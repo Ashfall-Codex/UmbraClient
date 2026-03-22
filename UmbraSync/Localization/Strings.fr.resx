@@ -2750,6 +2750,9 @@ Note : Les armes ne s'afficheront pas correctement sauf si vous utilisez le m&#x
   <data name="Settings.AutoDetect.DeclineCooldown" xml:space="preserve">
     <value>Cooldown apr&#232;s refus (minutes)</value>
   </data>
+  <data name="Settings.AutoDetect.DeclineCooldown.Disabled" xml:space="preserve">
+    <value>D&#233;sactiv&#233;</value>
+  </data>
   <data name="Settings.AutoDetect.DeclineCooldown.Help" xml:space="preserve">
     <value>Apr&#232;s avoir refus&#233; une invitation, le m&#234;me joueur ne pourra pas vous en renvoyer une pendant cette dur&#233;e.</value>
   </data>
@@ -2767,6 +2770,30 @@ Note : Les armes ne s'afficheront pas correctement sauf si vous utilisez le m&#x
   </data>
   <data name="AutoDetect.Block.Tooltip" xml:space="preserve">
     <value>Bloquer ce joueur d&#233;finitivement. Il ne pourra plus vous envoyer d&apos;invitations.</value>
+  </data>
+  <data name="AutoDetect.Suppression.DisabledTitle" xml:space="preserve">
+    <value>AutoDetect en pause</value>
+  </data>
+  <data name="AutoDetect.Suppression.DisabledBody" xml:space="preserve">
+    <value>Zone instanci&#233;e d&#233;tect&#233;e : les fonctions AutoDetect/Nearby sont mises en pause.</value>
+  </data>
+  <data name="AutoDetect.Suppression.RestoredTitle" xml:space="preserve">
+    <value>AutoDetect r&#233;activ&#233;</value>
+  </data>
+  <data name="AutoDetect.Suppression.RestoredBody" xml:space="preserve">
+    <value>Vous avez quitt&#233; la zone instanci&#233;e : AutoDetect/Nearby fonctionnent de nouveau.</value>
+  </data>
+  <data name="AutoDetect.Syncshell.PublicTitle" xml:space="preserve">
+    <value>Syncshell publique : {0}</value>
+  </data>
+  <data name="AutoDetect.Syncshell.PublicBody" xml:space="preserve">
+    <value>La Syncshell est de nouveau visible via AutoDetect.</value>
+  </data>
+  <data name="AutoDetect.Syncshell.NotPublicTitle" xml:space="preserve">
+    <value>Syncshell non publique : {0}</value>
+  </data>
+  <data name="AutoDetect.Syncshell.NotPublicBody" xml:space="preserve">
+    <value>La Syncshell n&apos;est plus visible via AutoDetect.</value>
   </data>
   <data name="Settings.AutoDetect.LockedInInstance" xml:space="preserve">
     <value>AutoDetect est verrouillé tant que vous restez dans une zone instanciée.</value>
@@ -4450,10 +4477,10 @@ Note : Les armes ne s'afficheront pas correctement sauf si vous utilisez le m&#x
     <value>Détection de proximité</value>
   </data>
   <data name="Notification.NearbyDetection.Enabled" xml:space="preserve">
-    <value>Vous êtes maintenant visible.</value>
+    <value>Vous êtes maintenant visible dans l'AutoDetect.</value>
   </data>
   <data name="Notification.NearbyDetection.Disabled" xml:space="preserve">
-    <value>Vous n'êtes plus visible.</value>
+    <value>Vous n'êtes plus visible dans l'AutoDetect.</value>
   </data>
   <data name="Notification.Server.Info" xml:space="preserve">
     <value>Information du serveur</value>
