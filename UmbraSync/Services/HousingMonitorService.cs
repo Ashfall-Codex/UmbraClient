@@ -65,6 +65,11 @@ public class HousingMonitorService : IHostedService, IMediatorSubscriber
 
                     bool wasInHousing = _lastLocation.HouseId != 0;
                     bool isInHousing = currentLocation.HouseId != 0;
+                    
+                    if (wasInHousing && isInHousing)
+                    {
+                        _mediator.Publish(new HousingPlotLeftMessage());
+                    }
 
                     if (isInHousing)
                     {
