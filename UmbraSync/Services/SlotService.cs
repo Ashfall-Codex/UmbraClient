@@ -23,6 +23,9 @@ public class SlotService : MediatorSubscriberBase, IDisposable
     private readonly NotificationTracker _notificationTracker;
     private SlotSyncshellDto? _currentSlotSyncshell;
     private bool _joinedViaSlot = false;
+    public string? ActiveSlotGid => _joinedViaSlot ? _currentSlotSyncshell?.Gid : null;
+    public string? ActiveSlotName => _joinedViaSlot ? _currentSlotSyncshell?.Name : null;
+    public bool IsLeaveTimerRunning => _leaveTimerCts is { IsCancellationRequested: false };
     private CancellationTokenSource? _leaveTimerCts;
     private readonly HashSet<Guid> _declinedSlots = [];
 
@@ -41,6 +44,18 @@ public class SlotService : MediatorSubscriberBase, IDisposable
         Mediator.Subscribe<ConnectedMessage>(this, (msg) =>
         {
             var uid = msg.Connection.User.UID;
+
+            if (_transientConfigService.Current.PendingSlotLeaveGidPerUid.TryGetValue(uid, out var pendingGid))
+            {
+                Logger.LogInformation("Executing pending slot leave for GID {gid} after reconnect", pendingGid);
+                _transientConfigService.Current.PendingSlotLeaveGidPerUid.Remove(uid);
+                _transientConfigService.Save();
+                _ = _apiController.GroupLeave(new GroupDto(new GroupData(pendingGid)));
+                _currentSlotSyncshell = null;
+                _joinedViaSlot = false;
+                return;
+            }
+
             if (_transientConfigService.Current.LastJoinedSlotSyncshellPerUid.TryGetValue(uid, out var lastJoined))
             {
                 _currentSlotSyncshell = lastJoined;
@@ -59,6 +74,17 @@ public class SlotService : MediatorSubscriberBase, IDisposable
         Mediator.Subscribe<HousingPositionUpdateMessage>(this, (msg) => OnHousingPositionUpdate(msg.ServerId, msg.TerritoryId, msg.DivisionId, msg.WardId, msg.Position));
         Mediator.Subscribe<DisconnectedMessage>(this, (msg) =>
         {
+            if (IsLeaveTimerRunning && _currentSlotSyncshell != null)
+            {
+                Logger.LogInformation("Disconnected while leave timer was running, scheduling leave for syncshell {name}", _currentSlotSyncshell.Name);
+                var uid = _apiController.UID;
+                if (!string.IsNullOrEmpty(uid))
+                {
+                    _transientConfigService.Current.PendingSlotLeaveGidPerUid[uid] = _currentSlotSyncshell.Gid;
+                    _transientConfigService.Current.LastJoinedSlotSyncshellPerUid.Remove(uid);
+                    _transientConfigService.Save();
+                }
+            }
             _ = ClearState();
         });
         Mediator.Subscribe<GroupLeftMessage>(this, (msg) =>
@@ -96,6 +122,21 @@ public class SlotService : MediatorSubscriberBase, IDisposable
     private SlotInfoResponseDto? _lastNotifiedSlot;
     private Vector3 _lastQueryPosition = Vector3.Zero;
     private LocationInfo? _currentPlot;
+    private float? _slotReferenceY;
+    private int _consecutiveSlotMisses;
+    private const int SlotMissThreshold = 3;
+    private DateTime _leaveTimerStartUtc;
+    private static readonly TimeSpan LeaveTimerDuration = TimeSpan.FromMinutes(5);
+    public TimeSpan? LeaveTimeRemaining
+    {
+        get
+        {
+            if (!IsLeaveTimerRunning) return null;
+            var elapsed = DateTime.UtcNow - _leaveTimerStartUtc;
+            var remaining = LeaveTimerDuration - elapsed;
+            return remaining > TimeSpan.Zero ? remaining : TimeSpan.Zero;
+        }
+    }
 
     private async void OnHousingPositionUpdate(uint serverId, uint territoryId, uint divisionId, uint wardId, Vector3 position)
     {
@@ -111,7 +152,9 @@ public class SlotService : MediatorSubscriberBase, IDisposable
             Logger.LogTrace("Slot: wardId=0, pas en zone résidentielle (territory={territory})", territoryId);
             return;
         }
-        if (Vector3.Distance(position, _lastQueryPosition) < 2.0f) return;
+        var dx = position.X - _lastQueryPosition.X;
+        var dz = position.Z - _lastQueryPosition.Z;
+        if (dx * dx + dz * dz < 4.0f) return;
         if (!_apiController.IsConnected)
         {
             Logger.LogTrace("Slot: non connecté au serveur");
@@ -119,11 +162,12 @@ public class SlotService : MediatorSubscriberBase, IDisposable
         }
 
         _lastQueryPosition = position;
+        var queryY = _slotReferenceY ?? position.Y;
         Logger.LogDebug("Slot: requête SlotGetNearby - Server={server} Territory={territory} Division={division} Ward={ward} Pos=({x},{y},{z})",
-            serverId, territoryId, divisionId, wardId, position.X, position.Y, position.Z);
+            serverId, territoryId, divisionId, wardId, position.X, queryY, position.Z);
         try
         {
-            var slotInfo = await _apiController.SlotGetNearby(serverId, territoryId, divisionId, wardId, position.X, position.Y, position.Z).ConfigureAwait(false);
+            var slotInfo = await _apiController.SlotGetNearby(serverId, territoryId, divisionId, wardId, position.X, queryY, position.Z).ConfigureAwait(false);
 
             // Vérification côté client: s'assurer que le slot correspond à notre ward/division actuel
             if (slotInfo?.Location != null && wardId > 0 &&
@@ -141,6 +185,9 @@ public class SlotService : MediatorSubscriberBase, IDisposable
             // Si on détecte un slot à proximité
             if (slotInfo != null)
             {
+                _consecutiveSlotMisses = 0;
+                _slotReferenceY ??= position.Y;
+
                 // Si un timer de sortie était en cours, on l'annule puisqu'on est de nouveau à proximité
                 if (_leaveTimerCts != null)
                 {
@@ -148,6 +195,13 @@ public class SlotService : MediatorSubscriberBase, IDisposable
                     await _leaveTimerCts.CancelAsync().ConfigureAwait(false);
                     _leaveTimerCts.Dispose();
                     _leaveTimerCts = null;
+
+                    if (_currentSlotSyncshell != null)
+                    {
+                        var msg = string.Format(Loc.Get("Slot.Toast.BackInRange"), _currentSlotSyncshell.Name);
+                        Mediator.Publish(new NotificationMessage(Loc.Get("SlotPopup.Title"), msg, MareConfiguration.Models.NotificationType.Info));
+                        _chatService.Print(msg);
+                    }
                 }
 
                 // Si on a déjà rejoint via Slot, on ne fait rien de plus
@@ -194,12 +248,20 @@ public class SlotService : MediatorSubscriberBase, IDisposable
                 {
                     return;
                 }
+                
+                _consecutiveSlotMisses++;
+                if (_consecutiveSlotMisses < SlotMissThreshold)
+                {
+                    Logger.LogDebug("Slot miss {count}/{threshold}, debounce en cours", _consecutiveSlotMisses, SlotMissThreshold);
+                    return;
+                }
 
                 // Si on était dans un slot via le système de Slot, on lance le timer de 5 minutes si on s'éloigne
                 if (_joinedViaSlot && _currentSlotSyncshell != null && _leaveTimerCts == null)
                 {
                     StartLeaveTimer();
                 }
+                _slotReferenceY = null;
 
                 if (_detectedSlotByDistance != null && _lastNotifiedSlot?.SlotId == _detectedSlotByDistance.SlotId)
                 {
@@ -232,6 +294,8 @@ public class SlotService : MediatorSubscriberBase, IDisposable
         _lastNotifiedSlot = null;
         _lastQueryPosition = Vector3.Zero;
         _currentPlot = null;
+        _slotReferenceY = null;
+        _consecutiveSlotMisses = 0;
         _currentSlotSyncshell = null;
         _joinedViaSlot = false;
     }
@@ -351,12 +415,13 @@ public class SlotService : MediatorSubscriberBase, IDisposable
             Mediator.Publish(new DualNotificationMessage(title, message, MareConfiguration.Models.NotificationType.Warning));
             _notificationTracker.Upsert(NotificationEntry.SlotConflict(_currentSlotSyncshell.Name));
 
+            _leaveTimerStartUtc = DateTime.UtcNow;
             _leaveTimerCts = new CancellationTokenSource();
             _ = Task.Run(async () =>
             {
                 try
                 {
-                    await Task.Delay(TimeSpan.FromMinutes(5), _leaveTimerCts.Token).ConfigureAwait(false);
+                    await Task.Delay(LeaveTimerDuration, _leaveTimerCts.Token).ConfigureAwait(false);
                     await LeaveSlotSyncshell().ConfigureAwait(false);
                 }
                 catch (OperationCanceledException)

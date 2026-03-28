@@ -9,6 +9,7 @@ using System.Runtime.InteropServices;
 using UmbraSync.Localization;
 using UmbraSync.MareConfiguration;
 using UmbraSync.PlayerData.Pairs;
+using UmbraSync.Services;
 using UmbraSync.Services.AutoDetect;
 using UmbraSync.Services.Mediator;
 
@@ -41,12 +42,13 @@ public sealed class DtrEntry : IDisposable, IHostedService
     private readonly MareMediator _mareMediator;
     private readonly PairManager _pairManager;
     private readonly NearbyPendingService _nearbyPendingService;
+    private readonly SlotService _slotService;
     private Task? _runTask;
     private string? _text;
     private string? _tooltip;
     private Colors _colors;
 
-    public DtrEntry(ILogger<DtrEntry> logger, IDtrBar dtrBar, MareConfigService configService, MareMediator mareMediator, PairManager pairManager, ApiController apiController, NearbyPendingService nearbyPendingService)
+    public DtrEntry(ILogger<DtrEntry> logger, IDtrBar dtrBar, MareConfigService configService, MareMediator mareMediator, PairManager pairManager, ApiController apiController, NearbyPendingService nearbyPendingService, SlotService slotService)
     {
         _logger = logger;
         _dtrBar = dtrBar;
@@ -56,6 +58,7 @@ public sealed class DtrEntry : IDisposable, IHostedService
         _pairManager = pairManager;
         _apiController = apiController;
         _nearbyPendingService = nearbyPendingService;
+        _slotService = slotService;
     }
 
     public void Dispose()
@@ -190,6 +193,23 @@ public sealed class DtrEntry : IDisposable, IHostedService
             text = RenderDtrStyle(_configService.Current.DtrStyle, "\uE04C");
             tooltip = Loc.Get("DtrEntry.Tooltip.Disconnected");
             colors = _configService.Current.DtrColorsNotConnected;
+        }
+
+        var activeSlotName = _slotService.ActiveSlotName;
+        if (_apiController.IsConnected && activeSlotName != null)
+        {
+            var remaining = _slotService.LeaveTimeRemaining;
+            if (remaining.HasValue)
+            {
+                colors = _configService.Current.DtrColorsLeavingSlot;
+                var countdown = $"{(int)remaining.Value.TotalMinutes}:{remaining.Value.Seconds:D2}";
+                tooltip += $"{Environment.NewLine}----------{Environment.NewLine}{string.Format(CultureInfo.CurrentCulture, Loc.Get("DtrEntry.Tooltip.LeavingSlotZone"), activeSlotName, countdown)}";
+            }
+            else
+            {
+                colors = _configService.Current.DtrColorsInSlot;
+                tooltip += $"{Environment.NewLine}----------{Environment.NewLine}{string.Format(CultureInfo.CurrentCulture, Loc.Get("DtrEntry.Tooltip.InSlotZone"), activeSlotName)}";
+            }
         }
 
         if (!_configService.Current.UseColorsInDtr)

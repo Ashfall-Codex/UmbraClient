@@ -1966,9 +1966,13 @@ public class EditProfileUi : WindowMediatorSubscriberBase
             await _apiController.UserSetAlias(string.IsNullOrWhiteSpace(input) ? null : input).ConfigureAwait(false);
             Mediator.Publish(new NotificationMessage(Loc.Get("EditProfile.SetCustomId.SentTitle"), Loc.Get("EditProfile.SetCustomId.SentBody"), NotificationType.Success));
         }
-        catch
+        catch (Exception ex)
         {
-            Mediator.Publish(new NotificationMessage(Loc.Get("EditProfile.SetCustomId.ErrorTitle"), Loc.Get("EditProfile.SetCustomId.ErrorBody"), NotificationType.Error));
+            var fullMessage = ex.InnerException?.Message ?? ex.Message;
+            var errorBody = fullMessage.Contains("DbUpdateException", StringComparison.OrdinalIgnoreCase)
+                ? Loc.Get("EditProfile.SetCustomId.ErrorAlreadyTaken")
+                : Loc.Get("EditProfile.SetCustomId.ErrorBody");
+            Mediator.Publish(new NotificationMessage(Loc.Get("EditProfile.SetCustomId.ErrorTitle"), errorBody, NotificationType.Error));
         }
         finally
         {

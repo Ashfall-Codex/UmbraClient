@@ -277,10 +277,10 @@
     <value>Définir votre ID personnalisé</value>
   </data>
   <data name="EditProfile.SetCustomId.Placeholder" xml:space="preserve">
-    <value>3–32 caractères : lettres, chiffres, _ ou - (laisser vide pour effacer)</value>
+    <value>3–15 caractères : lettres, chiffres, _ ou - (laisser vide pour effacer)</value>
   </data>
   <data name="EditProfile.SetCustomId.FormatHint" xml:space="preserve">
-    <value>Autorisé : A–Z, a–z, 0–9, souligné (_) et tiret (-). Longueur 3–32.</value>
+    <value>Autorisé : A–Z, a–z, 0–9, souligné (_) et tiret (-). Longueur 3–15.</value>
   </data>
   <data name="EditProfile.SetCustomId.Confirm" xml:space="preserve">
     <value>Confirmer</value>
@@ -296,6 +296,9 @@
   </data>
   <data name="EditProfile.SetCustomId.ErrorBody" xml:space="preserve">
     <value>Impossible de mettre à jour votre ID personnalisé. Veuillez réessayer.</value>
+  </data>
+  <data name="EditProfile.SetCustomId.ErrorAlreadyTaken" xml:space="preserve">
+    <value>Cet ID personnalisé est déjà utilisé par un autre utilisateur. Veuillez en choisir un autre.</value>
   </data>
   <data name="EditProfile.SetCustomId.ReconnectWarning" xml:space="preserve">
     <value>Une déconnexion / reconnexion du serveur UmbraSync est nécessaire pour la prise en compte.</value>
@@ -1091,6 +1094,9 @@ Veuillez conserver une copie de votre clé secrète au cas où vous auriez besoi
   </data>
   <data name="Slot.Toast.JoinFailed" xml:space="preserve">
     <value>Impossible de rejoindre la Syncshell de {0}. Veuillez réessayer.</value>
+  </data>
+  <data name="Slot.Toast.BackInRange" xml:space="preserve">
+    <value>Vous êtes de retour dans la zone de {0}. Le décompte de sortie automatique a été annulé.</value>
   </data>
   <data name="Slot.Toast.AutoLeft" xml:space="preserve">
     <value>Vous avez quitté la Syncshell {0} après 5 minutes d'inactivité dans la zone.</value>
@@ -2622,13 +2628,37 @@ Note : Les armes ne s'afficheront pas correctement sauf si vous utilisez le m&#x
     <value />
   </data>
   <data name="DtrEntry.Tooltip.Connected" xml:space="preserve">
-    <value />
+    <value>UmbraSync : En ligne</value>
   </data>
   <data name="DtrEntry.Tooltip.Disconnected" xml:space="preserve">
-    <value />
+    <value>UmbraSync : Hors ligne</value>
   </data>
   <data name="DtrEntry.Tooltip.PendingInvites" xml:space="preserve">
-    <value />
+    <value>Invitation(s) en attente : {0}</value>
+  </data>
+  <data name="DtrEntry.Tooltip.InSlotZone" xml:space="preserve">
+    <value>Zone SyncSlot : {0}</value>
+  </data>
+  <data name="DtrEntry.Tooltip.LeavingSlotZone" xml:space="preserve">
+    <value>Zone SyncSlot : {0} ({1})</value>
+  </data>
+  <data name="Settings.Dtr.ColorCode" xml:space="preserve">
+    <value>Coloriser la barre d'info serveur selon le statut</value>
+  </data>
+  <data name="Settings.Dtr.Default" xml:space="preserve">
+    <value>Par défaut</value>
+  </data>
+  <data name="Settings.Dtr.NotConnected" xml:space="preserve">
+    <value>Hors ligne</value>
+  </data>
+  <data name="Settings.Dtr.PairsInRange" xml:space="preserve">
+    <value>Paires à proximité</value>
+  </data>
+  <data name="Settings.Dtr.InSlotZone" xml:space="preserve">
+    <value>Zone de Slot</value>
+  </data>
+  <data name="Settings.Dtr.LeavingSlot" xml:space="preserve">
+    <value>Sortie de Slot</value>
   </data>
   <data name="EditProfile.ClearDescription" xml:space="preserve">
     <value />
@@ -4316,6 +4346,12 @@ Note : Les armes ne s'afficheront pas correctement sauf si vous utilisez le m&#x
   </data>
   <data name="Syncshell.Cards.RemoveFavorite" xml:space="preserve">
     <value>Retirer des favoris</value>
+  </data>
+  <data name="Syncshell.Cards.InSlotZone" xml:space="preserve">
+    <value>Vous êtes dans la zone de cette Syncshell</value>
+  </data>
+  <data name="Syncshell.Cards.LeavingSlotZone" xml:space="preserve">
+    <value>Vous quittez la zone - sortie automatique dans 5 minutes</value>
   </data>
   <data name="Syncshell.Cards.FavoriteMembers" xml:space="preserve">
     <value>{0} — Membres ({1})</value>

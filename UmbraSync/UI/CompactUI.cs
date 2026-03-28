@@ -91,7 +91,8 @@ public partial class CompactUi : WindowMediatorSubscriberBase
         CharaDataHubUi charaDataHubUi,
         NotificationTracker notificationTracker,
         SyncshellConfigService syncshellConfig,
-        EstablishmentConfigService establishmentConfigService)
+        EstablishmentConfigService establishmentConfigService,
+        SlotService slotService)
         : base(logger, mediator, "###UmbraSyncMainUI", performanceCollectorService)
     {
         _uiSharedService = uiShared;
@@ -114,7 +115,7 @@ public partial class CompactUi : WindowMediatorSubscriberBase
         _establishmentConfigService = establishmentConfigService;
         var tagHandler = new TagHandler(_serverManager);
 
-        _groupPanel = new(this, uiShared, _pairManager, uidDisplayHandler, _serverManager, _charaDataManager, _autoDetectRequestService, _configService, syncshellConfig);
+        _groupPanel = new(this, uiShared, _pairManager, uidDisplayHandler, _serverManager, _charaDataManager, _autoDetectRequestService, _configService, syncshellConfig, slotService);
         _selectGroupForPairUi = new(tagHandler, uidDisplayHandler, _uiSharedService);
         _selectPairsForGroupUi = new(tagHandler, uidDisplayHandler);
         _pairGroupsUi = new(configService, tagHandler, apiController, _selectPairsForGroupUi, _uiSharedService);

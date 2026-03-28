@@ -303,10 +303,10 @@
     <value>Set your Custom ID</value>
   </data>
   <data name="EditProfile.SetCustomId.Placeholder" xml:space="preserve">
-    <value>3–32 chars: letters, digits, _ or - (leave empty to clear)</value>
+    <value>3–15 chars: letters, digits, _ or - (leave empty to clear)</value>
   </data>
   <data name="EditProfile.SetCustomId.FormatHint" xml:space="preserve">
-    <value>Allowed: A–Z, a–z, 0–9, underscore (_) and hyphen (-). Length 3–32.</value>
+    <value>Allowed: A–Z, a–z, 0–9, underscore (_) and hyphen (-). Length 3–15.</value>
   </data>
   <data name="EditProfile.SetCustomId.Confirm" xml:space="preserve">
     <value>Confirm</value>
@@ -322,6 +322,9 @@
   </data>
   <data name="EditProfile.SetCustomId.ErrorBody" xml:space="preserve">
     <value>Unable to update your Custom ID. Please try again.</value>
+  </data>
+  <data name="EditProfile.SetCustomId.ErrorAlreadyTaken" xml:space="preserve">
+    <value>This Custom ID is already taken by another user. Please choose a different one.</value>
   </data>
   <data name="EditProfile.SetCustomId.ReconnectWarning" xml:space="preserve">
     <value>A disconnection/reconnection from the UmbraSync server is required for the change to take effect.</value>
@@ -1191,6 +1194,9 @@ Click to change.</value>
   </data>
   <data name="Slot.Toast.JoinFailed" xml:space="preserve">
     <value>Failed to join the Syncshell of {0}. Please try again.</value>
+  </data>
+  <data name="Slot.Toast.BackInRange" xml:space="preserve">
+    <value>You are back in the area of {0}. The auto-leave countdown has been cancelled.</value>
   </data>
   <data name="Slot.Toast.AutoLeft" xml:space="preserve">
     <value>You have left the Syncshell {0} after 5 minutes of inactivity in the area.</value>
@@ -2728,6 +2734,30 @@ Note: Weapons will not be displayed correctly unless using the same job as the s
   </data>
   <data name="DtrEntry.Tooltip.PendingInvites" xml:space="preserve">
     <value>Pending invitation: {0}</value>
+  </data>
+  <data name="DtrEntry.Tooltip.InSlotZone" xml:space="preserve">
+    <value>SyncSlot zone: {0}</value>
+  </data>
+  <data name="DtrEntry.Tooltip.LeavingSlotZone" xml:space="preserve">
+    <value>SyncSlot zone: {0} ({1})</value>
+  </data>
+  <data name="Settings.Dtr.ColorCode" xml:space="preserve">
+    <value>Color-code the Server Info Bar entry according to status</value>
+  </data>
+  <data name="Settings.Dtr.Default" xml:space="preserve">
+    <value>Default</value>
+  </data>
+  <data name="Settings.Dtr.NotConnected" xml:space="preserve">
+    <value>Not Connected</value>
+  </data>
+  <data name="Settings.Dtr.PairsInRange" xml:space="preserve">
+    <value>Pairs in Range</value>
+  </data>
+  <data name="Settings.Dtr.InSlotZone" xml:space="preserve">
+    <value>In Slot Zone</value>
+  </data>
+  <data name="Settings.Dtr.LeavingSlot" xml:space="preserve">
+    <value>Leaving Slot</value>
   </data>
   <data name="EditProfile.ClearDescription" xml:space="preserve">
     <value>Clear Description</value>
@@ -4415,6 +4445,12 @@ Note: Weapons will not be displayed correctly unless using the same job as the s
   </data>
   <data name="Syncshell.Cards.RemoveFavorite" xml:space="preserve">
     <value>Remove from favorites</value>
+  </data>
+  <data name="Syncshell.Cards.InSlotZone" xml:space="preserve">
+    <value>You are in this Syncshell's zone</value>
+  </data>
+  <data name="Syncshell.Cards.LeavingSlotZone" xml:space="preserve">
+    <value>You are leaving this zone - auto-leave in 5 minutes</value>
   </data>
   <data name="Syncshell.Cards.FavoriteMembers" xml:space="preserve">
     <value>{0} — Members ({1})</value>

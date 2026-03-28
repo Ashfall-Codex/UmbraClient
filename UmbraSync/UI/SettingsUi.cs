@@ -1992,7 +1992,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
 
             DrawDtrStyleCombo();
 
-            if (ImGui.Checkbox("Color-code the Server Info Bar entry according to status", ref useColorsInDtr))
+            if (ImGui.Checkbox(Loc.Get("Settings.Dtr.ColorCode"), ref useColorsInDtr))
             {
                 _configService.Current.UseColorsInDtr = useColorsInDtr;
                 _configService.Save();
@@ -2001,23 +2001,38 @@ public class SettingsUi : WindowMediatorSubscriberBase
             using (ImRaii.Disabled(!useColorsInDtr))
             {
                 using var indent2 = ImRaii.PushIndent();
-                if (InputDtrColors("Default", ref dtrColorsDefault))
+                if (InputDtrColors(Loc.Get("Settings.Dtr.Default"), ref dtrColorsDefault))
                 {
                     _configService.Current.DtrColorsDefault = dtrColorsDefault;
                     _configService.Save();
                 }
 
                 ImGui.SameLine();
-                if (InputDtrColors("Not Connected", ref dtrColorsNotConnected))
+                if (InputDtrColors(Loc.Get("Settings.Dtr.NotConnected"), ref dtrColorsNotConnected))
                 {
                     _configService.Current.DtrColorsNotConnected = dtrColorsNotConnected;
                     _configService.Save();
                 }
 
                 ImGui.SameLine();
-                if (InputDtrColors("Pairs in Range", ref dtrColorsPairsInRange))
+                if (InputDtrColors(Loc.Get("Settings.Dtr.PairsInRange"), ref dtrColorsPairsInRange))
                 {
                     _configService.Current.DtrColorsPairsInRange = dtrColorsPairsInRange;
+                    _configService.Save();
+                }
+
+                var dtrColorsInSlot = _configService.Current.DtrColorsInSlot;
+                if (InputDtrColors(Loc.Get("Settings.Dtr.InSlotZone"), ref dtrColorsInSlot))
+                {
+                    _configService.Current.DtrColorsInSlot = dtrColorsInSlot;
+                    _configService.Save();
+                }
+
+                ImGui.SameLine();
+                var dtrColorsLeavingSlot = _configService.Current.DtrColorsLeavingSlot;
+                if (InputDtrColors(Loc.Get("Settings.Dtr.LeavingSlot"), ref dtrColorsLeavingSlot))
+                {
+                    _configService.Current.DtrColorsLeavingSlot = dtrColorsLeavingSlot;
                     _configService.Save();
                 }
             }
