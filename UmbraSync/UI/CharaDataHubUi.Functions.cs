@@ -1,5 +1,4 @@
 ﻿using Dalamud.Interface.Utility.Raii;
-using System.Globalization;
 using System.Text;
 using UmbraSync.API.Dto.CharaData;
 using UmbraSync.Localization;
@@ -10,22 +9,6 @@ namespace UmbraSync.UI;
 
 public sealed partial class CharaDataHubUi
 {
-    private static string GetAccessTypeString(AccessTypeDto dto) => dto switch
-    {
-        AccessTypeDto.AllPairs => Loc.Get("CharaDataHub.AccessType.AllPairs"),
-        AccessTypeDto.ClosePairs => Loc.Get("CharaDataHub.AccessType.DirectPairs"),
-        AccessTypeDto.Individuals => Loc.Get("CharaDataHub.AccessType.Specified"),
-        AccessTypeDto.Public => Loc.Get("CharaDataHub.AccessType.Everyone"),
-        _ => ((int)dto).ToString(CultureInfo.InvariantCulture)
-    };
-
-    private static string GetShareTypeString(ShareTypeDto dto) => dto switch
-    {
-        ShareTypeDto.Private => Loc.Get("CharaDataHub.ShareType.CodeOnly"),
-        ShareTypeDto.Shared => Loc.Get("CharaDataHub.ShareType.Shared"),
-        _ => ((int)dto).ToString(CultureInfo.InvariantCulture)
-    };
-
     private static string GetWorldDataTooltipText(PoseEntryExtended poseEntry)
     {
         if (!poseEntry.HasWorldData) return Loc.Get("CharaDataHub.WorldDataTooltip.None");

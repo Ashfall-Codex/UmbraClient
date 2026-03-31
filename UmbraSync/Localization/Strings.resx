@@ -1849,6 +1849,48 @@ Click to change.</value>
   <data name="CharaDataHub.Mcd.Access.Title" xml:space="preserve">
     <value>Access and Sharing</value>
   </data>
+  <data name="CharaDataHub.Mcd.Access.Mode.Invitation" xml:space="preserve">
+    <value>By invitation</value>
+  </data>
+  <data name="CharaDataHub.Mcd.Access.Mode.InvitationDesc" xml:space="preserve">
+    <value>Only people you add to the list can access this Live (via the share code).</value>
+  </data>
+  <data name="CharaDataHub.Mcd.Access.Mode.Pairs" xml:space="preserve">
+    <value>My pairs</value>
+  </data>
+  <data name="CharaDataHub.Mcd.Access.Mode.PairsDesc" xml:space="preserve">
+    <value>All your direct synchronized pairs can see and apply this Live without a code.</value>
+  </data>
+  <data name="CharaDataHub.Mcd.Access.Mode.AllPairs" xml:space="preserve">
+    <value>All pairs</value>
+  </data>
+  <data name="CharaDataHub.Mcd.Access.Mode.AllPairsDesc" xml:space="preserve">
+    <value>Your direct pairs AND their pairs can see and apply this Live without a code.</value>
+  </data>
+  <data name="CharaDataHub.Mcd.Access.Mode.Public" xml:space="preserve">
+    <value>Public</value>
+  </data>
+  <data name="CharaDataHub.Mcd.Access.Mode.PublicDesc" xml:space="preserve">
+    <value>Anyone with your share code can access this Live.</value>
+  </data>
+  <data name="CharaDataHub.Mcd.Access.Mode.Syncshell" xml:space="preserve">
+    <value>Syncshell</value>
+  </data>
+  <data name="CharaDataHub.Mcd.Access.Mode.SyncshellDesc" xml:space="preserve">
+    <value>Members of your Syncshells can access this Live.</value>
+  </data>
+  <data name="CharaDataHub.Mcd.Online.CopyCode" xml:space="preserve">
+    <value>Copy share code to clipboard</value>
+  </data>
+  <data name="CharaDataHub.Edit.Appearance.NoData" xml:space="preserve">
+    <value>No appearance saved — capture your current appearance below.</value>
+  </data>
+  <data name="CharaDataHub.Edit.Appearance.Unsaved" xml:space="preserve">
+    <value>New appearance captured — save to upload it to the server.</value>
+  </data>
+  <data name="CharaDataHub.Edit.Appearance.UpToDate" xml:space="preserve">
+    <value>Appearance is in sync with the server.</value>
+  </data>
   <data name="CharaDataHub.Mcd.Edit.CancelUpload" xml:space="preserve">
     <value>Cancel Upload</value>
   </data>
@@ -1860,6 +1902,9 @@ Click to change.</value>
   </data>
   <data name="CharaDataHub.Mcd.Edit.SelectEntry" xml:space="preserve">
     <value>Select an entry above to edit its data.</value>
+  </data>
+  <data name="CharaDataHub.Mcd.Edit.Close" xml:space="preserve">
+    <value>Close editor</value>
   </data>
   <data name="CharaDataHub.Mcd.Edit.UndoAll" xml:space="preserve">
     <value>Undo all changes</value>
@@ -2022,6 +2067,9 @@ Sharing with other players is managed in the "Shares" tab.</value>
   <data name="CharaDataHub.Mcd.Online.NewEntryCooldown" xml:space="preserve">
     <value>You can only create new character data every few seconds. Please wait.</value>
   </data>
+  <data name="CharaDataHub.Mcd.Online.NewEntryTooltip" xml:space="preserve">
+    <value>Creates an online entry linked to your account. It updates in real time with your current appearance while you are online, and your friends can apply it to a GPose target.</value>
+  </data>
   <data name="CharaDataHub.Mcd.Online.Table.Code" xml:space="preserve">
     <value>Code</value>
   </data>
@@ -2063,6 +2111,27 @@ Sharing with other players is managed in the "Shares" tab.</value>
   </data>
   <data name="CharaDataHub.Mcd.Online.Table.Updated" xml:space="preserve">
     <value>Updated</value>
+  </data>
+  <data name="CharaDataHub.Mcd.Online.TabLive" xml:space="preserve">
+    <value>Live</value>
+  </data>
+  <data name="CharaDataHub.Mcd.Online.TabMcdf" xml:space="preserve">
+    <value>MCDF</value>
+  </data>
+  <data name="CharaDataHub.Partages.Sub.Mcdf" xml:space="preserve">
+    <value>MCDF</value>
+  </data>
+  <data name="CharaDataHub.Partages.Sub.Live" xml:space="preserve">
+    <value>Live</value>
+  </data>
+  <data name="CharaDataHub.Partages.Live.Title" xml:space="preserve">
+    <value>Live File Sharing</value>
+  </data>
+  <data name="CharaDataHub.Partages.Live.NoEntries" xml:space="preserve">
+    <value>You have no Live files online. Create one from the My Data tab.</value>
+  </data>
+  <data name="CharaDataHub.Partages.Live.SelectEntry" xml:space="preserve">
+    <value>Select a Live file to configure its access settings.</value>
   </data>
   <data name="CharaDataHub.Mcd.Online.Title" xml:space="preserve">
     <value>Online Character Data</value>
@@ -2573,6 +2642,12 @@ Note: Weapons will not be displayed correctly unless using the same job as the s
   <data name="CharaDataHub.Mcdf.Local.Upload" xml:space="preserve">
     <value>Upload</value>
   </data>
+  <data name="CharaDataHub.Mcdf.Local.UploadTooltip" xml:space="preserve">
+    <value>Upload this MCDF to the server</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Local.DeleteTooltip" xml:space="preserve">
+    <value>Delete this local MCDF file</value>
+  </data>
   <data name="CharaDataHub.Mcdf.Local.Uploading" xml:space="preserve">
     <value>Uploading MCDF to server, please wait...</value>
   </data>
@@ -2587,6 +2662,12 @@ Note: Weapons will not be displayed correctly unless using the same job as the s
   </data>
   <data name="CharaDataHub.Mcdf.Local.Delete" xml:space="preserve">
     <value>Delete</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Online.DownloadTooltip" xml:space="preserve">
+    <value>Download this MCDF to the local folder</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Online.DeleteTooltip" xml:space="preserve">
+    <value>Delete this MCDF from the server</value>
   </data>
   <data name="DataAnalysis.AndMore" xml:space="preserve">
     <value>(and {0} more)</value>

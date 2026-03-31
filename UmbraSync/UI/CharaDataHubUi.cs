@@ -79,6 +79,9 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
     private string _selectedSpecificGroupIndividual = string.Empty;
     private string _specificIndividualAdd = string.Empty;
     private string _specificGroupAdd = string.Empty;
+    private bool _liveGroupMode;
+    private string _liveShareSelectedId = string.Empty;
+    private int _partagesSubTab;
 
     private string? _openComboHybridId = null;
     private (string Id, string? Alias, string AliasOrId, string? Note)[]? _openComboHybridEntries = null;
@@ -1019,8 +1022,17 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
                 DrawMcdfImport();
                 break;
             case 3:
-                DrawMcdfShare();
+            {
+                var shareSubLabels = new[] { Loc.Get("CharaDataHub.Partages.Sub.Mcdf"), Loc.Get("CharaDataHub.Partages.Sub.Live") };
+                var shareSubIcons = new[] { FontAwesomeIcon.FileArchive, FontAwesomeIcon.Edit };
+                DrawSubTabButtons(shareSubLabels, shareSubIcons, ref _partagesSubTab, accent);
+                ImGuiHelpers.ScaledDummy(5);
+                if (_partagesSubTab == 0)
+                    DrawMcdfShare();
+                else
+                    DrawLiveShare();
                 break;
+            }
         }
     }
 
@@ -1402,6 +1414,65 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
             }
 
             ImGui.EndTable();
+        }
+    }
+
+    private void DrawLiveShare()
+    {
+        _uiSharedService.BigText(Loc.Get("CharaDataHub.Partages.Live.Title"));
+        ImGuiHelpers.ScaledDummy(5);
+
+        var liveEntries = _charaDataManager.OwnCharaData.Values.OrderBy(e => e.CreatedDate).ToList();
+        if (liveEntries.Count == 0)
+        {
+            UiSharedService.ColorTextWrapped(Loc.Get("CharaDataHub.Partages.Live.NoEntries"), ImGuiColors.DalamudGrey);
+            return;
+        }
+
+        var selectedEntry = liveEntries.FirstOrDefault(e => string.Equals(e.Id, _liveShareSelectedId, StringComparison.Ordinal))
+            ?? liveEntries.FirstOrDefault(e => string.Equals(e.Id, SelectedDtoId, StringComparison.Ordinal));
+        if (selectedEntry != null) _liveShareSelectedId = selectedEntry.Id;
+
+        var previewName = selectedEntry != null
+            ? (string.IsNullOrEmpty(selectedEntry.Description) ? selectedEntry.Id : selectedEntry.Description)
+            : Loc.Get("CharaDataHub.Partages.Live.SelectEntry");
+
+        ImGui.SetNextItemWidth(300);
+        using (var combo = ImRaii.Combo("##liveSharePicker", previewName))
+        {
+            if (combo)
+            {
+                foreach (var e in liveEntries)
+                {
+                    var name = string.IsNullOrEmpty(e.Description) ? e.Id : e.Description;
+                    if (ImGui.Selectable(name, string.Equals(e.Id, _liveShareSelectedId, StringComparison.Ordinal)))
+                        _liveShareSelectedId = e.Id;
+                }
+            }
+        }
+
+        if (selectedEntry == null) return;
+
+        var updateDto = _charaDataManager.GetUpdateDto(_liveShareSelectedId);
+        if (updateDto == null) return;
+
+        ImGuiHelpers.ScaledDummy(8);
+        DrawEditCharaDataAccessAndSharing(updateDto);
+
+        using (ImRaii.Disabled(!updateDto.HasChanges || _charaDataManager.CharaUpdateTask != null))
+        {
+            if (_uiSharedService.IconTextButton(FontAwesomeIcon.ArrowCircleUp, Loc.Get("CharaDataHub.Mcd.Edit.Save")))
+            {
+                _charaDataManager.UploadCharaData(_liveShareSelectedId);
+            }
+        }
+        if (updateDto.HasChanges)
+        {
+            ImGui.SameLine();
+            if (_uiSharedService.IconTextButton(FontAwesomeIcon.Undo, Loc.Get("CharaDataHub.Mcd.Edit.UndoAll")))
+            {
+                updateDto.UndoChanges();
+            }
         }
     }
 
@@ -2020,7 +2091,7 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
         bool iconOnly = totalW > availWidth;
 
         var borderColor = new System.Numerics.Vector4(0.29f, 0.21f, 0.41f, 0.7f);
-        var bgColor = new System.Numerics.Vector4(0f, 0f, 0f, 0f);
+        var bgColor = new System.Numerics.Vector4(0.11f, 0.11f, 0.11f, 0.9f);
         var hoverBg = new System.Numerics.Vector4(0.17f, 0.13f, 0.22f, 1f);
 
         for (int i = 0; i < subLabels.Length; i++)
@@ -2036,8 +2107,8 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
 
             var bg = isActive ? accent : hovered ? hoverBg : bgColor;
             dl.AddRectFilled(p, p + new System.Numerics.Vector2(w, btnH), ImGui.GetColorU32(bg), rounding);
-            if (!isActive && hovered)
-                dl.AddRect(p, p + new System.Numerics.Vector2(w, btnH), ImGui.GetColorU32(borderColor), rounding);
+            if (!isActive)
+                dl.AddRect(p, p + new System.Numerics.Vector2(w, btnH), ImGui.GetColorU32(borderColor with { W = hovered ? 0.9f : 0.5f }), rounding);
 
             var textColor = isActive ? new System.Numerics.Vector4(1f, 1f, 1f, 1f)
                 : hovered ? new System.Numerics.Vector4(0.9f, 0.85f, 1f, 1f)

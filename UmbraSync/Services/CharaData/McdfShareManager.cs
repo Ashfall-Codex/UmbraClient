@@ -287,10 +287,12 @@ public sealed class McdfShareManager(ILogger<McdfShareManager> logger, ApiContro
         return RunOperation(async () =>
         {
             token.ThrowIfCancellationRequested();
+            _logger.LogInformation("Downloading MCDF share {ShareId} to {FilePath}", shareId, filePath);
             var plainBytes = await DownloadAndDecryptShareAsync(shareId, token).ConfigureAwait(false);
             if (plainBytes == null)
             {
                 LastError ??= "Échec du téléchargement du partage MCDF.";
+                _logger.LogWarning("Download failed for MCDF share {ShareId}: payload null or decryption error", shareId);
                 return;
             }
 
@@ -301,12 +303,14 @@ public sealed class McdfShareManager(ILogger<McdfShareManager> logger, ApiContro
             }
 
             await File.WriteAllBytesAsync(filePath, plainBytes, token).ConfigureAwait(false);
+            _logger.LogInformation("MCDF share {ShareId} saved to {FilePath} ({Bytes} bytes)", shareId, filePath, plainBytes.Length);
             LastSuccess = "Partage MCDF exporté.";
         });
     }
 
     public Task DownloadShareToFileAsync(McdfShareEntryDto entry, string filePath, CancellationToken token)
     {
+        _logger.LogDebug("DownloadShareToFileAsync requested for share {ShareId} (description: {Description})", entry.Id, entry.Description);
         return ExportShareAsync(entry.Id, filePath, token);
     }
 

@@ -168,7 +168,7 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
     {
         return new List<ChangelogEntry>
         {
-            new(new Version(2, 4, 0, 3027), "2.4.0.3027", new List<ChangelogLine>
+            new(new Version(2, 4, 0, 3031), "2.4.0.3031", new List<ChangelogLine>
             {
                 new("Nouveauté : Système d'annuaire d'établissement, vous pouvez désormais lister votre établissement."),
                 new("Nouveauté : Un système de cooldown est désormais disponible quand vous refusez une invitation AutoDetect."),
@@ -180,6 +180,7 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
                 new("Correction : Limitation de l'ID personnalisé à 15 caractères max."),
                 new("Correction : Les notifications pouvaient persister malgré la désactivation dans les réglages."),
                 new("Correction : Optimisation du cache et suppression plus rapide du cache de housing moddé"),
+                new("Correction : Mise à jour du lien discord dans À propos"),
                 new("Amélioration : Diverses améliorations de l'Interface."),
                 new("Amélioration : Optimisation du code."),
                 new("Mise à jour API Penumbra & Glamourer."),
