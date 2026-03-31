@@ -24,6 +24,55 @@ public sealed class McdfShareManager(ILogger<McdfShareManager> logger, ApiContro
     private readonly List<McdfShareEntryDto> _sharedWithMe = new();
     private Task? _currentTask;
     private bool _initialRefreshDone;
+    private CancellationTokenSource? _pollCts;
+
+    public void StartBackgroundPolling()
+    {
+        StopBackgroundPolling();
+        _pollCts = new CancellationTokenSource();
+        _ = BackgroundPollLoop(_pollCts.Token);
+    }
+
+    public void StopBackgroundPolling()
+    {
+        _pollCts?.Cancel();
+        _pollCts?.Dispose();
+        _pollCts = null;
+    }
+
+    private async Task BackgroundPollLoop(CancellationToken token)
+    {
+        // Initial refresh after short delay
+        await Task.Delay(TimeSpan.FromSeconds(5), token).ConfigureAwait(false);
+
+        while (!token.IsCancellationRequested)
+        {
+            try
+            {
+                if (!IsBusy)
+                {
+                    await RunOperation(() => InternalRefreshAsync(token)).ConfigureAwait(false);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Background MCDF share poll failed");
+            }
+
+            try
+            {
+                await Task.Delay(TimeSpan.FromMinutes(2), token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+        }
+    }
 
     public IReadOnlyList<McdfShareEntryDto> OwnShares => _ownShares;
     public IReadOnlyList<McdfShareEntryDto> SharedShares => _sharedWithMe;
@@ -45,7 +94,7 @@ public sealed class McdfShareManager(ILogger<McdfShareManager> logger, ApiContro
             var mcdfBytes = await _fileHandler.CreateCharaFileBytesAsync(description, token).ConfigureAwait(false);
             if (mcdfBytes == null || mcdfBytes.Length == 0)
             {
-                LastError = "Impossible de préparer les données MCDF.";
+                LastError = Loc.Get("CharaDataHub.Mcdf.Upload.PrepareFailed");
                 return;
             }
 
@@ -77,9 +126,85 @@ public sealed class McdfShareManager(ILogger<McdfShareManager> logger, ApiContro
 
             await _apiController.McdfShareUpload(uploadDto).ConfigureAwait(false);
             await InternalRefreshAsync(token).ConfigureAwait(false);
-            LastSuccess = "Partage MCDF créé.";
-            NotifyShareCreated(shareId, description, uploadDto.AllowedIndividuals.Count, uploadDto.AllowedSyncshells.Count);
+
+            bool isShared = uploadDto.AllowedIndividuals.Count > 0 || uploadDto.AllowedSyncshells.Count > 0;
+            if (isShared)
+            {
+                LastSuccess = Loc.Get("CharaDataHub.Mcdf.Share.ShareSuccess");
+                NotifyShareCreated(shareId, description, uploadDto.AllowedIndividuals.Count, uploadDto.AllowedSyncshells.Count);
+            }
+            else
+            {
+                LastSuccess = Loc.Get("CharaDataHub.Mcdf.Share.SaveSuccess");
+                NotifySaved(description);
+            }
             _logger.LogInformation("MCDF share {ShareId} uploaded ({Individuals} UID / {Syncshells} syncshells). Description: {Description}", shareId, uploadDto.AllowedIndividuals.Count, uploadDto.AllowedSyncshells.Count, description);
+        });
+    }
+
+    public Task CreateShareFromFileAsync(string description, string filePath, CancellationToken token)
+        => CreateShareFromFileAsync(description, filePath, [], [], null, token);
+
+    public Task CreateShareFromFileAsync(string description, string filePath, IReadOnlyList<string> allowedIndividuals, IReadOnlyList<string> allowedSyncshells, DateTime? expiresAtUtc, CancellationToken token)
+    {
+        return RunOperation(async () =>
+        {
+            token.ThrowIfCancellationRequested();
+
+            if (!File.Exists(filePath))
+            {
+                LastError = Loc.Get("CharaDataHub.Mcdf.Upload.FileNotFound");
+                return;
+            }
+
+            var mcdfBytes = await File.ReadAllBytesAsync(filePath, token).ConfigureAwait(false);
+            if (mcdfBytes.Length == 0)
+            {
+                LastError = Loc.Get("CharaDataHub.Mcdf.Upload.EmptyFile");
+                return;
+            }
+
+            var shareId = Guid.NewGuid();
+            byte[] salt = RandomNumberGenerator.GetBytes(16);
+            byte[] nonce = RandomNumberGenerator.GetBytes(12);
+            byte[] key = DeriveKey(shareId, salt);
+
+            byte[] cipher = new byte[mcdfBytes.Length];
+            byte[] tag = new byte[16];
+
+            using (var aes = new AesGcm(key, 16))
+            {
+                aes.Encrypt(nonce, mcdfBytes, cipher, tag);
+            }
+
+            var uploadDto = new McdfShareUploadRequestDto
+            {
+                ShareId = shareId,
+                Description = description,
+                CipherData = cipher,
+                Nonce = nonce,
+                Salt = salt,
+                Tag = tag,
+                ExpiresAtUtc = expiresAtUtc,
+                AllowedIndividuals = allowedIndividuals.ToList(),
+                AllowedSyncshells = allowedSyncshells.ToList()
+            };
+
+            await _apiController.McdfShareUpload(uploadDto).ConfigureAwait(false);
+            await InternalRefreshAsync(token).ConfigureAwait(false);
+
+            bool isShared = uploadDto.AllowedIndividuals.Count > 0 || uploadDto.AllowedSyncshells.Count > 0;
+            if (isShared)
+            {
+                LastSuccess = Loc.Get("CharaDataHub.Mcdf.Share.ShareSuccess");
+                NotifyShareCreated(shareId, description, uploadDto.AllowedIndividuals.Count, uploadDto.AllowedSyncshells.Count);
+            }
+            else
+            {
+                LastSuccess = Loc.Get("CharaDataHub.Mcdf.Share.SaveSuccess");
+                NotifySaved(description);
+            }
+            _logger.LogInformation("MCDF share {ShareId} uploaded from file. Description: {Description}", shareId, description);
         });
     }
 
@@ -90,14 +215,14 @@ public sealed class McdfShareManager(ILogger<McdfShareManager> logger, ApiContro
             var result = await _apiController.McdfShareDelete(shareId).ConfigureAwait(false);
             if (!result)
             {
-                LastError = "Le serveur a refusé de supprimer le partage MCDF.";
+                LastError = Loc.Get("CharaDataHub.Mcdf.Delete.Error");
                 return;
             }
 
             _ownShares.RemoveAll(s => s.Id == shareId);
             _sharedWithMe.RemoveAll(s => s.Id == shareId);
             await InternalRefreshAsync(CancellationToken.None).ConfigureAwait(false);
-            LastSuccess = "Partage MCDF supprimé.";
+            LastSuccess = Loc.Get("CharaDataHub.Mcdf.Delete.Success");
         });
     }
 
@@ -108,7 +233,7 @@ public sealed class McdfShareManager(ILogger<McdfShareManager> logger, ApiContro
             var updated = await _apiController.McdfShareUpdate(updateRequest).ConfigureAwait(false);
             if (updated == null)
             {
-                LastError = "Le serveur a refusé de mettre à jour le partage MCDF.";
+                LastError = Loc.Get("CharaDataHub.Mcdf.Update.Error");
                 return;
             }
 
@@ -117,7 +242,8 @@ public sealed class McdfShareManager(ILogger<McdfShareManager> logger, ApiContro
             {
                 _ownShares[idx] = updated;
             }
-            LastSuccess = "Partage MCDF mis à jour.";
+            LastSuccess = Loc.Get("CharaDataHub.Mcdf.Share.ShareSuccess");
+            NotifyShareCreated(updateRequest.ShareId, updateRequest.Description, updateRequest.AllowedIndividuals.Count, updateRequest.AllowedSyncshells.Count);
         });
     }
 
@@ -161,10 +287,12 @@ public sealed class McdfShareManager(ILogger<McdfShareManager> logger, ApiContro
         return RunOperation(async () =>
         {
             token.ThrowIfCancellationRequested();
+            _logger.LogInformation("Downloading MCDF share {ShareId} to {FilePath}", shareId, filePath);
             var plainBytes = await DownloadAndDecryptShareAsync(shareId, token).ConfigureAwait(false);
             if (plainBytes == null)
             {
                 LastError ??= "Échec du téléchargement du partage MCDF.";
+                _logger.LogWarning("Download failed for MCDF share {ShareId}: payload null or decryption error", shareId);
                 return;
             }
 
@@ -175,12 +303,14 @@ public sealed class McdfShareManager(ILogger<McdfShareManager> logger, ApiContro
             }
 
             await File.WriteAllBytesAsync(filePath, plainBytes, token).ConfigureAwait(false);
+            _logger.LogInformation("MCDF share {ShareId} saved to {FilePath} ({Bytes} bytes)", shareId, filePath, plainBytes.Length);
             LastSuccess = "Partage MCDF exporté.";
         });
     }
 
     public Task DownloadShareToFileAsync(McdfShareEntryDto entry, string filePath, CancellationToken token)
     {
+        _logger.LogDebug("DownloadShareToFileAsync requested for share {ShareId} (description: {Description})", entry.Id, entry.Description);
         return ExportShareAsync(entry.Id, filePath, token);
     }
 
@@ -272,6 +402,14 @@ public sealed class McdfShareManager(ILogger<McdfShareManager> logger, ApiContro
         Buffer.BlockCopy(shareBytes, 0, material, 0, shareBytes.Length);
         Buffer.BlockCopy(salt, 0, material, shareBytes.Length, salt.Length);
         return SHA256.HashData(material);
+    }
+
+    private void NotifySaved(string description)
+    {
+        string safeDescription = string.IsNullOrWhiteSpace(description) ? "MCDF" : description;
+        string toastTitle = Loc.Get("Notification.McdfSave.ToastTitle");
+        string toastBody = string.Format(CultureInfo.CurrentCulture, Loc.Get("Notification.McdfSave.ToastBody"), safeDescription);
+        _mediator.Publish(new DualNotificationMessage(toastTitle, toastBody, NotificationType.Success, TimeSpan.FromSeconds(4)));
     }
 
     private void NotifyShareCreated(Guid shareId, string description, int individualCount, int syncshellCount)

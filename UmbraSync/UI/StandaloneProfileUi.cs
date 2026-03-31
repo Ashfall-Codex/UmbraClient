@@ -6,6 +6,8 @@ using Dalamud.Interface.Textures.TextureWraps;
 using Dalamud.Interface.Utility;
 using Microsoft.Extensions.Logging;
 using System.Numerics;
+using Dalamud.Interface.Utility.Raii;
+using UmbraSync.API.Dto.Establishment;
 using UmbraSync.Interop.Ipc;
 using UmbraSync.Localization;
 using UmbraSync.MareConfiguration;
@@ -466,6 +468,159 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
                 BbCodeRenderer.Render(profile.RpAdditionalInfo, wrapWidth);
             }, stretchWidth: true);
         }
+
+        // Establishment managed by this user
+        DrawLinkedEstablishment(cardSpacing);
+    }
+
+    private void DrawHonorificInHero()
+    {
+        // Get Honorific data
+        string? honorificB64 = null;
+        bool isSelf = string.Equals(Pair.UserData.UID, _apiController.UID, StringComparison.Ordinal);
+
+        if (isSelf)
+        {
+            if (_ipcManager.Honorific.APIAvailable && string.IsNullOrEmpty(_localHonorificB64))
+                _ = RefreshLocalHonorificAsync();
+            honorificB64 = _localHonorificB64;
+        }
+        else
+        {
+            honorificB64 = Pair.LastReceivedCharacterData?.HonorificData;
+        }
+
+        if (string.IsNullOrEmpty(honorificB64)) return;
+
+        try
+        {
+            var json = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(honorificB64));
+            var doc = System.Text.Json.JsonDocument.Parse(json);
+            var root = doc.RootElement;
+
+            var title = root.TryGetProperty("Title", out var t) ? t.GetString() : null;
+            if (string.IsNullOrEmpty(title)) return;
+
+            var color = Vector4.One;
+            if (root.TryGetProperty("Color", out var c) && c.ValueKind == System.Text.Json.JsonValueKind.Object)
+            {
+                color = new Vector4(
+                    (c.TryGetProperty("X", out var cx) || c.TryGetProperty("x", out cx)) ? cx.GetSingle() : 1f,
+                    (c.TryGetProperty("Y", out var cy) || c.TryGetProperty("y", out cy)) ? cy.GetSingle() : 1f,
+                    (c.TryGetProperty("Z", out var cz) || c.TryGetProperty("z", out cz)) ? cz.GetSingle() : 1f,
+                    1f);
+            }
+
+            using var _ = _uiSharedService.GameFont.Push();
+            ImGui.TextColored(color, title);
+        }
+        catch { /* ignore parse errors */ }
+    }
+
+    private string _localHonorificB64 = string.Empty;
+
+    private async Task RefreshLocalHonorificAsync()
+    {
+        if (!_ipcManager.Honorific.APIAvailable) return;
+        try
+        {
+            _localHonorificB64 = await _ipcManager.Honorific.GetTitle().ConfigureAwait(false);
+        }
+        catch { /* ignore */ }
+    }
+
+    private static string[] CategoryNames =>
+    [
+        Loc.Get("Establishment.Category.Tavern"), Loc.Get("Establishment.Category.Shop"),
+        Loc.Get("Establishment.Category.Temple"), Loc.Get("Establishment.Category.Academy"),
+        Loc.Get("Establishment.Category.Guild"), Loc.Get("Establishment.Category.Residence"),
+        Loc.Get("Establishment.Category.Workshop"), Loc.Get("Establishment.Category.Other")
+    ];
+
+    private EstablishmentDto? _linkedEstablishment;
+    private bool _linkedEstablishmentLoaded;
+    private IDalamudTextureWrap? _linkedEstablishmentLogo;
+
+    private void DrawLinkedEstablishment(float cardSpacing)
+    {
+        var uid = Pair.UserData.UID;
+
+        // Lazy load: check if this user manages an establishment
+        if (!_linkedEstablishmentLoaded)
+        {
+            _linkedEstablishmentLoaded = true;
+            _ = LoadLinkedEstablishment(uid);
+        }
+
+        if (_linkedEstablishment == null || !_linkedEstablishment.ShowManagerOnProfile)
+            return;
+
+        ImGuiHelpers.ScaledDummy(cardSpacing / ImGuiHelpers.GlobalScale);
+
+        var catNames = CategoryNames;
+        var catIndex = _linkedEstablishment.Category;
+        var catName = catIndex >= 0 && catIndex < catNames.Length ? catNames[catIndex] : "?";
+
+        UiSharedService.DrawCard("rp-establishment-card", () =>
+        {
+            DrawSectionTitle(Loc.Get("Profile.Establishment.Title"));
+
+            // Logo
+            if (_linkedEstablishmentLogo != null)
+            {
+                float logoSize = 32f;
+                float logoRounding = 4f;
+                var dl = ImGui.GetWindowDrawList();
+                var p = ImGui.GetCursorScreenPos();
+                var textH = ImGui.GetTextLineHeight();
+                var logoY = p.Y + (textH - logoSize) / 2f;
+                dl.AddImageRounded(_linkedEstablishmentLogo.Handle,
+                    new Vector2(p.X, logoY), new Vector2(p.X + logoSize, logoY + logoSize),
+                    Vector2.Zero, Vector2.One, ImGui.ColorConvertFloat4ToU32(Vector4.One), logoRounding);
+                ImGui.Dummy(new Vector2(logoSize, textH));
+                ImGui.SameLine();
+            }
+
+            _uiSharedService.BigText(_linkedEstablishment.Name);
+            ImGui.TextColored(UiSharedService.AccentColor, $"[{catName}]");
+
+            if (!string.IsNullOrEmpty(_linkedEstablishment.Description))
+            {
+                ImGui.SameLine();
+                ImGui.TextDisabled(_linkedEstablishment.Description.Length > 60
+                    ? _linkedEstablishment.Description[..60] + "..."
+                    : _linkedEstablishment.Description);
+            }
+
+            ImGuiHelpers.ScaledDummy(2f);
+            if (_uiSharedService.IconTextButton(FontAwesomeIcon.Eye, Loc.Get("Profile.Establishment.View")))
+                Mediator.Publish(new OpenEstablishmentDetailMessage(_linkedEstablishment.Id));
+        }, stretchWidth: true);
+    }
+
+    private async Task LoadLinkedEstablishment(string uid)
+    {
+        try
+        {
+            // Search all establishments to find one where this user is the manager
+            var request = new EstablishmentListRequestDto { Page = 0, PageSize = 100 };
+            var result = await _apiController.EstablishmentList(request).ConfigureAwait(false);
+            if (result != null)
+            {
+                _linkedEstablishment = result.Establishments
+                    .FirstOrDefault(e => string.Equals(e.OwnerUID, uid, StringComparison.Ordinal));
+
+                if (_linkedEstablishment?.LogoImageBase64 is { Length: > 0 } logoB64)
+                {
+                    try { _linkedEstablishmentLogo = _uiSharedService.LoadImage(Convert.FromBase64String(logoB64)); }
+                    catch { /* ignore */ }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error loading linked establishment for {uid}", uid);
+        }
     }
 
     private void DrawHeroCard(UmbraProfileData profile, IDalamudTextureWrap? texture, Vector4 accent)
@@ -523,15 +678,16 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
 
             var nameColor = _configService.Current.UseRpNameColors && !string.IsNullOrEmpty(profile.RpNameColor) ? UiSharedService.HexToVector4(profile.RpNameColor) : accent;
 
-            using (_uiSharedService.UidFont.Push())
-                UiSharedService.ColorText(fullName, nameColor);
+            // Name with title as prefix
+            var displayName = !string.IsNullOrEmpty(profile.RpTitle)
+                ? $"{profile.RpTitle} {fullName}"
+                : fullName;
 
-            // Title
-            if (!string.IsNullOrEmpty(profile.RpTitle))
-            {
-                using var _ = _uiSharedService.GameFont.Push();
-                UiSharedService.ColorText(profile.RpTitle, nameColor);
-            }
+            using (_uiSharedService.UidFont.Push())
+                UiSharedService.ColorText(displayName, nameColor);
+
+            // Honorific title
+            DrawHonorificInHero();
 
             // Race · Ethnicity
             var race = profile.RpRace ?? string.Empty;

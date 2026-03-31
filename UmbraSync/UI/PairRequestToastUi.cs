@@ -211,10 +211,23 @@ public sealed class PairRequestToastUi : WindowMediatorSubscriberBase
         using (ImRaii.PushColor(ImGuiCol.ButtonHovered, ImGuiColors.DalamudRed))
         using (ImRaii.PushColor(ImGuiCol.ButtonActive, ImGuiColors.DalamudRed))
         {
-            if (ImGui.Button(Loc.Get("CompactUi.Notifications.Decline"), new Vector2(buttonWidth, 0)))
+            var declineBlockWidth = (buttonWidth - buttonGap) * 0.7f;
+            var blockWidth = (buttonWidth - buttonGap) * 0.3f;
+            if (ImGui.Button(Loc.Get("CompactUi.Notifications.Decline"), new Vector2(declineBlockWidth, 0)))
             {
-                _nearbyPending.Remove(uid);
+                _nearbyPending.Decline(uid);
             }
+            ImGui.SameLine(0f, buttonGap);
+            using (ImRaii.PushColor(ImGuiCol.Button, new Vector4(0.4f, 0.1f, 0.1f, 1f)))
+            using (ImRaii.PushColor(ImGuiCol.ButtonHovered, new Vector4(0.5f, 0.15f, 0.15f, 1f)))
+            using (ImRaii.PushColor(ImGuiCol.ButtonActive, new Vector4(0.6f, 0.2f, 0.2f, 1f)))
+            {
+                if (ImGui.Button(Loc.Get("AutoDetect.Block"), new Vector2(blockWidth, 0)))
+                {
+                    _nearbyPending.Block(uid);
+                }
+            }
+            UiSharedService.AttachToolTip(Loc.Get("AutoDetect.Block.Tooltip"));
         }
         ImGui.PopID();
     }

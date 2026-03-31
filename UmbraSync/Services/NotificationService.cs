@@ -3,6 +3,7 @@ using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using System.Globalization;
 using UmbraSync.Localization;
 using UmbraSync.MareConfiguration;
 using UmbraSync.MareConfiguration.Models;
@@ -130,8 +131,17 @@ public class NotificationService : DisposableMediatorSubscriberBase, IHostedServ
         if (!_dalamudUtilService.IsLoggedIn) return;
 
         var baseMsg = new NotificationMessage(message.Title, message.Message, message.Type, message.ToastDuration);
-        ShowToast(baseMsg);
-        ShowChat(baseMsg);
+
+        // Respecter les settings de notification de l'utilisateur
+        var location = message.Type switch
+        {
+            NotificationType.Info or NotificationType.Success => _configurationService.Current.InfoNotification,
+            NotificationType.Warning => _configurationService.Current.WarningNotification,
+            NotificationType.Error => _configurationService.Current.ErrorNotification,
+            _ => NotificationLocation.Both,
+        };
+
+        ShowNotificationLocationBased(baseMsg, location, false, false);
     }
 
     private void OnSyncshellAutoDetectStateChanged(SyncshellAutoDetectStateChanged msg)
@@ -148,14 +158,14 @@ public class NotificationService : DisposableMediatorSubscriberBase, IHostedServ
 
             if (msg.Visible)
             {
-                title = $"Syncshell publique: {alias}";
-                message = "La Syncshell est de nouveau visible via AutoDetect.";
+                title = string.Format(CultureInfo.CurrentCulture, Loc.Get("AutoDetect.Syncshell.PublicTitle"), alias);
+                message = Loc.Get("AutoDetect.Syncshell.PublicBody");
                 entry = Services.Notification.NotificationEntry.SyncshellPublic(gid, alias);
             }
             else
             {
-                title = $"Syncshell non publique: {alias}";
-                message = "La Syncshell n'est plus visible via AutoDetect.";
+                title = string.Format(CultureInfo.CurrentCulture, Loc.Get("AutoDetect.Syncshell.NotPublicTitle"), alias);
+                message = Loc.Get("AutoDetect.Syncshell.NotPublicBody");
                 entry = Services.Notification.NotificationEntry.SyncshellNotPublic(gid, alias);
             }
 

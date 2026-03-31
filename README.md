@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <code>v2.3.2</code> &middot; API <code>v3000</code> &middot; C# 13 / .NET 10 &middot; Dalamud SDK 14.0.2
+  <code>v2.4.0.3022</code> &middot; API <code>v3000</code> &middot; C# 13 / .NET 10 &middot; Dalamud SDK 14.0.2
 </p>
 
 ---
@@ -29,28 +29,33 @@
 - **Invitation rapide** : envoi d'invitation à un joueur en un clic via le bouton **+** ou clic droit sur son nom
 - **Détection de proximité** : découverte automatique des joueurs UmbraSync à portée de votre personnage
 - **Annuaire SyncFinder** : consultation et adhésion aux Syncshells publiques depuis une liste centralisée
-- **SyncSlot** : liaison d'une Syncshell à votre housing avec partage temporaire optionnel
+- **SyncSlot** : liaison d'une Syncshell à votre housing avec partage temporaire optionnel, détection intérieur/extérieur
+- **Anti-spam** : cooldown configurable au refus d'invitation (1 min à 1h) et blacklist persistante de joueurs bloqués
+- **Suppression automatique** : désactivation automatique en zone instanciée (donjon, raid, PvP) avec restauration à la sortie
 - **Planification** : programmation horaire de l'AutoDetect par Syncshell (durée fixe ou plages horaires)
 
 ### Roleplay
 
 - **Profil RP** : fiche personnage complète (prénom, nom, titre, âge, race, taille, résidence, occupation, alignement, etc.) avec champs personnalisés, photo dédiée et couleur de nom configurable
 - **Profil classique** : photo de profil, description personnelle, statut NSFW
+- **Titre Honorific intégré** : édition du titre complet directement depuis la fiche RP avec color picker (couleur + glow), préfixe optionnel. Synchronisé automatiquement via Honorific
 - **Moodles RP** : intégration des Moodles dans les profils avec cache local de sauvegarde
+- **Annuaire d'établissements** : création et gestion d'établissements RP (tavernes, boutiques, temples, etc.) avec logo, bannière, localisation housing, gérant lié à une fiche RP, événements programmés (ponctuels ou récurrents) et calendrier "À venir"
 - **Bulle d'écriture** : indicateur de saisie en temps réel sur les nameplates et la Party List, compatible avec le chat natif et ChatTwo *(inspiré de [RTyping](https://github.com/apetih/rtyping))*
 - **Colorisation des émotes** : mise en évidence des emotes dans le chat (entre `<>`, `*` et `[]`)
 - **Contenu HRP** : les messages entre parenthèses (simples et doubles) sont affichés en gris italique
 - **Support BBCode** : formatage riche dans les informations du profil RP
 - **Adaptation aux plugins tiers** : UmbraSync détecte automatiquement la présence de ChatTwo et de Chat Proximity pour s'y adapter. La bulle d'écriture fonctionne avec ChatTwo, et la colorisation des émotes s'ajuste en fonction de la distance si Chat Proximity est installé
 
-### Partage MCDF (Mare Character Data Format)
+### Hub de Données (MCDF)
 
-- **Hub de données** : centre de gestion pour créer, importer, partager et appliquer des MCDF
-- **Partage direct** : envoi de MCDF à vos paires sans passer par un cloud tiers, sans limite de stockage
+- **Hub de données** : centre unifié pour créer, stocker, importer, partager et appliquer des MCDF et des entrées Live
+- **Stockage serveur** : upload de fichiers MCDF sur le serveur avec gestion locale et en ligne dans un tableau unifié
+- **Partage ciblé** : envoi de MCDF à des paires ou Syncshells spécifiques avec notifications push en temps réel (SignalR)
 - **Chiffrement** : données chiffrées par AES-GCM avec salt et nonce aléatoires, tag d'authentification 128 bits
 - **Gpose Together** : échange de poses en groupe directement depuis le hub
-- **Permissions** : contrôle d'accès par individu ou par Syncshell avec expiration configurable
-- **MCD Online** : consultation de profils MCDF en ligne
+- **Favoris** : système de favoris unifié pour les entrées Live et MCDF avec description personnalisable
+- **Dossier local** : scan automatique d'un dossier local de fichiers MCDF avec upload vers le serveur
 
 ### Partage de Housing
 
@@ -74,7 +79,7 @@
 
 ### Interface utilisateur
 
-- **UI compacte** : interface revisitée avec navigation par sidebar et onglets, tout dans une même fenêtre
+- **UI compacte** : interface revisitée avec navigation par sidebar et onglets, tout dans une même fenêtre. Annuaire intégré avec onglets Mes lieux, Lieux favoris, Parcourir et À venir
 - **Thème Royal Smoke** : palette sombre matte avec accents violet, conçue pour le confort visuel
 - **Fenêtre de permissions** : contrôle fin par paire (pause, sons, animations, VFX)
 - **Data Analysis** : analyse détaillée des fichiers de votre personnage (taille, triangles, résolution, type)
@@ -85,7 +90,7 @@
 - **Widget Server Bar** : indicateur de statut dans la barre de serveur FFXIV avec styles personnalisables
 - **Overlay d'écriture** : indicateur visuel sur les nameplates des joueurs en train d'écrire
 - **Changelog intégré** : affichage automatique des nouveautés à chaque mise à jour
-- **Notifications** : système centralisé avec badge, toast et panneau dédié
+- **Notifications** : système centralisé avec badge, toast et panneau dédié, respectant les préférences d'affichage utilisateur (Nowhere/Chat/Toast/Both)
 
 ### Conformité RGPD
 
@@ -109,7 +114,7 @@ Le projet est composé de plusieurs modules :
 | Composant | Technologie | Description |
 |---|---|---|
 | `UmbraSync/` | C# 13 / .NET 10 / Dalamud SDK | Plugin FFXIV principal |
-| `UmbraAPI/` | C# / .NET 10 | API partagée (contrats et DTOs) |
+| `UmbraAPI/` | C# / .NET 10 | API partagée (contrats et DTOs : 60+ DTOs) |
 | `Penumbra.Api/` | Submodule git | API d'intégration Penumbra |
 | `Glamourer.Api/` | Submodule git | API d'intégration Glamourer |
 | `OtterGui/` | Submodule git | Bibliothèque UI ImGui |
@@ -176,17 +181,17 @@ dotnet build UmbraSync.sln -c Release --no-restore -p:DALAMUD_DIR="$DALAMUD_DIR"
 
 | Package | Version |
 |---|---|
-| `Microsoft.AspNetCore.SignalR.Client` | 9.0.8 |
-| `Microsoft.AspNetCore.SignalR.Protocols.MessagePack` | 9.0.8 |
-| `MessagePack` | 2.5.187 |
-| `Microsoft.Extensions.Hosting` | 9.0.8 |
-| `System.IdentityModel.Tokens.Jwt` | 8.14.0 |
+| `Microsoft.AspNetCore.SignalR.Client` | 10.0.5 |
+| `Microsoft.AspNetCore.SignalR.Protocols.MessagePack` | 10.0.5 |
+| `MessagePack` | 3.1.4 |
+| `Microsoft.Extensions.Hosting` | 10.0.5 |
+| `System.IdentityModel.Tokens.Jwt` | 8.16.0 |
 | `K4os.Compression.LZ4.Streams` | 1.3.8 |
-| `Downloader` | 3.3.4 |
+| `Downloader` | 5.1.0 |
 | `Chaos.NaCl.Standard` | 1.0.0 |
 | `Brio.API` | 3.0.1 |
-| `Penumbra.Api` | 5.13.0 |
-| `Glamourer.Api` | 2.6.0 |
+| `Penumbra.Api` | 5.13.1 |
+| `Glamourer.Api` | 2.8.0 |
 | `Dalamud.NET.Sdk` | 14.0.2 |
 
 ### Submodules git

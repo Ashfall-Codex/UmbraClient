@@ -34,6 +34,7 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
     private readonly ServerConfigurationManager _serverManager;
     private readonly TokenProvider _tokenProvider;
     private readonly NotificationTracker _notificationTracker;
+    private readonly PauseCoordinator _pauseCoordinator;
     private CancellationTokenSource _connectionCancellationTokenSource;
     private ConnectionDto? _connectionDto;
     private bool _doNotNotifyOnNextInfo;
@@ -44,7 +45,8 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
 
     public ApiController(ILogger<ApiController> logger, HubFactory hubFactory, DalamudUtilService dalamudUtil,
         PairManager pairManager, ServerConfigurationManager serverManager, MareMediator mediator,
-        TokenProvider tokenProvider, NotificationTracker notificationTracker, MareConfigService configService) : base(logger, mediator)
+        TokenProvider tokenProvider, NotificationTracker notificationTracker, MareConfigService configService,
+        PauseCoordinator pauseCoordinator) : base(logger, mediator)
     {
         _hubFactory = hubFactory;
         _dalamudUtil = dalamudUtil;
@@ -53,6 +55,7 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
         _tokenProvider = tokenProvider;
         _notificationTracker = notificationTracker;
         _configService = configService;
+        _pauseCoordinator = pauseCoordinator;
         _connectionCancellationTokenSource = new CancellationTokenSource();
 
         Mediator.Subscribe<DalamudLoginMessage>(this, (_) => DalamudUtilOnLogIn());
@@ -60,8 +63,6 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
         Mediator.Subscribe<HubClosedMessage>(this, (msg) => MareHubOnClosed(msg.Exception));
         Mediator.Subscribe<HubReconnectedMessage>(this, (msg) => _ = MareHubOnReconnected());
         Mediator.Subscribe<HubReconnectingMessage>(this, (msg) => MareHubOnReconnecting(msg.Exception));
-        Mediator.Subscribe<CyclePauseMessage>(this, (msg) => _ = CyclePauseAsync(msg.UserData));
-        Mediator.Subscribe<PauseMessage>(this, (msg) => Pause(msg.UserData));
 
         ServerState = ServerState.Offline;
 
@@ -275,144 +276,6 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
     }
 
 
-    public void Pause(UserData userData)
-    {
-        var pair = _pairManager.GetPairByUID(userData.UID);
-        if (pair == null)
-        {
-            Logger.LogWarning("Pause: Pair not found for UID {uid}", userData.UID);
-            return;
-        }
-
-        if (pair.UserPair == null)
-        {
-            Logger.LogWarning("Pause: UserPair is null for UID {uid} (group-only pair), individual pause not supported", userData.UID);
-            return;
-        }
-
-        // Toggle basé sur OwnPermissions uniquement (pas IsEffectivelyPaused qui inclut les blocages de perf)
-        bool isCurrentlyPaused = pair.UserPair.OwnPermissions.IsPaused();
-        bool shouldPause = !isCurrentlyPaused;
-
-        Logger.LogInformation("Toggling pause for {uid}: {isCurrentlyPaused} -> {shouldPause}", userData.UID, isCurrentlyPaused, shouldPause);
-
-        var perm = pair.UserPair.OwnPermissions;
-        perm.SetPaused(shouldPause);
-        pair.UserPair.OwnPermissions = perm;
-        Logger.LogTrace("Pause individual: sending UserSetPairPermissions for {uid} with Paused={shouldPause}", userData.UID, shouldPause);
-        _ = UserSetPairPermissions(new UserPermissionsDto(userData, perm));
-
-        // Si dépause, retirer aussi le verrou de performance automatique
-        if (!shouldPause)
-        {
-            pair.UnholdApplication("IndividualPerformanceThreshold");
-        }
-
-        if (pair.Handler != null)
-        {
-            Logger.LogDebug("Using SetPaused mechanism for {uid}", userData.UID);
-            pair.Handler.SetPaused(shouldPause);
-
-            // Après unpause, annuler le timer offline et réappliquer les données reçues
-            if (!shouldPause)
-            {
-                _pairManager.CancelPendingOffline(userData.UID);
-                Logger.LogDebug("Reapplying data after unpause for {uid}", userData.UID);
-                pair.ApplyLastReceivedData(forced: true);
-            }
-        }
-        else
-        {
-            Logger.LogWarning("Handler not available for {uid}, using fallback pause method", userData.UID);
-            if (shouldPause)
-            {
-                Mediator.Publish(new PlayerVisibilityMessage(pair.Ident, IsVisible: false, Invalidate: true));
-            }
-            else
-            {
-                _pairManager.CancelPendingOffline(userData.UID);
-                pair.ApplyLastReceivedData(forced: true);
-            }
-        }
-    }
-
-    //Effectue un cycle pause/unpause avec confirmation du serveur.
-    // Pause le joueur, attend la confirmation (max 5s), puis unpause automatiquement.
-    public Task CyclePauseAsync(UserData userData)
-    {
-        var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-        _ = Task.Run(async () =>
-        {
-            var token = timeoutCts.Token;
-            try
-            {
-                var pair = _pairManager.GetPairByUID(userData.UID);
-                if (pair?.UserPair == null)
-                {
-                    Logger.LogWarning("CyclePauseAsync: pair {uid} not found or has no UserPair", userData.UID);
-                    return;
-                }
-
-                // Pause
-                var targetPermissions = pair.UserPair.OwnPermissions;
-                targetPermissions.SetPaused(paused: true);
-                pair.UserPair.OwnPermissions = targetPermissions;
-
-                Logger.LogDebug("CyclePauseAsync: Sending pause for {uid}", userData.UID);
-                await UserSetPairPermissions(new UserPermissionsDto(userData, targetPermissions)).ConfigureAwait(false);
-
-                // Attendre confirmation du serveur (polling 250ms, timeout 5s)
-                var pauseApplied = false;
-                while (!token.IsCancellationRequested)
-                {
-                    var updatedPair = _pairManager.GetPairByUID(userData.UID);
-                    if (updatedPair?.UserPair != null && updatedPair.UserPair.OwnPermissions.IsPaused())
-                    {
-                        pauseApplied = true;
-                        pair = updatedPair;
-                        break;
-                    }
-
-                    await Task.Delay(250, token).ConfigureAwait(false);
-                    Logger.LogTrace("CyclePauseAsync: Waiting for pause confirmation for {uid}", userData.UID);
-                }
-
-                if (!pauseApplied)
-                {
-                    Logger.LogWarning("CyclePauseAsync: Timed out waiting for pause acknowledgement for {uid}", userData.UID);
-                    return;
-                }
-
-                //  Unpause
-                targetPermissions = pair.UserPair!.OwnPermissions;
-                targetPermissions.SetPaused(paused: false);
-                pair.UserPair.OwnPermissions = targetPermissions;
-
-                Logger.LogDebug("CyclePauseAsync: Sending unpause for {uid}", userData.UID);
-                await UserSetPairPermissions(new UserPermissionsDto(userData, targetPermissions)).ConfigureAwait(false);
-
-                // Réappliquer les données
-                pair.ApplyLastReceivedData(forced: true);
-
-                Logger.LogInformation("CyclePauseAsync: Completed pause cycle for {uid}", userData.UID);
-            }
-            catch (OperationCanceledException)
-            {
-                Logger.LogDebug("CyclePauseAsync: Cancelled for {uid}", userData.UID);
-            }
-            catch (Exception ex)
-            {
-                Logger.LogWarning(ex, "CyclePauseAsync: Failed for {uid}", userData.UID);
-            }
-            finally
-            {
-                timeoutCts.Dispose();
-            }
-        }, CancellationToken.None);
-
-        return Task.CompletedTask;
-    }
-
     public Task<ConnectionDto> GetConnectionDto() => GetConnectionDtoInternal(true);
 
     private async Task<ConnectionDto> GetConnectionDtoInternal(bool publishConnected)
@@ -490,6 +353,7 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
         OnQuestSessionStateUpdate((sender, state) => _ = Client_QuestSessionStateUpdate(sender, state));
         OnQuestSessionEventTriggered((sender, trigger) => _ = Client_QuestSessionEventTriggered(sender, trigger));
         OnQuestSessionBranchingChoice((sender, choice) => _ = Client_QuestSessionBranchingChoice(sender, choice));
+        OnMcdfShareReceived((ownerUid, description) => _ = Client_McdfShareReceived(ownerUid, description));
 
         _healthCheckTokenSource?.Cancel();
         _healthCheckTokenSource?.Dispose();

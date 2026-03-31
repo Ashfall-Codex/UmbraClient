@@ -277,10 +277,10 @@
     <value>Définir votre ID personnalisé</value>
   </data>
   <data name="EditProfile.SetCustomId.Placeholder" xml:space="preserve">
-    <value>3–32 caractères : lettres, chiffres, _ ou - (laisser vide pour effacer)</value>
+    <value>3–15 caractères : lettres, chiffres, _ ou - (laisser vide pour effacer)</value>
   </data>
   <data name="EditProfile.SetCustomId.FormatHint" xml:space="preserve">
-    <value>Autorisé : A–Z, a–z, 0–9, souligné (_) et tiret (-). Longueur 3–32.</value>
+    <value>Autorisé : A–Z, a–z, 0–9, souligné (_) et tiret (-). Longueur 3–15.</value>
   </data>
   <data name="EditProfile.SetCustomId.Confirm" xml:space="preserve">
     <value>Confirmer</value>
@@ -296,6 +296,9 @@
   </data>
   <data name="EditProfile.SetCustomId.ErrorBody" xml:space="preserve">
     <value>Impossible de mettre à jour votre ID personnalisé. Veuillez réessayer.</value>
+  </data>
+  <data name="EditProfile.SetCustomId.ErrorAlreadyTaken" xml:space="preserve">
+    <value>Cet ID personnalisé est déjà utilisé par un autre utilisateur. Veuillez en choisir un autre.</value>
   </data>
   <data name="EditProfile.SetCustomId.ReconnectWarning" xml:space="preserve">
     <value>Une déconnexion / reconnexion du serveur UmbraSync est nécessaire pour la prise en compte.</value>
@@ -688,7 +691,7 @@ Veuillez conserver une copie de votre clé secrète au cas où vous auriez besoi
     <value>Analyse de personnage</value>
   </data>
   <data name="CompactUi.Sidebar.CharacterDataHub" xml:space="preserve">
-    <value>Hub de données de personnage</value>
+    <value>Hub de Donn&#xE9;es</value>
   </data>
   <data name="CompactUi.Sidebar.EditProfile" xml:space="preserve">
     <value>Mon Profil</value>
@@ -1078,16 +1081,22 @@ Veuillez conserver une copie de votre clé secrète au cas où vous auriez besoi
     <value>Vous avez refusé de rejoindre la Syncshell pour {0}. Vous ne serez plus sollicité pour ce lieu durant cette session.</value>
   </data>
   <data name="Slot.Toast.Welcome" xml:space="preserve">
-    <value>Bienvenue au {0}</value>
+    <value>Bienvenue chez {0}</value>
   </data>
   <data name="Slot.Toast.Leaving" xml:space="preserve">
-    <value>Vous quittez le {0}</value>
+    <value>Vous quittez {0}</value>
   </data>
   <data name="Slot.Toast.AutoLeaveStarting" xml:space="preserve">
-    <value>Vous quittez les alentours de {0}. Vous serez exclu de la Syncshell dans 5 minutes si vous ne revenez pas dans la zone.</value>
+    <value>Vous quittez les alentours. Vous serez retiré(e) de la Syncshell {0} dans 5 minutes si vous ne revenez pas dans la zone.</value>
   </data>
   <data name="Slot.Toast.Joined" xml:space="preserve">
     <value>Vous avez rejoint la Syncshell de {0}</value>
+  </data>
+  <data name="Slot.Toast.JoinFailed" xml:space="preserve">
+    <value>Impossible de rejoindre la Syncshell de {0}. Veuillez réessayer.</value>
+  </data>
+  <data name="Slot.Toast.BackInRange" xml:space="preserve">
+    <value>Vous êtes de retour dans la zone de {0}. Le décompte de sortie automatique a été annulé.</value>
   </data>
   <data name="Slot.Toast.AutoLeft" xml:space="preserve">
     <value>Vous avez quitté la Syncshell {0} après 5 minutes d'inactivité dans la zone.</value>
@@ -1738,244 +1747,331 @@ Veuillez conserver une copie de votre clé secrète au cas où vous auriez besoi
     <value />
   </data>
   <data name="CharaDataHub.Mcd.Access.Title" xml:space="preserve">
-    <value />
+    <value>Accès &amp; Partage</value>
+  </data>
+  <data name="CharaDataHub.Mcd.Access.Mode.Invitation" xml:space="preserve">
+    <value>Sur invitation</value>
+  </data>
+  <data name="CharaDataHub.Mcd.Access.Mode.InvitationDesc" xml:space="preserve">
+    <value>Seules les personnes que tu ajoutes à la liste peuvent accéder à ce Live (via le code de partage).</value>
+  </data>
+  <data name="CharaDataHub.Mcd.Access.Mode.Pairs" xml:space="preserve">
+    <value>Mes paires</value>
+  </data>
+  <data name="CharaDataHub.Mcd.Access.Mode.PairsDesc" xml:space="preserve">
+    <value>Toutes tes paires synchronisées directes peuvent voir et appliquer ce Live sans code.</value>
+  </data>
+  <data name="CharaDataHub.Mcd.Access.Mode.AllPairs" xml:space="preserve">
+    <value>Toutes les paires</value>
+  </data>
+  <data name="CharaDataHub.Mcd.Access.Mode.AllPairsDesc" xml:space="preserve">
+    <value>Tes paires directes ET leurs paires peuvent voir et appliquer ce Live sans code.</value>
+  </data>
+  <data name="CharaDataHub.Mcd.Access.Mode.Public" xml:space="preserve">
+    <value>Public</value>
+  </data>
+  <data name="CharaDataHub.Mcd.Access.Mode.PublicDesc" xml:space="preserve">
+    <value>N'importe qui avec ton code de partage peut accéder à ce Live.</value>
+  </data>
+  <data name="CharaDataHub.Mcd.Access.Mode.Syncshell" xml:space="preserve">
+    <value>Syncshell</value>
+  </data>
+  <data name="CharaDataHub.Mcd.Access.Mode.SyncshellDesc" xml:space="preserve">
+    <value>Les membres de tes Syncshells peuvent acc&#xE9;der &#xE0; ce Live.</value>
+  </data>
+  <data name="CharaDataHub.Mcd.Online.CopyCode" xml:space="preserve">
+    <value>Copier le code de partage dans le presse-papier</value>
+  </data>
+  <data name="CharaDataHub.Edit.Appearance.NoData" xml:space="preserve">
+    <value>Aucune apparence enregistrée — capture ton apparence actuelle ci-dessous.</value>
+  </data>
+  <data name="CharaDataHub.Edit.Appearance.Unsaved" xml:space="preserve">
+    <value>Nouvelle apparence capturée — sauvegarde pour l'envoyer sur le serveur.</value>
+  </data>
+  <data name="CharaDataHub.Edit.Appearance.UpToDate" xml:space="preserve">
+    <value>Apparence synchronisée avec le serveur.</value>
   </data>
   <data name="CharaDataHub.Mcd.Edit.CancelUpload" xml:space="preserve">
-    <value />
+    <value>Annuler l'envoi</value>
   </data>
   <data name="CharaDataHub.Mcd.Edit.NoUpdateDto" xml:space="preserve">
-    <value />
+    <value>Une erreur inattendue s'est produite. Essayez de mettre &#xE0; jour vos donn&#xE9;es via le bouton ci-dessus.</value>
   </data>
   <data name="CharaDataHub.Mcd.Edit.Save" xml:space="preserve">
-    <value />
+    <value>Sauvegarder sur le serveur</value>
   </data>
   <data name="CharaDataHub.Mcd.Edit.SelectEntry" xml:space="preserve">
-    <value />
+    <value>S&#xE9;lectionnez une entr&#xE9;e ci-dessus pour modifier ses donn&#xE9;es.</value>
+  </data>
+  <data name="CharaDataHub.Mcd.Edit.Close" xml:space="preserve">
+    <value>Fermer l'&#xE9;diteur</value>
   </data>
   <data name="CharaDataHub.Mcd.Edit.UndoAll" xml:space="preserve">
-    <value />
+    <value>Annuler toutes les modifications</value>
   </data>
   <data name="CharaDataHub.Mcd.Edit.UnsavedWarning" xml:space="preserve">
-    <value />
+    <value>Attention : vous avez des modifications non sauvegard&#xE9;es !</value>
   </data>
   <data name="CharaDataHub.Mcd.Edit.Updating" xml:space="preserve">
-    <value />
+    <value>Mise &#xE0; jour des donn&#xE9;es sur le serveur, veuillez patienter.</value>
   </data>
   <data name="CharaDataHub.Mcd.Appearance.CopyTooltip" xml:space="preserve">
-    <value />
+    <value>Copier le code dans le presse-papiers</value>
   </data>
   <data name="CharaDataHub.Mcd.Appearance.Created" xml:space="preserve">
-    <value />
+    <value>Date de cr&#xE9;ation</value>
   </data>
   <data name="CharaDataHub.Mcd.Appearance.Day" xml:space="preserve">
-    <value />
+    <value>Jour</value>
   </data>
   <data name="CharaDataHub.Mcd.Appearance.Delete" xml:space="preserve">
-    <value />
+    <value>Supprimer les donn&#xE9;es</value>
   </data>
   <data name="CharaDataHub.Mcd.Appearance.DeleteTooltip" xml:space="preserve">
-    <value />
+    <value>Maintenez CTRL et cliquez pour supprimer. Cette op&#xE9;ration est irr&#xE9;versible.</value>
   </data>
   <data name="CharaDataHub.Mcd.Appearance.DescriptionHelp" xml:space="preserve">
-    <value />
+    <value>Description de ces donn&#xE9;es de personnage.
+Note : la description sera visible par toute personne ayant acc&#xE8;s. Voir &#xAB; Restrictions d'acc&#xE8;s &#xBB; et &#xAB; Partage &#xBB; ci-dessous.</value>
   </data>
   <data name="CharaDataHub.Mcd.Appearance.DescriptionLabel" xml:space="preserve">
-    <value />
+    <value>Description</value>
   </data>
   <data name="CharaDataHub.Mcd.Appearance.DownloadCount" xml:space="preserve">
-    <value />
+    <value>Nombre de t&#xE9;l&#xE9;chargements</value>
   </data>
   <data name="CharaDataHub.Mcd.Appearance.Expires" xml:space="preserve">
-    <value />
+    <value>Expiration</value>
   </data>
   <data name="CharaDataHub.Mcd.Appearance.ExpiresHelp" xml:space="preserve">
-    <value />
+    <value>Si l'expiration est activ&#xE9;e, les donn&#xE9;es seront automatiquement supprim&#xE9;es du serveur &#xE0; la date sp&#xE9;cifi&#xE9;e.</value>
   </data>
   <data name="CharaDataHub.Mcd.Appearance.HasCustomize" xml:space="preserve">
-    <value />
+    <value>Contient des donn&#xE9;es Customize+</value>
   </data>
   <data name="CharaDataHub.Mcd.Appearance.Month" xml:space="preserve">
-    <value />
+    <value>Mois</value>
   </data>
   <data name="CharaDataHub.Mcd.Appearance.Title" xml:space="preserve">
-    <value />
+    <value>G&#xE9;n&#xE9;ral</value>
   </data>
   <data name="CharaDataHub.Mcd.Appearance.Updated" xml:space="preserve">
-    <value />
+    <value>Derni&#xE8;re mise &#xE0; jour</value>
   </data>
   <data name="CharaDataHub.Mcd.Appearance.Year" xml:space="preserve">
-    <value />
+    <value>Ann&#xE9;e</value>
   </data>
   <data name="CharaDataHub.Mcd.Appearance.CodeLabel" xml:space="preserve">
-    <value />
+    <value>Code de donn&#xE9;es</value>
   </data>
   <data name="CharaDataHub.Mcd.Poses.Add" xml:space="preserve">
-    <value />
+    <value>Ajouter une pose</value>
   </data>
   <data name="CharaDataHub.Mcd.Poses.AttachPose" xml:space="preserve">
-    <value />
+    <value>Attacher la pose actuelle</value>
   </data>
   <data name="CharaDataHub.Mcd.Poses.AttachWorldData" xml:space="preserve">
-    <value />
+    <value>Attacher la position actuelle dans le monde</value>
   </data>
   <data name="CharaDataHub.Mcd.Poses.Count" xml:space="preserve">
-    <value />
+    <value>{0}/{1} poses attach&#xE9;es</value>
   </data>
   <data name="CharaDataHub.Mcd.Poses.Delete" xml:space="preserve">
-    <value />
+    <value>Supprimer</value>
   </data>
   <data name="CharaDataHub.Mcd.Poses.DeletePoseData" xml:space="preserve">
-    <value />
+    <value>Supprimer les donn&#xE9;es de pose</value>
   </data>
   <data name="CharaDataHub.Mcd.Poses.DeleteWorldData" xml:space="preserve">
-    <value />
+    <value>Supprimer les donn&#xE9;es de position</value>
   </data>
   <data name="CharaDataHub.Mcd.Poses.DescriptionPlaceholder" xml:space="preserve">
-    <value />
+    <value>Description</value>
   </data>
   <data name="CharaDataHub.Mcd.Poses.HasPoseData" xml:space="preserve">
-    <value />
+    <value>Cette entr&#xE9;e contient des donn&#xE9;es de pose</value>
   </data>
   <data name="CharaDataHub.Mcd.Poses.NoPoseData" xml:space="preserve">
-    <value />
+    <value>Cette entr&#xE9;e ne contient pas de donn&#xE9;es de pose</value>
   </data>
   <data name="CharaDataHub.Mcd.Poses.NotUploaded" xml:space="preserve">
-    <value />
+    <value>Cette pose n'a pas encore &#xE9;t&#xE9; envoy&#xE9;e au serveur. Sauvegardez pour l'envoyer.</value>
   </data>
   <data name="CharaDataHub.Mcd.Poses.RequireBrio" xml:space="preserve">
-    <value />
+    <value>Brio doit &#xEA;tre install&#xE9; pour attacher des donn&#xE9;es de pose et de position.</value>
   </data>
   <data name="CharaDataHub.Mcd.Poses.RequireGpose" xml:space="preserve">
-    <value />
+    <value>Vous devez &#xEA;tre en GPose pour attacher des donn&#xE9;es de pose et de position.</value>
   </data>
   <data name="CharaDataHub.Mcd.Poses.ScheduledDeletion" xml:space="preserve">
-    <value />
+    <value>Pose programm&#xE9;e pour suppression</value>
   </data>
   <data name="CharaDataHub.Mcd.Poses.Title" xml:space="preserve">
-    <value />
+    <value>Poses</value>
   </data>
   <data name="CharaDataHub.Mcd.Poses.Undo" xml:space="preserve">
-    <value />
+    <value>Annuler</value>
   </data>
   <data name="CharaDataHub.Mcd.Poses.UnsavedChanges" xml:space="preserve">
-    <value />
+    <value>Cette pose contient des modifications non sauvegard&#xE9;es.</value>
   </data>
   <data name="CharaDataHub.Mcd.Poses.WorldDataMap" xml:space="preserve">
-    <value />
+    <value>Cliquer pour afficher sur la carte</value>
   </data>
   <data name="CharaDataHub.Mcd.Poses.WorldDataPresent" xml:space="preserve">
-    <value />
+    <value>Cette pose contient des donn&#xE9;es de position.</value>
   </data>
   <data name="CharaDataHub.Mcd.Share.HasCustomize" xml:space="preserve">
-    <value />
+    <value>Contient des donn&#xE9;es Customize+</value>
   </data>
   <data name="CharaDataHub.Mcd.Share.HasFiles" xml:space="preserve">
-    <value />
+    <value>Contient des fichiers</value>
   </data>
   <data name="CharaDataHub.Mcd.Share.HasGlamourer" xml:space="preserve">
-    <value />
+    <value>Contient des donn&#xE9;es Glamourer</value>
   </data>
   <data name="CharaDataHub.Mcd.Share.NoCustomize" xml:space="preserve">
-    <value />
+    <value>Aucune donn&#xE9;e Customize+</value>
   </data>
   <data name="CharaDataHub.Mcd.Share.NoFiles" xml:space="preserve">
-    <value />
+    <value>Aucun fichier attach&#xE9;</value>
   </data>
   <data name="CharaDataHub.Mcd.Share.NoGlamourer" xml:space="preserve">
-    <value />
+    <value>Aucune donn&#xE9;e Glamourer</value>
   </data>
   <data name="CharaDataHub.Mcd.Online.DownloadAll" xml:space="preserve">
-    <value />
+    <value>T&#xE9;l&#xE9;charger vos donn&#xE9;es en ligne depuis le serveur</value>
+  </data>
+  <data name="CharaDataHub.Mcd.Online.Refresh" xml:space="preserve">
+    <value>Actualiser</value>
   </data>
   <data name="CharaDataHub.Mcd.Online.DownloadAllCooldown" xml:space="preserve">
-    <value />
+    <value>Vous ne pouvez actualiser les donn&#xE9;es que toutes les minutes. Veuillez patienter.</value>
   </data>
   <data name="CharaDataHub.Mcd.Online.EntryCount" xml:space="preserve">
-    <value />
+    <value>Entr&#xE9;es sur le serveur : {0}/{1}</value>
   </data>
   <data name="CharaDataHub.Mcd.Online.Help" xml:space="preserve">
-    <value />
+    <value>Cet onglet centralise vos donn&#xE9;es de personnage, qu'elles soient stock&#xE9;es sur le serveur ou en local sur votre machine.
+Il existe deux types de donn&#xE9;es serveur :
+- Live : entr&#xE9;e modifiable (apparence, poses, param&#xE8;tres d'acc&#xE8;s). Vous pouvez la mettre &#xE0; jour &#xE0; tout moment.
+- MCDF : copie fig&#xE9;e de votre personnage tel qu'il est actuellement, ou envoy&#xE9;e depuis un fichier local. Non modifiable apr&#xE8;s cr&#xE9;ation.
+La section du bas liste les fichiers MCDF pr&#xE9;sents dans votre dossier local. Vous pouvez les envoyer sur le serveur ou les supprimer.
+Le partage avec d'autres joueurs se g&#xE8;re dans l'onglet &#xAB; Partages &#xBB;.</value>
   </data>
   <data name="CharaDataHub.Mcd.Online.InitNotice" xml:space="preserve">
-    <value />
+    <value>Veuillez utiliser le bouton de t&#xE9;l&#xE9;chargement au moins une fois avant de pouvoir cr&#xE9;er de nouvelles entr&#xE9;es.</value>
   </data>
   <data name="CharaDataHub.Mcd.Online.NewEntry" xml:space="preserve">
-    <value />
+    <value>G&#xE9;n&#xE9;rer un fichier Live</value>
   </data>
   <data name="CharaDataHub.Mcd.Online.NewEntryCooldown" xml:space="preserve">
-    <value />
+    <value>Vous ne pouvez cr&#xE9;er de nouvelles donn&#xE9;es que toutes les quelques secondes. Veuillez patienter.</value>
+  </data>
+  <data name="CharaDataHub.Mcd.Online.NewEntryTooltip" xml:space="preserve">
+    <value>Cr&#xE9;e une entr&#xE9;e en ligne li&#xE9;e &#xE0; votre compte. Elle sera mise &#xE0; jour en temps r&#xE9;el avec votre apparence actuelle lorsque vous &#xEA;tes en ligne, et vos amis pourront l'appliquer sur une cible GPose.</value>
   </data>
   <data name="CharaDataHub.Mcd.Online.Table.Code" xml:space="preserve">
-    <value />
+    <value>Code</value>
   </data>
   <data name="CharaDataHub.Mcd.Online.Table.Created" xml:space="preserve">
-    <value />
+    <value>Cr&#xE9;&#xE9;</value>
   </data>
   <data name="CharaDataHub.Mcd.Online.Table.Customize" xml:space="preserve">
-    <value />
+    <value>Customize+</value>
+  </data>
+  <data name="CharaDataHub.Mcd.Online.Table.Type" xml:space="preserve">
+    <value>Type</value>
+  </data>
+  <data name="CharaDataHub.Mcd.Online.TypeCharaData" xml:space="preserve">
+    <value>Live</value>
+  </data>
+  <data name="CharaDataHub.Mcd.Online.TypeMcdf" xml:space="preserve">
+    <value>MCDF</value>
   </data>
   <data name="CharaDataHub.Mcd.Online.Table.Description" xml:space="preserve">
-    <value />
+    <value>Description</value>
   </data>
   <data name="CharaDataHub.Mcd.Online.Table.DownloadCount" xml:space="preserve">
-    <value />
+    <value>T&#xE9;l&#xE9;chargements</value>
   </data>
   <data name="CharaDataHub.Mcd.Online.Table.Downloadable" xml:space="preserve">
-    <value />
+    <value>T&#xE9;l&#xE9;chargeable</value>
   </data>
   <data name="CharaDataHub.Mcd.Online.Table.Expires" xml:space="preserve">
-    <value />
+    <value>Expire</value>
   </data>
   <data name="CharaDataHub.Mcd.Online.Table.Files" xml:space="preserve">
-    <value />
+    <value>Fichiers</value>
   </data>
   <data name="CharaDataHub.Mcd.Online.Table.Glamourer" xml:space="preserve">
-    <value />
+    <value>Glamourer</value>
   </data>
   <data name="CharaDataHub.Mcd.Online.Table.Title" xml:space="preserve">
-    <value />
+    <value>Donn&#xE9;es de personnage</value>
   </data>
   <data name="CharaDataHub.Mcd.Online.Table.Updated" xml:space="preserve">
-    <value />
+    <value>Modifi&#xE9;</value>
+  </data>
+  <data name="CharaDataHub.Mcd.Online.TabLive" xml:space="preserve">
+    <value>Live</value>
+  </data>
+  <data name="CharaDataHub.Mcd.Online.TabMcdf" xml:space="preserve">
+    <value>MCDF</value>
+  </data>
+  <data name="CharaDataHub.Partages.Sub.Mcdf" xml:space="preserve">
+    <value>MCDF</value>
+  </data>
+  <data name="CharaDataHub.Partages.Sub.Live" xml:space="preserve">
+    <value>Live</value>
+  </data>
+  <data name="CharaDataHub.Partages.Live.Title" xml:space="preserve">
+    <value>Partage de fichier Live</value>
+  </data>
+  <data name="CharaDataHub.Partages.Live.NoEntries" xml:space="preserve">
+    <value>Vous n'avez aucun fichier Live en ligne. Cr&#xE9;ez-en un depuis l'onglet Mes donn&#xE9;es.</value>
+  </data>
+  <data name="CharaDataHub.Partages.Live.SelectEntry" xml:space="preserve">
+    <value>S&#xE9;lectionnez un fichier Live pour configurer son acc&#xE8;s.</value>
   </data>
   <data name="CharaDataHub.Mcd.Online.Title" xml:space="preserve">
-    <value />
+    <value>Donn&#xE9;es de personnage en ligne</value>
   </data>
   <data name="CharaDataHub.Mcd.Online.UnsavedEntry" xml:space="preserve">
-    <value />
+    <value>Cette entr&#xE9;e contient des modifications non sauvegard&#xE9;es</value>
   </data>
   <data name="CharaDataHub.Mcd.Online.Downloadable" xml:space="preserve">
-    <value />
+    <value>Peut &#xEA;tre t&#xE9;l&#xE9;charg&#xE9; par d'autres</value>
   </data>
   <data name="CharaDataHub.Mcd.Online.NotDownloadable" xml:space="preserve">
-    <value />
+    <value>Non t&#xE9;l&#xE9;chargeable : fichiers ou donn&#xE9;es manquants, v&#xE9;rifiez cette entr&#xE9;e manuellement</value>
   </data>
   <data name="CharaDataHub.Mcd.Online.HasFiles" xml:space="preserve">
-    <value />
+    <value>Contient des fichiers</value>
   </data>
   <data name="CharaDataHub.Mcd.Online.NoFiles" xml:space="preserve">
-    <value />
+    <value>Aucun fichier attach&#xE9;</value>
   </data>
   <data name="CharaDataHub.Mcd.Online.HasGlamourer" xml:space="preserve">
-    <value />
+    <value>Contient des donn&#xE9;es Glamourer</value>
   </data>
   <data name="CharaDataHub.Mcd.Online.NoGlamourer" xml:space="preserve">
-    <value />
+    <value>Aucune donn&#xE9;e Glamourer</value>
   </data>
   <data name="CharaDataHub.Mcd.Online.HasCustomize" xml:space="preserve">
-    <value />
+    <value>Contient des donn&#xE9;es Customize+</value>
   </data>
   <data name="CharaDataHub.Mcd.Online.NoCustomize" xml:space="preserve">
-    <value />
+    <value>Aucune donn&#xE9;e Customize+</value>
   </data>
   <data name="CharaDataHub.Mcd.Online.ExpiresOn" xml:space="preserve">
-    <value />
+    <value>Cette entr&#xE9;e expirera le {0}</value>
   </data>
   <data name="CharaDataHub.Mcd.Online.EntryMaxed" xml:space="preserve">
-    <value />
+    <value>Vous avez atteint le nombre maximum d'entr&#xE9;es et ne pouvez plus en cr&#xE9;er.</value>
   </data>
   <data name="CharaDataHub.Mcd.Online.Creating" xml:space="preserve">
-    <value />
+    <value>Cr&#xE9;ation d'une nouvelle entr&#xE9;e sur le serveur...</value>
   </data>
   <data name="CharaDataHub.Mcd.Specific.AllowedGroups" xml:space="preserve">
     <value />
@@ -2011,82 +2107,468 @@ Veuillez conserver une copie de votre clé secrète au cas où vous auriez besoi
     <value />
   </data>
   <data name="CharaDataHub.Apply.Favorites.MetaDescription" xml:space="preserve">
-    <value />
+    <value>Description : {0}</value>
   </data>
   <data name="CharaDataHub.Apply.Favorites.MetaInfoPresent" xml:space="preserve">
-    <value />
+    <value>M&#xE9;tadonn&#xE9;es disponibles</value>
   </data>
   <data name="CharaDataHub.Apply.Favorites.MetaNotAccessible" xml:space="preserve">
-    <value />
+    <value>Les donn&#xE9;es associ&#xE9;es &#xE0; ce code ne sont plus pr&#xE9;sentes sur le serveur ou vous n'y avez pas acc&#xE8;s</value>
   </data>
   <data name="CharaDataHub.Apply.Favorites.MetaNotDownloaded" xml:space="preserve">
-    <value />
+    <value>Les m&#xE9;tadonn&#xE9;es n'ont pas pu &#xEA;tre t&#xE9;l&#xE9;charg&#xE9;es.</value>
   </data>
   <data name="CharaDataHub.Apply.Favorites.MetaPoses" xml:space="preserve">
-    <value />
+    <value>Poses : {0}</value>
   </data>
   <data name="CharaDataHub.Apply.Favorites.MetaUnknown" xml:space="preserve">
-    <value />
+    <value>&#xC9;tat d'accessibilit&#xE9; inconnu. Cliquez sur le bouton &#xE0; droite pour actualiser.</value>
   </data>
   <data name="CharaDataHub.Apply.Favorites.MetaUpdated" xml:space="preserve">
-    <value />
+    <value>Derni&#xE8;re mise &#xE0; jour : {0}</value>
   </data>
   <data name="CharaDataHub.Apply.Favorites.RefreshTimeout" xml:space="preserve">
-    <value />
+    <value>D&#xE9;lai d'actualisation actif, veuillez patienter.</value>
   </data>
   <data name="CharaDataHub.Apply.Favorites.RefreshTooltip" xml:space="preserve">
-    <value />
+    <value>Actualiser les donn&#xE9;es de cette entr&#xE9;e depuis le serveur.</value>
   </data>
   <data name="CharaDataHub.Apply.Filters.CodeOwner" xml:space="preserve">
-    <value />
+    <value>Filtre par code/propri&#xE9;taire</value>
   </data>
   <data name="CharaDataHub.Apply.Filters.Description" xml:space="preserve">
-    <value />
+    <value>Filtre par description</value>
   </data>
   <data name="CharaDataHub.Apply.Filters.OnlyPose" xml:space="preserve">
-    <value />
+    <value>Afficher uniquement les entr&#xE9;es avec des poses</value>
   </data>
   <data name="CharaDataHub.Apply.Filters.OnlyWorld" xml:space="preserve">
-    <value />
+    <value>Afficher uniquement les entr&#xE9;es avec des donn&#xE9;es de monde</value>
   </data>
   <data name="CharaDataHub.Apply.Filters.Reset" xml:space="preserve">
-    <value />
+    <value>R&#xE9;initialiser les filtres</value>
   </data>
   <data name="CharaDataHub.Apply.Filters.Title" xml:space="preserve">
-    <value />
+    <value>Filtres</value>
   </data>
   <data name="CharaDataHub.Apply.GposeActors.AppliedDataTooltip" xml:space="preserve">
-    <value />
+    <value>Donn&#xE9;es appliqu&#xE9;es : {0}</value>
   </data>
   <data name="CharaDataHub.Apply.GposeActors.NoData" xml:space="preserve">
-    <value />
+    <value>Aucune donn&#xE9;e appliqu&#xE9;e</value>
   </data>
   <data name="CharaDataHub.Apply.GposeActors.RemoveTooltip" xml:space="preserve">
-    <value />
+    <value>Supprimer le personnage {0}</value>
   </data>
   <data name="CharaDataHub.Apply.GposeActors.RevertTooltip" xml:space="preserve">
-    <value />
+    <value>Annuler les donn&#xE9;es appliqu&#xE9;es de {0}</value>
   </data>
   <data name="CharaDataHub.Apply.GposeActors.TargetTooltip" xml:space="preserve">
-    <value />
+    <value>Cibler le personnage GPose {0}</value>
   </data>
   <data name="CharaDataHub.Apply.GposeActors.Title" xml:space="preserve">
-    <value />
+    <value>Acteurs GPose</value>
   </data>
   <data name="CharaDataHub.Apply.TabTitle" xml:space="preserve">
-    <value />
+    <value>Appliquer l'apparence</value>
   </data>
   <data name="CharaDataHub.Apply.TargetLabel" xml:space="preserve">
-    <value />
+    <value>Cible GPose</value>
   </data>
   <data name="CharaDataHub.Apply.TargetWarning" xml:space="preserve">
-    <value />
+    <value>L'application de donn&#xE9;es n'est disponible qu'en GPose avec une cible GPose valide s&#xE9;lectionn&#xE9;e.</value>
   </data>
   <data name="CharaDataHub.Apply.Tabs.Favorites" xml:space="preserve">
-    <value />
+    <value>Favoris</value>
+  </data>
+  <data name="CharaDataHub.Apply.Tabs.Code" xml:space="preserve">
+    <value>Code</value>
+  </data>
+  <data name="CharaDataHub.Apply.Tabs.YourOwn" xml:space="preserve">
+    <value>Les v&#xF4;tres</value>
+  </data>
+  <data name="CharaDataHub.Apply.Tabs.SharedWithYou" xml:space="preserve">
+    <value>Partag&#xE9;s avec vous</value>
+  </data>
+  <data name="CharaDataHub.Apply.Tabs.FromMcdf" xml:space="preserve">
+    <value>Depuis MCDF</value>
+  </data>
+  <data name="CharaDataHub.Apply.LastUse" xml:space="preserve">
+    <value>Derni&#xE8;re utilisation : </value>
+  </data>
+  <data name="CharaDataHub.Apply.Never" xml:space="preserve">
+    <value>Jamais</value>
+  </data>
+  <data name="CharaDataHub.Apply.FavoriteDescPlaceholder" xml:space="preserve">
+    <value>Description personnalis&#xE9;e</value>
+  </data>
+  <data name="CharaDataHub.Apply.NoFavorites" xml:space="preserve">
+    <value>Vous n'avez aucun favori. Ajoutez des favoris via les autres onglets.</value>
+  </data>
+  <data name="CharaDataHub.Apply.Favorites.ApplyTooltip" xml:space="preserve">
+    <value>Appliquer les donn&#xE9;es au personnage GPose</value>
+  </data>
+  <data name="CharaDataHub.Apply.Favorites.SpawnTooltip" xml:space="preserve">
+    <value>Cr&#xE9;er un acteur Brio et appliquer les donn&#xE9;es</value>
+  </data>
+  <data name="CharaDataHub.Apply.Code.Help" xml:space="preserve">
+    <value>Vous pouvez appliquer des donn&#xE9;es de personnage dont vous avez le code dans cet onglet. Entrez le code au format &#xAB; OwnerUID:DataId &#xBB; dans le champ ci-dessous et cliquez sur &#xAB; Obtenir les infos &#xBB;. Vous obtiendrez les informations de base sur les donn&#xE9;es derri&#xE8;re ce code. S&#xE9;lectionnez ensuite un acteur en GPose et appuyez sur &#xAB; T&#xE9;l&#xE9;charger et appliquer &#xBB;.
+
+Description : d&#xE9;finie par le propri&#xE9;taire du code pour donner des informations suppl&#xE9;mentaires sur le contenu.
+Derni&#xE8;re mise &#xE0; jour : date et heure de la derni&#xE8;re modification des donn&#xE9;es par le propri&#xE9;taire.
+T&#xE9;l&#xE9;chargeable : indique si le code peut &#xEA;tre t&#xE9;l&#xE9;charg&#xE9; et appliqu&#xE9;. Si non, contactez le propri&#xE9;taire.
+
+Pour t&#xE9;l&#xE9;charger un code, les permissions d'acc&#xE8;s doivent &#xEA;tre correctement configur&#xE9;es par le propri&#xE9;taire. Si l'obtention des infos &#xE9;choue, contactez le propri&#xE9;taire pour v&#xE9;rifier ses permissions d'acc&#xE8;s.</value>
+  </data>
+  <data name="CharaDataHub.Apply.Code.Placeholder" xml:space="preserve">
+    <value>Entrer un code de donn&#xE9;es</value>
+  </data>
+  <data name="CharaDataHub.Apply.Code.GetInfo" xml:space="preserve">
+    <value>Obtenir les infos</value>
+  </data>
+  <data name="CharaDataHub.Apply.DownloadAndApply" xml:space="preserve">
+    <value>T&#xE9;l&#xE9;charger et appliquer</value>
+  </data>
+  <data name="CharaDataHub.Apply.DownloadAndApply.Tooltip" xml:space="preserve">
+    <value>Appliquer ces donn&#xE9;es au personnage GPose actuel</value>
+  </data>
+  <data name="CharaDataHub.Apply.DownloadAndSpawn" xml:space="preserve">
+    <value>T&#xE9;l&#xE9;charger et cr&#xE9;er</value>
+  </data>
+  <data name="CharaDataHub.Apply.DownloadAndSpawn.Tooltip" xml:space="preserve">
+    <value>Cr&#xE9;er un nouvel acteur Brio et appliquer ces donn&#xE9;es</value>
+  </data>
+  <data name="CharaDataHub.Apply.Code.Downloading" xml:space="preserve">
+    <value>T&#xE9;l&#xE9;chargement des m&#xE9;tadonn&#xE9;es en cours...</value>
+  </data>
+  <data name="CharaDataHub.Apply.Description" xml:space="preserve">
+    <value>Description</value>
+  </data>
+  <data name="CharaDataHub.Apply.LastUpdate" xml:space="preserve">
+    <value>Derni&#xE8;re mise &#xE0; jour</value>
+  </data>
+  <data name="CharaDataHub.Apply.IsDownloadable" xml:space="preserve">
+    <value>T&#xE9;l&#xE9;chargeable</value>
+  </data>
+  <data name="CharaDataHub.Apply.Poses" xml:space="preserve">
+    <value>Poses</value>
+  </data>
+  <data name="CharaDataHub.Apply.YourOwn.Help" xml:space="preserve">
+    <value>Cet onglet liste vos donn&#xE9;es de personnage (Live et MCDF) stock&#xE9;es sur le serveur. Cliquez sur &#xAB; Actualiser &#xBB; pour mettre &#xE0; jour la liste.
+Pour cr&#xE9;er ou g&#xE9;rer vos donn&#xE9;es, utilisez l'onglet &#xAB; Cr&#xE9;ation de donn&#xE9;es &#xBB; &gt; &#xAB; MCDF &#xBB; &gt; &#xAB; Mes donn&#xE9;es &#xBB;.</value>
+  </data>
+  <data name="CharaDataHub.Apply.YourOwn.Download" xml:space="preserve">
+    <value>T&#xE9;l&#xE9;charger vos donn&#xE9;es</value>
+  </data>
+  <data name="CharaDataHub.Apply.YourOwn.Cooldown" xml:space="preserve">
+    <value>Vous ne pouvez actualiser les donn&#xE9;es que toutes les minutes.</value>
+  </data>
+  <data name="CharaDataHub.Apply.SharedWithYou.Help" xml:space="preserve">
+    <value>Vous pouvez appliquer les donn&#xE9;es de personnage partag&#xE9;es implicitement avec vous dans cet onglet. Les donn&#xE9;es partag&#xE9;es sont celles dont le param&#xE8;tre &#xAB; Partage &#xBB; est d&#xE9;fini sur &#xAB; Partag&#xE9; &#xBB; et auxquelles vous avez acc&#xE8;s selon les restrictions d'acc&#xE8;s (votre UID a &#xE9;t&#xE9; sp&#xE9;cifi&#xE9; ou vous &#xEA;tes appair&#xE9; avec l'autre utilisateur).
+
+Filtrez si n&#xE9;cessaire, puis appuyez sur &#xAB; Appliquer &#xBB; pour t&#xE9;l&#xE9;charger et appliquer les donn&#xE9;es &#xE0; l'acteur GPose cibl&#xE9;.
+
+Note : les donn&#xE9;es des pairs que vous avez mis en pause ne sont pas affich&#xE9;es ici.</value>
+  </data>
+  <data name="CharaDataHub.Apply.Filters" xml:space="preserve">
+    <value>Filtres</value>
+  </data>
+  <data name="CharaDataHub.Apply.FiltersActive" xml:space="preserve">
+    <value>Filtres ({0} actifs)</value>
+  </data>
+  <data name="CharaDataHub.Apply.FilterByUid" xml:space="preserve">
+    <value>Filtrer par UID/Note</value>
+  </data>
+  <data name="CharaDataHub.Apply.FilterByDesc" xml:space="preserve">
+    <value>Filtrer par description</value>
+  </data>
+  <data name="CharaDataHub.Apply.OnlyDownloadable" xml:space="preserve">
+    <value>Afficher uniquement les t&#xE9;l&#xE9;chargeables</value>
+  </data>
+  <data name="CharaDataHub.Apply.Mcdf.Help" xml:space="preserve">
+    <value>Vous pouvez appliquer des donn&#xE9;es de personnage partag&#xE9;es via un fichier MCDF dans cet onglet.
+
+Chargez d'abord le MCDF via le bouton &#xAB; Charger un MCDF &#xBB; pour obtenir la description d&#xE9;finie par le propri&#xE9;taire lors de l'export.
+Vous pourrez ensuite l'appliquer &#xE0; tout acteur GPose g&#xE9;r&#xE9;.
+
+Les MCDF &#xE0; partager se g&#xE9;n&#xE8;rent via l'onglet &#xAB; Export MCDF &#xBB; en haut.</value>
+  </data>
+  <data name="CharaDataHub.Apply.Mcdf.Load" xml:space="preserve">
+    <value>Charger un MCDF</value>
+  </data>
+  <data name="CharaDataHub.Apply.Mcdf.LoadTooltip" xml:space="preserve">
+    <value>Charger les m&#xE9;tadonn&#xE9;es du MCDF en m&#xE9;moire</value>
+  </data>
+  <data name="CharaDataHub.Apply.Mcdf.LoadedFile" xml:space="preserve">
+    <value>Fichier charg&#xE9;</value>
+  </data>
+  <data name="CharaDataHub.Apply.Mcdf.Apply" xml:space="preserve">
+    <value>Appliquer</value>
+  </data>
+  <data name="CharaDataHub.Apply.Mcdf.ApplyTooltip" xml:space="preserve">
+    <value>Appliquer &#xE0; {0}</value>
+  </data>
+  <data name="CharaDataHub.Apply.Mcdf.SpawnAndApply" xml:space="preserve">
+    <value>Cr&#xE9;er un acteur et appliquer</value>
+  </data>
+  <data name="CharaDataHub.Apply.Mcdf.ReadError" xml:space="preserve">
+    <value>&#xC9;chec de lecture du fichier MCDF. Le fichier est peut-&#xEA;tre corrompu. R&#xE9;-exportez-le et r&#xE9;essayez.</value>
+  </data>
+  <data name="CharaDataHub.Apply.Mcdf.ReadErrorNote" xml:space="preserve">
+    <value>Note : s'il s'agit de votre MCDF, essayez de vous redessiner, attendez puis r&#xE9;-exportez. Si vous l'avez re&#xE7;u d'un tiers, demandez-lui de faire de m&#xEA;me.</value>
+  </data>
+  <data name="CharaDataHub.Apply.Mcdf.Loading" xml:space="preserve">
+    <value>Chargement du personnage...</value>
+  </data>
+  <data name="CharaDataHub.Apply.Mcdf.PickFile" xml:space="preserve">
+    <value>S&#xE9;lectionner un fichier MCDF</value>
   </data>
   <data name="CharaDataHub.Apply.Title" xml:space="preserve">
-    <value />
+    <value>Appliquer l'apparence du personnage</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Import.Title" xml:space="preserve">
+    <value>Importer un fichier MCDF</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Import.Help" xml:space="preserve">
+    <value>Vous pouvez appliquer des donn&#xE9;es de personnage partag&#xE9;es via un fichier MCDF dans cette section.
+
+Chargez d'abord le MCDF via le bouton &#xAB; Charger un MCDF &#xBB; pour obtenir la description d&#xE9;finie par le propri&#xE9;taire lors de l'export.
+Vous pourrez ensuite l'appliquer &#xE0; tout acteur GPose g&#xE9;r&#xE9;.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Import.Load" xml:space="preserve">
+    <value>Charger un MCDF</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Import.PickFile" xml:space="preserve">
+    <value>S&#xE9;lectionner un fichier MCDF</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Import.LoadTooltip" xml:space="preserve">
+    <value>Charger les m&#xE9;tadonn&#xE9;es du MCDF en m&#xE9;moire</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Import.LoadedFile" xml:space="preserve">
+    <value>Fichier charg&#xE9;</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Import.Apply" xml:space="preserve">
+    <value>Appliquer</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Import.ApplyTooltip" xml:space="preserve">
+    <value>Appliquer &#xE0; {0}</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Import.SpawnAndApply" xml:space="preserve">
+    <value>Cr&#xE9;er un acteur et appliquer</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Import.ReadError" xml:space="preserve">
+    <value>&#xC9;chec de lecture du fichier MCDF. Le fichier est peut-&#xEA;tre corrompu. R&#xE9;-exportez-le et r&#xE9;essayez.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Import.ReadErrorNote" xml:space="preserve">
+    <value>Note : s'il s'agit de votre MCDF, essayez de vous redessiner, attendez puis r&#xE9;-exportez le fichier. Si vous l'avez re&#xE7;u d'un tiers, demandez-lui de faire de m&#xEA;me.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Import.Loading" xml:space="preserve">
+    <value>Chargement du personnage...</value>
+  </data>
+  <data name="CharaDataHub.Apply.Favorite.CustomDesc" xml:space="preserve">
+    <value>Description personnalis&#xE9;e : {0}</value>
+  </data>
+  <data name="CharaDataHub.Apply.Favorite.RemoveTooltip" xml:space="preserve">
+    <value>Cliquer pour retirer des favoris</value>
+  </data>
+  <data name="CharaDataHub.Apply.Favorite.AddTooltip" xml:space="preserve">
+    <value>Cliquer pour ajouter aux favoris</value>
+  </data>
+  <data name="CharaDataHub.Apply.Meta.Incomplete" xml:space="preserve">
+    <value>Ces donn&#xE9;es sont incompl&#xE8;tes sur le serveur et ne peuvent pas &#xEA;tre t&#xE9;l&#xE9;charg&#xE9;es. Contactez le propri&#xE9;taire pour qu'il les corrige. Si vous &#xEA;tes le propri&#xE9;taire, v&#xE9;rifiez les donn&#xE9;es dans l'onglet Donn&#xE9;es en ligne.</value>
+  </data>
+  <data name="CharaDataHub.Apply.Meta.LastUpdate" xml:space="preserve">
+    <value>Derni&#xE8;re mise &#xE0; jour : {0}</value>
+  </data>
+  <data name="CharaDataHub.Apply.Meta.ApplyToTarget" xml:space="preserve">
+    <value>Appliquer les donn&#xE9;es au personnage {0}</value>
+  </data>
+  <data name="CharaDataHub.Apply.Meta.SpawnAndApply" xml:space="preserve">
+    <value>Cr&#xE9;er un acteur et appliquer les donn&#xE9;es</value>
+  </data>
+  <data name="CharaDataHub.Apply.Meta.OpenEditor" xml:space="preserve">
+    <value>Ouvrir dans l'&#xE9;diteur de donn&#xE9;es en ligne</value>
+  </data>
+  <data name="CharaDataHub.Apply.Meta.CannotWhileApplied" xml:space="preserve">
+    <value>Impossible d'utiliser les donn&#xE9;es en ligne tant que des donn&#xE9;es de personnage sont appliqu&#xE9;es sur vous-m&#xEA;me.</value>
+  </data>
+  <data name="CharaDataHub.Apply.Meta.NoDescription" xml:space="preserve">
+    <value>Aucune description d&#xE9;finie</value>
+  </data>
+  <data name="CharaDataHub.Apply.Pose.NoDescription" xml:space="preserve">
+    <value>Aucune description d&#xE9;finie</value>
+  </data>
+  <data name="CharaDataHub.Apply.Pose.Description" xml:space="preserve">
+    <value>Description de la pose : {0}</value>
+  </data>
+  <data name="CharaDataHub.Apply.Pose.ShowOnMap" xml:space="preserve">
+    <value>Cliquer pour afficher sur la carte</value>
+  </data>
+  <data name="CharaDataHub.Apply.Pose.ApplyToTarget" xml:space="preserve">
+    <value>Clic gauche : Appliquer cette pose &#xE0; {0}</value>
+  </data>
+  <data name="CharaDataHub.Apply.Pose.ApplyWorldPos" xml:space="preserve">
+    <value>CTRL+Clic droit : Appliquer la position dans le monde &#xE0; {0}.</value>
+  </data>
+  <data name="CharaDataHub.Apply.Pose.WorldPosCaution" xml:space="preserve">
+    <value>!!! ATTENTION : Appliquer la position dans le monde enverra probablement cet acteur dans le n&#xE9;ant. &#xC0; utiliser &#xE0; vos risques et p&#xE9;rils !!!</value>
+  </data>
+  <data name="CharaDataHub.Apply.SharedWithYou.DataSets" xml:space="preserve">
+    <value>{0} - [{1} jeux de donn&#xE9;es]</value>
+  </data>
+  <data name="CharaDataHub.Apply.SharedWithYou.Refresh" xml:space="preserve">
+    <value>Actualiser les partages</value>
+  </data>
+  <data name="CharaDataHub.Apply.SharedWithYou.None" xml:space="preserve">
+    <value>Aucun partage MCDF re&#xE7;u.</value>
+  </data>
+  <data name="CharaDataHub.Apply.SharedWithYou.Owner" xml:space="preserve">
+    <value>Propri&#xE9;taire</value>
+  </data>
+  <data name="CharaDataHub.Apply.SharedWithYou.Expires" xml:space="preserve">
+    <value>Expire</value>
+  </data>
+  <data name="CharaDataHub.Apply.SharedWithYou.ApplyTarget" xml:space="preserve">
+    <value>Appliquer sur la cible</value>
+  </data>
+  <data name="CharaDataHub.Apply.SharedWithYou.Save" xml:space="preserve">
+    <value>Enregistrer</value>
+  </data>
+  <data name="CharaDataHub.Apply.SharedWithYou.SaveDialog" xml:space="preserve">
+    <value>Enregistrer le partage MCDF</value>
+  </data>
+  <data name="CharaDataHub.Apply.SharedWithYou.OwnerUid" xml:space="preserve">
+    <value>UID propri&#xE9;taire : {0}</value>
+  </data>
+  <data name="CharaDataHub.Edit.Appearance" xml:space="preserve">
+    <value>Apparence</value>
+  </data>
+  <data name="CharaDataHub.Edit.SetAppearance" xml:space="preserve">
+    <value>D&#xE9;finir l'apparence &#xE0; l'apparence actuelle</value>
+  </data>
+  <data name="CharaDataHub.Edit.SetAppearance.Help" xml:space="preserve">
+    <value>Cela &#xE9;crasera les donn&#xE9;es d'apparence actuellement stock&#xE9;es dans cette entr&#xE9;e avec votre apparence actuelle.</value>
+  </data>
+  <data name="CharaDataHub.Edit.PreviewAppearance" xml:space="preserve">
+    <value>Pr&#xE9;visualiser l'apparence sauvegard&#xE9;e sur soi</value>
+  </data>
+  <data name="CharaDataHub.Edit.PreviewAppearance.Help" xml:space="preserve">
+    <value>Cela t&#xE9;l&#xE9;chargera et appliquera les donn&#xE9;es sauvegard&#xE9;es sur vous-m&#xEA;me. Une fois charg&#xE9;es, elles se r&#xE9;verseront automatiquement dans les 15 secondes.
+Note : Les armes ne s'afficheront pas correctement sauf si vous utilisez le m&#xEA;me m&#xE9;tier que les donn&#xE9;es sauvegard&#xE9;es.</value>
+  </data>
+  <data name="CharaDataHub.Edit.HasGlamourer" xml:space="preserve">
+    <value>Contient des donn&#xE9;es Glamourer</value>
+  </data>
+  <data name="CharaDataHub.Edit.HasFiles" xml:space="preserve">
+    <value>Contient des fichiers</value>
+  </data>
+  <data name="CharaDataHub.Edit.FileHashCount" xml:space="preserve">
+    <value>{0} fichiers uniques (upload original : {1} fichiers)</value>
+  </data>
+  <data name="CharaDataHub.Edit.GamePaths" xml:space="preserve">
+    <value>{0} chemins de jeu associ&#xE9;s</value>
+  </data>
+  <data name="CharaDataHub.Edit.FileSwaps" xml:space="preserve">
+    <value>{0} &#xE9;changes de fichiers</value>
+  </data>
+  <data name="CharaDataHub.Edit.FilesPresent" xml:space="preserve">
+    <value>Tous les fichiers pour t&#xE9;l&#xE9;charger ces donn&#xE9;es sont pr&#xE9;sents sur le serveur</value>
+  </data>
+  <data name="CharaDataHub.Edit.FilesMissing" xml:space="preserve">
+    <value>{0} fichiers pour t&#xE9;l&#xE9;charger ces donn&#xE9;es sont manquants sur le serveur</value>
+  </data>
+  <data name="CharaDataHub.Edit.UploadMissing" xml:space="preserve">
+    <value>Tenter d'envoyer les fichiers manquants et restaurer les donn&#xE9;es</value>
+  </data>
+  <data name="CharaDataHub.Edit.NewDataSet" xml:space="preserve">
+    <value>De nouvelles donn&#xE9;es ont &#xE9;t&#xE9; d&#xE9;finies. Elles peuvent contenir des fichiers &#xE0; envoyer (lors de la sauvegarde sur le serveur)</value>
+  </data>
+  <data name="CharaDataHub.Edit.HasManipulation" xml:space="preserve">
+    <value>Contient des donn&#xE9;es de manipulation</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Upload.Button" xml:space="preserve">
+    <value>Importer depuis un MCDF</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.NewSnapshot" xml:space="preserve">
+    <value>G&#xE9;n&#xE9;rer un MCDF</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.NewSnapshot.Placeholder" xml:space="preserve">
+    <value>Nom du MCDF</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.NewSnapshot.Tooltip" xml:space="preserve">
+    <value>Capturer l'apparence actuelle de votre personnage et l'envoyer sur le serveur en tant que MCDF.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Upload.Tooltip" xml:space="preserve">
+    <value>Envoyer un fichier MCDF comme partage sur le serveur. Le fichier sera disponible dans vos partages.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Upload.Success" xml:space="preserve">
+    <value>Partage MCDF cr&#xE9;&#xE9; depuis le fichier.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Upload.FileNotFound" xml:space="preserve">
+    <value>Fichier MCDF introuvable.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Upload.EmptyFile" xml:space="preserve">
+    <value>Le fichier MCDF est vide.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Local.Uploading" xml:space="preserve">
+    <value>Envoi du MCDF sur le serveur, veuillez patienter...</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.OwnShares.Title" xml:space="preserve">
+    <value>Fichiers MCDF sur le serveur</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.OwnShares.None" xml:space="preserve">
+    <value>Aucun fichier MCDF sur le serveur. Envoyez un fichier local pour commencer.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.OwnShares.Downloads" xml:space="preserve">
+    <value>DL</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Local.Title" xml:space="preserve">
+    <value>Fichiers MCDF locaux</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Local.FolderPlaceholder" xml:space="preserve">
+    <value>Chemin vers le dossier MCDF local</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Local.PickFolder" xml:space="preserve">
+    <value>S&#xE9;lectionner le dossier MCDF</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Local.Refresh" xml:space="preserve">
+    <value>Actualiser la liste des fichiers</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Local.NoFolder" xml:space="preserve">
+    <value>Configurez un dossier local pour lister vos fichiers MCDF.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Local.FolderNotFound" xml:space="preserve">
+    <value>Le dossier configur&#xE9; n'existe pas.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Local.NoFiles" xml:space="preserve">
+    <value>Aucun fichier MCDF trouv&#xE9; dans ce dossier.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Local.ColName" xml:space="preserve">
+    <value>Nom</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Local.ColSize" xml:space="preserve">
+    <value>Taille</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Local.ColDate" xml:space="preserve">
+    <value>Modifi&#xE9;</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Local.Upload" xml:space="preserve">
+    <value>Envoyer</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Local.UploadTooltip" xml:space="preserve">
+    <value>Envoyer ce MCDF sur le serveur</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Local.DeleteTooltip" xml:space="preserve">
+    <value>Supprimer ce fichier MCDF local</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Local.Delete" xml:space="preserve">
+    <value>Supprimer</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Online.DownloadTooltip" xml:space="preserve">
+    <value>Télécharger ce MCDF dans le dossier local</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Online.DeleteTooltip" xml:space="preserve">
+    <value>Supprimer ce MCDF du serveur</value>
   </data>
   <data name="DataAnalysis.AndMore" xml:space="preserve">
     <value />
@@ -2227,13 +2709,37 @@ Veuillez conserver une copie de votre clé secrète au cas où vous auriez besoi
     <value />
   </data>
   <data name="DtrEntry.Tooltip.Connected" xml:space="preserve">
-    <value />
+    <value>UmbraSync : En ligne</value>
   </data>
   <data name="DtrEntry.Tooltip.Disconnected" xml:space="preserve">
-    <value />
+    <value>UmbraSync : Hors ligne</value>
   </data>
   <data name="DtrEntry.Tooltip.PendingInvites" xml:space="preserve">
-    <value />
+    <value>Invitation(s) en attente : {0}</value>
+  </data>
+  <data name="DtrEntry.Tooltip.InSlotZone" xml:space="preserve">
+    <value>Zone SyncSlot : {0}</value>
+  </data>
+  <data name="DtrEntry.Tooltip.LeavingSlotZone" xml:space="preserve">
+    <value>Zone SyncSlot : {0} ({1})</value>
+  </data>
+  <data name="Settings.Dtr.ColorCode" xml:space="preserve">
+    <value>Coloriser la barre d'info serveur selon le statut</value>
+  </data>
+  <data name="Settings.Dtr.Default" xml:space="preserve">
+    <value>Par défaut</value>
+  </data>
+  <data name="Settings.Dtr.NotConnected" xml:space="preserve">
+    <value>Hors ligne</value>
+  </data>
+  <data name="Settings.Dtr.PairsInRange" xml:space="preserve">
+    <value>Paires à proximité</value>
+  </data>
+  <data name="Settings.Dtr.InSlotZone" xml:space="preserve">
+    <value>Zone de Slot</value>
+  </data>
+  <data name="Settings.Dtr.LeavingSlot" xml:space="preserve">
+    <value>Sortie de Slot</value>
   </data>
   <data name="EditProfile.ClearDescription" xml:space="preserve">
     <value />
@@ -2348,6 +2854,57 @@ Veuillez conserver une copie de votre clé secrète au cas où vous auriez besoi
   </data>
   <data name="Settings.AutoDetect.EnableSlotNotificationsHelp" xml:space="preserve">
     <value>Si activé, une fenêtre apparaîtra pour vous proposer de rejoindre une Syncshell lorsque vous approchez d'un lieu de housing enregistré (Slot).</value>
+  </data>
+  <data name="Settings.AutoDetect.AntiSpam.Header" xml:space="preserve">
+    <value>Anti-spam</value>
+  </data>
+  <data name="Settings.AutoDetect.DeclineCooldown" xml:space="preserve">
+    <value>Cooldown apr&#232;s refus (minutes)</value>
+  </data>
+  <data name="Settings.AutoDetect.DeclineCooldown.Disabled" xml:space="preserve">
+    <value>D&#233;sactiv&#233;</value>
+  </data>
+  <data name="Settings.AutoDetect.DeclineCooldown.Help" xml:space="preserve">
+    <value>Apr&#232;s avoir refus&#233; une invitation, le m&#234;me joueur ne pourra pas vous en renvoyer une pendant cette dur&#233;e.</value>
+  </data>
+  <data name="Settings.AutoDetect.BlockedPlayers" xml:space="preserve">
+    <value>Joueurs bloqu&#233;s ({0})</value>
+  </data>
+  <data name="Settings.AutoDetect.BlockedPlayers.Empty" xml:space="preserve">
+    <value>Aucun joueur bloqu&#233;.</value>
+  </data>
+  <data name="Settings.AutoDetect.BlockedPlayers.Unblock" xml:space="preserve">
+    <value>D&#233;bloquer</value>
+  </data>
+  <data name="AutoDetect.Block" xml:space="preserve">
+    <value>Bloquer</value>
+  </data>
+  <data name="AutoDetect.Block.Tooltip" xml:space="preserve">
+    <value>Bloquer ce joueur d&#233;finitivement. Il ne pourra plus vous envoyer d&apos;invitations.</value>
+  </data>
+  <data name="AutoDetect.Suppression.DisabledTitle" xml:space="preserve">
+    <value>AutoDetect en pause</value>
+  </data>
+  <data name="AutoDetect.Suppression.DisabledBody" xml:space="preserve">
+    <value>Zone instanci&#233;e d&#233;tect&#233;e : les fonctions AutoDetect/Nearby sont mises en pause.</value>
+  </data>
+  <data name="AutoDetect.Suppression.RestoredTitle" xml:space="preserve">
+    <value>AutoDetect r&#233;activ&#233;</value>
+  </data>
+  <data name="AutoDetect.Suppression.RestoredBody" xml:space="preserve">
+    <value>Vous avez quitt&#233; la zone instanci&#233;e : AutoDetect/Nearby fonctionnent de nouveau.</value>
+  </data>
+  <data name="AutoDetect.Syncshell.PublicTitle" xml:space="preserve">
+    <value>Syncshell publique : {0}</value>
+  </data>
+  <data name="AutoDetect.Syncshell.PublicBody" xml:space="preserve">
+    <value>La Syncshell est de nouveau visible via AutoDetect.</value>
+  </data>
+  <data name="AutoDetect.Syncshell.NotPublicTitle" xml:space="preserve">
+    <value>Syncshell non publique : {0}</value>
+  </data>
+  <data name="AutoDetect.Syncshell.NotPublicBody" xml:space="preserve">
+    <value>La Syncshell n&apos;est plus visible via AutoDetect.</value>
   </data>
   <data name="Settings.AutoDetect.LockedInInstance" xml:space="preserve">
     <value>AutoDetect est verrouillé tant que vous restez dans une zone instanciée.</value>
@@ -3199,10 +3756,10 @@ Veuillez conserver une copie de votre clé secrète au cas où vous auriez besoi
     <value />
   </data>
   <data name="CharaDataHub.NearbyPoses.GposeOnly" xml:space="preserve">
-    <value />
+    <value>L'application de poses n'est disponible qu'en mode GPose.</value>
   </data>
   <data name="CharaDataHub.NearbyPoses.Help" xml:space="preserve">
-    <value />
+    <value>Affiche les poses partag&#233;es par d'autres joueurs &#224; proximit&#233;. Utilisez les filtres pour affiner les r&#233;sultats.</value>
   </data>
   <data name="CharaDataHub.NearbyPoses.IgnoreHousing" xml:space="preserve">
     <value>Ignorer les limites de housing</value>
@@ -3214,70 +3771,70 @@ Veuillez conserver une copie de votre clé secrète au cas où vous auriez besoi
     <value>Note : Les poses utilisant des accessoires de housing, meubles, etc. ne s'afficheront pas correctement si elles ne sont pas dans le bon emplacement.</value>
   </data>
   <data name="CharaDataHub.NearbyPoses.MapTooltip" xml:space="preserve">
-    <value />
+    <value>Cliquez pour ouvrir la carte et placer un marqueur</value>
   </data>
   <data name="CharaDataHub.NearbyPoses.MaxWisps" xml:space="preserve">
-    <value />
+    <value>Nombre maximum de feux follets</value>
   </data>
   <data name="CharaDataHub.NearbyPoses.MaxWispsHelp" xml:space="preserve">
-    <value />
+    <value>Limite le nombre de feux follets actifs simultan&#233;ment. Mettez 0 pour d&#233;sactiver les feux follets m&#234;me s'ils sont activ&#233;s.</value>
   </data>
   <data name="CharaDataHub.NearbyPoses.NoDescription" xml:space="preserve">
-    <value />
+    <value>Aucune description de pose d&#233;finie</value>
   </data>
   <data name="CharaDataHub.NearbyPoses.NoneFound" xml:space="preserve">
-    <value />
+    <value>Aucune pose partag&#233;e trouv&#233;e &#224; proximit&#233;.</value>
   </data>
   <data name="CharaDataHub.NearbyPoses.OnlyCurrentWorld" xml:space="preserve">
-    <value />
+    <value>Afficher uniquement les poses du monde actuel</value>
   </data>
   <data name="CharaDataHub.NearbyPoses.OnlyCurrentWorldHelp" xml:space="preserve">
-    <value />
+    <value>Affiche uniquement les poses partag&#233;es avec des donn&#233;es de monde provenant du monde actuel</value>
   </data>
   <data name="CharaDataHub.NearbyPoses.PoseBy" xml:space="preserve">
-    <value />
+    <value>Pose par</value>
   </data>
   <data name="CharaDataHub.NearbyPoses.SettingsTitle" xml:space="preserve">
-    <value />
+    <value>Param&#232;tres &amp; Filtres</value>
   </data>
   <data name="CharaDataHub.NearbyPoses.ShowAlways" xml:space="preserve">
-    <value />
+    <value>Garder actif en dehors de l'onglet Poses</value>
   </data>
   <data name="CharaDataHub.NearbyPoses.ShowAlwaysHelp" xml:space="preserve">
-    <value />
+    <value>Continue le calcul de la position des feux follets, etc. en dehors de l'onglet &#171; Poses &#224; proximit&#233; &#187;.</value>
   </data>
   <data name="CharaDataHub.NearbyPoses.ShowAlwaysNote" xml:space="preserve">
-    <value />
+    <value>Note : Les feux follets disparaissent pendant le combat et les repr&#233;sentations.</value>
   </data>
   <data name="CharaDataHub.NearbyPoses.ShowOwnData" xml:space="preserve">
-    <value />
+    <value>Afficher &#233;galement vos propres donn&#233;es</value>
   </data>
   <data name="CharaDataHub.NearbyPoses.ShowOwnDataHelp" xml:space="preserve">
-    <value />
+    <value>Affiche &#233;galement vos propres poses</value>
   </data>
   <data name="CharaDataHub.NearbyPoses.ShowWisps" xml:space="preserve">
-    <value />
+    <value>Afficher les feux follets dans le monde</value>
   </data>
   <data name="CharaDataHub.NearbyPoses.ShowWispsHelp" xml:space="preserve">
-    <value />
+    <value>Dessine des feux follets flottants &#224; l'emplacement des poses des autres joueurs.</value>
   </data>
   <data name="CharaDataHub.NearbyPoses.SpawnAndPose" xml:space="preserve">
-    <value />
+    <value>Cr&#233;er et poser</value>
   </data>
   <data name="CharaDataHub.NearbyPoses.SpawnAndPoseTooltip" xml:space="preserve">
-    <value />
+    <value>Cr&#233;er un acteur et appliquer la pose et la position</value>
   </data>
   <data name="CharaDataHub.NearbyPoses.Title" xml:space="preserve">
-    <value />
+    <value>Poses &#224; proximit&#233;</value>
   </data>
   <data name="CharaDataHub.NearbyPoses.UpdateShared" xml:space="preserve">
-    <value />
+    <value>Mettre &#224; jour les donn&#233;es partag&#233;es</value>
   </data>
   <data name="CharaDataHub.NearbyPoses.UpdateSharedCooldown" xml:space="preserve">
-    <value />
+    <value>Vous ne pouvez actualiser les donn&#233;es que toutes les minutes.</value>
   </data>
   <data name="CharaDataHub.NearbyPoses.YouLabel" xml:space="preserve">
-    <value />
+    <value>VOUS</value>
   </data>
   <data name="CharaDataHub.ShareType.CodeOnly" xml:space="preserve">
     <value>Code uniquement</value>
@@ -3294,11 +3851,23 @@ Veuillez conserver une copie de votre clé secrète au cas où vous auriez besoi
   <data name="CharaDataHub.Tab.DataCreation" xml:space="preserve">
     <value>Création de données</value>
   </data>
+  <data name="CharaDataHub.GposeOnlyTooltip" xml:space="preserve">
+    <value>Les acteurs GPose ne sont disponibles qu'en mode GPose.</value>
+  </data>
   <data name="CharaDataHub.Tab.GposeActors" xml:space="preserve">
     <value>Acteurs GPose</value>
   </data>
   <data name="CharaDataHub.Tab.GposeTogether" xml:space="preserve">
     <value>GPose Together</value>
+  </data>
+  <data name="CharaDataHub.Tab.Lobby" xml:space="preserve">
+    <value>Lobby</value>
+  </data>
+  <data name="CharaDataHub.Lobby.GposeTogether" xml:space="preserve">
+    <value>GPose Together</value>
+  </data>
+  <data name="CharaDataHub.Lobby.QuestSync" xml:space="preserve">
+    <value>Quest Sync</value>
   </data>
   <data name="CharaDataHub.Tab.Mcdf" xml:space="preserve">
     <value>MCDF</value>
@@ -3308,6 +3877,120 @@ Veuillez conserver une copie de votre clé secrète au cas où vous auriez besoi
   </data>
   <data name="CharaDataHub.Tab.McdfShare" xml:space="preserve">
     <value>Partage MCDF</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Share.CreateTitle" xml:space="preserve">
+    <value>Cr&#xE9;er un partage MCDF</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Share.Source" xml:space="preserve">
+    <value>MCDF source :</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Share.SelectSource" xml:space="preserve">
+    <value>S&#xE9;lectionner un MCDF &#xE0; partager...</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Share.NoSources" xml:space="preserve">
+    <value>Aucun MCDF disponible. Cr&#xE9;ez-en un dans &#xAB; Mes donn&#xE9;es &#xBB;.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Share.LocalWarning" xml:space="preserve">
+    <value>Ceci est un fichier local. Il sera envoy&#xE9; sur le serveur pour le partage.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Share.Expiration" xml:space="preserve">
+    <value>Expiration (jours, 0 = jamais)</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Share.TagOnline" xml:space="preserve">
+    <value>En ligne</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Share.TagLocal" xml:space="preserve">
+    <value>Local</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Share.Create" xml:space="preserve">
+    <value>Partager</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Share.MyShares" xml:space="preserve">
+    <value>Mes partages</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Share.NoShares" xml:space="preserve">
+    <value>Vous n'avez encore partag&#xE9; aucun MCDF.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Share.Access" xml:space="preserve">
+    <value>Acc&#xE8;s</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Share.AllowedUids" xml:space="preserve">
+    <value>Paires autoris&#xE9;es :</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Share.AllowedSyncshells" xml:space="preserve">
+    <value>Syncshells autoris&#xE9;es :</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Share.AccessSummary" xml:space="preserve">
+    <value>Paires : {0}, Syncshells : {1}</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Share.PairPlaceholder" xml:space="preserve">
+    <value>Nom ou identifiant</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Share.PairLabel" xml:space="preserve">
+    <value>Paire &#xE0; ajouter</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Share.PairHelp" xml:space="preserve">
+    <value>Choisissez une paire synchronis&#xE9;e dans la liste ou saisissez un identifiant. Les utilisateurs list&#xE9;s pourront acc&#xE9;der &#xE0; ce partage MCDF.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Share.SyncshellPlaceholder" xml:space="preserve">
+    <value>Nom ou identifiant</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Share.SyncshellLabel" xml:space="preserve">
+    <value>Syncshell &#xE0; ajouter</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Share.SyncshellHelp" xml:space="preserve">
+    <value>S&#xE9;lectionnez une syncshell synchronis&#xE9;e ou saisissez un identifiant. Les syncshells list&#xE9;es auront acc&#xE8;s au partage.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Share.ShareSuccess" xml:space="preserve">
+    <value>MCDF partag&#xE9; avec succ&#xE8;s.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Share.SaveSuccess" xml:space="preserve">
+    <value>MCDF sauvegard&#xE9; sur le serveur.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Delete.Success" xml:space="preserve">
+    <value>MCDF supprim&#xE9;.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Delete.Error" xml:space="preserve">
+    <value>Le serveur a refus&#xE9; de supprimer ce MCDF.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Update.Error" xml:space="preserve">
+    <value>Le serveur a refus&#xE9; de mettre &#xE0; jour ce partage.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Upload.PrepareFailed" xml:space="preserve">
+    <value>Impossible de pr&#xE9;parer les donn&#xE9;es MCDF.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Share.Revoke" xml:space="preserve">
+    <value>R&#xE9;voquer</value>
+  </data>
+  <data name="Notification.McdfSave.ToastTitle" xml:space="preserve">
+    <value>MCDF sauvegard&#xE9;</value>
+  </data>
+  <data name="Notification.McdfSave.ToastBody" xml:space="preserve">
+    <value>&#xAB; {0} &#xBB; sauvegard&#xE9; sur le serveur</value>
+  </data>
+  <data name="Notification.LiveSave.ToastTitle" xml:space="preserve">
+    <value>Fichier Live cr&#xE9;&#xE9;</value>
+  </data>
+  <data name="Notification.LiveSave.ToastBody" xml:space="preserve">
+    <value>Entr&#xE9;e Live cr&#xE9;&#xE9;e sur le serveur</value>
+  </data>
+  <data name="CharaDataHub.Mcd.Live.Created" xml:space="preserve">
+    <value>Fichier Live cr&#xE9;&#xE9;</value>
+  </data>
+  <data name="CharaDataHub.Mcd.Live.CreateFailed" xml:space="preserve">
+    <value>&#xC9;chec de cr&#xE9;ation des donn&#xE9;es, consultez les logs pour plus d'informations</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Tab.Export" xml:space="preserve">
+    <value>Exporter</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Tab.Import" xml:space="preserve">
+    <value>Importer</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Tab.MyData" xml:space="preserve">
+    <value>Mes donn&#xE9;es</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Tab.Shares" xml:space="preserve">
+    <value>Partages</value>
   </data>
   <data name="CharaDataHub.Tab.OnlineData" xml:space="preserve">
     <value>Données en ligne</value>
@@ -3385,13 +4068,13 @@ Veuillez conserver une copie de votre clé secrète au cas où vous auriez besoi
     <value>Partage MCDF créé : {0}</value>
   </data>
   <data name="Notification.McdfShare.Created.Summary" xml:space="preserve">
-    <value>UID : {0}, Syncshells : {1}</value>
+    <value>Paires : {0}, Syncshells : {1}</value>
   </data>
   <data name="Notification.McdfShare.Created.ToastTitle" xml:space="preserve">
-    <value>Partage MCDF créé</value>
+    <value>Partage MCDF actif</value>
   </data>
   <data name="Notification.McdfShare.Created.ToastBody" xml:space="preserve">
-    <value>"{0}" envoyé ({1})</value>
+    <value>&#xAB; {0} &#xBB; est partag&#xE9; ({1})</value>
   </data>
   <data name="Notification.McdfShare.Received.Title" xml:space="preserve">
     <value>Partage MCDF reçu : {0}</value>
@@ -3745,6 +4428,12 @@ Veuillez conserver une copie de votre clé secrète au cas où vous auriez besoi
   <data name="Syncshell.Cards.RemoveFavorite" xml:space="preserve">
     <value>Retirer des favoris</value>
   </data>
+  <data name="Syncshell.Cards.InSlotZone" xml:space="preserve">
+    <value>Vous êtes dans la zone de cette Syncshell</value>
+  </data>
+  <data name="Syncshell.Cards.LeavingSlotZone" xml:space="preserve">
+    <value>Vous quittez la zone - sortie automatique dans 5 minutes</value>
+  </data>
   <data name="Syncshell.Cards.FavoriteMembers" xml:space="preserve">
     <value>{0} — Membres ({1})</value>
   </data>
@@ -3905,10 +4594,10 @@ Veuillez conserver une copie de votre clé secrète au cas où vous auriez besoi
     <value>Détection de proximité</value>
   </data>
   <data name="Notification.NearbyDetection.Enabled" xml:space="preserve">
-    <value>Vous êtes maintenant visible.</value>
+    <value>Vous êtes maintenant visible dans l'AutoDetect.</value>
   </data>
   <data name="Notification.NearbyDetection.Disabled" xml:space="preserve">
-    <value>Vous n'êtes plus visible.</value>
+    <value>Vous n'êtes plus visible dans l'AutoDetect.</value>
   </data>
   <data name="Notification.Server.Info" xml:space="preserve">
     <value>Information du serveur</value>
@@ -4191,6 +4880,42 @@ Veuillez conserver une copie de votre clé secrète au cas où vous auriez besoi
   </data>
   <data name="Settings.Advanced.SerialApply.Help" xml:space="preserve">
     <value>Expérimental — Peut réduire les problèmes dans les zones peuplées</value>
+  </data>
+  <data name="Settings.Advanced.CharaData" xml:space="preserve">
+    <value>Données de personnage</value>
+  </data>
+  <data name="Settings.Advanced.CharaData.OpenGpose" xml:space="preserve">
+    <value>Ouvrir le Hub de données au chargement du GPose</value>
+  </data>
+  <data name="Settings.Advanced.CharaData.OpenGpose.Help" xml:space="preserve">
+    <value>Ouvre automatiquement le menu d'importation au lancement du GPose. Si décoché, utilisez /sync gpose pour l'ouvrir manuellement.</value>
+  </data>
+  <data name="Settings.Advanced.CharaData.DownloadOnConnect" xml:space="preserve">
+    <value>Télécharger les données en ligne à la connexion</value>
+  </data>
+  <data name="Settings.Advanced.CharaData.DownloadOnConnect.Help" xml:space="preserve">
+    <value>Télécharge automatiquement les données de personnage en ligne (les vôtres et celles partagées avec vous) dès qu'une connexion au serveur est établie.</value>
+  </data>
+  <data name="Settings.Advanced.CharaData.ShowHelp" xml:space="preserve">
+    <value>Afficher les volets "Qu'est-ce que c'est ? (Explication / Aide)"</value>
+  </data>
+  <data name="Settings.Advanced.CharaData.AbbreviateNames" xml:space="preserve">
+    <value>Abréger les noms de personnage</value>
+  </data>
+  <data name="Settings.Advanced.CharaData.AbbreviateNames.Help" xml:space="preserve">
+    <value>Abrège les noms affichés dans le Hub de données de personnage.</value>
+  </data>
+  <data name="Settings.Advanced.CharaData.LastExportFolder" xml:space="preserve">
+    <value>Dernier dossier d'export</value>
+  </data>
+  <data name="Settings.Advanced.CharaData.NotSet" xml:space="preserve">
+    <value>Non défini</value>
+  </data>
+  <data name="Settings.Advanced.CharaData.ClearExportFolder" xml:space="preserve">
+    <value>Effacer le dernier dossier d'export</value>
+  </data>
+  <data name="Settings.Advanced.CharaData.ClearExportFolder.Help" xml:space="preserve">
+    <value>Utilisez ceci si la boîte de dialogue de chargement/sauvegarde MCDF ne s'ouvre pas.</value>
   </data>
   <data name="Settings.Advanced.Debug" xml:space="preserve">
     <value>Débogage</value>
@@ -4621,5 +5346,427 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
   </data>
   <data name="HousingShare.Error.DownloadFailed" xml:space="preserve">
     <value>&#xC9;chec du t&#xE9;l&#xE9;chargement des fichiers de mods depuis le serveur.</value>
+  </data>
+  <!-- Establishment Registration -->
+  <data name="Establishment.Registration.Title" xml:space="preserve">
+    <value>Enregistrer un &#xE9;tablissement</value>
+  </data>
+  <data name="Establishment.Registration.Header" xml:space="preserve">
+    <value>Nouvel &#xE9;tablissement</value>
+  </data>
+  <data name="Establishment.Registration.Subtitle" xml:space="preserve">
+    <value>Remplissez les informations ci-dessous pour enregistrer votre &#xE9;tablissement.</value>
+  </data>
+  <data name="Establishment.Registration.NotConnected" xml:space="preserve">
+    <value>Non connect&#xE9; au serveur.</value>
+  </data>
+  <data name="Establishment.Section.GeneralInfo" xml:space="preserve">
+    <value>Informations g&#xE9;n&#xE9;rales</value>
+  </data>
+  <data name="Establishment.Section.Images" xml:space="preserve">
+    <value>Images</value>
+  </data>
+  <data name="Establishment.Section.Location" xml:space="preserve">
+    <value>Localisation</value>
+  </data>
+  <data name="Establishment.Section.SyncshellLink" xml:space="preserve">
+    <value>Liaison Syncshell</value>
+  </data>
+  <data name="Establishment.Field.Name" xml:space="preserve">
+    <value>Nom *</value>
+  </data>
+  <data name="Establishment.Field.NameHint" xml:space="preserve">
+    <value>Nom de l'&#xE9;tablissement</value>
+  </data>
+  <data name="Establishment.Field.Description" xml:space="preserve">
+    <value>Description</value>
+  </data>
+  <data name="Establishment.Field.Category" xml:space="preserve">
+    <value>Cat&#xE9;gorie</value>
+  </data>
+  <data name="Establishment.Field.Schedule" xml:space="preserve">
+    <value>Horaires</value>
+  </data>
+  <data name="Establishment.Field.ScheduleHint" xml:space="preserve">
+    <value>ex: Ven-Sam 21h-1h</value>
+  </data>
+  <data name="Establishment.Field.Faction" xml:space="preserve">
+    <value>Faction / Organisation</value>
+  </data>
+  <data name="Establishment.Field.Optional" xml:space="preserve">
+    <value>Optionnel</value>
+  </data>
+  <data name="Establishment.Field.PublicDirectory" xml:space="preserve">
+    <value>Visible dans l'annuaire public</value>
+  </data>
+  <data name="Establishment.Field.PublicDirectoryTooltip" xml:space="preserve">
+    <value>Si coch&#xE9;, votre &#xE9;tablissement sera visible par tous dans l'annuaire.</value>
+  </data>
+  <data name="Establishment.Image.Logo" xml:space="preserve">
+    <value>Logo</value>
+  </data>
+  <data name="Establishment.Image.LogoHint" xml:space="preserve">
+    <value>Carr&#xE9;, 128x128 recommand&#xE9; (256x256 max). 2 Mo max.</value>
+  </data>
+  <data name="Establishment.Image.Banner" xml:space="preserve">
+    <value>Banni&#xE8;re</value>
+  </data>
+  <data name="Establishment.Image.BannerHint" xml:space="preserve">
+    <value>Format paysage, 840x260 recommand&#xE9; (1680x520 max). 2 Mo max.</value>
+  </data>
+  <data name="Establishment.Image.Upload" xml:space="preserve">
+    <value>Charger</value>
+  </data>
+  <data name="Establishment.Image.Remove" xml:space="preserve">
+    <value>Retirer</value>
+  </data>
+  <data name="Establishment.Image.TooLarge" xml:space="preserve">
+    <value>Image trop volumineuse (max 2 Mo).</value>
+  </data>
+  <data name="Establishment.Image.NoLogo" xml:space="preserve">
+    <value>Aucun logo.</value>
+  </data>
+  <data name="Establishment.Image.NoBanner" xml:space="preserve">
+    <value>Aucune banni&#xE8;re.</value>
+  </data>
+  <data name="Establishment.Image.LoadError" xml:space="preserve">
+    <value>Impossible de charger l'image. V&#xE9;rifiez le format (PNG, JPG).</value>
+  </data>
+  <data name="Establishment.Image.ChooseLogo" xml:space="preserve">
+    <value>Choisir un logo</value>
+  </data>
+  <data name="Establishment.Image.ChooseBanner" xml:space="preserve">
+    <value>Choisir une banni&#xE8;re</value>
+  </data>
+  <data name="Establishment.Location.House" xml:space="preserve">
+    <value>Maison</value>
+  </data>
+  <data name="Establishment.Location.Apartment" xml:space="preserve">
+    <value>Appartement</value>
+  </data>
+  <data name="Establishment.Location.AutoFill" xml:space="preserve">
+    <value>Remplir depuis votre position</value>
+  </data>
+  <data name="Establishment.Location.AutoFillTooltip" xml:space="preserve">
+    <value>D&#xE9;tecte votre position actuelle et remplit automatiquement les champs de localisation.&#x0A;Vous devez &#xEA;tre &#xE0; l'int&#xE9;rieur de votre maison ou appartement.</value>
+  </data>
+  <data name="Establishment.Location.Server" xml:space="preserve">
+    <value>Serveur</value>
+  </data>
+  <data name="Establishment.Location.ServerChoose" xml:space="preserve">
+    <value>Choisir...</value>
+  </data>
+  <data name="Establishment.Location.SearchHint" xml:space="preserve">
+    <value>Rechercher...</value>
+  </data>
+  <data name="Establishment.Location.District" xml:space="preserve">
+    <value>Quartier</value>
+  </data>
+  <data name="Establishment.Location.Ward" xml:space="preserve">
+    <value>Secteur (Ward)</value>
+  </data>
+  <data name="Establishment.Location.Plot" xml:space="preserve">
+    <value>Parcelle (Plot)</value>
+  </data>
+  <data name="Establishment.Location.Subdivision" xml:space="preserve">
+    <value>Subdivision (parcelles 31-60)</value>
+  </data>
+  <data name="Establishment.Location.Main" xml:space="preserve">
+    <value>Principal (parcelles 1-30)</value>
+  </data>
+  <data name="Establishment.Location.RoomNumber" xml:space="preserve">
+    <value>Num&#xE9;ro de chambre</value>
+  </data>
+  <data name="Establishment.Location.Annex" xml:space="preserve">
+    <value>Annexe</value>
+  </data>
+  <data name="Establishment.Location.AnnexTooltip" xml:space="preserve">
+    <value>Cocher si l'appartement est dans l'annexe du quartier</value>
+  </data>
+  <data name="Establishment.Syncshell.Description" xml:space="preserve">
+    <value>Seules les syncshells dont vous &#xEA;tes propri&#xE9;taire et qui poss&#xE8;dent un SyncSlot sont disponibles.</value>
+  </data>
+  <data name="Establishment.Syncshell.None" xml:space="preserve">
+    <value>Aucune</value>
+  </data>
+  <data name="Establishment.Syncshell.NoEligible" xml:space="preserve">
+    <value>Aucune syncshell &#xE9;ligible.</value>
+  </data>
+  <data name="Establishment.Syncshell.NoEligibleTooltip" xml:space="preserve">
+    <value>Vous devez &#xEA;tre propri&#xE9;taire d'une syncshell avec un SyncSlot.</value>
+  </data>
+  <data name="Establishment.Syncshell.Loading" xml:space="preserve">
+    <value>Chargement des syncshells &#xE9;ligibles...</value>
+  </data>
+  <data name="Establishment.Syncshell.Unlink" xml:space="preserve">
+    <value>Retirer la liaison</value>
+  </data>
+  <data name="Establishment.Syncshell.Refresh" xml:space="preserve">
+    <value>Rafra&#xEE;chir la liste</value>
+  </data>
+  <data name="Establishment.Submit.Create" xml:space="preserve">
+    <value>Cr&#xE9;er l'&#xE9;tablissement</value>
+  </data>
+  <data name="Establishment.Submit.Creating" xml:space="preserve">
+    <value>Cr&#xE9;ation en cours...</value>
+  </data>
+  <data name="Establishment.Submit.NameRequired" xml:space="preserve">
+    <value>Le nom est obligatoire.</value>
+  </data>
+  <data name="Establishment.Notification.Created" xml:space="preserve">
+    <value>cr&#xE9;&#xE9; avec succ&#xE8;s !</value>
+  </data>
+  <data name="Establishment.Notification.CreateError" xml:space="preserve">
+    <value>Erreur lors de la cr&#xE9;ation</value>
+  </data>
+  <data name="Establishment.Notification.UnexpectedError" xml:space="preserve">
+    <value>Erreur inattendue</value>
+  </data>
+  <!-- Establishment Directory -->
+  <data name="Establishment.Directory.Title" xml:space="preserve">
+    <value>Annuaire des &#xE9;tablissements</value>
+  </data>
+  <data name="Establishment.Directory.SearchHint" xml:space="preserve">
+    <value>Rechercher...</value>
+  </data>
+  <data name="Establishment.Directory.AllCategories" xml:space="preserve">
+    <value>Toutes cat&#xE9;gories</value>
+  </data>
+  <data name="Establishment.Directory.Search" xml:space="preserve">
+    <value>Rechercher</value>
+  </data>
+  <data name="Establishment.Directory.Refresh" xml:space="preserve">
+    <value>Rafra&#xEE;chir</value>
+  </data>
+  <data name="Establishment.Directory.Register" xml:space="preserve">
+    <value>Enregistrer un nouvel &#xE9;tablissement</value>
+  </data>
+  <data name="Establishment.Directory.Tab.Browse" xml:space="preserve">
+    <value>Parcourir</value>
+  </data>
+  <data name="Establishment.Directory.Tab.Favorites" xml:space="preserve">
+    <value>Lieux favoris</value>
+  </data>
+  <data name="Establishment.Directory.Tab.Mine" xml:space="preserve">
+    <value>Mes lieux</value>
+  </data>
+  <data name="Establishment.Directory.Tab.Upcoming" xml:space="preserve">
+    <value>&#xC0; venir</value>
+  </data>
+  <data name="Establishment.Directory.NoUpcoming" xml:space="preserve">
+    <value>Aucun &#xE9;v&#xE9;nement &#xE0; venir cette semaine.</value>
+  </data>
+  <data name="Establishment.Directory.UpcomingLoading" xml:space="preserve">
+    <value>Chargement des &#xE9;v&#xE9;nements &#xE0; venir...</value>
+  </data>
+  <data name="Establishment.Directory.Loading" xml:space="preserve">
+    <value>Chargement...</value>
+  </data>
+  <data name="Establishment.Directory.PressSearch" xml:space="preserve">
+    <value>Appuyez sur Rechercher pour charger l'annuaire.</value>
+  </data>
+  <data name="Establishment.Directory.NoResults" xml:space="preserve">
+    <value>Aucun &#xE9;tablissement trouv&#xE9;.</value>
+  </data>
+  <data name="Establishment.Directory.NoFavorites" xml:space="preserve">
+    <value>Aucun favori. Ajoutez des &#xE9;tablissements en cliquant sur l'&#xE9;toile.</value>
+  </data>
+  <data name="Establishment.Directory.NoOwned" xml:space="preserve">
+    <value>Vous n'avez aucun &#xE9;tablissement enregistr&#xE9;.</value>
+  </data>
+  <data name="Establishment.Directory.ViewDetail" xml:space="preserve">
+    <value>Voir le d&#xE9;tail</value>
+  </data>
+  <data name="Establishment.Directory.AddFavorite" xml:space="preserve">
+    <value>Ajouter aux favoris</value>
+  </data>
+  <data name="Establishment.Directory.RemoveFavorite" xml:space="preserve">
+    <value>Retirer des favoris</value>
+  </data>
+  <data name="Establishment.Directory.Tonight" xml:space="preserve">
+    <value>Ce soir</value>
+  </data>
+  <data name="Establishment.Directory.ThisWeek" xml:space="preserve">
+    <value>Cette semaine</value>
+  </data>
+  <data name="Establishment.Directory.Until" xml:space="preserve">
+    <value>jusqu'&#xE0;</value>
+  </data>
+  <data name="Establishment.Directory.PageInfo" xml:space="preserve">
+    <value>Page {0} / {1}  ({2} r&#xE9;sultats)</value>
+  </data>
+  <!-- Establishment Detail - Events -->
+  <data name="Establishment.Event.NoEvents" xml:space="preserve">
+    <value>Aucun &#xE9;v&#xE9;nement programm&#xE9;.</value>
+  </data>
+  <data name="Establishment.Event.Delete" xml:space="preserve">
+    <value>Supprimer cet &#xE9;v&#xE9;nement</value>
+  </data>
+  <data name="Establishment.Event.New" xml:space="preserve">
+    <value>Nouvel &#xE9;v&#xE9;nement</value>
+  </data>
+  <data name="Establishment.Event.TitleHint" xml:space="preserve">
+    <value>Titre de l'&#xE9;v&#xE9;nement *</value>
+  </data>
+  <data name="Establishment.Event.DescriptionHint" xml:space="preserve">
+    <value>Description (optionnel)</value>
+  </data>
+  <data name="Establishment.Event.DateTimeLabel" xml:space="preserve">
+    <value>Date et heure de d&#xE9;but</value>
+  </data>
+  <data name="Establishment.Event.EndTime" xml:space="preserve">
+    <value>Heure de fin</value>
+  </data>
+  <data name="Establishment.Event.FutureRequired" xml:space="preserve">
+    <value>La date doit &#xEA;tre dans le futur.</value>
+  </data>
+  <data name="Establishment.Event.InvalidDate" xml:space="preserve">
+    <value>Date invalide.</value>
+  </data>
+  <data name="Establishment.Event.Add" xml:space="preserve">
+    <value>Ajouter l'&#xE9;v&#xE9;nement</value>
+  </data>
+  <data name="Establishment.Event.Past" xml:space="preserve">
+    <value>&#xC9;v&#xE9;nements pass&#xE9;s</value>
+  </data>
+  <data name="Establishment.Event.Recurrence" xml:space="preserve">
+    <value>R&#xE9;currence</value>
+  </data>
+  <data name="Establishment.Event.Recurrence.Unique" xml:space="preserve">
+    <value>Ponctuel</value>
+  </data>
+  <data name="Establishment.Event.Recurrence.Daily" xml:space="preserve">
+    <value>Quotidien</value>
+  </data>
+  <data name="Establishment.Event.Recurrence.Weekly" xml:space="preserve">
+    <value>Hebdomadaire</value>
+  </data>
+  <data name="Establishment.Event.Recurrence.Monthly" xml:space="preserve">
+    <value>Mensuel</value>
+  </data>
+  <!-- Establishment Detail -->
+  <data name="Establishment.Detail.Loading" xml:space="preserve">
+    <value>Chargement...</value>
+  </data>
+  <data name="Establishment.Detail.NotFound" xml:space="preserve">
+    <value>&#xC9;tablissement introuvable ou supprim&#xE9;.</value>
+  </data>
+  <data name="Establishment.Detail.Tab.Info" xml:space="preserve">
+    <value>Informations</value>
+  </data>
+  <data name="Establishment.Detail.Tab.Events" xml:space="preserve">
+    <value>&#xC9;v&#xE9;nements</value>
+  </data>
+  <data name="Establishment.Detail.Tab.Images" xml:space="preserve">
+    <value>Images</value>
+  </data>
+  <data name="Establishment.Detail.Tab.Sync" xml:space="preserve">
+    <value>Liaison Sync</value>
+  </data>
+  <data name="Establishment.Detail.Owner" xml:space="preserve">
+    <value>Propri&#xE9;taire: {0}  |  Derni&#xE8;re MAJ: {1}</value>
+  </data>
+  <data name="Establishment.Detail.CancelEdit" xml:space="preserve">
+    <value>Annuler les modifications</value>
+  </data>
+  <data name="Establishment.Detail.Edit" xml:space="preserve">
+    <value>Modifier</value>
+  </data>
+  <data name="Establishment.Detail.Delete" xml:space="preserve">
+    <value>Supprimer cet &#xE9;tablissement</value>
+  </data>
+  <data name="Establishment.Detail.Save" xml:space="preserve">
+    <value>Sauvegarder</value>
+  </data>
+  <data name="Establishment.Detail.ImagesSaved" xml:space="preserve">
+    <value>Images sauvegard&#xE9;es</value>
+  </data>
+  <data name="Establishment.Detail.ChangesSaved" xml:space="preserve">
+    <value>Modifications sauvegard&#xE9;es</value>
+  </data>
+  <data name="Establishment.Detail.Deleted" xml:space="preserve">
+    <value>&#xC9;tablissement supprim&#xE9;</value>
+  </data>
+  <data name="Establishment.Detail.Title" xml:space="preserve">
+    <value>&#xC9;tablissement</value>
+  </data>
+  <data name="Establishment.Detail.NameTooltip" xml:space="preserve">
+    <value>Nom de l'&#xE9;tablissement</value>
+  </data>
+  <data name="Establishment.Detail.Ward" xml:space="preserve">
+    <value>Secteur {0}, Parcelle {1}</value>
+  </data>
+  <data name="Establishment.Detail.Subdivision" xml:space="preserve">
+    <value>(Subdivision)</value>
+  </data>
+  <!-- Honorific -->
+  <data name="EditProfile.Honorific.Section" xml:space="preserve">
+    <value>Titre Complet</value>
+  </data>
+  <data name="EditProfile.Honorific.TitleHint" xml:space="preserve">
+    <value>Titre du personnage (Honorific)</value>
+  </data>
+  <data name="EditProfile.Honorific.IsPrefix" xml:space="preserve">
+    <value>Pr&#xE9;fixe (avant le nom)</value>
+  </data>
+  <data name="EditProfile.Honorific.Color" xml:space="preserve">
+    <value>Couleur du texte</value>
+  </data>
+  <data name="EditProfile.Honorific.Glow" xml:space="preserve">
+    <value>Glow</value>
+  </data>
+  <data name="EditProfile.Honorific.Apply" xml:space="preserve">
+    <value>Appliquer</value>
+  </data>
+  <data name="EditProfile.Honorific.Clear" xml:space="preserve">
+    <value>Effacer</value>
+  </data>
+  <data name="EditProfile.Honorific.NotInstalled" xml:space="preserve">
+    <value>Plugin Honorific non install&#xE9;. Installez-le pour utiliser les titres.</value>
+  </data>
+  <data name="Establishment.Detail.Manager" xml:space="preserve">
+    <value>G&#xE9;rant</value>
+  </data>
+  <data name="Establishment.Detail.Manager.ViewProfile" xml:space="preserve">
+    <value>Voir la fiche RP</value>
+  </data>
+  <data name="Establishment.Detail.Manager.Self" xml:space="preserve">
+    <value>Moi-m&#xEA;me</value>
+  </data>
+  <data name="Establishment.Detail.Manager.Choose" xml:space="preserve">
+    <value>G&#xE9;rant</value>
+  </data>
+  <data name="Establishment.Detail.ShowOnProfile" xml:space="preserve">
+    <value>Afficher sur la fiche RP du g&#xE9;rant</value>
+  </data>
+  <data name="Profile.Establishment.Title" xml:space="preserve">
+    <value>&#xC9;tablissement</value>
+  </data>
+  <data name="Profile.Establishment.View" xml:space="preserve">
+    <value>Voir l'&#xE9;tablissement</value>
+  </data>
+  <data name="Establishment.Category.Tavern" xml:space="preserve">
+    <value>Taverne</value>
+  </data>
+  <data name="Establishment.Category.Shop" xml:space="preserve">
+    <value>Boutique</value>
+  </data>
+  <data name="Establishment.Category.Temple" xml:space="preserve">
+    <value>Temple</value>
+  </data>
+  <data name="Establishment.Category.Academy" xml:space="preserve">
+    <value>Acad&#xE9;mie</value>
+  </data>
+  <data name="Establishment.Category.Guild" xml:space="preserve">
+    <value>Guilde</value>
+  </data>
+  <data name="Establishment.Category.Residence" xml:space="preserve">
+    <value>R&#xE9;sidence</value>
+  </data>
+  <data name="Establishment.Category.Workshop" xml:space="preserve">
+    <value>Atelier</value>
+  </data>
+  <data name="Establishment.Category.Other" xml:space="preserve">
+    <value>Autre</value>
   </data>
 </root>

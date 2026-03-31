@@ -204,7 +204,7 @@ public sealed partial class CharaDataHubUi
             if (_uiSharedService.IconTextButton(FontAwesomeIcon.ArrowCircleDown, Loc.Get("CharaDataHub.NearbyPoses.UpdateShared")))
             {
                 var cts = EnsureFreshCts(ref _disposalCts);
-                _ = _charaDataManager.GetAllSharedData(cts.Token).ContinueWith(u => UpdateFilteredItems());
+                _ = _charaDataManager.GetAllSharedData(cts.Token);
             }
         }
         if (_charaDataManager.GetSharedWithYouTimeoutTask != null && !_charaDataManager.GetSharedWithYouTimeoutTask.IsCompleted)

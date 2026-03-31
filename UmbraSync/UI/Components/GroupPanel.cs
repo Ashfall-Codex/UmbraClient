@@ -79,6 +79,7 @@ internal sealed class GroupPanel
     private string _membersFilter = string.Empty;
     private bool _membersSortByType = false;
     private readonly SyncshellConfigService _syncshellConfig;
+    private readonly SlotService _slotService;
     private readonly Dictionary<string, bool> _favoriteMembersExpanded = new(StringComparer.Ordinal);
     private string? _profileWindowGid = null;
     private bool _profileLoading = false;
@@ -89,7 +90,7 @@ internal sealed class GroupPanel
     public GroupPanel(CompactUi mainUi, UiSharedService uiShared, PairManager pairManager,
         UidDisplayHandler uidDisplayHandler, ServerConfigurationManager serverConfigurationManager,
         CharaDataManager charaDataManager, AutoDetectRequestService autoDetectRequestService,
-        MareConfigService mareConfig, SyncshellConfigService syncshellConfig)
+        MareConfigService mareConfig, SyncshellConfigService syncshellConfig, SlotService slotService)
     {
         _mainUi = mainUi;
         _uiShared = uiShared;
@@ -100,6 +101,7 @@ internal sealed class GroupPanel
         _autoDetectRequestService = autoDetectRequestService;
         _mareConfig = mareConfig;
         _syncshellConfig = syncshellConfig;
+        _slotService = slotService;
     }
 
     private ApiController ApiController => _uiShared.ApiController;
@@ -808,8 +810,7 @@ internal sealed class GroupPanel
             : _uiShared.IconButtonCentered(pauseIcon, pauseIconSize.Y);
         if (clickedPause)
         {
-            var userPerm = groupDto.GroupUserPermissions ^ GroupUserPermissions.Paused;
-            _ = ApiController.GroupChangeIndividualPermissionState(new GroupPairUserPermissionDto(groupDto.Group, new UserData(ApiController.UID), userPerm));
+            _mainUi.Mediator.Publish(new GroupWidePauseMessage(groupDto.Group, groupDto.GroupUserPermissions, ApiController.UID));
         }
         UiSharedService.AttachToolTip((groupDto.GroupUserPermissions.IsPaused() ? "Resume" : "Pause") + " pairing with all users in this Syncshell");
         ImGui.SameLine();
@@ -1049,22 +1050,45 @@ internal sealed class GroupPanel
             bool isSoundDisabled = groupDto.GroupUserPermissions.IsDisableSounds();
             bool isAnimDisabled = groupDto.GroupUserPermissions.IsDisableAnimations();
             bool isHousingDisabled = groupDto.GroupUserPermissions.IsDisableHousing();
+            bool isActiveSlot = string.Equals(_slotService.ActiveSlotGid, groupDto.GID, StringComparison.Ordinal);
+            bool isSlotLeaving = isActiveSlot && _slotService.IsLeaveTimerRunning;
 
             int col = cardIndex % cardsPerRow;
             int row = cardIndex / cardsPerRow;
-            
+
             var cardMin = new Vector2(
                 windowPos.X + startX + col * (cardSize + cardSpacing),
                 windowPos.Y + startY + row * (cardSize + cardSpacing) - scrollY);
             var cardMax = new Vector2(cardMin.X + cardSize, cardMin.Y + cardSize);
             var bgColor = new Vector4(0x1C / 255f, 0x1C / 255f, 0x1C / 255f, 1f);
             var pausedColor = ImGuiColors.DalamudOrange;
+            var slotActiveColor = new Vector4(0.3f, 0.85f, 0.3f, 0.9f);
+            var slotLeavingColor = new Vector4(0.9f, 0.25f, 0.25f, 0.9f);
             var cardBorderColor = new Vector4(0x4A / 255f, 0x36 / 255f, 0x68 / 255f, 0.70f);
-            var borderColor = isPaused ? pausedColor with { W = 0.8f } : cardBorderColor;
+            var borderColor = isSlotLeaving ? slotLeavingColor
+                : isActiveSlot ? slotActiveColor
+                : isPaused ? pausedColor with { W = 0.8f }
+                : cardBorderColor;
             var nameColor = isPaused ? pausedColor : new Vector4(0x9B / 255f, 0x82 / 255f, 0xC0 / 255f, 1f);
 
             drawList.AddRectFilled(cardMin, cardMax, ImGui.ColorConvertFloat4ToU32(bgColor), rounding);
             drawList.AddRect(cardMin, cardMax, ImGui.ColorConvertFloat4ToU32(borderColor), rounding, ImDrawFlags.None, borderThickness);
+
+            if (isActiveSlot)
+            {
+                var dotColor = isSlotLeaving ? slotLeavingColor with { W = 1f } : slotActiveColor with { W = 1f };
+                var tooltipKey = isSlotLeaving ? "Syncshell.Cards.LeavingSlotZone" : "Syncshell.Cards.InSlotZone";
+                float dotRadius = 5f * ImGuiHelpers.GlobalScale;
+                var dotCenter = new Vector2(cardMax.X - padding - dotRadius, cardMin.Y + padding + dotRadius);
+                drawList.AddCircleFilled(dotCenter, dotRadius, ImGui.ColorConvertFloat4ToU32(dotColor));
+
+                ImGui.SetCursorScreenPos(dotCenter - new Vector2(dotRadius + 2, dotRadius + 2));
+                using (ImRaii.PushId($"slot-indicator-{groupDto.GID}"))
+                {
+                    ImGui.InvisibleButton("##slotDot", new Vector2((dotRadius + 2) * 2, (dotRadius + 2) * 2));
+                    UiSharedService.AttachToolTip(Loc.Get(tooltipKey));
+                }
+            }
 
             var nameSize = ImGui.CalcTextSize(displayName);
             var namePos = new Vector2(

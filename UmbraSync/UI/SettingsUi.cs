@@ -53,6 +53,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
     private readonly ChatTypingDetectionService _chatTypingDetectionService;
     private readonly RgpdDataService _rgpdDataService;
     private readonly MareConfiguration.SyncshellConfigService _syncshellConfigService;
+    private readonly MareConfiguration.CharaDataConfigService _charaDataConfigService;
     private Dictionary<Guid, string>? _cachedPenumbraCollections;
     private DateTime _lastCollectionRefresh = DateTime.MinValue;
     private bool _rgpdDeleteConfirmShown;
@@ -127,7 +128,8 @@ public class SettingsUi : WindowMediatorSubscriberBase
         PenumbraPrecacheService precacheService,
         ChatTypingDetectionService chatTypingDetectionService,
         RgpdDataService gdprDataService,
-        MareConfiguration.SyncshellConfigService syncshellConfigService) : base(logger, mediator, "Umbra Settings", performanceCollector)
+        MareConfiguration.SyncshellConfigService syncshellConfigService,
+        MareConfiguration.CharaDataConfigService charaDataConfigService) : base(logger, mediator, "Umbra Settings", performanceCollector)
     {
         _configService = configService;
         _pairManager = pairManager;
@@ -151,6 +153,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
         _chatTypingDetectionService = chatTypingDetectionService;
         _rgpdDataService = gdprDataService;
         _syncshellConfigService = syncshellConfigService;
+        _charaDataConfigService = charaDataConfigService;
         AllowClickthrough = false;
         AllowPinning = false;
         _validationProgress = new Progress<(int, int, FileCacheEntity)>(v => _currentProgress = v);
@@ -1548,6 +1551,65 @@ public class SettingsUi : WindowMediatorSubscriberBase
 
         ImGuiHelpers.ScaledDummy(4f);
 
+        // --- Character Data Settings ---
+        _uiShared.BigText(Loc.Get("Settings.Advanced.CharaData"));
+        UiSharedService.DrawCard("charadata-settings-card", () =>
+        {
+            bool openInGpose = _charaDataConfigService.Current.OpenMareHubOnGposeStart;
+            if (ImGui.Checkbox(Loc.Get("Settings.Advanced.CharaData.OpenGpose"), ref openInGpose))
+            {
+                _charaDataConfigService.Current.OpenMareHubOnGposeStart = openInGpose;
+                _charaDataConfigService.Save();
+            }
+            _uiShared.DrawHelpText(Loc.Get("Settings.Advanced.CharaData.OpenGpose.Help"));
+
+            ImGuiHelpers.ScaledDummy(2f);
+
+            bool downloadDataOnConnection = _charaDataConfigService.Current.DownloadMcdDataOnConnection;
+            if (ImGui.Checkbox(Loc.Get("Settings.Advanced.CharaData.DownloadOnConnect"), ref downloadDataOnConnection))
+            {
+                _charaDataConfigService.Current.DownloadMcdDataOnConnection = downloadDataOnConnection;
+                _charaDataConfigService.Save();
+            }
+            _uiShared.DrawHelpText(Loc.Get("Settings.Advanced.CharaData.DownloadOnConnect.Help"));
+
+            ImGuiHelpers.ScaledDummy(2f);
+
+            bool showHelpTexts = _charaDataConfigService.Current.ShowHelpTexts;
+            if (ImGui.Checkbox(Loc.Get("Settings.Advanced.CharaData.ShowHelp"), ref showHelpTexts))
+            {
+                _charaDataConfigService.Current.ShowHelpTexts = showHelpTexts;
+                _charaDataConfigService.Save();
+            }
+
+            ImGuiHelpers.ScaledDummy(2f);
+
+            bool abbreviateNames = _charaDataConfigService.Current.AbbreviateCharaNames;
+            if (ImGui.Checkbox(Loc.Get("Settings.Advanced.CharaData.AbbreviateNames"), ref abbreviateNames))
+            {
+                _charaDataConfigService.Current.AbbreviateCharaNames = abbreviateNames;
+                _charaDataConfigService.Save();
+            }
+            _uiShared.DrawHelpText(Loc.Get("Settings.Advanced.CharaData.AbbreviateNames.Help"));
+
+            ImGuiHelpers.ScaledDummy(2f);
+
+            ImGui.AlignTextToFramePadding();
+            ImGui.TextUnformatted(Loc.Get("Settings.Advanced.CharaData.LastExportFolder"));
+            ImGui.SameLine(300);
+            ImGui.AlignTextToFramePadding();
+            var exportFolder = _charaDataConfigService.Current.LastSavedCharaDataLocation;
+            ImGui.TextUnformatted(string.IsNullOrEmpty(exportFolder) ? Loc.Get("Settings.Advanced.CharaData.NotSet") : exportFolder);
+            if (_uiShared.IconTextButton(FontAwesomeIcon.Ban, Loc.Get("Settings.Advanced.CharaData.ClearExportFolder")))
+            {
+                _charaDataConfigService.Current.LastSavedCharaDataLocation = string.Empty;
+                _charaDataConfigService.Save();
+            }
+            _uiShared.DrawHelpText(Loc.Get("Settings.Advanced.CharaData.ClearExportFolder.Help"));
+        });
+
+        ImGuiHelpers.ScaledDummy(4f);
+
         // --- Debug ---
         _uiShared.BigText(Loc.Get("Settings.Advanced.Debug"));
         UiSharedService.DrawCard("debug-card", () =>
@@ -1930,7 +1992,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
 
             DrawDtrStyleCombo();
 
-            if (ImGui.Checkbox("Color-code the Server Info Bar entry according to status", ref useColorsInDtr))
+            if (ImGui.Checkbox(Loc.Get("Settings.Dtr.ColorCode"), ref useColorsInDtr))
             {
                 _configService.Current.UseColorsInDtr = useColorsInDtr;
                 _configService.Save();
@@ -1939,23 +2001,38 @@ public class SettingsUi : WindowMediatorSubscriberBase
             using (ImRaii.Disabled(!useColorsInDtr))
             {
                 using var indent2 = ImRaii.PushIndent();
-                if (InputDtrColors("Default", ref dtrColorsDefault))
+                if (InputDtrColors(Loc.Get("Settings.Dtr.Default"), ref dtrColorsDefault))
                 {
                     _configService.Current.DtrColorsDefault = dtrColorsDefault;
                     _configService.Save();
                 }
 
                 ImGui.SameLine();
-                if (InputDtrColors("Not Connected", ref dtrColorsNotConnected))
+                if (InputDtrColors(Loc.Get("Settings.Dtr.NotConnected"), ref dtrColorsNotConnected))
                 {
                     _configService.Current.DtrColorsNotConnected = dtrColorsNotConnected;
                     _configService.Save();
                 }
 
                 ImGui.SameLine();
-                if (InputDtrColors("Pairs in Range", ref dtrColorsPairsInRange))
+                if (InputDtrColors(Loc.Get("Settings.Dtr.PairsInRange"), ref dtrColorsPairsInRange))
                 {
                     _configService.Current.DtrColorsPairsInRange = dtrColorsPairsInRange;
+                    _configService.Save();
+                }
+
+                var dtrColorsInSlot = _configService.Current.DtrColorsInSlot;
+                if (InputDtrColors(Loc.Get("Settings.Dtr.InSlotZone"), ref dtrColorsInSlot))
+                {
+                    _configService.Current.DtrColorsInSlot = dtrColorsInSlot;
+                    _configService.Save();
+                }
+
+                ImGui.SameLine();
+                var dtrColorsLeavingSlot = _configService.Current.DtrColorsLeavingSlot;
+                if (InputDtrColors(Loc.Get("Settings.Dtr.LeavingSlot"), ref dtrColorsLeavingSlot))
+                {
+                    _configService.Current.DtrColorsLeavingSlot = dtrColorsLeavingSlot;
                     _configService.Save();
                 }
             }
@@ -3382,6 +3459,11 @@ public class SettingsUi : WindowMediatorSubscriberBase
                     _configService.Save();
                     Mediator.Publish(new AllowPairRequestsToggled(false));
                 }
+
+                // toast + chat notification
+                var title = Loc.Get("Notification.NearbyDetection.Title");
+                var body = enableDiscovery ? Loc.Get("Notification.NearbyDetection.Enabled") : Loc.Get("Notification.NearbyDetection.Disabled");
+                Mediator.Publish(new DualNotificationMessage(title, body, NotificationType.Info, TimeSpan.FromSeconds(4)));
             }
             if (isAutoDetectSuppressed && ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
             {
@@ -3389,7 +3471,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
             }
         }
 
-        // Allow Pair Requests is disabled when Nearby is OFF
+        // Tout le reste est grisé quand AutoDetect est OFF
         using (ImRaii.Disabled(isAutoDetectSuppressed || !enableDiscovery))
         {
             bool allowRequests = _configService.Current.AllowAutoDetectPairRequests;
@@ -3412,20 +3494,89 @@ public class SettingsUi : WindowMediatorSubscriberBase
             {
                 UiSharedService.AttachToolTip(Loc.Get("Settings.AutoDetect.SuppressedTooltip"));
             }
-        }
 
-        // Interactive popup for pair requests is disabled when Nearby or Pair Requests are OFF
-        using (ImRaii.Disabled(isAutoDetectSuppressed || !enableDiscovery || !_configService.Current.AllowAutoDetectPairRequests))
-        {
-            bool useInteractivePopup = _configService.Current.UseInteractivePairRequestPopup;
-            if (ImGui.Checkbox(Loc.Get("Settings.AutoDetect.UseInteractivePopup"), ref useInteractivePopup))
+            // Interactive popup for pair requests
+            using (ImRaii.Disabled(!_configService.Current.AllowAutoDetectPairRequests))
             {
-                _configService.Current.UseInteractivePairRequestPopup = useInteractivePopup;
+                bool useInteractivePopup = _configService.Current.UseInteractivePairRequestPopup;
+                if (ImGui.Checkbox(Loc.Get("Settings.AutoDetect.UseInteractivePopup"), ref useInteractivePopup))
+                {
+                    _configService.Current.UseInteractivePairRequestPopup = useInteractivePopup;
+                    _configService.Save();
+                }
+                _uiShared.DrawHelpText(Loc.Get("Settings.AutoDetect.UseInteractivePopupHelp"));
+            }
+
+            ImGuiHelpers.ScaledDummy(5f);
+            ImGui.Separator();
+            ImGuiHelpers.ScaledDummy(3f);
+
+            // --- Section Anti-spam ---
+            ImGui.TextColored(ImGuiColors.DalamudOrange, Loc.Get("Settings.AutoDetect.AntiSpam.Header"));
+            ImGuiHelpers.ScaledDummy(3f);
+
+            using (ImRaii.Disabled(!_configService.Current.AllowAutoDetectPairRequests))
+            {
+            int[] cooldownOptions = [0, 1, 5, 10, 20, 30, 60];
+            string[] cooldownLabels =
+            [
+                Loc.Get("Settings.AutoDetect.DeclineCooldown.Disabled"),
+                "1 min", "5 min", "10 min", "20 min", "30 min", "1h"
+            ];
+            int currentCooldown = _configService.Current.AutoDetectDeclineCooldownMinutes;
+            int selectedIndex = Array.IndexOf(cooldownOptions, currentCooldown);
+            if (selectedIndex < 0) selectedIndex = 3; // fallback 10 min
+
+            ImGui.SetNextItemWidth(120 * ImGuiHelpers.GlobalScale);
+            if (ImGui.Combo(Loc.Get("Settings.AutoDetect.DeclineCooldown"), ref selectedIndex, cooldownLabels, cooldownLabels.Length))
+            {
+                _configService.Current.AutoDetectDeclineCooldownMinutes = cooldownOptions[selectedIndex];
                 _configService.Save();
             }
-            _uiShared.DrawHelpText(Loc.Get("Settings.AutoDetect.UseInteractivePopupHelp"));
+            _uiShared.DrawHelpText(Loc.Get("Settings.AutoDetect.DeclineCooldown.Help"));
         }
 
+        ImGuiHelpers.ScaledDummy(3f);
+
+        // Blacklist — joueurs bloqués
+        var blockedUids = _configService.Current.AutoDetectBlockedUids;
+        if (ImGui.TreeNode(string.Format(CultureInfo.CurrentCulture, Loc.Get("Settings.AutoDetect.BlockedPlayers"), blockedUids.Count)))
+        {
+            if (blockedUids.Count == 0)
+            {
+                ImGui.TextDisabled(Loc.Get("Settings.AutoDetect.BlockedPlayers.Empty"));
+            }
+            else
+            {
+                string? uidToRemove = null;
+                foreach (var blockedUid in blockedUids)
+                {
+                    using var id = ImRaii.PushId(blockedUid);
+                    using (ImRaii.PushColor(ImGuiCol.Button, ImGuiColors.DalamudRed))
+                    using (ImRaii.PushColor(ImGuiCol.ButtonHovered, new Vector4(0.8f, 0.2f, 0.2f, 1f)))
+                    {
+                        if (ImGui.SmallButton(Loc.Get("Settings.AutoDetect.BlockedPlayers.Unblock")))
+                        {
+                            uidToRemove = blockedUid;
+                        }
+                    }
+                    ImGui.SameLine();
+                    ImGui.TextUnformatted(blockedUid);
+                }
+                if (uidToRemove != null)
+                {
+                    blockedUids.RemoveAll(u => string.Equals(u, uidToRemove, StringComparison.Ordinal));
+                    _configService.Save();
+                }
+            }
+            ImGui.TreePop();
+        }
+
+        } // fin du using Disabled(!enableDiscovery)
+
+        ImGuiHelpers.ScaledDummy(5f);
+        ImGui.Separator();
+        ImGuiHelpers.ScaledDummy(3f);
         var enableSlotNotifications = _configService.Current.EnableSlotNotifications;
         if (ImGui.Checkbox(Loc.Get("Settings.AutoDetect.EnableSlotNotifications"), ref enableSlotNotifications))
         {

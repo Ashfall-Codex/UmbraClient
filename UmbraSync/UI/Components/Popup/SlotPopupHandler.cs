@@ -1,8 +1,8 @@
 using Dalamud.Bindings.ImGui;
 using Dalamud.Interface;
+using Microsoft.Extensions.Logging;
 using System.Numerics;
 using UmbraSync.API.Data;
-using UmbraSync.API.Dto.Group;
 using UmbraSync.API.Dto.Slot;
 using UmbraSync.Localization;
 using UmbraSync.MareConfiguration.Models;
@@ -13,6 +13,7 @@ namespace UmbraSync.UI.Components.Popup;
 
 public class SlotPopupHandler : IPopupHandler
 {
+    private readonly ILogger<SlotPopupHandler> _logger;
     private readonly ApiController _apiController;
     private readonly UiSharedService _uiSharedService;
     private readonly SlotService _slotService;
@@ -21,8 +22,9 @@ public class SlotPopupHandler : IPopupHandler
     private SlotInfoResponseDto? _slotInfo;
     private bool _joinPermanently = false;
 
-    public SlotPopupHandler(ApiController apiController, UiSharedService uiSharedService, SlotService slotService, DalamudUtilService dalamudUtilService, MareMediator mediator)
+    public SlotPopupHandler(ILogger<SlotPopupHandler> logger, ApiController apiController, UiSharedService uiSharedService, SlotService slotService, DalamudUtilService dalamudUtilService, MareMediator mediator)
     {
+        _logger = logger;
         _apiController = apiController;
         _uiSharedService = uiSharedService;
         _slotService = slotService;
@@ -107,7 +109,9 @@ public class SlotPopupHandler : IPopupHandler
 
             string worldName = _dalamudUtilService.WorldData.Value.TryGetValue((ushort)_slotInfo.Location.ServerId, out var world) ? world : _slotInfo.Location.ServerId.ToString();
             string territoryName = _dalamudUtilService.TerritoryData.Value.TryGetValue(_slotInfo.Location.TerritoryId, out var territory) ? territory : _slotInfo.Location.TerritoryId.ToString();
-            string locationText = $"{worldName}, {territoryName}, Secteur {_slotInfo.Location.WardId} - Emplacement {_slotInfo.Location.PlotId}";
+            string locationText = _slotInfo.Location.PlotId > 0
+                ? $"{worldName}, {territoryName}, Secteur {_slotInfo.Location.WardId} - Emplacement {_slotInfo.Location.PlotId}"
+                : $"{worldName}, {territoryName}, Secteur {_slotInfo.Location.WardId}";
             ImGui.TextColored(textColor, locationText);
         }
 
@@ -212,26 +216,42 @@ public class SlotPopupHandler : IPopupHandler
             if (_uiSharedService.IconTextButton(FontAwesomeIcon.Check, joinText, buttonWidth, isInPopup: true, buttonColor: new Vector4(0.2f, 0.6f, 0.2f, 1.0f), height: buttonHeight))
             {
                 var slotName = _slotInfo.SlotName;
+                var slotId = _slotInfo.SlotId;
+                var syncshell = _slotInfo.AssociatedSyncshell;
+                var joinPermanently = _joinPermanently;
                 _ = Task.Run(async () =>
                 {
-                    if (_joinPermanently)
+                    try
                     {
-                        // Join permanent : rejoindre directement la syncshell sans auto-leave
-                        var groupPasswordDto = new GroupPasswordDto(new GroupData(_slotInfo.AssociatedSyncshell.Gid), string.Empty);
-                        await _apiController.GroupJoin(groupPasswordDto).ConfigureAwait(false);
+                        var success = await _apiController.SlotJoin(slotId).ConfigureAwait(false);
+                        if (!success)
+                        {
+                            _mediator.Publish(new NotificationMessage(
+                                Loc.Get("SlotPopup.Title"),
+                                string.Format(Loc.Get("Slot.Toast.JoinFailed"), slotName),
+                                NotificationType.Error));
+                            return;
+                        }
+
+                        if (!joinPermanently)
+                        {
+                            // Join temporaire : activer le système d'auto-leave
+                            _slotService.MarkJoinedViaSlot(syncshell);
+                        }
+
+                        _mediator.Publish(new NotificationMessage(
+                            Loc.Get("SlotPopup.Title"),
+                            string.Format(Loc.Get("Slot.Toast.Joined"), slotName),
+                            NotificationType.Success));
                     }
-                    else
+                    catch (Exception ex)
                     {
-                        // Join temporaire : système actuel avec auto-leave
-                        _slotService.MarkJoinedViaSlot(_slotInfo.AssociatedSyncshell);
-                        await _apiController.SlotJoin(_slotInfo.SlotId).ConfigureAwait(false);
+                        _logger.LogError(ex, "Error joining slot {SlotName}", slotName);
+                        _mediator.Publish(new NotificationMessage(
+                            Loc.Get("SlotPopup.Title"),
+                            string.Format(Loc.Get("Slot.Toast.JoinFailed"), slotName),
+                            NotificationType.Error));
                     }
-                    
-                    // Notification toast de confirmation
-                    _mediator.Publish(new NotificationMessage(
-                        Loc.Get("SlotPopup.Title"),
-                        string.Format(Loc.Get("Slot.Toast.Joined"), slotName),
-                        NotificationType.Success));
                 });
                 ImGui.CloseCurrentPopup();
             }

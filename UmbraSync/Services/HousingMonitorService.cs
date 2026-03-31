@@ -49,12 +49,9 @@ public class HousingMonitorService : IHostedService, IMediatorSubscriber
                     await Task.Delay(5000, ct).ConfigureAwait(false);
                     continue;
                 }
-                var player = await _dalamudUtil.GetPlayerCharacterAsync().ConfigureAwait(false);
-                if (player != null)
-                {
-                    _mediator.Publish(new HousingPositionUpdateMessage(currentLocation.ServerId, currentLocation.TerritoryId, currentLocation.DivisionId, currentLocation.WardId, player.Position));
-                }
-
+                // Détecter les changements de plot AVANT l'update de position,
+                // pour que _currentPlot soit positionné dans SlotService avant que
+                // OnHousingPositionUpdate ne lance son appel async SlotGetNearby.
                 bool hasChanged = currentLocation.ServerId != _lastLocation.ServerId ||
                                  currentLocation.TerritoryId != _lastLocation.TerritoryId ||
                                  currentLocation.WardId != _lastLocation.WardId ||
@@ -68,6 +65,11 @@ public class HousingMonitorService : IHostedService, IMediatorSubscriber
 
                     bool wasInHousing = _lastLocation.HouseId != 0;
                     bool isInHousing = currentLocation.HouseId != 0;
+                    
+                    if (wasInHousing && isInHousing)
+                    {
+                        _mediator.Publish(new HousingPlotLeftMessage());
+                    }
 
                     if (isInHousing)
                     {
@@ -79,6 +81,12 @@ public class HousingMonitorService : IHostedService, IMediatorSubscriber
                     }
 
                     _lastLocation = currentLocation;
+                }
+
+                var player = await _dalamudUtil.GetPlayerCharacterAsync().ConfigureAwait(false);
+                if (player != null)
+                {
+                    _mediator.Publish(new HousingPositionUpdateMessage(currentLocation.ServerId, currentLocation.TerritoryId, currentLocation.DivisionId, currentLocation.WardId, player.Position));
                 }
             }
             catch (Exception ex)

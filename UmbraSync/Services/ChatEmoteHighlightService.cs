@@ -48,6 +48,7 @@ public class ChatEmoteHighlightService : DisposableMediatorSubscriberBase
         XivChatType.CrossLinkShell8,
     ];
 
+
     private const string GroupEmote = "emote";
     private const string GroupHrp = "hrp";
     private const string GroupQuotes = "quotes";
@@ -113,6 +114,7 @@ public class ChatEmoteHighlightService : DisposableMediatorSubscriberBase
 
         if (!RpChatTypes.Contains(type))
             return;
+
 
         var pattern = BuildPattern();
         if (pattern == null)

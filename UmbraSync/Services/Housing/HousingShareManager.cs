@@ -259,6 +259,20 @@ public sealed class HousingShareManager : IDisposable
                     IsApplied = false;
                     AppliedShareId = null;
                     AppliedShareOwnerUid = null;
+                    
+                    try
+                    {
+                        await Task.Delay(500).ConfigureAwait(false);
+                        await _dalamudUtil.RunOnFrameworkThread(() =>
+                        {
+                            _commandManager.ProcessCommand("/penumbra redraw furniture");
+                        }).ConfigureAwait(false);
+                        _logger.LogInformation("Penumbra redraw furniture exécuté après suppression du mod housing précédent");
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Échec du redraw furniture après suppression du mod housing");
+                    }
                 }
                 return;
             }

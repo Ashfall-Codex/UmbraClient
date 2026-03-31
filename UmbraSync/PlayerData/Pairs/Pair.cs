@@ -72,7 +72,8 @@ public class Pair : DisposableMediatorSubscriberBase
                 foreach (var p in GroupPair)
                 {
                     bool groupPaused = p.Key.GroupUserPermissions.IsPaused()
-                                    || p.Key.GroupPermissions.IsPaused();
+                                    || p.Key.GroupPermissions.IsPaused()
+                                    || p.Value.GroupUserPermissions.IsPaused();
                     if (!groupPaused)
                     {
                         allGroupsPaused = false;
@@ -586,13 +587,13 @@ public class Pair : DisposableMediatorSubscriberBase
 
         var localOverride = _mareConfig.Current.PairSyncOverrides.TryGetValue(UserData.UID, out var ov) ? ov : null;
 
-        var ActiveGroupPairs = GroupPair.Where(p => !p.Key.GroupUserPermissions.IsPaused()).ToList();
+        var ActiveGroupPairs = GroupPair.Where(p => !p.Key.GroupUserPermissions.IsPaused() && !p.Value.GroupUserPermissions.IsPaused()).ToList();
         bool disableIndividualAnimations = UserPair != null && UserPair.OwnPermissions.IsDisableAnimations();
         bool disableIndividualVFX = UserPair != null && UserPair.OwnPermissions.IsDisableVFX();
         bool disableIndividualSounds = UserPair != null && UserPair.OwnPermissions.IsDisableSounds();
-        bool disableGroupAnimations = ActiveGroupPairs.Any() && ActiveGroupPairs.All(pair => pair.Key.GroupPermissions.IsDisableAnimations() || pair.Key.GroupUserPermissions.IsDisableAnimations());
-        bool disableGroupSounds = ActiveGroupPairs.Any() && ActiveGroupPairs.All(pair => pair.Key.GroupPermissions.IsDisableSounds() || pair.Key.GroupUserPermissions.IsDisableSounds());
-        bool disableGroupVFX = ActiveGroupPairs.Any() && ActiveGroupPairs.All(pair => pair.Key.GroupPermissions.IsDisableVFX() || pair.Key.GroupUserPermissions.IsDisableVFX());
+        bool disableGroupAnimations = ActiveGroupPairs.Any() && ActiveGroupPairs.All(pair => pair.Value.GroupUserPermissions.IsDisableAnimations() || pair.Key.GroupPermissions.IsDisableAnimations() || pair.Key.GroupUserPermissions.IsDisableAnimations());
+        bool disableGroupSounds = ActiveGroupPairs.Any() && ActiveGroupPairs.All(pair => pair.Value.GroupUserPermissions.IsDisableSounds() || pair.Key.GroupPermissions.IsDisableSounds() || pair.Key.GroupUserPermissions.IsDisableSounds());
+        bool disableGroupVFX = ActiveGroupPairs.Any() && ActiveGroupPairs.All(pair => pair.Value.GroupUserPermissions.IsDisableVFX() || pair.Key.GroupPermissions.IsDisableVFX() || pair.Key.GroupUserPermissions.IsDisableVFX());
         bool disableAnimations = localOverride?.DisableAnimations
             ?? ((UserPair != null && disableIndividualAnimations) || (UserPair == null && disableGroupAnimations));
         bool disableSounds = localOverride?.DisableSounds

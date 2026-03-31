@@ -22,6 +22,8 @@ public class MareConfig : IMareConfiguration
     public DtrEntry.Colors DtrColorsDefault { get; set; }
     public DtrEntry.Colors DtrColorsNotConnected { get; set; } = new(Glow: 0x0428FFu);
     public DtrEntry.Colors DtrColorsPairsInRange { get; set; } = new(Glow: 0x8D37C0u);
+    public DtrEntry.Colors DtrColorsInSlot { get; set; } = new(Glow: 0x1EA83Cu);
+    public DtrEntry.Colors DtrColorsLeavingSlot { get; set; } = new(Glow: 0x004BFFu);
     public bool UseNameColors { get; set; }
     public DtrEntry.Colors NameColors { get; set; } = new(Foreground: 0x67EBF5u, Glow: 0x00303Cu);
     public DtrEntry.Colors BlockedNameColors { get; set; } = new(Foreground: 0x8AADC7, Glow: 0x000080u);
@@ -98,7 +100,8 @@ public class MareConfig : IMareConfiguration
     public bool AllowAutoDetectPairRequests { get; set; } = true;
     public const int AutoDetectFixedMaxDistanceMeters = 50;
     public int AutoDetectMaxDistanceMeters { get; set; } = AutoDetectFixedMaxDistanceMeters;
-    public int AutoDetectMuteMinutes { get; set; } = 5;
+    public int AutoDetectDeclineCooldownMinutes { get; set; } = 15;
+    public List<string> AutoDetectBlockedUids { get; set; } = [];
     public bool UseInteractivePairRequestPopup { get; set; } = true;
     public int TimeSpanBetweenScansInSeconds { get; set; } = 30;
     public int TransferBarsHeight { get; set; } = 12;

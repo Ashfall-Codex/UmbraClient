@@ -10,6 +10,7 @@ using UmbraSync.MareConfiguration;
 using UmbraSync.PlayerData.Factories;
 using UmbraSync.PlayerData.Handlers;
 using UmbraSync.PlayerData.Pairs;
+using UmbraSync.Localization;
 using UmbraSync.Services.CharaData.Models;
 using UmbraSync.Services.Mediator;
 using UmbraSync.Utils;
@@ -303,11 +304,17 @@ public sealed class CharaDataManager : DisposableMediatorSubscriberBase
 
 
             if (result == null)
-                return ("Failed to create character data, see log for more information", false);
+                return (Loc.Get("CharaDataHub.Mcd.Live.CreateFailed"), false);
 
             await AddOrUpdateDto(result).ConfigureAwait(false);
 
-            return ("Created Character Data", true);
+            Mediator.Publish(new DualNotificationMessage(
+                Loc.Get("Notification.LiveSave.ToastTitle"),
+                Loc.Get("Notification.LiveSave.ToastBody"),
+                MareConfiguration.Models.NotificationType.Success,
+                TimeSpan.FromSeconds(4)));
+
+            return (Loc.Get("CharaDataHub.Mcd.Live.Created"), true);
         });
     }
 

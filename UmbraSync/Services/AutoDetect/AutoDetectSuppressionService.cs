@@ -2,6 +2,7 @@ using Dalamud.Plugin.Services;
 using Lumina.Excel.Sheets;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using UmbraSync.Localization;
 using UmbraSync.MareConfiguration;
 using UmbraSync.MareConfiguration.Models;
 using UmbraSync.Services.Mediator;
@@ -115,10 +116,10 @@ public sealed class AutoDetectSuppressionService(ILogger<AutoDetectSuppressionSe
                 if (!_suppressionWarningShown)
                 {
                     _suppressionWarningShown = true;
-                    const string warningText = "Zone instanciée détectée : les fonctions AutoDetect/Nearby sont coupées pour économiser de la bande passante.";
-                    _mediator.Publish(new DualNotificationMessage("AutoDetect désactivé",
-                        warningText,
-                        NotificationType.Warning, TimeSpan.FromSeconds(5)));
+                    _mediator.Publish(new DualNotificationMessage(
+                        Loc.Get("AutoDetect.Suppression.DisabledTitle"),
+                        Loc.Get("AutoDetect.Suppression.DisabledBody"),
+                        NotificationType.Info, TimeSpan.FromSeconds(5)));
                 }
             }
 
@@ -150,9 +151,9 @@ public sealed class AutoDetectSuppressionService(ILogger<AutoDetectSuppressionSe
         if (restoreChanged || wasSuppressed)
         {
             _logger.LogInformation("AutoDetect restored after leaving instanced content (territory {territoryId}).", territoryId);
-            const string restoredText = "Vous avez quitté la zone instanciée : AutoDetect/Nearby fonctionnent de nouveau.";
-            _mediator.Publish(new DualNotificationMessage("AutoDetect réactivé",
-                restoredText,
+            _mediator.Publish(new DualNotificationMessage(
+                Loc.Get("AutoDetect.Suppression.RestoredTitle"),
+                Loc.Get("AutoDetect.Suppression.RestoredBody"),
                 NotificationType.Info, TimeSpan.FromSeconds(5)));
         }
     }

@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Logging;
 using UmbraSync.API.Data;
 using UmbraSync.API.Data.Enum;
+using UmbraSync.API.Data.Extensions;
 using UmbraSync.API.Dto;
 using UmbraSync.API.Dto.CharaData;
 using UmbraSync.API.Dto.Group;
@@ -241,7 +242,21 @@ public partial class ApiController
     {
         if (Logger.IsEnabled(LogLevel.Debug))
             Logger.LogDebug("Client_UserUpdateSelfPairPermissions: {uid}", dto.User.UID);
-        ExecuteSafely(() => _pairManager.UpdateSelfPairPermissions(dto));
+        ExecuteSafely(() =>
+        {
+            if (_pauseCoordinator.ShouldIgnorePauseUpdate(dto.User.UID, dto.Permissions.IsPaused()))
+            {
+                var pair = _pairManager.GetPairByUID(dto.User.UID);
+                if (pair?.UserPair != null)
+                {
+                    var corrected = dto.Permissions;
+                    corrected.SetPaused(pair.UserPair.OwnPermissions.IsPaused());
+                    dto = dto with { Permissions = corrected };
+                }
+            }
+
+            _pairManager.UpdateSelfPairPermissions(dto);
+        });
         return Task.CompletedTask;
     }
 
@@ -456,6 +471,19 @@ public partial class ApiController
         _mareHub!.On(nameof(Client_GroupSendProfile), act);
     }
 
+
+    public Task Client_McdfShareReceived(string ownerUid, string description)
+    {
+        Logger.LogInformation("Client_McdfShareReceived from {OwnerUid}: {Description}", ownerUid, description);
+        Mediator.Publish(new McdfShareReceivedMessage(ownerUid, description));
+        return Task.CompletedTask;
+    }
+
+    public void OnMcdfShareReceived(Action<string, string> act)
+    {
+        if (_initialized) return;
+        _mareHub!.On(nameof(Client_McdfShareReceived), act);
+    }
 
     private void ExecuteSafely(Action act)
     {
