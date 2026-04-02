@@ -171,7 +171,7 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
             new(new Version(2, 4, 1, 4002), "2.4.1.4002", new List<ChangelogLine>
             {
                 new("Amélioration : Possibilité de s'annoncer disponible pour du RP sauvage."),
-                new("Amélioration : Augmentation du stockage serveur de 10 à 30 MCDF / Fichier Live."),
+                new("Amélioration : Stockage MCDF illimité, fichiers Live maintenus à 30."),
                 new("Amélioration : Le stockage MCDF local prend désormais en compte les sous-dossiers."),
                 new("Amélioration : Amélioration de l'interface Création de données."),
                 new("Correction : Quand le MCDF était volumineux, le serveur coupait la connexion."),

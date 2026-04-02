@@ -2048,7 +2048,10 @@ Click to change.</value>
     <value>You can only refresh all character data from server every minute. Please wait.</value>
   </data>
   <data name="CharaDataHub.Mcd.Online.EntryCount" xml:space="preserve">
-    <value>Chara Data Entries on Server: {0}/{1}</value>
+    <value>Live Entries on Server: {0}/{1}</value>
+  </data>
+  <data name="CharaDataHub.Mcd.Online.McdfEntryCount" xml:space="preserve">
+    <value>MCDF Files on Server: {0}/&#x221E;</value>
   </data>
   <data name="CharaDataHub.Mcd.Online.Help" xml:space="preserve">
     <value>This tab centralizes your character data, whether stored on the server or locally on your machine.

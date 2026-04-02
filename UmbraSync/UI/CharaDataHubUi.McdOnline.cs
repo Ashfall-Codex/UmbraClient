@@ -721,11 +721,12 @@ public sealed partial class CharaDataHubUi
             }
         }
 
-        var totalServerEntries = _charaDataManager.OwnCharaData.Count + _mcdfShareManager.OwnShares.Count;
+        var mcdfCount = _mcdfShareManager.OwnShares.Count;
+        var liveCount = _charaDataManager.OwnCharaData.Count;
 
         if (_onlineDataSubTab == 1)
         {
-            using (ImRaii.Disabled(!_charaDataManager.Initialized || _charaDataManager.DataCreationTask != null || totalServerEntries >= _charaDataManager.MaxCreatableCharaData))
+            using (ImRaii.Disabled(!_charaDataManager.Initialized || _charaDataManager.DataCreationTask != null || liveCount >= _charaDataManager.MaxCreatableCharaData))
             {
                 if (_uiSharedService.IconTextButton(FontAwesomeIcon.Plus, Loc.Get("CharaDataHub.Mcd.Online.NewEntry")))
                 {
@@ -744,7 +745,7 @@ public sealed partial class CharaDataHubUi
             ImGui.SetNextItemWidth(150);
             ImGui.InputTextWithHint("##mcdfSnapshotName", Loc.Get("CharaDataHub.Mcdf.NewSnapshot.Placeholder"), ref _mcdfSnapshotName, 128);
             ImGui.SameLine();
-            using (ImRaii.Disabled(_mcdfShareManager.IsBusy || string.IsNullOrWhiteSpace(_mcdfSnapshotName) || totalServerEntries >= _charaDataManager.MaxCreatableCharaData))
+            using (ImRaii.Disabled(_mcdfShareManager.IsBusy || string.IsNullOrWhiteSpace(_mcdfSnapshotName)))
             {
                 if (_uiSharedService.IconTextButton(FontAwesomeIcon.Camera, Loc.Get("CharaDataHub.Mcdf.NewSnapshot")))
                 {
@@ -764,12 +765,19 @@ public sealed partial class CharaDataHubUi
             var serverTotalSize = _mcdfShareManager.OwnShares.Sum(s => s.DataSize);
             ImGui.SameLine();
             ImGui.AlignTextToFramePadding();
-            UiSharedService.TextWrapped(string.Format(CultureInfo.CurrentCulture, Loc.Get("CharaDataHub.Mcd.Online.EntryCount"), totalServerEntries, _charaDataManager.MaxCreatableCharaData)
-                + (serverTotalSize > 0 ? $" - {FormatFileSize(serverTotalSize)}" : string.Empty));
-            if (totalServerEntries >= _charaDataManager.MaxCreatableCharaData)
+            if (_onlineDataSubTab == 0)
             {
-                ImGui.AlignTextToFramePadding();
-                UiSharedService.ColorTextWrapped(Loc.Get("CharaDataHub.Mcd.Online.EntryMaxed"), UiSharedService.AccentColor);
+                UiSharedService.TextWrapped(string.Format(CultureInfo.CurrentCulture, Loc.Get("CharaDataHub.Mcd.Online.McdfEntryCount"), mcdfCount)
+                    + (serverTotalSize > 0 ? $" - {FormatFileSize(serverTotalSize)}" : string.Empty));
+            }
+            else
+            {
+                UiSharedService.TextWrapped(string.Format(CultureInfo.CurrentCulture, Loc.Get("CharaDataHub.Mcd.Online.EntryCount"), liveCount, _charaDataManager.MaxCreatableCharaData));
+                if (liveCount >= _charaDataManager.MaxCreatableCharaData)
+                {
+                    ImGui.AlignTextToFramePadding();
+                    UiSharedService.ColorTextWrapped(Loc.Get("CharaDataHub.Mcd.Online.EntryMaxed"), UiSharedService.AccentColor);
+                }
             }
         }
 

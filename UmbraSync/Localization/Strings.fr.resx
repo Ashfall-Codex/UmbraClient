@@ -1949,7 +1949,10 @@ Note : la description sera visible par toute personne ayant acc&#xE8;s. Voir &#x
     <value>Vous ne pouvez actualiser les donn&#xE9;es que toutes les minutes. Veuillez patienter.</value>
   </data>
   <data name="CharaDataHub.Mcd.Online.EntryCount" xml:space="preserve">
-    <value>Entr&#xE9;es sur le serveur : {0}/{1}</value>
+    <value>Entr&#xE9;es Live sur le serveur : {0}/{1}</value>
+  </data>
+  <data name="CharaDataHub.Mcd.Online.McdfEntryCount" xml:space="preserve">
+    <value>Fichiers MCDF sur le serveur : {0}/&#x221E;</value>
   </data>
   <data name="CharaDataHub.Mcd.Online.Help" xml:space="preserve">
     <value>Cet onglet centralise vos donn&#xE9;es de personnage, qu'elles soient stock&#xE9;es sur le serveur ou en local sur votre machine.
