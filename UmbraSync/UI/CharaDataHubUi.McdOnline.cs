@@ -616,7 +616,6 @@ public sealed partial class CharaDataHubUi
                                     _mcdfDownloadFolder = string.Empty;
                                     _mcdfDownloadNewFolder = string.Empty;
                                     _mcdfDownloadTask = null;
-                                    _mcdfDownloadDone = false;
                                     _mcdfOpenDownloadPopup = true;
                                 }
                             }
@@ -641,9 +640,10 @@ public sealed partial class CharaDataHubUi
         }
         else
         {
-            var filteredLiveData = _charaDataManager.OwnCharaData.Values.OrderBy(b => b.CreatedDate)
+            var filteredLiveData = _charaDataManager.OwnCharaData.Values
                 .Where(e => string.IsNullOrWhiteSpace(_mcdfOnlineSearch)
                     || (e.Description ?? string.Empty).Contains(_mcdfOnlineSearch, StringComparison.OrdinalIgnoreCase))
+                .OrderBy(b => b.CreatedDate)
                 .ToList();
 
             if (filteredLiveData.Count == 0)
@@ -830,7 +830,7 @@ public sealed partial class CharaDataHubUi
                 var fi = new FileInfo(file);
                 var description = fi.Name.Replace(".mcdf", string.Empty, StringComparison.OrdinalIgnoreCase);
                 var relativePath = Path.GetRelativePath(folder, fi.DirectoryName ?? folder);
-                var subFolder = relativePath == "." ? string.Empty : relativePath;
+                var subFolder = string.Equals(relativePath, ".", StringComparison.Ordinal) ? string.Empty : relativePath;
                 results.Add(new LocalMcdfEntry(file, fi.Name, description, fi.Length, fi.LastWriteTime, subFolder));
             }
             catch
@@ -972,7 +972,7 @@ public sealed partial class CharaDataHubUi
             ImGui.TableSetupColumn("", ImGuiTableColumnFlags.WidthFixed, 18);
             ImGui.TableHeadersRow();
 
-            string lastFolder = null;
+            string? lastFolder = null;
             bool folderCollapsed = false;
             foreach (var entry in filteredLocalFiles)
             {

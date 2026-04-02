@@ -2568,7 +2568,7 @@ Note : Les armes ne s'afficheront pas correctement sauf si vous utilisez le m&#x
     <value>Rechercher...</value>
   </data>
   <data name="CharaDataHub.Mcdf.Local.FolderSettingsHint" xml:space="preserve">
-    <value>Pour modifier le dossier, rendez-vous dans R&#xE9;glages &gt; Stockage</value>
+    <value>Pour modifier le dossier, rendez-vous dans Param&#xE8;tres &gt; Stockage</value>
   </data>
   <data name="CharaDataHub.Apply.Tabs.Imported" xml:space="preserve">
     <value>Import&#xE9;</value>
@@ -2589,7 +2589,7 @@ Note : Les armes ne s'afficheront pas correctement sauf si vous utilisez le m&#x
     <value>Ce fichier existe d&#xE9;j&#xE0; dans le dossier Import</value>
   </data>
   <data name="CharaDataHub.Mcdf.Import.NoFolderConfigured" xml:space="preserve">
-    <value>Aucun dossier MCDF configur&#xE9;. Configurez-en un dans R&#xE9;glages &gt; Stockage.</value>
+    <value>Aucun dossier MCDF configur&#xE9;. Configurez-en un dans Param&#xE8;tres &gt; Stockage.</value>
   </data>
   <data name="CharaDataHub.Mcdf.Import.ApplyHint" xml:space="preserve">
     <value>Pour appliquer un fichier import&#xE9;, rendez-vous dans Application de donn&#xE9;es &gt; Import&#xE9;.</value>
