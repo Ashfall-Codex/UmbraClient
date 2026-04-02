@@ -168,7 +168,7 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
     {
         return new List<ChangelogEntry>
         {
-            new(new Version(2, 4, 1, 4002), "2.4.1.4002", new List<ChangelogLine>
+            new(new Version(2, 4, 1, 4003), "2.4.1.4003", new List<ChangelogLine>
             {
                 new("Amélioration : Possibilité de s'annoncer disponible pour du RP sauvage."),
                 new("Amélioration : Stockage MCDF illimité, fichiers Live maintenus à 30."),
