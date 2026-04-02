@@ -2663,6 +2663,51 @@ Note: Weapons will not be displayed correctly unless using the same job as the s
   <data name="CharaDataHub.Mcdf.Local.Delete" xml:space="preserve">
     <value>Delete</value>
   </data>
+  <data name="CharaDataHub.Mcdf.Local.Search" xml:space="preserve">
+    <value>Search...</value>
+  </data>
+  <data name="CharaDataHub.Mcd.Online.Search" xml:space="preserve">
+    <value>Search...</value>
+  </data>
+  <data name="CharaDataHub.Mcd.Online.NoLiveEntries" xml:space="preserve">
+    <value>No Live entries. Use the "Create a Live file" button to create one.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Local.NewFolder" xml:space="preserve">
+    <value>Create a folder</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Local.NewFolderPlaceholder" xml:space="preserve">
+    <value>Folder name...</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Local.DeleteFolderTooltip" xml:space="preserve">
+    <value>Delete this folder and its contents</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Local.DeleteFolderConfirm" xml:space="preserve">
+    <value>Delete folder "{0}" and its {1} file(s)?</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Local.DeleteFolderYes" xml:space="preserve">
+    <value>Yes, delete</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Local.DeleteFolderNo" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Download.PickFolder" xml:space="preserve">
+    <value>Save to:</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Download.Start" xml:space="preserve">
+    <value>Download</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Download.InProgress" xml:space="preserve">
+    <value>Downloading...</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Download.Done" xml:space="preserve">
+    <value>Download complete!</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Download.Failed" xml:space="preserve">
+    <value>Download failed.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Download.Close" xml:space="preserve">
+    <value>Close</value>
+  </data>
   <data name="CharaDataHub.Mcdf.Online.DownloadTooltip" xml:space="preserve">
     <value>Download this MCDF to the local folder</value>
   </data>
@@ -3969,7 +4014,7 @@ Note: Weapons will not be displayed correctly unless using the same job as the s
     <value>Quest Sync</value>
   </data>
   <data name="CharaDataHub.Tab.Mcdf" xml:space="preserve">
-    <value>MCDF</value>
+    <value>Character</value>
   </data>
   <data name="CharaDataHub.Tab.McdfExport" xml:space="preserve">
     <value>MCDF Export</value>

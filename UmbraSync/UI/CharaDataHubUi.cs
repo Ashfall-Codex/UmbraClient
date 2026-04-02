@@ -96,8 +96,21 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
     private string _mcdfSnapshotName = string.Empty;
     private List<LocalMcdfEntry> _localMcdfFiles = [];
     private DateTime _localMcdfScanTime = DateTime.MinValue;
+    private readonly HashSet<string> _collapsedMcdfFolders = [];
+    private string _mcdfLocalSearch = string.Empty;
+    private string _mcdfOnlineSearch = string.Empty;
+    private string _mcdfNewFolderName = string.Empty;
+    private bool _mcdfShowNewFolderInput;
+    private string _mcdfFolderToDelete = string.Empty;
+    private bool _mcdfDeleteFolderModalOpen = true;
+    private UmbraSync.API.Dto.McdfShare.McdfShareEntryDto _mcdfDownloadEntry;
+    private string _mcdfDownloadFolder = string.Empty;
+    private string _mcdfDownloadNewFolder = string.Empty;
+    private Task _mcdfDownloadTask;
+    private bool _mcdfDownloadDone;
+    private bool _mcdfOpenDownloadPopup;
 
-    private sealed record LocalMcdfEntry(string FilePath, string FileName, string Description, long FileSize, DateTime LastModified);
+    private sealed record LocalMcdfEntry(string FilePath, string FileName, string Description, long FileSize, DateTime LastModified, string SubFolder);
     private string _mcdfShareDescription = string.Empty;
     private readonly List<string> _mcdfShareAllowedIndividuals = new();
     private readonly List<string> _mcdfShareAllowedSyncshells = new();
@@ -963,9 +976,12 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
                         ImGui.TableNextColumn();
                         using (ImRaii.PushId("sharedShare" + entry.Id))
                         {
-                            if (ImGui.SmallButton(Loc.Get("CharaDataHub.Apply.SharedWithYou.ApplyTarget")))
+                            using (ImRaii.Disabled(!_hasValidGposeTarget))
                             {
-                                _ = _mcdfShareManager.ApplyShareAsync(entry.Id, CancellationToken.None);
+                                if (ImGui.SmallButton(Loc.Get("CharaDataHub.Apply.SharedWithYou.ApplyTarget")))
+                                {
+                                    _ = _mcdfShareManager.ApplyShareAsync(entry.Id, CancellationToken.None);
+                                }
                             }
                             ImGui.SameLine();
                             if (ImGui.SmallButton(Loc.Get("CharaDataHub.Apply.SharedWithYou.Save")))
@@ -2036,7 +2052,7 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
         };
         var subIcons = new[]
         {
-            FontAwesomeIcon.FileExport,
+            FontAwesomeIcon.User,
             FontAwesomeIcon.Home,
         };
 

@@ -2564,6 +2564,51 @@ Note : Les armes ne s'afficheront pas correctement sauf si vous utilisez le m&#x
   <data name="CharaDataHub.Mcdf.Local.Delete" xml:space="preserve">
     <value>Supprimer</value>
   </data>
+  <data name="CharaDataHub.Mcdf.Local.Search" xml:space="preserve">
+    <value>Rechercher...</value>
+  </data>
+  <data name="CharaDataHub.Mcd.Online.Search" xml:space="preserve">
+    <value>Rechercher...</value>
+  </data>
+  <data name="CharaDataHub.Mcd.Online.NoLiveEntries" xml:space="preserve">
+    <value>Aucune entr&#xE9;e Live. Utilisez le bouton "G&#xE9;n&#xE9;rer un fichier Live" pour en cr&#xE9;er une.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Local.NewFolder" xml:space="preserve">
+    <value>Cr&#xE9;er un dossier</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Local.NewFolderPlaceholder" xml:space="preserve">
+    <value>Nom du dossier...</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Local.DeleteFolderTooltip" xml:space="preserve">
+    <value>Supprimer ce dossier et son contenu</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Local.DeleteFolderConfirm" xml:space="preserve">
+    <value>Supprimer le dossier "{0}" et ses {1} fichier(s) ?</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Local.DeleteFolderYes" xml:space="preserve">
+    <value>Oui, supprimer</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Local.DeleteFolderNo" xml:space="preserve">
+    <value>Annuler</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Download.PickFolder" xml:space="preserve">
+    <value>Enregistrer dans :</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Download.Start" xml:space="preserve">
+    <value>T&#xE9;l&#xE9;charger</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Download.InProgress" xml:space="preserve">
+    <value>T&#xE9;l&#xE9;chargement en cours...</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Download.Done" xml:space="preserve">
+    <value>T&#xE9;l&#xE9;chargement termin&#xE9; !</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Download.Failed" xml:space="preserve">
+    <value>&#xC9;chec du t&#xE9;l&#xE9;chargement.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Download.Close" xml:space="preserve">
+    <value>Fermer</value>
+  </data>
   <data name="CharaDataHub.Mcdf.Online.DownloadTooltip" xml:space="preserve">
     <value>Télécharger ce MCDF dans le dossier local</value>
   </data>
@@ -3870,7 +3915,7 @@ Note : Les armes ne s'afficheront pas correctement sauf si vous utilisez le m&#x
     <value>Quest Sync</value>
   </data>
   <data name="CharaDataHub.Tab.Mcdf" xml:space="preserve">
-    <value>MCDF</value>
+    <value>Personnage</value>
   </data>
   <data name="CharaDataHub.Tab.McdfExport" xml:space="preserve">
     <value>Export MCDF</value>

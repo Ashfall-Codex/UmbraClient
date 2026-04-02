@@ -168,6 +168,14 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
     {
         return new List<ChangelogEntry>
         {
+            new(new Version(2, 4, 1, 4002), "2.4.1.4002", new List<ChangelogLine>
+            {
+                new("Amélioration : Augmentation du stockage serveur de 10 à 30 MCDF / Fichier Live."),
+                new("Amélioration : Le stockage MCDF local prend désormais en compte les sous-dossier."),
+                new("Amélioration : Amélioration de l'interface Création de données."),
+                new("Correction : Quand le MCDF était volumineux, le serveur coupait la connexion."),
+
+            }),  
             new(new Version(2, 4, 0, 3031), "2.4.0.3031", new List<ChangelogLine>
             {
                 new("Nouveauté : Système d'annuaire d'établissement, vous pouvez désormais lister votre établissement."),
