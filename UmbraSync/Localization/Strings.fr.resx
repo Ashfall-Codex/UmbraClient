@@ -3962,6 +3962,9 @@ Note : Les armes ne s'afficheront pas correctement sauf si vous utilisez le m&#x
   <data name="CharaDataHub.Mcdf.Share.SelectSource" xml:space="preserve">
     <value>S&#xE9;lectionner un MCDF &#xE0; partager...</value>
   </data>
+  <data name="CharaDataHub.Mcdf.Share.SearchHint" xml:space="preserve">
+    <value>Rechercher un MCDF...</value>
+  </data>
   <data name="CharaDataHub.Mcdf.Share.NoSources" xml:space="preserve">
     <value>Aucun MCDF disponible. Cr&#xE9;ez-en un dans &#xAB; Mes donn&#xE9;es &#xBB;.</value>
   </data>
@@ -5214,6 +5217,15 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
   <data name="QuestSync.NoActiveSession" xml:space="preserve">
     <value>Aucune session active.</value>
   </data>
+  <data name="QuestSync.CopySessionId" xml:space="preserve">
+    <value>Copier le code de session</value>
+  </data>
+  <data name="QuestSync.LeaveSession" xml:space="preserve">
+    <value>Quitter la session</value>
+  </data>
+  <data name="QuestSync.LeaveSessionHint" xml:space="preserve">
+    <value>Maintenez Ctrl et cliquez pour quitter la session.</value>
+  </data>
   <data name="CharaDataHub.Tab.Profiles" xml:space="preserve">
     <value>Profils</value>
   </data>
@@ -5843,5 +5855,35 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
   </data>
   <data name="Establishment.Category.Other" xml:space="preserve">
     <value>Autre</value>
+  </data>
+  <data name="WildRp.Tab.Title" xml:space="preserve">
+    <value>RP Sauvage</value>
+  </data>
+  <data name="WildRp.Announce" xml:space="preserve">
+    <value>S'annoncer en RP Sauvage</value>
+  </data>
+  <data name="WildRp.Withdraw" xml:space="preserve">
+    <value>Se retirer</value>
+  </data>
+  <data name="WildRp.MessageHint" xml:space="preserve">
+    <value>Message court (optionnel)...</value>
+  </data>
+  <data name="WildRp.ActiveSince" xml:space="preserve">
+    <value>Actif depuis {0}</value>
+  </data>
+  <data name="WildRp.FilterWorld" xml:space="preserve">
+    <value>Mon monde uniquement</value>
+  </data>
+  <data name="WildRp.NoResults" xml:space="preserve">
+    <value>Aucune annonce active</value>
+  </data>
+  <data name="WildRp.Loading" xml:space="preserve">
+    <value>Chargement...</value>
+  </data>
+  <data name="WildRp.YourAnnouncement" xml:space="preserve">
+    <value>Votre annonce</value>
+  </data>
+  <data name="WildRp.ExpiresIn" xml:space="preserve">
+    <value>Expire dans {0}</value>
   </data>
 </root>

@@ -176,10 +176,13 @@ internal class EstablishmentDetailUi : WindowMediatorSubscriberBase
                 DrawImagesTab(isOwner);
         }
 
-        using (var syncTab = ImRaii.TabItem(Loc.Get("Establishment.Detail.Tab.Sync")))
+        if (isOwner)
         {
-            if (syncTab)
-                DrawSyncSlotTab();
+            using (var syncTab = ImRaii.TabItem(Loc.Get("Establishment.Detail.Tab.Sync")))
+            {
+                if (syncTab)
+                    DrawSyncSlotTab();
+            }
         }
     }
 

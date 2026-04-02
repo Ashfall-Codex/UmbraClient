@@ -123,6 +123,7 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
     private int _mcdfShareSourceIndex = -1;
     private string _mcdfShareSourceId = string.Empty;
     private bool _mcdfShareSourceIsLocal;
+    private string _mcdfShareSourceSearch = string.Empty;
     private readonly UmbraProfileManager _umbraProfileManager;
     private string _profileBrowserSearch = string.Empty;
     private readonly Dictionary<string, (byte[] Data, IDalamudTextureWrap? Texture)> _profileBrowserTextures = new(StringComparer.Ordinal);
@@ -159,6 +160,7 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
         });
         Mediator.Subscribe<ConnectedMessage>(this, (_) => _mcdfShareManager.StartBackgroundPolling());
         Mediator.Subscribe<DisconnectedMessage>(this, (_) => _mcdfShareManager.StopBackgroundPolling());
+        InitQuestSyncSubscriptions();
     }
 
     private bool _openDataApplicationShared = false;
@@ -1362,19 +1364,30 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
         {
             if (combo)
             {
+                ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X);
+                ImGui.InputTextWithHint("##mcdfSourceFilter", Loc.Get("CharaDataHub.Mcdf.Share.SearchHint"), ref _mcdfShareSourceSearch, 100);
+                ImGui.Separator();
+
+                int visibleCount = 0;
                 for (int i = 0; i < sourceEntries.Count; i++)
                 {
-                    bool selected = i == _mcdfShareSourceIndex;
                     var entryLabel = $"[{sourceEntries[i].Tag}] {sourceEntries[i].DisplayName}";
+                    if (!string.IsNullOrWhiteSpace(_mcdfShareSourceSearch)
+                        && !sourceEntries[i].DisplayName.Contains(_mcdfShareSourceSearch, StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    visibleCount++;
+                    bool selected = i == _mcdfShareSourceIndex;
                     if (ImGui.Selectable(entryLabel, selected))
                     {
                         _mcdfShareSourceIndex = i;
                         _mcdfShareSourceId = sourceEntries[i].Id;
                         _mcdfShareSourceIsLocal = sourceEntries[i].IsLocal;
                         _mcdfShareDescription = sourceEntries[i].DisplayName;
+                        _mcdfShareSourceSearch = string.Empty;
                     }
                 }
-                if (sourceEntries.Count == 0)
+                if (visibleCount == 0)
                 {
                     ImGui.TextDisabled(Loc.Get("CharaDataHub.Mcdf.Share.NoSources"));
                 }
