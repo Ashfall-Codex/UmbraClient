@@ -2567,6 +2567,36 @@ Note : Les armes ne s'afficheront pas correctement sauf si vous utilisez le m&#x
   <data name="CharaDataHub.Mcdf.Local.Search" xml:space="preserve">
     <value>Rechercher...</value>
   </data>
+  <data name="CharaDataHub.Mcdf.Local.FolderSettingsHint" xml:space="preserve">
+    <value>Pour modifier le dossier, rendez-vous dans R&#xE9;glages &gt; Stockage</value>
+  </data>
+  <data name="CharaDataHub.Apply.Tabs.Imported" xml:space="preserve">
+    <value>Import&#xE9;</value>
+  </data>
+  <data name="CharaDataHub.Apply.Imported.Empty" xml:space="preserve">
+    <value>Aucun fichier import&#xE9;. Utilisez l'onglet Importer dans Cr&#xE9;ation de donn&#xE9;es pour importer des fichiers MCDF.</value>
+  </data>
+  <data name="CharaDataHub.Apply.Imported.ApplyTooltip" xml:space="preserve">
+    <value>Appliquer ce personnage sur la cible GPose</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Import.SaveToImport" xml:space="preserve">
+    <value>Enregistrer dans le dossier Import</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Import.SaveToImportTooltip" xml:space="preserve">
+    <value>Copier le fichier dans {0}</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Import.AlreadyExists" xml:space="preserve">
+    <value>Ce fichier existe d&#xE9;j&#xE0; dans le dossier Import</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Import.NoFolderConfigured" xml:space="preserve">
+    <value>Aucun dossier MCDF configur&#xE9;. Configurez-en un dans R&#xE9;glages &gt; Stockage.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Import.ApplyHint" xml:space="preserve">
+    <value>Pour appliquer un fichier import&#xE9;, rendez-vous dans Application de donn&#xE9;es &gt; Import&#xE9;.</value>
+  </data>
+  <data name="Settings.Storage.McdfFolderDesc" xml:space="preserve">
+    <value>Dossier de stockage local pour les fichiers MCDF (personnages export&#xE9;s). Les fichiers t&#xE9;l&#xE9;charg&#xE9;s depuis le serveur seront enregistr&#xE9;s dans ce dossier.</value>
+  </data>
   <data name="CharaDataHub.Mcd.Online.Search" xml:space="preserve">
     <value>Rechercher...</value>
   </data>

@@ -2666,6 +2666,36 @@ Note: Weapons will not be displayed correctly unless using the same job as the s
   <data name="CharaDataHub.Mcdf.Local.Search" xml:space="preserve">
     <value>Search...</value>
   </data>
+  <data name="CharaDataHub.Mcdf.Local.FolderSettingsHint" xml:space="preserve">
+    <value>To change the folder, go to Settings &gt; Storage</value>
+  </data>
+  <data name="CharaDataHub.Apply.Tabs.Imported" xml:space="preserve">
+    <value>Imported</value>
+  </data>
+  <data name="CharaDataHub.Apply.Imported.Empty" xml:space="preserve">
+    <value>No imported files. Use the Import tab in Data Creation to import MCDF files.</value>
+  </data>
+  <data name="CharaDataHub.Apply.Imported.ApplyTooltip" xml:space="preserve">
+    <value>Apply this character to the GPose target</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Import.SaveToImport" xml:space="preserve">
+    <value>Save to Import folder</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Import.SaveToImportTooltip" xml:space="preserve">
+    <value>Copy file to {0}</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Import.AlreadyExists" xml:space="preserve">
+    <value>This file already exists in the Import folder</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Import.NoFolderConfigured" xml:space="preserve">
+    <value>No MCDF folder configured. Set one in Settings &gt; Storage.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Import.ApplyHint" xml:space="preserve">
+    <value>To apply an imported file, go to Data Application &gt; Imported.</value>
+  </data>
+  <data name="Settings.Storage.McdfFolderDesc" xml:space="preserve">
+    <value>Local storage folder for MCDF files (exported characters). Files downloaded from the server will be saved to this folder.</value>
+  </data>
   <data name="CharaDataHub.Mcd.Online.Search" xml:space="preserve">
     <value>Search...</value>
   </data>

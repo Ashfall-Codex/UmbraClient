@@ -861,26 +861,14 @@ public sealed partial class CharaDataHubUi
         _uiSharedService.BigText(Loc.Get("CharaDataHub.Mcdf.Local.Title"));
 
         var folder = _configService.Current.McdfLocalFolder;
-        ImGui.SetNextItemWidth(400);
-        if (ImGui.InputTextWithHint("##mcdfLocalFolder", Loc.Get("CharaDataHub.Mcdf.Local.FolderPlaceholder"), ref folder, 512))
+        if (!string.IsNullOrEmpty(folder))
         {
-            _configService.Current.McdfLocalFolder = folder;
-            _configService.Save();
-            _localMcdfScanTime = DateTime.MinValue;
+            _uiSharedService.IconText(FontAwesomeIcon.Folder, ImGuiColors.DalamudGrey);
+            ImGui.SameLine();
+            UiSharedService.ColorText(folder, ImGuiColors.DalamudGrey);
+            UiSharedService.AttachToolTip(Loc.Get("CharaDataHub.Mcdf.Local.FolderSettingsHint"));
         }
-        ImGui.SameLine();
-        if (_uiSharedService.IconButton(FontAwesomeIcon.FolderOpen))
-        {
-            _fileDialogManager.OpenFolderDialog(Loc.Get("CharaDataHub.Mcdf.Local.PickFolder"), (success, path) =>
-            {
-                if (!success || string.IsNullOrEmpty(path)) return;
-                _configService.Current.McdfLocalFolder = path;
-                _configService.Save();
-                _localMcdfScanTime = DateTime.MinValue;
-            }, Directory.Exists(folder) ? folder : null);
-        }
-        UiSharedService.AttachToolTip(Loc.Get("CharaDataHub.Mcdf.Local.PickFolder"));
-        ImGui.SameLine();
+
         if (_uiSharedService.IconButton(FontAwesomeIcon.ArrowsSpin))
         {
             _localMcdfScanTime = DateTime.MinValue;

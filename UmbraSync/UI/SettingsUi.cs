@@ -1679,6 +1679,16 @@ public class SettingsUi : WindowMediatorSubscriberBase
         });
     }
 
+    private static void EnsureMcdfImportFolder(string mcdfFolder)
+    {
+        if (!string.IsNullOrEmpty(mcdfFolder) && Directory.Exists(mcdfFolder))
+        {
+            var importDir = Path.Combine(mcdfFolder, "Import");
+            if (!Directory.Exists(importDir))
+                Directory.CreateDirectory(importDir);
+        }
+    }
+
     private void DrawFileStorageSettings()
     {
         _lastTab = "FileCache";
@@ -1864,6 +1874,34 @@ public class SettingsUi : WindowMediatorSubscriberBase
         if (!_readClearCache)
             ImGui.EndDisabled();
         ImGui.Unindent();
+
+        ImGuiHelpers.ScaledDummy(new Vector2(10, 10));
+        ImGui.Separator();
+        ImGuiHelpers.ScaledDummy(new Vector2(5, 5));
+        _uiShared.BigText(Loc.Get("CharaDataHub.Mcdf.Local.Title"));
+
+        UiSharedService.TextWrapped(Loc.Get("Settings.Storage.McdfFolderDesc"));
+
+        var mcdfFolder = _charaDataConfigService.Current.McdfLocalFolder;
+        ImGui.SetNextItemWidth(400);
+        if (ImGui.InputTextWithHint("##mcdfLocalFolder", Loc.Get("CharaDataHub.Mcdf.Local.FolderPlaceholder"), ref mcdfFolder, 512))
+        {
+            _charaDataConfigService.Current.McdfLocalFolder = mcdfFolder;
+            _charaDataConfigService.Save();
+            EnsureMcdfImportFolder(mcdfFolder);
+        }
+        ImGui.SameLine();
+        if (_uiShared.IconButton(FontAwesomeIcon.FolderOpen))
+        {
+            _uiShared.FileDialogManager.OpenFolderDialog(Loc.Get("CharaDataHub.Mcdf.Local.PickFolder"), (success, path) =>
+            {
+                if (!success || string.IsNullOrEmpty(path)) return;
+                _charaDataConfigService.Current.McdfLocalFolder = path;
+                _charaDataConfigService.Save();
+                EnsureMcdfImportFolder(path);
+            }, Directory.Exists(mcdfFolder) ? mcdfFolder : null);
+        }
+        UiSharedService.AttachToolTip(Loc.Get("CharaDataHub.Mcdf.Local.PickFolder"));
     }
 
     private void DrawGeneral()
