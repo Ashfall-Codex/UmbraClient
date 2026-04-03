@@ -222,6 +222,7 @@ public partial class CompactUi : WindowMediatorSubscriberBase
         }
 
         DrawMainContent();
+        CheckWildRpExpiry();
 
         ImGui.EndChild();
 

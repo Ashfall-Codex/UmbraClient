@@ -5889,4 +5889,10 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
   <data name="WildRp.ExpiresIn" xml:space="preserve">
     <value>Expire dans {0}</value>
   </data>
+  <data name="WildRp.ExpiringSoon" xml:space="preserve">
+    <value>Votre annonce RP Sauvage expire dans {0} minutes.</value>
+  </data>
+  <data name="WildRp.Expired" xml:space="preserve">
+    <value>Votre annonce RP Sauvage a expiré.</value>
+  </data>
 </root>

@@ -41,6 +41,8 @@ internal class EstablishmentDirectoryUi : WindowMediatorSubscriberBase
     private string _wildRpMessage = string.Empty;
     private bool _wildRpFilterCurrentWorld;
     private int _wildRpPage;
+    private List<RpProfileSummaryDto>? _wildRpProfiles;
+
 
     private static string[] CategoryNames =>
     [
@@ -644,7 +646,7 @@ internal class EstablishmentDirectoryUi : WindowMediatorSubscriberBase
             var worldName = _dalamudUtilService.WorldData.Value.TryGetValue((ushort)_ownWildRpAnnouncement.WorldId, out string? wn) ? wn : _ownWildRpAnnouncement.WorldId.ToString(CultureInfo.InvariantCulture);
             var territoryName = _dalamudUtilService.TerritoryData.Value.TryGetValue(_ownWildRpAnnouncement.TerritoryId, out string? tn) ? tn : _ownWildRpAnnouncement.TerritoryId.ToString(CultureInfo.InvariantCulture);
 
-            ImGui.TextUnformatted($"{territoryName} — {worldName}");
+            ImGui.TextUnformatted($"{territoryName} | {worldName}");
 
             if (!string.IsNullOrWhiteSpace(_ownWildRpAnnouncement.Message))
             {
@@ -728,9 +730,17 @@ internal class EstablishmentDirectoryUi : WindowMediatorSubscriberBase
         var worldName = _dalamudUtilService.WorldData.Value.TryGetValue((ushort)announcement.WorldId, out string? wn) ? wn : announcement.WorldId.ToString(CultureInfo.InvariantCulture);
         var territoryName = _dalamudUtilService.TerritoryData.Value.TryGetValue(announcement.TerritoryId, out string? tn) ? tn : announcement.TerritoryId.ToString(CultureInfo.InvariantCulture);
 
-        var displayName = !string.IsNullOrWhiteSpace(announcement.RpFirstName)
-            ? $"{announcement.RpFirstName} {announcement.RpLastName}".Trim()
-            : announcement.UserAlias ?? announcement.UserUID;
+        var hasRpProfile = !string.IsNullOrWhiteSpace(announcement.RpFirstName);
+        string displayName;
+        if (hasRpProfile)
+        {
+            var parts = new[] { announcement.RpTitle, announcement.RpFirstName, announcement.RpLastName };
+            displayName = string.Join(" ", parts.Where(p => !string.IsNullOrWhiteSpace(p)));
+        }
+        else
+        {
+            displayName = announcement.CharacterName ?? announcement.UserAlias ?? announcement.UserUID;
+        }
 
         var elapsed = DateTime.UtcNow - announcement.CreatedAtUtc;
         var elapsedStr = elapsed.TotalMinutes < 1 ? "< 1 min"
@@ -739,33 +749,56 @@ internal class EstablishmentDirectoryUi : WindowMediatorSubscriberBase
 
         UiSharedService.DrawCard($"wildrp_{announcement.Id}", () =>
         {
+            float bigTextHeight;
+            using (_uiSharedService.UidFont.Push())
+                bigTextHeight = ImGui.CalcTextSize(displayName).Y;
+            float iconHeight;
+            using (ImRaii.PushFont(UiBuilder.IconFont))
+                iconHeight = ImGui.CalcTextSize(FontAwesomeIcon.Compass.ToIconString()).Y;
+            var iconOffsetY = (bigTextHeight - iconHeight) / 2f;
+
+            var cursorY = ImGui.GetCursorPosY();
+            ImGui.SetCursorPosY(cursorY + iconOffsetY);
             using (ImRaii.PushFont(UiBuilder.IconFont))
                 ImGui.TextColored(UiSharedService.AccentColor, FontAwesomeIcon.Compass.ToIconString());
 
             ImGui.SameLine();
+            ImGui.SetCursorPosY(cursorY);
             _uiSharedService.BigText(displayName);
 
-            ImGui.SameLine();
-            ImGui.TextDisabled($"[{worldName}]");
+            var worldText = $"[{worldName}]";
+            var worldWidth = ImGui.CalcTextSize(worldText).X;
+            var rightPadRow1 = (ImGui.GetStyle().FramePadding.X + 4f * ImGuiHelpers.GlobalScale) * 2f;
+            var availRow1 = ImGui.GetContentRegionAvail().X - rightPadRow1;
+            if (availRow1 > worldWidth)
+                ImGui.SameLine(ImGui.GetCursorPosX() + availRow1 - worldWidth);
+            else
+                ImGui.SameLine();
+            ImGui.TextDisabled(worldText);
 
-            // Elapsed time on the right
-            var rightOffset = ImGui.GetContentRegionAvail().X;
-            var timeStr = $"{elapsedStr}";
-            var timeWidth = ImGui.CalcTextSize(timeStr).X + ImGui.CalcTextSize(FontAwesomeIcon.Clock.ToIconString()).X + ImGui.GetStyle().ItemSpacing.X;
-            ImGui.SameLine(ImGui.GetCursorPosX() + rightOffset - timeWidth);
-            using (ImRaii.PushFont(UiBuilder.IconFont))
-                ImGui.TextColored(ImGuiColors.DalamudGrey, FontAwesomeIcon.Clock.ToIconString());
-            ImGui.SameLine();
-            ImGui.TextColored(ImGuiColors.DalamudGrey, timeStr);
-
-            // Row 2: Territory + message
+            // Row 2: territory + message + elapsed time (right-aligned)
             ImGui.TextDisabled(territoryName);
 
             if (!string.IsNullOrWhiteSpace(announcement.Message))
             {
                 ImGui.SameLine();
-                ImGui.TextColored(ImGuiColors.DalamudGrey, $"— \"{announcement.Message}\"");
+                ImGui.TextColored(ImGuiColors.DalamudGrey, $"| \"{announcement.Message}\"");
             }
+
+            float iconWidth;
+            using (ImRaii.PushFont(UiBuilder.IconFont))
+                iconWidth = ImGui.CalcTextSize(FontAwesomeIcon.Clock.ToIconString()).X;
+            var timeWidth = ImGui.CalcTextSize(elapsedStr).X + iconWidth + ImGui.GetStyle().ItemSpacing.X;
+            var rightPad = (ImGui.GetStyle().FramePadding.X + 4f * ImGuiHelpers.GlobalScale) * 2f;
+            var availWidth = ImGui.GetContentRegionAvail().X - rightPad;
+            if (availWidth > timeWidth)
+            {
+                ImGui.SameLine(ImGui.GetCursorPosX() + availWidth - timeWidth);
+            }
+            using (ImRaii.PushFont(UiBuilder.IconFont))
+                ImGui.TextColored(ImGuiColors.DalamudGrey, FontAwesomeIcon.Clock.ToIconString());
+            ImGui.SameLine();
+            ImGui.TextColored(ImGuiColors.DalamudGrey, elapsedStr);
         }, stretchWidth: true);
 
         ImGui.PopID();
@@ -807,6 +840,15 @@ internal class EstablishmentDirectoryUi : WindowMediatorSubscriberBase
             _logger.LogWarning(ex, "Error loading own wild RP announcement");
         }
 
+        try
+        {
+            _wildRpProfiles = await _apiController.EstablishmentGetOwnRpProfiles().ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error loading RP profiles for wild RP");
+        }
+
         await RefreshWildRpList().ConfigureAwait(false);
     }
 
@@ -844,11 +886,17 @@ internal class EstablishmentDirectoryUi : WindowMediatorSubscriberBase
         try
         {
             var mapData = await _dalamudUtilService.GetMapDataAsync().ConfigureAwait(false);
+            var playerName = _uiSharedService.PlayerName;
+            var matchingProfile = _wildRpProfiles?.FirstOrDefault(p =>
+                string.Equals(p.CharacterName, playerName, StringComparison.OrdinalIgnoreCase));
+
             _ownWildRpAnnouncement = await _apiController.WildRpAnnounce(new WildRpAnnounceRequestDto
             {
                 WorldId = mapData.ServerId,
                 TerritoryId = mapData.TerritoryId,
-                Message = string.IsNullOrWhiteSpace(_wildRpMessage) ? null : _wildRpMessage.Trim()
+                CharacterName = playerName,
+                Message = string.IsNullOrWhiteSpace(_wildRpMessage) ? null : _wildRpMessage.Trim(),
+                RpProfileId = matchingProfile?.Id
             }).ConfigureAwait(false);
 
             _wildRpMessage = string.Empty;
