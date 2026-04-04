@@ -1251,13 +1251,23 @@ public class SettingsUi : WindowMediatorSubscriberBase
 
     private static void DrawPrivacyDescription(float availWidth)
     {
-        float margin = availWidth * 0.05f;
+        var description = Loc.Get("Settings.Section.Privacy.Desc");
         using (ImRaii.PushColor(ImGuiCol.Text, ImGuiColors.DalamudGrey3))
         {
-            ImGui.SetCursorPosX(ImGui.GetCursorPosX() + margin);
-            ImGui.PushTextWrapPos(ImGui.GetCursorPosX() + availWidth - margin * 2f);
-            ImGui.TextWrapped(Loc.Get("Settings.Section.Privacy.Desc"));
-            ImGui.PopTextWrapPos();
+            var descSz = ImGui.CalcTextSize(description);
+            if (descSz.X <= availWidth)
+            {
+                ImGui.SetCursorPosX(ImGui.GetCursorPosX() + (availWidth - descSz.X) / 2f);
+                ImGui.TextUnformatted(description);
+            }
+            else
+            {
+                float margin = availWidth * 0.05f;
+                ImGui.SetCursorPosX(ImGui.GetCursorPosX() + margin);
+                ImGui.PushTextWrapPos(ImGui.GetCursorPosX() + availWidth - margin * 2f);
+                ImGui.TextWrapped(description);
+                ImGui.PopTextWrapPos();
+            }
         }
     }
 
@@ -3352,14 +3362,23 @@ public class SettingsUi : WindowMediatorSubscriberBase
 
         ImGuiHelpers.ScaledDummy(2f);
 
-        // Description — gray, centered wrap zone
-        float margin = availWidth * 0.05f;
+        // Description — gray, centered
         using (ImRaii.PushColor(ImGuiCol.Text, ImGuiColors.DalamudGrey3))
         {
-            ImGui.SetCursorPosX(ImGui.GetCursorPosX() + margin);
-            ImGui.PushTextWrapPos(ImGui.GetCursorPosX() + availWidth - margin * 2f);
-            ImGui.TextWrapped(description);
-            ImGui.PopTextWrapPos();
+            var descSz = ImGui.CalcTextSize(description);
+            if (descSz.X <= availWidth)
+            {
+                ImGui.SetCursorPosX(ImGui.GetCursorPosX() + (availWidth - descSz.X) / 2f);
+                ImGui.TextUnformatted(description);
+            }
+            else
+            {
+                float margin = availWidth * 0.05f;
+                ImGui.SetCursorPosX(ImGui.GetCursorPosX() + margin);
+                ImGui.PushTextWrapPos(ImGui.GetCursorPosX() + availWidth - margin * 2f);
+                ImGui.TextWrapped(description);
+                ImGui.PopTextWrapPos();
+            }
         }
 
         ImGuiHelpers.ScaledDummy(6f);

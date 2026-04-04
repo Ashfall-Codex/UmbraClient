@@ -41,7 +41,7 @@
 - **Titre Honorific intégré** : édition du titre complet directement depuis la fiche RP avec color picker (couleur + glow), préfixe optionnel. Synchronisé automatiquement via Honorific
 - **Moodles RP** : intégration des Moodles dans les profils avec cache local de sauvegarde
 - **Annuaire d'établissements** : création et gestion d'établissements RP (tavernes, boutiques, temples, etc.) avec logo, bannière, localisation housing, gérant lié à une fiche RP, événements programmés (ponctuels ou récurrents) et calendrier "À venir"
-- **RP sauvage** : possibilité de s'annoncer disponible pour du RP sauvage via l'annuaire
+- **RP sauvage** : possibilité de s'annoncer disponible pour du RP sauvage via l'annuaire, avec affichage automatique du secteur (ward) en quartier résidentiel
 - **Bulle d'écriture** : indicateur de saisie en temps réel sur les nameplates et la Party List, compatible avec le chat natif et ChatTwo, avec notification sonore configurable *(inspiré de [RTyping](https://github.com/apetih/rtyping))*
 - **Colorisation des émotes** : mise en évidence des emotes dans le chat (entre `<>`, `*` et `[]`) et coloration des dialogues entre `"..."` en blanc
 - **Contenu HRP** : les messages entre parenthèses (simples et doubles) sont affichés en gris italique

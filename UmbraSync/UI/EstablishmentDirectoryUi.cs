@@ -645,8 +645,9 @@ internal class EstablishmentDirectoryUi : WindowMediatorSubscriberBase
 
             var worldName = _dalamudUtilService.WorldData.Value.TryGetValue((ushort)_ownWildRpAnnouncement.WorldId, out string? wn) ? wn : _ownWildRpAnnouncement.WorldId.ToString(CultureInfo.InvariantCulture);
             var territoryName = _dalamudUtilService.TerritoryData.Value.TryGetValue(_ownWildRpAnnouncement.TerritoryId, out string? tn) ? tn : _ownWildRpAnnouncement.TerritoryId.ToString(CultureInfo.InvariantCulture);
+            var wardSuffix = _ownWildRpAnnouncement.WardId is > 0 ? $" - {string.Format(CultureInfo.CurrentCulture, Loc.Get("WildRp.Ward"), _ownWildRpAnnouncement.WardId)}" : string.Empty;
 
-            ImGui.TextUnformatted($"{territoryName} | {worldName}");
+            ImGui.TextUnformatted($"{territoryName}{wardSuffix} | {worldName}");
 
             if (!string.IsNullOrWhiteSpace(_ownWildRpAnnouncement.Message))
             {
@@ -729,6 +730,7 @@ internal class EstablishmentDirectoryUi : WindowMediatorSubscriberBase
 
         var worldName = _dalamudUtilService.WorldData.Value.TryGetValue((ushort)announcement.WorldId, out string? wn) ? wn : announcement.WorldId.ToString(CultureInfo.InvariantCulture);
         var territoryName = _dalamudUtilService.TerritoryData.Value.TryGetValue(announcement.TerritoryId, out string? tn) ? tn : announcement.TerritoryId.ToString(CultureInfo.InvariantCulture);
+        var wardSuffix = announcement.WardId is > 0 ? $" - {string.Format(CultureInfo.CurrentCulture, Loc.Get("WildRp.Ward"), announcement.WardId)}" : string.Empty;
 
         var hasRpProfile = !string.IsNullOrWhiteSpace(announcement.RpFirstName);
         string displayName;
@@ -776,8 +778,8 @@ internal class EstablishmentDirectoryUi : WindowMediatorSubscriberBase
                 ImGui.SameLine();
             ImGui.TextDisabled(worldText);
 
-            // Row 2: territory + message + elapsed time (right-aligned)
-            ImGui.TextDisabled(territoryName);
+            // Row 2: territory + ward + message + elapsed time (right-aligned)
+            ImGui.TextDisabled($"{territoryName}{wardSuffix}");
 
             if (!string.IsNullOrWhiteSpace(announcement.Message))
             {
@@ -894,6 +896,7 @@ internal class EstablishmentDirectoryUi : WindowMediatorSubscriberBase
             {
                 WorldId = mapData.ServerId,
                 TerritoryId = mapData.TerritoryId,
+                WardId = mapData.WardId > 0 ? mapData.WardId : null,
                 CharacterName = playerName,
                 Message = string.IsNullOrWhiteSpace(_wildRpMessage) ? null : _wildRpMessage.Trim(),
                 RpProfileId = matchingProfile?.Id

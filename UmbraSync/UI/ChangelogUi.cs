@@ -13,7 +13,7 @@ namespace UmbraSync.UI;
 
 public sealed class ChangelogUi : WindowMediatorSubscriberBase
 {
-    private const int AlwaysExpandedEntryCount = 2;
+    private const int AlwaysExpandedEntryCount = 1;
 
     private readonly MareConfigService _configService;
     private readonly UiSharedService _uiShared;
@@ -79,24 +79,19 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
 
     private void DrawEntries()
     {
-        bool expandedOldVersions = false;
         for (int index = 0; index < _entries.Count; index++)
         {
-            var entry = _entries[index];
             if (!_showAllEntries && index >= AlwaysExpandedEntryCount)
             {
-                if (!expandedOldVersions)
+                if (ImGui.CollapsingHeader(Loc.Get("ChangelogUi.FullHistory")))
                 {
-                    expandedOldVersions = ImGui.CollapsingHeader(Loc.Get("ChangelogUi.FullHistory"));
+                    for (int j = AlwaysExpandedEntryCount; j < _entries.Count; j++)
+                        DrawEntry(_entries[j]);
                 }
-
-                if (!expandedOldVersions)
-                {
-                    continue;
-                }
+                break;
             }
 
-            DrawEntry(entry);
+            DrawEntry(_entries[index]);
         }
     }
 
@@ -121,12 +116,28 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
         }
     }
 
+    private static readonly System.Numerics.Vector4 ColorNew = new(0.4f, 0.9f, 0.4f, 1f);
+    private static readonly System.Numerics.Vector4 ColorImprove = new(0.6f, 0.8f, 1f, 1f);
+    private static readonly System.Numerics.Vector4 ColorFix = new(1f, 0.75f, 0.3f, 1f);
+    private static readonly System.Numerics.Vector4 ColorOther = ImGuiColors.DalamudGrey;
+
+    private static System.Numerics.Vector4? DetectLineColor(string text)
+    {
+        if (text.StartsWith("Nouveaut", StringComparison.OrdinalIgnoreCase)) return ColorNew;
+        if (text.StartsWith("Am\u00e9lioration", StringComparison.OrdinalIgnoreCase)) return ColorImprove;
+        if (text.StartsWith("Correct", StringComparison.OrdinalIgnoreCase)) return ColorFix;
+        if (text.StartsWith("Autre", StringComparison.OrdinalIgnoreCase)
+            || text.StartsWith("Mise \u00e0 jour", StringComparison.OrdinalIgnoreCase)) return ColorOther;
+        return null;
+    }
+
     private static void DrawLine(ChangelogLine line)
     {
         using var indent = line.IndentLevel > 0 ? ImRaii.PushIndent(line.IndentLevel) : null;
-        if (line.Color != null)
+        var color = line.Color ?? DetectLineColor(line.Text);
+        if (color != null)
         {
-            ImGui.TextColored(line.Color.Value, $"- {line.Text}");
+            ImGui.TextColored(color.Value, $"- {line.Text}");
         }
         else
         {
@@ -168,13 +179,14 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
     {
         return new List<ChangelogEntry>
         {
-            new(new Version(2, 4, 1, 4003), "2.4.1.4003", new List<ChangelogLine>
+            new(new Version(2, 4, 1, 4004), "2.4.1.4004", new List<ChangelogLine>
             {
                 new("Amélioration : Possibilité de s'annoncer disponible pour du RP sauvage."),
                 new("Amélioration : Stockage MCDF illimité, fichiers Live maintenus à 30."),
                 new("Amélioration : Le stockage MCDF local prend désormais en compte les sous-dossiers."),
                 new("Amélioration : Amélioration de l'interface Création de données."),
                 new("Correction : Quand le MCDF était volumineux, le serveur coupait la connexion."),
+                new("Correction : Divers ajustements interface."),
                 new("Autre : Activation du support A Quest Reborn."),
 
             }),  

@@ -5985,4 +5985,7 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
   <data name="WildRp.Expired" xml:space="preserve">
     <value>Your Wild RP announcement has expired.</value>
   </data>
+  <data name="WildRp.Ward" xml:space="preserve">
+    <value>Ward {0}</value>
+  </data>
 </root>

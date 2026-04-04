@@ -1531,22 +1531,22 @@ Veuillez conserver une copie de votre clé secrète au cas où vous auriez besoi
     <value />
   </data>
   <data name="ChangelogUi.FullHistory" xml:space="preserve">
-    <value />
+    <value>Historique complet</value>
   </data>
   <data name="ChangelogUi.HeaderTitle" xml:space="preserve">
-    <value />
+    <value>Notes de version</value>
   </data>
   <data name="ChangelogUi.LoadedVersion" xml:space="preserve">
-    <value />
+    <value>Version chargée : {0}</value>
   </data>
   <data name="ChangelogUi.MarkAsRead" xml:space="preserve">
-    <value />
+    <value>Marquer comme lu</value>
   </data>
   <data name="ChangelogUi.ShowAll" xml:space="preserve">
-    <value />
+    <value>Tout afficher</value>
   </data>
   <data name="ChangelogUi.WindowTitle" xml:space="preserve">
-    <value />
+    <value>Umbra Sync - Notes de version</value>
   </data>
   <data name="CharaDataHub.AccessType.AllPairs" xml:space="preserve">
     <value />
@@ -5894,5 +5894,8 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
   </data>
   <data name="WildRp.Expired" xml:space="preserve">
     <value>Votre annonce RP Sauvage a expiré.</value>
+  </data>
+  <data name="WildRp.Ward" xml:space="preserve">
+    <value>Secteur {0}</value>
   </data>
 </root>

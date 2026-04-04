@@ -642,8 +642,9 @@ public partial class CompactUi
 
             var worldName = _dalamudUtilService.WorldData.Value.TryGetValue((ushort)_annuaireWildRpOwn.WorldId, out string? wn) ? wn : _annuaireWildRpOwn.WorldId.ToString(CultureInfo.InvariantCulture);
             var territoryName = _dalamudUtilService.TerritoryData.Value.TryGetValue(_annuaireWildRpOwn.TerritoryId, out string? tn) ? tn : _annuaireWildRpOwn.TerritoryId.ToString(CultureInfo.InvariantCulture);
+            var wardSuffix = _annuaireWildRpOwn.WardId is > 0 ? $" - {string.Format(CultureInfo.CurrentCulture, Loc.Get("WildRp.Ward"), _annuaireWildRpOwn.WardId)}" : string.Empty;
 
-            ImGui.TextUnformatted($"{territoryName} | {worldName}");
+            ImGui.TextUnformatted($"{territoryName}{wardSuffix} | {worldName}");
 
             if (!string.IsNullOrWhiteSpace(_annuaireWildRpOwn.Message))
                 ImGui.TextColored(ImGuiColors.DalamudGrey, $"\"{_annuaireWildRpOwn.Message}\"");
@@ -734,6 +735,7 @@ public partial class CompactUi
 
         var worldName = _dalamudUtilService.WorldData.Value.TryGetValue((ushort)announcement.WorldId, out string? wn) ? wn : announcement.WorldId.ToString(CultureInfo.InvariantCulture);
         var territoryName = _dalamudUtilService.TerritoryData.Value.TryGetValue(announcement.TerritoryId, out string? tn) ? tn : announcement.TerritoryId.ToString(CultureInfo.InvariantCulture);
+        var wardSuffix = announcement.WardId is > 0 ? $" - {string.Format(CultureInfo.CurrentCulture, Loc.Get("WildRp.Ward"), announcement.WardId)}" : string.Empty;
 
         var hasRpProfile = !string.IsNullOrWhiteSpace(announcement.RpFirstName);
         string displayName;
@@ -781,8 +783,8 @@ public partial class CompactUi
                 ImGui.SameLine();
             ImGui.TextDisabled(worldText);
 
-            // Row 2: territory + message + elapsed time (right-aligned)
-            ImGui.TextDisabled(territoryName);
+            // Row 2: territory + ward + message + elapsed time (right-aligned)
+            ImGui.TextDisabled($"{territoryName}{wardSuffix}");
 
             if (!string.IsNullOrWhiteSpace(announcement.Message))
             {
@@ -872,6 +874,7 @@ public partial class CompactUi
             {
                 WorldId = mapData.ServerId,
                 TerritoryId = mapData.TerritoryId,
+                WardId = mapData.WardId > 0 ? mapData.WardId : null,
                 CharacterName = playerName,
                 Message = string.IsNullOrWhiteSpace(_annuaireWildRpMessage) ? null : _annuaireWildRpMessage.Trim(),
                 RpProfileId = matchingProfile?.Id
