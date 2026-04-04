@@ -51,6 +51,7 @@ public partial class CompactUi : WindowMediatorSubscriberBase
     private readonly CharaDataHubUi _charaDataHubUi;
     private readonly NotificationTracker _notificationTracker;
     private readonly EstablishmentConfigService _establishmentConfigService;
+    private readonly DalamudUtilService _dalamudUtilService;
     private SocialSubSection _socialSubSection = SocialSubSection.IndividualPairs;
     private Vector2 _lastPosition = Vector2.One;
     private Vector2 _lastSize = Vector2.One;
@@ -92,9 +93,11 @@ public partial class CompactUi : WindowMediatorSubscriberBase
         NotificationTracker notificationTracker,
         SyncshellConfigService syncshellConfig,
         EstablishmentConfigService establishmentConfigService,
+        DalamudUtilService dalamudUtilService,
         SlotService slotService)
         : base(logger, mediator, "###UmbraSyncMainUI", performanceCollectorService)
     {
+        _dalamudUtilService = dalamudUtilService;
         _uiSharedService = uiShared;
         _configService = configService;
         _apiController = apiController;
@@ -219,6 +222,7 @@ public partial class CompactUi : WindowMediatorSubscriberBase
         }
 
         DrawMainContent();
+        CheckWildRpExpiry();
 
         ImGui.EndChild();
 

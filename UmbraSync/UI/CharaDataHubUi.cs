@@ -96,8 +96,22 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
     private string _mcdfSnapshotName = string.Empty;
     private List<LocalMcdfEntry> _localMcdfFiles = [];
     private DateTime _localMcdfScanTime = DateTime.MinValue;
+    private readonly HashSet<string> _collapsedMcdfFolders = [];
+    private string _mcdfLocalSearch = string.Empty;
+    private string _mcdfOnlineSearch = string.Empty;
+    private string _yourOwnSearch = string.Empty;
+    private string _importedSearch = string.Empty;
+    private string _mcdfNewFolderName = string.Empty;
+    private bool _mcdfShowNewFolderInput;
+    private string _mcdfFolderToDelete = string.Empty;
+    private bool _mcdfDeleteFolderModalOpen = true;
+    private UmbraSync.API.Dto.McdfShare.McdfShareEntryDto? _mcdfDownloadEntry;
+    private string _mcdfDownloadFolder = string.Empty;
+    private string _mcdfDownloadNewFolder = string.Empty;
+    private Task? _mcdfDownloadTask;
+    private bool _mcdfOpenDownloadPopup;
 
-    private sealed record LocalMcdfEntry(string FilePath, string FileName, string Description, long FileSize, DateTime LastModified);
+    private sealed record LocalMcdfEntry(string FilePath, string FileName, string Description, long FileSize, DateTime LastModified, string SubFolder);
     private string _mcdfShareDescription = string.Empty;
     private readonly List<string> _mcdfShareAllowedIndividuals = new();
     private readonly List<string> _mcdfShareAllowedSyncshells = new();
@@ -109,6 +123,7 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
     private int _mcdfShareSourceIndex = -1;
     private string _mcdfShareSourceId = string.Empty;
     private bool _mcdfShareSourceIsLocal;
+    private string _mcdfShareSourceSearch = string.Empty;
     private readonly UmbraProfileManager _umbraProfileManager;
     private string _profileBrowserSearch = string.Empty;
     private readonly Dictionary<string, (byte[] Data, IDalamudTextureWrap? Texture)> _profileBrowserTextures = new(StringComparer.Ordinal);
@@ -145,7 +160,7 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
         });
         Mediator.Subscribe<ConnectedMessage>(this, (_) => _mcdfShareManager.StartBackgroundPolling());
         Mediator.Subscribe<DisconnectedMessage>(this, (_) => _mcdfShareManager.StopBackgroundPolling());
-        Mediator.Subscribe<McdfShareReceivedMessage>(this, (msg) => _ = _mcdfShareManager.RefreshAsync(CancellationToken.None));
+        InitQuestSyncSubscriptions();
     }
 
     private bool _openDataApplicationShared = false;
@@ -274,20 +289,26 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
         var accent = UiSharedService.AccentColor;
         if (accent.W <= 0f) accent = ImGuiColors.ParsedPurple;
 
-        var labels = new[]
+        var allLabels = new[]
         {
             Loc.Get("CharaDataHub.Tab.Lobby"),
             Loc.Get("CharaDataHub.Tab.Application"),
             Loc.Get("CharaDataHub.Tab.DataCreation"),
             Loc.Get("CharaDataHub.Tab.Profiles"),
         };
-        var icons = new[]
+        var allIcons = new[]
         {
             FontAwesomeIcon.Users,
             FontAwesomeIcon.FileImport,
             FontAwesomeIcon.PaintBrush,
             FontAwesomeIcon.AddressBook,
         };
+        int[] allIndices = [0, 1, 2, 3];
+
+        bool inGpose = _uiSharedService.IsInGpose;
+        int[] visibleIndices = inGpose ? [0, 1] : allIndices;
+
+        if (inGpose && _hubActiveTab > 1) _hubActiveTab = 1;
 
         const float btnH = 26f;
         const float btnSpacing = 3f;
@@ -299,21 +320,23 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
         var availWidth = ImGui.GetContentRegionAvail().X;
 
         // Measure natural widths (icon + gap + text + padding)
-        var iconStrings = new string[labels.Length];
-        var iconSizes = new System.Numerics.Vector2[labels.Length];
-        var labelSizes = new System.Numerics.Vector2[labels.Length];
-        var naturalWidths = new float[labels.Length];
-        float totalNatural = btnSpacing * (labels.Length - 1);
+        int visCount = visibleIndices.Length;
+        var iconStrings = new string[visCount];
+        var iconSizes = new System.Numerics.Vector2[visCount];
+        var labelSizes = new System.Numerics.Vector2[visCount];
+        var naturalWidths = new float[visCount];
+        float totalNatural = btnSpacing * (visCount - 1);
 
-        for (int i = 0; i < labels.Length; i++)
+        for (int vi = 0; vi < visCount; vi++)
         {
+            int idx = visibleIndices[vi];
             ImGui.PushFont(UiBuilder.IconFont);
-            iconStrings[i] = icons[i].ToIconString();
-            iconSizes[i] = ImGui.CalcTextSize(iconStrings[i]);
+            iconStrings[vi] = allIcons[idx].ToIconString();
+            iconSizes[vi] = ImGui.CalcTextSize(iconStrings[vi]);
             ImGui.PopFont();
-            labelSizes[i] = ImGui.CalcTextSize(labels[i]);
-            naturalWidths[i] = iconSizes[i].X + iconTextGap + labelSizes[i].X + btnPadX;
-            totalNatural += naturalWidths[i];
+            labelSizes[vi] = ImGui.CalcTextSize(allLabels[idx]);
+            naturalWidths[vi] = iconSizes[vi].X + iconTextGap + labelSizes[vi].X + btnPadX;
+            totalNatural += naturalWidths[vi];
         }
 
         // Determine display mode: icon+text if fits, icon-only otherwise
@@ -323,19 +346,20 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
         var bgColor = new System.Numerics.Vector4(0.11f, 0.11f, 0.11f, 0.9f);
         var hoverBg = new System.Numerics.Vector4(0.17f, 0.13f, 0.22f, 1f);
 
-        for (int i = 0; i < labels.Length; i++)
+        for (int vi = 0; vi < visCount; vi++)
         {
-            if (i > 0) ImGui.SameLine(0, btnSpacing);
+            int idx = visibleIndices[vi];
+            if (vi > 0) ImGui.SameLine(0, btnSpacing);
 
-            float btnW = iconOnly ? (availWidth - btnSpacing * (labels.Length - 1)) / labels.Length : naturalWidths[i];
-            bool isDisabled = (i == 2 && _isHandlingSelf); // Data Creation disabled when handling self
+            float btnW = iconOnly ? (availWidth - btnSpacing * (visCount - 1)) / visCount : naturalWidths[vi];
+            bool isDisabled = (idx == 2 && _isHandlingSelf); // Data Creation disabled when handling self
 
             var p = ImGui.GetCursorScreenPos();
             using (ImRaii.Disabled(isDisabled))
-                ImGui.InvisibleButton($"##hubTab_{i}", new System.Numerics.Vector2(btnW, btnH));
+                ImGui.InvisibleButton($"##hubTab_{idx}", new System.Numerics.Vector2(btnW, btnH));
             bool hovered = ImGui.IsItemHovered();
             bool clicked = ImGui.IsItemClicked();
-            bool isActive = _hubActiveTab == i;
+            bool isActive = _hubActiveTab == idx;
 
             var bg = isActive ? accent : hovered ? hoverBg : bgColor;
             dl.AddRectFilled(p, p + new System.Numerics.Vector2(btnW, btnH), ImGui.GetColorU32(bg), rounding);
@@ -350,28 +374,28 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
             if (iconOnly)
             {
                 // Icon centered
-                var ix = p.X + (btnW - iconSizes[i].X) / 2f;
+                var ix = p.X + (btnW - iconSizes[vi].X) / 2f;
                 ImGui.PushFont(UiBuilder.IconFont);
-                dl.AddText(new System.Numerics.Vector2(ix, p.Y + (btnH - iconSizes[i].Y) / 2f), textColorU32, iconStrings[i]);
+                dl.AddText(new System.Numerics.Vector2(ix, p.Y + (btnH - iconSizes[vi].Y) / 2f), textColorU32, iconStrings[vi]);
                 ImGui.PopFont();
 
-                if (hovered) UiSharedService.AttachToolTip(labels[i]);
+                if (hovered) UiSharedService.AttachToolTip(allLabels[idx]);
             }
             else
             {
                 // Icon + text centered
-                var contentW = iconSizes[i].X + iconTextGap + labelSizes[i].X;
+                var contentW = iconSizes[vi].X + iconTextGap + labelSizes[vi].X;
                 var startX = p.X + (btnW - contentW) / 2f;
 
                 ImGui.PushFont(UiBuilder.IconFont);
-                dl.AddText(new System.Numerics.Vector2(startX, p.Y + (btnH - iconSizes[i].Y) / 2f), textColorU32, iconStrings[i]);
+                dl.AddText(new System.Numerics.Vector2(startX, p.Y + (btnH - iconSizes[vi].Y) / 2f), textColorU32, iconStrings[vi]);
                 ImGui.PopFont();
 
-                dl.AddText(new System.Numerics.Vector2(startX + iconSizes[i].X + iconTextGap, p.Y + (btnH - labelSizes[i].Y) / 2f), textColorU32, labels[i]);
+                dl.AddText(new System.Numerics.Vector2(startX + iconSizes[vi].X + iconTextGap, p.Y + (btnH - labelSizes[vi].Y) / 2f), textColorU32, allLabels[idx]);
             }
 
             if (hovered) ImGui.SetMouseCursor(ImGuiMouseCursor.Hand);
-            if (clicked && !isDisabled) _hubActiveTab = i;
+            if (clicked && !isDisabled) _hubActiveTab = idx;
 
             if (isDisabled)
                 UiSharedService.AttachToolTip(Loc.Get("CharaDataHub.CreationDisabledTooltip"));
@@ -587,19 +611,21 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
 
         if (_openDataApplicationShared)
         {
-            _dataApplicationSubTab = 2;
+            _dataApplicationSubTab = 3;
         }
 
         var subLabels = new[]
         {
             Loc.Get("CharaDataHub.Apply.Tabs.Favorites"),
             Loc.Get("CharaDataHub.Apply.Tabs.YourOwn"),
+            Loc.Get("CharaDataHub.Apply.Tabs.Imported"),
             Loc.Get("CharaDataHub.Apply.Tabs.SharedWithYou"),
         };
         var subIcons = new[]
         {
             FontAwesomeIcon.Star,
             FontAwesomeIcon.User,
+            FontAwesomeIcon.FileImport,
             FontAwesomeIcon.ShareAlt,
         };
         DrawSubTabButtons(subLabels, subIcons, ref _dataApplicationSubTab, accent);
@@ -851,6 +877,11 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
                     UiSharedService.AttachToolTip(Loc.Get("CharaDataHub.Apply.YourOwn.Cooldown"));
                 }
 
+                _uiSharedService.IconText(FontAwesomeIcon.Search, ImGuiColors.DalamudGrey);
+                ImGui.SameLine();
+                ImGui.SetNextItemWidth(250);
+                ImGui.InputTextWithHint("##yourOwnSearch", Loc.Get("CharaDataHub.Mcd.Online.Search"), ref _yourOwnSearch, 128);
+
                 ImGuiHelpers.ScaledDummy(5);
                 ImGui.Separator();
 
@@ -862,23 +893,67 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
                 {
                     var hasMetaInfo = _charaDataManager.TryGetMetaInfo(data.FullId, out var metaInfo);
                     if (!hasMetaInfo || metaInfo == null) continue;
+                    if (!string.IsNullOrWhiteSpace(_yourOwnSearch)
+                        && !(data.Description ?? string.Empty).Contains(_yourOwnSearch, StringComparison.OrdinalIgnoreCase)
+                        && !data.FullId.Contains(_yourOwnSearch, StringComparison.OrdinalIgnoreCase))
+                        continue;
                     DrawMetaInfoData(_gposeTarget, _hasValidGposeTarget, metaInfo, true);
                 }
 
-                // MCDF entries
+                var localDescriptions = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                var localMcdfFolder = _configService.Current.McdfLocalFolder;
+                if (!string.IsNullOrEmpty(localMcdfFolder) && Directory.Exists(localMcdfFolder))
+                {
+                    foreach (var file in _localMcdfFiles.Where(f => !string.IsNullOrEmpty(f.FilePath)
+                        && !string.Equals(f.SubFolder, "Import", StringComparison.OrdinalIgnoreCase)
+                        && (string.IsNullOrWhiteSpace(_yourOwnSearch) || f.Description.Contains(_yourOwnSearch, StringComparison.OrdinalIgnoreCase))))
+                    {
+                        localDescriptions.Add(file.Description);
+
+                        ImGuiHelpers.ScaledDummy(5);
+                        UiSharedService.DrawCard("localOwn" + file.FilePath, () =>
+                        {
+                            ImGui.AlignTextToFramePadding();
+                            _uiSharedService.IconText(FontAwesomeIcon.FileArchive, ImGuiColors.DalamudGrey);
+                            ImGui.SameLine();
+                            var folderTag = string.IsNullOrEmpty(file.SubFolder) ? "" : $"{file.SubFolder}/";
+                            UiSharedService.ColorText("[Local]", ImGuiColors.DalamudGrey);
+                            ImGui.SameLine();
+                            ImGui.TextUnformatted($"{folderTag}{file.Description}");
+
+                            ImGui.SameLine();
+                            using (ImRaii.Disabled(!_hasValidGposeTarget))
+                            {
+                                if (_uiSharedService.IconButton(FontAwesomeIcon.ArrowRight))
+                                {
+                                    _charaDataManager.LoadMcdf(file.FilePath);
+                                    _ = _charaDataManager.McdfApplyToGposeTarget();
+                                }
+                            }
+                            UiSharedService.AttachToolTip(Loc.Get("CharaDataHub.Apply.Favorites.ApplyTooltip"));
+
+                            UiSharedService.ColorTextWrapped(string.Format(CultureInfo.CurrentCulture, Loc.Get("CharaDataHub.Apply.Meta.LastUpdate"), file.LastModified.ToString("dd/MM/yyyy HH:mm")), ImGuiColors.DalamudGrey);
+                        }, stretchWidth: true);
+                    }
+                }
+
+                // MCDF cloud entries (skip if a local copy exists)
                 foreach (var entry in _mcdfShareManager.OwnShares)
                 {
-                    ImGuiHelpers.ScaledDummy(5);
-                    UiSharedService.DrawGrouped(() =>
-                    {
-                        using var entryId = ImRaii.PushId("mcdfOwn" + entry.Id);
-                        var displayName = string.IsNullOrEmpty(entry.Description) ? entry.Id.ToString("D", CultureInfo.InvariantCulture) : entry.Description;
+                    var displayName = string.IsNullOrEmpty(entry.Description) ? entry.Id.ToString("D", CultureInfo.InvariantCulture) : entry.Description;
+                    if (localDescriptions.Contains(displayName)) continue;
+                    if (!string.IsNullOrWhiteSpace(_yourOwnSearch) && !displayName.Contains(_yourOwnSearch, StringComparison.OrdinalIgnoreCase)) continue;
 
+                    ImGuiHelpers.ScaledDummy(5);
+                    UiSharedService.DrawCard("mcdfOwn" + entry.Id, () =>
+                    {
                         ImGui.AlignTextToFramePadding();
                         var mcdfFavId = $"mcdf:{entry.Id:D}";
                         DrawFavorite(mcdfFavId, displayName);
                         ImGui.SameLine();
-                        UiSharedService.ColorText($"[{Loc.Get("CharaDataHub.Mcd.Online.TypeMcdf")}]", ImGuiColors.DalamudGrey);
+                        _uiSharedService.IconText(FontAwesomeIcon.CloudUploadAlt, UiSharedService.AccentColor);
+                        ImGui.SameLine();
+                        UiSharedService.ColorText($"[{Loc.Get("CharaDataHub.Mcd.Online.TypeMcdf")}]", UiSharedService.AccentColor);
                         ImGui.SameLine();
                         ImGui.TextUnformatted(displayName);
 
@@ -893,7 +968,7 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
                         UiSharedService.AttachToolTip(Loc.Get("CharaDataHub.Apply.Favorites.ApplyTooltip"));
 
                         UiSharedService.ColorTextWrapped(string.Format(CultureInfo.CurrentCulture, Loc.Get("CharaDataHub.Apply.Meta.LastUpdate"), entry.CreatedUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm")), ImGuiColors.DalamudGrey);
-                    });
+                    }, stretchWidth: true);
                 }
 
                 ImGuiHelpers.ScaledDummy(5);
@@ -901,6 +976,13 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
             }
 
             case 2:
+            {
+                using var id = ImRaii.PushId("importedTab");
+                DrawImportedMcdfTab();
+                break;
+            }
+
+            case 3:
             {
                 using var id = ImRaii.PushId("sharedWithYouTab");
 
@@ -963,9 +1045,12 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
                         ImGui.TableNextColumn();
                         using (ImRaii.PushId("sharedShare" + entry.Id))
                         {
-                            if (ImGui.SmallButton(Loc.Get("CharaDataHub.Apply.SharedWithYou.ApplyTarget")))
+                            using (ImRaii.Disabled(!_hasValidGposeTarget))
                             {
-                                _ = _mcdfShareManager.ApplyShareAsync(entry.Id, CancellationToken.None);
+                                if (ImGui.SmallButton(Loc.Get("CharaDataHub.Apply.SharedWithYou.ApplyTarget")))
+                                {
+                                    _ = _mcdfShareManager.ApplyShareAsync(entry.Id, CancellationToken.None);
+                                }
                             }
                             ImGui.SameLine();
                             if (ImGui.SmallButton(Loc.Get("CharaDataHub.Apply.SharedWithYou.Save")))
@@ -1071,22 +1156,43 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
 
                 ImGuiHelpers.ScaledDummy(5);
 
-                using (ImRaii.Disabled(!_hasValidGposeTarget))
+                var mcdfLocalFolder = _configService.Current.McdfLocalFolder;
+                if (!string.IsNullOrEmpty(mcdfLocalFolder))
                 {
-                    if (_uiSharedService.IconTextButton(FontAwesomeIcon.ArrowRight, Loc.Get("CharaDataHub.Mcdf.Import.Apply")))
+                    var importDir = Path.Combine(mcdfLocalFolder, "Import");
+                    var sourcePath = _charaDataManager.LoadedMcdfHeader.Result.LoadedFile.FilePath;
+                    var fileName = Path.GetFileName(sourcePath);
+                    var destPath = Path.Combine(importDir, fileName);
+                    bool alreadyExists = File.Exists(destPath);
+
+                    using (ImRaii.Disabled(alreadyExists))
                     {
-                        _ = _charaDataManager.McdfApplyToGposeTarget();
-                    }
-                    UiSharedService.AttachToolTip(string.Format(CultureInfo.CurrentCulture, Loc.Get("CharaDataHub.Mcdf.Import.ApplyTooltip"), _gposeTarget));
-                    ImGui.SameLine();
-                    using (ImRaii.Disabled(!_charaDataManager.BrioAvailable))
-                    {
-                        if (_uiSharedService.IconTextButton(FontAwesomeIcon.Plus, Loc.Get("CharaDataHub.Mcdf.Import.SpawnAndApply")))
+                        if (_uiSharedService.IconTextButton(FontAwesomeIcon.Save, Loc.Get("CharaDataHub.Mcdf.Import.SaveToImport")))
                         {
-                            _charaDataManager.McdfSpawnApplyToGposeTarget();
+                            try
+                            {
+                                Directory.CreateDirectory(importDir);
+                                File.Copy(sourcePath, destPath, false);
+                                _localMcdfScanTime = DateTime.MinValue;
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogError(ex, "Failed to copy MCDF to import folder");
+                            }
                         }
                     }
+                    if (alreadyExists)
+                        UiSharedService.AttachToolTip(Loc.Get("CharaDataHub.Mcdf.Import.AlreadyExists"));
+                    else
+                        UiSharedService.AttachToolTip(string.Format(CultureInfo.CurrentCulture, Loc.Get("CharaDataHub.Mcdf.Import.SaveToImportTooltip"), importDir));
                 }
+                else
+                {
+                    UiSharedService.ColorTextWrapped(Loc.Get("CharaDataHub.Mcdf.Import.NoFolderConfigured"), ImGuiColors.DalamudGrey);
+                }
+
+                ImGuiHelpers.ScaledDummy(5);
+                UiSharedService.ColorTextWrapped(Loc.Get("CharaDataHub.Mcdf.Import.ApplyHint"), ImGuiColors.DalamudGrey);
             }
             if ((_charaDataManager.LoadedMcdfHeader?.IsFaulted ?? false) || (_charaDataManager.McdfApplicationTask?.IsFaulted ?? false))
             {
@@ -1098,6 +1204,82 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
         else
         {
             UiSharedService.ColorTextWrapped(Loc.Get("CharaDataHub.Mcdf.Import.Loading"), UiSharedService.AccentColor);
+        }
+    }
+
+    private void DrawImportedMcdfTab()
+    {
+        var mcdfFolder = _configService.Current.McdfLocalFolder;
+        if (string.IsNullOrEmpty(mcdfFolder))
+        {
+            UiSharedService.ColorTextWrapped(Loc.Get("CharaDataHub.Mcdf.Import.NoFolderConfigured"), ImGuiColors.DalamudGrey);
+            return;
+        }
+
+        var importDir = Path.Combine(mcdfFolder, "Import");
+        if (!Directory.Exists(importDir))
+        {
+            UiSharedService.ColorTextWrapped(Loc.Get("CharaDataHub.Apply.Imported.Empty"), ImGuiColors.DalamudGrey);
+            return;
+        }
+
+        var importedFiles = Directory.EnumerateFiles(importDir, "*.mcdf")
+            .Select(f => new FileInfo(f))
+            .OrderByDescending(f => f.LastWriteTime)
+            .ToList();
+
+        if (importedFiles.Count == 0)
+        {
+            UiSharedService.ColorTextWrapped(Loc.Get("CharaDataHub.Apply.Imported.Empty"), ImGuiColors.DalamudGrey);
+            return;
+        }
+
+        _uiSharedService.IconText(FontAwesomeIcon.Search, ImGuiColors.DalamudGrey);
+        ImGui.SameLine();
+        ImGui.SetNextItemWidth(250);
+        ImGui.InputTextWithHint("##importedSearch", Loc.Get("CharaDataHub.Mcd.Online.Search"), ref _importedSearch, 128);
+
+        ImGuiHelpers.ScaledDummy(5);
+        ImGui.Separator();
+
+        using var child = ImRaii.Child("importedChild", new(0, 0), false, ImGuiWindowFlags.AlwaysAutoResize);
+        using var indent = ImRaii.PushIndent(10f);
+
+        foreach (var fi in importedFiles)
+        {
+            var desc = fi.Name.Replace(".mcdf", string.Empty, StringComparison.OrdinalIgnoreCase);
+            if (!string.IsNullOrWhiteSpace(_importedSearch) && !desc.Contains(_importedSearch, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            ImGuiHelpers.ScaledDummy(5);
+            UiSharedService.DrawCard("imported" + fi.FullName, () =>
+            {
+                ImGui.AlignTextToFramePadding();
+                _uiSharedService.IconText(FontAwesomeIcon.FileImport, ImGuiColors.DalamudGrey);
+                ImGui.SameLine();
+                UiSharedService.ColorText("[Import]", ImGuiColors.DalamudGrey);
+                ImGui.SameLine();
+                ImGui.TextUnformatted(desc);
+
+                ImGui.SameLine();
+                using (ImRaii.Disabled(!_hasValidGposeTarget))
+                {
+                    if (_uiSharedService.IconButton(FontAwesomeIcon.ArrowRight))
+                    {
+                        _charaDataManager.LoadMcdf(fi.FullName);
+                        _ = _charaDataManager.McdfApplyToGposeTarget();
+                    }
+                }
+                UiSharedService.AttachToolTip(Loc.Get("CharaDataHub.Apply.Imported.ApplyTooltip"));
+                ImGui.SameLine();
+                if (_uiSharedService.IconButton(FontAwesomeIcon.Trash))
+                {
+                    try { File.Delete(fi.FullName); } catch (IOException) { /* best-effort delete */ }
+                }
+                UiSharedService.AttachToolTip(Loc.Get("CharaDataHub.Mcdf.Local.DeleteTooltip"));
+
+                UiSharedService.ColorTextWrapped($"{FormatFileSize(fi.Length)} - {fi.LastWriteTime.ToString("dd/MM/yyyy HH:mm")}", ImGuiColors.DalamudGrey);
+            }, stretchWidth: true);
         }
     }
 
@@ -1182,19 +1364,30 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
         {
             if (combo)
             {
+                ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X);
+                ImGui.InputTextWithHint("##mcdfSourceFilter", Loc.Get("CharaDataHub.Mcdf.Share.SearchHint"), ref _mcdfShareSourceSearch, 100);
+                ImGui.Separator();
+
+                int visibleCount = 0;
                 for (int i = 0; i < sourceEntries.Count; i++)
                 {
-                    bool selected = i == _mcdfShareSourceIndex;
                     var entryLabel = $"[{sourceEntries[i].Tag}] {sourceEntries[i].DisplayName}";
+                    if (!string.IsNullOrWhiteSpace(_mcdfShareSourceSearch)
+                        && !sourceEntries[i].DisplayName.Contains(_mcdfShareSourceSearch, StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    visibleCount++;
+                    bool selected = i == _mcdfShareSourceIndex;
                     if (ImGui.Selectable(entryLabel, selected))
                     {
                         _mcdfShareSourceIndex = i;
                         _mcdfShareSourceId = sourceEntries[i].Id;
                         _mcdfShareSourceIsLocal = sourceEntries[i].IsLocal;
                         _mcdfShareDescription = sourceEntries[i].DisplayName;
+                        _mcdfShareSourceSearch = string.Empty;
                     }
                 }
-                if (sourceEntries.Count == 0)
+                if (visibleCount == 0)
                 {
                     ImGui.TextDisabled(Loc.Get("CharaDataHub.Mcdf.Share.NoSources"));
                 }
@@ -2036,7 +2229,7 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
         };
         var subIcons = new[]
         {
-            FontAwesomeIcon.FileExport,
+            FontAwesomeIcon.User,
             FontAwesomeIcon.Home,
         };
 

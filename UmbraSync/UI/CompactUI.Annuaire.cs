@@ -5,8 +5,10 @@ using Dalamud.Interface.Textures.TextureWraps;
 using Dalamud.Interface.Utility;
 using Dalamud.Interface.Utility.Raii;
 using Microsoft.Extensions.Logging;
+using System.Globalization;
 using System.Numerics;
 using UmbraSync.API.Dto.Establishment;
+using UmbraSync.API.Dto.WildRp;
 using UmbraSync.Localization;
 using UmbraSync.Services;
 using UmbraSync.Services.Mediator;
@@ -29,6 +31,15 @@ public partial class CompactUi
     private readonly Dictionary<Guid, IDalamudTextureWrap?> _annuaireLogoCache = new();
     private List<EstablishmentDto>? _annuaireBookmarkResults;
     private bool _annuaireBookmarksLoading;
+    private WildRpAnnouncementDto? _annuaireWildRpOwn;
+    private WildRpListResponseDto _annuaireWildRpResults = new();
+    private bool _annuaireWildRpLoading;
+    private string _annuaireWildRpMessage = string.Empty;
+    private bool _annuaireWildRpFilterWorld;
+    private int _annuaireWildRpPage;
+    private List<RpProfileSummaryDto>? _annuaireWildRpProfiles;
+    private readonly HashSet<int> _wildRpExpiryNotified = [];
+    private Guid? _wildRpExpiryTrackingId;
 
     private static string[] AnnuaireCategoryNames =>
     [
@@ -127,17 +138,21 @@ public partial class CompactUi
             case 3:
                 DrawAnnuaireUpcoming();
                 break;
+            case 4:
+                DrawAnnuaireWildRp();
+                break;
         }
     }
 
     private void DrawAnnuaireTabButtons()
     {
-        var icons = new[] { FontAwesomeIcon.Home, FontAwesomeIcon.Star, FontAwesomeIcon.Globe, FontAwesomeIcon.CalendarAlt };
+        var icons = new[] { FontAwesomeIcon.Home, FontAwesomeIcon.Star, FontAwesomeIcon.Globe, FontAwesomeIcon.CalendarAlt, FontAwesomeIcon.Compass };
         var labels = new[] {
             Loc.Get("Establishment.Directory.Tab.Mine"),
             Loc.Get("Establishment.Directory.Tab.Favorites"),
             Loc.Get("Establishment.Directory.Tab.Browse"),
-            Loc.Get("Establishment.Directory.Tab.Upcoming")
+            Loc.Get("Establishment.Directory.Tab.Upcoming"),
+            Loc.Get("WildRp.Tab.Title")
         };
 
         const float btnH = 28f;
@@ -224,6 +239,7 @@ public partial class CompactUi
                 if (i == 1) _ = AnnuaireRefreshBookmarks();
                 if (i == 2) _ = AnnuaireRefreshList();
                 if (i == 3) _ = AnnuaireRefreshUpcoming();
+                if (i == 4) _ = AnnuaireRefreshWildRp();
             }
         }
     }
@@ -603,6 +619,333 @@ public partial class CompactUi
                 DrawAnnuaireUpcomingCard(estab, evt);
         }
     }
+
+    #region Wild RP
+
+    private void DrawAnnuaireWildRp()
+    {
+        DrawAnnuaireWildRpAnnounce();
+        ImGui.Separator();
+        DrawAnnuaireWildRpList();
+    }
+
+    private void DrawAnnuaireWildRpAnnounce()
+    {
+        ImGui.Spacing();
+
+        if (_annuaireWildRpOwn != null)
+        {
+            using (ImRaii.PushFont(UiBuilder.IconFont))
+                ImGui.TextColored(UiSharedService.AccentColor, FontAwesomeIcon.Compass.ToIconString());
+            ImGui.SameLine();
+            UiSharedService.ColorText(Loc.Get("WildRp.YourAnnouncement"), UiSharedService.AccentColor);
+
+            var worldName = _dalamudUtilService.WorldData.Value.TryGetValue((ushort)_annuaireWildRpOwn.WorldId, out string? wn) ? wn : _annuaireWildRpOwn.WorldId.ToString(CultureInfo.InvariantCulture);
+            var territoryName = _dalamudUtilService.TerritoryData.Value.TryGetValue(_annuaireWildRpOwn.TerritoryId, out string? tn) ? tn : _annuaireWildRpOwn.TerritoryId.ToString(CultureInfo.InvariantCulture);
+            var wardSuffix = _annuaireWildRpOwn.WardId is > 0 ? $" - {string.Format(CultureInfo.CurrentCulture, Loc.Get("WildRp.Ward"), _annuaireWildRpOwn.WardId)}" : string.Empty;
+
+            ImGui.TextUnformatted($"{territoryName}{wardSuffix} | {worldName}");
+
+            if (!string.IsNullOrWhiteSpace(_annuaireWildRpOwn.Message))
+                ImGui.TextColored(ImGuiColors.DalamudGrey, $"\"{_annuaireWildRpOwn.Message}\"");
+
+            var remaining = _annuaireWildRpOwn.ExpiresAtUtc - DateTime.UtcNow;
+            if (remaining.TotalMinutes > 0)
+            {
+                ImGui.TextDisabled(string.Format(CultureInfo.CurrentCulture, Loc.Get("WildRp.ExpiresIn"),
+                    remaining.TotalMinutes >= 60
+                        ? $"{(int)remaining.TotalHours}h{remaining.Minutes:D2}"
+                        : $"{(int)remaining.TotalMinutes} min"));
+            }
+
+            ImGui.Spacing();
+            if (ImGui.Button(Loc.Get("WildRp.Withdraw")))
+                _ = AnnuaireWildRpWithdraw();
+        }
+        else
+        {
+            ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X - _uiSharedService.GetIconButtonSize(FontAwesomeIcon.Compass).X - ImGui.GetStyle().ItemSpacing.X);
+            ImGui.InputTextWithHint("##wildRpMsg", Loc.Get("WildRp.MessageHint"), ref _annuaireWildRpMessage, 200);
+            ImGui.SameLine();
+            if (_uiSharedService.IconButton(FontAwesomeIcon.Compass))
+                _ = AnnuaireWildRpAnnounce();
+            UiSharedService.AttachToolTip(Loc.Get("WildRp.Announce"));
+        }
+
+        ImGui.Spacing();
+    }
+
+    private void DrawAnnuaireWildRpList()
+    {
+        if (ImGui.Checkbox(Loc.Get("WildRp.FilterWorld"), ref _annuaireWildRpFilterWorld))
+        {
+            _annuaireWildRpPage = 0;
+            _ = AnnuaireRefreshWildRpList();
+        }
+
+        ImGui.SameLine();
+        if (_uiSharedService.IconButton(FontAwesomeIcon.Sync))
+        {
+            _annuaireWildRpPage = 0;
+            _ = AnnuaireRefreshWildRpList();
+        }
+        UiSharedService.AttachToolTip(Loc.Get("Establishment.Directory.Refresh"));
+
+        if (_annuaireWildRpLoading)
+        {
+            ImGui.TextDisabled(Loc.Get("WildRp.Loading"));
+            return;
+        }
+
+        if (_annuaireWildRpResults.Announcements.Count == 0)
+        {
+            ImGui.TextDisabled(Loc.Get("WildRp.NoResults"));
+            return;
+        }
+
+        foreach (var announcement in _annuaireWildRpResults.Announcements)
+            DrawAnnuaireWildRpCard(announcement);
+
+        if (_annuaireWildRpResults.Announcements.Count == 0) return;
+        var totalPages = Math.Max(1, (_annuaireWildRpResults.TotalCount + _annuaireWildRpResults.PageSize - 1) / Math.Max(_annuaireWildRpResults.PageSize, 1));
+
+        if (_annuaireWildRpPage > 0 && _uiSharedService.IconButton(FontAwesomeIcon.ChevronLeft))
+        {
+            _annuaireWildRpPage--;
+            _ = AnnuaireRefreshWildRpList();
+        }
+
+        ImGui.SameLine();
+        ImGui.Text($"Page {_annuaireWildRpPage + 1}/{totalPages} ({_annuaireWildRpResults.TotalCount})");
+
+        if (_annuaireWildRpPage < totalPages - 1)
+        {
+            ImGui.SameLine();
+            if (_uiSharedService.IconButton(FontAwesomeIcon.ChevronRight))
+            {
+                _annuaireWildRpPage++;
+                _ = AnnuaireRefreshWildRpList();
+            }
+        }
+    }
+
+    private void DrawAnnuaireWildRpCard(WildRpAnnouncementDto announcement)
+    {
+        ImGui.PushID(announcement.Id.ToString());
+
+        var worldName = _dalamudUtilService.WorldData.Value.TryGetValue((ushort)announcement.WorldId, out string? wn) ? wn : announcement.WorldId.ToString(CultureInfo.InvariantCulture);
+        var territoryName = _dalamudUtilService.TerritoryData.Value.TryGetValue(announcement.TerritoryId, out string? tn) ? tn : announcement.TerritoryId.ToString(CultureInfo.InvariantCulture);
+        var wardSuffix = announcement.WardId is > 0 ? $" - {string.Format(CultureInfo.CurrentCulture, Loc.Get("WildRp.Ward"), announcement.WardId)}" : string.Empty;
+
+        var hasRpProfile = !string.IsNullOrWhiteSpace(announcement.RpFirstName);
+        string displayName;
+        if (hasRpProfile)
+        {
+            var parts = new[] { announcement.RpTitle, announcement.RpFirstName, announcement.RpLastName };
+            displayName = string.Join(" ", parts.Where(p => !string.IsNullOrWhiteSpace(p)));
+        }
+        else
+        {
+            displayName = announcement.CharacterName ?? announcement.UserAlias ?? announcement.UserUID;
+        }
+
+        var elapsed = DateTime.UtcNow - announcement.CreatedAtUtc;
+        var elapsedStr = elapsed.TotalMinutes < 1 ? "< 1 min"
+            : elapsed.TotalHours >= 1 ? $"{(int)elapsed.TotalHours}h{elapsed.Minutes:D2}"
+            : $"{(int)elapsed.TotalMinutes} min";
+
+        UiSharedService.DrawCard($"wildrp_{announcement.Id}", () =>
+        {
+            float bigTextHeight;
+            using (_uiSharedService.UidFont.Push())
+                bigTextHeight = ImGui.CalcTextSize(displayName).Y;
+            float iconHeight;
+            using (ImRaii.PushFont(UiBuilder.IconFont))
+                iconHeight = ImGui.CalcTextSize(FontAwesomeIcon.Compass.ToIconString()).Y;
+            var iconOffsetY = (bigTextHeight - iconHeight) / 2f;
+
+            var cursorY = ImGui.GetCursorPosY();
+            ImGui.SetCursorPosY(cursorY + iconOffsetY);
+            using (ImRaii.PushFont(UiBuilder.IconFont))
+                ImGui.TextColored(UiSharedService.AccentColor, FontAwesomeIcon.Compass.ToIconString());
+
+            ImGui.SameLine();
+            ImGui.SetCursorPosY(cursorY);
+            _uiSharedService.BigText(displayName);
+
+            var worldText = $"[{worldName}]";
+            var worldWidth = ImGui.CalcTextSize(worldText).X;
+            var rightPadRow1 = (ImGui.GetStyle().FramePadding.X + 4f * ImGuiHelpers.GlobalScale) * 2f;
+            var availRow1 = ImGui.GetContentRegionAvail().X - rightPadRow1;
+            if (availRow1 > worldWidth)
+                ImGui.SameLine(ImGui.GetCursorPosX() + availRow1 - worldWidth);
+            else
+                ImGui.SameLine();
+            ImGui.TextDisabled(worldText);
+
+            // Row 2: territory + ward + message + elapsed time (right-aligned)
+            ImGui.TextDisabled($"{territoryName}{wardSuffix}");
+
+            if (!string.IsNullOrWhiteSpace(announcement.Message))
+            {
+                ImGui.SameLine();
+                ImGui.TextColored(ImGuiColors.DalamudGrey, $"| \"{announcement.Message}\"");
+            }
+
+            float iconWidth;
+            using (ImRaii.PushFont(UiBuilder.IconFont))
+                iconWidth = ImGui.CalcTextSize(FontAwesomeIcon.Clock.ToIconString()).X;
+            var timeWidth = ImGui.CalcTextSize(elapsedStr).X + iconWidth + ImGui.GetStyle().ItemSpacing.X;
+            var rightPad = (ImGui.GetStyle().FramePadding.X + 4f * ImGuiHelpers.GlobalScale) * 2f;
+            var availWidth = ImGui.GetContentRegionAvail().X - rightPad;
+            if (availWidth > timeWidth)
+            {
+                ImGui.SameLine(ImGui.GetCursorPosX() + availWidth - timeWidth);
+            }
+            using (ImRaii.PushFont(UiBuilder.IconFont))
+                ImGui.TextColored(ImGuiColors.DalamudGrey, FontAwesomeIcon.Clock.ToIconString());
+            ImGui.SameLine();
+            ImGui.TextColored(ImGuiColors.DalamudGrey, elapsedStr);
+        }, stretchWidth: true);
+
+        ImGui.PopID();
+    }
+
+    private async Task AnnuaireRefreshWildRp()
+    {
+        try
+        {
+            _annuaireWildRpOwn = await _apiController.WildRpGetOwn().ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error loading own wild RP announcement");
+        }
+
+        try
+        {
+            _annuaireWildRpProfiles = await _apiController.EstablishmentGetOwnRpProfiles().ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error loading RP profiles for wild RP");
+        }
+
+        await AnnuaireRefreshWildRpList().ConfigureAwait(false);
+    }
+
+    private async Task AnnuaireRefreshWildRpList()
+    {
+        if (_annuaireWildRpLoading) return;
+        _annuaireWildRpLoading = true;
+        try
+        {
+            uint? worldFilter = null;
+            if (_annuaireWildRpFilterWorld)
+                worldFilter = await _dalamudUtilService.GetWorldIdAsync().ConfigureAwait(false);
+
+            _annuaireWildRpResults = await _apiController.WildRpList(new WildRpListRequestDto
+            {
+                WorldId = worldFilter,
+                Page = _annuaireWildRpPage,
+                PageSize = 20
+            }).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error refreshing wild RP list");
+        }
+        finally
+        {
+            _annuaireWildRpLoading = false;
+        }
+    }
+
+    private async Task AnnuaireWildRpAnnounce()
+    {
+        try
+        {
+            var mapData = await _dalamudUtilService.GetMapDataAsync().ConfigureAwait(false);
+            var playerName = _uiSharedService.PlayerName;
+            var matchingProfile = _annuaireWildRpProfiles?.FirstOrDefault(p =>
+                string.Equals(p.CharacterName, playerName, StringComparison.OrdinalIgnoreCase));
+
+            _annuaireWildRpOwn = await _apiController.WildRpAnnounce(new WildRpAnnounceRequestDto
+            {
+                WorldId = mapData.ServerId,
+                TerritoryId = mapData.TerritoryId,
+                WardId = mapData.WardId > 0 ? mapData.WardId : null,
+                CharacterName = playerName,
+                Message = string.IsNullOrWhiteSpace(_annuaireWildRpMessage) ? null : _annuaireWildRpMessage.Trim(),
+                RpProfileId = matchingProfile?.Id
+            }).ConfigureAwait(false);
+
+            _annuaireWildRpMessage = string.Empty;
+            await AnnuaireRefreshWildRpList().ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error announcing wild RP");
+        }
+    }
+
+    private async Task AnnuaireWildRpWithdraw()
+    {
+        try
+        {
+            await _apiController.WildRpWithdraw().ConfigureAwait(false);
+            _annuaireWildRpOwn = null;
+            _wildRpExpiryNotified.Clear();
+            _wildRpExpiryTrackingId = null;
+            await AnnuaireRefreshWildRpList().ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error withdrawing wild RP");
+        }
+    }
+
+    private void CheckWildRpExpiry()
+    {
+        if (_annuaireWildRpOwn == null) return;
+
+        if (_wildRpExpiryTrackingId != _annuaireWildRpOwn.Id)
+        {
+            _wildRpExpiryTrackingId = _annuaireWildRpOwn.Id;
+            _wildRpExpiryNotified.Clear();
+        }
+
+        var remaining = _annuaireWildRpOwn.ExpiresAtUtc - DateTime.UtcNow;
+        var totalMinutes = remaining.TotalMinutes;
+
+        if (totalMinutes <= 0 && _wildRpExpiryNotified.Add(0))
+        {
+            Mediator.Publish(new DualNotificationMessage(
+                Loc.Get("WildRp.Tab.Title"),
+                Loc.Get("WildRp.Expired"),
+                MareConfiguration.Models.NotificationType.Warning,
+                TimeSpan.FromSeconds(8)));
+            _annuaireWildRpOwn = null;
+        }
+        else if (totalMinutes <= 2 && totalMinutes > 0 && _wildRpExpiryNotified.Add(2))
+        {
+            Mediator.Publish(new DualNotificationMessage(
+                Loc.Get("WildRp.Tab.Title"),
+                string.Format(CultureInfo.CurrentCulture, Loc.Get("WildRp.ExpiringSoon"), 2),
+                MareConfiguration.Models.NotificationType.Warning,
+                TimeSpan.FromSeconds(5)));
+        }
+        else if (totalMinutes <= 5 && totalMinutes > 2 && _wildRpExpiryNotified.Add(5))
+        {
+            Mediator.Publish(new DualNotificationMessage(
+                Loc.Get("WildRp.Tab.Title"),
+                string.Format(CultureInfo.CurrentCulture, Loc.Get("WildRp.ExpiringSoon"), 5),
+                MareConfiguration.Models.NotificationType.Info,
+                TimeSpan.FromSeconds(5)));
+        }
+    }
+
+    #endregion
 
     private void DrawAnnuaireUpcomingCard(EstablishmentDto establishment, EstablishmentEventDto evt)
     {

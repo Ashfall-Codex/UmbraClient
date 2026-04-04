@@ -11,14 +11,14 @@ namespace UmbraSync.Services.CharaData;
 
 public sealed class McdfShareManager(ILogger<McdfShareManager> logger, ApiController apiController,
     CharaDataFileHandler fileHandler, CharaDataManager charaDataManager,
-    MareMediator mediator, NotificationTracker notificationTracker)
+    MareMediator mediator, NotificationTracker notificationTracker) : IMediatorSubscriber
 {
     private readonly ILogger<McdfShareManager> _logger = logger;
     private readonly ApiController _apiController = apiController;
     private readonly CharaDataFileHandler _fileHandler = fileHandler;
     private readonly CharaDataManager _charaDataManager = charaDataManager;
-    private readonly MareMediator _mediator = mediator;
     private readonly NotificationTracker _notificationTracker = notificationTracker;
+    public MareMediator Mediator { get; } = mediator;
     private readonly SemaphoreSlim _operationSemaphore = new(1, 1);
     private readonly List<McdfShareEntryDto> _ownShares = new();
     private readonly List<McdfShareEntryDto> _sharedWithMe = new();
@@ -26,8 +26,18 @@ public sealed class McdfShareManager(ILogger<McdfShareManager> logger, ApiContro
     private bool _initialRefreshDone;
     private CancellationTokenSource? _pollCts;
 
+    private bool _mediatorSubscribed;
+
+    public void EnsureSubscribed()
+    {
+        if (_mediatorSubscribed) return;
+        _mediatorSubscribed = true;
+        Mediator.Subscribe<McdfShareReceivedMessage>(this, (msg) => _ = RefreshAsync(CancellationToken.None));
+    }
+
     public void StartBackgroundPolling()
     {
+        EnsureSubscribed();
         StopBackgroundPolling();
         _pollCts = new CancellationTokenSource();
         _ = BackgroundPollLoop(_pollCts.Token);
@@ -409,7 +419,7 @@ public sealed class McdfShareManager(ILogger<McdfShareManager> logger, ApiContro
         string safeDescription = string.IsNullOrWhiteSpace(description) ? "MCDF" : description;
         string toastTitle = Loc.Get("Notification.McdfSave.ToastTitle");
         string toastBody = string.Format(CultureInfo.CurrentCulture, Loc.Get("Notification.McdfSave.ToastBody"), safeDescription);
-        _mediator.Publish(new DualNotificationMessage(toastTitle, toastBody, NotificationType.Success, TimeSpan.FromSeconds(4)));
+        Mediator.Publish(new DualNotificationMessage(toastTitle, toastBody, NotificationType.Success, TimeSpan.FromSeconds(4)));
     }
 
     private void NotifyShareCreated(Guid shareId, string description, int individualCount, int syncshellCount)
@@ -421,7 +431,7 @@ public sealed class McdfShareManager(ILogger<McdfShareManager> logger, ApiContro
         string toastTitle = Loc.Get("Notification.McdfShare.Created.ToastTitle");
         string toastBody = string.Format(CultureInfo.CurrentCulture, Loc.Get("Notification.McdfShare.Created.ToastBody"), safeDescription, targetSummary);
 
-        _mediator.Publish(new DualNotificationMessage(toastTitle, toastBody, NotificationType.Success, TimeSpan.FromSeconds(4)));
+        Mediator.Publish(new DualNotificationMessage(toastTitle, toastBody, NotificationType.Success, TimeSpan.FromSeconds(4)));
         _notificationTracker.Upsert(NotificationEntry.McdfShareCreated(shareId, safeDescription, individualCount, syncshellCount));
     }
 
@@ -435,7 +445,7 @@ public sealed class McdfShareManager(ILogger<McdfShareManager> logger, ApiContro
         string toastTitle = Loc.Get("Notification.McdfShare.Received.ToastTitle");
         string toastBody = string.Format(CultureInfo.CurrentCulture, Loc.Get("Notification.McdfShare.Received.ToastBody"), safeDescription, ownerAliasOrUid);
 
-        _mediator.Publish(new DualNotificationMessage(toastTitle, toastBody, NotificationType.Info, TimeSpan.FromSeconds(4)));
+        Mediator.Publish(new DualNotificationMessage(toastTitle, toastBody, NotificationType.Info, TimeSpan.FromSeconds(4)));
         _notificationTracker.Upsert(NotificationEntry.McdfShareReceived(share.Id, safeDescription, ownerAliasOrUid));
         _logger.LogInformation("MCDF share received: {ShareId} from {Owner}. Description: {Description}", share.Id, ownerAliasOrUid, safeDescription);
     }

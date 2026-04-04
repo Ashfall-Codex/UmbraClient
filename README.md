@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <code>v2.4.0.3022</code> &middot; API <code>v3000</code> &middot; C# 13 / .NET 10 &middot; Dalamud SDK 14.0.2
+  <code>v2.4.1.4003</code> &middot; API <code>v3000</code> &middot; C# 13 / .NET 10 &middot; Dalamud SDK 14.0.2
 </p>
 
 ---
@@ -41,8 +41,9 @@
 - **Titre Honorific intégré** : édition du titre complet directement depuis la fiche RP avec color picker (couleur + glow), préfixe optionnel. Synchronisé automatiquement via Honorific
 - **Moodles RP** : intégration des Moodles dans les profils avec cache local de sauvegarde
 - **Annuaire d'établissements** : création et gestion d'établissements RP (tavernes, boutiques, temples, etc.) avec logo, bannière, localisation housing, gérant lié à une fiche RP, événements programmés (ponctuels ou récurrents) et calendrier "À venir"
-- **Bulle d'écriture** : indicateur de saisie en temps réel sur les nameplates et la Party List, compatible avec le chat natif et ChatTwo *(inspiré de [RTyping](https://github.com/apetih/rtyping))*
-- **Colorisation des émotes** : mise en évidence des emotes dans le chat (entre `<>`, `*` et `[]`)
+- **RP sauvage** : possibilité de s'annoncer disponible pour du RP sauvage via l'annuaire, avec affichage automatique du secteur (ward) en quartier résidentiel
+- **Bulle d'écriture** : indicateur de saisie en temps réel sur les nameplates et la Party List, compatible avec le chat natif et ChatTwo, avec notification sonore configurable *(inspiré de [RTyping](https://github.com/apetih/rtyping))*
+- **Colorisation des émotes** : mise en évidence des emotes dans le chat (entre `<>`, `*` et `[]`) et coloration des dialogues entre `"..."` en blanc
 - **Contenu HRP** : les messages entre parenthèses (simples et doubles) sont affichés en gris italique
 - **Support BBCode** : formatage riche dans les informations du profil RP
 - **Adaptation aux plugins tiers** : UmbraSync détecte automatiquement la présence de ChatTwo et de Chat Proximity pour s'y adapter. La bulle d'écriture fonctionne avec ChatTwo, et la colorisation des émotes s'ajuste en fonction de la distance si Chat Proximity est installé
@@ -50,12 +51,12 @@
 ### Hub de Données (MCDF)
 
 - **Hub de données** : centre unifié pour créer, stocker, importer, partager et appliquer des MCDF et des entrées Live
-- **Stockage serveur** : upload de fichiers MCDF sur le serveur avec gestion locale et en ligne dans un tableau unifié
+- **Stockage serveur** : upload de fichiers MCDF sur le serveur (stockage illimité), gestion locale et en ligne dans un tableau unifié
 - **Partage ciblé** : envoi de MCDF à des paires ou Syncshells spécifiques avec notifications push en temps réel (SignalR)
 - **Chiffrement** : données chiffrées par AES-GCM avec salt et nonce aléatoires, tag d'authentification 128 bits
 - **Gpose Together** : échange de poses en groupe directement depuis le hub
 - **Favoris** : système de favoris unifié pour les entrées Live et MCDF avec description personnalisable
-- **Dossier local** : scan automatique d'un dossier local de fichiers MCDF avec upload vers le serveur
+- **Dossier local** : scan automatique d'un dossier local de fichiers MCDF (y compris les sous-dossiers) avec upload vers le serveur
 
 ### Partage de Housing
 
@@ -70,7 +71,9 @@
 - **Administration** : gestion des membres (ban, retrait, permissions), transfert de propriété, changement de mot de passe
 - **Invitations temporaires** : génération d'invitations à usage unique
 - **Rôles** : Owner, Moderator, Member avec permissions granulaires
+- **Collection Penumbra** : liaison d'une collection Penumbra spécifique par Syncshell
 - **Profil de groupe** : description, tags, logo pour la découverte publique
+- **Tri des membres** : tri de la liste des membres par type de pair ou par ordre alphabétique
 - **Pruning** : nettoyage automatique des membres inactifs
 
 ### Synchronisation de quêtes

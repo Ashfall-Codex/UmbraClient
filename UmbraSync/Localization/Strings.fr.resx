@@ -1531,22 +1531,22 @@ Veuillez conserver une copie de votre clé secrète au cas où vous auriez besoi
     <value />
   </data>
   <data name="ChangelogUi.FullHistory" xml:space="preserve">
-    <value />
+    <value>Historique complet</value>
   </data>
   <data name="ChangelogUi.HeaderTitle" xml:space="preserve">
-    <value />
+    <value>Notes de version</value>
   </data>
   <data name="ChangelogUi.LoadedVersion" xml:space="preserve">
-    <value />
+    <value>Version chargée : {0}</value>
   </data>
   <data name="ChangelogUi.MarkAsRead" xml:space="preserve">
-    <value />
+    <value>Marquer comme lu</value>
   </data>
   <data name="ChangelogUi.ShowAll" xml:space="preserve">
-    <value />
+    <value>Tout afficher</value>
   </data>
   <data name="ChangelogUi.WindowTitle" xml:space="preserve">
-    <value />
+    <value>Umbra Sync - Notes de version</value>
   </data>
   <data name="CharaDataHub.AccessType.AllPairs" xml:space="preserve">
     <value />
@@ -1949,7 +1949,10 @@ Note : la description sera visible par toute personne ayant acc&#xE8;s. Voir &#x
     <value>Vous ne pouvez actualiser les donn&#xE9;es que toutes les minutes. Veuillez patienter.</value>
   </data>
   <data name="CharaDataHub.Mcd.Online.EntryCount" xml:space="preserve">
-    <value>Entr&#xE9;es sur le serveur : {0}/{1}</value>
+    <value>Entr&#xE9;es Live sur le serveur : {0}/{1}</value>
+  </data>
+  <data name="CharaDataHub.Mcd.Online.McdfEntryCount" xml:space="preserve">
+    <value>Fichiers MCDF sur le serveur : {0}/&#x221E;</value>
   </data>
   <data name="CharaDataHub.Mcd.Online.Help" xml:space="preserve">
     <value>Cet onglet centralise vos donn&#xE9;es de personnage, qu'elles soient stock&#xE9;es sur le serveur ou en local sur votre machine.
@@ -2563,6 +2566,81 @@ Note : Les armes ne s'afficheront pas correctement sauf si vous utilisez le m&#x
   </data>
   <data name="CharaDataHub.Mcdf.Local.Delete" xml:space="preserve">
     <value>Supprimer</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Local.Search" xml:space="preserve">
+    <value>Rechercher...</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Local.FolderSettingsHint" xml:space="preserve">
+    <value>Pour modifier le dossier, rendez-vous dans Param&#xE8;tres &gt; Stockage</value>
+  </data>
+  <data name="CharaDataHub.Apply.Tabs.Imported" xml:space="preserve">
+    <value>Import&#xE9;</value>
+  </data>
+  <data name="CharaDataHub.Apply.Imported.Empty" xml:space="preserve">
+    <value>Aucun fichier import&#xE9;. Utilisez l'onglet Importer dans Cr&#xE9;ation de donn&#xE9;es pour importer des fichiers MCDF.</value>
+  </data>
+  <data name="CharaDataHub.Apply.Imported.ApplyTooltip" xml:space="preserve">
+    <value>Appliquer ce personnage sur la cible GPose</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Import.SaveToImport" xml:space="preserve">
+    <value>Enregistrer dans le dossier Import</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Import.SaveToImportTooltip" xml:space="preserve">
+    <value>Copier le fichier dans {0}</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Import.AlreadyExists" xml:space="preserve">
+    <value>Ce fichier existe d&#xE9;j&#xE0; dans le dossier Import</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Import.NoFolderConfigured" xml:space="preserve">
+    <value>Aucun dossier MCDF configur&#xE9;. Configurez-en un dans Param&#xE8;tres &gt; Stockage.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Import.ApplyHint" xml:space="preserve">
+    <value>Pour appliquer un fichier import&#xE9;, rendez-vous dans Application de donn&#xE9;es &gt; Import&#xE9;.</value>
+  </data>
+  <data name="Settings.Storage.McdfFolderDesc" xml:space="preserve">
+    <value>Dossier de stockage local pour les fichiers MCDF (personnages export&#xE9;s). Les fichiers t&#xE9;l&#xE9;charg&#xE9;s depuis le serveur seront enregistr&#xE9;s dans ce dossier.</value>
+  </data>
+  <data name="CharaDataHub.Mcd.Online.Search" xml:space="preserve">
+    <value>Rechercher...</value>
+  </data>
+  <data name="CharaDataHub.Mcd.Online.NoLiveEntries" xml:space="preserve">
+    <value>Aucune entr&#xE9;e Live. Utilisez le bouton "G&#xE9;n&#xE9;rer un fichier Live" pour en cr&#xE9;er une.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Local.NewFolder" xml:space="preserve">
+    <value>Cr&#xE9;er un dossier</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Local.NewFolderPlaceholder" xml:space="preserve">
+    <value>Nom du dossier...</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Local.DeleteFolderTooltip" xml:space="preserve">
+    <value>Supprimer ce dossier et son contenu</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Local.DeleteFolderConfirm" xml:space="preserve">
+    <value>Supprimer le dossier "{0}" et ses {1} fichier(s) ?</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Local.DeleteFolderYes" xml:space="preserve">
+    <value>Oui, supprimer</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Local.DeleteFolderNo" xml:space="preserve">
+    <value>Annuler</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Download.PickFolder" xml:space="preserve">
+    <value>Enregistrer dans :</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Download.Start" xml:space="preserve">
+    <value>T&#xE9;l&#xE9;charger</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Download.InProgress" xml:space="preserve">
+    <value>T&#xE9;l&#xE9;chargement en cours...</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Download.Done" xml:space="preserve">
+    <value>T&#xE9;l&#xE9;chargement termin&#xE9; !</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Download.Failed" xml:space="preserve">
+    <value>&#xC9;chec du t&#xE9;l&#xE9;chargement.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Download.Close" xml:space="preserve">
+    <value>Fermer</value>
   </data>
   <data name="CharaDataHub.Mcdf.Online.DownloadTooltip" xml:space="preserve">
     <value>Télécharger ce MCDF dans le dossier local</value>
@@ -3870,7 +3948,7 @@ Note : Les armes ne s'afficheront pas correctement sauf si vous utilisez le m&#x
     <value>Quest Sync</value>
   </data>
   <data name="CharaDataHub.Tab.Mcdf" xml:space="preserve">
-    <value>MCDF</value>
+    <value>Personnage</value>
   </data>
   <data name="CharaDataHub.Tab.McdfExport" xml:space="preserve">
     <value>Export MCDF</value>
@@ -3886,6 +3964,9 @@ Note : Les armes ne s'afficheront pas correctement sauf si vous utilisez le m&#x
   </data>
   <data name="CharaDataHub.Mcdf.Share.SelectSource" xml:space="preserve">
     <value>S&#xE9;lectionner un MCDF &#xE0; partager...</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Share.SearchHint" xml:space="preserve">
+    <value>Rechercher un MCDF...</value>
   </data>
   <data name="CharaDataHub.Mcdf.Share.NoSources" xml:space="preserve">
     <value>Aucun MCDF disponible. Cr&#xE9;ez-en un dans &#xAB; Mes donn&#xE9;es &#xBB;.</value>
@@ -5139,6 +5220,15 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
   <data name="QuestSync.NoActiveSession" xml:space="preserve">
     <value>Aucune session active.</value>
   </data>
+  <data name="QuestSync.CopySessionId" xml:space="preserve">
+    <value>Copier le code de session</value>
+  </data>
+  <data name="QuestSync.LeaveSession" xml:space="preserve">
+    <value>Quitter la session</value>
+  </data>
+  <data name="QuestSync.LeaveSessionHint" xml:space="preserve">
+    <value>Maintenez Ctrl et cliquez pour quitter la session.</value>
+  </data>
   <data name="CharaDataHub.Tab.Profiles" xml:space="preserve">
     <value>Profils</value>
   </data>
@@ -5768,5 +5858,44 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
   </data>
   <data name="Establishment.Category.Other" xml:space="preserve">
     <value>Autre</value>
+  </data>
+  <data name="WildRp.Tab.Title" xml:space="preserve">
+    <value>RP Sauvage</value>
+  </data>
+  <data name="WildRp.Announce" xml:space="preserve">
+    <value>S'annoncer en RP Sauvage</value>
+  </data>
+  <data name="WildRp.Withdraw" xml:space="preserve">
+    <value>Se retirer</value>
+  </data>
+  <data name="WildRp.MessageHint" xml:space="preserve">
+    <value>Message court (optionnel)...</value>
+  </data>
+  <data name="WildRp.ActiveSince" xml:space="preserve">
+    <value>Actif depuis {0}</value>
+  </data>
+  <data name="WildRp.FilterWorld" xml:space="preserve">
+    <value>Mon monde uniquement</value>
+  </data>
+  <data name="WildRp.NoResults" xml:space="preserve">
+    <value>Aucune annonce active</value>
+  </data>
+  <data name="WildRp.Loading" xml:space="preserve">
+    <value>Chargement...</value>
+  </data>
+  <data name="WildRp.YourAnnouncement" xml:space="preserve">
+    <value>Votre annonce</value>
+  </data>
+  <data name="WildRp.ExpiresIn" xml:space="preserve">
+    <value>Expire dans {0}</value>
+  </data>
+  <data name="WildRp.ExpiringSoon" xml:space="preserve">
+    <value>Votre annonce RP Sauvage expire dans {0} minutes.</value>
+  </data>
+  <data name="WildRp.Expired" xml:space="preserve">
+    <value>Votre annonce RP Sauvage a expiré.</value>
+  </data>
+  <data name="WildRp.Ward" xml:space="preserve">
+    <value>Secteur {0}</value>
   </data>
 </root>
