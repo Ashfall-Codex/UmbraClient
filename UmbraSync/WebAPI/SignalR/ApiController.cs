@@ -365,24 +365,39 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
 
     private async Task LoadInitialPairs()
     {
-        foreach (var userPair in await UserGetPairedClients().ConfigureAwait(false))
+
+        var pairedClientsTask = UserGetPairedClients();
+        var groupsTask = GroupsGetAll();
+
+        await Task.WhenAll(pairedClientsTask, groupsTask).ConfigureAwait(false);
+
+        var pairedClients = await pairedClientsTask.ConfigureAwait(false);
+        var allGroups = await groupsTask.ConfigureAwait(false);
+
+        foreach (var userPair in pairedClients)
         {
             Logger.LogDebug("Individual Pair: {userPair}", userPair);
             _pairManager.AddUserPair(userPair, addToLastAddedUser: false);
         }
-        var allGroups = await GroupsGetAll().ConfigureAwait(false);
+
         foreach (var entry in allGroups)
         {
             Logger.LogDebug("Group: {entry}", entry);
             _pairManager.AddGroup(entry);
         }
-        foreach (var group in allGroups)
+        if (allGroups.Count > 0)
         {
-            var users = await GroupsGetUsersInGroup(group).ConfigureAwait(false);
-            foreach (var user in users)
+            var groupUsersTasks = allGroups.Select(g => GroupsGetUsersInGroup(g)).ToList();
+            await Task.WhenAll(groupUsersTasks).ConfigureAwait(false);
+
+            for (int i = 0; i < allGroups.Count; i++)
             {
-                Logger.LogDebug("Group Pair: {user}", user);
-                _pairManager.AddGroupPair(user, isInitialLoad: true);
+                var users = await groupUsersTasks[i].ConfigureAwait(false);
+                foreach (var user in users)
+                {
+                    Logger.LogDebug("Group Pair: {user}", user);
+                    _pairManager.AddGroupPair(user, isInitialLoad: true);
+                }
             }
         }
     }
@@ -431,8 +446,21 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
         }
         catch (Exception ex)
         {
-            Logger.LogCritical(ex, "Failure to obtain data after reconnection");
+            Logger.LogWarning(ex, "Failure to obtain data after reconnection, restarting full connection cycle");
             await StopConnection(ServerState.Disconnected).ConfigureAwait(false);
+
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
+                    await CreateConnections().ConfigureAwait(false);
+                }
+                catch (Exception innerEx)
+                {
+                    Logger.LogWarning(innerEx, "Auto-retry CreateConnections after failed reconnect threw");
+                }
+            });
         }
     }
 

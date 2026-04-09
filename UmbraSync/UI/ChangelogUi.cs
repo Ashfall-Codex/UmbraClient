@@ -179,6 +179,10 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
     {
         return new List<ChangelogEntry>
         {
+            new(new Version(2, 4, 2, 4009), "2.4.2.4009", new List<ChangelogLine>
+            {
+                new("Correction : Sur les connexions instables ou à faible débit, le plugin pouvait rester bloqué dans une boucle de déconnexion/reconnexion. Le cycle de récupération est désormais plus robuste."),
+            }),  
             new(new Version(2, 4, 1, 4004), "2.4.1.4004", new List<ChangelogLine>
             {
                 new("Amélioration : Possibilité de s'annoncer disponible pour du RP sauvage."),

@@ -29,7 +29,7 @@ public record HubConnectionConfig
         get
         {
             if (Transports == null || Transports.Length == 0)
-                return HttpTransportType.WebSockets;
+                return HttpTransportType.WebSockets | HttpTransportType.ServerSentEvents | HttpTransportType.LongPolling;
 
             HttpTransportType result = HttpTransportType.None;
 
