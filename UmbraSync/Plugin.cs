@@ -18,6 +18,7 @@ using UmbraSync.Services;
 using UmbraSync.Services.Events;
 using UmbraSync.Services.Housing;
 using UmbraSync.Services.Mediator;
+using UmbraSync.Services.Rendering;
 using UmbraSync.Services.Notification;
 using UmbraSync.Services.ServerConfiguration;
 using UmbraSync.UI;
@@ -252,6 +253,8 @@ public sealed class Plugin : IDalamudPlugin
             collection.AddScoped<ChatTargetSoundService>();
             collection.AddScoped<GuiHookService>();
             collection.AddScoped<ChatTypingDetectionService>();
+            collection.AddSingleton<PictomancyService>();
+            collection.AddScoped<ProfileNameplateOverlayService>();
 
             collection.AddHostedService(p => p.GetRequiredService<PluginWatcherService>());
             collection.AddHostedService(p => p.GetRequiredService<ConfigurationSaveService>());

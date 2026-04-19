@@ -2361,7 +2361,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
             ImGui.SameLine();
             ImGui.Text("(MiB)");
             _uiShared.DrawHelpText("When a loading in player and their VRAM usage exceeds this amount, automatically blocks the synced player." + UiSharedService.TooltipSeparator
-                + "Default: 550 MiB");
+                + "Default: 500 MiB");
             ImGui.SetNextItemWidth(MathF.Min(100 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X * 0.3f));
             if (ImGui.InputInt("Auto Block Triangle threshold", ref trisAuto))
             {
@@ -2372,7 +2372,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
             ImGui.SameLine();
             ImGui.Text("(thousand triangles)");
             _uiShared.DrawHelpText("When a loading in player and their triangle count exceeds this amount, automatically blocks the synced player." + UiSharedService.TooltipSeparator
-                + "Default: 375 thousand");
+                + "Default: 400 thousand");
             using (ImRaii.Disabled(!_perfUnapplied))
             {
                 if (ImGui.Button("Apply Changes Now"))

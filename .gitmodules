@@ -13,3 +13,6 @@
 [submodule "OtterGui"]
 	path = OtterGui
 	url = https://github.com/Ottermandias/OtterGui.git
+[submodule "ffxiv_pictomancy"]
+	path = ffxiv_pictomancy
+	url = https://github.com/sourpuh/ffxiv_pictomancy

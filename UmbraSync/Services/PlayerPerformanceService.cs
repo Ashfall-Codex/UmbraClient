@@ -15,10 +15,6 @@ namespace UmbraSync.Services;
 
 public class PlayerPerformanceService : DisposableMediatorSubscriberBase
 {
-    // Limits that will still be enforced when no limits are enabled
-    public const int MaxVRAMUsageThreshold = 2000; // 2GB
-    public const int MaxTriUsageThreshold = 2000000; // 2 million triangles
-
     private readonly FileCacheManager _fileCacheManager;
     private readonly XivDataAnalyzer _xivDataAnalyzer;
     private readonly ILogger<PlayerPerformanceService> _logger;
@@ -107,7 +103,6 @@ public class PlayerPerformanceService : DisposableMediatorSubscriberBase
 
         _logger.LogDebug("Calculated Triangle usage for {p}", pairHandler);
 
-        long triUsageThreshold = config.TrisAutoPauseThresholdThousands * 1000;
         bool isDirect = pair.UserPair != null;
         bool autoPause = config.AutoPausePlayersExceedingThresholds;
         bool notify = isDirect ? config.NotifyAutoPauseDirectPairs : config.NotifyAutoPauseGroupPairs;
@@ -116,7 +111,9 @@ public class PlayerPerformanceService : DisposableMediatorSubscriberBase
             autoPause = false;
 
         if (!autoPause || _serverConfigurationManager.IsUidWhitelisted(pair.UserData.UID))
-            triUsageThreshold = MaxTriUsageThreshold;
+            return true;
+
+        long triUsageThreshold = (long)config.TrisAutoPauseThresholdThousands * 1000;
 
         if (triUsage > triUsageThreshold)
         {
@@ -183,7 +180,6 @@ public class PlayerPerformanceService : DisposableMediatorSubscriberBase
 
         _logger.LogDebug("Calculated VRAM usage for {p}", pairHandler);
 
-        long vramUsageThreshold = config.VRAMSizeAutoPauseThresholdMiB;
         bool isDirect = pair.UserPair != null;
         bool autoPause = config.AutoPausePlayersExceedingThresholds;
         bool notify = isDirect ? config.NotifyAutoPauseDirectPairs : config.NotifyAutoPauseGroupPairs;
@@ -192,9 +188,11 @@ public class PlayerPerformanceService : DisposableMediatorSubscriberBase
             autoPause = false;
 
         if (!autoPause || _serverConfigurationManager.IsUidWhitelisted(pair.UserData.UID))
-            vramUsageThreshold = MaxVRAMUsageThreshold;
+            return true;
 
-        if (vramUsage > vramUsageThreshold * 1024 * 1024)
+        long vramUsageThresholdBytes = (long)config.VRAMSizeAutoPauseThresholdMiB * 1024 * 1024;
+
+        if (vramUsage > vramUsageThresholdBytes)
         {
             if (!affect)
                 return false;
@@ -203,15 +201,15 @@ public class PlayerPerformanceService : DisposableMediatorSubscriberBase
             {
                 _mediator.Publish(new NotificationMessage($"{pair.PlayerName} ({pair.UserData.AliasOrUID}) automatically blocked",
                     $"Player {pair.PlayerName} ({pair.UserData.AliasOrUID}) exceeded your configured VRAM auto block threshold (" +
-                    $"{UiSharedService.ByteToString(vramUsage, addSuffix: true)}/{vramUsageThreshold}MiB)" +
+                    $"{UiSharedService.ByteToString(vramUsage, addSuffix: true)}/{config.VRAMSizeAutoPauseThresholdMiB}MiB)" +
                     $" and has been automatically blocked.",
                     MareConfiguration.Models.NotificationType.Warning));
                 _notificationTracker.Upsert(NotificationEntry.PlayerAutoBlockedVRAM(
-                    pair.UserData.UID, pair.UserData.AliasOrUID, UiSharedService.ByteToString(vramUsage, addSuffix: true), vramUsageThreshold));
+                    pair.UserData.UID, pair.UserData.AliasOrUID, UiSharedService.ByteToString(vramUsage, addSuffix: true), config.VRAMSizeAutoPauseThresholdMiB));
             }
 
             _mediator.Publish(new EventMessage(new Event(pair.PlayerName, pair.UserData, nameof(PlayerPerformanceService), EventSeverity.Warning,
-                $"Exceeds VRAM threshold: ({UiSharedService.ByteToString(vramUsage, addSuffix: true)}/{vramUsageThreshold} MiB)")));
+                $"Exceeds VRAM threshold: ({UiSharedService.ByteToString(vramUsage, addSuffix: true)}/{config.VRAMSizeAutoPauseThresholdMiB} MiB)")));
 
             return false;
         }

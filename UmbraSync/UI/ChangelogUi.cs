@@ -179,6 +179,18 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
     {
         return new List<ChangelogEntry>
         {
+            new(new Version(2, 4, 3, 4019), "2.4.3.4019", new List<ChangelogLine>
+            {
+                new("Nouveauté : Ajout de l'icône de profil de personnage."),
+                new("Amélioration : Possibilité d'éditer un trait Moodles sans devoir le supprimer."),
+                new("Amélioration : Possibilité d'ajouter une couleur de texte pour la description d'un trait Moodles."),
+                new("Correction : Correction de l'injection de la couleur sur le trait Moodles."),
+                new("Correction : Résolution de la non-persistance aléatoire des traits Moodles après une déco-reco du personnage ou redémarrage serveur."),
+                new("Correction : Résolution de la non-persistance du titre Honorific après une déco-reco du personnage ou redémarrage serveur."),
+                new("Correction : Comportement Auto-block amélioré et réellement désactivable."),
+                new("Autre : Ajout de la library 'Pictomancy'."),
+                new("Autre : Mise à jour API Penumbra."),
+            }),  
             new(new Version(2, 4, 2, 4009), "2.4.2.4009", new List<ChangelogLine>
             {
                 new("Correction : Sur les connexions instables ou à faible débit, le plugin pouvait rester bloqué dans une boucle de déconnexion/reconnexion. Le cycle de récupération est désormais plus robuste."),

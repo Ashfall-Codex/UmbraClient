@@ -82,6 +82,15 @@ public class EditProfileUi : WindowMediatorSubscriberBase
     private bool _moodleRestoreAttempted;
     private int _moodleRestoreRetries;
     private DateTime _lastMoodleRestoreAttempt = DateTime.MinValue;
+    private bool _honorificRestoreAttempted;
+    private DateTime _lastHonorificRestoreAttempt = DateTime.MinValue;
+    private uint _profileIconId;
+    private uint _savedProfileIconId;
+    private bool _profileIconPickerOpen;
+    private string _profileIconIdInput = "0";
+    private string _profileIconSearchText = string.Empty;
+    private string _profileIconLastSearch = string.Empty;
+    private List<StatusIconInfo>? _profileIconFilteredIcons;
     private DateTime _saveConfirmTime = DateTime.MinValue;
     private string _savedDescriptionText = string.Empty;
     private string _savedRpFirstNameText = string.Empty;
@@ -103,10 +112,14 @@ public class EditProfileUi : WindowMediatorSubscriberBase
     private Vector3 _bbcodeColorVec = new(1f, 0.6f, 0.2f);
     private Vector3 _moodleColorVec = new(1f, 0.6f, 0.2f);
     private bool _addMoodlePopupOpen;
+    private int _editMoodleIndex = -1;
     private int _newMoodleIconId = 210456;
     private string _newMoodleTitle = "";
     private string _newMoodleDescription = "";
     private int _newMoodleType = 0;
+    private (uint id, Vector3 rgb, string label)[]? _moodleColorPalette;
+    private bool _moodleTitlePaletteExpanded;
+    private bool _moodleDescPaletteExpanded;
     private bool _iconSelectorOpen;
     private string _iconIdInput = "210456";
     private string _iconSearchText = "";
@@ -145,7 +158,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
         Mediator.Subscribe<GposeStartMessage>(this, (_) => { _wasOpen = IsOpen; IsOpen = false; });
         Mediator.Subscribe<GposeEndMessage>(this, (_) => IsOpen = _wasOpen);
         Mediator.Subscribe<DisconnectedMessage>(this, (_) => IsOpen = false);
-        Mediator.Subscribe<DalamudLoginMessage>(this, (_) =>
+        Mediator.Subscribe<DalamudLoginMessage>(this, (msg) =>
         {
             _rpLoaded = false;
             _hrpLoaded = false;
@@ -154,6 +167,10 @@ public class EditProfileUi : WindowMediatorSubscriberBase
             _moodleRestoreAttempted = false;
             _moodleRestoreRetries = 0;
             _lastMoodleRestoreAttempt = DateTime.MinValue;
+            _honorificRestoreAttempted = false;
+            _lastHonorificRestoreAttempt = DateTime.MinValue;
+            _ = Task.Run(RunHonorificRestoreLoopAsync);
+            _ = Task.Run(RunMoodlesRestoreLoopAsync);
         });
         Mediator.Subscribe<ClearProfileDataMessage>(this, (msg) =>
         {
@@ -168,19 +185,40 @@ public class EditProfileUi : WindowMediatorSubscriberBase
             }
         });
         Mediator.Subscribe<MoodlesMessage>(this, (msg) => _ = Task.Run(RefreshLocalMoodlesAsync));
-        Mediator.Subscribe<HonorificMessage>(this, (msg) => RefreshHonorificFromData(msg.NewHonorificTitle));
-        Mediator.Subscribe<ConnectedMessage>(this, (msg) => _ = Task.Run(async () =>
+        Mediator.Subscribe<MoodlesReadyMessage>(this, (msg) => _ = Task.Run(RunMoodlesRestoreLoopAsync));
+        Mediator.Subscribe<ZoneSwitchEndMessage>(this, (msg) =>
         {
-            // Boucle de restauration de moodles au démarrage
-            await Task.Delay(2000).ConfigureAwait(false);
-            for (int i = 0; i < 6; i++)
+            _moodleRestoreAttempted = false;
+            _moodleRestoreRetries = 0;
+            _lastMoodleRestoreAttempt = DateTime.MinValue;
+            _honorificRestoreAttempted = false;
+            _lastHonorificRestoreAttempt = DateTime.MinValue;
+            _ = Task.Run(RunMoodlesRestoreLoopAsync);
+            _ = Task.Run(RunHonorificRestoreLoopAsync);
+        });
+        Mediator.Subscribe<HonorificMessage>(this, (msg) =>
+        {
+            RefreshHonorificFromData(msg.NewHonorificTitle);
+            if (!string.IsNullOrEmpty(msg.NewHonorificTitle))
             {
-                if (_moodleRestoreAttempted) break;
-                await RefreshLocalMoodlesAsync().ConfigureAwait(false);
-                if (_moodleRestoreAttempted) break;
-                await Task.Delay(4000).ConfigureAwait(false);
+                _ = Task.Run(() => TrySaveHonorificBackupFromBase64Async(msg.NewHonorificTitle));
             }
-        }));
+        });
+        Mediator.Subscribe<HonorificReadyMessage>(this, (msg) => _ = Task.Run(RunHonorificRestoreLoopAsync));
+        Mediator.Subscribe<ConnectedMessage>(this, (msg) => _ = Task.Run(RunMoodlesRestoreLoopAsync));
+        Mediator.Subscribe<ConnectedMessage>(this, (msg) => _ = Task.Run(RunHonorificRestoreLoopAsync));
+    }
+
+    private async Task RunMoodlesRestoreLoopAsync()
+    {
+        await Task.Delay(2000).ConfigureAwait(false);
+        for (int i = 0; i < 6; i++)
+        {
+            if (_moodleRestoreAttempted) break;
+            await RefreshLocalMoodlesAsync().ConfigureAwait(false);
+            if (_moodleRestoreAttempted) break;
+            await Task.Delay(4000).ConfigureAwait(false);
+        }
     }
 
     private bool _moodlesFetching;
@@ -360,10 +398,121 @@ public class EditProfileUi : WindowMediatorSubscriberBase
             var ptr = await _dalamudUtil.GetPlayerPointerAsync().ConfigureAwait(false);
             await _ipcManager.Honorific.SetTitleAsync(ptr, b64).ConfigureAwait(false);
             _logger.LogInformation("Applied Honorific title: {title}", _honorificTitle);
+
+            var charName = await _dalamudUtil.GetPlayerNameAsync().ConfigureAwait(false);
+            var worldId = await _dalamudUtil.GetHomeWorldIdAsync().ConfigureAwait(false);
+            if (!string.IsNullOrEmpty(charName) && worldId != 0)
+            {
+                SaveHonorificBackup(json, charName, worldId);
+            }
+            _honorificRestoreAttempted = true;
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Error applying Honorific title");
+        }
+    }
+
+    private async Task TrySaveHonorificBackupFromBase64Async(string b64Data)
+    {
+        if (string.IsNullOrEmpty(b64Data)) return;
+        try
+        {
+            var json = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(b64Data));
+            var charName = await _dalamudUtil.GetPlayerNameAsync().ConfigureAwait(false);
+            var worldId = await _dalamudUtil.GetHomeWorldIdAsync().ConfigureAwait(false);
+            if (string.IsNullOrEmpty(charName) || worldId == 0) return;
+            SaveHonorificBackup(json, charName, worldId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error saving Honorific backup");
+        }
+    }
+
+    private void SaveHonorificBackup(string titleJson, string charName, uint worldId)
+    {
+        var profile = _rpConfigService.GetCharacterProfile(charName, worldId);
+        if (string.IsNullOrEmpty(titleJson))
+        {
+            if (!string.IsNullOrEmpty(profile.HonorificBackupJson))
+            {
+                _logger.LogInformation("Clearing Honorific backup for {char}@{world}", charName, worldId);
+                profile.HonorificBackupJson = string.Empty;
+                profile.HonorificBackupTimestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+                _rpConfigService.Save();
+            }
+            return;
+        }
+
+        if (string.Equals(profile.HonorificBackupJson, titleJson, StringComparison.Ordinal)) return;
+        profile.HonorificBackupJson = titleJson;
+        profile.HonorificBackupTimestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        _rpConfigService.Save();
+    }
+
+    private async Task RunHonorificRestoreLoopAsync()
+    {
+        if (_honorificRestoreAttempted) return;
+        await Task.Delay(2000).ConfigureAwait(false);
+        for (int i = 0; i < 6; i++)
+        {
+            if (_honorificRestoreAttempted) break;
+            await TryRestoreLocalHonorificAsync().ConfigureAwait(false);
+            if (_honorificRestoreAttempted) break;
+            await Task.Delay(4000).ConfigureAwait(false);
+        }
+    }
+
+    private async Task TryRestoreLocalHonorificAsync()
+    {
+        if (_honorificRestoreAttempted) return;
+        if (!_ipcManager.Honorific.APIAvailable) return;
+        if ((DateTime.UtcNow - _lastHonorificRestoreAttempt).TotalSeconds < 2) return;
+        _lastHonorificRestoreAttempt = DateTime.UtcNow;
+
+        try
+        {
+            var charName = await _dalamudUtil.GetPlayerNameAsync().ConfigureAwait(false);
+            var worldId = await _dalamudUtil.GetHomeWorldIdAsync().ConfigureAwait(false);
+            if (string.IsNullOrEmpty(charName) || worldId == 0) return;
+
+            var profile = _rpConfigService.GetCharacterProfile(charName, worldId);
+            if (string.IsNullOrEmpty(profile.HonorificBackupJson)) return;
+
+            var currentB64 = await _ipcManager.Honorific.GetTitle().ConfigureAwait(false);
+            if (!string.IsNullOrEmpty(currentB64) && !IsOriginalHonorificTitle(currentB64))
+            {
+                _honorificRestoreAttempted = true;
+                return;
+            }
+
+            var ptr = await _dalamudUtil.GetPlayerPointerAsync().ConfigureAwait(false);
+            if (ptr == IntPtr.Zero) return;
+
+            var b64 = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(profile.HonorificBackupJson));
+            await _ipcManager.Honorific.SetTitleAsync(ptr, b64).ConfigureAwait(false);
+            _logger.LogInformation("Restored Honorific title from backup for {char}@{world}", charName, worldId);
+            _honorificRestoreAttempted = true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error restoring Honorific title from backup");
+        }
+    }
+
+    private static bool IsOriginalHonorificTitle(string b64Json)
+    {
+        try
+        {
+            var json = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(b64Json));
+            using var doc = System.Text.Json.JsonDocument.Parse(json);
+            return doc.RootElement.TryGetProperty("IsOriginal", out var isOriginal)
+                && isOriginal.ValueKind == System.Text.Json.JsonValueKind.True;
+        }
+        catch
+        {
+            return false;
         }
     }
 
@@ -422,7 +571,8 @@ public class EditProfileUi : WindowMediatorSubscriberBase
                 RpAlignment: _rpAlignmentText,
                 RpAdditionalInfo: _rpAdditionalInfoText,
                 RpNameColor: UiSharedService.Vector4ToHex(new Vector4(_rpNameColorVec, 1f)),
-                RpCustomFields: _rpCustomFields.Count > 0 ? _rpCustomFields : null
+                RpCustomFields: _rpCustomFields.Count > 0 ? _rpCustomFields : null,
+                ProfileIconId: _profileIconId
             );
 
             _umbraProfileManager.SetPreviewProfile(pair.UserData, pair.PlayerName, pair.WorldId, previewProfileData);
@@ -547,6 +697,9 @@ public class EditProfileUi : WindowMediatorSubscriberBase
                 _rpCustomFields = configProfile.RpCustomFields
                     .Select(f => new RpCustomField { Name = f.Name, Value = f.Value, Order = f.Order })
                     .ToList();
+
+                _profileIconId = umbraProfile.ProfileIconId > 0 ? umbraProfile.ProfileIconId : configProfile.ProfileIconId;
+                _profileIconIdInput = _profileIconId.ToString(System.Globalization.CultureInfo.InvariantCulture);
 
                 var nameColorHex = umbraProfile.RpNameColor ?? string.Empty;
                 if (!string.IsNullOrEmpty(nameColorHex))
@@ -811,6 +964,12 @@ public class EditProfileUi : WindowMediatorSubscriberBase
             ImGui.Separator();
             ImGuiHelpers.ScaledDummy(new Vector2(0f, 4f));
 
+            DrawProfileIconSection();
+
+            ImGuiHelpers.ScaledDummy(new Vector2(0f, 4f));
+            ImGui.Separator();
+            ImGuiHelpers.ScaledDummy(new Vector2(0f, 4f));
+
             DrawField(Loc.Get("UserProfile.RpResidence"), ref _rpResidenceText, 100, w);
             DrawField(Loc.Get("UserProfile.RpOccupation"), ref _rpOccupationText, 100, w);
             DrawField(Loc.Get("UserProfile.RpAffiliation"), ref _rpAffiliationText, 100, w);
@@ -882,6 +1041,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
 
             if (addMoodleClicked)
             {
+                _editMoodleIndex = -1;
                 _newMoodleIconId = 210456;
                 _iconIdInput = "210456";
                 _newMoodleTitle = "";
@@ -1066,6 +1226,172 @@ public class EditProfileUi : WindowMediatorSubscriberBase
         }
     }
 
+    private void DrawProfileIconSection()
+    {
+        ImGui.TextColored(ImGuiColors.DalamudGrey, "Icône du profil (nameplate)");
+        var textureProvider = _uiSharedService.TextureProvider;
+
+        var previewSize = 48f * ImGuiHelpers.GlobalScale;
+        if (_profileIconId > 0)
+        {
+            try
+            {
+                var wrap = textureProvider.GetFromGameIcon(new GameIconLookup(_profileIconId)).GetWrapOrEmpty();
+                if (wrap.Handle != IntPtr.Zero)
+                {
+                    var aspect = wrap.Height > 0 ? (float)wrap.Width / wrap.Height : 1f;
+                    ImGui.Image(wrap.Handle, new Vector2(previewSize * aspect, previewSize));
+                    ImGui.SameLine();
+                }
+            }
+            catch { /* Icon not found */ }
+        }
+        else
+        {
+            ImGui.Dummy(new Vector2(previewSize, previewSize));
+            ImGui.SameLine();
+        }
+
+        ImGui.BeginGroup();
+        ImGui.TextUnformatted($"Icône : {_profileIconId}");
+        if (ImGui.Button(_profileIconPickerOpen ? "Fermer le sélecteur##profileIcon" : "Choisir une icône##profileIcon"))
+        {
+            _profileIconPickerOpen = !_profileIconPickerOpen;
+        }
+        ImGui.SameLine();
+        if (ImGui.Button("Retirer##profileIcon"))
+        {
+            _profileIconId = 0;
+            _profileIconIdInput = "0";
+        }
+        ImGui.EndGroup();
+
+        ImGui.SetNextItemWidth(120 * ImGuiHelpers.GlobalScale);
+        if (ImGui.InputText("##profileIconIdDirect", ref _profileIconIdInput, 10, ImGuiInputTextFlags.CharsDecimal)
+            && uint.TryParse(_profileIconIdInput, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var parsed))
+            _profileIconId = parsed;
+        ImGui.SameLine();
+        ImGui.TextColored(ImGuiColors.DalamudGrey, "ID direct");
+
+        if (_profileIconPickerOpen)
+        {
+            ImGuiHelpers.ScaledDummy(new Vector2(0f, 4f));
+            DrawProfileIconGrid(textureProvider);
+        }
+    }
+
+    private void DrawProfileIconGrid(ITextureProvider textureProvider)
+    {
+        ImGui.SetNextItemWidth(-1);
+        ImGui.InputTextWithHint("##profileIconSearch", "Rechercher (nom ou ID)...", ref _profileIconSearchText, 64);
+
+        var allIcons = _statusIcons?.Value ?? [];
+        if (allIcons.Count == 0)
+        {
+            ImGui.TextColored(ImGuiColors.DalamudGrey, "Aucune icône disponible.");
+            return;
+        }
+
+        if (_profileIconFilteredIcons == null || !string.Equals(_profileIconLastSearch, _profileIconSearchText, StringComparison.Ordinal))
+        {
+            _profileIconLastSearch = _profileIconSearchText;
+            if (string.IsNullOrWhiteSpace(_profileIconSearchText))
+            {
+                _profileIconFilteredIcons = allIcons;
+            }
+            else
+            {
+                var search = _profileIconSearchText.Trim();
+                _profileIconFilteredIcons = allIcons.Where(i =>
+                    i.Name.Contains(search, StringComparison.OrdinalIgnoreCase)
+                    || i.IconId.ToString().Contains(search, StringComparison.Ordinal)
+                ).ToList();
+            }
+        }
+
+        var icons = _profileIconFilteredIcons;
+        if (icons.Count == 0)
+        {
+            ImGui.TextColored(ImGuiColors.DalamudGrey, "Aucun résultat.");
+            return;
+        }
+
+        const int iconsPerRow = 10;
+        var iconSize = 40f * ImGuiHelpers.GlobalScale;
+        var spacing = 4f * ImGuiHelpers.GlobalScale;
+        var rowHeight = iconSize + spacing;
+        var totalRows = (icons.Count + iconsPerRow - 1) / iconsPerRow;
+        var childHeight = 200f * ImGuiHelpers.GlobalScale;
+
+        ImGui.BeginChild("##profileIconGrid", new Vector2(-1, childHeight), true);
+
+        var scrollY = ImGui.GetScrollY();
+        var firstVisibleRow = Math.Max(0, (int)(scrollY / rowHeight) - 1);
+        var visibleRows = (int)(childHeight / rowHeight) + 3;
+        var lastVisibleRow = Math.Min(totalRows - 1, firstVisibleRow + visibleRows);
+
+        if (firstVisibleRow > 0)
+            ImGui.Dummy(new Vector2(0, firstVisibleRow * rowHeight));
+
+        for (int row = firstVisibleRow; row <= lastVisibleRow; row++)
+        {
+            for (int col = 0; col < iconsPerRow; col++)
+            {
+                int iconIndex = row * iconsPerRow + col;
+                if (iconIndex >= icons.Count) break;
+                var info = icons[iconIndex];
+
+                if (col > 0) ImGui.SameLine(0, spacing);
+
+                IDalamudTextureWrap? wrap;
+                try { wrap = textureProvider.GetFromGameIcon(new GameIconLookup(info.IconId)).GetWrapOrEmpty(); }
+                catch { ImGui.Dummy(new Vector2(iconSize, iconSize)); continue; }
+
+                if (wrap.Handle == IntPtr.Zero)
+                {
+                    ImGui.Dummy(new Vector2(iconSize, iconSize));
+                    continue;
+                }
+
+                bool isSelected = _profileIconId == info.IconId;
+                if (isSelected)
+                {
+                    ImGui.PushStyleColor(ImGuiCol.Button, UiSharedService.ThemeButtonActive);
+                    ImGui.PushStyleColor(ImGuiCol.ButtonHovered, UiSharedService.ThemeButtonActive);
+                }
+                else
+                {
+                    ImGui.PushStyleColor(ImGuiCol.Button, Vector4.Zero);
+                    ImGui.PushStyleColor(ImGuiCol.ButtonHovered, UiSharedService.ThemeButtonHovered);
+                }
+
+                ImGui.PushStyleVar(ImGuiStyleVar.FramePadding, Vector2.Zero);
+                ImGui.PushID($"profileIcon_{info.IconId}");
+                if (ImGui.ImageButton(wrap.Handle, new Vector2(iconSize, iconSize)))
+                {
+                    _profileIconId = info.IconId;
+                    _profileIconIdInput = info.IconId.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                }
+                ImGui.PopID();
+                ImGui.PopStyleVar();
+                ImGui.PopStyleColor(2);
+
+                if (ImGui.IsItemHovered())
+                {
+                    ImGui.BeginTooltip();
+                    ImGui.TextUnformatted($"#{info.IconId} — {info.Name}");
+                    ImGui.EndTooltip();
+                }
+            }
+        }
+
+        var remainingRows = totalRows - lastVisibleRow - 1;
+        if (remainingRows > 0)
+            ImGui.Dummy(new Vector2(0, remainingRows * rowHeight));
+
+        ImGui.EndChild();
+    }
+
     private void DrawEditableMoodles()
     {
         var moodles = MoodleStatusInfo.ParseMoodles(_localMoodlesJson);
@@ -1112,12 +1438,11 @@ public class EditProfileUi : WindowMediatorSubscriberBase
 
             ImGui.Image(handle, size);
 
-            // Small X button overlay in top-right corner
             if (!_moodleOperationInProgress)
             {
                 var btnSize = 16f * ImGuiHelpers.GlobalScale;
-                var btnScreenPos = new Vector2(screenPos.X + size.X - btnSize + 2, screenPos.Y - 2);
-                ImGui.SetCursorScreenPos(btnScreenPos);
+                var removeBtnPos = new Vector2(screenPos.X + size.X - btnSize + 2, screenPos.Y - 2);
+                ImGui.SetCursorScreenPos(removeBtnPos);
                 ImGui.PushStyleVar(ImGuiStyleVar.FramePadding, Vector2.Zero);
                 ImGui.PushStyleVar(ImGuiStyleVar.FrameRounding, btnSize / 2f);
                 ImGui.PushStyleColor(ImGuiCol.Button, new Vector4(0.6f, 0.1f, 0.1f, 0.85f));
@@ -1129,7 +1454,23 @@ public class EditProfileUi : WindowMediatorSubscriberBase
                     _ = Task.Run(() => RemoveMoodleAsync(idx));
                 }
                 ImGui.PopStyleColor(3);
+
+                var editBtnPos = new Vector2(screenPos.X - 2, screenPos.Y - 2);
+                ImGui.SetCursorScreenPos(editBtnPos);
+                ImGui.PushStyleColor(ImGuiCol.Button, new Vector4(0.15f, 0.35f, 0.6f, 0.85f));
+                ImGui.PushStyleColor(ImGuiCol.ButtonHovered, new Vector4(0.25f, 0.5f, 0.8f, 1f));
+                ImGui.PushStyleColor(ImGuiCol.ButtonActive, new Vector4(0.35f, 0.6f, 1f, 1f));
+                bool editClicked;
+                using (_uiSharedService.IconFont.Push())
+                {
+                    editClicked = ImGui.Button($"{FontAwesomeIcon.Pen.ToIconString()}##editMoodle_{moodleIndex}", new Vector2(btnSize, btnSize));
+                }
+                ImGui.PopStyleColor(3);
                 ImGui.PopStyleVar(2);
+                if (editClicked)
+                {
+                    OpenEditMoodlePopup(moodleIndex, moodle);
+                }
             }
 
             ImGui.EndGroup();
@@ -1169,7 +1510,8 @@ public class EditProfileUi : WindowMediatorSubscriberBase
         ImGui.SetNextWindowSize(new Vector2(500, 0) * ImGuiHelpers.GlobalScale, ImGuiCond.Always);
         if (ImGui.BeginPopupModal("##AddMoodlePopup", ref _addMoodlePopupOpen, ImGuiWindowFlags.AlwaysAutoResize))
         {
-            ImGui.TextColored(UiSharedService.AccentColor, "Ajouter un trait");
+            bool isEditing = _editMoodleIndex >= 0;
+            ImGui.TextColored(UiSharedService.AccentColor, isEditing ? "Modifier un trait" : "Ajouter un trait");
             ImGuiHelpers.ScaledDummy(new Vector2(0f, 4f));
 
             // Icon preview
@@ -1219,32 +1561,14 @@ public class EditProfileUi : WindowMediatorSubscriberBase
             ImGui.SetNextItemWidth(-1);
             ImGui.InputText("##moodleTitle", ref _newMoodleTitle, 100);
 
-            ImGui.SetNextItemWidth(24f * ImGuiHelpers.GlobalScale);
-            ImGui.ColorEdit3("##moodleTitleColor", ref _moodleColorVec, ImGuiColorEditFlags.NoInputs | ImGuiColorEditFlags.NoLabel);
-            ImGui.SameLine();
-            if (ImGui.Button("Appliquer##applyMoodleColor"))
-            {
-                var hex = UiSharedService.Vector4ToHex(new Vector4(_moodleColorVec, 1f));
-                _newMoodleTitle = WrapTitleWithColor(_newMoodleTitle, hex);
-            }
-            UiSharedService.AttachToolTip("Appliquer la couleur au titre");
-            ImGui.SameLine();
-            var btnSize = 20f * ImGuiHelpers.GlobalScale;
-            ImGui.PushStyleColor(ImGuiCol.Button, new Vector4(0.4f, 0.4f, 0.4f, 0.85f));
-            ImGui.PushStyleColor(ImGuiCol.ButtonHovered, new Vector4(0.6f, 0.3f, 0.3f, 1f));
-            ImGui.PushStyleColor(ImGuiCol.ButtonActive, new Vector4(0.8f, 0.2f, 0.2f, 1f));
-            if (ImGui.Button("X##clearColor", new Vector2(btnSize, btnSize)))
-            {
-                _newMoodleTitle = StripColorTags(_newMoodleTitle);
-            }
-            ImGui.PopStyleColor(3);
-            UiSharedService.AttachToolTip("Retirer la couleur");
+            DrawMoodleColorPalette("title", "Couleur du titre", ref _newMoodleTitle);
 
             // Description
             ImGui.TextColored(ImGuiColors.DalamudGrey, "Description");
             ImGui.SetNextItemWidth(-1);
             ImGui.InputTextMultiline("##moodleDesc", ref _newMoodleDescription, 500,
                 new Vector2(-1, 80 * ImGuiHelpers.GlobalScale));
+            DrawMoodleColorPalette("desc", "Couleur de la description", ref _newMoodleDescription);
 
             // Type
             ImGui.TextColored(ImGuiColors.DalamudGrey, "Type");
@@ -1261,7 +1585,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
 
             var canAdd = !string.IsNullOrWhiteSpace(_newMoodleTitle) && !_moodleOperationInProgress;
             if (!canAdd) ImGui.BeginDisabled();
-            if (ImGui.Button("Ajouter", new Vector2(buttonWidth, 0)))
+            if (ImGui.Button(isEditing ? "Modifier" : "Ajouter", new Vector2(buttonWidth, 0)))
             {
                 var moodle = new MoodleFullStatus
                 {
@@ -1270,7 +1594,16 @@ public class EditProfileUi : WindowMediatorSubscriberBase
                     Description = _newMoodleDescription,
                     Type = _newMoodleType,
                 };
-                _ = Task.Run(() => AddMoodleAsync(moodle));
+                if (isEditing)
+                {
+                    var idx = _editMoodleIndex;
+                    _ = Task.Run(() => EditMoodleAsync(idx, moodle));
+                }
+                else
+                {
+                    _ = Task.Run(() => AddMoodleAsync(moodle));
+                }
+                _editMoodleIndex = -1;
                 _addMoodlePopupOpen = false;
                 ImGui.CloseCurrentPopup();
             }
@@ -1279,6 +1612,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
             ImGui.SameLine();
             if (ImGui.Button("Annuler", new Vector2(buttonWidth, 0)))
             {
+                _editMoodleIndex = -1;
                 _addMoodlePopupOpen = false;
                 ImGui.CloseCurrentPopup();
             }
@@ -1439,6 +1773,49 @@ public class EditProfileUi : WindowMediatorSubscriberBase
         }
     }
 
+    private void OpenEditMoodlePopup(int moodleIndex, MoodleStatusInfo moodle)
+    {
+        _editMoodleIndex = moodleIndex;
+        _newMoodleIconId = moodle.IconID > 0 ? moodle.IconID : 210456;
+        _iconIdInput = _newMoodleIconId.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        _newMoodleTitle = moodle.Title ?? string.Empty;
+        _newMoodleDescription = moodle.Description ?? string.Empty;
+        _newMoodleType = moodle.Type;
+        _iconSelectorOpen = false;
+        _addMoodlePopupOpen = true;
+        ImGui.OpenPopup("##AddMoodlePopup");
+    }
+
+    private async Task EditMoodleAsync(int index, MoodleFullStatus moodle)
+    {
+        if (_moodleOperationInProgress) return;
+        _moodleOperationInProgress = true;
+        try
+        {
+            if (!_ipcManager.Moodles.APIAvailable) return;
+            var ptr = await _dalamudUtil.GetPlayerPointerAsync().ConfigureAwait(false);
+            if (ptr == IntPtr.Zero) return;
+
+            var freshJson = await _ipcManager.Moodles.GetStatusAsync(ptr).ConfigureAwait(false);
+            if (string.IsNullOrEmpty(freshJson)) return;
+
+            var newJson = MoodleStatusInfo.ReplaceMoodleAtIndex(freshJson, index, moodle);
+            await _ipcManager.Moodles.SetStatusAsync(ptr, newJson).ConfigureAwait(false);
+            _localMoodlesJson = await _ipcManager.Moodles.GetStatusAsync(ptr).ConfigureAwait(false) ?? string.Empty;
+            var cn = await _dalamudUtil.GetPlayerNameAsync().ConfigureAwait(false);
+            var wid = await _dalamudUtil.GetHomeWorldIdAsync().ConfigureAwait(false);
+            if (!string.IsNullOrEmpty(cn) && wid > 0) SaveMoodlesBackup(_localMoodlesJson, cn, wid);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to edit moodle at index {index}", index);
+        }
+        finally
+        {
+            _moodleOperationInProgress = false;
+        }
+    }
+
     private async Task AddMoodleAsync(MoodleFullStatus moodle)
     {
         if (_moodleOperationInProgress) return;
@@ -1490,6 +1867,178 @@ public class EditProfileUi : WindowMediatorSubscriberBase
     {
         var stripped = StripColorTags(title);
         return $"[color={colorName}]{stripped}[/color]";
+    }
+
+    private void DrawMoodleColorPalette(string idSuffix, string label, ref string target)
+    {
+        ImGui.TextColored(ImGuiColors.DalamudGrey, label);
+        var palette = GetMoodleColorPalette();
+        var swatchSize = new Vector2(22f * ImGuiHelpers.GlobalScale);
+        const int swatchesPerRow = 15;
+        ref bool expanded = ref (idSuffix == "title" ? ref _moodleTitlePaletteExpanded : ref _moodleDescPaletteExpanded);
+        int visibleCount = expanded ? palette.Length : Math.Min(swatchesPerRow, palette.Length);
+
+        for (int i = 0; i < visibleCount; i++)
+        {
+            if (i > 0 && i % swatchesPerRow != 0) ImGui.SameLine();
+            var sw = palette[i];
+            ImGui.PushStyleColor(ImGuiCol.Button, new Vector4(sw.rgb, 1f));
+            ImGui.PushStyleColor(ImGuiCol.ButtonHovered, new Vector4(Vector3.Min(sw.rgb * 1.25f, Vector3.One), 1f));
+            ImGui.PushStyleColor(ImGuiCol.ButtonActive, new Vector4(Vector3.Min(sw.rgb * 1.4f, Vector3.One), 1f));
+            if (ImGui.Button($"##swatch_{idSuffix}_{i}", swatchSize))
+            {
+                target = WrapTitleWithColor(target, sw.id.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            }
+            ImGui.PopStyleColor(3);
+            if (ImGui.IsItemHovered())
+                ImGui.SetTooltip($"{sw.label} (UIColor {sw.id})");
+        }
+
+        if (palette.Length > swatchesPerRow)
+        {
+            if (ImGui.Button((expanded ? "Réduire la liste" : "Tout afficher") + $"##togglePalette_{idSuffix}"))
+            {
+                expanded = !expanded;
+            }
+            ImGui.SameLine();
+        }
+        ImGui.PushStyleColor(ImGuiCol.Button, new Vector4(0.4f, 0.4f, 0.4f, 0.85f));
+        ImGui.PushStyleColor(ImGuiCol.ButtonHovered, new Vector4(0.6f, 0.3f, 0.3f, 1f));
+        ImGui.PushStyleColor(ImGuiCol.ButtonActive, new Vector4(0.8f, 0.2f, 0.2f, 1f));
+        if (ImGui.Button($"Retirer la couleur##clearColor_{idSuffix}"))
+        {
+            target = StripColorTags(target);
+        }
+        ImGui.PopStyleColor(3);
+    }
+
+    private (uint id, Vector3 rgb, string label)[] GetMoodleColorPalette()
+    {
+        if (_moodleColorPalette != null) return _moodleColorPalette;
+
+        var sheet = _dataManager.GetExcelSheet<Lumina.Excel.Sheets.UIColor>();
+        if (sheet == null) { _moodleColorPalette = []; return _moodleColorPalette; }
+
+        var hues = new (float h, string label)[]
+        {
+            (0f, "Rouge"),
+            (15f, "Rouge orangé"),
+            (30f, "Orange"),
+            (45f, "Ambre"),
+            (60f, "Jaune"),
+            (90f, "Vert lime"),
+            (120f, "Vert"),
+            (160f, "Émeraude"),
+            (180f, "Cyan"),
+            (200f, "Bleu ciel"),
+            (220f, "Bleu"),
+            (250f, "Indigo"),
+            (275f, "Violet"),
+            (300f, "Magenta"),
+            (330f, "Rose"),
+        };
+
+        var brightnesses = new (float s, float v, string suffix)[]
+        {
+            (0.55f, 1.00f, " clair"),
+            (0.90f, 0.95f, ""),
+            (0.95f, 0.55f, " foncé"),
+        };
+
+        var neutrals = new (Vector3 rgb, string label)[]
+        {
+            (new(1f, 1f, 1f), "Blanc"),
+            (new(0.80f, 0.80f, 0.80f), "Gris clair"),
+            (new(0.55f, 0.55f, 0.55f), "Gris"),
+            (new(0.30f, 0.30f, 0.30f), "Gris foncé"),
+            (new(0.10f, 0.10f, 0.10f), "Noir"),
+        };
+
+        var result = new List<(uint id, Vector3 rgb, string label)>();
+        var seenIds = new HashSet<uint>();
+
+        foreach (var (h, label) in hues)
+        {
+            foreach (var (s, v, suffix) in brightnesses)
+            {
+                var rgb = HsvToRgb(h, s, v);
+                var id = FindClosestUiColorId(rgb);
+                if (!seenIds.Add(id)) continue;
+                var actual = GetUiColorRgb(sheet, id) ?? rgb;
+                result.Add((id, actual, label + suffix));
+            }
+        }
+
+        foreach (var (rgb, label) in neutrals)
+        {
+            var id = FindClosestUiColorId(rgb);
+            if (!seenIds.Add(id)) continue;
+            var actual = GetUiColorRgb(sheet, id) ?? rgb;
+            result.Add((id, actual, label));
+        }
+
+        _moodleColorPalette = result.ToArray();
+        return _moodleColorPalette;
+    }
+
+    private static Vector3? GetUiColorRgb(Lumina.Excel.ExcelSheet<Lumina.Excel.Sheets.UIColor> sheet, uint id)
+    {
+        var rowOpt = sheet.GetRowOrDefault(id);
+        if (rowOpt == null) return null;
+        uint fg = rowOpt.Value.Dark;
+        return new Vector3(
+            ((fg >> 24) & 0xFF) / 255f,
+            ((fg >> 16) & 0xFF) / 255f,
+            ((fg >> 8) & 0xFF) / 255f);
+    }
+
+    private static Vector3 HsvToRgb(float h, float s, float v)
+    {
+        h = (h % 360f + 360f) % 360f;
+        float c = v * s;
+        float hp = h / 60f;
+        float x = c * (1f - MathF.Abs((hp % 2f) - 1f));
+        float r, g, b;
+        if (hp < 1) { r = c; g = x; b = 0; }
+        else if (hp < 2) { r = x; g = c; b = 0; }
+        else if (hp < 3) { r = 0; g = c; b = x; }
+        else if (hp < 4) { r = 0; g = x; b = c; }
+        else if (hp < 5) { r = x; g = 0; b = c; }
+        else { r = c; g = 0; b = x; }
+        float m = v - c;
+        return new Vector3(r + m, g + m, b + m);
+    }
+
+    private uint FindClosestUiColorId(Vector3 rgb)
+    {
+        var sheet = _dataManager.GetExcelSheet<Lumina.Excel.Sheets.UIColor>();
+        if (sheet == null) return 1;
+
+        int targetR = (int)Math.Clamp(rgb.X * 255f, 0f, 255f);
+        int targetG = (int)Math.Clamp(rgb.Y * 255f, 0f, 255f);
+        int targetB = (int)Math.Clamp(rgb.Z * 255f, 0f, 255f);
+
+        uint bestRow = 1;
+        int bestDist = int.MaxValue;
+        foreach (var row in sheet)
+        {
+            if (row.RowId == 0) continue;
+            uint fg = row.Dark;
+            if ((fg & 0xFF) == 0) continue;
+            if (row.RowId >= 500 && (fg & 0xFFFFFF00) == 0) continue;
+            int r = (int)((fg >> 24) & 0xFF);
+            int g = (int)((fg >> 16) & 0xFF);
+            int b = (int)((fg >> 8) & 0xFF);
+            int dr = r - targetR, dg = g - targetG, db = b - targetB;
+            int dist = dr * dr + dg * dg + db * db;
+            if (dist < bestDist)
+            {
+                bestDist = dist;
+                bestRow = row.RowId;
+                if (bestDist == 0) break;
+            }
+        }
+        return bestRow;
     }
 
     private static string StripColorTags(string text)
@@ -1769,6 +2318,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
                 profile.RpCustomFields = _rpCustomFields
                     .Select(f => new RpCustomField { Name = f.Name, Value = f.Value, Order = f.Order })
                     .ToList();
+                profile.ProfileIconId = _profileIconId;
                 _rpConfigService.Save();
             }
 
@@ -1809,7 +2359,8 @@ public class EditProfileUi : WindowMediatorSubscriberBase
                             RpAdditionalInfo = localRpProfile.RpAdditionalInfo,
                             RpNameColor = localRpProfile.RpNameColor,
                             RpCustomFields = customFieldsJsonSnapshot,
-                            MoodlesData = moodlesDataSnapshot
+                            MoodlesData = moodlesDataSnapshot,
+                            ProfileIconId = localRpProfile.ProfileIconId
                         }).ConfigureAwait(false);
                     }
                     else
@@ -1896,6 +2447,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
             {
                 _savedRpCustomFieldsJson = System.Text.Json.JsonSerializer.Serialize(_rpCustomFields);
             }
+            _savedProfileIconId = _profileIconId;
             _savedHonorificTitle = _honorificTitle;
             _savedHonorificIsPrefix = _honorificIsPrefix;
             _savedHonorificColor = _honorificColor;
@@ -1933,7 +2485,8 @@ public class EditProfileUi : WindowMediatorSubscriberBase
                 || _honorificIsPrefix != _savedHonorificIsPrefix
                 || _honorificColor != _savedHonorificColor
                 || _honorificHasGlow != _savedHonorificHasGlow
-                || (_honorificHasGlow && _honorificGlow != _savedHonorificGlow);
+                || (_honorificHasGlow && _honorificGlow != _savedHonorificGlow)
+                || _profileIconId != _savedProfileIconId;
         }
         else
         {
