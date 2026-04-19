@@ -5898,4 +5898,25 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
   <data name="WildRp.Ward" xml:space="preserve">
     <value>Secteur {0}</value>
   </data>
+  <data name="Settings.Performance.OverlayRendering" xml:space="preserve">
+    <value>Rendu des overlays</value>
+  </data>
+  <data name="Settings.Performance.PreciseOcclusion" xml:space="preserve">
+    <value>Masquage précis derrière les décors</value>
+  </data>
+  <data name="Settings.Performance.PreciseOcclusion.Tooltip" xml:space="preserve">
+    <value>Masque les icônes de profil et les bulles de saisie pixel par pixel lorsqu'un décor passe devant — y compris le mobilier housing et les objets décoratifs sans collision.</value>
+  </data>
+  <data name="Settings.Performance.PreciseOcclusion.Enabled" xml:space="preserve">
+    <value>Activé : masquage pixel par pixel (Windows, Linux, macOS avec DXMT désactivé).</value>
+  </data>
+  <data name="Settings.Performance.PreciseOcclusion.Disabled" xml:space="preserve">
+    <value>Désactivé : masquage approximatif par lancer de rayon - couvre les arbres, murs et bâtiments, mais pas le mobilier décoratif.</value>
+  </data>
+  <data name="Settings.Performance.PreciseOcclusion.DxmtWarning" xml:space="preserve">
+    <value>⚠ XIV on Mac avec DXMT actif : cette option est indisponible - DXMT plante lors de la lecture CPU du tampon de profondeur. Veuillez désactiver « Utiliser la traduction directe de D3D11 vers Metal (DXMT) » dans XIV on Mac pour pouvoir l'activer.</value>
+  </data>
+  <data name="Settings.Performance.PreciseOcclusion.RestartHint" xml:space="preserve">
+    <value>La modification prend effet au prochain redémarrage du plugin.</value>
+  </data>
 </root>

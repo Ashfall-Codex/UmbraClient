@@ -5988,4 +5988,25 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
   <data name="WildRp.Ward" xml:space="preserve">
     <value>Ward {0}</value>
   </data>
+  <data name="Settings.Performance.OverlayRendering" xml:space="preserve">
+    <value>Overlay rendering</value>
+  </data>
+  <data name="Settings.Performance.PreciseOcclusion" xml:space="preserve">
+    <value>Precise occlusion behind decor</value>
+  </data>
+  <data name="Settings.Performance.PreciseOcclusion.Tooltip" xml:space="preserve">
+    <value>Hides profile icons and typing bubbles pixel-by-pixel when decor is in front — including housing furniture and decorative objects without collision.</value>
+  </data>
+  <data name="Settings.Performance.PreciseOcclusion.Enabled" xml:space="preserve">
+    <value>Enabled: pixel-perfect masking (Windows, Linux, macOS with DXMT disabled).</value>
+  </data>
+  <data name="Settings.Performance.PreciseOcclusion.Disabled" xml:space="preserve">
+    <value>Disabled: approximate masking via raycast — covers trees, walls and buildings but not decorative furniture.</value>
+  </data>
+  <data name="Settings.Performance.PreciseOcclusion.DxmtWarning" xml:space="preserve">
+    <value>⚠ XIV on Mac with DXMT enabled: this option is unavailable — DXMT crashes on CPU readback of the depth buffer. Disable "Use direct D3D11 to Metal translation (DXMT)" in XIV on Mac to enable it.</value>
+  </data>
+  <data name="Settings.Performance.PreciseOcclusion.RestartHint" xml:space="preserve">
+    <value>The change takes effect the next time the plugin is restarted.</value>
+  </data>
 </root>

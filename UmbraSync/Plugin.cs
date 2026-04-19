@@ -254,6 +254,27 @@ public sealed class Plugin : IDalamudPlugin
             collection.AddScoped<GuiHookService>();
             collection.AddScoped<ChatTypingDetectionService>();
             collection.AddSingleton<PictomancyService>();
+            collection.AddSingleton<Ashfall.Engine.OverlayEngine>(sp =>
+            {
+                var log = sp.GetRequiredService<ILogger<Ashfall.Engine.OverlayEngine>>();
+                var cfg = sp.GetRequiredService<MareConfigService>();
+
+                // Auto-init à la première exécution : activé par défaut sur Windows natif, sinon laissé off.
+                if (!cfg.Current.OcclusionPreferenceInitialized)
+                {
+                    Ashfall.Engine.Platform.PlatformDetector.Prime();
+                    cfg.Current.UseHighPrecisionOcclusion = Ashfall.Engine.Platform.PlatformDetector.IsNativeDirectX;
+                    cfg.Current.OcclusionPreferenceInitialized = true;
+                    cfg.Save();
+                }
+
+                bool? forceDepth = cfg.Current.UseHighPrecisionOcclusion ? true : null;
+                return Ashfall.Engine.OverlayEngine.CreateDefault(
+                    preferHighPrecision: true,
+                    forceDepthBuffer: forceDepth,
+                    logInfo: m => log.LogInformation("{Msg}", m),
+                    logWarn: (m, ex) => log.LogWarning(ex, "{Msg}", m));
+            });
             collection.AddScoped<ProfileNameplateOverlayService>();
 
             collection.AddHostedService(p => p.GetRequiredService<PluginWatcherService>());

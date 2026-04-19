@@ -35,11 +35,14 @@ public sealed class TypingIndicatorOverlay : WindowMediatorSubscriberBase
     private readonly DalamudUtilService _dalamudUtil;
     private readonly TypingIndicatorStateService _typingStateService;
     private readonly ApiController _apiController;
+    private readonly UmbraProfileManager _profileManager;
+    private readonly Ashfall.Engine.OverlayEngine _engine;
 
     public TypingIndicatorOverlay(ILogger<TypingIndicatorOverlay> logger, MareMediator mediator, PerformanceCollectorService performanceCollectorService,
         MareConfigService configService, IGameGui gameGui, ITextureProvider textureProvider, IClientState clientState,
         IPartyList partyList, IObjectTable objectTable, DalamudUtilService dalamudUtil, PairManager pairManager,
-        TypingIndicatorStateService typingStateService, ApiController apiController)
+        TypingIndicatorStateService typingStateService, ApiController apiController, UmbraProfileManager profileManager,
+        Ashfall.Engine.OverlayEngine engine)
         : base(logger, mediator, nameof(TypingIndicatorOverlay), performanceCollectorService)
     {
         _typedLogger = logger;
@@ -53,6 +56,8 @@ public sealed class TypingIndicatorOverlay : WindowMediatorSubscriberBase
         _pairManager = pairManager;
         _typingStateService = typingStateService;
         _apiController = apiController;
+        _profileManager = profileManager;
+        _engine = engine;
 
         RespectCloseHotkey = false;
         IsOpen = true;
@@ -171,13 +176,18 @@ public sealed class TypingIndicatorOverlay : WindowMediatorSubscriberBase
             ImGui.ColorConvertFloat4ToU32(new Vector4(1f, 1f, 1f, 0.9f)));
     }
 
-    private void DrawNameplateIndicators(ImDrawListPtr drawList, IReadOnlyDictionary<string, (UserData User, DateTime FirstSeen, DateTime LastUpdate)> activeTypers,
+    private unsafe void DrawNameplateIndicators(ImDrawListPtr drawList, IReadOnlyDictionary<string, (UserData User, DateTime FirstSeen, DateTime LastUpdate)> activeTypers,
         bool selfActive, DateTime now, DateTime selfStart, DateTime selfLast)
     {
         var iconWrap = _textureProvider.GetFromGameIcon(NameplateIconId).GetWrapOrEmpty();
         if (iconWrap.Handle == IntPtr.Zero)
             return;
 
+        var nameplateAddonPtr = (AtkUnitBase*)_gameGui.GetAddonByName("NamePlate", 1).Address;
+        _engine.BeginFrame(nameplateAddonPtr);
+
+        try
+        {
         var showSelf = _configService.Current.TypingIndicatorShowSelf;
         if (selfActive
             && showSelf
@@ -237,6 +247,11 @@ public sealed class TypingIndicatorOverlay : WindowMediatorSubscriberBase
                 _typedLogger.LogTrace("TypingIndicator: could not resolve position for {uid}", uid);
             }
         }
+        }
+        finally
+        {
+            _engine.EndFrame();
+        }
     }
 
     private Vector2 GetConfiguredBubbleSize(float scaleX, float scaleY, bool isNameplateVisible, TypingIndicatorBubbleSize? overrideSize = null)
@@ -254,6 +269,29 @@ public sealed class TypingIndicatorOverlay : WindowMediatorSubscriberBase
         };
 
         return new Vector2(baseSize * scaleX, baseSize * scaleY);
+    }
+
+    private bool HasProfileIcon(uint entityId)
+    {
+        if (entityId == 0 || entityId == uint.MaxValue) return false;
+
+        var localPlayer = _objectTable.LocalPlayer;
+        if (localPlayer != null && localPlayer.EntityId == entityId)
+        {
+            var uid = _apiController.UID;
+            if (string.IsNullOrEmpty(uid)) return false;
+            return _profileManager.GetUmbraProfile(new UserData(uid)).ProfileIconId != 0;
+        }
+
+        foreach (var userData in _pairManager.GetVisibleUsers())
+        {
+            var pair = _pairManager.GetPairByUID(userData.UID);
+            if (pair == null || !pair.IsVisible) continue;
+            if (pair.PlayerCharacterId != entityId) continue;
+            return _profileManager.GetUmbraProfile(userData).ProfileIconId != 0;
+        }
+
+        return false;
     }
 
     private unsafe bool TryDrawNameplateBubble(ImDrawListPtr drawList, IDalamudTextureWrap textureWrap, uint objectId)
@@ -275,6 +313,7 @@ public sealed class TypingIndicatorOverlay : WindowMediatorSubscriberBase
 
         AddonNamePlate.NamePlateObject* namePlate = null;
         float distance = 0f;
+        System.Numerics.Vector3 playerWorldPos = default;
 
         for (var i = 0; i < ui3D->NamePlateObjectInfoCount; i++)
         {
@@ -293,8 +332,14 @@ public sealed class TypingIndicatorOverlay : WindowMediatorSubscriberBase
 
             namePlate = &addonNamePlate->NamePlateObjectArray[objectInfo.Value->NamePlateIndex];
             distance = objectInfo.Value->GameObject->YalmDistanceFromPlayerX;
+            var gp = objectInfo.Value->GameObject->Position;
+            playerWorldPos = new System.Numerics.Vector3(gp.X, gp.Y + 2.2f, gp.Z);
             break;
         }
+
+        // Occlusion 3D pixel-perfect via l'engine (stratégie automatique selon plateforme).
+        bool ShouldSkipByDepth(Vector2 center)
+            => _engine.IsWorldOccluded(playerWorldPos, center);
 
         if (namePlate == null || namePlate->RootComponentNode == null)
             return false;
@@ -315,6 +360,9 @@ public sealed class TypingIndicatorOverlay : WindowMediatorSubscriberBase
         var iconLocalPosition = new Vector2(iconNode->X, iconNode->Y) * scaleVector;
         var iconDimensions = new Vector2(iconNode->Width, iconNode->Height) * scaleVector;
 
+        // Si icône profil affichée, décalet la bulle.
+        var profileIconPresent = HasProfileIcon(objectId);
+
         if (!iconVisible)
         {
             // Utiliser la même taille que quand la nameplate est visible
@@ -332,7 +380,11 @@ public sealed class TypingIndicatorOverlay : WindowMediatorSubscriberBase
 
             var iconSize = GetConfiguredBubbleSize(bubbleScaleFactor, bubbleScaleFactor, true);
             var center = anchor + distanceOffset + manualOffset;
+            if (profileIconPresent) center.X += iconSize.X * 1.0f + 4f;
             var topLeft = center - (iconSize / 2f);
+
+            if (ShouldSkipByDepth(center)) return true;
+            if (_engine.IsNativeUiOccluded(new Vector4(topLeft.X, topLeft.Y, topLeft.X + iconSize.X, topLeft.Y + iconSize.Y))) return true;
 
             drawList.AddImage(textureWrap.Handle, topLeft, topLeft + iconSize, Vector2.Zero, Vector2.One,
                 ImGui.ColorConvertFloat4ToU32(new Vector4(1f, 1f, 1f, 0.95f)));
@@ -351,6 +403,10 @@ public sealed class TypingIndicatorOverlay : WindowMediatorSubscriberBase
         iconPos += iconOffset;
 
         var bubbleSize = GetConfiguredBubbleSize(bubbleScaleFactor, bubbleScaleFactor, true);
+        if (profileIconPresent) iconPos.X += bubbleSize.X + 4f;
+
+        if (ShouldSkipByDepth(iconPos + bubbleSize * 0.5f)) return true;
+        if (_engine.IsNativeUiOccluded(new Vector4(iconPos.X, iconPos.Y, iconPos.X + bubbleSize.X, iconPos.Y + bubbleSize.Y))) return true;
 
         drawList.AddImage(textureWrap.Handle, iconPos, iconPos + bubbleSize, Vector2.Zero, Vector2.One,
             ImGui.ColorConvertFloat4ToU32(new Vector4(1f, 1f, 1f, 0.95f)));

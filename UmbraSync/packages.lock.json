@@ -591,6 +591,13 @@
         "resolved": "10.0.5",
         "contentHash": "wugvy+pBVzjQEnRs9wMTWwoaeNFX3hsaHeVHFDIvJSWXp7wfmNWu3mxAwBIE6pyW+g6+rHa1Of5fTzb0QVqUTA=="
       },
+      "ashfall.engine": {
+        "type": "Project",
+        "dependencies": {
+          "SharpDX.D3DCompiler": "[4.2.0, )",
+          "SharpDX.Direct3D11": "[4.2.0, )"
+        }
+      },
       "ottergui": {
         "type": "Project",
         "dependencies": {

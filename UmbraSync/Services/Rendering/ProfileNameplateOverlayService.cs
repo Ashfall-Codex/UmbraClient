@@ -1,9 +1,12 @@
-using Dalamud.Game.ClientState.Objects.SubKinds;
-using Dalamud.Game.ClientState.Objects.Types;
+using Ashfall.Engine;
+using Dalamud.Game.ClientState.Objects.Enums;
 using Dalamud.Interface.Textures;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
 using Dalamud.Bindings.ImGui;
+using FFXIVClientStructs.FFXIV.Client.System.Framework;
+using FFXIVClientStructs.FFXIV.Client.UI;
+using FFXIVClientStructs.FFXIV.Component.GUI;
 using Microsoft.Extensions.Logging;
 using System.Numerics;
 using UmbraSync.API.Data;
@@ -12,15 +15,15 @@ using UmbraSync.Services.Mediator;
 
 namespace UmbraSync.Services.Rendering;
 
-public sealed class ProfileNameplateOverlayService : DisposableMediatorSubscriberBase
+public sealed unsafe class ProfileNameplateOverlayService : DisposableMediatorSubscriberBase
 {
     private readonly PairManager _pairManager;
     private readonly UmbraProfileManager _profileManager;
     private readonly IGameGui _gameGui;
-    private readonly IObjectTable _objectTable;
     private readonly IClientState _clientState;
     private readonly ITextureProvider _textureProvider;
     private readonly PictomancyService _pictomancyService;
+    private readonly OverlayEngine _engine;
     private readonly IDalamudPluginInterface _pluginInterface;
     private readonly ILogger<ProfileNameplateOverlayService> _logger;
 
@@ -32,10 +35,10 @@ public sealed class ProfileNameplateOverlayService : DisposableMediatorSubscribe
         PairManager pairManager,
         UmbraProfileManager profileManager,
         IGameGui gameGui,
-        IObjectTable objectTable,
         IClientState clientState,
         ITextureProvider textureProvider,
         PictomancyService pictomancyService,
+        OverlayEngine engine,
         IDalamudPluginInterface pluginInterface)
         : base(logger, mediator)
     {
@@ -43,86 +46,130 @@ public sealed class ProfileNameplateOverlayService : DisposableMediatorSubscribe
         _pairManager = pairManager;
         _profileManager = profileManager;
         _gameGui = gameGui;
-        _objectTable = objectTable;
         _clientState = clientState;
         _textureProvider = textureProvider;
         _pictomancyService = pictomancyService;
+        _engine = engine;
         _pluginInterface = pluginInterface;
 
-        if (_pictomancyService.IsInitialized)
-        {
-            _pluginInterface.UiBuilder.Draw += OnDraw;
-            _drawSubscribed = true;
-        }
+        _pluginInterface.UiBuilder.Draw += OnDraw;
+        _drawSubscribed = true;
     }
 
-    private int _selfLogCounter;
 
     private void OnDraw()
     {
         if (_clientState.LocalPlayer == null) return;
         if (_clientState.IsPvPExcludingDen) return;
+        if (_gameGui.GameUiHidden) return;
 
         try
         {
+            var addonHandle = _gameGui.GetAddonByName("NamePlate");
+            if (addonHandle.Address == nint.Zero) return;
+            var addon = (AddonNamePlate*)addonHandle.Address;
+            if (addon->AtkUnitBase.RootNode == null || !addon->AtkUnitBase.RootNode->IsVisible()) return;
+
+            var framework = Framework.Instance();
+            if (framework == null) return;
+            var uiModule = framework->GetUIModule();
+            if (uiModule == null) return;
+            var ui3DModule = uiModule->GetUI3DModule();
+            if (ui3DModule == null) return;
+
             var vp = ImGui.GetMainViewport();
             var useViewportOffset = ImGui.GetIO().ConfigFlags.HasFlag(ImGuiConfigFlags.ViewportsEnable);
             var drawList = ImGui.GetBackgroundDrawList(vp);
 
-            var visiblePairs = _pairManager.GetVisibleUsers();
-            foreach (var userData in visiblePairs)
+            _engine.BeginFrame((AtkUnitBase*)addon);
+
+            var ownUid = _profileManager.CurrentUid;
+            var localPlayer = _clientState.LocalPlayer;
+            var localGoId = localPlayer != null ? localPlayer.GameObjectId : 0UL;
+
+            var pairsByGoId = new Dictionary<ulong, UserData>();
+            foreach (var userData in _pairManager.GetVisibleUsers())
             {
-                TryDrawPairIcon(userData, useViewportOffset, vp.Pos, drawList);
+                var pair = _pairManager.GetPairByUID(userData.UID);
+                if (pair == null || !pair.IsVisible) continue;
+                var pcid = pair.PlayerCharacterId;
+                if (pcid == 0 || pcid == uint.MaxValue) continue;
+                pairsByGoId[pcid] = userData;
             }
 
-            TryDrawSelfIcon(useViewportOffset, vp.Pos, drawList);
+            var infoPointers = ui3DModule->NamePlateObjectInfoPointers;
+            var infoCount = Math.Min(ui3DModule->NamePlateObjectInfoCount, infoPointers.Length);
+
+            for (int i = 0; i < infoCount; i++)
+            {
+                var objInfoPtr = infoPointers[i];
+                if (objInfoPtr == null) continue;
+                var objInfo = objInfoPtr.Value;
+                if (objInfo == null || objInfo->GameObject == null) continue;
+
+                var gameObject = objInfo->GameObject;
+                if ((ObjectKind)gameObject->ObjectKind != ObjectKind.Player) continue;
+
+                var nameplateIndex = objInfo->NamePlateIndex;
+                if (nameplateIndex < 0 || nameplateIndex >= AddonNamePlate.NumNamePlateObjects) continue;
+
+                var np = addon->NamePlateObjectArray[nameplateIndex];
+                var nameContainer = np.NameContainer;
+                var nameText = np.NameText;
+                var rootNode = np.RootComponentNode;
+                if (nameContainer == null || !nameContainer->IsVisible()) continue;
+                if (nameText == null) continue;
+
+                // Fade progressif
+                const float fadeStart = 15f;
+                const float fadeEnd = 25f;
+                float distance = gameObject->YalmDistanceFromPlayerX;
+                float distanceFade;
+                if (distance >= fadeEnd) continue;
+                else if (distance <= fadeStart) distanceFade = 1f;
+                else distanceFade = 1f - (distance - fadeStart) / (fadeEnd - fadeStart);
+
+                byte rootA = rootNode != null ? rootNode->AtkResNode.Alpha_2 : (byte)255;
+                float effectiveAlpha = distanceFade * (rootA / 255f);
+                if (effectiveAlpha <= 0.01f) continue; 
+                
+                // Position approximative de la nameplate en monde ; l'occlusion par géométrie 3D
+                // sera testée au pixel final de l'icône par raycast dans DrawIconOnNameplate.
+                var headWorld = new Vector3(gameObject->Position.X, gameObject->Position.Y + 2.2f, gameObject->Position.Z);
+
+                uint iconId = 0;
+                var goId = gameObject->GetGameObjectId();
+                if (goId == localGoId && !string.IsNullOrEmpty(ownUid))
+                {
+                    var profile = _profileManager.GetUmbraProfile(new UserData(ownUid));
+                    iconId = profile.ProfileIconId;
+                }
+                else if (pairsByGoId.TryGetValue(goId, out var pairUd))
+                {
+                    var profile = _profileManager.GetUmbraProfile(pairUd);
+                    iconId = profile.ProfileIconId;
+                }
+
+                if (iconId == 0) continue;
+
+                var textBlockHeight = Math.Abs((int)np.TextH);
+                var textBlockWidth = Math.Abs((int)np.TextW);
+                DrawIconOnNameplate(nameContainer, nameText, textBlockWidth, textBlockHeight, iconId, effectiveAlpha,
+                    headWorld, useViewportOffset, vp.Pos, drawList);
+            }
         }
         catch (Exception ex)
         {
             _logger.LogDebug(ex, "Error in nameplate overlay draw");
         }
-    }
-
-    private void TryDrawPairIcon(UserData userData, bool useViewportOffset, Vector2 vpPos, ImDrawListPtr drawList)
-    {
-        var pair = _pairManager.GetPairByUID(userData.UID);
-        if (pair == null || !pair.IsVisible) return;
-
-        var profile = _profileManager.GetUmbraProfile(userData);
-        if (profile.ProfileIconId == 0) return;
-
-        var actor = FindActorForPair(pair);
-        if (actor == null) return;
-
-        DrawIconAboveActor(actor, profile.ProfileIconId, useViewportOffset, vpPos, drawList);
-    }
-
-    private void TryDrawSelfIcon(bool useViewportOffset, Vector2 vpPos, ImDrawListPtr drawList)
-    {
-        var uid = _profileManager.CurrentUid;
-        if (string.IsNullOrEmpty(uid)) return;
-
-        var actor = _clientState.LocalPlayer;
-        if (actor == null) return;
-
-        var profile = _profileManager.GetUmbraProfile(new UserData(uid));
-        if (_selfLogCounter++ % 180 == 0)
+        finally
         {
-            _logger.LogInformation("SelfNameplate: uid={uid}, iconId={iconId}", uid, profile.ProfileIconId);
+            _engine.EndFrame();
         }
-        if (profile.ProfileIconId == 0) return;
-
-        DrawIconAboveActor(actor, profile.ProfileIconId, useViewportOffset, vpPos, drawList);
     }
 
-    private void DrawIconAboveActor(IGameObject actor, uint iconId, bool useViewportOffset, Vector2 vpPos, ImDrawListPtr drawList)
+private void DrawIconOnNameplate(AtkResNode* nameContainer, AtkTextNode* nameText, int textBlockWidthRaw, int textBlockHeightRaw, uint iconId, float alpha, Vector3 nameplateWorld, bool useViewportOffset, Vector2 vpPos, ImDrawListPtr drawList)
     {
-        var headOffset = new Vector3(0f, 2.1f, 0f);
-        var worldPos = actor.Position + headOffset;
-        if (!_gameGui.WorldToScreen(worldPos, out var screenPos)) return;
-
-        if (useViewportOffset) screenPos += vpPos;
-
         ISharedImmediateTexture? textureWrap;
         try
         {
@@ -132,30 +179,57 @@ public sealed class ProfileNameplateOverlayService : DisposableMediatorSubscribe
         {
             return;
         }
-        var wrap = textureWrap?.GetWrapOrEmpty();
+        var wrap = textureWrap.GetWrapOrEmpty();
         if (wrap == null || wrap.Handle == IntPtr.Zero) return;
 
-        var iconSize = 32f;
+        var scaleX = GetWorldScaleX(nameContainer);
+        var scaleY = GetWorldScaleY(nameContainer);
+        if (scaleX <= 0f) scaleX = 1f;
+        if (scaleY <= 0f) scaleY = 1f;
+
+        var lineHeight = (nameText->FontSize > 0 ? nameText->FontSize : 14f) * scaleY;
+        var containerHeight = nameContainer->Height * scaleY;
+        var blockHeight = (textBlockHeightRaw > 0 ? textBlockHeightRaw : lineHeight / scaleY) * scaleY;
+        var blockTop = MathF.Max(0f, containerHeight - blockHeight);
+
+        var containerWidth = nameContainer->Width * scaleX;
+        var textWidth = textBlockWidthRaw > 0 ? textBlockWidthRaw * scaleX : containerWidth;
+        var containerCenterX = nameContainer->ScreenX + containerWidth / 2f;
+        var textRightX = containerCenterX + textWidth / 2f;
+
+        var iconSize = lineHeight * 0.9f;
         var aspect = wrap.Height > 0 ? (float)wrap.Width / wrap.Height : 1f;
         var drawSize = new Vector2(iconSize * aspect, iconSize);
-        var drawPos = new Vector2(screenPos.X - drawSize.X / 2f, screenPos.Y - drawSize.Y - 30f);
 
-        drawList.AddImage(wrap.Handle, drawPos, drawPos + drawSize);
+        // Position : à droite du bloc de texte, centrée verticalement sur la ligne du nom principal.
+        var nameLineCenterY = nameContainer->ScreenY + blockTop + lineHeight * 0.25f;
+        var drawPos = new Vector2(
+            textRightX + 4f * scaleX,
+            nameLineCenterY - drawSize.Y / 2f);
+
+        if (useViewportOffset) drawPos += vpPos;
+
+        // Occlusion 3D pixel-perfect : raycast caméra → pixel de l'icône, avec distance max
+        // jusqu'à la nameplate. Si un hit est trouvé avant, un objet 3D est devant → skip.
+        var iconCenter = new Vector2(drawPos.X + drawSize.X * 0.5f, drawPos.Y + drawSize.Y * 0.5f);
+        var iconRect = new Vector4(drawPos.X, drawPos.Y, drawPos.X + drawSize.X, drawPos.Y + drawSize.Y);
+        if (_engine.IsOccluded(nameplateWorld, iconCenter, iconRect))
+            return;
+
+        var tint = ImGui.ColorConvertFloat4ToU32(new Vector4(1f, 1f, 1f, Math.Clamp(alpha, 0f, 1f)));
+        drawList.AddImage(wrap.Handle, drawPos, drawPos + drawSize, Vector2.Zero, Vector2.One, tint);
     }
 
-    private IPlayerCharacter? FindActorForPair(Pair pair)
+private static float GetWorldScaleX(AtkResNode* node)
     {
-        var ident = pair.Ident;
-        if (string.IsNullOrEmpty(ident)) return null;
+        var t = node->Transform;
+        return MathF.Sqrt(t.M11 * t.M11 + t.M12 * t.M12);
+    }
 
-        foreach (var obj in _objectTable)
-        {
-            if (obj is not IPlayerCharacter pc) continue;
-            if (pc.Address == IntPtr.Zero) continue;
-            if (string.Equals(pair.PlayerName, pc.Name.TextValue, StringComparison.Ordinal))
-                return pc;
-        }
-        return null;
+    private static float GetWorldScaleY(AtkResNode* node)
+    {
+        var t = node->Transform;
+        return MathF.Sqrt(t.M21 * t.M21 + t.M22 * t.M22);
     }
 
     protected override void Dispose(bool disposing)

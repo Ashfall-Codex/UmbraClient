@@ -64,6 +64,7 @@
         <ProjectReference Include="..\UmbraAPI\UmbraSyncAPI\UmbraSync.API.csproj" />
         <ProjectReference Include="..\OtterGui\OtterGui.csproj" />
         <ProjectReference Include="..\ffxiv_pictomancy\Pictomancy\Pictomancy.csproj" />
+        <ProjectReference Include="..\Ashfall.Engine\Ashfall.Engine.csproj" />
         <None Include="..\.editorconfig" Link=".editorconfig" />
     </ItemGroup>
 
@@ -80,6 +81,14 @@
             BeforeTargets="ResolveReferences"
             Condition="Exists('..\ffxiv_pictomancy\Pictomancy\Pictomancy.csproj') and !Exists('..\ffxiv_pictomancy\Pictomancy\bin\x64\$(Configuration)\Pictomancy.dll')">
         <MSBuild Projects="..\ffxiv_pictomancy\Pictomancy\Pictomancy.csproj"
+                 Targets="Build"
+                 Properties="Configuration=$(Configuration);Platform=x64" />
+    </Target>
+
+    <Target Name="ForceBuildAshfallEngine"
+            BeforeTargets="ResolveReferences"
+            Condition="Exists('..\Ashfall.Engine\Ashfall.Engine.csproj')">
+        <MSBuild Projects="..\Ashfall.Engine\Ashfall.Engine.csproj"
                  Targets="Build"
                  Properties="Configuration=$(Configuration);Platform=x64" />
     </Target>
