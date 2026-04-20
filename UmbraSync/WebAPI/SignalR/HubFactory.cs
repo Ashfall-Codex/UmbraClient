@@ -1,4 +1,6 @@
-﻿using Microsoft.AspNetCore.Http.Connections;
+﻿using MessagePack;
+using MessagePack.Resolvers;
+using Microsoft.AspNetCore.Http.Connections;
 using Microsoft.AspNetCore.SignalR.Client;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -165,6 +167,21 @@ public class HubFactory : MediatorSubscriberBase
     {
         Logger.LogDebug("Building new HubConnection");
 
+        var messagePackResolver = CompositeResolver.Create(
+            StandardResolverAllowPrivate.Instance,
+            BuiltinResolver.Instance,
+            AttributeFormatterResolver.Instance,
+            DynamicEnumAsStringResolver.Instance,
+            DynamicGenericResolver.Instance,
+            DynamicUnionResolver.Instance,
+            DynamicObjectResolver.Instance,
+            PrimitiveObjectResolver.Instance,
+            StandardResolver.Instance);
+
+        var messagePackOptions = MessagePackSerializerOptions.Standard
+            .WithCompression(MessagePackCompression.Lz4Block)
+            .WithResolver(messagePackResolver);
+
         _instance = new HubConnectionBuilder()
             .WithUrl(hubConfig.HubUrl, options =>
             {
@@ -174,7 +191,10 @@ public class HubFactory : MediatorSubscriberBase
                 options.Transports = transports;
                 options.CloseTimeout = TimeSpan.FromSeconds(30);
             })
-            .AddJsonProtocol()
+            .AddMessagePackProtocol(opt =>
+            {
+                opt.SerializerOptions = messagePackOptions;
+            })
             .WithAutomaticReconnect(new ForeverRetryPolicy(Mediator, _notificationTracker))
             .ConfigureLogging(a =>
             {
