@@ -190,6 +190,7 @@ public class HubFactory : MediatorSubscriberBase
                 options.SkipNegotiation = hubConfig.SkipNegotiation && (transports == HttpTransportType.WebSockets);
                 options.Transports = transports;
                 options.CloseTimeout = TimeSpan.FromSeconds(30);
+                options.WebSocketConfiguration = ws => ws.KeepAliveInterval = TimeSpan.FromSeconds(10);
             })
             .AddMessagePackProtocol(opt =>
             {
