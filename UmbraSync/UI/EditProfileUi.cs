@@ -69,13 +69,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
     private bool _vanityModalOpen = false;
     private string _vanityInput = string.Empty;
     private int _activeTab;
-    private uint _profileIconId;
-    private uint _savedProfileIconId;
-    private bool _profileIconPickerOpen;
-    private string _profileIconIdInput = "0";
-    private string _profileIconSearchText = string.Empty;
-    private string _profileIconLastSearch = string.Empty;
-    private List<StatusIconInfo>? _profileIconFilteredIcons;
+    private readonly ProfileIconPicker _profileIconPicker;
     private DateTime _saveConfirmTime = DateTime.MinValue;
     private string _savedDescriptionText = string.Empty;
     private string _savedRpFirstNameText = string.Empty;
@@ -126,6 +120,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
         _honorificEditor = new HonorificEditor(logger, ipcManager, dalamudUtil, rpConfigService);
         _statusIcons = new Lazy<List<StatusIconInfo>>(() => LoadStatusIcons());
         _moodlesEditor = new MoodlesEditor(logger, ipcManager, dalamudUtil, rpConfigService, uiSharedService, dataManager, _statusIcons);
+        _profileIconPicker = new ProfileIconPicker(uiSharedService, _statusIcons);
 
         Mediator.Subscribe<GposeStartMessage>(this, (_) => { _wasOpen = IsOpen; IsOpen = false; });
         Mediator.Subscribe<GposeEndMessage>(this, (_) => IsOpen = _wasOpen);
@@ -208,7 +203,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
                 RpAdditionalInfo: _rpAdditionalInfoText,
                 RpNameColor: UiSharedService.Vector4ToHex(new Vector4(_rpNameColorVec, 1f)),
                 RpCustomFields: _rpCustomFields.Count > 0 ? _rpCustomFields : null,
-                ProfileIconId: _profileIconId
+                ProfileIconId: _profileIconPicker.IconId
             );
 
             _umbraProfileManager.SetPreviewProfile(pair.UserData, pair.PlayerName, pair.WorldId, previewProfileData);
@@ -330,8 +325,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
                     .Select(f => new RpCustomField { Name = f.Name, Value = f.Value, Order = f.Order })
                     .ToList();
 
-                _profileIconId = umbraProfile.ProfileIconId > 0 ? umbraProfile.ProfileIconId : configProfile.ProfileIconId;
-                _profileIconIdInput = _profileIconId.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                _profileIconPicker.IconId = umbraProfile.ProfileIconId > 0 ? umbraProfile.ProfileIconId : configProfile.ProfileIconId;
 
                 var nameColorHex = umbraProfile.RpNameColor ?? string.Empty;
                 if (!string.IsNullOrEmpty(nameColorHex))
@@ -596,7 +590,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
             ImGui.Separator();
             ImGuiHelpers.ScaledDummy(new Vector2(0f, 4f));
 
-            DrawProfileIconSection();
+            _profileIconPicker.Draw();
 
             ImGuiHelpers.ScaledDummy(new Vector2(0f, 4f));
             ImGui.Separator();
@@ -750,172 +744,6 @@ public class EditProfileUi : WindowMediatorSubscriberBase
             customFields.RemoveAt(removeIndex.Value);
             for (int i = 0; i < customFields.Count; i++) customFields[i].Order = i;
         }
-    }
-
-    private void DrawProfileIconSection()
-    {
-        ImGui.TextColored(ImGuiColors.DalamudGrey, "Icône du profil (nameplate)");
-        var textureProvider = _uiSharedService.TextureProvider;
-
-        var previewSize = 48f * ImGuiHelpers.GlobalScale;
-        if (_profileIconId > 0)
-        {
-            try
-            {
-                var wrap = textureProvider.GetFromGameIcon(new GameIconLookup(_profileIconId)).GetWrapOrEmpty();
-                if (wrap.Handle != IntPtr.Zero)
-                {
-                    var aspect = wrap.Height > 0 ? (float)wrap.Width / wrap.Height : 1f;
-                    ImGui.Image(wrap.Handle, new Vector2(previewSize * aspect, previewSize));
-                    ImGui.SameLine();
-                }
-            }
-            catch { /* Icon not found */ }
-        }
-        else
-        {
-            ImGui.Dummy(new Vector2(previewSize, previewSize));
-            ImGui.SameLine();
-        }
-
-        ImGui.BeginGroup();
-        ImGui.TextUnformatted($"Icône : {_profileIconId}");
-        if (ImGui.Button(_profileIconPickerOpen ? "Fermer le sélecteur##profileIcon" : "Choisir une icône##profileIcon"))
-        {
-            _profileIconPickerOpen = !_profileIconPickerOpen;
-        }
-        ImGui.SameLine();
-        if (ImGui.Button("Retirer##profileIcon"))
-        {
-            _profileIconId = 0;
-            _profileIconIdInput = "0";
-        }
-        ImGui.EndGroup();
-
-        ImGui.SetNextItemWidth(120 * ImGuiHelpers.GlobalScale);
-        if (ImGui.InputText("##profileIconIdDirect", ref _profileIconIdInput, 10, ImGuiInputTextFlags.CharsDecimal)
-            && uint.TryParse(_profileIconIdInput, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var parsed))
-            _profileIconId = parsed;
-        ImGui.SameLine();
-        ImGui.TextColored(ImGuiColors.DalamudGrey, "ID direct");
-
-        if (_profileIconPickerOpen)
-        {
-            ImGuiHelpers.ScaledDummy(new Vector2(0f, 4f));
-            DrawProfileIconGrid(textureProvider);
-        }
-    }
-
-    private void DrawProfileIconGrid(ITextureProvider textureProvider)
-    {
-        ImGui.SetNextItemWidth(-1);
-        ImGui.InputTextWithHint("##profileIconSearch", "Rechercher (nom ou ID)...", ref _profileIconSearchText, 64);
-
-        var allIcons = _statusIcons?.Value ?? [];
-        if (allIcons.Count == 0)
-        {
-            ImGui.TextColored(ImGuiColors.DalamudGrey, "Aucune icône disponible.");
-            return;
-        }
-
-        if (_profileIconFilteredIcons == null || !string.Equals(_profileIconLastSearch, _profileIconSearchText, StringComparison.Ordinal))
-        {
-            _profileIconLastSearch = _profileIconSearchText;
-            if (string.IsNullOrWhiteSpace(_profileIconSearchText))
-            {
-                _profileIconFilteredIcons = allIcons;
-            }
-            else
-            {
-                var search = _profileIconSearchText.Trim();
-                _profileIconFilteredIcons = allIcons.Where(i =>
-                    i.Name.Contains(search, StringComparison.OrdinalIgnoreCase)
-                    || i.IconId.ToString().Contains(search, StringComparison.Ordinal)
-                ).ToList();
-            }
-        }
-
-        var icons = _profileIconFilteredIcons;
-        if (icons.Count == 0)
-        {
-            ImGui.TextColored(ImGuiColors.DalamudGrey, "Aucun résultat.");
-            return;
-        }
-
-        const int iconsPerRow = 10;
-        var iconSize = 40f * ImGuiHelpers.GlobalScale;
-        var spacing = 4f * ImGuiHelpers.GlobalScale;
-        var rowHeight = iconSize + spacing;
-        var totalRows = (icons.Count + iconsPerRow - 1) / iconsPerRow;
-        var childHeight = 200f * ImGuiHelpers.GlobalScale;
-
-        ImGui.BeginChild("##profileIconGrid", new Vector2(-1, childHeight), true);
-
-        var scrollY = ImGui.GetScrollY();
-        var firstVisibleRow = Math.Max(0, (int)(scrollY / rowHeight) - 1);
-        var visibleRows = (int)(childHeight / rowHeight) + 3;
-        var lastVisibleRow = Math.Min(totalRows - 1, firstVisibleRow + visibleRows);
-
-        if (firstVisibleRow > 0)
-            ImGui.Dummy(new Vector2(0, firstVisibleRow * rowHeight));
-
-        for (int row = firstVisibleRow; row <= lastVisibleRow; row++)
-        {
-            for (int col = 0; col < iconsPerRow; col++)
-            {
-                int iconIndex = row * iconsPerRow + col;
-                if (iconIndex >= icons.Count) break;
-                var info = icons[iconIndex];
-
-                if (col > 0) ImGui.SameLine(0, spacing);
-
-                IDalamudTextureWrap? wrap;
-                try { wrap = textureProvider.GetFromGameIcon(new GameIconLookup(info.IconId)).GetWrapOrEmpty(); }
-                catch { ImGui.Dummy(new Vector2(iconSize, iconSize)); continue; }
-
-                if (wrap.Handle == IntPtr.Zero)
-                {
-                    ImGui.Dummy(new Vector2(iconSize, iconSize));
-                    continue;
-                }
-
-                bool isSelected = _profileIconId == info.IconId;
-                if (isSelected)
-                {
-                    ImGui.PushStyleColor(ImGuiCol.Button, UiSharedService.ThemeButtonActive);
-                    ImGui.PushStyleColor(ImGuiCol.ButtonHovered, UiSharedService.ThemeButtonActive);
-                }
-                else
-                {
-                    ImGui.PushStyleColor(ImGuiCol.Button, Vector4.Zero);
-                    ImGui.PushStyleColor(ImGuiCol.ButtonHovered, UiSharedService.ThemeButtonHovered);
-                }
-
-                ImGui.PushStyleVar(ImGuiStyleVar.FramePadding, Vector2.Zero);
-                ImGui.PushID($"profileIcon_{info.IconId}");
-                if (ImGui.ImageButton(wrap.Handle, new Vector2(iconSize, iconSize)))
-                {
-                    _profileIconId = info.IconId;
-                    _profileIconIdInput = info.IconId.ToString(System.Globalization.CultureInfo.InvariantCulture);
-                }
-                ImGui.PopID();
-                ImGui.PopStyleVar();
-                ImGui.PopStyleColor(2);
-
-                if (ImGui.IsItemHovered())
-                {
-                    ImGui.BeginTooltip();
-                    ImGui.TextUnformatted($"#{info.IconId} — {info.Name}");
-                    ImGui.EndTooltip();
-                }
-            }
-        }
-
-        var remainingRows = totalRows - lastVisibleRow - 1;
-        if (remainingRows > 0)
-            ImGui.Dummy(new Vector2(0, remainingRows * rowHeight));
-
-        ImGui.EndChild();
     }
 
     private List<StatusIconInfo> LoadStatusIcons()
@@ -1084,7 +912,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
                 profile.RpCustomFields = _rpCustomFields
                     .Select(f => new RpCustomField { Name = f.Name, Value = f.Value, Order = f.Order })
                     .ToList();
-                profile.ProfileIconId = _profileIconId;
+                profile.ProfileIconId = _profileIconPicker.IconId;
                 _rpConfigService.Save();
             }
 
@@ -1213,7 +1041,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
             {
                 _savedRpCustomFieldsJson = System.Text.Json.JsonSerializer.Serialize(_rpCustomFields);
             }
-            _savedProfileIconId = _profileIconId;
+            _profileIconPicker.SnapshotSaved();
             _honorificEditor.SnapshotSaved();
         }
         else
@@ -1244,7 +1072,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
                     System.Text.Json.JsonSerializer.Serialize(_rpCustomFields),
                     _savedRpCustomFieldsJson, StringComparison.Ordinal)
                 || _honorificEditor.HasUnsavedChanges
-                || _profileIconId != _savedProfileIconId;
+                || _profileIconPicker.HasUnsavedChanges;
         }
         else
         {
