@@ -179,7 +179,7 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
     {
         return new List<ChangelogEntry>
         {
-            new(new Version(2, 4, 3, 4019), "2.4.3.4019", new List<ChangelogLine>
+            new(new Version(2, 5, 0, 4023), "2.5.0.4023", new List<ChangelogLine>
             {
                 new("Nouveauté : Ajout de l'icône de profil de personnage."),
                 new("Amélioration : Possibilité d'éditer un trait Moodles sans devoir le supprimer."),
