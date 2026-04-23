@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <code>v2.4.1.4003</code> &middot; API <code>v3000</code> &middot; C# 13 / .NET 10 &middot; Dalamud SDK 14.0.2
+  <code>v2.5.0.4023</code> &middot; API <code>v3000</code> &middot; C# 13 / .NET 10 &middot; Dalamud SDK 14.0.2
 </p>
 
 ---
@@ -38,8 +38,9 @@
 
 - **Profil RP** : fiche personnage complète (prénom, nom, titre, âge, race, taille, résidence, occupation, alignement, etc.) avec champs personnalisés, photo dédiée et couleur de nom configurable
 - **Profil classique** : photo de profil, description personnelle, statut NSFW
+- **Icône de profil** : icône XIV affichée au-dessus du nameplate des joueurs appairés, sélecteur intégré avec recherche par ID ou par nom, palette partagée avec l'éditeur Moodles
 - **Titre Honorific intégré** : édition du titre complet directement depuis la fiche RP avec color picker (couleur + glow), préfixe optionnel. Synchronisé automatiquement via Honorific
-- **Moodles RP** : intégration des Moodles dans les profils avec cache local de sauvegarde
+- **Moodles RP** : édition complète des traits Moodles (titre, description, icône, type, palette de couleurs UIColor) depuis la fiche RP, avec cache local de sauvegarde et restauration automatique
 - **Annuaire d'établissements** : création et gestion d'établissements RP (tavernes, boutiques, temples, etc.) avec logo, bannière, localisation housing, gérant lié à une fiche RP, événements programmés (ponctuels ou récurrents) et calendrier "À venir"
 - **RP sauvage** : possibilité de s'annoncer disponible pour du RP sauvage via l'annuaire, avec affichage automatique du secteur (ward) en quartier résidentiel
 - **Bulle d'écriture** : indicateur de saisie en temps réel sur les nameplates et la Party List, compatible avec le chat natif et ChatTwo, avec notification sonore configurable *(inspiré de [RTyping](https://github.com/apetih/rtyping))*
@@ -91,7 +92,7 @@
 - **Syncshell Admin** : interface d'administration dédiée aux propriétaires et modérateurs de groupes
 - **Widget de téléchargement** : suivi en temps réel des transferts upload/download
 - **Widget Server Bar** : indicateur de statut dans la barre de serveur FFXIV avec styles personnalisables
-- **Overlay d'écriture** : indicateur visuel sur les nameplates des joueurs en train d'écrire
+- **Overlay d'écriture** : indicateur visuel sur les nameplates des joueurs en train d'écrire, avec occlusion 3D précise derrière les décors (DepthBuffer sur Windows/DXVK, Raycast sur DXMT/macOS) via le moteur `Ashfall.Engine`
 - **Changelog intégré** : affichage automatique des nouveautés à chaque mise à jour
 - **Notifications** : système centralisé avec badge, toast et panneau dédié, respectant les préférences d'affichage utilisateur (Nowhere/Chat/Toast/Both)
 
@@ -118,17 +119,20 @@ Le projet est composé de plusieurs modules :
 |---|---|---|
 | `UmbraSync/` | C# 13 / .NET 10 / Dalamud SDK | Plugin FFXIV principal |
 | `UmbraAPI/` | C# / .NET 10 | API partagée (contrats et DTOs : 60+ DTOs) |
+| `Ashfall.Engine/` | C# / .NET 10 | Moteur de rendu overlay (occlusion 3D, projection monde→écran) |
 | `Penumbra.Api/` | Submodule git | API d'intégration Penumbra |
 | `Glamourer.Api/` | Submodule git | API d'intégration Glamourer |
 | `OtterGui/` | Submodule git | Bibliothèque UI ImGui |
+| `ffxiv_pictomancy/` | Submodule git | Bibliothèque de dessin 3D dans le monde |
 
 ### Plugin (C#)
 
 - **Point d'entree** : `Plugin.cs` — injection de dépendances via `Microsoft.Extensions.DependencyInjection` avec architecture hosted services
-- **Communication** : SignalR (WebSocket) avec authentification JWT, reconnexion automatique
+- **Communication** : SignalR (WebSocket) avec authentification JWT, reconnexion automatique, protocole MessagePack + compression LZ4Block (frames binaires pour contourner les middleboxes qui coupent les WebSockets JSON)
 - **Bus de messages** : Mediator pattern central (`MareMediator`) pour la communication intra-plugin
-- **UI** : ImGui avec thème violet/sombre "Royal Smoke", fenêtres modulaires
+- **UI** : ImGui avec thème violet/sombre "Royal Smoke", fenêtres modulaires, composants réutilisables (`BbCodeToolbar`, `HonorificEditor`, `MoodlesEditor`, `ProfileIconPicker`)
 - **IPC** : intégration bidirectionnelle avec Penumbra, Glamourer, Customize+, Heels, Honorific, Moodles, PetNames, Brio et Mare Synchronos
+- **Rendu** : overlays ImGui avec occlusion 3D via `Ashfall.Engine` — stratégie adaptative selon la plateforme (DepthBuffer pour Windows/DXVK, Raycast pour DXMT/macOS)
 - **Cache** : gestion de fichiers avec compression LZ4, compaction et déduplication
 
 ---
@@ -202,9 +206,11 @@ dotnet build UmbraSync.sln -c Release --no-restore -p:DALAMUD_DIR="$DALAMUD_DIR"
 | Submodule | Source |
 |---|---|
 | `UmbraAPI/` | [Ashfall-Codex/UmbraAPI](https://github.com/Ashfall-Codex/UmbraAPI) |
+| `Ashfall.Engine/` | [Ashfall-Codex/Ashfall.Engine](https://github.com/Ashfall-Codex/Ashfall.Engine) |
 | `Penumbra.Api/` | [Ottermandias/Penumbra.Api](https://github.com/Ottermandias/Penumbra.Api) |
 | `Glamourer.Api/` | [Ottermandias/Glamourer.Api](https://github.com/Ottermandias/Glamourer.Api) |
 | `OtterGui/` | [Ottermandias/OtterGui](https://github.com/Ottermandias/OtterGui) |
+| `ffxiv_pictomancy/` | [sourpuh/ffxiv_pictomancy](https://github.com/sourpuh/ffxiv_pictomancy) |
 
 ---
 
@@ -243,9 +249,10 @@ UmbraSync/
 │   ├── Housing/            # Fonctionnalités housing
 │   ├── Mediator/           # Bus de messages central
 │   ├── Notification/       # Système de notifications
+│   ├── Rendering/          # PictomancyService, ProfileNameplateOverlayService
 │   └── ServerConfiguration/ # Configuration serveur
 ├── UI/                     # 18+ fenêtres ImGui
-│   ├── Components/         # Composants réutilisables (DrawPairBase, GroupPanel, BBCode)
+│   ├── Components/         # Composants réutilisables (DrawPairBase, GroupPanel, BbCodeRenderer/Toolbar, HonorificEditor, MoodlesEditor, ProfileIconPicker)
 │   ├── Handlers/           # Handlers UI (TagHandler, UidDisplayHandler)
 │   └── *.cs                # Fenêtres principales
 ├── Utils/                  # Utilitaires (crypto, hashing, extensions)
