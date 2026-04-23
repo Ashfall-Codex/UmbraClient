@@ -41,17 +41,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
     private readonly NotificationTracker _notificationTracker;
     private readonly IDataManager _dataManager;
     private string _localMoodlesJson = string.Empty;
-    private string _honorificTitle = string.Empty;
-    private bool _honorificIsPrefix;
-    private Vector3 _honorificColor = Vector3.One;
-    private Vector3 _honorificGlow = Vector3.One;
-    private bool _honorificHasGlow;
-    private bool _honorificLoaded;
-    private string _savedHonorificTitle = string.Empty;
-    private bool _savedHonorificIsPrefix;
-    private Vector3 _savedHonorificColor = Vector3.One;
-    private Vector3 _savedHonorificGlow = Vector3.One;
-    private bool _savedHonorificHasGlow;
+    private readonly HonorificEditor _honorificEditor;
     private string _descriptionText = string.Empty;
     private string _rpDescriptionText = string.Empty;
     private string _rpFirstNameText = string.Empty;
@@ -83,8 +73,6 @@ public class EditProfileUi : WindowMediatorSubscriberBase
     private bool _moodleRestoreAttempted;
     private int _moodleRestoreRetries;
     private DateTime _lastMoodleRestoreAttempt = DateTime.MinValue;
-    private bool _honorificRestoreAttempted;
-    private DateTime _lastHonorificRestoreAttempt = DateTime.MinValue;
     private uint _profileIconId;
     private uint _savedProfileIconId;
     private bool _profileIconPickerOpen;
@@ -155,6 +143,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
         _notificationTracker = notificationTracker;
         _dataManager = dataManager;
         _bbCodeToolbar = new BbCodeToolbar(uiSharedService);
+        _honorificEditor = new HonorificEditor(logger, ipcManager, dalamudUtil, rpConfigService);
         _statusIcons = new Lazy<List<StatusIconInfo>>(() => LoadStatusIcons());
 
         Mediator.Subscribe<GposeStartMessage>(this, (_) => { _wasOpen = IsOpen; IsOpen = false; });
@@ -169,9 +158,8 @@ public class EditProfileUi : WindowMediatorSubscriberBase
             _moodleRestoreAttempted = false;
             _moodleRestoreRetries = 0;
             _lastMoodleRestoreAttempt = DateTime.MinValue;
-            _honorificRestoreAttempted = false;
-            _lastHonorificRestoreAttempt = DateTime.MinValue;
-            _ = Task.Run(RunHonorificRestoreLoopAsync);
+            _honorificEditor.ResetRestoreState();
+            _ = Task.Run(_honorificEditor.RunRestoreLoopAsync);
             _ = Task.Run(RunMoodlesRestoreLoopAsync);
         });
         Mediator.Subscribe<ClearProfileDataMessage>(this, (msg) =>
@@ -193,22 +181,21 @@ public class EditProfileUi : WindowMediatorSubscriberBase
             _moodleRestoreAttempted = false;
             _moodleRestoreRetries = 0;
             _lastMoodleRestoreAttempt = DateTime.MinValue;
-            _honorificRestoreAttempted = false;
-            _lastHonorificRestoreAttempt = DateTime.MinValue;
+            _honorificEditor.ResetRestoreState();
             _ = Task.Run(RunMoodlesRestoreLoopAsync);
-            _ = Task.Run(RunHonorificRestoreLoopAsync);
+            _ = Task.Run(_honorificEditor.RunRestoreLoopAsync);
         });
         Mediator.Subscribe<HonorificMessage>(this, (msg) =>
         {
-            RefreshHonorificFromData(msg.NewHonorificTitle);
+            _honorificEditor.RefreshFromData(msg.NewHonorificTitle);
             if (!string.IsNullOrEmpty(msg.NewHonorificTitle))
             {
-                _ = Task.Run(() => TrySaveHonorificBackupFromBase64Async(msg.NewHonorificTitle));
+                _ = Task.Run(() => _honorificEditor.TrySaveBackupFromBase64Async(msg.NewHonorificTitle));
             }
         });
-        Mediator.Subscribe<HonorificReadyMessage>(this, (msg) => _ = Task.Run(RunHonorificRestoreLoopAsync));
+        Mediator.Subscribe<HonorificReadyMessage>(this, (msg) => _ = Task.Run(_honorificEditor.RunRestoreLoopAsync));
         Mediator.Subscribe<ConnectedMessage>(this, (msg) => _ = Task.Run(RunMoodlesRestoreLoopAsync));
-        Mediator.Subscribe<ConnectedMessage>(this, (msg) => _ = Task.Run(RunHonorificRestoreLoopAsync));
+        Mediator.Subscribe<ConnectedMessage>(this, (msg) => _ = Task.Run(_honorificEditor.RunRestoreLoopAsync));
     }
 
     private async Task RunMoodlesRestoreLoopAsync()
@@ -302,219 +289,6 @@ public class EditProfileUi : WindowMediatorSubscriberBase
         finally
         {
             _moodlesFetching = false;
-        }
-    }
-
-    private async Task RefreshLocalHonorificAsync()
-    {
-        if (!_ipcManager.Honorific.APIAvailable) return;
-        try
-        {
-            var b64 = await _ipcManager.Honorific.GetTitle().ConfigureAwait(false);
-            RefreshHonorificFromData(b64);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Error refreshing Honorific data");
-        }
-    }
-
-    private void RefreshHonorificFromData(string b64Data)
-    {
-        _honorificLoaded = true;
-        if (string.IsNullOrEmpty(b64Data))
-        {
-            _honorificTitle = string.Empty;
-            _honorificIsPrefix = false;
-            _honorificColor = Vector3.One;
-            _honorificGlow = Vector3.One;
-            return;
-        }
-
-        try
-        {
-            var json = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(b64Data));
-            _logger.LogInformation("Honorific raw JSON: {json}", json);
-            var doc = System.Text.Json.JsonDocument.Parse(json);
-            var root = doc.RootElement;
-
-            _honorificTitle = root.TryGetProperty("Title", out var t) ? t.GetString() ?? string.Empty : string.Empty;
-            _honorificIsPrefix = root.TryGetProperty("IsPrefix", out var p) && p.GetBoolean();
-
-            if (root.TryGetProperty("Color", out var c) && c.ValueKind == System.Text.Json.JsonValueKind.Object)
-            {
-                _honorificColor = new Vector3(
-                    (c.TryGetProperty("X", out var cx) || c.TryGetProperty("x", out cx)) ? cx.GetSingle() : 1f,
-                    (c.TryGetProperty("Y", out var cy) || c.TryGetProperty("y", out cy)) ? cy.GetSingle() : 1f,
-                    (c.TryGetProperty("Z", out var cz) || c.TryGetProperty("z", out cz)) ? cz.GetSingle() : 1f);
-            }
-            else _honorificColor = Vector3.One;
-
-            if (root.TryGetProperty("Glow", out var g) && g.ValueKind == System.Text.Json.JsonValueKind.Object)
-            {
-                _honorificHasGlow = true;
-                _honorificGlow = new Vector3(
-                    (g.TryGetProperty("X", out var gx) || g.TryGetProperty("x", out gx)) ? gx.GetSingle() : 1f,
-                    (g.TryGetProperty("Y", out var gy) || g.TryGetProperty("y", out gy)) ? gy.GetSingle() : 1f,
-                    (g.TryGetProperty("Z", out var gz) || g.TryGetProperty("z", out gz)) ? gz.GetSingle() : 1f);
-            }
-            else
-            {
-                _honorificHasGlow = false;
-                _honorificGlow = Vector3.One;
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Error parsing Honorific data");
-        }
-    }
-
-    private async Task ApplyHonorificTitle()
-    {
-        if (!_ipcManager.Honorific.APIAvailable) return;
-        try
-        {
-            string json;
-            if (string.IsNullOrWhiteSpace(_honorificTitle))
-            {
-                json = string.Empty;
-            }
-            else
-            {
-                var colorObj = new { X = _honorificColor.X, Y = _honorificColor.Y, Z = _honorificColor.Z };
-                object? glowObj = _honorificHasGlow
-                    ? new { X = _honorificGlow.X, Y = _honorificGlow.Y, Z = _honorificGlow.Z }
-                    : null;
-                json = System.Text.Json.JsonSerializer.Serialize(new
-                {
-                    Title = _honorificTitle.Trim(),
-                    IsPrefix = _honorificIsPrefix,
-                    IsOriginal = false,
-                    Color = colorObj,
-                    Glow = glowObj
-                });
-            }
-
-            var b64 = string.IsNullOrEmpty(json) ? string.Empty : Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(json));
-            var ptr = await _dalamudUtil.GetPlayerPointerAsync().ConfigureAwait(false);
-            await _ipcManager.Honorific.SetTitleAsync(ptr, b64).ConfigureAwait(false);
-            _logger.LogInformation("Applied Honorific title: {title}", _honorificTitle);
-
-            var charName = await _dalamudUtil.GetPlayerNameAsync().ConfigureAwait(false);
-            var worldId = await _dalamudUtil.GetHomeWorldIdAsync().ConfigureAwait(false);
-            if (!string.IsNullOrEmpty(charName) && worldId != 0)
-            {
-                SaveHonorificBackup(json, charName, worldId);
-            }
-            _honorificRestoreAttempted = true;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Error applying Honorific title");
-        }
-    }
-
-    private async Task TrySaveHonorificBackupFromBase64Async(string b64Data)
-    {
-        if (string.IsNullOrEmpty(b64Data)) return;
-        try
-        {
-            var json = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(b64Data));
-            var charName = await _dalamudUtil.GetPlayerNameAsync().ConfigureAwait(false);
-            var worldId = await _dalamudUtil.GetHomeWorldIdAsync().ConfigureAwait(false);
-            if (string.IsNullOrEmpty(charName) || worldId == 0) return;
-            SaveHonorificBackup(json, charName, worldId);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Error saving Honorific backup");
-        }
-    }
-
-    private void SaveHonorificBackup(string titleJson, string charName, uint worldId)
-    {
-        var profile = _rpConfigService.GetCharacterProfile(charName, worldId);
-        if (string.IsNullOrEmpty(titleJson))
-        {
-            if (!string.IsNullOrEmpty(profile.HonorificBackupJson))
-            {
-                _logger.LogInformation("Clearing Honorific backup for {char}@{world}", charName, worldId);
-                profile.HonorificBackupJson = string.Empty;
-                profile.HonorificBackupTimestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-                _rpConfigService.Save();
-            }
-            return;
-        }
-
-        if (string.Equals(profile.HonorificBackupJson, titleJson, StringComparison.Ordinal)) return;
-        profile.HonorificBackupJson = titleJson;
-        profile.HonorificBackupTimestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        _rpConfigService.Save();
-    }
-
-    private async Task RunHonorificRestoreLoopAsync()
-    {
-        if (_honorificRestoreAttempted) return;
-        await Task.Delay(2000).ConfigureAwait(false);
-        for (int i = 0; i < 6; i++)
-        {
-            if (_honorificRestoreAttempted) break;
-            await TryRestoreLocalHonorificAsync().ConfigureAwait(false);
-            if (_honorificRestoreAttempted) break;
-            await Task.Delay(4000).ConfigureAwait(false);
-        }
-    }
-
-    private async Task TryRestoreLocalHonorificAsync()
-    {
-        if (_honorificRestoreAttempted) return;
-        if (!_ipcManager.Honorific.APIAvailable) return;
-        if ((DateTime.UtcNow - _lastHonorificRestoreAttempt).TotalSeconds < 2) return;
-        _lastHonorificRestoreAttempt = DateTime.UtcNow;
-
-        try
-        {
-            var charName = await _dalamudUtil.GetPlayerNameAsync().ConfigureAwait(false);
-            var worldId = await _dalamudUtil.GetHomeWorldIdAsync().ConfigureAwait(false);
-            if (string.IsNullOrEmpty(charName) || worldId == 0) return;
-
-            var profile = _rpConfigService.GetCharacterProfile(charName, worldId);
-            if (string.IsNullOrEmpty(profile.HonorificBackupJson)) return;
-
-            var currentB64 = await _ipcManager.Honorific.GetTitle().ConfigureAwait(false);
-            if (!string.IsNullOrEmpty(currentB64) && !IsOriginalHonorificTitle(currentB64))
-            {
-                _honorificRestoreAttempted = true;
-                return;
-            }
-
-            var ptr = await _dalamudUtil.GetPlayerPointerAsync().ConfigureAwait(false);
-            if (ptr == IntPtr.Zero) return;
-
-            var b64 = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(profile.HonorificBackupJson));
-            await _ipcManager.Honorific.SetTitleAsync(ptr, b64).ConfigureAwait(false);
-            _logger.LogInformation("Restored Honorific title from backup for {char}@{world}", charName, worldId);
-            _honorificRestoreAttempted = true;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Error restoring Honorific title from backup");
-        }
-    }
-
-    private static bool IsOriginalHonorificTitle(string b64Json)
-    {
-        try
-        {
-            var json = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(b64Json));
-            using var doc = System.Text.Json.JsonDocument.Parse(json);
-            return doc.RootElement.TryGetProperty("IsOriginal", out var isOriginal)
-                && isOriginal.ValueKind == System.Text.Json.JsonValueKind.True;
-        }
-        catch
-        {
-            return false;
         }
     }
 
@@ -960,7 +734,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
             ImGuiHelpers.ScaledDummy(new Vector2(0f, 4f));
 
             // Honorific title section
-            DrawHonorificSection();
+            _honorificEditor.Draw();
 
             ImGuiHelpers.ScaledDummy(new Vector2(0f, 4f));
             ImGui.Separator();
@@ -1193,38 +967,6 @@ public class EditProfileUi : WindowMediatorSubscriberBase
         {
             customFields.RemoveAt(removeIndex.Value);
             for (int i = 0; i < customFields.Count; i++) customFields[i].Order = i;
-        }
-    }
-
-    private void DrawHonorificSection()
-    {
-        if (!_ipcManager.Honorific.APIAvailable)
-            return;
-
-        if (!_honorificLoaded)
-            _ = RefreshLocalHonorificAsync();
-
-        // Title field (same style as other DrawField)
-        ImGui.TextColored(ImGuiColors.DalamudGrey, Loc.Get("EditProfile.Honorific.Section"));
-        ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X);
-        ImGui.InputTextWithHint("##honorificTitle", Loc.Get("EditProfile.Honorific.TitleHint"), ref _honorificTitle, 100);
-
-        // Options row: Prefix + Color + Glow
-        ImGui.Checkbox(Loc.Get("EditProfile.Honorific.IsPrefix"), ref _honorificIsPrefix);
-        ImGui.SameLine();
-        ImGuiHelpers.ScaledDummy(12f, 0);
-        ImGui.SameLine();
-        ImGui.TextColored(ImGuiColors.DalamudGrey, Loc.Get("EditProfile.Honorific.Color"));
-        ImGui.SameLine();
-        ImGui.ColorEdit3("##honorificColor", ref _honorificColor, ImGuiColorEditFlags.NoInputs);
-        ImGui.SameLine();
-        ImGuiHelpers.ScaledDummy(12f, 0);
-        ImGui.SameLine();
-        ImGui.Checkbox(Loc.Get("EditProfile.Honorific.Glow"), ref _honorificHasGlow);
-        if (_honorificHasGlow)
-        {
-            ImGui.SameLine();
-            ImGui.ColorEdit3("##honorificGlow", ref _honorificGlow, ImGuiColorEditFlags.NoInputs);
         }
     }
 
@@ -2274,7 +2016,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
 
                     // Apply Honorific title if changed
                     if (isRp && _ipcManager.Honorific.APIAvailable)
-                        _ = ApplyHonorificTitle();
+                        _ = _honorificEditor.ApplyAsync();
                     _saveConfirmTime = DateTime.UtcNow;
                 }
                 catch (Exception ex)
@@ -2325,11 +2067,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
                 _savedRpCustomFieldsJson = System.Text.Json.JsonSerializer.Serialize(_rpCustomFields);
             }
             _savedProfileIconId = _profileIconId;
-            _savedHonorificTitle = _honorificTitle;
-            _savedHonorificIsPrefix = _honorificIsPrefix;
-            _savedHonorificColor = _honorificColor;
-            _savedHonorificGlow = _honorificGlow;
-            _savedHonorificHasGlow = _honorificHasGlow;
+            _honorificEditor.SnapshotSaved();
         }
         else
         {
@@ -2358,11 +2096,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
                 || !string.Equals(
                     System.Text.Json.JsonSerializer.Serialize(_rpCustomFields),
                     _savedRpCustomFieldsJson, StringComparison.Ordinal)
-                || !string.Equals(_honorificTitle, _savedHonorificTitle, StringComparison.Ordinal)
-                || _honorificIsPrefix != _savedHonorificIsPrefix
-                || _honorificColor != _savedHonorificColor
-                || _honorificHasGlow != _savedHonorificHasGlow
-                || (_honorificHasGlow && _honorificGlow != _savedHonorificGlow)
+                || _honorificEditor.HasUnsavedChanges
                 || _profileIconId != _savedProfileIconId;
         }
         else
