@@ -526,17 +526,4 @@ public class UmbraProfileManager : MediatorSubscriberBase
     
     private static (UserData User, string? CharName, uint? WorldId) NormalizeKey(UserData data, string? charName, uint? worldId)
         => (new UserData(data.UID), charName, worldId);
-
-    private static bool CustomFieldsEqual(List<RpCustomField> a, List<RpCustomField> b)
-    {
-        if (a.Count != b.Count) return false;
-        for (int i = 0; i < a.Count; i++)
-        {
-            if (!string.Equals(a[i].Name, b[i].Name, StringComparison.Ordinal) ||
-                !string.Equals(a[i].Value, b[i].Value, StringComparison.Ordinal) ||
-                a[i].Order != b[i].Order)
-                return false;
-        }
-        return true;
-    }
 }

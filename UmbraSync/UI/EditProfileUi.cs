@@ -89,8 +89,6 @@ public class EditProfileUi : WindowMediatorSubscriberBase
     private string _savedRpNameColorHex = string.Empty;
     private string _savedRpCustomFieldsJson = string.Empty;
     private readonly BbCodeToolbar _bbCodeToolbar;
-    private readonly Lazy<List<StatusIconInfo>> _statusIcons;
-
     public EditProfileUi(ILogger<EditProfileUi> logger, MareMediator mediator,
         ApiController apiController, UiSharedService uiSharedService, FileDialogManager fileDialogManager,
         UmbraProfileManager umbraProfileManager, PairManager pairManager, PairFactory pairFactory,
@@ -118,9 +116,9 @@ public class EditProfileUi : WindowMediatorSubscriberBase
         _dataManager = dataManager;
         _bbCodeToolbar = new BbCodeToolbar(uiSharedService);
         _honorificEditor = new HonorificEditor(logger, ipcManager, dalamudUtil, rpConfigService);
-        _statusIcons = new Lazy<List<StatusIconInfo>>(() => LoadStatusIcons());
-        _moodlesEditor = new MoodlesEditor(logger, ipcManager, dalamudUtil, rpConfigService, uiSharedService, dataManager, _statusIcons);
-        _profileIconPicker = new ProfileIconPicker(uiSharedService, _statusIcons);
+        var statusIcons = new Lazy<List<StatusIconInfo>>(LoadStatusIcons);
+        _moodlesEditor = new MoodlesEditor(logger, ipcManager, dalamudUtil, rpConfigService, uiSharedService, dataManager, statusIcons);
+        _profileIconPicker = new ProfileIconPicker(uiSharedService, statusIcons);
 
         Mediator.Subscribe<GposeStartMessage>(this, (_) => { _wasOpen = IsOpen; IsOpen = false; });
         Mediator.Subscribe<GposeEndMessage>(this, (_) => IsOpen = _wasOpen);

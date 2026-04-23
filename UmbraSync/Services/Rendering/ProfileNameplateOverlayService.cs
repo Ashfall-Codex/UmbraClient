@@ -21,8 +21,11 @@ public sealed unsafe class ProfileNameplateOverlayService : DisposableMediatorSu
     private readonly UmbraProfileManager _profileManager;
     private readonly IGameGui _gameGui;
     private readonly IClientState _clientState;
+    private readonly IObjectTable _objectTable;
     private readonly ITextureProvider _textureProvider;
+#pragma warning disable S4487 // injecté pour forcer l'initialisation du singleton PictomancyService (side-effect ctor)
     private readonly PictomancyService _pictomancyService;
+#pragma warning restore S4487
     private readonly OverlayEngine _engine;
     private readonly IDalamudPluginInterface _pluginInterface;
     private readonly ILogger<ProfileNameplateOverlayService> _logger;
@@ -36,6 +39,7 @@ public sealed unsafe class ProfileNameplateOverlayService : DisposableMediatorSu
         UmbraProfileManager profileManager,
         IGameGui gameGui,
         IClientState clientState,
+        IObjectTable objectTable,
         ITextureProvider textureProvider,
         PictomancyService pictomancyService,
         OverlayEngine engine,
@@ -47,6 +51,7 @@ public sealed unsafe class ProfileNameplateOverlayService : DisposableMediatorSu
         _profileManager = profileManager;
         _gameGui = gameGui;
         _clientState = clientState;
+        _objectTable = objectTable;
         _textureProvider = textureProvider;
         _pictomancyService = pictomancyService;
         _engine = engine;
@@ -59,7 +64,7 @@ public sealed unsafe class ProfileNameplateOverlayService : DisposableMediatorSu
 
     private void OnDraw()
     {
-        if (_clientState.LocalPlayer == null) return;
+        if (_objectTable.LocalPlayer == null) return;
         if (_clientState.IsPvPExcludingDen) return;
         if (_gameGui.GameUiHidden) return;
 
@@ -84,7 +89,7 @@ public sealed unsafe class ProfileNameplateOverlayService : DisposableMediatorSu
             _engine.BeginFrame((AtkUnitBase*)addon);
 
             var ownUid = _profileManager.CurrentUid;
-            var localPlayer = _clientState.LocalPlayer;
+            var localPlayer = _objectTable.LocalPlayer;
             var localGoId = localPlayer != null ? localPlayer.GameObjectId : 0UL;
 
             var pairsByGoId = new Dictionary<ulong, UserData>();

@@ -740,7 +740,7 @@ public sealed partial class MoodlesEditor
         var palette = GetColorPalette();
         var swatchSize = new Vector2(22f * ImGuiHelpers.GlobalScale);
         const int swatchesPerRow = 15;
-        ref bool expanded = ref (idSuffix == "title" ? ref _titlePaletteExpanded : ref _descPaletteExpanded);
+        ref bool expanded = ref (string.Equals(idSuffix, "title", StringComparison.Ordinal) ? ref _titlePaletteExpanded : ref _descPaletteExpanded);
         int visibleCount = expanded ? palette.Length : Math.Min(swatchesPerRow, palette.Length);
 
         for (int i = 0; i < visibleCount; i++)
@@ -912,7 +912,7 @@ public sealed partial class MoodlesEditor
         return $"[color={colorName}]{stripped}[/color]";
     }
 
-    [GeneratedRegex(@"\[/?color(?:=[^\]]*)?]")]
+    [GeneratedRegex(@"\[/?color(?:=[^\]]*)?]", RegexOptions.NonBacktracking)]
     private static partial Regex ColorTagRegex();
 
     private static string StripColorTags(string text)
