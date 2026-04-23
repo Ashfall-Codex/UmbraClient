@@ -22,6 +22,7 @@ using UmbraSync.Services.Mediator;
 using UmbraSync.Interop.Ipc;
 using UmbraSync.Models;
 using UmbraSync.Services.Notification;
+using UmbraSync.UI.Components;
 using NotificationType = UmbraSync.MareConfiguration.Models.NotificationType;
 
 namespace UmbraSync.UI;
@@ -109,7 +110,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
     private Vector3 _rpNameColorVec;
     private string _savedRpNameColorHex = string.Empty;
     private string _savedRpCustomFieldsJson = string.Empty;
-    private Vector3 _bbcodeColorVec = new(1f, 0.6f, 0.2f);
+    private readonly BbCodeToolbar _bbCodeToolbar;
     private Vector3 _moodleColorVec = new(1f, 0.6f, 0.2f);
     private bool _addMoodlePopupOpen;
     private int _editMoodleIndex = -1;
@@ -153,6 +154,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
         _ipcManager = ipcManager;
         _notificationTracker = notificationTracker;
         _dataManager = dataManager;
+        _bbCodeToolbar = new BbCodeToolbar(uiSharedService);
         _statusIcons = new Lazy<List<StatusIconInfo>>(() => LoadStatusIcons());
 
         Mediator.Subscribe<GposeStartMessage>(this, (_) => { _wasOpen = IsOpen; IsOpen = false; });
@@ -1067,7 +1069,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
             {
                 ImGui.TextColored(ImGuiColors.DalamudGrey, Loc.Get("UserProfile.RpAdditionalInfo"));
                 ImGui.SameLine();
-                DrawBbCodeToolbar(ref _rpAdditionalInfoText);
+                _bbCodeToolbar.Draw(ref _rpAdditionalInfoText);
                 ImGui.TextColored(ImGuiColors.DalamudGrey3, Loc.Get("UserProfile.RpAdditionalInfoWrapHint"));
 
                 ImGui.InputTextMultiline("##additional_info", ref _rpAdditionalInfoText, 3000,
@@ -2044,131 +2046,6 @@ public class EditProfileUi : WindowMediatorSubscriberBase
     private static string StripColorTags(string text)
     {
         return Regex.Replace(text, @"\[/?color(?:=[^\]]*)?]", string.Empty, RegexOptions.None, TimeSpan.FromSeconds(1)).Trim();
-    }
-
-    private void DrawBbCodeToolbar(ref string text)
-    {
-        var spacing = 2f * ImGuiHelpers.GlobalScale;
-        ImGui.PushStyleColor(ImGuiCol.Button, Vector4.Zero);
-        ImGui.PushStyleColor(ImGuiCol.ButtonHovered, UiSharedService.ThemeButtonHovered);
-        ImGui.PushStyleColor(ImGuiCol.ButtonActive, UiSharedService.ThemeButtonActive);
-        ImGui.PushStyleVar(ImGuiStyleVar.FramePadding, new Vector2(4, 2) * ImGuiHelpers.GlobalScale);
-
-        BbCodeIconButton(FontAwesomeIcon.Bold, "[b]", "[/b]", "Gras", ref text);
-        ImGui.SameLine(0, spacing);
-        BbCodeIconButton(FontAwesomeIcon.Italic, "[i]", "[/i]", "Italique", ref text);
-        ImGui.SameLine(0, spacing);
-        BbCodeTextButton("U\u0332", "[u]", "[/u]", "Souligné", ref text);
-        ImGui.SameLine(0, spacing);
-        BbCodeIconButton(FontAwesomeIcon.AlignLeft, "[left]\n", "\n[/left]", "Aligner à gauche", ref text);
-        ImGui.SameLine(0, spacing);
-        BbCodeIconButton(FontAwesomeIcon.AlignCenter, "[center]\n", "\n[/center]", "Centrer", ref text);
-        ImGui.SameLine(0, spacing);
-        BbCodeIconButton(FontAwesomeIcon.AlignRight, "[right]\n", "\n[/right]", "Aligner à droite", ref text);
-        ImGui.SameLine(0, spacing);
-        BbCodeIconButton(FontAwesomeIcon.AlignJustify, "[justify]\n", "\n[/justify]", "Justifier", ref text);
-        ImGui.SameLine(0, spacing);
-
-        using (var _ = _uiSharedService.IconFont.Push())
-        {
-            if (ImGui.Button(FontAwesomeIcon.PaintBrush.ToIconString() + "##bbcode_color"))
-                ImGui.OpenPopup("bbcode_color_picker");
-        }
-        if (ImGui.IsItemHovered()) ImGui.SetTooltip("Couleur");
-
-        if (ImGui.BeginPopup("bbcode_color_picker"))
-        {
-            if (ImGui.ColorPicker3("##bbcodeColorPicker", ref _bbcodeColorVec, ImGuiColorEditFlags.PickerHueWheel | ImGuiColorEditFlags.NoSidePreview))
-            { /* value read from ref */ }
-            if (ImGui.Button("Insérer##bbcodeColorInsert"))
-            {
-                var hex = UiSharedService.Vector4ToHex(new Vector4(_bbcodeColorVec, 1f));
-                text += $"[color={hex}][/color]";
-                ImGui.CloseCurrentPopup();
-            }
-            ImGui.EndPopup();
-        }
-
-        ImGui.SameLine(0, spacing);
-        if (_uiSharedService.IconTextButton(FontAwesomeIcon.QuestionCircle, "Aide BBCode"))
-            ImGui.OpenPopup("bbcode_help_popup");
-
-        DrawBbCodeHelpPopup();
-
-        ImGui.PopStyleVar();
-        ImGui.PopStyleColor(3);
-    }
-
-    private static void DrawBbCodeHelpPopup()
-    {
-        if (!ImGui.BeginPopup("bbcode_help_popup")) return;
-
-        ImGui.TextColored(new Vector4(0.59f, 0.27f, 0.90f, 1f), "Formatage BBCode");
-        ImGui.Separator();
-        ImGui.Spacing();
-
-        ImGui.TextUnformatted("Encadrez votre texte avec des balises pour le mettre en forme.");
-        ImGui.TextUnformatted("Les boutons de la barre d'outils insèrent les balises à la fin du texte.");
-        ImGui.Spacing();
-        ImGui.Separator();
-        ImGui.Spacing();
-
-        ImGui.TextColored(ImGuiColors.DalamudGrey, "Style de texte");
-        ImGui.Spacing();
-        DrawHelpRow("[b]texte[/b]", "Gras");
-        DrawHelpRow("[i]texte[/i]", "Italique");
-        DrawHelpRow("[u]texte[/u]", "Souligné");
-        DrawHelpRow("[color=Red]texte[/color]", "Couleur (nom ou #hex)");
-
-        ImGui.Spacing();
-        ImGui.TextColored(ImGuiColors.DalamudGrey, "Alignement");
-        ImGui.Spacing();
-        DrawHelpRow("[left]texte[/left]", "Aligné à gauche");
-        DrawHelpRow("[center]texte[/center]", "Centré");
-        DrawHelpRow("[right]texte[/right]", "Aligné à droite");
-        DrawHelpRow("[justify]texte[/justify]", "Justifié");
-
-        ImGui.Spacing();
-        ImGui.Separator();
-        ImGui.Spacing();
-        ImGui.TextColored(ImGuiColors.DalamudGrey, "Couleurs disponibles");
-        ImGui.Spacing();
-        ImGui.TextWrapped("Red, Orange, Yellow, Gold, Green, LightGreen,\nLightBlue, DarkBlue, Blue, Pink, Purple, White, Grey");
-        ImGui.Spacing();
-        ImGui.TextWrapped("Vous pouvez aussi utiliser un code hexadécimal :\n[color=#FF5500]texte[/color]");
-
-        ImGui.Spacing();
-        ImGui.Separator();
-        ImGui.Spacing();
-        ImGui.TextColored(ImGuiColors.DalamudGrey, "Exemple");
-        ImGui.Spacing();
-        ImGui.TextWrapped("[justify][b]Titre[/b]\nCeci est un texte [color=Gold]doré[/color]\net [i]italique[/i].[/justify]");
-
-        ImGui.EndPopup();
-    }
-
-    private static void DrawHelpRow(string tag, string description)
-    {
-        ImGui.TextColored(new Vector4(0.85f, 0.75f, 0.20f, 1f), tag);
-        ImGui.SameLine(280 * ImGuiHelpers.GlobalScale);
-        ImGui.TextUnformatted(description);
-    }
-
-    private void BbCodeIconButton(FontAwesomeIcon icon, string openTag, string closeTag, string tooltip, ref string text)
-    {
-        using (_uiSharedService.IconFont.Push())
-        {
-            if (ImGui.Button(icon.ToIconString() + $"##bb_{openTag}"))
-                text += openTag + closeTag;
-        }
-        if (ImGui.IsItemHovered()) ImGui.SetTooltip(tooltip);
-    }
-
-    private static void BbCodeTextButton(string label, string openTag, string closeTag, string tooltip, ref string text)
-    {
-        if (ImGui.Button(label + $"##bb_{openTag}"))
-            text += openTag + closeTag;
-        if (ImGui.IsItemHovered()) ImGui.SetTooltip(tooltip);
     }
 
     private void DrawVanityPopup()
