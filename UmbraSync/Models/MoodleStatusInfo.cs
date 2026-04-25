@@ -98,6 +98,47 @@ public partial class MoodleStatusInfo
         }
     }
 
+    public static string ReplaceMoodleAtIndex(string rawData, int index, MoodleFullStatus newMoodle)
+    {
+        if (string.IsNullOrWhiteSpace(rawData)) return AddMoodle(rawData, newMoodle);
+        var trimmed = rawData.AsSpan().Trim();
+
+        if (trimmed.Length > 0 && (trimmed[0] == '[' || trimmed[0] == '{'))
+        {
+            var moodleNode = JsonSerializer.SerializeToNode(newMoodle);
+            var node = JsonNode.Parse(rawData);
+            JsonArray? array = null;
+            if (node is JsonArray arr) array = arr;
+            else if (node is JsonObject obj && obj["Statuses"] is JsonArray statusArr) array = statusArr;
+            if (array == null || index < 0 || index >= array.Count) return rawData;
+            array[index] = moodleNode;
+            return node!.ToJsonString();
+        }
+
+        try
+        {
+            var bytes = Convert.FromBase64String(rawData);
+            var entries = ParseEntryOffsets(bytes);
+            if (index < 0 || index >= entries.Count) return rawData;
+
+            var newEntryBytes = WriteMoodleEntry(newMoodle);
+            using var ms = new MemoryStream();
+            ms.Write(BitConverter.GetBytes(entries.Count));
+            for (int i = 0; i < entries.Count; i++)
+            {
+                if (i == index)
+                    ms.Write(newEntryBytes);
+                else
+                    ms.Write(bytes, entries[i].start, entries[i].end - entries[i].start);
+            }
+            return Convert.ToBase64String(ms.ToArray());
+        }
+        catch
+        {
+            return rawData;
+        }
+    }
+
     public static string AddMoodle(string rawData, MoodleFullStatus newMoodle)
     {
         if (!string.IsNullOrWhiteSpace(rawData))

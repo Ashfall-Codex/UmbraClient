@@ -1,7 +1,10 @@
 using System.Globalization;
+using System.Numerics;
 using System.Reflection;
 using Dalamud.Bindings.ImGui;
+using Dalamud.Interface;
 using Dalamud.Interface.Colors;
+using Dalamud.Interface.Utility;
 using Dalamud.Interface.Utility.Raii;
 using UmbraSync.Localization;
 using UmbraSync.MareConfiguration;
@@ -21,7 +24,8 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
     private readonly string _currentVersionLabel;
     private readonly IReadOnlyList<ChangelogEntry> _entries;
 
-    private bool _showAllEntries;
+    private bool _historyOpen;
+    private bool? _pendingHistoryOpenState;
     private bool _hasAcknowledgedVersion;
 
     public ChangelogUi(ILogger<ChangelogUi> logger, UiSharedService uiShared, MareConfigService configService,
@@ -59,11 +63,10 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
 
     protected override void DrawInternal()
     {
-        _ = _uiShared.DrawOtherPluginState();
-
         DrawHeader();
+        DrawActions();
+        ImGui.Separator();
         DrawEntries();
-        DrawFooter();
     }
 
     private void DrawHeader()
@@ -77,21 +80,47 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
         ImGui.Separator();
     }
 
+    private void DrawActions()
+    {
+        var hasHistory = _entries.Count > AlwaysExpandedEntryCount;
+        if (hasHistory)
+        {
+            var label = _historyOpen ? Loc.Get("ChangelogUi.HideAll") : Loc.Get("ChangelogUi.ShowAll");
+            if (ImGui.Button(label))
+                _pendingHistoryOpenState = !_historyOpen;
+            ImGui.SameLine();
+        }
+        if (ImGui.Button(Loc.Get("ChangelogUi.MarkAsRead")))
+        {
+            MarkCurrentVersionAsReadIfNeeded();
+            IsOpen = false;
+        }
+    }
+
     private void DrawEntries()
     {
-        for (int index = 0; index < _entries.Count; index++)
-        {
-            if (!_showAllEntries && index >= AlwaysExpandedEntryCount)
-            {
-                if (ImGui.CollapsingHeader(Loc.Get("ChangelogUi.FullHistory")))
-                {
-                    for (int j = AlwaysExpandedEntryCount; j < _entries.Count; j++)
-                        DrawEntry(_entries[j]);
-                }
-                break;
-            }
+        ImGuiHelpers.ScaledDummy(2f);
 
-            DrawEntry(_entries[index]);
+        for (int i = 0; i < AlwaysExpandedEntryCount && i < _entries.Count; i++)
+            DrawEntry(_entries[i]);
+
+        if (_entries.Count <= AlwaysExpandedEntryCount)
+            return;
+
+        ImGuiHelpers.ScaledDummy(4f);
+
+        if (_pendingHistoryOpenState.HasValue)
+        {
+            ImGui.SetNextItemOpen(_pendingHistoryOpenState.Value, ImGuiCond.Always);
+            _pendingHistoryOpenState = null;
+        }
+
+        var historyLabel = $"{Loc.Get("ChangelogUi.FullHistory")} ({_entries.Count - AlwaysExpandedEntryCount})";
+        _historyOpen = ImGui.CollapsingHeader(historyLabel);
+        if (_historyOpen)
+        {
+            for (int j = AlwaysExpandedEntryCount; j < _entries.Count; j++)
+                DrawEntry(_entries[j]);
         }
     }
 
@@ -99,70 +128,85 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
     {
         using (ImRaii.PushId(entry.VersionLabel))
         {
-            ImGui.Spacing();
-            UiSharedService.ColorText(entry.VersionLabel, entry.Version == _currentVersion
-                ? ImGuiColors.HealerGreen
-                : ImGuiColors.DalamudWhite);
-
-            ImGui.Spacing();
-
-            foreach (var line in entry.Lines)
+            UiSharedService.DrawCard($"changelog_{entry.VersionLabel}", () =>
             {
-                DrawLine(line);
-            }
-
-            ImGui.Spacing();
-            ImGui.Separator();
+                DrawVersionPill(entry);
+                ImGuiHelpers.ScaledDummy(4f);
+                foreach (var line in entry.Lines)
+                {
+                    DrawLine(line);
+                }
+            }, stretchWidth: true);
+            ImGuiHelpers.ScaledDummy(4f);
         }
     }
 
-    private static readonly System.Numerics.Vector4 ColorNew = new(0.4f, 0.9f, 0.4f, 1f);
-    private static readonly System.Numerics.Vector4 ColorImprove = new(0.6f, 0.8f, 1f, 1f);
-    private static readonly System.Numerics.Vector4 ColorFix = new(1f, 0.75f, 0.3f, 1f);
-    private static readonly System.Numerics.Vector4 ColorOther = ImGuiColors.DalamudGrey;
-
-    private static System.Numerics.Vector4? DetectLineColor(string text)
+    private void DrawVersionPill(ChangelogEntry entry)
     {
-        if (text.StartsWith("Nouveaut", StringComparison.OrdinalIgnoreCase)) return ColorNew;
-        if (text.StartsWith("Am\u00e9lioration", StringComparison.OrdinalIgnoreCase)) return ColorImprove;
-        if (text.StartsWith("Correct", StringComparison.OrdinalIgnoreCase)) return ColorFix;
-        if (text.StartsWith("Autre", StringComparison.OrdinalIgnoreCase)
-            || text.StartsWith("Mise \u00e0 jour", StringComparison.OrdinalIgnoreCase)) return ColorOther;
-        return null;
+        var isCurrent = entry.Version == _currentVersion;
+        var color = isCurrent ? ImGuiColors.HealerGreen : ImGuiColors.DalamudWhite;
+        var bg = color; bg.W = 0.18f;
+        var border = color; border.W = 0.55f;
+
+        var padX = 8f * ImGuiHelpers.GlobalScale;
+        var padY = 2f * ImGuiHelpers.GlobalScale;
+        var rounding = 4f * ImGuiHelpers.GlobalScale;
+        var label = isCurrent ? $"{entry.VersionLabel}  \u2022  actuelle" : entry.VersionLabel;
+        var textSize = ImGui.CalcTextSize(label);
+        var dl = ImGui.GetWindowDrawList();
+        var min = ImGui.GetCursorScreenPos();
+        var max = min + new Vector2(textSize.X + padX * 2, textSize.Y + padY * 2);
+        dl.AddRectFilled(min, max, ImGui.ColorConvertFloat4ToU32(bg), rounding);
+        dl.AddRect(min, max, ImGui.ColorConvertFloat4ToU32(border), rounding);
+        ImGui.SetCursorScreenPos(min + new Vector2(padX, padY));
+        ImGui.TextColored(color, label);
+        ImGui.SetCursorScreenPos(new Vector2(min.X, max.Y + ImGui.GetStyle().ItemSpacing.Y));
     }
+
+    private static readonly Vector4 ColorNew = new(0.4f, 0.9f, 0.4f, 1f);
+    private static readonly Vector4 ColorImprove = new(0.6f, 0.8f, 1f, 1f);
+    private static readonly Vector4 ColorFix = new(1f, 0.75f, 0.3f, 1f);
+    private static readonly Vector4 ColorOther = ImGuiColors.DalamudGrey;
+
+    private enum LineKind { New, Improve, Fix, Other, Generic }
+
+    private static LineKind DetectLineKind(string text)
+    {
+        if (text.StartsWith("Nouveaut", StringComparison.OrdinalIgnoreCase)) return LineKind.New;
+        if (text.StartsWith("Am\u00e9lioration", StringComparison.OrdinalIgnoreCase)) return LineKind.Improve;
+        if (text.StartsWith("Correct", StringComparison.OrdinalIgnoreCase)) return LineKind.Fix;
+        if (text.StartsWith("Autre", StringComparison.OrdinalIgnoreCase)
+            || text.StartsWith("Mise \u00e0 jour", StringComparison.OrdinalIgnoreCase)) return LineKind.Other;
+        return LineKind.Generic;
+    }
+
+    private static (Vector4 color, FontAwesomeIcon icon) GetLineStyle(LineKind kind) => kind switch
+    {
+        LineKind.New => (ColorNew, FontAwesomeIcon.Star),
+        LineKind.Improve => (ColorImprove, FontAwesomeIcon.ArrowUp),
+        LineKind.Fix => (ColorFix, FontAwesomeIcon.Wrench),
+        LineKind.Other => (ColorOther, FontAwesomeIcon.Cog),
+        _ => (ImGuiColors.DalamudWhite, FontAwesomeIcon.CircleNotch),
+    };
 
     private static void DrawLine(ChangelogLine line)
     {
         using var indent = line.IndentLevel > 0 ? ImRaii.PushIndent(line.IndentLevel) : null;
-        var color = line.Color ?? DetectLineColor(line.Text);
-        if (color != null)
-        {
-            ImGui.TextColored(color.Value, $"- {line.Text}");
-        }
-        else
-        {
-            ImGui.TextUnformatted($"- {line.Text}");
-        }
-    }
+        var kind = DetectLineKind(line.Text);
+        var (autoColor, icon) = GetLineStyle(kind);
+        var color = line.Color ?? autoColor;
 
-    private void DrawFooter()
-    {
-        ImGui.Spacing();
-        if (!_showAllEntries && _entries.Count > AlwaysExpandedEntryCount)
-        {
-            if (ImGui.Button(Loc.Get("ChangelogUi.ShowAll")))
-            {
-                _showAllEntries = true;
-            }
-
-            ImGui.SameLine();
-        }
-
-        if (ImGui.Button(Loc.Get("ChangelogUi.MarkAsRead")))
-        {
-            MarkCurrentVersionAsReadIfNeeded();
-            IsOpen = false;
-        }
+        var iconSpacing = 6f * ImGuiHelpers.GlobalScale;
+        using (ImRaii.PushFont(UiBuilder.IconFont))
+            ImGui.TextColored(color, icon.ToIconString());
+        ImGui.SameLine(0, iconSpacing);
+        var wrapPos = ImGui.GetWindowContentRegionMax().X - 4f * ImGuiHelpers.GlobalScale;
+        ImGui.PushTextWrapPos(wrapPos);
+        ImGui.PushStyleColor(ImGuiCol.Text, color);
+        ImGui.TextUnformatted(line.Text);
+        ImGui.PopStyleColor();
+        ImGui.PopTextWrapPos();
+        ImGui.Dummy(new Vector2(0, 2f * ImGuiHelpers.GlobalScale));
     }
 
     private void MarkCurrentVersionAsReadIfNeeded()
@@ -179,7 +223,31 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
     {
         return new List<ChangelogEntry>
         {
-            new(new Version(2, 4, 2, 4021), "2.4.2.4021", new List<ChangelogLine>
+            new(new Version(2, 5, 0, 4025), "2.5.0.4025", new List<ChangelogLine>
+            {
+                new("Nouveauté : Possibilité de définir une icône qui s'affiche dans le tchat avant le nom RP. Configurable dans l'éditeur de profil RP."),
+                new("Nouveauté : Niveau de RP affiché sur le profil et dans les annonces de RP libre. Permet aux joueurs de signaler leur expérience RP et leur disponibilité pour aider les autres."),
+                new("Amélioration : Possibilité d'éditer un trait Moodles sans devoir le supprimer."),
+                new("Amélioration : Possibilité d'ajouter une couleur de texte pour la description d'un trait Moodles."),
+                new("Amélioration : Nouvelles options de récurrence pour les événements d'établissement (toutes les 2 semaines, tous les 2 mois, tous les 3 mois, tous les ans)."),
+                new("Amélioration : Les listes de l'annuaire (Parcourir, Lieux favoris, Mes lieux) sont désormais triées par ordre alphabétique."),
+                new("Amélioration : Stabilité de connexion accrue sur les réseaux instables (ping WebSocket bas niveau toutes les 10 s, ping serveur toutes les 15 s) pour éviter les déconnexions liées au NAT/firewall."),
+                new("Amélioration : Notifications des événements d'établissements favoris désormais envoyées à l'ouverture (et plus avec un délai aléatoire). Gère les événements récurrents (chaque occurrence est notifiée) et les événements en cours à la connexion."),
+                new("Amélioration : Logos des établissements agrandis partout (annuaire, événements à venir, profil), avec placeholder coloré quand aucun logo n'est défini."),
+                new("Amélioration : Refonte visuelle des cartes de l'annuaire (catégorie en pill colorée, descriptions sur une seule ligne, troncature propre, hover discret)."),
+                new("Correction : Correction de l'injection de la couleur sur le trait Moodles."),
+                new("Correction : Résolution de la non-persistance aléatoire des traits Moodles après une déco-reco du personnage ou redémarrage serveur."),
+                new("Correction : Résolution de la non-persistance du titre Honorific après une déco-reco du personnage ou redémarrage serveur."),
+                new("Correction : Comportement Auto-block amélioré et réellement désactivable."),
+                new("Correction : La bannière peut désormais être ajoutée dès la création d'un établissement (le sélecteur de fichier ne s'ouvrait pas)."),
+                new("Correction : Le numéro d'appartement est désormais affiché dans la fiche d'un établissement (auparavant seul le secteur était visible)."),
+                new("Correction : La bulle d'écriture disparaît avec la nameplate quand le joueur est trop loin."),
+                new("Correction : L'onglet « Images » d'un établissement n'est plus visible pour les visiteurs (réservé au propriétaire)."),
+                new("Autre : Ajout de la library 'Pictomancy'."),
+                new("Autre : Ajout de la library 'Ashfall.Engine'."),
+                new("Autre : Mise à jour API Penumbra & Glamourer."),
+            }),  
+            new(new Version(2, 4, 2, 4009), "2.4.2.4009", new List<ChangelogLine>
             {
                 new("Correction : Sur les connexions instables ou à faible débit, le plugin pouvait rester bloqué dans une boucle de déconnexion/reconnexion. Le cycle de récupération est désormais plus robuste."),
             }),  

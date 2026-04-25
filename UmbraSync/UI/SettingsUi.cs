@@ -715,6 +715,34 @@ public class SettingsUi : WindowMediatorSubscriberBase
                     _configService.Save();
                 }
                 _uiShared.DrawHelpText(Loc.Get("Settings.DisableInDuty.Help"));
+
+                var useChatIconForSelf = _configService.Current.UseChatIconForSelf;
+                if (ImGui.Checkbox(Loc.Get("Settings.ChatIcon.Self"), ref useChatIconForSelf))
+                {
+                    _configService.Current.UseChatIconForSelf = useChatIconForSelf;
+                    _configService.Save();
+                }
+
+                var useChatIconForOthers = _configService.Current.UseChatIconForOthers;
+                if (ImGui.Checkbox(Loc.Get("Settings.ChatIcon.Others"), ref useChatIconForOthers))
+                {
+                    _configService.Current.UseChatIconForOthers = useChatIconForOthers;
+                    _configService.Save();
+                }
+
+                if (useChatIconForSelf || useChatIconForOthers)
+                {
+                    using (ImRaii.PushIndent())
+                    {
+                        var disableChatIconInDuty = _configService.Current.DisableChatIconInDuty;
+                        if (ImGui.Checkbox(Loc.Get("Settings.DisableInDuty") + "##ChatIcon", ref disableChatIconInDuty))
+                        {
+                            _configService.Current.DisableChatIconInDuty = disableChatIconInDuty;
+                            _configService.Save();
+                        }
+                        _uiShared.DrawHelpText(Loc.Get("Settings.DisableInDuty.Help"));
+                    }
+                }
             }
         }
 
@@ -2324,6 +2352,29 @@ public class SettingsUi : WindowMediatorSubscriberBase
             ImGui.TextUnformatted($"{totalVramBytes / 1024.0 / 1024.0 / 1024.0:0.00} GiB");
 
         ImGui.Separator();
+        _uiShared.BigText(Loc.Get("Settings.Performance.OverlayRendering"));
+
+        bool isDxmt = Ashfall.Engine.Platform.PlatformDetector.IsDXMT;
+
+        using (ImRaii.Disabled(isDxmt))
+        {
+            bool useHighPrecisionOcclusion = _configService.Current.UseHighPrecisionOcclusion && !isDxmt;
+            if (ImGui.Checkbox(Loc.Get("Settings.Performance.PreciseOcclusion"), ref useHighPrecisionOcclusion))
+            {
+                _configService.Current.UseHighPrecisionOcclusion = useHighPrecisionOcclusion;
+                _configService.Save();
+            }
+        }
+        _uiShared.DrawHelpText(Loc.Get("Settings.Performance.PreciseOcclusion.Tooltip")
+            + UiSharedService.TooltipSeparator
+            + Loc.Get("Settings.Performance.PreciseOcclusion.Enabled") + Environment.NewLine
+            + Loc.Get("Settings.Performance.PreciseOcclusion.Disabled")
+            + UiSharedService.TooltipSeparator
+            + (isDxmt
+                ? Loc.Get("Settings.Performance.PreciseOcclusion.DxmtWarning")
+                : Loc.Get("Settings.Performance.PreciseOcclusion.RestartHint")));
+
+        ImGui.Separator();
         _uiShared.BigText("Individual Limits");
         bool autoPause = _playerPerformanceConfigService.Current.AutoPausePlayersExceedingThresholds;
         if (ImGui.Checkbox("Automatically block players exceeding thresholds", ref autoPause))
@@ -2361,7 +2412,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
             ImGui.SameLine();
             ImGui.Text("(MiB)");
             _uiShared.DrawHelpText("When a loading in player and their VRAM usage exceeds this amount, automatically blocks the synced player." + UiSharedService.TooltipSeparator
-                + "Default: 550 MiB");
+                + "Default: 500 MiB");
             ImGui.SetNextItemWidth(MathF.Min(100 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X * 0.3f));
             if (ImGui.InputInt("Auto Block Triangle threshold", ref trisAuto))
             {
@@ -2372,7 +2423,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
             ImGui.SameLine();
             ImGui.Text("(thousand triangles)");
             _uiShared.DrawHelpText("When a loading in player and their triangle count exceeds this amount, automatically blocks the synced player." + UiSharedService.TooltipSeparator
-                + "Default: 375 thousand");
+                + "Default: 400 thousand");
             using (ImRaii.Disabled(!_perfUnapplied))
             {
                 if (ImGui.Button("Apply Changes Now"))

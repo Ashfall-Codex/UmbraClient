@@ -32,4 +32,8 @@ public class CharacterRpProfile
     public List<RpCustomField> RpCustomFields { get; set; } = new();
     public string MoodlesBackupJson { get; set; } = string.Empty;
     public long MoodlesBackupTimestamp { get; set; } = 0;
+    public string HonorificBackupJson { get; set; } = string.Empty;
+    public long HonorificBackupTimestamp { get; set; } = 0;
+    public ushort ChatIcon { get; set; } = 0;
+    public byte RpLevel { get; set; } = 0;
 }

@@ -18,6 +18,7 @@ public class ChatNameReplacementService : DisposableMediatorSubscriberBase
     private readonly MareConfigService _configService;
     private readonly DalamudUtilService _dalamudUtil;
     private readonly ApiController _apiController;
+    private readonly RpConfigService _rpConfigService;
 
     private bool _isInDuty;
 
@@ -55,7 +56,8 @@ public class ChatNameReplacementService : DisposableMediatorSubscriberBase
     public ChatNameReplacementService(ILogger<ChatNameReplacementService> logger, MareMediator mediator,
         IChatGui chatGui, PairManager pairManager,
         UmbraProfileManager umbraProfileManager,
-        MareConfigService configService, DalamudUtilService dalamudUtil, ApiController apiController)
+        MareConfigService configService, DalamudUtilService dalamudUtil, ApiController apiController,
+        RpConfigService rpConfigService)
         : base(logger, mediator)
     {
         _chatGui = chatGui;
@@ -64,6 +66,7 @@ public class ChatNameReplacementService : DisposableMediatorSubscriberBase
         _configService = configService;
         _dalamudUtil = dalamudUtil;
         _apiController = apiController;
+        _rpConfigService = rpConfigService;
 
         _chatGui.ChatMessage += OnChatMessage;
 
@@ -105,7 +108,7 @@ public class ChatNameReplacementService : DisposableMediatorSubscriberBase
         if (string.IsNullOrEmpty(senderText))
             return;
 
-        var (rpName, nameColor) = ResolveRpName(senderText);
+        var (rpName, nameColor, chatIcon, isSelf) = ResolveRpName(senderText);
         if (rpName == null)
             return;
 
@@ -120,7 +123,15 @@ public class ChatNameReplacementService : DisposableMediatorSubscriberBase
             effectiveColor = null;
         }
 
-        ReplaceNameInSeString(ref sender, senderText, rpName, effectiveColor);
+        // Apply per-side toggle and the in-duty exclusion before deciding whether to inject the chat icon.
+        var chatIconAllowed = isSelf
+            ? _configService.Current.UseChatIconForSelf
+            : _configService.Current.UseChatIconForOthers;
+        if (_isInDuty && _configService.Current.DisableChatIconInDuty)
+            chatIconAllowed = false;
+        var effectiveChatIcon = chatIconAllowed ? chatIcon : (ushort)0;
+
+        ReplaceNameInSeString(ref sender, senderText, rpName, effectiveColor, effectiveChatIcon);
 
         // Pour les emotes standard, le nom apparaît aussi dans le corps du message
         if (type == XivChatType.StandardEmote)
@@ -147,7 +158,7 @@ public class ChatNameReplacementService : DisposableMediatorSubscriberBase
         // Remplacer le nom de la cible si elle a un nom RP
         if (targetVanillaName != null)
         {
-            var (targetRpName, _) = ResolveRpName(targetVanillaName);
+            var (targetRpName, _, _, _) = ResolveRpName(targetVanillaName);
             if (targetRpName != null)
                 ReplaceNameInSeString(ref message, targetVanillaName, targetRpName, null);
         }
@@ -170,7 +181,7 @@ public class ChatNameReplacementService : DisposableMediatorSubscriberBase
         return string.Empty;
     }
 
-    private (string? rpName, string? nameColor) ResolveRpName(string senderName)
+    private (string? rpName, string? nameColor, ushort chatIcon, bool isSelf) ResolveRpName(string senderName)
     {
         var localPlayerName = _dalamudUtil.GetPlayerName();
         if (!string.IsNullOrEmpty(localPlayerName) && NameMatches(senderName, localPlayerName)
@@ -179,7 +190,11 @@ public class ChatNameReplacementService : DisposableMediatorSubscriberBase
             var profile = _umbraProfileManager.GetUmbraProfile(new UserData(_apiController.UID));
             if (!string.IsNullOrEmpty(profile.RpFirstName) && !string.IsNullOrEmpty(profile.RpLastName)
                 && IsRpFirstNameValid(localPlayerName, profile.RpFirstName))
-                return (BuildRpDisplayName(profile), profile.RpNameColor);
+            {
+                var localChatIcon = _rpConfigService.GetCurrentCharacterProfile().ChatIcon;
+                var icon = localChatIcon != 0 ? localChatIcon : profile.ChatIcon;
+                return (BuildRpDisplayName(profile), profile.RpNameColor, icon, true);
+            }
         }
 
         foreach (var pair in _pairManager.GetOnlineUserPairs())
@@ -193,11 +208,11 @@ public class ChatNameReplacementService : DisposableMediatorSubscriberBase
                 var profile = _umbraProfileManager.GetUmbraProfile(pair.UserData);
                 if (!string.IsNullOrEmpty(profile.RpFirstName) && !string.IsNullOrEmpty(profile.RpLastName)
                     && IsRpFirstNameValid(playerName, profile.RpFirstName))
-                    return (BuildRpDisplayName(profile), profile.RpNameColor);
+                    return (BuildRpDisplayName(profile), profile.RpNameColor, profile.ChatIcon, false);
             }
         }
 
-        return (null, null);
+        return (null, null, 0, false);
     }
 
     private static bool IsRpFirstNameValid(string vanillaFullName, string rpFirstName)
@@ -285,10 +300,11 @@ public class ChatNameReplacementService : DisposableMediatorSubscriberBase
         return false;
     }
 
-    private static void ReplaceNameInSeString(ref SeString sender, string originalName, string rpName, string? nameColor)
+    private static void ReplaceNameInSeString(ref SeString sender, string originalName, string rpName, string? nameColor, ushort chatIcon = 0)
     {
-        var newPayloads = new List<Payload>(sender.Payloads.Count);
+        var newPayloads = new List<Payload>(sender.Payloads.Count + 2);
         var replaced = false;
+        var rpIconActive = chatIcon != 0;
         uint colorUint = 0;
         bool applyColor = !string.IsNullOrEmpty(nameColor);
         if (applyColor)
@@ -296,6 +312,11 @@ public class ChatNameReplacementService : DisposableMediatorSubscriberBase
 
         foreach (var payload in sender.Payloads)
         {
+            // When an RP chat icon is active, drop any system IconPayload (job/role/level) that
+            // FFXIV inserted before the name so our RP icon takes its place rather than stacking.
+            if (rpIconActive && !replaced && payload is IconPayload)
+                continue;
+
             if (!replaced && payload is TextPayload textPayload)
             {
                 var text = textPayload.Text ?? string.Empty;
@@ -304,6 +325,9 @@ public class ChatNameReplacementService : DisposableMediatorSubscriberBase
                 {
                     var before = text[..index];
                     var after = text[(index + originalName.Length)..];
+
+                    if (chatIcon != 0)
+                        newPayloads.Add(new IconPayload((BitmapFontIcon)chatIcon));
 
                     if (applyColor && colorUint != 0)
                         newPayloads.Add(BuildColorStartPayload(ColorTypeForeground, colorUint));

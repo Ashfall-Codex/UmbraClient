@@ -9,7 +9,9 @@ public record UmbraProfileData(bool IsFlagged, bool IsNSFW, string Base64Profile
     string? RpHeight = null, string? RpBuild = null, string? RpResidence = null, string? RpOccupation = null, string? RpAffiliation = null,
     string? RpAlignment = null, string? RpAdditionalInfo = null, string? RpNameColor = null,
     List<RpCustomField>? RpCustomFields = null,
-    string? MoodlesData = null)
+    string? MoodlesData = null,
+    ushort ChatIcon = 0,
+    byte RpLevel = 0)
 {
     public Lazy<byte[]> ImageData { get; } = new Lazy<byte[]>(() => string.IsNullOrEmpty(Base64ProfilePicture) ? Array.Empty<byte>() : Convert.FromBase64String(Base64ProfilePicture));
     public Lazy<byte[]> RpImageData { get; } = new Lazy<byte[]>(() => string.IsNullOrEmpty(Base64RpProfilePicture) ? Array.Empty<byte>() : Convert.FromBase64String(Base64RpProfilePicture));

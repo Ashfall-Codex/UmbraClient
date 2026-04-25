@@ -60,7 +60,7 @@ internal class EstablishmentDetailUi : WindowMediatorSubscriberBase
     private bool _newEventHasEndTime;
     private int _newEventEndHour = 23;
     private int _newEventEndMinute;
-    private int _newEventRecurrence; // 0=Unique, 1=Quotidien, 2=Hebdomadaire, 3=Mensuel
+    private int _newEventRecurrence; // 0=Unique, 1=Quotidien, 2=Hebdomadaire, 3=Mensuel, 4=Bihebdomadaire, 5=Bimestriel, 6=Trimestriel, 7=Annuel
 
     // SyncSlot binding
     private string _syncSlotGid = string.Empty;
@@ -170,14 +170,14 @@ internal class EstablishmentDetailUi : WindowMediatorSubscriberBase
                 DrawEventsTab(isOwner);
         }
 
-        using (var imagesTab = ImRaii.TabItem(Loc.Get("Establishment.Detail.Tab.Images")))
-        {
-            if (imagesTab)
-                DrawImagesTab(isOwner);
-        }
-
         if (isOwner)
         {
+            using (var imagesTab = ImRaii.TabItem(Loc.Get("Establishment.Detail.Tab.Images")))
+            {
+                if (imagesTab)
+                    DrawImagesTab(isOwner);
+            }
+
             using (var syncTab = ImRaii.TabItem(Loc.Get("Establishment.Detail.Tab.Sync")))
             {
                 if (syncTab)
@@ -333,7 +333,11 @@ internal class EstablishmentDetailUi : WindowMediatorSubscriberBase
                     ? sn : loc.ServerId?.ToString() ?? "?";
                 var districtName = ResolveDistrictName(loc.TerritoryId);
                 var subdivText = loc.DivisionId > 1 ? $" {Loc.Get("Establishment.Detail.Subdivision")}" : string.Empty;
-                ImGui.Text($"{districtName} — {serverName}, {string.Format(Loc.Get("Establishment.Detail.Ward"), loc.WardId, loc.PlotId)}{subdivText}");
+                var isApt = loc.IsApartment == true || loc.RoomId.HasValue;
+                var locationLine = isApt
+                    ? string.Format(Loc.Get("Establishment.Detail.Apartment"), loc.WardId, loc.RoomId ?? 0)
+                    : string.Format(Loc.Get("Establishment.Detail.Ward"), loc.WardId, loc.PlotId ?? 0);
+                ImGui.Text($"{districtName} — {serverName}, {locationLine}{subdivText}");
             }
             else
             {
@@ -507,6 +511,10 @@ internal class EstablishmentDetailUi : WindowMediatorSubscriberBase
         1 => Loc.Get("Establishment.Event.Recurrence.Daily"),
         2 => Loc.Get("Establishment.Event.Recurrence.Weekly"),
         3 => Loc.Get("Establishment.Event.Recurrence.Monthly"),
+        4 => Loc.Get("Establishment.Event.Recurrence.Biweekly"),
+        5 => Loc.Get("Establishment.Event.Recurrence.Bimonthly"),
+        6 => Loc.Get("Establishment.Event.Recurrence.Quarterly"),
+        7 => Loc.Get("Establishment.Event.Recurrence.Yearly"),
         _ => Loc.Get("Establishment.Event.Recurrence.Unique")
     };
 
@@ -515,6 +523,10 @@ internal class EstablishmentDetailUi : WindowMediatorSubscriberBase
         1 => FontAwesomeIcon.Redo,
         2 => FontAwesomeIcon.CalendarWeek,
         3 => FontAwesomeIcon.CalendarAlt,
+        4 => FontAwesomeIcon.CalendarWeek,
+        5 => FontAwesomeIcon.CalendarAlt,
+        6 => FontAwesomeIcon.CalendarAlt,
+        7 => FontAwesomeIcon.CalendarCheck,
         _ => FontAwesomeIcon.Calendar
     };
 
@@ -682,7 +694,11 @@ internal class EstablishmentDetailUi : WindowMediatorSubscriberBase
             Loc.Get("Establishment.Event.Recurrence.Unique"),
             Loc.Get("Establishment.Event.Recurrence.Daily"),
             Loc.Get("Establishment.Event.Recurrence.Weekly"),
-            Loc.Get("Establishment.Event.Recurrence.Monthly")
+            Loc.Get("Establishment.Event.Recurrence.Monthly"),
+            Loc.Get("Establishment.Event.Recurrence.Biweekly"),
+            Loc.Get("Establishment.Event.Recurrence.Bimonthly"),
+            Loc.Get("Establishment.Event.Recurrence.Quarterly"),
+            Loc.Get("Establishment.Event.Recurrence.Yearly")
         };
         ImGui.SetNextItemWidth(200);
         ImGui.Combo("##evtRecurrence", ref _newEventRecurrence, recLabels, recLabels.Length);

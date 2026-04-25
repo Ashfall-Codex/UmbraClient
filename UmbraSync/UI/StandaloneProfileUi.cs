@@ -326,7 +326,8 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
             || !string.IsNullOrEmpty(profile.RpAlignment)
             || !string.IsNullOrEmpty(profile.RpDescription)
             || !string.IsNullOrEmpty(profile.RpAdditionalInfo)
-            || profile.RpCustomFields is { Count: > 0 };
+            || profile.RpCustomFields is { Count: > 0 }
+            || profile.RpLevel != 0;
 
         if (!hasAnyRpContent)
         {
@@ -565,31 +566,37 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
         {
             DrawSectionTitle(Loc.Get("Profile.Establishment.Title"));
 
-            // Logo
+            // Logo — drawn in absolute (placeholder if missing), content flows to its right
+            var scale = ImGuiHelpers.GlobalScale;
+            var logoSize = 44f * scale;
+            var logoRounding = 6f * scale;
+            var logoSpacing = 10f * scale;
+            var catIcon = FontAwesomeIcon.Building;
+            var linkedScreenPos = ImGui.GetCursorScreenPos();
+            var linkedLocalPos = ImGui.GetCursorPos();
             if (_linkedEstablishmentLogo != null)
             {
-                float logoSize = 32f;
-                float logoRounding = 4f;
-                var dl = ImGui.GetWindowDrawList();
-                var p = ImGui.GetCursorScreenPos();
-                var textH = ImGui.GetTextLineHeight();
-                var logoY = p.Y + (textH - logoSize) / 2f;
-                dl.AddImageRounded(_linkedEstablishmentLogo.Handle,
-                    new Vector2(p.X, logoY), new Vector2(p.X + logoSize, logoY + logoSize),
+                ImGui.GetWindowDrawList().AddImageRounded(_linkedEstablishmentLogo.Handle,
+                    linkedScreenPos, linkedScreenPos + new Vector2(logoSize, logoSize),
                     Vector2.Zero, Vector2.One, ImGui.ColorConvertFloat4ToU32(Vector4.One), logoRounding);
-                ImGui.Dummy(new Vector2(logoSize, textH));
-                ImGui.SameLine();
             }
-
-            _uiSharedService.BigText(_linkedEstablishment.Name);
-            ImGui.TextColored(UiSharedService.AccentColor, $"[{catName}]");
-
-            if (!string.IsNullOrEmpty(_linkedEstablishment.Description))
+            else
             {
-                ImGui.SameLine();
-                ImGui.TextDisabled(_linkedEstablishment.Description.Length > 60
-                    ? _linkedEstablishment.Description[..60] + "..."
-                    : _linkedEstablishment.Description);
+                UiSharedService.DrawLogoPlaceholder(linkedScreenPos, logoSize, logoRounding, catIcon);
+            }
+            ImGui.SetCursorPos(new Vector2(linkedLocalPos.X + logoSize + logoSpacing, linkedLocalPos.Y));
+
+            _uiSharedService.BigText(UiSharedService.SanitizeOneLine(_linkedEstablishment.Name));
+
+            ImGui.SetCursorPosX(logoSize + logoSpacing);
+            UiSharedService.DrawCategoryPill(catName);
+
+            var desc = UiSharedService.SanitizeOneLine(_linkedEstablishment.Description);
+            if (!string.IsNullOrEmpty(desc))
+            {
+                var descMaxX = ImGui.GetWindowContentRegionMax().X - 4f * scale;
+                var descAvail = MathF.Max(40f, descMaxX - ImGui.GetCursorPosX());
+                ImGui.TextDisabled(UiSharedService.TruncateToWidth(desc, descAvail));
             }
 
             ImGuiHelpers.ScaledDummy(2f);
@@ -720,16 +727,17 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
                 statusColor = isOnline ? ImGuiColors.HealerGreen : ImGuiColors.DalamudGrey;
             }
 
-            // Status dot + text
-            var dotPos = ImGui.GetCursorScreenPos();
-            var dotRadius = 4f * ImGuiHelpers.GlobalScale;
-            var textHeight = ImGui.GetTextLineHeight();
-            drawList.AddCircleFilled(
-                new Vector2(dotPos.X + dotRadius, dotPos.Y + textHeight / 2f),
-                dotRadius,
-                ImGui.GetColorU32(statusColor));
-            ImGui.SetCursorPosX(ImGui.GetCursorPosX() + dotRadius * 2f + 6f * ImGuiHelpers.GlobalScale);
-            ImGui.TextColored(statusColor, statusText);
+            // Status pill (online / offline / visible) + RP level pill on the same row
+            var statusIcon = !isOnline ? FontAwesomeIcon.CircleNotch
+                : (Pair.IsVisible && !isSelf ? FontAwesomeIcon.Eye : FontAwesomeIcon.Circle);
+            DrawColoredPill(statusIcon, statusText, statusColor);
+
+            var rpStyle = GetRpLevelStyle(profile.RpLevel);
+            if (rpStyle.HasValue)
+                DrawColoredPill(rpStyle.Value.Icon, rpStyle.Value.Label, rpStyle.Value.Color, rpStyle.Value.Tooltip);
+
+            // End the row of pills
+            ImGui.NewLine();
 
             // Note
             var note = _serverManager.GetNoteForUid(Pair.UserData.UID);
@@ -864,16 +872,17 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
             bool isSelf = string.Equals(Pair.UserData.UID, _apiController.UID, StringComparison.Ordinal);
             string statusText;
             Vector4 statusColor;
+            bool isOnline;
 
             if (isSelf)
             {
-                bool isOnline = _apiController.IsConnected;
+                isOnline = _apiController.IsConnected;
                 statusText = isOnline ? Loc.Get("StandaloneProfile.Status.Online") : Loc.Get("StandaloneProfile.Status.Offline");
                 statusColor = isOnline ? ImGuiColors.HealerGreen : ImGuiColors.DalamudGrey;
             }
             else
             {
-                bool isOnline = Pair.IsVisible || Pair.IsOnline;
+                isOnline = Pair.IsVisible || Pair.IsOnline;
                 statusText = Pair.IsVisible
                     ? Loc.Get("StandaloneProfile.Status.Visible")
                     : (Pair.IsOnline ? Loc.Get("StandaloneProfile.Status.Online") : Loc.Get("StandaloneProfile.Status.Offline"));
@@ -881,15 +890,15 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
             }
 
             ImGuiHelpers.ScaledDummy(2f);
-            var dotPos = ImGui.GetCursorScreenPos();
-            var dotRadius = 4f * ImGuiHelpers.GlobalScale;
-            var textHeight = ImGui.GetTextLineHeight();
-            drawList.AddCircleFilled(
-                new Vector2(dotPos.X + dotRadius, dotPos.Y + textHeight / 2f),
-                dotRadius,
-                ImGui.GetColorU32(statusColor));
-            ImGui.SetCursorPosX(ImGui.GetCursorPosX() + dotRadius * 2f + 6f * ImGuiHelpers.GlobalScale);
-            ImGui.TextColored(statusColor, statusText);
+            var statusIconAlt = !isOnline ? FontAwesomeIcon.CircleNotch
+                : (Pair.IsVisible && !isSelf ? FontAwesomeIcon.Eye : FontAwesomeIcon.Circle);
+            DrawColoredPill(statusIconAlt, statusText, statusColor);
+
+            var rpStyleAlt = GetRpLevelStyle(profile.RpLevel);
+            if (rpStyleAlt.HasValue)
+                DrawColoredPill(rpStyleAlt.Value.Icon, rpStyleAlt.Value.Label, rpStyleAlt.Value.Color, rpStyleAlt.Value.Tooltip);
+
+            ImGui.NewLine();
 
             var note = _serverManager.GetNoteForUid(Pair.UserData.UID);
             if (!string.IsNullOrEmpty(note))
@@ -953,6 +962,64 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
         ImGui.TextUnformatted(value);
         ImGui.PopTextWrapPos();
         ImGui.EndGroup();
+    }
+
+    private static (string Label, Vector4 Color, FontAwesomeIcon Icon, string Tooltip)? GetRpLevelStyle(byte level) => level switch
+    {
+        1 => (Loc.Get("UserProfile.RpLevel.Beginner"), new Vector4(0.55f, 0.85f, 0.55f, 1f), FontAwesomeIcon.Seedling, Loc.Get("UserProfile.RpLevel.Beginner.Tooltip")),
+        2 => (Loc.Get("UserProfile.RpLevel.Regular"), new Vector4(0.55f, 0.75f, 1f, 1f), FontAwesomeIcon.Tree, Loc.Get("UserProfile.RpLevel.Regular.Tooltip")),
+        3 => (Loc.Get("UserProfile.RpLevel.Mentor"), new Vector4(1f, 0.75f, 0.4f, 1f), FontAwesomeIcon.Crown, Loc.Get("UserProfile.RpLevel.Mentor.Tooltip")),
+        _ => null,
+    };
+
+    private static void DrawColoredPill(FontAwesomeIcon icon, string label, Vector4 color, string? tooltip = null)
+    {
+        const float iconFontScale = 0.75f;
+
+        float iconWidth;
+        float iconHeight;
+        ImGui.SetWindowFontScale(iconFontScale);
+        using (ImRaii.PushFont(UiBuilder.IconFont))
+        {
+            var iconSize = ImGui.CalcTextSize(icon.ToIconString());
+            iconWidth = iconSize.X;
+            iconHeight = iconSize.Y;
+        }
+        ImGui.SetWindowFontScale(1f);
+
+        var labelSize = ImGui.CalcTextSize(label);
+        var padX = 5f * ImGuiHelpers.GlobalScale;
+        var padY = 1f * ImGuiHelpers.GlobalScale;
+        var iconLabelSpacing = 3f * ImGuiHelpers.GlobalScale;
+        var rounding = 3f * ImGuiHelpers.GlobalScale;
+        var totalSize = new Vector2(iconWidth + iconLabelSpacing + labelSize.X + padX * 2,
+            MathF.Max(iconHeight, labelSize.Y) + padY * 2);
+
+        var dl = ImGui.GetWindowDrawList();
+        var min = ImGui.GetCursorScreenPos();
+        var max = min + totalSize;
+        var bg = color; bg.W = 0.18f;
+        var border = color; border.W = 0.55f;
+        dl.AddRectFilled(min, max, ImGui.ColorConvertFloat4ToU32(bg), rounding);
+        dl.AddRect(min, max, ImGui.ColorConvertFloat4ToU32(border), rounding);
+
+        // Vertically center the (smaller) icon against the label.
+        var iconY = min.Y + padY + (labelSize.Y - iconHeight) / 2f;
+        ImGui.SetCursorScreenPos(new Vector2(min.X + padX, iconY));
+        ImGui.SetWindowFontScale(iconFontScale);
+        using (ImRaii.PushFont(UiBuilder.IconFont))
+            ImGui.TextColored(color, icon.ToIconString());
+        ImGui.SetWindowFontScale(1f);
+
+        ImGui.SetCursorScreenPos(new Vector2(min.X + padX + iconWidth + iconLabelSpacing, min.Y + padY));
+        ImGui.TextColored(color, label);
+
+        // Tooltip on hover (manual hit-test since the pill is drawn via DrawList, not as an ImGui item)
+        if (!string.IsNullOrEmpty(tooltip) && ImGui.IsMouseHoveringRect(min, max))
+            ImGui.SetTooltip(tooltip);
+
+        // Advance cursor to the right of the pill so callers can chain another pill via implicit SameLine layout.
+        ImGui.SetCursorScreenPos(new Vector2(max.X + ImGui.GetStyle().ItemSpacing.X, min.Y));
     }
 
     public override void OnClose()

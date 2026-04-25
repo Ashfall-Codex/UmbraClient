@@ -35,11 +35,13 @@ public sealed class TypingIndicatorOverlay : WindowMediatorSubscriberBase
     private readonly DalamudUtilService _dalamudUtil;
     private readonly TypingIndicatorStateService _typingStateService;
     private readonly ApiController _apiController;
+    private readonly Ashfall.Engine.OverlayEngine _engine;
 
     public TypingIndicatorOverlay(ILogger<TypingIndicatorOverlay> logger, MareMediator mediator, PerformanceCollectorService performanceCollectorService,
         MareConfigService configService, IGameGui gameGui, ITextureProvider textureProvider, IClientState clientState,
         IPartyList partyList, IObjectTable objectTable, DalamudUtilService dalamudUtil, PairManager pairManager,
-        TypingIndicatorStateService typingStateService, ApiController apiController)
+        TypingIndicatorStateService typingStateService, ApiController apiController,
+        Ashfall.Engine.OverlayEngine engine)
         : base(logger, mediator, nameof(TypingIndicatorOverlay), performanceCollectorService)
     {
         _typedLogger = logger;
@@ -53,6 +55,7 @@ public sealed class TypingIndicatorOverlay : WindowMediatorSubscriberBase
         _pairManager = pairManager;
         _typingStateService = typingStateService;
         _apiController = apiController;
+        _engine = engine;
 
         RespectCloseHotkey = false;
         IsOpen = true;
@@ -171,13 +174,18 @@ public sealed class TypingIndicatorOverlay : WindowMediatorSubscriberBase
             ImGui.ColorConvertFloat4ToU32(new Vector4(1f, 1f, 1f, 0.9f)));
     }
 
-    private void DrawNameplateIndicators(ImDrawListPtr drawList, IReadOnlyDictionary<string, (UserData User, DateTime FirstSeen, DateTime LastUpdate)> activeTypers,
+    private unsafe void DrawNameplateIndicators(ImDrawListPtr drawList, IReadOnlyDictionary<string, (UserData User, DateTime FirstSeen, DateTime LastUpdate)> activeTypers,
         bool selfActive, DateTime now, DateTime selfStart, DateTime selfLast)
     {
         var iconWrap = _textureProvider.GetFromGameIcon(NameplateIconId).GetWrapOrEmpty();
         if (iconWrap.Handle == IntPtr.Zero)
             return;
 
+        var nameplateAddonPtr = (AtkUnitBase*)_gameGui.GetAddonByName("NamePlate", 1).Address;
+        _engine.BeginFrame(nameplateAddonPtr);
+
+        try
+        {
         var showSelf = _configService.Current.TypingIndicatorShowSelf;
         if (selfActive
             && showSelf
@@ -186,10 +194,10 @@ public sealed class TypingIndicatorOverlay : WindowMediatorSubscriberBase
             && (now - selfLast) <= TypingDisplayFade)
         {
             var selfId = GetEntityId(_objectTable.LocalPlayer.Address);
+            // For self, if the nameplate isn't available (e.g. user hid their own nameplate),
+            // fall back to a world-anchored bubble above the player.
             if (selfId != 0 && !TryDrawNameplateBubble(drawList, iconWrap, selfId))
-            {
                 DrawWorldFallbackIcon(drawList, iconWrap, _objectTable.LocalPlayer.Position);
-            }
         }
 
         foreach (var (uid, entry) in activeTypers)
@@ -202,40 +210,20 @@ public sealed class TypingIndicatorOverlay : WindowMediatorSubscriberBase
 
             var pair = _pairManager.GetPairByUID(uid);
             var objectId = pair?.PlayerCharacterId ?? 0;
-            var pairName = pair?.PlayerName ?? entry.User.AliasOrUID;
-            var pairIdent = pair?.Ident ?? string.Empty;
-            var isPartyMember = IsPartyMember(objectId, pairName);
-            var isRelevantMember = IsPlayerRelevant(pair, isPartyMember);
+            if (objectId == 0 || objectId == uint.MaxValue) continue;
 
-            if (objectId != uint.MaxValue && objectId != 0 && TryDrawNameplateBubble(drawList, iconWrap, objectId))
-            {
-                _typedLogger.LogTrace("TypingIndicator: drew nameplate bubble for {uid} (objectId={objectId})", uid, objectId);
-                continue;
-            }
-
-            var hasWorldPosition = TryResolveWorldPosition(pair, entry.User, objectId, out var worldPos);
-            var isNearby = hasWorldPosition && IsWithinRelevantDistance(worldPos);
-
-            if (!isRelevantMember && !isNearby)
+            if (TryDrawNameplateBubble(drawList, iconWrap, objectId))
                 continue;
 
-            if (pair == null)
-            {
-                _typedLogger.LogTrace("TypingIndicator: no pair found for {uid}, attempting fallback", uid);
-            }
-
-            _typedLogger.LogTrace("TypingIndicator: fallback draw for {uid} (objectId={objectId}, name={name}, ident={ident})",
-                uid, objectId, pairName, pairIdent);
-
-            if (hasWorldPosition)
-            {
+            // Fallback world bubble only if the player is nearby (< 15 yalms): this means
+            // the nameplate is hidden by user settings rather than faded by distance.
+            if (TryGetNearbyPlayerPosition(objectId, 15f, out var worldPos))
                 DrawWorldFallbackIcon(drawList, iconWrap, worldPos);
-                _typedLogger.LogTrace("TypingIndicator: fallback world draw for {uid} at {pos}", uid, worldPos);
-            }
-            else
-            {
-                _typedLogger.LogTrace("TypingIndicator: could not resolve position for {uid}", uid);
-            }
+        }
+        }
+        finally
+        {
+            _engine.EndFrame();
         }
     }
 
@@ -275,6 +263,7 @@ public sealed class TypingIndicatorOverlay : WindowMediatorSubscriberBase
 
         AddonNamePlate.NamePlateObject* namePlate = null;
         float distance = 0f;
+        System.Numerics.Vector3 playerWorldPos = default;
 
         for (var i = 0; i < ui3D->NamePlateObjectInfoCount; i++)
         {
@@ -293,8 +282,14 @@ public sealed class TypingIndicatorOverlay : WindowMediatorSubscriberBase
 
             namePlate = &addonNamePlate->NamePlateObjectArray[objectInfo.Value->NamePlateIndex];
             distance = objectInfo.Value->GameObject->YalmDistanceFromPlayerX;
+            var gp = objectInfo.Value->GameObject->Position;
+            playerWorldPos = new System.Numerics.Vector3(gp.X, gp.Y + 2.2f, gp.Z);
             break;
         }
+
+        // Occlusion 3D pixel-perfect via l'engine (stratégie automatique selon plateforme).
+        bool ShouldSkipByDepth(Vector2 center)
+            => _engine.IsWorldOccluded(playerWorldPos, center);
 
         if (namePlate == null || namePlate->RootComponentNode == null)
             return false;
@@ -308,37 +303,12 @@ public sealed class TypingIndicatorOverlay : WindowMediatorSubscriberBase
         var iconVisible = iconNode->IsVisible();
         var scaleVector = new Vector2(nameplateScaleX, nameplateScaleY);
 
-        // Calcul du scale de la bulle basé sur la distance :
-        // 0-10m : taille normale (1.0), 10-15m : petite (0.5), >15m : pas affiché (géré plus haut)
-        float bubbleScaleFactor = distance <= 10f ? 1.0f : 0.5f;
+        if (!iconVisible)
+            return true;
+        const float bubbleScaleFactor = 1.0f;
         var rootPosition = new Vector2(namePlate->RootComponentNode->AtkResNode.X, namePlate->RootComponentNode->AtkResNode.Y);
         var iconLocalPosition = new Vector2(iconNode->X, iconNode->Y) * scaleVector;
         var iconDimensions = new Vector2(iconNode->Width, iconNode->Height) * scaleVector;
-
-        if (!iconVisible)
-        {
-            // Utiliser la même taille que quand la nameplate est visible
-            var anchor = rootPosition + iconLocalPosition + new Vector2(iconDimensions.X * 0.5f, 0f);
-
-            var distanceOffset = new Vector2(0f, -16f + distance) * scaleVector;
-            if (iconNode->Height == 24)
-            {
-                distanceOffset.Y += 16f * nameplateScaleY;
-            }
-            distanceOffset.Y += 64f * nameplateScaleY;
-
-            var referenceSize = GetConfiguredBubbleSize(bubbleScaleFactor, bubbleScaleFactor, true, TypingIndicatorBubbleSize.Small);
-            var manualOffset = new Vector2(referenceSize.X * 0.5f, referenceSize.Y * 0.5f);
-
-            var iconSize = GetConfiguredBubbleSize(bubbleScaleFactor, bubbleScaleFactor, true);
-            var center = anchor + distanceOffset + manualOffset;
-            var topLeft = center - (iconSize / 2f);
-
-            drawList.AddImage(textureWrap.Handle, topLeft, topLeft + iconSize, Vector2.Zero, Vector2.One,
-                ImGui.ColorConvertFloat4ToU32(new Vector4(1f, 1f, 1f, 0.95f)));
-
-            return true;
-        }
 
         var iconPos = rootPosition + iconLocalPosition + new Vector2(iconDimensions.X, 0f);
 
@@ -352,119 +322,13 @@ public sealed class TypingIndicatorOverlay : WindowMediatorSubscriberBase
 
         var bubbleSize = GetConfiguredBubbleSize(bubbleScaleFactor, bubbleScaleFactor, true);
 
+        if (ShouldSkipByDepth(iconPos + bubbleSize * 0.5f)) return true;
+        if (_engine.IsNativeUiOccluded(new Vector4(iconPos.X, iconPos.Y, iconPos.X + bubbleSize.X, iconPos.Y + bubbleSize.Y))) return true;
+
         drawList.AddImage(textureWrap.Handle, iconPos, iconPos + bubbleSize, Vector2.Zero, Vector2.One,
             ImGui.ColorConvertFloat4ToU32(new Vector4(1f, 1f, 1f, 0.95f)));
 
         return true;
-    }
-
-    private void DrawWorldFallbackIcon(ImDrawListPtr drawList, IDalamudTextureWrap textureWrap, Vector3 worldPosition)
-    {
-        var offsetPosition = worldPosition + new Vector3(0f, 1.8f, 0f);
-        if (!_gameGui.WorldToScreen(offsetPosition, out var screenPos))
-            return;
-
-        var iconSize = GetConfiguredBubbleSize(ImGuiHelpers.GlobalScale, ImGuiHelpers.GlobalScale, false);
-        var iconPos = screenPos - (iconSize / 2f) - new Vector2(0f, iconSize.Y * 0.6f);
-        drawList.AddImage(textureWrap.Handle, iconPos, iconPos + iconSize, Vector2.Zero, Vector2.One,
-            ImGui.ColorConvertFloat4ToU32(new Vector4(1f, 1f, 1f, 0.95f)));
-    }
-
-    private bool TryGetWorldPosition(uint objectId, out Vector3 position)
-    {
-        position = Vector3.Zero;
-        if (objectId == 0 || objectId == uint.MaxValue)
-            return false;
-
-        for (var i = 0; i < _objectTable.Length; ++i)
-        {
-            var obj = _objectTable[i];
-            if (obj == null)
-                continue;
-
-            if (obj.ObjectKind != Dalamud.Game.ClientState.Objects.Enums.ObjectKind.Player)
-                continue;
-
-            if (obj.EntityId == objectId)
-            {
-                position = obj.Position;
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private bool TryResolveWorldPosition(Pair? pair, UserData userData, uint objectId, out Vector3 position)
-    {
-        if (TryGetWorldPosition(objectId, out position))
-        {
-            _typedLogger.LogTrace("TypingIndicator: resolved by objectId {objectId}", objectId);
-            return true;
-        }
-
-        if (pair != null)
-        {
-            var name = pair.PlayerName;
-            if (!string.IsNullOrEmpty(name) && TryGetWorldPositionByName(name, out position))
-            {
-                _typedLogger.LogTrace("TypingIndicator: resolved by pair name {name}", name);
-                return true;
-            }
-
-            var ident = pair.Ident;
-            if (!string.IsNullOrEmpty(ident))
-            {
-                var cached = _dalamudUtil.FindPlayerByNameHash(ident);
-                if (!string.IsNullOrEmpty(cached.Name) && TryGetWorldPositionByName(cached.Name, out position))
-                {
-                    _typedLogger.LogTrace("TypingIndicator: resolved by cached name {name}", cached.Name);
-                    return true;
-                }
-
-                if (cached.Address != IntPtr.Zero)
-                {
-                    var objRef = _objectTable.CreateObjectReference(cached.Address);
-                    if (objRef != null)
-                    {
-                        position = objRef.Position;
-                        _typedLogger.LogTrace("TypingIndicator: resolved by cached address {addr}", cached.Address);
-                        return true;
-                    }
-                }
-            }
-        }
-
-        var alias = userData.AliasOrUID;
-        if (!string.IsNullOrEmpty(alias) && TryGetWorldPositionByName(alias, out position))
-        {
-            _typedLogger.LogTrace("TypingIndicator: resolved by user alias {alias}", alias);
-            return true;
-        }
-
-        return false;
-    }
-
-    private bool TryGetWorldPositionByName(string name, out Vector3 position)
-    {
-        position = Vector3.Zero;
-        for (var i = 0; i < _objectTable.Length; ++i)
-        {
-            var obj = _objectTable[i];
-            if (obj == null)
-                continue;
-
-            if (obj.ObjectKind != Dalamud.Game.ClientState.Objects.Enums.ObjectKind.Player)
-                continue;
-
-            if (obj.Name.TextValue.Equals(name, StringComparison.OrdinalIgnoreCase))
-            {
-                position = obj.Position;
-                return true;
-            }
-        }
-
-        return false;
     }
 
     private unsafe int GetPartyIndexFromAgentHUD(uint objectId)
@@ -531,54 +395,45 @@ public sealed class TypingIndicatorOverlay : WindowMediatorSubscriberBase
         return -1;
     }
 
-    private bool IsPartyMember(uint objectId, string? playerName)
-    {
-        if (objectId != 0 && objectId != uint.MaxValue && GetPartyIndexFromAgentHUD(objectId) >= 0)
-            return true;
-
-        if (objectId != 0 && objectId != uint.MaxValue && GetPartyIndexForObjectId(objectId) >= 0)
-            return true;
-
-        if (!string.IsNullOrEmpty(playerName) && GetPartyIndexForName(playerName) >= 0)
-            return true;
-
-        return false;
-    }
-
-    private static bool IsPlayerRelevant(Pair? pair, bool isPartyMember)
-    {
-        if (isPartyMember)
-            return true;
-
-        if (pair?.UserPair != null)
-        {
-            var userPair = pair.UserPair;
-            if (userPair.OtherPermissions.IsPaired() || userPair.OwnPermissions.IsPaired())
-                return true;
-        }
-
-        if (pair?.GroupPair != null && pair.GroupPair.Any(g =>
-                !g.Value.GroupUserPermissions.IsPaused() &&
-                !g.Key.GroupUserPermissions.IsPaused()))
-        {
-            return true;
-        }
-
-        return false;
-    }
-
-    private bool IsWithinRelevantDistance(Vector3 position)
-    {
-        if (_objectTable.LocalPlayer == null)
-            return false;
-
-        var distance = Vector3.Distance(_objectTable.LocalPlayer.Position, position);
-        return distance <= 15f;
-    }
-
     private static unsafe uint GetEntityId(nint address)
     {
         if (address == nint.Zero) return 0;
         return ((FFXIVClientStructs.FFXIV.Client.Game.Object.GameObject*)address)->EntityId;
+    }
+
+    private void DrawWorldFallbackIcon(ImDrawListPtr drawList, IDalamudTextureWrap textureWrap, Vector3 worldPosition)
+    {
+        var offsetPosition = worldPosition + new Vector3(0f, 1.8f, 0f);
+        if (!_gameGui.WorldToScreen(offsetPosition, out var screenPos))
+            return;
+
+        var iconSize = GetConfiguredBubbleSize(ImGuiHelpers.GlobalScale, ImGuiHelpers.GlobalScale, false);
+        var iconPos = screenPos - (iconSize / 2f) - new Vector2(0f, iconSize.Y * 0.6f);
+        drawList.AddImage(textureWrap.Handle, iconPos, iconPos + iconSize, Vector2.Zero, Vector2.One,
+            ImGui.ColorConvertFloat4ToU32(new Vector4(1f, 1f, 1f, 0.95f)));
+    }
+
+    // Returns true and sets `position` if the player is found in the object table within `maxYalms`.
+    // Used to detect "nameplate hidden by user settings" (object exists nearby but FFXIV did not
+    // render its nameplate) vs "out of range" (object not found / too far).
+    private bool TryGetNearbyPlayerPosition(uint objectId, float maxYalms, out Vector3 position)
+    {
+        position = Vector3.Zero;
+        if (objectId == 0 || objectId == uint.MaxValue || _objectTable.LocalPlayer == null)
+            return false;
+
+        for (var i = 0; i < _objectTable.Length; ++i)
+        {
+            var obj = _objectTable[i];
+            if (obj == null) continue;
+            if (obj.ObjectKind != Dalamud.Game.ClientState.Objects.Enums.ObjectKind.Player) continue;
+            if (obj.EntityId != objectId) continue;
+
+            var dist = Vector3.Distance(_objectTable.LocalPlayer.Position, obj.Position);
+            if (dist > maxYalms) return false;
+            position = obj.Position;
+            return true;
+        }
+        return false;
     }
 }

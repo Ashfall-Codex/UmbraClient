@@ -1645,6 +1645,9 @@ Click to change.</value>
   <data name="ChangelogUi.ShowAll" xml:space="preserve">
     <value>Show all</value>
   </data>
+  <data name="ChangelogUi.HideAll" xml:space="preserve">
+    <value>Hide all</value>
+  </data>
   <data name="ChangelogUi.WindowTitle" xml:space="preserve">
     <value>Umbra Sync - Changelog</value>
   </data>
@@ -3119,6 +3122,12 @@ Note: Weapons will not be displayed correctly unless using the same job as the s
   <data name="Settings.RpNamesInChat" xml:space="preserve">
     <value>Display RP names in chat</value>
   </data>
+  <data name="Settings.ChatIcon.Self" xml:space="preserve">
+    <value>Display my RP icon in chat</value>
+  </data>
+  <data name="Settings.ChatIcon.Others" xml:space="preserve">
+    <value>Display other players' RP icons in chat</value>
+  </data>
   <data name="Settings.RpNameColors" xml:space="preserve">
     <value>Display RP name colors</value>
   </data>
@@ -4425,6 +4434,48 @@ Note: Weapons will not be displayed correctly unless using the same job as the s
   </data>
   <data name="UserProfile.RpAge" xml:space="preserve">
     <value>Age</value>
+  </data>
+  <data name="UserProfile.RpLevel" xml:space="preserve">
+    <value>RP level</value>
+  </data>
+  <data name="UserProfile.RpLevel.Unset" xml:space="preserve">
+    <value>Not specified</value>
+  </data>
+  <data name="UserProfile.RpLevel.Beginner" xml:space="preserve">
+    <value>Beginner</value>
+  </data>
+  <data name="UserProfile.RpLevel.Regular" xml:space="preserve">
+    <value>Regular</value>
+  </data>
+  <data name="UserProfile.RpLevel.Mentor" xml:space="preserve">
+    <value>Mentor</value>
+  </data>
+  <data name="UserProfile.RpLevel.Unset.Tooltip" xml:space="preserve">
+    <value>RP level not specified.</value>
+  </data>
+  <data name="UserProfile.RpLevel.Beginner.Tooltip" xml:space="preserve">
+    <value>Discovering RP. Don't hesitate to ask others for advice.</value>
+  </data>
+  <data name="UserProfile.RpLevel.Regular.Tooltip" xml:space="preserve">
+    <value>Practices RP regularly and is comfortable with it.</value>
+  </data>
+  <data name="UserProfile.RpLevel.Mentor.Tooltip" xml:space="preserve">
+    <value>Experienced player, willing to help and guide newcomers.</value>
+  </data>
+  <data name="Profile.ChatIcon.Label" xml:space="preserve">
+    <value>Chat icon (displayed before the name)</value>
+  </data>
+  <data name="Profile.ChatIcon.None" xml:space="preserve">
+    <value>None</value>
+  </data>
+  <data name="Profile.ChatIcon.Search" xml:space="preserve">
+    <value>Search</value>
+  </data>
+  <data name="Profile.ChatIcon.Clear" xml:space="preserve">
+    <value>Clear</value>
+  </data>
+  <data name="Profile.ChatIcon.LimitationWarning" xml:space="preserve">
+    <value>Current technical limitation: the RP icon replaces the system icon (job/role) configured in FFXIV settings for messages where your RP name is displayed.</value>
   </data>
   <data name="UserProfile.RpRace" xml:space="preserve">
     <value>Race</value>
@@ -5824,6 +5875,18 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
   <data name="Establishment.Event.Recurrence.Monthly" xml:space="preserve">
     <value>Monthly</value>
   </data>
+  <data name="Establishment.Event.Recurrence.Biweekly" xml:space="preserve">
+    <value>Every 2 weeks</value>
+  </data>
+  <data name="Establishment.Event.Recurrence.Bimonthly" xml:space="preserve">
+    <value>Every 2 months</value>
+  </data>
+  <data name="Establishment.Event.Recurrence.Quarterly" xml:space="preserve">
+    <value>Every 3 months</value>
+  </data>
+  <data name="Establishment.Event.Recurrence.Yearly" xml:space="preserve">
+    <value>Yearly</value>
+  </data>
   <!-- Establishment Detail -->
   <data name="Establishment.Detail.Loading" xml:space="preserve">
     <value>Loading...</value>
@@ -5875,6 +5938,9 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
   </data>
   <data name="Establishment.Detail.Ward" xml:space="preserve">
     <value>Ward {0}, Plot {1}</value>
+  </data>
+  <data name="Establishment.Detail.Apartment" xml:space="preserve">
+    <value>Ward {0}, Apartment {1}</value>
   </data>
   <data name="Establishment.Detail.Subdivision" xml:space="preserve">
     <value>(Subdivision)</value>
@@ -5987,5 +6053,26 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
   </data>
   <data name="WildRp.Ward" xml:space="preserve">
     <value>Ward {0}</value>
+  </data>
+  <data name="Settings.Performance.OverlayRendering" xml:space="preserve">
+    <value>Overlay rendering</value>
+  </data>
+  <data name="Settings.Performance.PreciseOcclusion" xml:space="preserve">
+    <value>Precise occlusion behind decor</value>
+  </data>
+  <data name="Settings.Performance.PreciseOcclusion.Tooltip" xml:space="preserve">
+    <value>Hides profile icons and typing bubbles pixel-by-pixel when decor is in front — including housing furniture and decorative objects without collision.</value>
+  </data>
+  <data name="Settings.Performance.PreciseOcclusion.Enabled" xml:space="preserve">
+    <value>Enabled: pixel-perfect masking (Windows, Linux, macOS with DXMT disabled).</value>
+  </data>
+  <data name="Settings.Performance.PreciseOcclusion.Disabled" xml:space="preserve">
+    <value>Disabled: approximate masking via raycast — covers trees, walls and buildings but not decorative furniture.</value>
+  </data>
+  <data name="Settings.Performance.PreciseOcclusion.DxmtWarning" xml:space="preserve">
+    <value>⚠ XIV on Mac with DXMT enabled: this option is unavailable — DXMT crashes on CPU readback of the depth buffer. Disable "Use direct D3D11 to Metal translation (DXMT)" in XIV on Mac to enable it.</value>
+  </data>
+  <data name="Settings.Performance.PreciseOcclusion.RestartHint" xml:space="preserve">
+    <value>The change takes effect the next time the plugin is restarted.</value>
   </data>
 </root>

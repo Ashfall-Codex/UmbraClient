@@ -25,12 +25,17 @@ public class MareConfig : IMareConfiguration
     public DtrEntry.Colors DtrColorsInSlot { get; set; } = new(Glow: 0x1EA83Cu);
     public DtrEntry.Colors DtrColorsLeavingSlot { get; set; } = new(Glow: 0x004BFFu);
     public bool UseNameColors { get; set; }
+    public bool UseHighPrecisionOcclusion { get; set; }
+    public bool OcclusionPreferenceInitialized { get; set; }
     public DtrEntry.Colors NameColors { get; set; } = new(Foreground: 0x67EBF5u, Glow: 0x00303Cu);
     public DtrEntry.Colors BlockedNameColors { get; set; } = new(Foreground: 0x8AADC7, Glow: 0x000080u);
     public bool UseRpNamesOnNameplates { get; set; }
     public bool DisableNameplatesInDuty { get; set; } = true;
     public bool UseRpNamesInChat { get; set; }
     public bool DisableRpNamesInChatInDuty { get; set; } = true;
+    public bool UseChatIconForSelf { get; set; } = true;
+    public bool UseChatIconForOthers { get; set; } = true;
+    public bool DisableChatIconInDuty { get; set; } = true;
     public bool UseRpNameColors { get; set; } = true;
     public bool DisableRpNameColorsInDuty { get; set; } = true;
     public bool RespectExternalNameColors { get; set; }

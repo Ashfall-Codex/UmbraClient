@@ -1545,6 +1545,9 @@ Veuillez conserver une copie de votre clé secrète au cas où vous auriez besoi
   <data name="ChangelogUi.ShowAll" xml:space="preserve">
     <value>Tout afficher</value>
   </data>
+  <data name="ChangelogUi.HideAll" xml:space="preserve">
+    <value>Tout masquer</value>
+  </data>
   <data name="ChangelogUi.WindowTitle" xml:space="preserve">
     <value>Umbra Sync - Notes de version</value>
   </data>
@@ -3020,6 +3023,12 @@ Note : Les armes ne s'afficheront pas correctement sauf si vous utilisez le m&#x
   <data name="Settings.RpNamesInChat" xml:space="preserve">
     <value>Afficher les noms RP dans le chat</value>
   </data>
+  <data name="Settings.ChatIcon.Self" xml:space="preserve">
+    <value>Afficher mon icône RP dans le tchat</value>
+  </data>
+  <data name="Settings.ChatIcon.Others" xml:space="preserve">
+    <value>Afficher l'icône RP des autres dans le tchat</value>
+  </data>
   <data name="Settings.RpNameColors" xml:space="preserve">
     <value>Afficher les couleurs des noms RP</value>
   </data>
@@ -4327,6 +4336,48 @@ Note : Les armes ne s'afficheront pas correctement sauf si vous utilisez le m&#x
   <data name="UserProfile.RpAge" xml:space="preserve">
     <value>Âge</value>
   </data>
+  <data name="UserProfile.RpLevel" xml:space="preserve">
+    <value>Niveau de RP</value>
+  </data>
+  <data name="UserProfile.RpLevel.Unset" xml:space="preserve">
+    <value>Non précisé</value>
+  </data>
+  <data name="UserProfile.RpLevel.Beginner" xml:space="preserve">
+    <value>Débutant</value>
+  </data>
+  <data name="UserProfile.RpLevel.Regular" xml:space="preserve">
+    <value>Régulier</value>
+  </data>
+  <data name="UserProfile.RpLevel.Mentor" xml:space="preserve">
+    <value>Mentor</value>
+  </data>
+  <data name="UserProfile.RpLevel.Unset.Tooltip" xml:space="preserve">
+    <value>Niveau de RP non précisé.</value>
+  </data>
+  <data name="UserProfile.RpLevel.Beginner.Tooltip" xml:space="preserve">
+    <value>Découvre le RP. N'hésitez pas à demander conseil aux autres.</value>
+  </data>
+  <data name="UserProfile.RpLevel.Regular.Tooltip" xml:space="preserve">
+    <value>Pratique le RP régulièrement et est à l'aise avec.</value>
+  </data>
+  <data name="UserProfile.RpLevel.Mentor.Tooltip" xml:space="preserve">
+    <value>Joueur expérimenté, disposé à aider et initier les nouveaux.</value>
+  </data>
+  <data name="Profile.ChatIcon.Label" xml:space="preserve">
+    <value>Icône affichée dans le tchat (avant le nom)</value>
+  </data>
+  <data name="Profile.ChatIcon.None" xml:space="preserve">
+    <value>Aucune</value>
+  </data>
+  <data name="Profile.ChatIcon.Search" xml:space="preserve">
+    <value>Rechercher</value>
+  </data>
+  <data name="Profile.ChatIcon.Clear" xml:space="preserve">
+    <value>Effacer</value>
+  </data>
+  <data name="Profile.ChatIcon.LimitationWarning" xml:space="preserve">
+    <value>Limitation technique actuelle : l'icône remplace l'icône système (job/rôle) configurée dans les réglages.</value>
+  </data>
   <data name="UserProfile.RpRace" xml:space="preserve">
     <value>Race</value>
   </data>
@@ -5559,7 +5610,7 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
     <value>Parcelle (Plot)</value>
   </data>
   <data name="Establishment.Location.Subdivision" xml:space="preserve">
-    <value>Subdivision (parcelles 31-60)</value>
+    <value>Annexe (parcelles 31-60)</value>
   </data>
   <data name="Establishment.Location.Main" xml:space="preserve">
     <value>Principal (parcelles 1-30)</value>
@@ -5726,13 +5777,25 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
     <value>Ponctuel</value>
   </data>
   <data name="Establishment.Event.Recurrence.Daily" xml:space="preserve">
-    <value>Quotidien</value>
+    <value>Tous les jours</value>
   </data>
   <data name="Establishment.Event.Recurrence.Weekly" xml:space="preserve">
-    <value>Hebdomadaire</value>
+    <value>Toutes les semaines</value>
   </data>
   <data name="Establishment.Event.Recurrence.Monthly" xml:space="preserve">
-    <value>Mensuel</value>
+    <value>Tous les mois</value>
+  </data>
+  <data name="Establishment.Event.Recurrence.Biweekly" xml:space="preserve">
+    <value>Toutes les 2 semaines</value>
+  </data>
+  <data name="Establishment.Event.Recurrence.Bimonthly" xml:space="preserve">
+    <value>Tous les 2 mois</value>
+  </data>
+  <data name="Establishment.Event.Recurrence.Quarterly" xml:space="preserve">
+    <value>Tous les 3 mois</value>
+  </data>
+  <data name="Establishment.Event.Recurrence.Yearly" xml:space="preserve">
+    <value>Tous les ans</value>
   </data>
   <!-- Establishment Detail -->
   <data name="Establishment.Detail.Loading" xml:space="preserve">
@@ -5786,8 +5849,11 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
   <data name="Establishment.Detail.Ward" xml:space="preserve">
     <value>Secteur {0}, Parcelle {1}</value>
   </data>
+  <data name="Establishment.Detail.Apartment" xml:space="preserve">
+    <value>Secteur {0}, Appartement {1}</value>
+  </data>
   <data name="Establishment.Detail.Subdivision" xml:space="preserve">
-    <value>(Subdivision)</value>
+    <value>(Annexe)</value>
   </data>
   <!-- Honorific -->
   <data name="EditProfile.Honorific.Section" xml:space="preserve">
@@ -5897,5 +5963,26 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
   </data>
   <data name="WildRp.Ward" xml:space="preserve">
     <value>Secteur {0}</value>
+  </data>
+  <data name="Settings.Performance.OverlayRendering" xml:space="preserve">
+    <value>Rendu des overlays</value>
+  </data>
+  <data name="Settings.Performance.PreciseOcclusion" xml:space="preserve">
+    <value>Masquage précis derrière les décors</value>
+  </data>
+  <data name="Settings.Performance.PreciseOcclusion.Tooltip" xml:space="preserve">
+    <value>Masque les icônes de profil et les bulles de saisie pixel par pixel lorsqu'un décor passe devant — y compris le mobilier housing et les objets décoratifs sans collision.</value>
+  </data>
+  <data name="Settings.Performance.PreciseOcclusion.Enabled" xml:space="preserve">
+    <value>Activé : masquage pixel par pixel (Windows, Linux, macOS avec DXMT désactivé).</value>
+  </data>
+  <data name="Settings.Performance.PreciseOcclusion.Disabled" xml:space="preserve">
+    <value>Désactivé : masquage approximatif par lancer de rayon - couvre les arbres, murs et bâtiments, mais pas le mobilier décoratif.</value>
+  </data>
+  <data name="Settings.Performance.PreciseOcclusion.DxmtWarning" xml:space="preserve">
+    <value>⚠ XIV on Mac avec DXMT actif : cette option est indisponible - DXMT plante lors de la lecture CPU du tampon de profondeur. Veuillez désactiver « Utiliser la traduction directe de D3D11 vers Metal (DXMT) » dans XIV on Mac pour pouvoir l'activer.</value>
+  </data>
+  <data name="Settings.Performance.PreciseOcclusion.RestartHint" xml:space="preserve">
+    <value>La modification prend effet au prochain redémarrage du plugin.</value>
   </data>
 </root>

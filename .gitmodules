@@ -13,3 +13,9 @@
 [submodule "OtterGui"]
 	path = OtterGui
 	url = https://github.com/Ottermandias/OtterGui.git
+[submodule "ffxiv_pictomancy"]
+	path = ffxiv_pictomancy
+	url = https://github.com/sourpuh/ffxiv_pictomancy
+[submodule "Ashfall.Engine"]
+	path = Ashfall.Engine
+	url = https://github.com/Ashfall-Codex/Ashfall.Engine.git

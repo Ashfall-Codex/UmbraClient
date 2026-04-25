@@ -191,6 +191,22 @@ public class UmbraProfileManager : MediatorSubscriberBase
                 catch (JsonException ex) { Logger.LogWarning(ex, "Failed to deserialize RpCustomFields for {uid}", data.UID); }
             }
 
+            bool isSelf = string.Equals(_apiController.UID, data.UID, StringComparison.Ordinal);
+
+            // Local fallback for self: if the server returned 0 (e.g. server not yet redeployed,
+            // or transient inconsistency), prefer the locally-cached value from RpConfigService so
+            // the user always sees their own settings reflected in the UI.
+            ushort effectiveChatIcon = profile.ChatIcon ?? 0;
+            byte effectiveRpLevel = profile.RpLevel ?? 0;
+            if (isSelf && !string.IsNullOrEmpty(charName) && worldId is > 0)
+            {
+                var localRp = _rpConfigService.GetCharacterProfile(charName, worldId.Value);
+                if (effectiveChatIcon == 0 && localRp.ChatIcon != 0)
+                    effectiveChatIcon = localRp.ChatIcon;
+                if (effectiveRpLevel == 0 && localRp.RpLevel != 0)
+                    effectiveRpLevel = localRp.RpLevel;
+            }
+
             UmbraProfileData profileData = new(profile.Disabled, profile.IsNSFW ?? false,
                 string.IsNullOrEmpty(profile.ProfilePictureBase64) ? string.Empty : profile.ProfilePictureBase64,
                 string.IsNullOrEmpty(profile.Description) ? _noDescription : profile.Description,
@@ -200,31 +216,36 @@ public class UmbraProfileManager : MediatorSubscriberBase
                 profile.RpHeight, profile.RpBuild, profile.RpResidence, profile.RpOccupation, profile.RpAffiliation,
                 profile.RpAlignment, profile.RpAdditionalInfo, profile.RpNameColor,
                 customFields,
-                profile.MoodlesData);
+                profile.MoodlesData,
+                effectiveChatIcon,
+                effectiveRpLevel);
 
-            if (_apiController.IsConnected && string.Equals(_apiController.UID, data.UID, StringComparison.Ordinal) && charName != null && worldId != null)
+            if (_apiController.IsConnected && isSelf && charName != null && worldId != null)
             {
                 var localRpProfile = _rpConfigService.GetCharacterProfile(charName, worldId.Value);
                 bool changed = false;
-                if (!string.Equals(localRpProfile.RpFirstName, profileData.RpFirstName, StringComparison.Ordinal)) { localRpProfile.RpFirstName = profileData.RpFirstName ?? string.Empty; changed = true; }
-                if (!string.Equals(localRpProfile.RpLastName, profileData.RpLastName, StringComparison.Ordinal)) { localRpProfile.RpLastName = profileData.RpLastName ?? string.Empty; changed = true; }
-                if (!string.Equals(localRpProfile.RpTitle, profileData.RpTitle, StringComparison.Ordinal)) { localRpProfile.RpTitle = profileData.RpTitle ?? string.Empty; changed = true; }
-                if (!string.Equals(localRpProfile.RpDescription, profileData.RpDescription, StringComparison.Ordinal)) { localRpProfile.RpDescription = profileData.RpDescription ?? string.Empty; changed = true; }
-                if (!string.Equals(localRpProfile.RpAge, profileData.RpAge, StringComparison.Ordinal)) { localRpProfile.RpAge = profileData.RpAge ?? string.Empty; changed = true; }
-                if (!string.Equals(localRpProfile.RpRace, profileData.RpRace, StringComparison.Ordinal)) { localRpProfile.RpRace = profileData.RpRace ?? string.Empty; changed = true; }
-                if (!string.Equals(localRpProfile.RpEthnicity, profileData.RpEthnicity, StringComparison.Ordinal)) { localRpProfile.RpEthnicity = profileData.RpEthnicity ?? string.Empty; changed = true; }
-                if (!string.Equals(localRpProfile.RpHeight, profileData.RpHeight, StringComparison.Ordinal)) { localRpProfile.RpHeight = profileData.RpHeight ?? string.Empty; changed = true; }
-                if (!string.Equals(localRpProfile.RpBuild, profileData.RpBuild, StringComparison.Ordinal)) { localRpProfile.RpBuild = profileData.RpBuild ?? string.Empty; changed = true; }
-                if (!string.Equals(localRpProfile.RpResidence, profileData.RpResidence, StringComparison.Ordinal)) { localRpProfile.RpResidence = profileData.RpResidence ?? string.Empty; changed = true; }
-                if (!string.Equals(localRpProfile.RpOccupation, profileData.RpOccupation, StringComparison.Ordinal)) { localRpProfile.RpOccupation = profileData.RpOccupation ?? string.Empty; changed = true; }
-                if (!string.Equals(localRpProfile.RpAffiliation, profileData.RpAffiliation, StringComparison.Ordinal)) { localRpProfile.RpAffiliation = profileData.RpAffiliation ?? string.Empty; changed = true; }
-                if (!string.Equals(localRpProfile.RpAlignment, profileData.RpAlignment, StringComparison.Ordinal)) { localRpProfile.RpAlignment = profileData.RpAlignment ?? string.Empty; changed = true; }
-                if (!string.Equals(localRpProfile.RpAdditionalInfo, profileData.RpAdditionalInfo, StringComparison.Ordinal)) { localRpProfile.RpAdditionalInfo = profileData.RpAdditionalInfo ?? string.Empty; changed = true; }
+                static bool ShouldReplace(string? localValue, string? serverValue)
+                    => string.IsNullOrEmpty(localValue) && !string.IsNullOrEmpty(serverValue);
+
+                if (ShouldReplace(localRpProfile.RpFirstName, profileData.RpFirstName)) { localRpProfile.RpFirstName = profileData.RpFirstName!; changed = true; }
+                if (ShouldReplace(localRpProfile.RpLastName, profileData.RpLastName)) { localRpProfile.RpLastName = profileData.RpLastName!; changed = true; }
+                if (ShouldReplace(localRpProfile.RpTitle, profileData.RpTitle)) { localRpProfile.RpTitle = profileData.RpTitle!; changed = true; }
+                if (ShouldReplace(localRpProfile.RpDescription, profileData.RpDescription)) { localRpProfile.RpDescription = profileData.RpDescription!; changed = true; }
+                if (ShouldReplace(localRpProfile.RpAge, profileData.RpAge)) { localRpProfile.RpAge = profileData.RpAge!; changed = true; }
+                if (ShouldReplace(localRpProfile.RpRace, profileData.RpRace)) { localRpProfile.RpRace = profileData.RpRace!; changed = true; }
+                if (ShouldReplace(localRpProfile.RpEthnicity, profileData.RpEthnicity)) { localRpProfile.RpEthnicity = profileData.RpEthnicity!; changed = true; }
+                if (ShouldReplace(localRpProfile.RpHeight, profileData.RpHeight)) { localRpProfile.RpHeight = profileData.RpHeight!; changed = true; }
+                if (ShouldReplace(localRpProfile.RpBuild, profileData.RpBuild)) { localRpProfile.RpBuild = profileData.RpBuild!; changed = true; }
+                if (ShouldReplace(localRpProfile.RpResidence, profileData.RpResidence)) { localRpProfile.RpResidence = profileData.RpResidence!; changed = true; }
+                if (ShouldReplace(localRpProfile.RpOccupation, profileData.RpOccupation)) { localRpProfile.RpOccupation = profileData.RpOccupation!; changed = true; }
+                if (ShouldReplace(localRpProfile.RpAffiliation, profileData.RpAffiliation)) { localRpProfile.RpAffiliation = profileData.RpAffiliation!; changed = true; }
+                if (ShouldReplace(localRpProfile.RpAlignment, profileData.RpAlignment)) { localRpProfile.RpAlignment = profileData.RpAlignment!; changed = true; }
+                if (ShouldReplace(localRpProfile.RpAdditionalInfo, profileData.RpAdditionalInfo)) { localRpProfile.RpAdditionalInfo = profileData.RpAdditionalInfo!; changed = true; }
                 if (localRpProfile.IsRpNsfw != profileData.IsRpNSFW) { localRpProfile.IsRpNsfw = profileData.IsRpNSFW; changed = true; }
-                if (!string.Equals(localRpProfile.RpProfilePictureBase64, profileData.Base64RpProfilePicture, StringComparison.Ordinal)) { localRpProfile.RpProfilePictureBase64 = profileData.Base64RpProfilePicture ?? string.Empty; changed = true; }
-                if (!string.Equals(localRpProfile.RpNameColor, profileData.RpNameColor, StringComparison.Ordinal)) { localRpProfile.RpNameColor = profileData.RpNameColor ?? string.Empty; changed = true; }
+                if (ShouldReplace(localRpProfile.RpProfilePictureBase64, profileData.Base64RpProfilePicture)) { localRpProfile.RpProfilePictureBase64 = profileData.Base64RpProfilePicture!; changed = true; }
+                if (ShouldReplace(localRpProfile.RpNameColor, profileData.RpNameColor)) { localRpProfile.RpNameColor = profileData.RpNameColor!; changed = true; }
                 var serverCustomFields = profileData.RpCustomFields ?? new List<RpCustomField>();
-                if (!CustomFieldsEqual(localRpProfile.RpCustomFields, serverCustomFields)) { localRpProfile.RpCustomFields = serverCustomFields; changed = true; }
+                if (localRpProfile.RpCustomFields.Count == 0 && serverCustomFields.Count > 0) { localRpProfile.RpCustomFields = serverCustomFields; changed = true; }
 
                 if (string.IsNullOrEmpty(localRpProfile.MoodlesBackupJson) && !string.IsNullOrEmpty(profileData.MoodlesData))
                 {
@@ -240,7 +261,6 @@ public class UmbraProfileManager : MediatorSubscriberBase
                 }
             }
 
-            bool isSelf = string.Equals(_apiController.UID, data.UID, StringComparison.Ordinal);
             if (profileData.IsNSFW && !_mareConfigService.Current.ProfilesAllowNsfw && !isSelf)
             {
                 _umbraProfiles[key] = _nsfwProfileData;
@@ -326,7 +346,9 @@ public class UmbraProfileManager : MediatorSubscriberBase
                 profile.RpHeight, profile.RpBuild, profile.RpResidence, profile.RpOccupation, profile.RpAffiliation,
                 profile.RpAlignment, profile.RpAdditionalInfo, profile.RpNameColor,
                 customFields,
-                profile.MoodlesData);
+                profile.MoodlesData,
+                profile.ChatIcon ?? 0,
+                profile.RpLevel ?? 0);
 
             if (!isSelf)
             {
@@ -509,17 +531,4 @@ public class UmbraProfileManager : MediatorSubscriberBase
     
     private static (UserData User, string? CharName, uint? WorldId) NormalizeKey(UserData data, string? charName, uint? worldId)
         => (new UserData(data.UID), charName, worldId);
-
-    private static bool CustomFieldsEqual(List<RpCustomField> a, List<RpCustomField> b)
-    {
-        if (a.Count != b.Count) return false;
-        for (int i = 0; i < a.Count; i++)
-        {
-            if (!string.Equals(a[i].Name, b[i].Name, StringComparison.Ordinal) ||
-                !string.Equals(a[i].Value, b[i].Value, StringComparison.Ordinal) ||
-                a[i].Order != b[i].Order)
-                return false;
-        }
-        return true;
-    }
 }
