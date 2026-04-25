@@ -565,31 +565,39 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
         {
             DrawSectionTitle(Loc.Get("Profile.Establishment.Title"));
 
-            // Logo
-            if (_linkedEstablishmentLogo != null)
+            // Logo — drawn in absolute (placeholder if missing), content flows to its right
+            var scale = ImGuiHelpers.GlobalScale;
+            var logoSize = 44f * scale;
+            var logoRounding = 6f * scale;
+            var logoSpacing = 10f * scale;
+            var catIcon = FontAwesomeIcon.Building;
             {
-                float logoSize = 32f;
-                float logoRounding = 4f;
-                var dl = ImGui.GetWindowDrawList();
-                var p = ImGui.GetCursorScreenPos();
-                var textH = ImGui.GetTextLineHeight();
-                var logoY = p.Y + (textH - logoSize) / 2f;
-                dl.AddImageRounded(_linkedEstablishmentLogo.Handle,
-                    new Vector2(p.X, logoY), new Vector2(p.X + logoSize, logoY + logoSize),
-                    Vector2.Zero, Vector2.One, ImGui.ColorConvertFloat4ToU32(Vector4.One), logoRounding);
-                ImGui.Dummy(new Vector2(logoSize, textH));
-                ImGui.SameLine();
+                var pScreen = ImGui.GetCursorScreenPos();
+                var pLocal = ImGui.GetCursorPos();
+                if (_linkedEstablishmentLogo != null)
+                {
+                    ImGui.GetWindowDrawList().AddImageRounded(_linkedEstablishmentLogo.Handle,
+                        pScreen, pScreen + new Vector2(logoSize, logoSize),
+                        Vector2.Zero, Vector2.One, ImGui.ColorConvertFloat4ToU32(Vector4.One), logoRounding);
+                }
+                else
+                {
+                    UiSharedService.DrawLogoPlaceholder(pScreen, logoSize, logoRounding, catIcon);
+                }
+                ImGui.SetCursorPos(new Vector2(pLocal.X + logoSize + logoSpacing, pLocal.Y));
             }
 
-            _uiSharedService.BigText(_linkedEstablishment.Name);
-            ImGui.TextColored(UiSharedService.AccentColor, $"[{catName}]");
+            _uiSharedService.BigText(UiSharedService.SanitizeOneLine(_linkedEstablishment.Name));
 
-            if (!string.IsNullOrEmpty(_linkedEstablishment.Description))
+            ImGui.SetCursorPosX(logoSize + logoSpacing);
+            UiSharedService.DrawCategoryPill(catName);
+
+            var desc = UiSharedService.SanitizeOneLine(_linkedEstablishment.Description);
+            if (!string.IsNullOrEmpty(desc))
             {
-                ImGui.SameLine();
-                ImGui.TextDisabled(_linkedEstablishment.Description.Length > 60
-                    ? _linkedEstablishment.Description[..60] + "..."
-                    : _linkedEstablishment.Description);
+                var descMaxX = ImGui.GetWindowContentRegionMax().X - 4f * scale;
+                var descAvail = MathF.Max(40f, descMaxX - ImGui.GetCursorPosX());
+                ImGui.TextDisabled(UiSharedService.TruncateToWidth(desc, descAvail));
             }
 
             ImGuiHelpers.ScaledDummy(2f);

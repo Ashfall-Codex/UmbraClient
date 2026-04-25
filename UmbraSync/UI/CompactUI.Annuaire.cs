@@ -264,6 +264,7 @@ public partial class CompactUi
             return;
         }
 
+        // Server-side ordering is applied in EstablishmentList (alphabetical by Name)
         foreach (var e in _annuaireResults.Establishments)
             DrawAnnuaireCard(e);
 
@@ -290,7 +291,7 @@ public partial class CompactUi
 
         if (_annuaireBookmarkResults != null)
         {
-            foreach (var establishment in _annuaireBookmarkResults)
+            foreach (var establishment in _annuaireBookmarkResults.OrderBy(x => x.Name, StringComparer.InvariantCultureIgnoreCase))
                 DrawAnnuaireCard(establishment);
         }
     }
@@ -340,7 +341,7 @@ public partial class CompactUi
             return;
         }
 
-        foreach (var e in _annuaireOwned)
+        foreach (var e in _annuaireOwned.OrderBy(x => x.Name, StringComparer.InvariantCultureIgnoreCase))
             DrawAnnuaireCard(e);
     }
 
@@ -353,17 +354,31 @@ public partial class CompactUi
         var catIcon = catIndex >= 0 && catIndex < AnnuaireCategoryIcons.Length ? AnnuaireCategoryIcons[catIndex] : FontAwesomeIcon.QuestionCircle;
         var catName = catIndex >= 0 && catIndex < AnnuaireCategoryNames.Length ? AnnuaireCategoryNames[catIndex] : "?";
 
+        var scale = ImGuiHelpers.GlobalScale;
+        var logoSize = 44f * scale;
+        var logoRounding = 6f * scale;
+        var logoSpacing = 10f * scale;
         var cardWidth = ImGui.GetContentRegionAvail().X;
-        var cardHeight = 58f;
+        var cardHeight = 76f * scale;
+
+        // Hover detection on the card area for a subtle highlight
+        var cardStartScreen = ImGui.GetCursorScreenPos();
+        var cardRectMax = cardStartScreen + new Vector2(cardWidth, cardHeight);
+        var hovered = ImGui.IsMouseHoveringRect(cardStartScreen, cardRectMax);
+        var bgColor = hovered
+            ? new Vector4(UiSharedService.AccentColor.X, UiSharedService.AccentColor.Y, UiSharedService.AccentColor.Z, 0.07f)
+            : new Vector4(0f, 0f, 0f, 0f);
+        using var pushBg = ImRaii.PushColor(ImGuiCol.ChildBg, bgColor);
+
         using (var card = ImRaii.Child($"##annCard_{establishment.Id}", new Vector2(cardWidth, cardHeight), true,
             ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse))
         {
             if (card)
             {
-                // Logo thumbnail if available
+                IDalamudTextureWrap? logoTex = null;
                 if (establishment.LogoImageBase64 is { Length: > 0 })
                 {
-                    if (!_annuaireLogoCache.TryGetValue(establishment.Id, out var logoTex))
+                    if (!_annuaireLogoCache.TryGetValue(establishment.Id, out logoTex))
                     {
                         try
                         {
@@ -372,45 +387,43 @@ public partial class CompactUi
                         }
                         catch { /* ignore */ }
                     }
+                }
+
+                // Vertical centering: estimate the two-line content block height and center it
+                var lineH = ImGui.GetTextLineHeight();
+                var bigLineH = lineH * 1.45f; // BigText is ~1.45x text line
+                var spacingY = ImGui.GetStyle().ItemSpacing.Y;
+                var contentH = bigLineH + spacingY + lineH;
+                var innerH = ImGui.GetWindowHeight();
+                var contentY = MathF.Max(0f, (innerH - contentH) / 2f);
+
+                // Draw logo or placeholder (vertically centered against inner height)
+                {
+                    var pScreen = ImGui.GetCursorScreenPos();
+                    var logoY = pScreen.Y + MathF.Max(0f, (innerH - logoSize) / 2f);
+                    var logoMin = new Vector2(pScreen.X, logoY);
                     if (logoTex != null)
                     {
-                        float logoSize = 24f;
-                        float logoRounding = 4f;
-                        var dl = ImGui.GetWindowDrawList();
-                        var p = ImGui.GetCursorScreenPos();
-                        var textH = ImGui.GetTextLineHeight();
-                        var logoY = p.Y + (textH - logoSize) / 2f;
-                        var logoMin = new Vector2(p.X, logoY);
-                        dl.AddImageRounded(logoTex.Handle, logoMin, logoMin + new Vector2(logoSize, logoSize),
+                        ImGui.GetWindowDrawList().AddImageRounded(logoTex.Handle, logoMin,
+                            logoMin + new Vector2(logoSize, logoSize),
                             Vector2.Zero, Vector2.One, ImGui.ColorConvertFloat4ToU32(Vector4.One), logoRounding);
-                        ImGui.Dummy(new Vector2(logoSize, textH));
-                        ImGui.SameLine();
                     }
                     else
                     {
-                        using (ImRaii.PushFont(UiBuilder.IconFont))
-                            ImGui.TextColored(UiSharedService.AccentColor, catIcon.ToIconString());
-                        ImGui.SameLine();
+                        UiSharedService.DrawLogoPlaceholder(logoMin, logoSize, logoRounding, catIcon);
                     }
                 }
-                else
-                {
-                    using (ImRaii.PushFont(UiBuilder.IconFont))
-                        ImGui.TextColored(UiSharedService.AccentColor, catIcon.ToIconString());
-                    ImGui.SameLine();
-                }
 
+                ImGui.SetCursorPos(new Vector2(logoSize + logoSpacing, contentY));
                 _uiSharedService.BigText(establishment.Name);
 
-                // Right-aligned buttons — reserve space before placing
+                // Right-aligned buttons on the title line
                 var starSize = _uiSharedService.GetIconButtonSize(FontAwesomeIcon.Star);
                 var eyeSize = _uiSharedService.GetIconButtonSize(FontAwesomeIcon.Eye);
                 var buttonsWidth = starSize.X + eyeSize.X + ImGui.GetStyle().ItemSpacing.X * 2;
                 var availX = ImGui.GetContentRegionAvail().X;
                 if (availX > buttonsWidth)
-                {
                     ImGui.SameLine(ImGui.GetWindowContentRegionMax().X - buttonsWidth);
-                }
 
                 if (_uiSharedService.IconButton(isBookmarked ? FontAwesomeIcon.Star : FontAwesomeIcon.StarHalfAlt))
                 {
@@ -429,21 +442,17 @@ public partial class CompactUi
                     Mediator.Publish(new OpenEstablishmentDetailMessage(establishment.Id));
                 UiSharedService.AttachToolTip(Loc.Get("Establishment.Directory.ViewDetail"));
 
-                // Row 2: [Category] + Description or owner
-                ImGui.TextColored(UiSharedService.AccentColor, $"[{catName}]");
-                ImGui.SameLine();
-                if (!string.IsNullOrEmpty(establishment.Description))
-                {
-                    var desc = establishment.Description.Length > 70
-                        ? establishment.Description[..70] + "..."
-                        : establishment.Description;
-                    ImGui.TextDisabled(desc);
-                }
-                else
-                {
-                    var owner = establishment.OwnerAlias ?? establishment.OwnerUID;
-                    ImGui.TextDisabled($"par {owner}");
-                }
+                // Row 2: pill + single-line description
+                ImGui.SetCursorPosX(logoSize + logoSpacing);
+                UiSharedService.DrawCategoryPill(catName);
+
+                var desc = UiSharedService.SanitizeOneLine(establishment.Description);
+                if (string.IsNullOrEmpty(desc))
+                    desc = $"par {establishment.OwnerAlias ?? establishment.OwnerUID}";
+
+                var descMaxX = ImGui.GetWindowContentRegionMax().X - 4f * scale;
+                var descAvail = MathF.Max(40f, descMaxX - ImGui.GetCursorPosX());
+                ImGui.TextDisabled(UiSharedService.TruncateToWidth(desc, descAvail));
             }
         }
 
@@ -954,13 +963,17 @@ public partial class CompactUi
         var catIndex = establishment.Category;
         var catIcon = catIndex >= 0 && catIndex < AnnuaireCategoryIcons.Length ? AnnuaireCategoryIcons[catIndex] : FontAwesomeIcon.QuestionCircle;
 
+        var scale = ImGuiHelpers.GlobalScale;
+        var upcLogoSize = 44f * scale;
+        var upcLogoRounding = 6f * scale;
+        var upcLogoSpacing = 10f * scale;
+
         UiSharedService.DrawCard($"upc_{evt.Id}", () =>
         {
-            // Logo or category icon
-            var hasUpcomingLogo = false;
+            IDalamudTextureWrap? logoTex = null;
             if (establishment.LogoImageBase64 is { Length: > 0 })
             {
-                if (!_annuaireLogoCache.TryGetValue(establishment.Id, out var logoTex))
+                if (!_annuaireLogoCache.TryGetValue(establishment.Id, out logoTex))
                 {
                     try
                     {
@@ -969,29 +982,33 @@ public partial class CompactUi
                     }
                     catch { /* ignore */ }
                 }
+            }
+
+            // Estimate a 2-line content block; vertically center the logo against it
+            var lineH = ImGui.GetTextLineHeight();
+            var spacingY = ImGui.GetStyle().ItemSpacing.Y;
+            var contentH = lineH * 2 + spacingY;
+            var blockH = MathF.Max(contentH, logoTex != null ? upcLogoSize : 0f);
+            var contentYOffset = MathF.Max(0f, (blockH - contentH) / 2f);
+
+            {
+                var pScreen = ImGui.GetCursorScreenPos();
+                var pLocal = ImGui.GetCursorPos();
+                var logoY = pScreen.Y + MathF.Max(0f, (blockH - upcLogoSize) / 2f);
+                var logoMin = new Vector2(pScreen.X, logoY);
                 if (logoTex != null)
                 {
-                    float logoSize = 24f;
-                    float logoRounding = 4f;
-                    var dl = ImGui.GetWindowDrawList();
-                    var p = ImGui.GetCursorScreenPos();
-                    var textH = ImGui.GetTextLineHeight();
-                    var logoY = p.Y + (textH - logoSize) / 2f;
-                    var logoMin = new Vector2(p.X, logoY);
-                    dl.AddImageRounded(logoTex.Handle, logoMin, logoMin + new Vector2(logoSize, logoSize),
-                        Vector2.Zero, Vector2.One, ImGui.ColorConvertFloat4ToU32(Vector4.One), logoRounding);
-                    ImGui.Dummy(new Vector2(logoSize, textH));
-                    ImGui.SameLine();
-                    hasUpcomingLogo = true;
+                    ImGui.GetWindowDrawList().AddImageRounded(logoTex.Handle, logoMin,
+                        logoMin + new Vector2(upcLogoSize, upcLogoSize),
+                        Vector2.Zero, Vector2.One, ImGui.ColorConvertFloat4ToU32(Vector4.One), upcLogoRounding);
                 }
+                else
+                {
+                    UiSharedService.DrawLogoPlaceholder(logoMin, upcLogoSize, upcLogoRounding, catIcon);
+                }
+                ImGui.SetCursorPos(new Vector2(pLocal.X + upcLogoSize + upcLogoSpacing, pLocal.Y + contentYOffset));
             }
-            if (!hasUpcomingLogo)
-            {
-                using (ImRaii.PushFont(UiBuilder.IconFont))
-                    ImGui.TextColored(UiSharedService.AccentColor, catIcon.ToIconString());
-                ImGui.SameLine();
-            }
-            ImGui.TextUnformatted(establishment.Name);
+            ImGui.TextUnformatted(UiSharedService.SanitizeOneLine(establishment.Name));
 
             var localTime = evt.StartsAtUtc.ToLocalTime();
             var dayOfWeek = _dayNames[(int)localTime.DayOfWeek == 0 ? 6 : (int)localTime.DayOfWeek - 1];
@@ -1013,7 +1030,12 @@ public partial class CompactUi
                 Mediator.Publish(new OpenEstablishmentDetailMessage(establishment.Id));
             UiSharedService.AttachToolTip(Loc.Get("Establishment.Directory.ViewDetail"));
 
-            UiSharedService.ColorText(evt.Title, new Vector4(1f, 0.9f, 0.6f, 1f));
+            if (logoTex != null)
+                ImGui.SetCursorPosX(upcLogoSize + upcLogoSpacing);
+            var title = UiSharedService.SanitizeOneLine(evt.Title);
+            var titleMaxX = ImGui.GetWindowContentRegionMax().X - 4f * scale;
+            var titleAvail = MathF.Max(40f, titleMaxX - ImGui.GetCursorPosX());
+            UiSharedService.ColorText(UiSharedService.TruncateToWidth(title, titleAvail), new Vector4(1f, 0.9f, 0.6f, 1f));
         }, stretchWidth: true);
 
         ImGui.PopID();

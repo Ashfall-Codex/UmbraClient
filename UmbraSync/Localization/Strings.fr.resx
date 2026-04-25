@@ -5559,7 +5559,7 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
     <value>Parcelle (Plot)</value>
   </data>
   <data name="Establishment.Location.Subdivision" xml:space="preserve">
-    <value>Subdivision (parcelles 31-60)</value>
+    <value>Annexe (parcelles 31-60)</value>
   </data>
   <data name="Establishment.Location.Main" xml:space="preserve">
     <value>Principal (parcelles 1-30)</value>
@@ -5726,13 +5726,25 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
     <value>Ponctuel</value>
   </data>
   <data name="Establishment.Event.Recurrence.Daily" xml:space="preserve">
-    <value>Quotidien</value>
+    <value>Tous les jours</value>
   </data>
   <data name="Establishment.Event.Recurrence.Weekly" xml:space="preserve">
-    <value>Hebdomadaire</value>
+    <value>Toutes les semaines</value>
   </data>
   <data name="Establishment.Event.Recurrence.Monthly" xml:space="preserve">
-    <value>Mensuel</value>
+    <value>Tous les mois</value>
+  </data>
+  <data name="Establishment.Event.Recurrence.Biweekly" xml:space="preserve">
+    <value>Toutes les 2 semaines</value>
+  </data>
+  <data name="Establishment.Event.Recurrence.Bimonthly" xml:space="preserve">
+    <value>Tous les 2 mois</value>
+  </data>
+  <data name="Establishment.Event.Recurrence.Quarterly" xml:space="preserve">
+    <value>Tous les 3 mois</value>
+  </data>
+  <data name="Establishment.Event.Recurrence.Yearly" xml:space="preserve">
+    <value>Tous les ans</value>
   </data>
   <!-- Establishment Detail -->
   <data name="Establishment.Detail.Loading" xml:space="preserve">
@@ -5786,8 +5798,11 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
   <data name="Establishment.Detail.Ward" xml:space="preserve">
     <value>Secteur {0}, Parcelle {1}</value>
   </data>
+  <data name="Establishment.Detail.Apartment" xml:space="preserve">
+    <value>Secteur {0}, Appartement {1}</value>
+  </data>
   <data name="Establishment.Detail.Subdivision" xml:space="preserve">
-    <value>(Subdivision)</value>
+    <value>(Annexe)</value>
   </data>
   <!-- Honorific -->
   <data name="EditProfile.Honorific.Section" xml:space="preserve">

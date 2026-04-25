@@ -230,36 +230,39 @@ internal class EstablishmentRegistrationUi : WindowMediatorSubscriberBase
             DrawImagePlaceholder(imgSize, imgSize, imgRounding, FontAwesomeIcon.UserCircle);
         }
 
-        if (_uiSharedService.IconTextButton(FontAwesomeIcon.Upload, Loc.Get("Establishment.Image.Upload")))
+        using (ImRaii.PushId("uploadLogo"))
         {
-            _fileDialogManager.OpenFileDialog(
-                Loc.Get("Establishment.Image.ChooseLogo"),
-                "Image files{.png,.jpg,.jpeg}",
-                (success, name) =>
-                {
-                    if (!success) return;
-                    _ = Task.Run(async () =>
+            if (_uiSharedService.IconTextButton(FontAwesomeIcon.Upload, Loc.Get("Establishment.Image.Upload")))
+            {
+                _fileDialogManager.OpenFileDialog(
+                    Loc.Get("Establishment.Image.ChooseLogo"),
+                    "Image files{.png,.jpg,.jpeg}",
+                    (success, name) =>
                     {
-                        try
+                        if (!success) return;
+                        _ = Task.Run(async () =>
                         {
-                            var bytes = await File.ReadAllBytesAsync(name).ConfigureAwait(false);
-                            if (bytes.Length > 2 * 1024 * 1024)
+                            try
                             {
-                                _imageMessage = Loc.Get("Establishment.Image.TooLarge");
-                                return;
+                                var bytes = await File.ReadAllBytesAsync(name).ConfigureAwait(false);
+                                if (bytes.Length > 2 * 1024 * 1024)
+                                {
+                                    _imageMessage = Loc.Get("Establishment.Image.TooLarge");
+                                    return;
+                                }
+                                _imageMessage = null;
+                                _logoImageBytes = bytes;
+                                _logoTexture?.Dispose();
+                                _logoTexture = _uiSharedService.LoadImage(bytes);
                             }
-                            _imageMessage = null;
-                            _logoImageBytes = bytes;
-                            _logoTexture?.Dispose();
-                            _logoTexture = _uiSharedService.LoadImage(bytes);
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogWarning(ex, "Error loading logo image");
-                            _imageMessage = Loc.Get("Establishment.Image.LoadError");
-                        }
+                            catch (Exception ex)
+                            {
+                                _logger.LogWarning(ex, "Error loading logo image");
+                                _imageMessage = Loc.Get("Establishment.Image.LoadError");
+                            }
+                        });
                     });
-                });
+            }
         }
         ImGui.SameLine();
         using (ImRaii.Disabled(_logoImageBytes.Length == 0))
@@ -300,36 +303,39 @@ internal class EstablishmentRegistrationUi : WindowMediatorSubscriberBase
             DrawImagePlaceholder(availWidth, 60f * ImGuiHelpers.GlobalScale, bannerRounding, FontAwesomeIcon.Image);
         }
 
-        if (_uiSharedService.IconTextButton(FontAwesomeIcon.Upload, Loc.Get("Establishment.Image.Upload")))
+        using (ImRaii.PushId("uploadBanner"))
         {
-            _fileDialogManager.OpenFileDialog(
-                Loc.Get("Establishment.Image.ChooseBanner"),
-                "Image files{.png,.jpg,.jpeg}",
-                (success, name) =>
-                {
-                    if (!success) return;
-                    _ = Task.Run(async () =>
+            if (_uiSharedService.IconTextButton(FontAwesomeIcon.Upload, Loc.Get("Establishment.Image.Upload")))
+            {
+                _fileDialogManager.OpenFileDialog(
+                    Loc.Get("Establishment.Image.ChooseBanner"),
+                    "Image files{.png,.jpg,.jpeg}",
+                    (success, name) =>
                     {
-                        try
+                        if (!success) return;
+                        _ = Task.Run(async () =>
                         {
-                            var bytes = await File.ReadAllBytesAsync(name).ConfigureAwait(false);
-                            if (bytes.Length > 2 * 1024 * 1024)
+                            try
                             {
-                                _imageMessage = Loc.Get("Establishment.Image.TooLarge");
-                                return;
+                                var bytes = await File.ReadAllBytesAsync(name).ConfigureAwait(false);
+                                if (bytes.Length > 2 * 1024 * 1024)
+                                {
+                                    _imageMessage = Loc.Get("Establishment.Image.TooLarge");
+                                    return;
+                                }
+                                _imageMessage = null;
+                                _bannerImageBytes = bytes;
+                                _bannerTexture?.Dispose();
+                                _bannerTexture = _uiSharedService.LoadImage(bytes);
                             }
-                            _imageMessage = null;
-                            _bannerImageBytes = bytes;
-                            _bannerTexture?.Dispose();
-                            _bannerTexture = _uiSharedService.LoadImage(bytes);
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogWarning(ex, "Error loading banner image");
-                            _imageMessage = Loc.Get("Establishment.Image.LoadError");
-                        }
+                            catch (Exception ex)
+                            {
+                                _logger.LogWarning(ex, "Error loading banner image");
+                                _imageMessage = Loc.Get("Establishment.Image.LoadError");
+                            }
+                        });
                     });
-                });
+            }
         }
         ImGui.SameLine();
         using (ImRaii.Disabled(_bannerImageBytes.Length == 0))

@@ -323,6 +323,76 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
         TextWrapped(text, wrapPos);
     }
 
+    public static string SanitizeOneLine(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return string.Empty;
+        var s = text.Replace('\r', ' ').Replace('\n', ' ').Replace('\t', ' ');
+        while (s.Contains("  ", StringComparison.Ordinal))
+            s = s.Replace("  ", " ", StringComparison.Ordinal);
+        return s.Trim();
+    }
+
+    public static string TruncateToWidth(string text, float maxWidth)
+    {
+        if (string.IsNullOrEmpty(text) || ImGui.CalcTextSize(text).X <= maxWidth) return text;
+        var ellipsis = "...";
+        var ellipsisW = ImGui.CalcTextSize(ellipsis).X;
+        var lo = 0;
+        var hi = text.Length;
+        while (lo < hi)
+        {
+            var mid = (lo + hi + 1) / 2;
+            if (ImGui.CalcTextSize(text[..mid]).X + ellipsisW <= maxWidth) lo = mid;
+            else hi = mid - 1;
+        }
+        return lo > 0 ? text[..lo].TrimEnd() + ellipsis : ellipsis;
+    }
+
+    public static void DrawLogoPlaceholder(Vector2 topLeft, float size, float rounding, FontAwesomeIcon icon)
+    {
+        var dl = ImGui.GetWindowDrawList();
+        var bg = AccentColor;
+        bg.W = 0.18f;
+        var border = AccentColor;
+        border.W = 0.55f;
+        var max = topLeft + new Vector2(size, size);
+        dl.AddRectFilled(topLeft, max, ImGui.ColorConvertFloat4ToU32(bg), rounding);
+        dl.AddRect(topLeft, max, ImGui.ColorConvertFloat4ToU32(border), rounding);
+
+        var savedCursor = ImGui.GetCursorScreenPos();
+        using (ImRaii.PushFont(UiBuilder.IconFont))
+        {
+            var iconStr = icon.ToIconString();
+            var iconSize = ImGui.CalcTextSize(iconStr);
+            var center = topLeft + new Vector2(size, size) * 0.5f;
+            ImGui.SetCursorScreenPos(center - iconSize * 0.5f);
+            ImGui.TextColored(AccentColor, iconStr);
+        }
+        ImGui.SetCursorScreenPos(savedCursor);
+    }
+
+    public static void DrawCategoryPill(string catName)
+    {
+        var padX = 6f * ImGuiHelpers.GlobalScale;
+        var padY = 1f * ImGuiHelpers.GlobalScale;
+        var textSize = ImGui.CalcTextSize(catName);
+        var pillSize = new Vector2(textSize.X + padX * 2, textSize.Y + padY * 2);
+        var dl = ImGui.GetWindowDrawList();
+        var min = ImGui.GetCursorScreenPos();
+        var max = min + pillSize;
+        var bg = AccentColor;
+        bg.W = 0.18f;
+        var border = AccentColor;
+        border.W = 0.55f;
+        var rounding = 4f * ImGuiHelpers.GlobalScale;
+        dl.AddRectFilled(min, max, ImGui.ColorConvertFloat4ToU32(bg), rounding);
+        dl.AddRect(min, max, ImGui.ColorConvertFloat4ToU32(border), rounding);
+        ImGui.SetCursorScreenPos(min + new Vector2(padX, padY));
+        ImGui.TextColored(AccentColor, catName);
+        ImGui.SameLine();
+        ImGui.SetCursorScreenPos(new Vector2(max.X + ImGui.GetStyle().ItemSpacing.X, min.Y + padY));
+    }
+
     public static Vector4 HexToVector4(string hex)
     {
         if (string.IsNullOrEmpty(hex)) return AccentColor;

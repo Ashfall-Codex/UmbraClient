@@ -5824,6 +5824,18 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
   <data name="Establishment.Event.Recurrence.Monthly" xml:space="preserve">
     <value>Monthly</value>
   </data>
+  <data name="Establishment.Event.Recurrence.Biweekly" xml:space="preserve">
+    <value>Every 2 weeks</value>
+  </data>
+  <data name="Establishment.Event.Recurrence.Bimonthly" xml:space="preserve">
+    <value>Every 2 months</value>
+  </data>
+  <data name="Establishment.Event.Recurrence.Quarterly" xml:space="preserve">
+    <value>Every 3 months</value>
+  </data>
+  <data name="Establishment.Event.Recurrence.Yearly" xml:space="preserve">
+    <value>Yearly</value>
+  </data>
   <!-- Establishment Detail -->
   <data name="Establishment.Detail.Loading" xml:space="preserve">
     <value>Loading...</value>
@@ -5875,6 +5887,9 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
   </data>
   <data name="Establishment.Detail.Ward" xml:space="preserve">
     <value>Ward {0}, Plot {1}</value>
+  </data>
+  <data name="Establishment.Detail.Apartment" xml:space="preserve">
+    <value>Ward {0}, Apartment {1}</value>
   </data>
   <data name="Establishment.Detail.Subdivision" xml:space="preserve">
     <value>(Subdivision)</value>
