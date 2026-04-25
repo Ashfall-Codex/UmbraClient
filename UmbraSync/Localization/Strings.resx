@@ -3122,6 +3122,12 @@ Note: Weapons will not be displayed correctly unless using the same job as the s
   <data name="Settings.RpNamesInChat" xml:space="preserve">
     <value>Display RP names in chat</value>
   </data>
+  <data name="Settings.ChatIcon.Self" xml:space="preserve">
+    <value>Display my RP icon in chat</value>
+  </data>
+  <data name="Settings.ChatIcon.Others" xml:space="preserve">
+    <value>Display other players' RP icons in chat</value>
+  </data>
   <data name="Settings.RpNameColors" xml:space="preserve">
     <value>Display RP name colors</value>
   </data>
@@ -4428,6 +4434,48 @@ Note: Weapons will not be displayed correctly unless using the same job as the s
   </data>
   <data name="UserProfile.RpAge" xml:space="preserve">
     <value>Age</value>
+  </data>
+  <data name="UserProfile.RpLevel" xml:space="preserve">
+    <value>RP level</value>
+  </data>
+  <data name="UserProfile.RpLevel.Unset" xml:space="preserve">
+    <value>Not specified</value>
+  </data>
+  <data name="UserProfile.RpLevel.Beginner" xml:space="preserve">
+    <value>Beginner</value>
+  </data>
+  <data name="UserProfile.RpLevel.Regular" xml:space="preserve">
+    <value>Regular</value>
+  </data>
+  <data name="UserProfile.RpLevel.Mentor" xml:space="preserve">
+    <value>Mentor</value>
+  </data>
+  <data name="UserProfile.RpLevel.Unset.Tooltip" xml:space="preserve">
+    <value>RP level not specified.</value>
+  </data>
+  <data name="UserProfile.RpLevel.Beginner.Tooltip" xml:space="preserve">
+    <value>Discovering RP. Don't hesitate to ask others for advice.</value>
+  </data>
+  <data name="UserProfile.RpLevel.Regular.Tooltip" xml:space="preserve">
+    <value>Practices RP regularly and is comfortable with it.</value>
+  </data>
+  <data name="UserProfile.RpLevel.Mentor.Tooltip" xml:space="preserve">
+    <value>Experienced player, willing to help and guide newcomers.</value>
+  </data>
+  <data name="Profile.ChatIcon.Label" xml:space="preserve">
+    <value>Chat icon (displayed before the name)</value>
+  </data>
+  <data name="Profile.ChatIcon.None" xml:space="preserve">
+    <value>None</value>
+  </data>
+  <data name="Profile.ChatIcon.Search" xml:space="preserve">
+    <value>Search</value>
+  </data>
+  <data name="Profile.ChatIcon.Clear" xml:space="preserve">
+    <value>Clear</value>
+  </data>
+  <data name="Profile.ChatIcon.LimitationWarning" xml:space="preserve">
+    <value>Current technical limitation: the RP icon replaces the system icon (job/role) configured in FFXIV settings for messages where your RP name is displayed.</value>
   </data>
   <data name="UserProfile.RpRace" xml:space="preserve">
     <value>Race</value>

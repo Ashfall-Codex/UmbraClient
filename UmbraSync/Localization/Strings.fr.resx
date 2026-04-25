@@ -3023,6 +3023,12 @@ Note : Les armes ne s'afficheront pas correctement sauf si vous utilisez le m&#x
   <data name="Settings.RpNamesInChat" xml:space="preserve">
     <value>Afficher les noms RP dans le chat</value>
   </data>
+  <data name="Settings.ChatIcon.Self" xml:space="preserve">
+    <value>Afficher mon icône RP dans le tchat</value>
+  </data>
+  <data name="Settings.ChatIcon.Others" xml:space="preserve">
+    <value>Afficher l'icône RP des autres dans le tchat</value>
+  </data>
   <data name="Settings.RpNameColors" xml:space="preserve">
     <value>Afficher les couleurs des noms RP</value>
   </data>
@@ -4329,6 +4335,48 @@ Note : Les armes ne s'afficheront pas correctement sauf si vous utilisez le m&#x
   </data>
   <data name="UserProfile.RpAge" xml:space="preserve">
     <value>Âge</value>
+  </data>
+  <data name="UserProfile.RpLevel" xml:space="preserve">
+    <value>Niveau de RP</value>
+  </data>
+  <data name="UserProfile.RpLevel.Unset" xml:space="preserve">
+    <value>Non précisé</value>
+  </data>
+  <data name="UserProfile.RpLevel.Beginner" xml:space="preserve">
+    <value>Débutant</value>
+  </data>
+  <data name="UserProfile.RpLevel.Regular" xml:space="preserve">
+    <value>Régulier</value>
+  </data>
+  <data name="UserProfile.RpLevel.Mentor" xml:space="preserve">
+    <value>Mentor</value>
+  </data>
+  <data name="UserProfile.RpLevel.Unset.Tooltip" xml:space="preserve">
+    <value>Niveau de RP non précisé.</value>
+  </data>
+  <data name="UserProfile.RpLevel.Beginner.Tooltip" xml:space="preserve">
+    <value>Découvre le RP. N'hésitez pas à demander conseil aux autres.</value>
+  </data>
+  <data name="UserProfile.RpLevel.Regular.Tooltip" xml:space="preserve">
+    <value>Pratique le RP régulièrement et est à l'aise avec.</value>
+  </data>
+  <data name="UserProfile.RpLevel.Mentor.Tooltip" xml:space="preserve">
+    <value>Joueur expérimenté, disposé à aider et initier les nouveaux.</value>
+  </data>
+  <data name="Profile.ChatIcon.Label" xml:space="preserve">
+    <value>Icône affichée dans le tchat (avant le nom)</value>
+  </data>
+  <data name="Profile.ChatIcon.None" xml:space="preserve">
+    <value>Aucune</value>
+  </data>
+  <data name="Profile.ChatIcon.Search" xml:space="preserve">
+    <value>Rechercher</value>
+  </data>
+  <data name="Profile.ChatIcon.Clear" xml:space="preserve">
+    <value>Effacer</value>
+  </data>
+  <data name="Profile.ChatIcon.LimitationWarning" xml:space="preserve">
+    <value>Limitation technique actuelle : l'icône remplace l'icône système (job/rôle) configurée dans les réglages.</value>
   </data>
   <data name="UserProfile.RpRace" xml:space="preserve">
     <value>Race</value>

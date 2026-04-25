@@ -33,6 +33,9 @@ public class MareConfig : IMareConfiguration
     public bool DisableNameplatesInDuty { get; set; } = true;
     public bool UseRpNamesInChat { get; set; }
     public bool DisableRpNamesInChatInDuty { get; set; } = true;
+    public bool UseChatIconForSelf { get; set; } = true;
+    public bool UseChatIconForOthers { get; set; } = true;
+    public bool DisableChatIconInDuty { get; set; } = true;
     public bool UseRpNameColors { get; set; } = true;
     public bool DisableRpNameColorsInDuty { get; set; } = true;
     public bool RespectExternalNameColors { get; set; }

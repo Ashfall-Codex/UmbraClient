@@ -34,5 +34,6 @@ public class CharacterRpProfile
     public long MoodlesBackupTimestamp { get; set; } = 0;
     public string HonorificBackupJson { get; set; } = string.Empty;
     public long HonorificBackupTimestamp { get; set; } = 0;
-    public uint ProfileIconId { get; set; } = 0;
+    public ushort ChatIcon { get; set; } = 0;
+    public byte RpLevel { get; set; } = 0;
 }

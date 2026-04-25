@@ -69,7 +69,9 @@ public class EditProfileUi : WindowMediatorSubscriberBase
     private bool _vanityModalOpen = false;
     private string _vanityInput = string.Empty;
     private int _activeTab;
-    private readonly ProfileIconPicker _profileIconPicker;
+    private readonly ChatIconPicker _chatIconPicker;
+    private byte _rpLevel;
+    private byte _savedRpLevel;
     private DateTime _saveConfirmTime = DateTime.MinValue;
     private string _savedDescriptionText = string.Empty;
     private string _savedRpFirstNameText = string.Empty;
@@ -118,7 +120,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
         _honorificEditor = new HonorificEditor(logger, ipcManager, dalamudUtil, rpConfigService);
         var statusIcons = new Lazy<List<StatusIconInfo>>(LoadStatusIcons);
         _moodlesEditor = new MoodlesEditor(logger, ipcManager, dalamudUtil, rpConfigService, uiSharedService, dataManager, statusIcons);
-        _profileIconPicker = new ProfileIconPicker(uiSharedService, statusIcons);
+        _chatIconPicker = new ChatIconPicker();
 
         Mediator.Subscribe<GposeStartMessage>(this, (_) => { _wasOpen = IsOpen; IsOpen = false; });
         Mediator.Subscribe<GposeEndMessage>(this, (_) => IsOpen = _wasOpen);
@@ -201,7 +203,8 @@ public class EditProfileUi : WindowMediatorSubscriberBase
                 RpAdditionalInfo: _rpAdditionalInfoText,
                 RpNameColor: UiSharedService.Vector4ToHex(new Vector4(_rpNameColorVec, 1f)),
                 RpCustomFields: _rpCustomFields.Count > 0 ? _rpCustomFields : null,
-                ProfileIconId: _profileIconPicker.IconId
+                ChatIcon: _chatIconPicker.SelectedIcon,
+                RpLevel: _rpLevel
             );
 
             _umbraProfileManager.SetPreviewProfile(pair.UserData, pair.PlayerName, pair.WorldId, previewProfileData);
@@ -323,7 +326,8 @@ public class EditProfileUi : WindowMediatorSubscriberBase
                     .Select(f => new RpCustomField { Name = f.Name, Value = f.Value, Order = f.Order })
                     .ToList();
 
-                _profileIconPicker.IconId = umbraProfile.ProfileIconId > 0 ? umbraProfile.ProfileIconId : configProfile.ProfileIconId;
+                _chatIconPicker.SelectedIcon = umbraProfile.ChatIcon > 0 ? umbraProfile.ChatIcon : configProfile.ChatIcon;
+                _rpLevel = umbraProfile.RpLevel != 0 ? umbraProfile.RpLevel : configProfile.RpLevel;
 
                 var nameColorHex = umbraProfile.RpNameColor ?? string.Empty;
                 if (!string.IsNullOrEmpty(nameColorHex))
@@ -588,7 +592,11 @@ public class EditProfileUi : WindowMediatorSubscriberBase
             ImGui.Separator();
             ImGuiHelpers.ScaledDummy(new Vector2(0f, 4f));
 
-            _profileIconPicker.Draw();
+            _chatIconPicker.Draw();
+
+            ImGuiHelpers.ScaledDummy(new Vector2(0f, 4f));
+
+            DrawRpLevelSelector();
 
             ImGuiHelpers.ScaledDummy(new Vector2(0f, 4f));
             ImGui.Separator();
@@ -910,7 +918,8 @@ public class EditProfileUi : WindowMediatorSubscriberBase
                 profile.RpCustomFields = _rpCustomFields
                     .Select(f => new RpCustomField { Name = f.Name, Value = f.Value, Order = f.Order })
                     .ToList();
-                profile.ProfileIconId = _profileIconPicker.IconId;
+                profile.ChatIcon = _chatIconPicker.SelectedIcon;
+                profile.RpLevel = _rpLevel;
                 _rpConfigService.Save();
             }
 
@@ -952,7 +961,8 @@ public class EditProfileUi : WindowMediatorSubscriberBase
                             RpNameColor = localRpProfile.RpNameColor,
                             RpCustomFields = customFieldsJsonSnapshot,
                             MoodlesData = moodlesDataSnapshot,
-                            ProfileIconId = localRpProfile.ProfileIconId
+                            ChatIcon = localRpProfile.ChatIcon,
+                            RpLevel = localRpProfile.RpLevel
                         }).ConfigureAwait(false);
                     }
                     else
@@ -1039,7 +1049,8 @@ public class EditProfileUi : WindowMediatorSubscriberBase
             {
                 _savedRpCustomFieldsJson = System.Text.Json.JsonSerializer.Serialize(_rpCustomFields);
             }
-            _profileIconPicker.SnapshotSaved();
+            _chatIconPicker.SnapshotSaved();
+            _savedRpLevel = _rpLevel;
             _honorificEditor.SnapshotSaved();
         }
         else
@@ -1070,7 +1081,8 @@ public class EditProfileUi : WindowMediatorSubscriberBase
                     System.Text.Json.JsonSerializer.Serialize(_rpCustomFields),
                     _savedRpCustomFieldsJson, StringComparison.Ordinal)
                 || _honorificEditor.HasUnsavedChanges
-                || _profileIconPicker.HasUnsavedChanges;
+                || _chatIconPicker.HasUnsavedChanges
+                || _rpLevel != _savedRpLevel;
         }
         else
         {
@@ -1115,6 +1127,32 @@ public class EditProfileUi : WindowMediatorSubscriberBase
         {
             _vanityModalOpen = false;
         }
+    }
+
+    private void DrawRpLevelSelector()
+    {
+        ImGui.TextColored(ImGuiColors.DalamudGrey, Loc.Get("UserProfile.RpLevel"));
+
+        var unset = (byte)0;
+        var beginner = (byte)1;
+        var regular = (byte)2;
+        var mentor = (byte)3;
+
+        if (ImGui.RadioButton(Loc.Get("UserProfile.RpLevel.Unset"), _rpLevel == unset))
+            _rpLevel = unset;
+        UiSharedService.AttachToolTip(Loc.Get("UserProfile.RpLevel.Unset.Tooltip"));
+        ImGui.SameLine();
+        if (ImGui.RadioButton(Loc.Get("UserProfile.RpLevel.Beginner"), _rpLevel == beginner))
+            _rpLevel = beginner;
+        UiSharedService.AttachToolTip(Loc.Get("UserProfile.RpLevel.Beginner.Tooltip"));
+        ImGui.SameLine();
+        if (ImGui.RadioButton(Loc.Get("UserProfile.RpLevel.Regular"), _rpLevel == regular))
+            _rpLevel = regular;
+        UiSharedService.AttachToolTip(Loc.Get("UserProfile.RpLevel.Regular.Tooltip"));
+        ImGui.SameLine();
+        if (ImGui.RadioButton(Loc.Get("UserProfile.RpLevel.Mentor"), _rpLevel == mentor))
+            _rpLevel = mentor;
+        UiSharedService.AttachToolTip(Loc.Get("UserProfile.RpLevel.Mentor.Tooltip"));
     }
 
     protected override void Dispose(bool disposing)

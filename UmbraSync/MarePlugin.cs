@@ -169,7 +169,6 @@ public class MarePlugin : MediatorSubscriberBase, IHostedService
             _runtimeServiceScope.ServiceProvider.GetRequiredService<ChatTargetSoundService>();
             _runtimeServiceScope.ServiceProvider.GetRequiredService<ChatTypingDetectionService>();
             _runtimeServiceScope.ServiceProvider.GetRequiredService<GuiHookService>();
-            _runtimeServiceScope.ServiceProvider.GetRequiredService<UmbraSync.Services.Rendering.ProfileNameplateOverlayService>();
             var characterAnalyzer = _runtimeServiceScope.ServiceProvider.GetRequiredService<CharacterAnalyzer>();
             _ = characterAnalyzer.ComputeAnalysis(print: false);
 

@@ -31,7 +31,8 @@ internal class ProfileCacheEntry
     public string? RpNameColor { get; set; }
     public List<RpCustomField>? RpCustomFields { get; set; }
     public string? MoodlesData { get; set; }
-    public uint ProfileIconId { get; set; }
+    public ushort ChatIcon { get; set; }
+    public byte RpLevel { get; set; }
 
     public UmbraProfileData ToProfileData() => new(
         IsFlagged, IsNSFW, Base64ProfilePicture, Description,
@@ -42,7 +43,8 @@ internal class ProfileCacheEntry
         RpAlignment, RpAdditionalInfo, RpNameColor,
         RpCustomFields,
         MoodlesData,
-        ProfileIconId);
+        ChatIcon,
+        RpLevel);
 
     public static ProfileCacheEntry FromProfile(UserData user, string? charName, uint? worldId, UmbraProfileData profile) => new()
     {
@@ -73,6 +75,7 @@ internal class ProfileCacheEntry
         RpNameColor = profile.RpNameColor,
         RpCustomFields = profile.RpCustomFields,
         MoodlesData = profile.MoodlesData,
-        ProfileIconId = profile.ProfileIconId,
+        ChatIcon = profile.ChatIcon,
+        RpLevel = profile.RpLevel,
     };
 }

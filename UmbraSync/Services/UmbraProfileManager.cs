@@ -158,11 +158,10 @@ public class UmbraProfileManager : MediatorSubscriberBase
                 WorldId = worldId
             }).ConfigureAwait(false);
 
-            Logger.LogInformation("Profile response for {uid} (charName={charName}, worldId={worldId}): RpFirstName={first}, RpLastName={last}, RpDesc={desc}, ServerIconId={iconId}",
+            Logger.LogInformation("Profile response for {uid} (charName={charName}, worldId={worldId}): RpFirstName={first}, RpLastName={last}, RpDesc={desc}",
                 data.UID, charName ?? "(null)", worldId?.ToString() ?? "(null)",
                 profile.RpFirstName ?? "(null)", profile.RpLastName ?? "(null)",
-                string.IsNullOrEmpty(profile.RpDescription) ? "(empty)" : "(set)",
-                profile.ProfileIconId?.ToString() ?? "(null)");
+                string.IsNullOrEmpty(profile.RpDescription) ? "(empty)" : "(set)");
 
             if (!string.IsNullOrEmpty(profile.CharacterName))
                 _serverConfigurationManager.SetNameForUid(data.UID, profile.CharacterName);
@@ -193,14 +192,19 @@ public class UmbraProfileManager : MediatorSubscriberBase
             }
 
             bool isSelf = string.Equals(_apiController.UID, data.UID, StringComparison.Ordinal);
-            uint effectiveProfileIconId = profile.ProfileIconId ?? 0;
-            if (isSelf && effectiveProfileIconId == 0 && !string.IsNullOrEmpty(charName) && worldId is > 0)
+
+            // Local fallback for self: if the server returned 0 (e.g. server not yet redeployed,
+            // or transient inconsistency), prefer the locally-cached value from RpConfigService so
+            // the user always sees their own settings reflected in the UI.
+            ushort effectiveChatIcon = profile.ChatIcon ?? 0;
+            byte effectiveRpLevel = profile.RpLevel ?? 0;
+            if (isSelf && !string.IsNullOrEmpty(charName) && worldId is > 0)
             {
                 var localRp = _rpConfigService.GetCharacterProfile(charName, worldId.Value);
-                if (localRp.ProfileIconId != 0)
-                {
-                    effectiveProfileIconId = localRp.ProfileIconId;
-                }
+                if (effectiveChatIcon == 0 && localRp.ChatIcon != 0)
+                    effectiveChatIcon = localRp.ChatIcon;
+                if (effectiveRpLevel == 0 && localRp.RpLevel != 0)
+                    effectiveRpLevel = localRp.RpLevel;
             }
 
             UmbraProfileData profileData = new(profile.Disabled, profile.IsNSFW ?? false,
@@ -213,7 +217,8 @@ public class UmbraProfileManager : MediatorSubscriberBase
                 profile.RpAlignment, profile.RpAdditionalInfo, profile.RpNameColor,
                 customFields,
                 profile.MoodlesData,
-                effectiveProfileIconId);
+                effectiveChatIcon,
+                effectiveRpLevel);
 
             if (_apiController.IsConnected && isSelf && charName != null && worldId != null)
             {
@@ -239,7 +244,6 @@ public class UmbraProfileManager : MediatorSubscriberBase
                 if (localRpProfile.IsRpNsfw != profileData.IsRpNSFW) { localRpProfile.IsRpNsfw = profileData.IsRpNSFW; changed = true; }
                 if (ShouldReplace(localRpProfile.RpProfilePictureBase64, profileData.Base64RpProfilePicture)) { localRpProfile.RpProfilePictureBase64 = profileData.Base64RpProfilePicture!; changed = true; }
                 if (ShouldReplace(localRpProfile.RpNameColor, profileData.RpNameColor)) { localRpProfile.RpNameColor = profileData.RpNameColor!; changed = true; }
-                if (localRpProfile.ProfileIconId == 0 && profileData.ProfileIconId != 0) { localRpProfile.ProfileIconId = profileData.ProfileIconId; changed = true; }
                 var serverCustomFields = profileData.RpCustomFields ?? new List<RpCustomField>();
                 if (localRpProfile.RpCustomFields.Count == 0 && serverCustomFields.Count > 0) { localRpProfile.RpCustomFields = serverCustomFields; changed = true; }
 
@@ -343,7 +347,8 @@ public class UmbraProfileManager : MediatorSubscriberBase
                 profile.RpAlignment, profile.RpAdditionalInfo, profile.RpNameColor,
                 customFields,
                 profile.MoodlesData,
-                profile.ProfileIconId ?? 0);
+                profile.ChatIcon ?? 0,
+                profile.RpLevel ?? 0);
 
             if (!isSelf)
             {

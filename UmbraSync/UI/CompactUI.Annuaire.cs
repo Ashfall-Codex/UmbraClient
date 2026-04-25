@@ -376,17 +376,14 @@ public partial class CompactUi
             if (card)
             {
                 IDalamudTextureWrap? logoTex = null;
-                if (establishment.LogoImageBase64 is { Length: > 0 })
+                if (establishment.LogoImageBase64 is { Length: > 0 } && !_annuaireLogoCache.TryGetValue(establishment.Id, out logoTex))
                 {
-                    if (!_annuaireLogoCache.TryGetValue(establishment.Id, out logoTex))
+                    try
                     {
-                        try
-                        {
-                            logoTex = _uiSharedService.LoadImage(Convert.FromBase64String(establishment.LogoImageBase64));
-                            _annuaireLogoCache[establishment.Id] = logoTex;
-                        }
-                        catch { /* ignore */ }
+                        logoTex = _uiSharedService.LoadImage(Convert.FromBase64String(establishment.LogoImageBase64));
+                        _annuaireLogoCache[establishment.Id] = logoTex;
                     }
+                    catch { /* ignore */ }
                 }
 
                 // Vertical centering: estimate the two-line content block height and center it
@@ -398,20 +395,17 @@ public partial class CompactUi
                 var contentY = MathF.Max(0f, (innerH - contentH) / 2f);
 
                 // Draw logo or placeholder (vertically centered against inner height)
+                var logoScreenPos = ImGui.GetCursorScreenPos();
+                var logoTopLeft = new Vector2(logoScreenPos.X, logoScreenPos.Y + MathF.Max(0f, (innerH - logoSize) / 2f));
+                if (logoTex != null)
                 {
-                    var pScreen = ImGui.GetCursorScreenPos();
-                    var logoY = pScreen.Y + MathF.Max(0f, (innerH - logoSize) / 2f);
-                    var logoMin = new Vector2(pScreen.X, logoY);
-                    if (logoTex != null)
-                    {
-                        ImGui.GetWindowDrawList().AddImageRounded(logoTex.Handle, logoMin,
-                            logoMin + new Vector2(logoSize, logoSize),
-                            Vector2.Zero, Vector2.One, ImGui.ColorConvertFloat4ToU32(Vector4.One), logoRounding);
-                    }
-                    else
-                    {
-                        UiSharedService.DrawLogoPlaceholder(logoMin, logoSize, logoRounding, catIcon);
-                    }
+                    ImGui.GetWindowDrawList().AddImageRounded(logoTex.Handle, logoTopLeft,
+                        logoTopLeft + new Vector2(logoSize, logoSize),
+                        Vector2.Zero, Vector2.One, ImGui.ColorConvertFloat4ToU32(Vector4.One), logoRounding);
+                }
+                else
+                {
+                    UiSharedService.DrawLogoPlaceholder(logoTopLeft, logoSize, logoRounding, catIcon);
                 }
 
                 ImGui.SetCursorPos(new Vector2(logoSize + logoSpacing, contentY));
@@ -782,6 +776,12 @@ public partial class CompactUi
             ImGui.SetCursorPosY(cursorY);
             _uiSharedService.BigText(displayName);
 
+            if (announcement.RpLevel != 0)
+            {
+                ImGui.SameLine();
+                DrawAnnuaireRpLevelInline(announcement.RpLevel);
+            }
+
             var worldText = $"[{worldName}]";
             var worldWidth = ImGui.CalcTextSize(worldText).X;
             var rightPadRow1 = (ImGui.GetStyle().FramePadding.X + 4f * ImGuiHelpers.GlobalScale) * 2f;
@@ -818,6 +818,22 @@ public partial class CompactUi
         }, stretchWidth: true);
 
         ImGui.PopID();
+    }
+
+    private static void DrawAnnuaireRpLevelInline(byte level)
+    {
+        var (label, color, icon) = level switch
+        {
+            1 => (Loc.Get("UserProfile.RpLevel.Beginner"), new Vector4(0.55f, 0.85f, 0.55f, 1f), FontAwesomeIcon.Seedling),
+            2 => (Loc.Get("UserProfile.RpLevel.Regular"), new Vector4(0.55f, 0.75f, 1f, 1f), FontAwesomeIcon.Tree),
+            3 => (Loc.Get("UserProfile.RpLevel.Mentor"), new Vector4(1f, 0.75f, 0.4f, 1f), FontAwesomeIcon.Crown),
+            _ => (string.Empty, ImGuiColors.DalamudGrey, FontAwesomeIcon.None),
+        };
+        if (string.IsNullOrEmpty(label)) return;
+        using (ImRaii.PushFont(UiBuilder.IconFont))
+            ImGui.TextColored(color, icon.ToIconString());
+        ImGui.SameLine(0, 4f * ImGuiHelpers.GlobalScale);
+        ImGui.TextColored(color, label);
     }
 
     private async Task AnnuaireRefreshWildRp()
@@ -971,17 +987,14 @@ public partial class CompactUi
         UiSharedService.DrawCard($"upc_{evt.Id}", () =>
         {
             IDalamudTextureWrap? logoTex = null;
-            if (establishment.LogoImageBase64 is { Length: > 0 })
+            if (establishment.LogoImageBase64 is { Length: > 0 } && !_annuaireLogoCache.TryGetValue(establishment.Id, out logoTex))
             {
-                if (!_annuaireLogoCache.TryGetValue(establishment.Id, out logoTex))
+                try
                 {
-                    try
-                    {
-                        logoTex = _uiSharedService.LoadImage(Convert.FromBase64String(establishment.LogoImageBase64));
-                        _annuaireLogoCache[establishment.Id] = logoTex;
-                    }
-                    catch { /* ignore */ }
+                    logoTex = _uiSharedService.LoadImage(Convert.FromBase64String(establishment.LogoImageBase64));
+                    _annuaireLogoCache[establishment.Id] = logoTex;
                 }
+                catch { /* ignore */ }
             }
 
             // Estimate a 2-line content block; vertically center the logo against it
@@ -991,23 +1004,20 @@ public partial class CompactUi
             var blockH = MathF.Max(contentH, logoTex != null ? upcLogoSize : 0f);
             var contentYOffset = MathF.Max(0f, (blockH - contentH) / 2f);
 
+            var upcScreenPos = ImGui.GetCursorScreenPos();
+            var upcLocalPos = ImGui.GetCursorPos();
+            var upcLogoTopLeft = new Vector2(upcScreenPos.X, upcScreenPos.Y + MathF.Max(0f, (blockH - upcLogoSize) / 2f));
+            if (logoTex != null)
             {
-                var pScreen = ImGui.GetCursorScreenPos();
-                var pLocal = ImGui.GetCursorPos();
-                var logoY = pScreen.Y + MathF.Max(0f, (blockH - upcLogoSize) / 2f);
-                var logoMin = new Vector2(pScreen.X, logoY);
-                if (logoTex != null)
-                {
-                    ImGui.GetWindowDrawList().AddImageRounded(logoTex.Handle, logoMin,
-                        logoMin + new Vector2(upcLogoSize, upcLogoSize),
-                        Vector2.Zero, Vector2.One, ImGui.ColorConvertFloat4ToU32(Vector4.One), upcLogoRounding);
-                }
-                else
-                {
-                    UiSharedService.DrawLogoPlaceholder(logoMin, upcLogoSize, upcLogoRounding, catIcon);
-                }
-                ImGui.SetCursorPos(new Vector2(pLocal.X + upcLogoSize + upcLogoSpacing, pLocal.Y + contentYOffset));
+                ImGui.GetWindowDrawList().AddImageRounded(logoTex.Handle, upcLogoTopLeft,
+                    upcLogoTopLeft + new Vector2(upcLogoSize, upcLogoSize),
+                    Vector2.Zero, Vector2.One, ImGui.ColorConvertFloat4ToU32(Vector4.One), upcLogoRounding);
             }
+            else
+            {
+                UiSharedService.DrawLogoPlaceholder(upcLogoTopLeft, upcLogoSize, upcLogoRounding, catIcon);
+            }
+            ImGui.SetCursorPos(new Vector2(upcLocalPos.X + upcLogoSize + upcLogoSpacing, upcLocalPos.Y + contentYOffset));
             ImGui.TextUnformatted(UiSharedService.SanitizeOneLine(establishment.Name));
 
             var localTime = evt.StartsAtUtc.ToLocalTime();

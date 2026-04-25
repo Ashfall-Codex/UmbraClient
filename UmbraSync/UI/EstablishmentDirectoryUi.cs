@@ -768,6 +768,12 @@ internal class EstablishmentDirectoryUi : WindowMediatorSubscriberBase
             ImGui.SetCursorPosY(cursorY);
             _uiSharedService.BigText(displayName);
 
+            if (announcement.RpLevel != 0)
+            {
+                ImGui.SameLine();
+                DrawRpLevelInline(announcement.RpLevel);
+            }
+
             var worldText = $"[{worldName}]";
             var worldWidth = ImGui.CalcTextSize(worldText).X;
             var rightPadRow1 = (ImGui.GetStyle().FramePadding.X + 4f * ImGuiHelpers.GlobalScale) * 2f;
@@ -926,4 +932,20 @@ internal class EstablishmentDirectoryUi : WindowMediatorSubscriberBase
     }
 
     #endregion
+
+    private static void DrawRpLevelInline(byte level)
+    {
+        var (label, color, icon) = level switch
+        {
+            1 => (Loc.Get("UserProfile.RpLevel.Beginner"), new Vector4(0.55f, 0.85f, 0.55f, 1f), FontAwesomeIcon.Seedling),
+            2 => (Loc.Get("UserProfile.RpLevel.Regular"), new Vector4(0.55f, 0.75f, 1f, 1f), FontAwesomeIcon.Tree),
+            3 => (Loc.Get("UserProfile.RpLevel.Mentor"), new Vector4(1f, 0.75f, 0.4f, 1f), FontAwesomeIcon.Crown),
+            _ => (string.Empty, ImGuiColors.DalamudGrey, FontAwesomeIcon.None),
+        };
+        if (string.IsNullOrEmpty(label)) return;
+        using (ImRaii.PushFont(UiBuilder.IconFont))
+            ImGui.TextColored(color, icon.ToIconString());
+        ImGui.SameLine(0, 4f * ImGuiHelpers.GlobalScale);
+        ImGui.TextColored(color, label);
+    }
 }

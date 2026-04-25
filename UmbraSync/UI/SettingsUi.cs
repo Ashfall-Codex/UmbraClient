@@ -715,6 +715,34 @@ public class SettingsUi : WindowMediatorSubscriberBase
                     _configService.Save();
                 }
                 _uiShared.DrawHelpText(Loc.Get("Settings.DisableInDuty.Help"));
+
+                var useChatIconForSelf = _configService.Current.UseChatIconForSelf;
+                if (ImGui.Checkbox(Loc.Get("Settings.ChatIcon.Self"), ref useChatIconForSelf))
+                {
+                    _configService.Current.UseChatIconForSelf = useChatIconForSelf;
+                    _configService.Save();
+                }
+
+                var useChatIconForOthers = _configService.Current.UseChatIconForOthers;
+                if (ImGui.Checkbox(Loc.Get("Settings.ChatIcon.Others"), ref useChatIconForOthers))
+                {
+                    _configService.Current.UseChatIconForOthers = useChatIconForOthers;
+                    _configService.Save();
+                }
+
+                if (useChatIconForSelf || useChatIconForOthers)
+                {
+                    using (ImRaii.PushIndent())
+                    {
+                        var disableChatIconInDuty = _configService.Current.DisableChatIconInDuty;
+                        if (ImGui.Checkbox(Loc.Get("Settings.DisableInDuty") + "##ChatIcon", ref disableChatIconInDuty))
+                        {
+                            _configService.Current.DisableChatIconInDuty = disableChatIconInDuty;
+                            _configService.Save();
+                        }
+                        _uiShared.DrawHelpText(Loc.Get("Settings.DisableInDuty.Help"));
+                    }
+                }
             }
         }
 

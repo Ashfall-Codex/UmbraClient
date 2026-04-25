@@ -35,13 +35,12 @@ public sealed class TypingIndicatorOverlay : WindowMediatorSubscriberBase
     private readonly DalamudUtilService _dalamudUtil;
     private readonly TypingIndicatorStateService _typingStateService;
     private readonly ApiController _apiController;
-    private readonly UmbraProfileManager _profileManager;
     private readonly Ashfall.Engine.OverlayEngine _engine;
 
     public TypingIndicatorOverlay(ILogger<TypingIndicatorOverlay> logger, MareMediator mediator, PerformanceCollectorService performanceCollectorService,
         MareConfigService configService, IGameGui gameGui, ITextureProvider textureProvider, IClientState clientState,
         IPartyList partyList, IObjectTable objectTable, DalamudUtilService dalamudUtil, PairManager pairManager,
-        TypingIndicatorStateService typingStateService, ApiController apiController, UmbraProfileManager profileManager,
+        TypingIndicatorStateService typingStateService, ApiController apiController,
         Ashfall.Engine.OverlayEngine engine)
         : base(logger, mediator, nameof(TypingIndicatorOverlay), performanceCollectorService)
     {
@@ -56,7 +55,6 @@ public sealed class TypingIndicatorOverlay : WindowMediatorSubscriberBase
         _pairManager = pairManager;
         _typingStateService = typingStateService;
         _apiController = apiController;
-        _profileManager = profileManager;
         _engine = engine;
 
         RespectCloseHotkey = false;
@@ -246,29 +244,6 @@ public sealed class TypingIndicatorOverlay : WindowMediatorSubscriberBase
         return new Vector2(baseSize * scaleX, baseSize * scaleY);
     }
 
-    private bool HasProfileIcon(uint entityId)
-    {
-        if (entityId == 0 || entityId == uint.MaxValue) return false;
-
-        var localPlayer = _objectTable.LocalPlayer;
-        if (localPlayer != null && localPlayer.EntityId == entityId)
-        {
-            var uid = _apiController.UID;
-            if (string.IsNullOrEmpty(uid)) return false;
-            return _profileManager.GetUmbraProfile(new UserData(uid)).ProfileIconId != 0;
-        }
-
-        foreach (var userData in _pairManager.GetVisibleUsers())
-        {
-            var pair = _pairManager.GetPairByUID(userData.UID);
-            if (pair == null || !pair.IsVisible) continue;
-            if (pair.PlayerCharacterId != entityId) continue;
-            return _profileManager.GetUmbraProfile(userData).ProfileIconId != 0;
-        }
-
-        return false;
-    }
-
     private unsafe bool TryDrawNameplateBubble(ImDrawListPtr drawList, IDalamudTextureWrap textureWrap, uint objectId)
     {
         if (textureWrap.Handle == IntPtr.Zero)
@@ -335,9 +310,6 @@ public sealed class TypingIndicatorOverlay : WindowMediatorSubscriberBase
         var iconLocalPosition = new Vector2(iconNode->X, iconNode->Y) * scaleVector;
         var iconDimensions = new Vector2(iconNode->Width, iconNode->Height) * scaleVector;
 
-        // Si icône profil affichée, décalet la bulle.
-        var profileIconPresent = HasProfileIcon(objectId);
-
         var iconPos = rootPosition + iconLocalPosition + new Vector2(iconDimensions.X, 0f);
 
         var iconOffset = new Vector2(distance / 1.5f, distance / 3.5f) * scaleVector;
@@ -349,7 +321,6 @@ public sealed class TypingIndicatorOverlay : WindowMediatorSubscriberBase
         iconPos += iconOffset;
 
         var bubbleSize = GetConfiguredBubbleSize(bubbleScaleFactor, bubbleScaleFactor, true);
-        if (profileIconPresent) iconPos.X += bubbleSize.X + 4f;
 
         if (ShouldSkipByDepth(iconPos + bubbleSize * 0.5f)) return true;
         if (_engine.IsNativeUiOccluded(new Vector4(iconPos.X, iconPos.Y, iconPos.X + bubbleSize.X, iconPos.Y + bubbleSize.Y))) return true;

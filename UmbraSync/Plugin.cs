@@ -275,8 +275,6 @@ public sealed class Plugin : IDalamudPlugin
                     logInfo: m => log.LogInformation("{Msg}", m),
                     logWarn: (m, ex) => log.LogWarning(ex, "{Msg}", m));
             });
-            collection.AddScoped<ProfileNameplateOverlayService>();
-
             collection.AddHostedService(p => p.GetRequiredService<PluginWatcherService>());
             collection.AddHostedService(p => p.GetRequiredService<ConfigurationSaveService>());
             collection.AddHostedService(p => p.GetRequiredService<MareMediator>());
