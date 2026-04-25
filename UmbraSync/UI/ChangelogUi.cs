@@ -223,25 +223,27 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
     {
         return new List<ChangelogEntry>
         {
-            new(new Version(2, 5, 0, 4023), "2.5.0.4023", new List<ChangelogLine>
+            new(new Version(2, 5, 0, 4025), "2.5.0.4025", new List<ChangelogLine>
             {
                 new("Nouveauté : Ajout de l'icône de profil de personnage."),
                 new("Amélioration : Possibilité d'éditer un trait Moodles sans devoir le supprimer."),
                 new("Amélioration : Possibilité d'ajouter une couleur de texte pour la description d'un trait Moodles."),
                 new("Amélioration : Nouvelles options de récurrence pour les événements d'établissement (toutes les 2 semaines, tous les 2 mois, tous les 3 mois, tous les ans)."),
                 new("Amélioration : Les listes de l'annuaire (Parcourir, Lieux favoris, Mes lieux) sont désormais triées par ordre alphabétique."),
-                new("Correction : La bulle d'écriture disparaît avec la nameplate quand le joueur est trop loin."),
+                new("Amélioration : Stabilité de connexion accrue sur les réseaux instables (ping WebSocket bas niveau toutes les 10 s, ping serveur toutes les 15 s) pour éviter les déconnexions liées au NAT/firewall."),
+                new("Amélioration : Logos des établissements agrandis partout (annuaire, événements à venir, profil), avec placeholder coloré quand aucun logo n'est défini."),
+                new("Amélioration : Refonte visuelle des cartes de l'annuaire (catégorie en pill colorée, descriptions sur une seule ligne, troncature propre, hover discret)."),
                 new("Correction : Correction de l'injection de la couleur sur le trait Moodles."),
                 new("Correction : Résolution de la non-persistance aléatoire des traits Moodles après une déco-reco du personnage ou redémarrage serveur."),
                 new("Correction : Résolution de la non-persistance du titre Honorific après une déco-reco du personnage ou redémarrage serveur."),
                 new("Correction : Comportement Auto-block amélioré et réellement désactivable."),
                 new("Correction : La bannière peut désormais être ajoutée dès la création d'un établissement (le sélecteur de fichier ne s'ouvrait pas)."),
                 new("Correction : Le numéro d'appartement est désormais affiché dans la fiche d'un établissement (auparavant seul le secteur était visible)."),
-                new("Amélioration : Logos des établissements agrandis partout (annuaire, événements à venir, profil), avec placeholder coloré quand aucun logo n'est défini."),
-                new("Amélioration : Refonte visuelle des cartes de l'annuaire (catégorie en pill colorée, descriptions sur une seule ligne, troncature propre, hover discret)."),
+                new("Correction : La bulle d'écriture disparaît avec la nameplate quand le joueur est trop loin."),
                 new("Correction : L'onglet « Images » d'un établissement n'est plus visible pour les visiteurs (réservé au propriétaire)."),
                 new("Autre : Ajout de la library 'Pictomancy'."),
-                new("Autre : Mise à jour API Penumbra."),
+                new("Autre : Ajout de la library 'Ashfall.Engine'."),
+                new("Autre : Mise à jour API Penumbra & Glamourer."),
             }),  
             new(new Version(2, 4, 2, 4009), "2.4.2.4009", new List<ChangelogLine>
             {
