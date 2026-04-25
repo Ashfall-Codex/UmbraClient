@@ -1545,6 +1545,9 @@ Veuillez conserver une copie de votre clé secrète au cas où vous auriez besoi
   <data name="ChangelogUi.ShowAll" xml:space="preserve">
     <value>Tout afficher</value>
   </data>
+  <data name="ChangelogUi.HideAll" xml:space="preserve">
+    <value>Tout masquer</value>
+  </data>
   <data name="ChangelogUi.WindowTitle" xml:space="preserve">
     <value>Umbra Sync - Notes de version</value>
   </data>

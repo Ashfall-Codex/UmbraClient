@@ -1645,6 +1645,9 @@ Click to change.</value>
   <data name="ChangelogUi.ShowAll" xml:space="preserve">
     <value>Show all</value>
   </data>
+  <data name="ChangelogUi.HideAll" xml:space="preserve">
+    <value>Hide all</value>
+  </data>
   <data name="ChangelogUi.WindowTitle" xml:space="preserve">
     <value>Umbra Sync - Changelog</value>
   </data>
