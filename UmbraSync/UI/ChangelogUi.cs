@@ -231,6 +231,7 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
                 new("Amélioration : Nouvelles options de récurrence pour les événements d'établissement (toutes les 2 semaines, tous les 2 mois, tous les 3 mois, tous les ans)."),
                 new("Amélioration : Les listes de l'annuaire (Parcourir, Lieux favoris, Mes lieux) sont désormais triées par ordre alphabétique."),
                 new("Amélioration : Stabilité de connexion accrue sur les réseaux instables (ping WebSocket bas niveau toutes les 10 s, ping serveur toutes les 15 s) pour éviter les déconnexions liées au NAT/firewall."),
+                new("Amélioration : Notifications des événements d'établissements favoris désormais envoyées à l'ouverture (et plus avec un délai aléatoire). Gère les événements récurrents (chaque occurrence est notifiée) et les événements en cours à la connexion."),
                 new("Amélioration : Logos des établissements agrandis partout (annuaire, événements à venir, profil), avec placeholder coloré quand aucun logo n'est défini."),
                 new("Amélioration : Refonte visuelle des cartes de l'annuaire (catégorie en pill colorée, descriptions sur une seule ligne, troncature propre, hover discret)."),
                 new("Correction : Correction de l'injection de la couleur sur le trait Moodles."),
