@@ -303,12 +303,33 @@ public sealed class TypingIndicatorOverlay : WindowMediatorSubscriberBase
         var iconVisible = iconNode->IsVisible();
         var scaleVector = new Vector2(nameplateScaleX, nameplateScaleY);
 
-        if (!iconVisible)
-            return true;
         const float bubbleScaleFactor = 1.0f;
         var rootPosition = new Vector2(namePlate->RootComponentNode->AtkResNode.X, namePlate->RootComponentNode->AtkResNode.Y);
         var iconLocalPosition = new Vector2(iconNode->X, iconNode->Y) * scaleVector;
         var iconDimensions = new Vector2(iconNode->Width, iconNode->Height) * scaleVector;
+
+        // The nameplate icon node is hidden (faded by distance, or hidden by FFXIV settings such as
+        // "always hide my nameplate"). The nameplate object itself still has a valid screen position,
+        // so we anchor the bubble to that position rather than computing one from the world.
+        if (!iconVisible)
+        {
+            var anchor = rootPosition + iconLocalPosition + new Vector2(iconDimensions.X * 0.5f, 0f);
+            var hiddenOffset = new Vector2(0f, -16f + distance) * scaleVector;
+            if (iconNode->Height == 24)
+                hiddenOffset.Y += 16f * nameplateScaleY;
+            hiddenOffset.Y += 64f * nameplateScaleY;
+
+            var hiddenSize = GetConfiguredBubbleSize(bubbleScaleFactor, bubbleScaleFactor, true);
+            var hiddenCenter = anchor + hiddenOffset + new Vector2(hiddenSize.X * 0.5f, hiddenSize.Y * 0.5f);
+            var hiddenTopLeft = hiddenCenter - hiddenSize / 2f;
+
+            if (ShouldSkipByDepth(hiddenCenter)) return true;
+            if (_engine.IsNativeUiOccluded(new Vector4(hiddenTopLeft.X, hiddenTopLeft.Y, hiddenTopLeft.X + hiddenSize.X, hiddenTopLeft.Y + hiddenSize.Y))) return true;
+
+            drawList.AddImage(textureWrap.Handle, hiddenTopLeft, hiddenTopLeft + hiddenSize, Vector2.Zero, Vector2.One,
+                ImGui.ColorConvertFloat4ToU32(new Vector4(1f, 1f, 1f, 0.95f)));
+            return true;
+        }
 
         var iconPos = rootPosition + iconLocalPosition + new Vector2(iconDimensions.X, 0f);
 
