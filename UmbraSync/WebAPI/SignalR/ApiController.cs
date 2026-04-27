@@ -212,7 +212,6 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
                 }
 
                 ServerState = ServerState.Connected;
-                Mediator.Publish(new ConnectedMessage(_connectionDto));
 
                 if (_connectionDto.CurrentClientVersion > currentClientVer)
                 {
@@ -239,6 +238,12 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
                 await LoadInitialPairs().ConfigureAwait(false);
                 await LoadOnlinePairs().ConfigureAwait(false);
                 _pairManager.ApplyPendingCharacterData();
+
+                // Maintenant que les pairs/groupes sont chargés, on publie ConnectedMessage.
+                // Petit drain avant pour laisser le canal TCP respirer entre le burst de chargement
+                // et le burst à venir des subscribers (Establishment, Slot, ProfileManager, ChatService...).
+                await Task.Delay(PostInitDrain).ConfigureAwait(false);
+                Mediator.Publish(new ConnectedMessage(_connectionDto));
             }
             catch (OperationCanceledException)
             {
@@ -364,24 +369,23 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
 
         _initialized = true;
     }
+    
+    private static readonly TimeSpan InitialBurstThrottleStandard = TimeSpan.FromMilliseconds(80);
+    private static readonly TimeSpan InitialBurstThrottleSlow = TimeSpan.FromMilliseconds(250);
+    private TimeSpan InitialBurstThrottle => _configService.Current.SlowConnection ? InitialBurstThrottleSlow : InitialBurstThrottleStandard;
+    private TimeSpan PostInitDrain => _configService.Current.SlowConnection ? TimeSpan.FromMilliseconds(400) : TimeSpan.FromMilliseconds(150);
 
     private async Task LoadInitialPairs()
     {
-
-        var pairedClientsTask = UserGetPairedClients();
-        var groupsTask = GroupsGetAll();
-
-        await Task.WhenAll(pairedClientsTask, groupsTask).ConfigureAwait(false);
-
-        var pairedClients = await pairedClientsTask.ConfigureAwait(false);
-        var allGroups = await groupsTask.ConfigureAwait(false);
-
+        var pairedClients = await UserGetPairedClients().ConfigureAwait(false);
         foreach (var userPair in pairedClients)
         {
             Logger.LogDebug("Individual Pair: {userPair}", userPair);
             _pairManager.AddUserPair(userPair);
         }
 
+        await Task.Delay(InitialBurstThrottle).ConfigureAwait(false);
+        var allGroups = await GroupsGetAll().ConfigureAwait(false);
         foreach (var entry in allGroups)
         {
             Logger.LogDebug("Group: {entry}", entry);
@@ -389,12 +393,10 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
         }
         if (allGroups.Count > 0)
         {
-            var groupUsersTasks = allGroups.Select(g => GroupsGetUsersInGroup(g)).ToList();
-            await Task.WhenAll(groupUsersTasks).ConfigureAwait(false);
-
             for (int i = 0; i < allGroups.Count; i++)
             {
-                var users = await groupUsersTasks[i].ConfigureAwait(false);
+                if (i > 0) await Task.Delay(InitialBurstThrottle).ConfigureAwait(false);
+                var users = await GroupsGetUsersInGroup(allGroups[i]).ConfigureAwait(false);
                 foreach (var user in users)
                 {
                     Logger.LogDebug("Group Pair: {user}", user);

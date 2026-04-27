@@ -8,6 +8,7 @@ using System.Net.Http.Headers;
 using System.Reflection;
 using System.Text.Json;
 using UmbraSync.API.SignalR;
+using UmbraSync.MareConfiguration;
 using UmbraSync.Services.Mediator;
 using UmbraSync.Services.Notification;
 using UmbraSync.Services.ServerConfiguration;
@@ -21,6 +22,7 @@ public class HubFactory : MediatorSubscriberBase
     private readonly ServerConfigurationManager _serverConfigurationManager;
     private readonly TokenProvider _tokenProvider;
     private readonly NotificationTracker _notificationTracker;
+    private readonly MareConfigService _configService;
     private HubConnection? _instance;
     private string _cachedConfigFor = string.Empty;
     private HubConnectionConfig? _cachedConfig;
@@ -28,12 +30,14 @@ public class HubFactory : MediatorSubscriberBase
 
     public HubFactory(ILogger<HubFactory> logger, MareMediator mediator,
         ServerConfigurationManager serverConfigurationManager,
-        TokenProvider tokenProvider, ILoggerProvider pluginLog, NotificationTracker notificationTracker) : base(logger, mediator)
+        TokenProvider tokenProvider, ILoggerProvider pluginLog, NotificationTracker notificationTracker,
+        MareConfigService configService) : base(logger, mediator)
     {
         _serverConfigurationManager = serverConfigurationManager;
         _tokenProvider = tokenProvider;
         _loggingProvider = pluginLog;
         _notificationTracker = notificationTracker;
+        _configService = configService;
     }
 
     public async Task DisposeHubAsync()
@@ -182,12 +186,18 @@ public class HubFactory : MediatorSubscriberBase
             .WithCompression(MessagePackCompression.Lz4Block)
             .WithResolver(messagePackResolver);
 
+        var slowMode = _configService.Current.SlowConnection;
+        if (slowMode)
+        {
+            Logger.LogInformation("HubFactory: SlowConnection enabled — forcing LongPolling transport (fallback for fragile networks)");
+        }
+
         _instance = new HubConnectionBuilder()
             .WithUrl(hubConfig.HubUrl, options =>
             {
-                var transports = hubConfig.TransportType;
+                var transports = slowMode ? HttpTransportType.LongPolling : hubConfig.TransportType;
                 options.AccessTokenProvider = () => _tokenProvider.GetOrUpdateToken(ct);
-                options.SkipNegotiation = hubConfig.SkipNegotiation && (transports == HttpTransportType.WebSockets);
+                options.SkipNegotiation = !slowMode && hubConfig.SkipNegotiation && (transports == HttpTransportType.WebSockets);
                 options.Transports = transports;
                 options.CloseTimeout = TimeSpan.FromSeconds(30);
                 options.WebSocketConfiguration = ws => ws.KeepAliveInterval = TimeSpan.FromSeconds(10);

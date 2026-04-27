@@ -5019,6 +5019,21 @@ Note : Les armes ne s'afficheront pas correctement sauf si vous utilisez le m&#x
   <data name="Settings.Advanced.SerialApply.Help" xml:space="preserve">
     <value>Expérimental — Peut réduire les problèmes dans les zones peuplées</value>
   </data>
+  <data name="Settings.Performance.Network" xml:space="preserve">
+    <value>Réseau</value>
+  </data>
+  <data name="Settings.Performance.SlowConnection" xml:space="preserve">
+    <value>Mode connexion lente</value>
+  </data>
+  <data name="Settings.Performance.SlowConnection.Help" xml:space="preserve">
+    <value>Activez cette option si vous subissez des déconnexions fréquentes ou des boucles de reconnexion (typiquement avec un wifi instable, une box capricieuse, ou un débit lent / limité). Le plugin bascule sur un mode de communication plus lent mais bien plus résistant et étale les premières demandes après la connexion. Un peu plus lent à se synchroniser, mais ça tient mieux sur les connexions fragiles. Déconnectez puis reconnectez-vous pour que le changement prenne effet.</value>
+  </data>
+  <data name="Settings.Performance.SlowConnection.RestartTitle" xml:space="preserve">
+    <value>Mode connexion lente modifié</value>
+  </data>
+  <data name="Settings.Performance.SlowConnection.RestartBody" xml:space="preserve">
+    <value>Déconnectez-vous puis reconnectez-vous pour que le nouveau mode prenne effet.</value>
+  </data>
   <data name="Settings.Advanced.CharaData" xml:space="preserve">
     <value>Données de personnage</value>
   </data>

@@ -5109,6 +5109,21 @@ Note: Weapons will not be displayed correctly unless using the same job as the s
   <data name="Settings.Advanced.SerialApply.Help" xml:space="preserve">
     <value>Experimental - May reduce issues in crowded areas</value>
   </data>
+  <data name="Settings.Performance.Network" xml:space="preserve">
+    <value>Network</value>
+  </data>
+  <data name="Settings.Performance.SlowConnection" xml:space="preserve">
+    <value>Slow connection mode</value>
+  </data>
+  <data name="Settings.Performance.SlowConnection.Help" xml:space="preserve">
+    <value>Enable this if you suffer from frequent disconnections or reconnection loops (typically on unstable wifi, capricious ISP boxes or limited bandwidth). Switches to a slower but much more resilient transport (HTTP request/response) and spreads out the initial requests after connecting. Slightly slower to sync, but stays connected on fragile networks. Disconnect and reconnect for the change to take effect.</value>
+  </data>
+  <data name="Settings.Performance.SlowConnection.RestartTitle" xml:space="preserve">
+    <value>Slow connection mode changed</value>
+  </data>
+  <data name="Settings.Performance.SlowConnection.RestartBody" xml:space="preserve">
+    <value>Disconnect then reconnect for the new mode to take effect.</value>
+  </data>
   <data name="Settings.Advanced.CharaData" xml:space="preserve">
     <value>Character Data</value>
   </data>

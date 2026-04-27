@@ -24,10 +24,10 @@
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
-        <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.5" />
-        <PackageReference Include="Microsoft.AspNetCore.SignalR.Protocols.MessagePack" Version="10.0.5" />
+        <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.6" />
+        <PackageReference Include="Microsoft.AspNetCore.SignalR.Protocols.MessagePack" Version="10.0.6" />
         <PackageReference Include="MessagePack" Version="2.5.187" />
-        <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.5" />
+        <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.6" />
         <PackageReference Include="SonarAnalyzer.CSharp" Version="10.21.0.135717">
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
