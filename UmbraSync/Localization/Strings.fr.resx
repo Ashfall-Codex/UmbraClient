@@ -5034,6 +5034,12 @@ Note : Les armes ne s'afficheront pas correctement sauf si vous utilisez le m&#x
   <data name="Settings.Performance.SlowConnection.RestartBody" xml:space="preserve">
     <value>Déconnectez-vous puis reconnectez-vous pour que le nouveau mode prenne effet.</value>
   </data>
+  <data name="Settings.Performance.StaggeredInitialLoad" xml:space="preserve">
+    <value>Étaler le chargement initial après connexion</value>
+  </data>
+  <data name="Settings.Performance.StaggeredInitialLoad.Help" xml:space="preserve">
+    <value>Si activé, étale dans le temps les requêtes initiales après la connexion (pairs, syncshells, membres) au lieu de les lancer toutes en parallèle. Ajoute environ 240 ms au temps de connexion mais réduit les coupures sur les connexions capricieuses. Forcé activé quand le « Mode connexion lente » est activé.</value>
+  </data>
   <data name="Settings.Advanced.CharaData" xml:space="preserve">
     <value>Données de personnage</value>
   </data>

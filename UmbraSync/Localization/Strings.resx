@@ -5124,6 +5124,12 @@ Note: Weapons will not be displayed correctly unless using the same job as the s
   <data name="Settings.Performance.SlowConnection.RestartBody" xml:space="preserve">
     <value>Disconnect then reconnect for the new mode to take effect.</value>
   </data>
+  <data name="Settings.Performance.StaggeredInitialLoad" xml:space="preserve">
+    <value>Stagger initial load after connecting</value>
+  </data>
+  <data name="Settings.Performance.StaggeredInitialLoad.Help" xml:space="preserve">
+    <value>When enabled, spreads out the initial requests after connecting (pairs, syncshells, members) over time instead of firing them all in parallel. Adds about 240 ms to the connection time but reduces the chance of TCP RST disconnects on capricious networks. Forced ON when "Slow connection mode" is enabled.</value>
+  </data>
   <data name="Settings.Advanced.CharaData" xml:space="preserve">
     <value>Character Data</value>
   </data>

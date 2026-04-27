@@ -2389,6 +2389,18 @@ public class SettingsUi : WindowMediatorSubscriberBase
                 TimeSpan.FromSeconds(8)));
         }
         _uiShared.DrawHelpText(Loc.Get("Settings.Performance.SlowConnection.Help"));
+        
+        using (var indent = ImRaii.PushIndent())
+        using (ImRaii.Disabled(slowConnection))
+        {
+            bool staggeredInitialLoad = slowConnection || _configService.Current.StaggeredInitialLoad;
+            if (ImGui.Checkbox(Loc.Get("Settings.Performance.StaggeredInitialLoad"), ref staggeredInitialLoad))
+            {
+                _configService.Current.StaggeredInitialLoad = staggeredInitialLoad;
+                _configService.Save();
+            }
+            _uiShared.DrawHelpText(Loc.Get("Settings.Performance.StaggeredInitialLoad.Help"));
+        }
 
         ImGui.Separator();
         _uiShared.BigText("Individual Limits");

@@ -109,6 +109,7 @@ public class MareConfig : IMareConfiguration
     public List<string> AutoDetectBlockedUids { get; set; } = [];
     public bool UseInteractivePairRequestPopup { get; set; } = true;
     public bool SlowConnection { get; set; } = false;
+    public bool StaggeredInitialLoad { get; set; } = false;
     public int TimeSpanBetweenScansInSeconds { get; set; } = 30;
     public int TransferBarsHeight { get; set; } = 12;
     public bool TransferBarsShowText { get; set; } = true;

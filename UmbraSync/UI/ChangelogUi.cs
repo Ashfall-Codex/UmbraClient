@@ -223,6 +223,18 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
     {
         return new List<ChangelogEntry>
         {
+            new(new Version(2, 5, 1, 4028), "2.5.1.4028", new List<ChangelogLine>
+            {
+                new("Nouveauté : Mode « Connexion lente » (Réglages → Performance → Réseau). Bascule la connexion sur un transport plus tolérant et étale les requêtes initiales. Conçu pour les utilisateurs avec un débit lent, limité, instable ou dégradé. Désactivé par défaut."),
+                new("Nouveauté : Option « Étaler le chargement initial après connexion » (sous-réglage de Performance → Réseau). Permet d'étaler les requêtes de chargement initial (pairs, syncshells, membres) au lieu de les lancer toutes en parallèle."),
+                new("Amélioration : Statut d'appairage explicite (unilatéral / bidirectionnel) propagé en temps réel. Quand quelqu'un vous supprime de ses pairs, votre statut passe immédiatement à unilatéral sans avoir à vous reconnecter."),
+                new("Amélioration : Permissions persistante sur les pairs : vos préférences personnalisées (animations, sons, VFX, pause) sont désormais conservées même si vous supprimez puis re-ajoutez la pair."),
+                new("Amélioration : Le plugin annule désormais les demandes d'appairage en double si vous êtes déjà appairé(e) directement avec l'utilisateur, plutôt que de spammer le serveur."),
+                new("Correction : Bug « already paired » qui empêchait de re-créer un appairage cassé après une déco-reco. Le serveur resynchronise désormais automatiquement votre liste au lieu de bloquer l'opération."),
+                new("Correction : Diverses corrections d'incohérences sur l'affichage des pairs unilatéraux dans l'interface."),
+                new("Autre : Refonte interne du modèle de permissions côté serveur."),
+                new("Autre : Mise à jour des dépendances .NET / SignalR / EF Core vers 10.0.6."),
+            }),
             new(new Version(2, 5, 0, 4025), "2.5.0.4025", new List<ChangelogLine>
             {
                 new("Nouveauté : Possibilité de définir une icône qui s'affiche dans le tchat avant le nom RP. Configurable dans l'éditeur de profil RP."),
