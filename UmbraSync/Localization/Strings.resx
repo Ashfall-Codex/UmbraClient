@@ -4833,6 +4833,12 @@ Note: Weapons will not be displayed correctly unless using the same job as the s
   <data name="Notification.Nearby.Blocked.Body" xml:space="preserve">
     <value>Enable 'Allow pair requests' in Settings to send requests.</value>
   </data>
+  <data name="Notification.Nearby.AlreadyPaired.Title" xml:space="preserve">
+    <value>Already paired</value>
+  </data>
+  <data name="Notification.Nearby.AlreadyPaired.Body" xml:space="preserve">
+    <value>You are already directly paired with this user. No request was sent.</value>
+  </data>
   <data name="Notification.Nearby.Sent.Title" xml:space="preserve">
     <value>Nearby request sent</value>
   </data>

@@ -331,6 +331,8 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
         OnUserSendOnline(dto => _ = Client_UserSendOnline(dto));
         OnUserUpdateOtherPairPermissions(dto => _ = Client_UserUpdateOtherPairPermissions(dto));
         OnUserUpdateSelfPairPermissions(dto => _ = Client_UserUpdateSelfPairPermissions(dto));
+        OnUserUpdateDefaultPermissions(dto => _ = Client_UserUpdateDefaultPermissions(dto));
+        OnUpdateUserIndividualPairStatusDto(dto => _ = Client_UpdateUserIndividualPairStatusDto(dto));
         OnUserReceiveUploadStatus(dto => _ = Client_UserReceiveUploadStatus(dto));
         OnUserUpdateProfile(dto => _ = Client_UserUpdateProfile(dto));
         OnUserTypingState(dto => _ = Client_UserTypingState(dto));
@@ -377,7 +379,7 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
         foreach (var userPair in pairedClients)
         {
             Logger.LogDebug("Individual Pair: {userPair}", userPair);
-            _pairManager.AddUserPair(userPair, addToLastAddedUser: false);
+            _pairManager.AddUserPair(userPair);
         }
 
         foreach (var entry in allGroups)

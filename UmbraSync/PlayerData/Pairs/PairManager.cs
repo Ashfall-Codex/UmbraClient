@@ -122,6 +122,8 @@ public sealed class PairManager : DisposableMediatorSubscriberBase
         return null;
     }
 
+    public bool IsAlreadyDirectPaired(string uid) => GetPairByUID(uid)?.UserPair != null;
+
     public void AddUserPair(UserPairDto dto, bool addToLastAddedUser = true)
     {
         if (!_allClientPairs.ContainsKey(dto.User))
@@ -154,6 +156,38 @@ public sealed class PairManager : DisposableMediatorSubscriberBase
         {
             Mediator.Publish(new ApplyDefaultPairPermissionsMessage(dto));
         }
+    }
+
+    public void AddUserPair(UserFullPairDto dto)
+    {
+        if (!_allClientPairs.ContainsKey(dto.User))
+        {
+            _allClientPairs[dto.User] = _pairFactory.Create(dto.User);
+        }
+
+        var pair = _allClientPairs[dto.User];
+        var prevPaused = pair.IsPaused;
+        pair.UserPair = new UserPairDto(dto.User, dto.IndividualPairStatus, dto.OwnPermissions, dto.OtherPermissions);
+        pair.SetGroups(dto.GIDs);
+
+        if (!pair.IsPaused)
+        {
+            pair.ApplyLastReceivedData(forced: true);
+        }
+        else if (!prevPaused && pair.IsPaused)
+        {
+            Mediator.Publish(new PlayerVisibilityMessage(pair.Ident, IsVisible: false, Invalidate: true));
+        }
+
+        RecreateLazyDebounced();
+    }
+
+    public void UpdateIndividualPairStatus(UserIndividualPairStatusDto dto)
+    {
+        var pair = GetPairByUID(dto.User.UID);
+        if (pair?.UserPair == null) return;
+        pair.UserPair = pair.UserPair with { IndividualPairStatus = dto.IndividualPairStatus };
+        RecreateLazyDebounced();
     }
 
     public void ClearPairs()
@@ -827,9 +861,10 @@ public sealed class PairManager : DisposableMediatorSubscriberBase
             return;
         }
 
-        bool canSendRequest = nearbyEntry.AcceptPairRequests && !string.IsNullOrEmpty(nearbyEntry.Token);
+        bool canSendRequest = nearbyEntry.AcceptPairRequests && !string.IsNullOrEmpty(nearbyEntry.Token)
+            && !IsAlreadyDirectPaired(nearbyEntry.Uid ?? string.Empty);
         bool canAddPair = !string.IsNullOrEmpty(nearbyEntry.Uid)
-            && !_allClientPairs.Keys.Any(p => string.Equals(p.UID, nearbyEntry.Uid, StringComparison.Ordinal));
+            && !IsAlreadyDirectPaired(nearbyEntry.Uid);
 
         if (!canSendRequest && !canAddPair)
         {

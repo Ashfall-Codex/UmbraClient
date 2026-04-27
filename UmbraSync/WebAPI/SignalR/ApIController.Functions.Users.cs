@@ -49,9 +49,21 @@ public partial class ApiController
         return await _mareHub!.InvokeAsync<List<OnlineUserIdentDto>>(nameof(UserGetOnlinePairs)).ConfigureAwait(false);
     }
 
-    public async Task<List<UserPairDto>> UserGetPairedClients()
+    public async Task<List<UserFullPairDto>> UserGetPairedClients()
     {
-        return await _mareHub!.InvokeAsync<List<UserPairDto>>(nameof(UserGetPairedClients)).ConfigureAwait(false);
+        return await _mareHub!.InvokeAsync<List<UserFullPairDto>>(nameof(UserGetPairedClients)).ConfigureAwait(false);
+    }
+
+    public async Task UserUpdateDefaultPermissions(DefaultPermissionsDto dto)
+    {
+        if (!IsConnected) return;
+        await _mareHub!.SendAsync(nameof(UserUpdateDefaultPermissions), dto).ConfigureAwait(false);
+    }
+
+    public async Task SetBulkPermissions(BulkPermissionsDto dto)
+    {
+        if (!IsConnected) return;
+        await _mareHub!.SendAsync(nameof(SetBulkPermissions), dto).ConfigureAwait(false);
     }
 
     public async Task<UserProfileDto> UserGetProfile(UserDto dto)

@@ -4743,6 +4743,12 @@ Note : Les armes ne s'afficheront pas correctement sauf si vous utilisez le m&#x
   <data name="Notification.Nearby.Blocked.Body" xml:space="preserve">
     <value>Activez « Autoriser les demandes d'appairage » dans les paramètres pour envoyer des demandes.</value>
   </data>
+  <data name="Notification.Nearby.AlreadyPaired.Title" xml:space="preserve">
+    <value>Déjà appairé</value>
+  </data>
+  <data name="Notification.Nearby.AlreadyPaired.Body" xml:space="preserve">
+    <value>Vous êtes déjà appairé(e) directement avec cet utilisateur. Aucune demande n'a été envoyée.</value>
+  </data>
   <data name="Notification.Nearby.Sent.Title" xml:space="preserve">
     <value>Demande envoyée</value>
   </data>

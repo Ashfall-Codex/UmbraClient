@@ -260,6 +260,22 @@ public partial class ApiController
         return Task.CompletedTask;
     }
 
+    public Task Client_UserUpdateDefaultPermissions(DefaultPermissionsDto dto)
+    {
+        if (Logger.IsEnabled(LogLevel.Debug))
+            Logger.LogDebug("Client_UserUpdateDefaultPermissions");
+        ExecuteSafely(() => Mediator.Publish(new DefaultPermissionsUpdatedMessage(dto)));
+        return Task.CompletedTask;
+    }
+
+    public Task Client_UpdateUserIndividualPairStatusDto(UserIndividualPairStatusDto dto)
+    {
+        if (Logger.IsEnabled(LogLevel.Debug))
+            Logger.LogDebug("Client_UpdateUserIndividualPairStatusDto: {uid} = {status}", dto.User.UID, dto.IndividualPairStatus);
+        ExecuteSafely(() => _pairManager.UpdateIndividualPairStatus(dto));
+        return Task.CompletedTask;
+    }
+
     public Task Client_GposeLobbyJoin(UserData userData)
     {
         Logger.LogDebug("Client_GposeLobbyJoin: {dto}", userData);
@@ -413,6 +429,18 @@ public partial class ApiController
     {
         if (_initialized) return;
         _mareHub!.On(nameof(Client_UserUpdateOtherPairPermissions), act);
+    }
+
+    public void OnUserUpdateDefaultPermissions(Action<DefaultPermissionsDto> act)
+    {
+        if (_initialized) return;
+        _mareHub!.On(nameof(Client_UserUpdateDefaultPermissions), act);
+    }
+
+    public void OnUpdateUserIndividualPairStatusDto(Action<UserIndividualPairStatusDto> act)
+    {
+        if (_initialized) return;
+        _mareHub!.On(nameof(Client_UpdateUserIndividualPairStatusDto), act);
     }
 
     public void OnUserUpdateProfile(Action<UserDto> act)

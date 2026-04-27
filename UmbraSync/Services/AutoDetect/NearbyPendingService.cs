@@ -1,3 +1,4 @@
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
 using System.Globalization;
@@ -5,6 +6,7 @@ using System.Text.RegularExpressions;
 using UmbraSync.Localization;
 using UmbraSync.MareConfiguration;
 using UmbraSync.MareConfiguration.Models;
+using UmbraSync.PlayerData.Pairs;
 using UmbraSync.Services.Mediator;
 using UmbraSync.Services.Notification;
 
@@ -22,13 +24,14 @@ public sealed class NearbyPendingService : IMediatorSubscriber
     private readonly AutoDetectRequestService _requestService;
     private readonly NotificationTracker _notificationTracker;
     private readonly MareConfigService _configService;
+    private readonly Lazy<PairManager> _pairManager;
     private readonly ConcurrentDictionary<string, PendingEntry> _pending = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, DateTime> _declineCooldowns = new(StringComparer.Ordinal);
     private static readonly TimeSpan RegexTimeout = TimeSpan.FromSeconds(1);
     private static readonly Regex ReqRegex = new(@"^Nearby Request: .+ \[(?<uid>[A-Z0-9]+)\]$", RegexOptions.Compiled | RegexOptions.ExplicitCapture, RegexTimeout);
     private static readonly Regex AcceptRegex = new(@"^Nearby Accept: .+ \[(?<uid>[A-Z0-9]+)\]$", RegexOptions.Compiled | RegexOptions.ExplicitCapture, RegexTimeout);
 
-    public NearbyPendingService(ILogger<NearbyPendingService> logger, MareMediator mediator, ApiController api, AutoDetectRequestService requestService, NotificationTracker notificationTracker, MareConfigService configService)
+    public NearbyPendingService(ILogger<NearbyPendingService> logger, MareMediator mediator, ApiController api, AutoDetectRequestService requestService, NotificationTracker notificationTracker, MareConfigService configService, IServiceProvider serviceProvider)
     {
         _logger = logger;
         _mediator = mediator;
@@ -36,6 +39,7 @@ public sealed class NearbyPendingService : IMediatorSubscriber
         _requestService = requestService;
         _notificationTracker = notificationTracker;
         _configService = configService;
+        _pairManager = new Lazy<PairManager>(() => serviceProvider.GetRequiredService<PairManager>());
         _mediator.Subscribe<NotificationMessage>(this, OnNotification);
         _mediator.Subscribe<ManualPairInviteMessage>(this, OnManualPairInvite);
         _mediator.Subscribe<DelayedFrameworkUpdateMessage>(this, _ => CleanupExpired());
@@ -65,7 +69,14 @@ public sealed class NearbyPendingService : IMediatorSubscriber
             var uidA = ma.Groups["uid"].Value;
             if (!string.IsNullOrEmpty(uidA))
             {
-                _ = _api.UserAddPair(new UmbraSync.API.Dto.User.UserDto(new UmbraSync.API.Data.UserData(uidA)));
+                if (_pairManager.Value.IsAlreadyDirectPaired(uidA))
+                {
+                    _logger.LogInformation("NearbyPending: auto-accept skipped for {uid} (already direct paired locally)", uidA);
+                }
+                else
+                {
+                    _ = _api.UserAddPair(new UmbraSync.API.Dto.User.UserDto(new UmbraSync.API.Data.UserData(uidA)));
+                }
                 _pending.TryRemove(uidA, out _);
                 _requestService.RemovePendingRequestByUid(uidA);
                 _notificationTracker.Remove(NotificationCategory.AutoDetect, uidA);
@@ -222,7 +233,14 @@ public sealed class NearbyPendingService : IMediatorSubscriber
     {
         try
         {
-            await _api.UserAddPair(new UmbraSync.API.Dto.User.UserDto(new UmbraSync.API.Data.UserData(uid))).ConfigureAwait(false);
+            if (_pairManager.Value.IsAlreadyDirectPaired(uid))
+            {
+                _logger.LogInformation("NearbyPending: AcceptAsync skipped UserAddPair for {uid} (already direct paired locally), still notifying accept", uid);
+            }
+            else
+            {
+                await _api.UserAddPair(new UmbraSync.API.Dto.User.UserDto(new UmbraSync.API.Data.UserData(uid))).ConfigureAwait(false);
+            }
             _pending.TryRemove(uid, out _);
             _requestService.RemovePendingRequestByUid(uid);
             _ = _requestService.SendAcceptNotifyAsync(uid);

@@ -6,6 +6,7 @@ using UmbraSync.API.Data;
 using UmbraSync.API.Dto.User;
 using UmbraSync.Localization;
 using UmbraSync.MareConfiguration;
+using UmbraSync.PlayerData.Pairs;
 using UmbraSync.Services.Mediator;
 using UmbraSync.Services.Notification;
 using UmbraSync.WebAPI.AutoDetect;
@@ -29,6 +30,7 @@ public class AutoDetectRequestService : IMediatorSubscriber
     private static readonly TimeSpan RequestCooldown = TimeSpan.FromMinutes(5);
     private static readonly TimeSpan RefusalLockDuration = TimeSpan.FromMinutes(15);
     private readonly Lazy<ApiController> _apiController;
+    private readonly Lazy<PairManager> _pairManager;
 
     public AutoDetectRequestService(ILogger<AutoDetectRequestService> logger, DiscoveryConfigProvider configProvider, DiscoveryApiClient client, MareConfigService configService, MareMediator mediator, DalamudUtilService dalamudUtilService, IServiceProvider serviceProvider, NotificationTracker notificationTracker)
     {
@@ -40,6 +42,7 @@ public class AutoDetectRequestService : IMediatorSubscriber
         _dalamud = dalamudUtilService;
         _notificationTracker = notificationTracker;
         _apiController = new Lazy<ApiController>(() => serviceProvider.GetRequiredService<ApiController>());
+        _pairManager = new Lazy<PairManager>(() => serviceProvider.GetRequiredService<PairManager>());
         _mediator.Subscribe<DisconnectedMessage>(this, _ => ClearAllOnDisconnect());
         _mediator.Subscribe<PairOfflineMessage>(this, msg => RemoveOutgoingForUser(msg.User.UID));
     }
@@ -58,6 +61,13 @@ public class AutoDetectRequestService : IMediatorSubscriber
         if (string.IsNullOrEmpty(token) && string.IsNullOrEmpty(uid))
         {
             _logger.LogDebug("Nearby request blocked: no token or UID provided");
+            return false;
+        }
+
+        if (!string.IsNullOrEmpty(uid) && _pairManager.Value.IsAlreadyDirectPaired(uid))
+        {
+            _logger.LogDebug("Nearby request aborted: already direct paired with {uid}", uid);
+            _mediator.Publish(new NotificationMessage(Loc.Get("Notification.Nearby.AlreadyPaired.Title"), Loc.Get("Notification.Nearby.AlreadyPaired.Body"), NotificationType.Info));
             return false;
         }
 
@@ -219,6 +229,13 @@ public class AutoDetectRequestService : IMediatorSubscriber
         if (string.IsNullOrEmpty(uid))
         {
             _logger.LogDebug("Direct pair request aborted: UID is empty");
+            return false;
+        }
+
+        if (_pairManager.Value.IsAlreadyDirectPaired(uid))
+        {
+            _logger.LogDebug("Direct pair request aborted: already direct paired with {uid}", uid);
+            _mediator.Publish(new NotificationMessage(Loc.Get("Notification.Nearby.AlreadyPaired.Title"), Loc.Get("Notification.Nearby.AlreadyPaired.Body"), NotificationType.Info));
             return false;
         }
 

@@ -120,6 +120,8 @@ public class Pair : DisposableMediatorSubscriberBase
     public PairAnalyzer? PairAnalyzer => CachedPlayer?.PairAnalyzer;
     public UserData UserData { get; init; }
     public UserPairDto? UserPair { get; set; }
+    public List<string> Groups { get; private set; } = [];
+    public void SetGroups(List<string> gids) => Groups = gids ?? [];
     private PairHandler? CachedPlayer { get; set; }
     public PairHandler? Handler => CachedPlayer;
 
