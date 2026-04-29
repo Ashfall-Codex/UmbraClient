@@ -223,7 +223,7 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
     {
         return new List<ChangelogEntry>
         {
-            new(new Version(2, 5, 2, 4029), "2.5.2.4029", new List<ChangelogLine>
+            new(new Version(2, 5, 2, 4030), "2.5.2.4030", new List<ChangelogLine>
             {
                 new("Autre : Migration vers Dalamud API 15."),
                 new("Autre : Migration vers Umbra API 4000."),
