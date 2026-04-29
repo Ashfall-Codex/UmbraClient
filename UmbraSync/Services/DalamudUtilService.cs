@@ -59,14 +59,12 @@ public class DalamudUtilService : IHostedService, IMediatorSubscriber
     private DateTime _delayedFrameworkUpdateCheck = DateTime.UtcNow;
     private string _lastGlobalBlockPlayer = string.Empty;
     private string _lastGlobalBlockReason = string.Empty;
-    private ushort _lastZone;
+    private uint _lastZone;
     private readonly Dictionary<string, PlayerCharacter> _playerCharas = new(StringComparer.Ordinal);
     private readonly List<string> _notUpdatedCharas = [];
     private bool _sentBetweenAreas;
     private static readonly Dictionary<uint, PlayerInfo> _playerInfoCache = new();
 
-    // Prefer IObjectTable.LocalPlayer when available (newer Dalamud),
-    // otherwise fall back to obsolete IClientState.LocalPlayer (suppressed) for compatibility.
     private IPlayerCharacter? LocalPlayer => _objectTable.LocalPlayer;
 
 

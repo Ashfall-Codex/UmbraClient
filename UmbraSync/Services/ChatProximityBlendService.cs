@@ -1,3 +1,4 @@
+using Dalamud.Game.Chat;
 using Dalamud.Game.ClientState.Objects.Enums;
 using Dalamud.Game.Text;
 using Dalamud.Game.Text.SeStringHandling;
@@ -114,16 +115,18 @@ public class ChatProximityBlendService : DisposableMediatorSubscriberBase
         }
     }
 
-    private void OnChatMessage(XivChatType type, int timestamp, ref SeString sender, ref SeString message, ref bool isHandled)
+    private void OnChatMessage(IHandleableChatMessage chatMessage)
     {
-        if (isHandled || !_chatProximityActive)
+        if (chatMessage.IsHandled || !_chatProximityActive)
             return;
 
         if (!_configService.Current.EmoteHighlightEnabled)
             return;
 
-        if (!ProximityChatTypes.Contains(type))
+        if (!ProximityChatTypes.Contains(chatMessage.LogKind))
             return;
+
+        var message = chatMessage.Message;
 
         // Identify the color keys used by ChatEmoteHighlightService
         var emoteColorKey = _configService.Current.EmoteHighlightColorKey;
@@ -148,7 +151,7 @@ public class ChatProximityBlendService : DisposableMediatorSubscriberBase
 
         // Find sender in object table to calculate distance.
         // Use PlayerPayload (survives ChatNameReplacementService RP name swap)
-        var senderName = ExtractPlayerName(sender);
+        var senderName = ExtractPlayerName(chatMessage.Sender);
         var senderObj = FindPlayerByName(senderName);
         if (senderObj == null)
             return;
@@ -159,10 +162,10 @@ public class ChatProximityBlendService : DisposableMediatorSubscriberBase
 
         // Calculate fade factor from distance
         var distance = Vector3.Distance(localPlayer.Position, senderObj.Position);
-        var channelRange = GetChannelRange(type);
+        var channelRange = GetChannelRange(chatMessage.LogKind);
         var ratio = Math.Clamp(distance / channelRange, 0f, 1f);
-        var nearColor = GetChannelNearColor(type);
-        var farColor = GetChannelFarColor(type);
+        var nearColor = GetChannelNearColor(chatMessage.LogKind);
+        var farColor = GetChannelFarColor(chatMessage.LogKind);
         var fadedColor = Vector4.Lerp(nearColor, farColor, ratio);
         var fadeFactor = Math.Max(Math.Max(fadedColor.X, Math.Max(fadedColor.Y, fadedColor.Z)), 0.01f);
         var newPayloads = new List<Payload>(message.Payloads.Count);
@@ -204,7 +207,7 @@ public class ChatProximityBlendService : DisposableMediatorSubscriberBase
         }
 
         if (modified)
-            message = new SeString(newPayloads);
+            chatMessage.Message = new SeString(newPayloads);
     }
 
     private static string ExtractPlayerName(SeString sender)

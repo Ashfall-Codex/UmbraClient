@@ -1,3 +1,4 @@
+using Dalamud.Game.Chat;
 using Dalamud.Game.Text;
 using Dalamud.Game.Text.SeStringHandling;
 using Dalamud.Game.Text.SeStringHandling.Payloads;
@@ -107,14 +108,15 @@ public class ChatEmoteHighlightService : DisposableMediatorSubscriberBase
         return new Regex(string.Join('|', allParts), RegexOptions.Compiled, TimeSpan.FromMilliseconds(200));
     }
 
-    private void OnChatMessage(XivChatType type, int timestamp, ref SeString sender, ref SeString message, ref bool isHandled)
+    private void OnChatMessage(IHandleableChatMessage chatMessage)
     {
-        if (isHandled || !_configService.Current.EmoteHighlightEnabled)
+        if (chatMessage.IsHandled || !_configService.Current.EmoteHighlightEnabled)
             return;
 
-        if (!RpChatTypes.Contains(type))
+        if (!RpChatTypes.Contains(chatMessage.LogKind))
             return;
 
+        var message = chatMessage.Message;
 
         var pattern = BuildPattern();
         if (pattern == null)
@@ -254,7 +256,7 @@ public class ChatEmoteHighlightService : DisposableMediatorSubscriberBase
             foreignIdx++;
         }
 
-        message = new SeString(newPayloads);
+        chatMessage.Message = new SeString(newPayloads);
     }
 
     private enum HighlightKind { Emote, Hrp, Quotes }

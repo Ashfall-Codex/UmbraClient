@@ -223,6 +223,11 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
     {
         return new List<ChangelogEntry>
         {
+            new(new Version(2, 5, 1, 4029), "2.5.1.4029", new List<ChangelogLine>
+            {
+                new("Autre : Migration vers Dalamud API 15."),
+                new("Autre : Migration vers Umbra API 4000."),
+            }),
             new(new Version(2, 5, 1, 4028), "2.5.1.4028", new List<ChangelogLine>
             {
                 new("Nouveauté : Mode « Connexion lente » (Réglages → Performance → Réseau). Bascule la connexion sur un transport plus tolérant et étale les requêtes initiales. Conçu pour les utilisateurs avec un débit lent, limité, instable ou dégradé. Désactivé par défaut."),

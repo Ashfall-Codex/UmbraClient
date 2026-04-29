@@ -1,3 +1,4 @@
+using Dalamud.Game.Chat;
 using Dalamud.Game.ClientState.Objects.Enums;
 using Dalamud.Game.Text;
 using Dalamud.Game.Text.SeStringHandling;
@@ -55,19 +56,19 @@ public class ChatTargetSoundService : DisposableMediatorSubscriberBase
         _chatGui.ChatMessage -= OnChatMessage;
     }
 
-    private void OnChatMessage(XivChatType type, int timestamp, ref SeString sender, ref SeString message, ref bool isHandled)
+    private void OnChatMessage(IHandleableChatMessage chatMessage)
     {
-        if (isHandled || !_configService.Current.ChatTargetSoundMasterEnabled)
+        if (chatMessage.IsHandled || !_configService.Current.ChatTargetSoundMasterEnabled)
             return;
 
-        if (!TargetSoundChatTypes.Contains(type))
+        if (!TargetSoundChatTypes.Contains(chatMessage.LogKind))
             return;
 
         var localPlayer = _objectTable.LocalPlayer;
         if (localPlayer == null)
             return;
 
-        var senderName = ExtractPlayerName(sender);
+        var senderName = ExtractPlayerName(chatMessage.Sender);
         if (string.IsNullOrEmpty(senderName))
             return;
 
