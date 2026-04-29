@@ -460,10 +460,10 @@ public partial class CompactUi
                     draw(data[row]);
                 }
             }
-            clipper.End();
         }
         finally
         {
+            clipper.End();
             clipper.Destroy();
         }
     }
