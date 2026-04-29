@@ -1,3 +1,4 @@
+using Dalamud.Game.Chat;
 using Dalamud.Game.Text;
 using Dalamud.Game.Text.SeStringHandling;
 using Dalamud.Game.Text.SeStringHandling.Payloads;
@@ -93,17 +94,18 @@ public class ChatNameReplacementService : DisposableMediatorSubscriberBase
         _chatGui.ChatMessage -= OnChatMessage;
     }
 
-    private void OnChatMessage(XivChatType type, int timestamp, ref SeString sender, ref SeString message, ref bool isHandled)
+    private void OnChatMessage(IHandleableChatMessage chatMessage)
     {
-        if (isHandled || !_configService.Current.UseRpNamesInChat)
+        if (chatMessage.IsHandled || !_configService.Current.UseRpNamesInChat)
             return;
 
         if (_isInDuty && _configService.Current.DisableRpNamesInChatInDuty)
             return;
 
-        if (!RpChatTypes.Contains(type))
+        if (!RpChatTypes.Contains(chatMessage.LogKind))
             return;
 
+        var sender = chatMessage.Sender;
         var senderText = ExtractSenderName(sender);
         if (string.IsNullOrEmpty(senderText))
             return;
@@ -132,10 +134,15 @@ public class ChatNameReplacementService : DisposableMediatorSubscriberBase
         var effectiveChatIcon = chatIconAllowed ? chatIcon : (ushort)0;
 
         ReplaceNameInSeString(ref sender, senderText, rpName, effectiveColor, effectiveChatIcon);
+        chatMessage.Sender = sender;
 
         // Pour les emotes standard, le nom apparaît aussi dans le corps du message
-        if (type == XivChatType.StandardEmote)
+        if (chatMessage.LogKind == XivChatType.StandardEmote)
+        {
+            var message = chatMessage.Message;
             ReplaceEmoteMessageNames(ref message, senderText, rpName);
+            chatMessage.Message = message;
+        }
     }
 
     private void ReplaceEmoteMessageNames(ref SeString message, string senderVanillaName, string senderRpName)

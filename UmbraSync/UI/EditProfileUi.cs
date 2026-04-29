@@ -8,7 +8,7 @@ using Dalamud.Plugin.Services;
 using Dalamud.Interface.Utility;
 using Lumina.Excel.Sheets;
 using Microsoft.Extensions.Logging;
-using OtterGui.Raii;
+using Dalamud.Interface.Utility.Raii;
 using System.Numerics;
 using System.Text.RegularExpressions;
 using UmbraSync.API.Data;

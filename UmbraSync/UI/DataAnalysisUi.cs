@@ -339,7 +339,7 @@ public class DataAnalysisUi : WindowMediatorSubscriberBase
             {
                 string fileGroupText = fileGroup.Key + " [" + fileGroup.Count() + "]";
                 var requiresCompute = fileGroup.Any(k => !k.IsComputed);
-                ImRaii.IEndObject fileTab;
+                ImRaii.TabItemDisposable fileTab;
                 using (ImRaii.PushColor(ImGuiCol.Text, UiSharedService.Color(Vector4.One),
                     requiresCompute && !string.Equals(_selectedFileTypeTab, fileGroup.Key, StringComparison.Ordinal)))
                 {

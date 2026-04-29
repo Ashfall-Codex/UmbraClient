@@ -447,7 +447,7 @@ public sealed class TypingIndicatorOverlay : WindowMediatorSubscriberBase
         {
             var obj = _objectTable[i];
             if (obj == null) continue;
-            if (obj.ObjectKind != Dalamud.Game.ClientState.Objects.Enums.ObjectKind.Player) continue;
+            if (obj.ObjectKind != Dalamud.Game.ClientState.Objects.Enums.ObjectKind.Pc) continue;
             if (obj.EntityId != objectId) continue;
 
             var dist = Vector3.Distance(_objectTable.LocalPlayer.Position, obj.Position);

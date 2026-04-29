@@ -4,7 +4,6 @@ using Dalamud.Interface.Colors;
 using Dalamud.Interface.Utility;
 using Dalamud.Interface.Utility.Raii;
 using Dalamud.Utility;
-using OtterGui.Text;
 using System.Diagnostics;
 using System.Globalization;
 using System.Numerics;
@@ -16,7 +15,6 @@ using UmbraSync.PlayerData.Pairs;
 using UmbraSync.Services;
 using UmbraSync.Services.Mediator;
 using UmbraSync.UI.Components;
-using OtterGuiImGuiClip = OtterGui.ImGuiClip;
 
 namespace UmbraSync.UI;
 
@@ -318,14 +316,14 @@ public partial class CompactUi
                 var pendingUids = new HashSet<string>(pending.Select(p => p.Uid!).Where(s => !string.IsNullOrEmpty(s)), StringComparer.Ordinal);
                 var pendingTokens = new HashSet<string>(pending.Select(p => p.Token!).Where(s => !string.IsNullOrEmpty(s)), StringComparer.Ordinal);
                 var actionButtonSize = _uiSharedService.GetIconButtonSize(FontAwesomeIcon.UserPlus);
-                using var table = ImUtf8.Table("nearby-table", 2, ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.RowBg | ImGuiTableFlags.PadOuterX | ImGuiTableFlags.BordersInnerV);
+                using var table = ImRaii.Table("nearby-table", 2, ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.RowBg | ImGuiTableFlags.PadOuterX | ImGuiTableFlags.BordersInnerV);
                 if (table)
                 {
                     ImGui.TableSetupColumn(Loc.Get("CompactUi.Nearby.Table.Name"), ImGuiTableColumnFlags.WidthStretch, 1f);
                     ImGui.TableSetupColumn(Loc.Get("CompactUi.Nearby.Table.Action"), ImGuiTableColumnFlags.WidthFixed, actionButtonSize.X);
 
                     var rowHeight = MathF.Max(ImGui.GetFrameHeight(), ImGui.GetTextLineHeight()) + ImGui.GetStyle().ItemSpacing.Y;
-                    OtterGuiImGuiClip.ClippedDraw(nearbyEntries, e =>
+                    ClippedDrawNearbyRows(nearbyEntries, rowHeight, e =>
                     {
                         bool alreadyPaired = false;
                         if (!string.IsNullOrEmpty(e.Uid))
@@ -370,7 +368,7 @@ public partial class CompactUi
                             }
                         }
                         UiSharedService.AttachToolTip(Loc.Get("CompactUi.Nearby.InviteTooltip"));
-                    }, rowHeight);
+                    });
                 }
 
                 ImGui.Unindent(indent);
@@ -445,5 +443,28 @@ public partial class CompactUi
                    (p.GetNote()?.Contains(_characterOrCommentFilter, StringComparison.OrdinalIgnoreCase) ?? false) ||
                    (p.PlayerName?.Contains(_characterOrCommentFilter, StringComparison.OrdinalIgnoreCase) ?? false);
         }).ToList();
+    }
+
+    private static void ClippedDrawNearbyRows<T>(IReadOnlyList<T> data, float lineHeight, Action<T> draw)
+    {
+        var clipper = ImGui.ImGuiListClipper();
+        clipper.Begin(data.Count, lineHeight);
+        try
+        {
+            while (clipper.Step())
+            {
+                for (var row = clipper.DisplayStart; row < clipper.DisplayEnd; row++)
+                {
+                    if (row >= data.Count) return;
+                    if (row < 0) continue;
+                    draw(data[row]);
+                }
+            }
+        }
+        finally
+        {
+            clipper.End();
+            clipper.Destroy();
+        }
     }
 }

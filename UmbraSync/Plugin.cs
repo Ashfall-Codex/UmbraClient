@@ -59,7 +59,7 @@ public sealed class Plugin : IDalamudPlugin
         })
         .ConfigureServices(collection =>
         {
-            collection.AddSingleton(new WindowSystem("UmbraSync"));
+            collection.AddSingleton<IWindowSystem>(new WindowSystem("UmbraSync"));
             collection.AddSingleton<FileDialogManager>();
 
             // add dalamud services

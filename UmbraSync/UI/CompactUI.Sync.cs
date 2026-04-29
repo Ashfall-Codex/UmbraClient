@@ -3,7 +3,6 @@ using Dalamud.Interface;
 using Dalamud.Interface.Colors;
 using Dalamud.Interface.Utility;
 using Dalamud.Interface.Utility.Raii;
-using OtterGui.Text;
 using System.Globalization;
 using System.Numerics;
 using UmbraSync.Localization;
@@ -193,7 +192,7 @@ public partial class CompactUi
 
                 UiSharedService.DrawGrouped(() =>
                 {
-                    using var table = ImUtf8.Table("self-analysis-stats", 2, ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoSavedSettings);
+                    using var table = ImRaii.Table("self-analysis-stats", 2, ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoSavedSettings);
                     if (table)
                     {
                         ImGui.TableSetupColumn("label", ImGuiTableColumnFlags.WidthStretch, 0.55f);

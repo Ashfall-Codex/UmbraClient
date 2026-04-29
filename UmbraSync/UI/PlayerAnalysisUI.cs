@@ -218,7 +218,7 @@ public class PlayerAnalysisUI : WindowMediatorSubscriberBase
                     string fileGroupText = fileGroup.Key + " [" + fileGroup.Count() + "]";
                     var requiresCompute = fileGroup.Any(k => !k.IsComputed);
                     using var tabcol = ImRaii.PushColor(ImGuiCol.Tab, UiSharedService.Color(ImGuiColors.DalamudYellow), requiresCompute);
-                    ImRaii.IEndObject fileTab;
+                    ImRaii.TabItemDisposable fileTab;
                     using (var _ = ImRaii.PushColor(ImGuiCol.Text, UiSharedService.Color(new(0, 0, 0, 1)),
                         requiresCompute && !string.Equals(_selectedFileTypeTab, fileGroup.Key, StringComparison.Ordinal)))
                     {

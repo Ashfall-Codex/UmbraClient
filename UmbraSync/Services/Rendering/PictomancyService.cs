@@ -7,15 +7,14 @@ namespace UmbraSync.Services.Rendering;
 public sealed class PictomancyService : IDisposable
 {
     private readonly ILogger<PictomancyService> _logger;
-    private bool _initialized;
+    private PctContext? _context;
 
     public PictomancyService(ILogger<PictomancyService> logger, IDalamudPluginInterface pluginInterface)
     {
         _logger = logger;
         try
         {
-            PictoService.Initialize(pluginInterface);
-            _initialized = true;
+            _context = PctService.Initialize(pluginInterface);
             _logger.LogDebug("Pictomancy initialized");
         }
         catch (Exception ex)
@@ -24,14 +23,14 @@ public sealed class PictomancyService : IDisposable
         }
     }
 
-    public bool IsInitialized => _initialized;
+    public bool IsInitialized => _context != null;
 
     public void Dispose()
     {
-        if (!_initialized) return;
+        if (_context == null) return;
         try
         {
-            PictoService.Dispose();
+            _context.Dispose();
         }
         catch (Exception ex)
         {
@@ -39,7 +38,7 @@ public sealed class PictomancyService : IDisposable
         }
         finally
         {
-            _initialized = false;
+            _context = null;
         }
     }
 }
