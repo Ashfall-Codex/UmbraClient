@@ -13,6 +13,7 @@ namespace UmbraSync.Services;
 public sealed class CommandManagerService : IDisposable
 {
     private const string _commandName = "/usync";
+    private const string _commandAlias = "/umbrasync";
 
     private readonly ApiController _apiController;
     private readonly ICommandManager _commandManager;
@@ -35,13 +36,18 @@ public sealed class CommandManagerService : IDisposable
         _mareConfigService = mareConfigService;
         _commandManager.AddHandler(_commandName, new CommandInfo(OnCommand)
         {
-            HelpMessage = "Opens the UmbraSync UI"
+            HelpMessage = "Ouvre l'interface UmbraSync. Sous-commandes : toggle [on|off], gpose, rescan, perf, analyze"
+        });
+        _commandManager.AddHandler(_commandAlias, new CommandInfo(OnCommand)
+        {
+            HelpMessage = $"Alias de {_commandName}."
         });
     }
 
     public void Dispose()
     {
         _commandManager.RemoveHandler(_commandName);
+        _commandManager.RemoveHandler(_commandAlias);
     }
 
 
