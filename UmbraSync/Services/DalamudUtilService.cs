@@ -237,7 +237,7 @@ public class DalamudUtilService : IHostedService, IMediatorSubscriber
     {
         EnsureIsOnFramework();
         var objTableObj = _objectTable[index];
-        if (objTableObj!.ObjectKind != Dalamud.Game.ClientState.Objects.Enums.ObjectKind.Player) return null;
+        if (objTableObj!.ObjectKind != Dalamud.Game.ClientState.Objects.Enums.ObjectKind.Pc) return null;
         return (Dalamud.Game.ClientState.Objects.Types.ICharacter)objTableObj;
     }
 
@@ -269,7 +269,7 @@ public class DalamudUtilService : IHostedService, IMediatorSubscriber
 
     public IEnumerable<ICharacter?> GetGposeCharactersFromObjectTable()
     {
-        return _objectTable.Where(o => o.ObjectIndex > 200 && o.ObjectKind == Dalamud.Game.ClientState.Objects.Enums.ObjectKind.Player).Cast<ICharacter>();
+        return _objectTable.Where(o => o.ObjectIndex > 200 && o.ObjectKind == Dalamud.Game.ClientState.Objects.Enums.ObjectKind.Pc).Cast<ICharacter>();
     }
 
     public bool GetIsPlayerPresent()
@@ -773,7 +773,7 @@ public class DalamudUtilService : IHostedService, IMediatorSubscriber
                     for (int i = 0; i < _objectTable.Length; i += 2)
                     {
                         var chara = _objectTable[i];
-                        if (chara == null || chara.ObjectKind != Dalamud.Game.ClientState.Objects.Enums.ObjectKind.Player)
+                        if (chara == null || chara.ObjectKind != Dalamud.Game.ClientState.Objects.Enums.ObjectKind.Pc)
                             continue;
 
                         if (_blockedCharacterHandler.IsCharacterBlocked(chara.Address, out bool firstTime) && firstTime)

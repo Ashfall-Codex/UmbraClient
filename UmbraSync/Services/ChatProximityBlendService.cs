@@ -231,7 +231,7 @@ public class ChatProximityBlendService : DisposableMediatorSubscriberBase
     {
         foreach (var obj in _objectTable)
         {
-            if (obj.ObjectKind == ObjectKind.Player
+            if (obj.ObjectKind == ObjectKind.Pc
                 && string.Equals(obj.Name.TextValue, name, StringComparison.OrdinalIgnoreCase))
                 return obj;
         }

@@ -90,7 +90,7 @@ public class ChatTargetSoundService : DisposableMediatorSubscriberBase
         var myTarget = _targetManager.Target;
         var iTargetThem = config.ChatTargetSoundReverseEnabled
             && myTarget != null
-            && myTarget.ObjectKind == ObjectKind.Player
+            && myTarget.ObjectKind == ObjectKind.Pc
             && string.Equals(myTarget.Name.TextValue, senderName, StringComparison.OrdinalIgnoreCase);
 
         if (!theyTargetMe && !iTargetThem)
@@ -167,7 +167,7 @@ public class ChatTargetSoundService : DisposableMediatorSubscriberBase
     {
         foreach (var obj in _objectTable)
         {
-            if (obj.ObjectKind == ObjectKind.Player
+            if (obj.ObjectKind == ObjectKind.Pc
                 && string.Equals(obj.Name.TextValue, name, StringComparison.OrdinalIgnoreCase))
                 return obj;
         }

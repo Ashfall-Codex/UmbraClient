@@ -452,7 +452,7 @@ public class NearbyDiscoveryService(ILogger<NearbyDiscoveryService> logger, Mare
             {
                 var objectIndex = i;
                 var obj = await _dalamud.RunOnFrameworkThread(() => _objectTable[objectIndex]).ConfigureAwait(false);
-                if (obj == null || obj.ObjectKind != Dalamud.Game.ClientState.Objects.Enums.ObjectKind.Player) continue;
+                if (obj == null || obj.ObjectKind != Dalamud.Game.ClientState.Objects.Enums.ObjectKind.Pc) continue;
                 if (local != null && obj.Address == local.Address) continue;
 
                 float dist = local == null ? float.NaN : Vector3.Distance(localPos, obj.Position);

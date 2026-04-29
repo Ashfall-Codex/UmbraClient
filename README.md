@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <code>v2.5.0.4023</code> &middot; API <code>v3000</code> &middot; C# 13 / .NET 10 &middot; Dalamud SDK 14.0.2
+  <code>v2.5.2.4029</code> &middot; API <code>v4000</code> &middot; C# 13 / .NET 10 &middot; Dalamud SDK 15.0.0 (Dalamud API15)
 </p>
 
 ---
@@ -122,7 +122,6 @@ Le projet est composé de plusieurs modules :
 | `Ashfall.Engine/` | C# / .NET 10 | Moteur de rendu overlay (occlusion 3D, projection monde→écran) |
 | `Penumbra.Api/` | Submodule git | API d'intégration Penumbra |
 | `Glamourer.Api/` | Submodule git | API d'intégration Glamourer |
-| `OtterGui/` | Submodule git | Bibliothèque UI ImGui |
 | `ffxiv_pictomancy/` | Submodule git | Bibliothèque de dessin 3D dans le monde |
 
 ### Plugin (C#)
@@ -165,6 +164,8 @@ dotnet build UmbraSync.sln -c Release --no-restore -p:DALAMUD_DIR="$DALAMUD_DIR"
 
 ## Commandes
 
+La commande principale est `/usync`. Un alias `/umbrasync` est également enregistré pour la découvrabilité, les deux pointent sur le même handler.
+
 | Commande | Description |
 |---|---|
 | `/usync` | Ouvre la fenêtre principale |
@@ -199,7 +200,8 @@ dotnet build UmbraSync.sln -c Release --no-restore -p:DALAMUD_DIR="$DALAMUD_DIR"
 | `Brio.API` | 3.0.1 |
 | `Penumbra.Api` | 5.13.1 |
 | `Glamourer.Api` | 2.8.0 |
-| `Dalamud.NET.Sdk` | 14.0.2 |
+| `Dalamud.NET.Sdk` | 15.0.0 |
+| `DalamudPackager` | 15.0.0 |
 
 ### Submodules git
 
@@ -209,7 +211,6 @@ dotnet build UmbraSync.sln -c Release --no-restore -p:DALAMUD_DIR="$DALAMUD_DIR"
 | `Ashfall.Engine/` | [Ashfall-Codex/Ashfall.Engine](https://github.com/Ashfall-Codex/Ashfall.Engine) |
 | `Penumbra.Api/` | [Ottermandias/Penumbra.Api](https://github.com/Ottermandias/Penumbra.Api) |
 | `Glamourer.Api/` | [Ottermandias/Glamourer.Api](https://github.com/Ottermandias/Glamourer.Api) |
-| `OtterGui/` | [Ottermandias/OtterGui](https://github.com/Ottermandias/OtterGui) |
 | `ffxiv_pictomancy/` | [sourpuh/ffxiv_pictomancy](https://github.com/sourpuh/ffxiv_pictomancy) |
 
 ---

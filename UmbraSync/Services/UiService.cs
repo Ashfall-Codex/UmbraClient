@@ -15,10 +15,10 @@ public sealed class UiService : DisposableMediatorSubscriberBase
     private readonly FileDialogManager _fileDialogManager;
     private readonly ILogger<UiService> _logger;
     private readonly MareConfigService _mareConfigService;
-    private readonly WindowSystem _windowSystem;
+    private readonly IWindowSystem _windowSystem;
 
     public UiService(ILogger<UiService> logger, IUiBuilder uiBuilder,
-        MareConfigService mareConfigService, WindowSystem windowSystem,
+        MareConfigService mareConfigService, IWindowSystem windowSystem,
         IEnumerable<WindowMediatorSubscriberBase> windows,
         UiFactory uiFactory, FileDialogManager fileDialogManager,
         MareMediator mareMediator) : base(logger, mareMediator)

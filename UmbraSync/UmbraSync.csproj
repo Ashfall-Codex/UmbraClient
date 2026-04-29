@@ -1,11 +1,11 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project Sdk="Dalamud.NET.Sdk/14.0.2">
+<Project Sdk="Dalamud.NET.Sdk/15.0.0">
     <PropertyGroup>
         <TargetFramework>net10.0-windows</TargetFramework>
         <LangVersion>13.0</LangVersion>
         <AssemblyName>UmbraSync</AssemblyName>
         <RootNamespace>UmbraSync</RootNamespace>
-        <Version>2.5.1.4029</Version>
+        <Version>2.5.2.4029</Version>
     </PropertyGroup>
 
     <ItemGroup>
@@ -33,7 +33,7 @@
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
         <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.16.0" />
-        <PackageReference Update="DalamudPackager" Version="14.0.2" />
+        <PackageReference Update="DalamudPackager" Version="15.0.0" />
         <PackageReference Update="DotNet.ReproducibleBuilds" Version="2.0.2" />
     </ItemGroup>
 
@@ -62,20 +62,10 @@
 
     <ItemGroup>
         <ProjectReference Include="..\UmbraAPI\UmbraSyncAPI\UmbraSync.API.csproj" />
-        <ProjectReference Include="..\OtterGui\OtterGui.csproj" />
         <ProjectReference Include="..\ffxiv_pictomancy\Pictomancy\Pictomancy.csproj" />
         <ProjectReference Include="..\Ashfall.Engine\Ashfall.Engine.csproj" />
         <None Include="..\.editorconfig" Link=".editorconfig" />
     </ItemGroup>
-
-
-    <Target Name="EnsureOtterGuiBuilt"
-            BeforeTargets="ResolveReferences"
-            Condition="Exists('..\OtterGui\OtterGui.csproj') and !Exists('..\OtterGui\bin\$(Configuration)\OtterGui.dll')">
-        <MSBuild Projects="..\OtterGui\OtterGui.csproj"
-                 Targets="Build"
-                 Properties="Configuration=$(Configuration)" />
-    </Target>
 
     <Target Name="EnsurePictomancyBuilt"
             BeforeTargets="ResolveReferences"

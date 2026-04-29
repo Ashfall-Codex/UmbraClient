@@ -1,4 +1,5 @@
 ﻿using Dalamud.Bindings.ImGui;
+using Dalamud.Interface.Windowing;
 using Dalamud.Interface.Colors;
 using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
