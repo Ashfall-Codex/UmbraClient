@@ -52,6 +52,11 @@ public class SettingsUi : WindowMediatorSubscriberBase
     private readonly ServerConfigurationManager _serverConfigurationManager;
     private readonly UiSharedService _uiShared;
     private readonly ChatTypingDetectionService _chatTypingDetectionService;
+    private readonly UmbraSync.WebAPI.AshfallConnectService _ashfallConnect;
+    private UmbraSync.WebAPI.AshfallConnectService.MyStatusResult? _ashfallStatus;
+    private DateTime _ashfallStatusFetchedAt = DateTime.MinValue;
+    private bool _ashfallStatusLoading;
+    private static readonly TimeSpan AshfallStatusTtl = TimeSpan.FromSeconds(30);
     private readonly RgpdDataService _rgpdDataService;
     private readonly MareConfiguration.SyncshellConfigService _syncshellConfigService;
     private readonly MareConfiguration.CharaDataConfigService _charaDataConfigService;
@@ -130,8 +135,10 @@ public class SettingsUi : WindowMediatorSubscriberBase
         ChatTypingDetectionService chatTypingDetectionService,
         RgpdDataService gdprDataService,
         MareConfiguration.SyncshellConfigService syncshellConfigService,
-        MareConfiguration.CharaDataConfigService charaDataConfigService) : base(logger, mediator, "Umbra Settings", performanceCollector)
+        MareConfiguration.CharaDataConfigService charaDataConfigService,
+        UmbraSync.WebAPI.AshfallConnectService ashfallConnect) : base(logger, mediator, "Umbra Settings", performanceCollector)
     {
+        _ashfallConnect = ashfallConnect;
         _configService = configService;
         _pairManager = pairManager;
         _guiHookService = guiHookService;
@@ -3090,19 +3097,23 @@ public class SettingsUi : WindowMediatorSubscriberBase
             }
     }
 
-    /// Bloc "Ashfall Connect" en fin de la section Compte. Permet au joueur de générer
-    /// un code de lien à 8 chars qu'il entrera ensuite sur https://connect.ashfall-codex.dev/link.
-    /// Optionnel : tant que Connect n'est pas activé côté serveur, le bouton renvoie 503 et l'UI le signale.
+    /// Bloc "Ashfall Connect" en fin de la section Compte. Affichage conditionnel :
+    ///   - Connect désactivé côté serveur → bouton "Générer" qui renverra 503
+    ///   - Personnage non lié → bouton "Générer un code de lien"
+    ///   - Personnage lié → état "Compte lié · niveau X"
     private void DrawAshfallConnectSection()
     {
         // Palette Ashfall (cohérente avec la web app Connect) :
-        var ember = new Vector4(0.831f, 0.384f, 0.165f, 1f);    // #d4622a
-        var emberBright = new Vector4(0.941f, 0.565f, 0.259f, 1f); // #f09042
-        var gold = new Vector4(0.831f, 0.686f, 0.416f, 1f);     // #d4af6a
+        var ember = new Vector4(0.831f, 0.384f, 0.165f, 1f);
+        var emberBright = new Vector4(0.941f, 0.565f, 0.259f, 1f);
+        var gold = new Vector4(0.831f, 0.686f, 0.416f, 1f);
         var emberFaint = new Vector4(0.831f, 0.384f, 0.165f, 0.06f);
         var emberBorder = new Vector4(0.831f, 0.384f, 0.165f, 0.45f);
 
-        // Bloc compact : header inline + bouton à droite sur la même ligne, description en sous-ligne grise.
+        LoadAshfallStatusIfNeeded();
+
+        var isLinked = _ashfallStatus?.Linked == true;
+
         using (Dalamud.Interface.Utility.Raii.ImRaii.PushColor(ImGuiCol.ChildBg, emberFaint))
         using (Dalamud.Interface.Utility.Raii.ImRaii.PushColor(ImGuiCol.Border, emberBorder))
         using (Dalamud.Interface.Utility.Raii.ImRaii.PushStyle(ImGuiStyleVar.ChildRounding, 6f))
@@ -3113,9 +3124,6 @@ public class SettingsUi : WindowMediatorSubscriberBase
             {
                 if (!child.Success) return;
 
-                const float btnW = 170f;
-                const float btnH = 24f;
-
                 // Header : picto + nom (gold) sur la 1re ligne, à gauche
                 using (Dalamud.Interface.Utility.Raii.ImRaii.PushFont(Dalamud.Interface.UiBuilder.IconFont))
                 using (Dalamud.Interface.Utility.Raii.ImRaii.PushColor(ImGuiCol.Text, gold))
@@ -3124,27 +3132,83 @@ public class SettingsUi : WindowMediatorSubscriberBase
                 using (Dalamud.Interface.Utility.Raii.ImRaii.PushColor(ImGuiCol.Text, gold))
                     ImGui.Text("Ashfall Connect");
                 ImGui.SameLine();
-                ImGui.TextDisabled("(optionnel)");
-
-                // Bouton aligné à droite sur la même ligne que le titre
-                var avail = ImGui.GetContentRegionAvail().X;
-                ImGui.SameLine(ImGui.GetCursorPosX() + avail - btnW);
-                using (Dalamud.Interface.Utility.Raii.ImRaii.PushColor(ImGuiCol.Button, ember))
-                using (Dalamud.Interface.Utility.Raii.ImRaii.PushColor(ImGuiCol.ButtonHovered, emberBright))
-                using (Dalamud.Interface.Utility.Raii.ImRaii.PushColor(ImGuiCol.ButtonActive, ember))
-                using (Dalamud.Interface.Utility.Raii.ImRaii.PushStyle(ImGuiStyleVar.FrameRounding, 4f))
+                if (isLinked)
                 {
-                    if (ImGui.Button("Générer un code de lien", new Vector2(btnW, btnH)))
+                    using (Dalamud.Interface.Utility.Raii.ImRaii.PushColor(ImGuiCol.Text, new Vector4(0.29f, 0.87f, 0.51f, 1f)))
+                        ImGui.Text("· lié");
+                }
+                else
+                {
+                    ImGui.TextDisabled("(optionnel)");
+                }
+
+                // À droite : statut "Vérifié" si lié, sinon bouton "Générer"
+                var avail = ImGui.GetContentRegionAvail().X;
+                if (isLinked)
+                {
+                    var levelLabel = _ashfallStatus?.Level switch
                     {
-                        Mediator.Publish(new UmbraSync.Services.Mediator.UiToggleMessage(typeof(UmbraSync.UI.AshfallLinkCodeUi)));
+                        "gold" => "Or",
+                        "silver" => "Argent",
+                        "bronze" => "Bronze",
+                        _ => "Vérifié",
+                    };
+                    var rightText = $"◆  Niveau {levelLabel}";
+                    var rightSize = ImGui.CalcTextSize(rightText);
+                    ImGui.SameLine(ImGui.GetCursorPosX() + avail - rightSize.X);
+                    using (Dalamud.Interface.Utility.Raii.ImRaii.PushColor(ImGuiCol.Text, gold))
+                        ImGui.Text(rightText);
+                }
+                else
+                {
+                    const float btnW = 170f;
+                    const float btnH = 24f;
+                    ImGui.SameLine(ImGui.GetCursorPosX() + avail - btnW);
+                    using (Dalamud.Interface.Utility.Raii.ImRaii.PushColor(ImGuiCol.Button, ember))
+                    using (Dalamud.Interface.Utility.Raii.ImRaii.PushColor(ImGuiCol.ButtonHovered, emberBright))
+                    using (Dalamud.Interface.Utility.Raii.ImRaii.PushColor(ImGuiCol.ButtonActive, ember))
+                    using (Dalamud.Interface.Utility.Raii.ImRaii.PushStyle(ImGuiStyleVar.FrameRounding, 4f))
+                    {
+                        if (ImGui.Button("Générer un code de lien", new Vector2(btnW, btnH)))
+                        {
+                            Mediator.Publish(new UmbraSync.Services.Mediator.UiToggleMessage(typeof(UmbraSync.UI.AshfallLinkCodeUi)));
+                            // Force un refetch dans 5s pour que la section réagisse à la liaison.
+                            _ashfallStatusFetchedAt = DateTime.UtcNow - AshfallStatusTtl + TimeSpan.FromSeconds(5);
+                        }
                     }
                 }
 
                 // Description discrète en sous-ligne
-                ImGui.TextDisabled("Liez ce personnage à votre compte Ashfall pour gérer vos identités depuis Ashfall Connect.");
+                if (isLinked)
+                    ImGui.TextDisabled("Ce personnage est rattaché à votre compte Ashfall. Gérez vos identités sur Ashfall Connect.");
+                else
+                    ImGui.TextDisabled("Liez ce personnage à votre compte Ashfall pour gérer vos identités depuis Ashfall Connect.");
             }
         }
         ImGui.Spacing();
+    }
+
+    private void LoadAshfallStatusIfNeeded()
+    {
+        if (_ashfallStatusLoading) return;
+        if ((DateTime.UtcNow - _ashfallStatusFetchedAt) < AshfallStatusTtl) return;
+        _ashfallStatusLoading = true;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                _ashfallStatus = await _ashfallConnect.GetMyStatusAsync(CancellationToken.None).ConfigureAwait(false);
+                _ashfallStatusFetchedAt = DateTime.UtcNow;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Ashfall: échec du fetch du status, fallback silencieux");
+            }
+            finally
+            {
+                _ashfallStatusLoading = false;
+            }
+        });
     }
 
     private string _uidToAddForIgnore = string.Empty;
