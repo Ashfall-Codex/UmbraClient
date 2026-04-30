@@ -2645,6 +2645,8 @@ public class SettingsUi : WindowMediatorSubscriberBase
         _lastTab = "Compte";
         DrawSectionHeader(6);
 
+        DrawAshfallConnectSection();
+
         var idx = _serverConfigurationManager.CurrentServerIndex;
         var playerName = _dalamudUtilService.GetPlayerName();
         var playerWorldId = _dalamudUtilService.GetHomeWorldId();
@@ -3086,6 +3088,63 @@ public class SettingsUi : WindowMediatorSubscriberBase
                 }
 
             }
+    }
+
+    /// Bloc "Ashfall Connect" en fin de la section Compte. Permet au joueur de générer
+    /// un code de lien à 8 chars qu'il entrera ensuite sur https://connect.ashfall-codex.dev/link.
+    /// Optionnel : tant que Connect n'est pas activé côté serveur, le bouton renvoie 503 et l'UI le signale.
+    private void DrawAshfallConnectSection()
+    {
+        // Palette Ashfall (cohérente avec la web app Connect) :
+        var ember = new Vector4(0.831f, 0.384f, 0.165f, 1f);    // #d4622a
+        var emberBright = new Vector4(0.941f, 0.565f, 0.259f, 1f); // #f09042
+        var gold = new Vector4(0.831f, 0.686f, 0.416f, 1f);     // #d4af6a
+        var emberFaint = new Vector4(0.831f, 0.384f, 0.165f, 0.06f);
+        var emberBorder = new Vector4(0.831f, 0.384f, 0.165f, 0.45f);
+
+        // Bloc compact : header inline + bouton à droite sur la même ligne, description en sous-ligne grise.
+        using (Dalamud.Interface.Utility.Raii.ImRaii.PushColor(ImGuiCol.ChildBg, emberFaint))
+        using (Dalamud.Interface.Utility.Raii.ImRaii.PushColor(ImGuiCol.Border, emberBorder))
+        using (Dalamud.Interface.Utility.Raii.ImRaii.PushStyle(ImGuiStyleVar.ChildRounding, 6f))
+        using (Dalamud.Interface.Utility.Raii.ImRaii.PushStyle(ImGuiStyleVar.ChildBorderSize, 1f))
+        using (Dalamud.Interface.Utility.Raii.ImRaii.PushStyle(ImGuiStyleVar.WindowPadding, new Vector2(12, 8)))
+        {
+            using (var child = Dalamud.Interface.Utility.Raii.ImRaii.Child("##ashfall-connect-section", new Vector2(-1, 68), border: true, flags: ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse))
+            {
+                if (!child.Success) return;
+
+                const float btnW = 170f;
+                const float btnH = 24f;
+
+                // Header : picto + nom (gold) sur la 1re ligne, à gauche
+                using (Dalamud.Interface.Utility.Raii.ImRaii.PushFont(Dalamud.Interface.UiBuilder.IconFont))
+                using (Dalamud.Interface.Utility.Raii.ImRaii.PushColor(ImGuiCol.Text, gold))
+                    ImGui.Text(Dalamud.Interface.FontAwesomeIcon.Gem.ToIconString());
+                ImGui.SameLine();
+                using (Dalamud.Interface.Utility.Raii.ImRaii.PushColor(ImGuiCol.Text, gold))
+                    ImGui.Text("Ashfall Connect");
+                ImGui.SameLine();
+                ImGui.TextDisabled("(optionnel)");
+
+                // Bouton aligné à droite sur la même ligne que le titre
+                var avail = ImGui.GetContentRegionAvail().X;
+                ImGui.SameLine(ImGui.GetCursorPosX() + avail - btnW);
+                using (Dalamud.Interface.Utility.Raii.ImRaii.PushColor(ImGuiCol.Button, ember))
+                using (Dalamud.Interface.Utility.Raii.ImRaii.PushColor(ImGuiCol.ButtonHovered, emberBright))
+                using (Dalamud.Interface.Utility.Raii.ImRaii.PushColor(ImGuiCol.ButtonActive, ember))
+                using (Dalamud.Interface.Utility.Raii.ImRaii.PushStyle(ImGuiStyleVar.FrameRounding, 4f))
+                {
+                    if (ImGui.Button("Générer un code de lien", new Vector2(btnW, btnH)))
+                    {
+                        Mediator.Publish(new UmbraSync.Services.Mediator.UiToggleMessage(typeof(UmbraSync.UI.AshfallLinkCodeUi)));
+                    }
+                }
+
+                // Description discrète en sous-ligne
+                ImGui.TextDisabled("Liez ce personnage à votre compte Ashfall pour gérer vos identités depuis Ashfall Connect.");
+            }
+        }
+        ImGui.Spacing();
     }
 
     private string _uidToAddForIgnore = string.Empty;

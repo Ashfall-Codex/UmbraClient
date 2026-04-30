@@ -227,6 +227,9 @@ public sealed class Plugin : IDalamudPlugin
             collection.AddScoped<WindowMediatorSubscriberBase>(sp => sp.GetRequiredService<AutoDetectUi>());
             collection.AddScoped<WindowMediatorSubscriberBase, ChangelogUi>();
             collection.AddScoped<WindowMediatorSubscriberBase, PopoutProfileUi>();
+            collection.AddScoped<UmbraSync.WebAPI.AshfallConnectService>();
+            collection.AddScoped<UmbraSync.UI.AshfallLinkCodeUi>();
+            collection.AddScoped<WindowMediatorSubscriberBase>(sp => sp.GetRequiredService<UmbraSync.UI.AshfallLinkCodeUi>());
             collection.AddScoped<WindowMediatorSubscriberBase>(sp => sp.GetRequiredService<DataAnalysisUi>());
             collection.AddScoped<WindowMediatorSubscriberBase, EventViewerUI>();
             collection.AddScoped<WindowMediatorSubscriberBase, CharaDataHubUi>();
