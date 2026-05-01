@@ -223,6 +223,12 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
     {
         return new List<ChangelogEntry>
         {
+            new(new Version(2, 5, 2, 5001), "2.5.2.5001", new List<ChangelogLine>
+            {
+                new("Autre : Mise à jour API Glamourer."),
+                new("Autre : Mise à jour API Penumbra."),
+                new("Autre : Mise à jour de la library 'Pictomancy'."),
+            }),
             new(new Version(2, 5, 2, 4030), "2.5.2.4030", new List<ChangelogLine>
             {
                 new("Autre : Migration vers Dalamud API 15."),
