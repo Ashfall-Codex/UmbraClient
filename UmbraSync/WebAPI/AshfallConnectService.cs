@@ -127,6 +127,50 @@ public sealed class AshfallConnectService : IDisposable
         public string? Code { get; set; }
         public DateTimeOffset ExpiresAt { get; set; }
     }
+
+    // Pousse la liste actuelle des persos partageant la SecretKey vers Connect.
+    public async Task<SyncResult> SyncCharactersAsync(CancellationToken token)
+    {
+        var jwt = await _tokenProvider.GetToken().ConfigureAwait(false);
+        if (string.IsNullOrEmpty(jwt)) return SyncResult.Failed;
+
+        var baseUrl = _serverManager.CurrentApiUrl
+            .Replace("wss://", "https://", StringComparison.OrdinalIgnoreCase)
+            .Replace("ws://", "http://", StringComparison.OrdinalIgnoreCase)
+            .TrimEnd('/');
+        var uri = new Uri($"{baseUrl}/main/connect/sync-characters");
+
+        var characters = CollectCharactersForCurrentKey();
+        var payload = new { characters };
+        var serialized = System.Text.Json.JsonSerializer.Serialize(payload);
+        if (ContainsSecretLikePattern(serialized))
+        {
+            _logger.LogError("Ashfall garde-fou : pattern de hash détecté dans le payload Connect (sync). Envoi ABORTÉ.");
+            return SyncResult.Failed;
+        }
+
+        using var req = new HttpRequestMessage(HttpMethod.Post, uri)
+        {
+            Content = new StringContent(serialized, System.Text.Encoding.UTF8, "application/json"),
+        };
+        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", jwt);
+        try
+        {
+            using var res = await _httpClient.SendAsync(req, token).ConfigureAwait(false);
+            if (res.StatusCode == System.Net.HttpStatusCode.NotFound) return SyncResult.NotLinked;
+            if (res.IsSuccessStatusCode) return SyncResult.Synced;
+            _logger.LogWarning("Sync Connect a renvoyé {Status}", res.StatusCode);
+            return SyncResult.Failed;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Échec de la synchronisation des personnages vers Connect");
+            return SyncResult.Failed;
+        }
+    }
+
+    public enum SyncResult { Synced, NotLinked, Failed }
+
     private List<CharacterDto> CollectCharactersForCurrentKey()
     {
         try

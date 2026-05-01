@@ -3155,9 +3155,19 @@ public class SettingsUi : WindowMediatorSubscriberBase
                     };
                     var rightText = $"◆  Niveau {levelLabel}";
                     var rightSize = ImGui.CalcTextSize(rightText);
-                    ImGui.SameLine(ImGui.GetCursorPosX() + avail - rightSize.X);
+                    const float syncBtnW = 140f;
+                    const float gap = 12f;
+                    var syncX = ImGui.GetCursorPosX() + avail - syncBtnW;
+                    var rightX = syncX - gap - rightSize.X;
+                    ImGui.SameLine(rightX);
                     using (Dalamud.Interface.Utility.Raii.ImRaii.PushColor(ImGuiCol.Text, gold))
                         ImGui.Text(rightText);
+                    ImGui.SameLine(syncX);
+                    if (_uiShared.IconTextButton(Dalamud.Interface.FontAwesomeIcon.Sync, "Synchroniser",
+                        width: syncBtnW, buttonColor: ember, height: 24f))
+                        _ = TriggerAshfallSyncAsync();
+                    if (ImGui.IsItemHovered())
+                        ImGui.SetTooltip("Pousse la liste actuelle des personnages associés à votre clé vers Ashfall Connect.");
                 }
                 else
                 {
@@ -3209,6 +3219,36 @@ public class SettingsUi : WindowMediatorSubscriberBase
                 _ashfallStatusLoading = false;
             }
         });
+    }
+
+    private async Task TriggerAshfallSyncAsync()
+    {
+        try
+        {
+            var result = await _ashfallConnect.SyncCharactersAsync(CancellationToken.None).ConfigureAwait(false);
+            switch (result)
+            {
+                case UmbraSync.WebAPI.AshfallConnectService.SyncResult.Synced:
+                    Mediator.Publish(new NotificationMessage(
+                        "Ashfall Connect", "Personnages synchronisés.",
+                        NotificationType.Success, TimeSpan.FromSeconds(3)));
+                    break;
+                case UmbraSync.WebAPI.AshfallConnectService.SyncResult.NotLinked:
+                    Mediator.Publish(new NotificationMessage(
+                        "Ashfall Connect", "Ce personnage n'est pas (encore) lié à un compte Ashfall.",
+                        NotificationType.Warning, TimeSpan.FromSeconds(4)));
+                    break;
+                default:
+                    Mediator.Publish(new NotificationMessage(
+                        "Ashfall Connect", "Échec de la synchronisation. Réessayez plus tard.",
+                        NotificationType.Error, TimeSpan.FromSeconds(4)));
+                    break;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Ashfall: échec du sync manuel");
+        }
     }
 
     private string _uidToAddForIgnore = string.Empty;

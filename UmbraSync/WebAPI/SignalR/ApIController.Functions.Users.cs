@@ -87,7 +87,6 @@ public partial class ApiController
             return new UserProfileDto(dto.User, false, null, null, null);
         }
     }
-
     public async Task<List<UserProfileDto>> UserGetAllCharacterProfiles(UserDto dto)
     {
         if (!IsConnected)

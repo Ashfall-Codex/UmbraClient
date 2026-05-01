@@ -228,6 +228,7 @@ public sealed class Plugin : IDalamudPlugin
             collection.AddScoped<WindowMediatorSubscriberBase, ChangelogUi>();
             collection.AddScoped<WindowMediatorSubscriberBase, PopoutProfileUi>();
             collection.AddScoped<UmbraSync.WebAPI.AshfallConnectService>();
+            collection.AddSingleton<UmbraSync.Services.AshfallConnectAutoSyncService>();
             collection.AddScoped<UmbraSync.UI.AshfallLinkCodeUi>();
             collection.AddScoped<WindowMediatorSubscriberBase>(sp => sp.GetRequiredService<UmbraSync.UI.AshfallLinkCodeUi>());
             collection.AddScoped<WindowMediatorSubscriberBase>(sp => sp.GetRequiredService<DataAnalysisUi>());
@@ -300,6 +301,7 @@ public sealed class Plugin : IDalamudPlugin
             collection.AddHostedService(p => p.GetRequiredService<PenumbraPrecacheService>());
             collection.AddHostedService(p => p.GetRequiredService<HousingMonitorService>());
             collection.AddHostedService(p => p.GetRequiredService<HousingFurnitureSyncService>());
+            collection.AddHostedService(p => p.GetRequiredService<UmbraSync.Services.AshfallConnectAutoSyncService>());
         })
         .Build();
 
