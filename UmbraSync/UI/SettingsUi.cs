@@ -2382,6 +2382,8 @@ public class SettingsUi : WindowMediatorSubscriberBase
         if (ImGui.Checkbox(Loc.Get("Settings.Performance.SlowConnection"), ref slowConnection))
         {
             _configService.Current.SlowConnection = slowConnection;
+            _configService.Current.SlowConnectionAutoEnabled = false;
+            _configService.Current.SlowConnectionAutoEnabledAt = null;
             _configService.Save();
             Mediator.Publish(new NotificationMessage(
                 Loc.Get("Settings.Performance.SlowConnection.RestartTitle"),
@@ -2402,6 +2404,14 @@ public class SettingsUi : WindowMediatorSubscriberBase
             }
             _uiShared.DrawHelpText(Loc.Get("Settings.Performance.StaggeredInitialLoad.Help"));
         }
+
+        bool networkAutoTune = _configService.Current.NetworkAutoTune;
+        if (ImGui.Checkbox(Loc.Get("Settings.Performance.NetworkAutoTune"), ref networkAutoTune))
+        {
+            _configService.Current.NetworkAutoTune = networkAutoTune;
+            _configService.Save();
+        }
+        _uiShared.DrawHelpText(Loc.Get("Settings.Performance.NetworkAutoTune.Help"));
 
         ImGui.Separator();
         _uiShared.BigText("Individual Limits");
