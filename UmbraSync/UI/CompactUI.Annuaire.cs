@@ -264,9 +264,15 @@ public partial class CompactUi
             return;
         }
 
-        // Server-side ordering is applied in EstablishmentList (alphabetical by Name)
-        foreach (var e in _annuaireResults.Establishments)
-            DrawAnnuaireCard(e);
+        using (var scroll = ImRaii.Child("##annBrowseScroll", new Vector2(0, -ImGui.GetFrameHeightWithSpacing() - 4)))
+        {
+            if (scroll)
+            {
+                // Server-side ordering is applied in EstablishmentList (alphabetical by Name)
+                foreach (var e in _annuaireResults.Establishments)
+                    DrawAnnuaireCard(e);
+            }
+        }
 
         DrawAnnuairePagination();
     }
@@ -291,8 +297,12 @@ public partial class CompactUi
 
         if (_annuaireBookmarkResults != null)
         {
-            foreach (var establishment in _annuaireBookmarkResults.OrderBy(x => x.Name, StringComparer.InvariantCultureIgnoreCase))
-                DrawAnnuaireCard(establishment);
+            using var scroll = ImRaii.Child("##annBookmarksScroll", new Vector2(0, 0));
+            if (scroll)
+            {
+                foreach (var establishment in _annuaireBookmarkResults.OrderBy(x => x.Name, StringComparer.InvariantCultureIgnoreCase))
+                    DrawAnnuaireCard(establishment);
+            }
         }
     }
 
@@ -341,8 +351,12 @@ public partial class CompactUi
             return;
         }
 
-        foreach (var e in _annuaireOwned.OrderBy(x => x.Name, StringComparer.InvariantCultureIgnoreCase))
-            DrawAnnuaireCard(e);
+        using var scroll = ImRaii.Child("##annOwnedScroll", new Vector2(0, 0));
+        if (scroll)
+        {
+            foreach (var e in _annuaireOwned.OrderBy(x => x.Name, StringComparer.InvariantCultureIgnoreCase))
+                DrawAnnuaireCard(e);
+        }
     }
 
     private void DrawAnnuaireCard(EstablishmentDto establishment)
@@ -599,6 +613,9 @@ public partial class CompactUi
             return;
         }
 
+        using var scroll = ImRaii.Child("##annUpcomingScroll", new Vector2(0, 0));
+        if (!scroll) return;
+
         if (tonightEvents.Count > 0)
         {
             using (ImRaii.PushFont(UiBuilder.IconFont))
@@ -706,8 +723,14 @@ public partial class CompactUi
             return;
         }
 
-        foreach (var announcement in _annuaireWildRpResults.Announcements)
-            DrawAnnuaireWildRpCard(announcement);
+        using (var scroll = ImRaii.Child("##annWildRpScroll", new Vector2(0, -ImGui.GetFrameHeightWithSpacing() - 4)))
+        {
+            if (scroll)
+            {
+                foreach (var announcement in _annuaireWildRpResults.Announcements)
+                    DrawAnnuaireWildRpCard(announcement);
+            }
+        }
 
         if (_annuaireWildRpResults.Announcements.Count == 0) return;
         var totalPages = Math.Max(1, (_annuaireWildRpResults.TotalCount + _annuaireWildRpResults.PageSize - 1) / Math.Max(_annuaireWildRpResults.PageSize, 1));
