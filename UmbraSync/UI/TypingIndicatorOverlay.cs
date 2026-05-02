@@ -177,6 +177,25 @@ public sealed class TypingIndicatorOverlay : WindowMediatorSubscriberBase
     private unsafe void DrawNameplateIndicators(ImDrawListPtr drawList, IReadOnlyDictionary<string, (UserData User, DateTime FirstSeen, DateTime LastUpdate)> activeTypers,
         bool selfActive, DateTime now, DateTime selfStart, DateTime selfLast)
     {
+        // si rien à dessiner, on évite la capture du depth buffer
+        bool willDrawSelf = selfActive
+            && _configService.Current.TypingIndicatorShowSelf
+            && _objectTable.LocalPlayer != null
+            && (now - selfStart) >= TypingDisplayDelay
+            && (now - selfLast) <= TypingDisplayFade;
+
+        bool hasOtherTypers = false;
+        foreach (var (uid, entry) in activeTypers)
+        {
+            if ((now - entry.LastUpdate) > TypingDisplayFade) continue;
+            if (string.Equals(uid, _apiController.UID, StringComparison.Ordinal)) continue;
+            hasOtherTypers = true;
+            break;
+        }
+
+        if (!willDrawSelf && !hasOtherTypers)
+            return;
+
         var iconWrap = _textureProvider.GetFromGameIcon(NameplateIconId).GetWrapOrEmpty();
         if (iconWrap.Handle == IntPtr.Zero)
             return;

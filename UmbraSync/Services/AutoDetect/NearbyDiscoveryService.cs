@@ -440,37 +440,39 @@ public class NearbyDiscoveryService(ILogger<NearbyDiscoveryService> logger, Mare
 
     private async Task<List<NearbyEntry>> GetLocalNearbyAsync()
     {
-        var list = new List<NearbyEntry>();
         try
         {
-            var local = await _dalamud.RunOnFrameworkThread(() => _dalamud.GetPlayerCharacter()).ConfigureAwait(false);
-            var localPos = local?.Position ?? Vector3.Zero;
-            int maxDist = MareConfig.AutoDetectFixedMaxDistanceMeters;
-
-            int limit = Math.Min(200, _objectTable.Length);
-            for (int i = 0; i < limit; i++)
+            return await _dalamud.RunOnFrameworkThread(() =>
             {
-                var objectIndex = i;
-                var obj = await _dalamud.RunOnFrameworkThread(() => _objectTable[objectIndex]).ConfigureAwait(false);
-                if (obj == null || obj.ObjectKind != Dalamud.Game.ClientState.Objects.Enums.ObjectKind.Pc) continue;
-                if (local != null && obj.Address == local.Address) continue;
+                var list = new List<NearbyEntry>();
+                var local = _dalamud.GetPlayerCharacter();
+                var localPos = local?.Position ?? Vector3.Zero;
+                int maxDist = MareConfig.AutoDetectFixedMaxDistanceMeters;
 
-                float dist = local == null ? float.NaN : Vector3.Distance(localPos, obj.Position);
-                if (!float.IsNaN(dist) && dist > maxDist) continue;
+                int limit = Math.Min(200, _objectTable.Length);
+                for (int i = 0; i < limit; i++)
+                {
+                    var obj = _objectTable[i];
+                    if (obj == null || obj.ObjectKind != Dalamud.Game.ClientState.Objects.Enums.ObjectKind.Pc) continue;
+                    if (local != null && obj.Address == local.Address) continue;
 
-                string name = obj.Name.TextValue;
-                ushort worldId = 0;
-                if (obj is Dalamud.Game.ClientState.Objects.SubKinds.IPlayerCharacter pc)
-                    worldId = (ushort)pc.HomeWorld.RowId;
+                    float dist = local == null ? float.NaN : Vector3.Distance(localPos, obj.Position);
+                    if (!float.IsNaN(dist) && dist > maxDist) continue;
 
-                list.Add(new NearbyEntry(name, worldId, dist, false, null, null, null));
-            }
+                    string name = obj.Name.TextValue;
+                    ushort worldId = 0;
+                    if (obj is Dalamud.Game.ClientState.Objects.SubKinds.IPlayerCharacter pc)
+                        worldId = (ushort)pc.HomeWorld.RowId;
+
+                    list.Add(new NearbyEntry(name, worldId, dist, false, null, null, null));
+                }
+                return list;
+            }).ConfigureAwait(false);
         }
         catch
         {
-            // ignore
+            return new List<NearbyEntry>();
         }
-        return list;
     }
     private async Task ImmediatePublishAsync(string publishEndpoint, byte[] saltBytes, CancellationToken ct)
     {
