@@ -223,6 +223,12 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
     {
         return new List<ChangelogEntry>
         {
+            new(new Version(2, 5, 3, 5002), "2.5.3.5002", new List<ChangelogLine>
+            {
+                new("Nouveauté : Auto-ajustement réseau. Le plugin détecte automatiquement les boucles de déconnexion/reconnexion courtes et bascule sur le mode connexion lente si nécessaire."),
+                new("Amélioration : Réduction du coût CPU par frame de l'overlay typing et de la découverte nearby."),
+                new("Correction : Ajout d'une scrollbar manquante dans l'annuaire."),
+            }),
             new(new Version(2, 5, 2, 5001), "2.5.2.5001", new List<ChangelogLine>
             {
                 new("Autre : Mise à jour API Glamourer."),
