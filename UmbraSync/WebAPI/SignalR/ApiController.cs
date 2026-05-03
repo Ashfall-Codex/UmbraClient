@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.SignalR.Client;
 using Microsoft.Extensions.Logging;
+using System.Collections.Concurrent;
 using System.Reflection;
 using System.Globalization;
 using UmbraSync.API.Data;
@@ -42,6 +43,9 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
     private bool _initialized;
     private HubConnection? _mareHub;
     private ServerState _serverState;
+    private readonly Lock _bootstrapLock = new();
+    private volatile bool _bootstrapInProgress;
+    private readonly ConcurrentQueue<Action> _pendingBootstrapCallbacks = new();
 
     public ApiController(ILogger<ApiController> logger, HubFactory hubFactory, DalamudUtilService dalamudUtil,
         PairManager pairManager, ServerConfigurationManager serverManager, MareMediator mediator,
@@ -182,6 +186,8 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
 
                 _mareHub = await _hubFactory.GetOrCreate(token).ConfigureAwait(false);
 
+                BeginBootstrap();
+
                 InitializeApiHooks();
 
                 await _mareHub.StartAsync(token).ConfigureAwait(false);
@@ -237,6 +243,8 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
 
                 await LoadBootstrapPairs().ConfigureAwait(false);
                 _pairManager.ApplyPendingCharacterData();
+
+                DrainBootstrapCallbacks();
 
                 Mediator.Publish(new ConnectedMessage(_connectionDto));
             }
@@ -443,6 +451,7 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
     private async Task MareHubOnReconnected()
     {
         ServerState = ServerState.Reconnecting;
+        BeginBootstrap();
         try
         {
             InitializeApiHooks();
@@ -455,6 +464,7 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
             ServerState = ServerState.Connected;
             await LoadBootstrapPairs().ConfigureAwait(false);
             _pairManager.ApplyPendingCharacterData();
+            DrainBootstrapCallbacks();
             Mediator.Publish(new ConnectedMessage(_connectionDto));
         }
         catch (Exception ex)
@@ -491,6 +501,11 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
     private async Task StopConnection(ServerState state)
     {
         ServerState = ServerState.Disconnecting;
+
+        if (_bootstrapInProgress)
+        {
+            AbortBootstrap();
+        }
 
         Logger.LogInformation("Stopping existing connection");
         await _hubFactory.DisposeHubAsync().ConfigureAwait(false);
