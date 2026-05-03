@@ -23,6 +23,7 @@ namespace UmbraSync.PlayerData.Pairs;
 public sealed class PairManager : DisposableMediatorSubscriberBase
 {
     private readonly ConcurrentDictionary<UserData, Pair> _allClientPairs = new(UserDataComparer.Instance);
+    private readonly ConcurrentDictionary<string, Pair> _pairsByUid = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<GroupData, GroupFullInfoDto> _allGroups = new(GroupDataComparer.Instance);
     private readonly ConcurrentDictionary<string, CancellationTokenSource> _pendingOffline = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, OnlineUserCharaDataDto> _pendingCharacterData = new(StringComparer.Ordinal);
@@ -87,7 +88,11 @@ public sealed class PairManager : DisposableMediatorSubscriberBase
     public void AddGroupPair(GroupPairFullInfoDto dto, bool isInitialLoad = false)
     {
         if (!_allClientPairs.ContainsKey(dto.User))
-            _allClientPairs[dto.User] = _pairFactory.Create(dto.User);
+        {
+            var newPair = _pairFactory.Create(dto.User);
+            _allClientPairs[dto.User] = newPair;
+            _pairsByUid[dto.User.UID] = newPair;
+        }
 
         var pair = _allClientPairs[dto.User];
         var group = _allGroups[dto.Group];
@@ -113,13 +118,7 @@ public sealed class PairManager : DisposableMediatorSubscriberBase
 
     public Pair? GetPairByUID(string uid)
     {
-        var existingPair = _allClientPairs.FirstOrDefault(f => uid.Equals(f.Key.UID, StringComparison.Ordinal));
-        if (!Equals(existingPair, default(KeyValuePair<UserData, Pair>)))
-        {
-            return existingPair.Value;
-        }
-
-        return null;
+        return _pairsByUid.TryGetValue(uid, out var pair) ? pair : null;
     }
 
     public bool IsAlreadyDirectPaired(string uid) => GetPairByUID(uid)?.UserPair != null;
@@ -128,7 +127,9 @@ public sealed class PairManager : DisposableMediatorSubscriberBase
     {
         if (!_allClientPairs.ContainsKey(dto.User))
         {
-            _allClientPairs[dto.User] = _pairFactory.Create(dto.User);
+            var newPair = _pairFactory.Create(dto.User);
+            _allClientPairs[dto.User] = newPair;
+            _pairsByUid[dto.User.UID] = newPair;
         }
         else
         {
@@ -162,7 +163,9 @@ public sealed class PairManager : DisposableMediatorSubscriberBase
     {
         if (!_allClientPairs.ContainsKey(dto.User))
         {
-            _allClientPairs[dto.User] = _pairFactory.Create(dto.User);
+            var newPair = _pairFactory.Create(dto.User);
+            _allClientPairs[dto.User] = newPair;
+            _pairsByUid[dto.User.UID] = newPair;
         }
 
         var pair = _allClientPairs[dto.User];
@@ -195,6 +198,7 @@ public sealed class PairManager : DisposableMediatorSubscriberBase
         Logger.LogDebug("Clearing all Pairs");
         DisposePairs();
         _allClientPairs.Clear();
+        _pairsByUid.Clear();
         _allGroups.Clear();
         _pendingCharacterData.Clear();
         LastAddedUser = null;
@@ -394,6 +398,7 @@ public sealed class PairManager : DisposableMediatorSubscriberBase
 
             if (!_allClientPairs[item.Key].HasAnyConnection() && _allClientPairs.TryRemove(item.Key, out var pair))
             {
+                _pairsByUid.TryRemove(item.Key.UID, out _);
                 pair.MarkOffline();
             }
         }
@@ -412,6 +417,7 @@ public sealed class PairManager : DisposableMediatorSubscriberBase
             {
                 pair.MarkOffline();
                 _allClientPairs.TryRemove(dto.User, out _);
+                _pairsByUid.TryRemove(dto.User.UID, out _);
             }
         }
 
@@ -428,6 +434,7 @@ public sealed class PairManager : DisposableMediatorSubscriberBase
             {
                 pair.MarkOffline();
                 _allClientPairs.TryRemove(dto.User, out _);
+                _pairsByUid.TryRemove(dto.User.UID, out _);
             }
         }
 
