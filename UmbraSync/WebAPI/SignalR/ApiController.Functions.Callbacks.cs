@@ -515,6 +515,18 @@ public partial class ApiController
 
     private void ExecuteSafely(Action act)
     {
+        if (_bootstrapInProgress)
+        {
+            lock (_bootstrapLock)
+            {
+                if (_bootstrapInProgress)
+                {
+                    _pendingBootstrapCallbacks.Enqueue(act);
+                    return;
+                }
+            }
+        }
+
         try
         {
             act();
@@ -522,6 +534,55 @@ public partial class ApiController
         catch (Exception ex)
         {
             Logger.LogCritical(ex, "Error on executing safely");
+        }
+    }
+
+    private void BeginBootstrap()
+    {
+        lock (_bootstrapLock)
+        {
+            _bootstrapInProgress = true;
+            while (_pendingBootstrapCallbacks.TryDequeue(out _)) { }
+        }
+    }
+
+    private void AbortBootstrap()
+    {
+        lock (_bootstrapLock)
+        {
+            while (_pendingBootstrapCallbacks.TryDequeue(out _)) { }
+            _bootstrapInProgress = false;
+        }
+    }
+
+    private void DrainBootstrapCallbacks()
+    {
+        while (_pendingBootstrapCallbacks.TryDequeue(out var act))
+        {
+            try
+            {
+                act();
+            }
+            catch (Exception ex)
+            {
+                Logger.LogCritical(ex, "Error draining bootstrap callback");
+            }
+        }
+
+        lock (_bootstrapLock)
+        {
+            while (_pendingBootstrapCallbacks.TryDequeue(out var act))
+            {
+                try
+                {
+                    act();
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogCritical(ex, "Error draining bootstrap callback");
+                }
+            }
+            _bootstrapInProgress = false;
         }
     }
 }
