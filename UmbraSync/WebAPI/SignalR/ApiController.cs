@@ -61,7 +61,7 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
         Mediator.Subscribe<DalamudLoginMessage>(this, (_) => DalamudUtilOnLogIn());
         Mediator.Subscribe<DalamudLogoutMessage>(this, (_) => DalamudUtilOnLogOut());
         Mediator.Subscribe<HubClosedMessage>(this, (msg) => MareHubOnClosed(msg.Exception));
-        Mediator.Subscribe<HubReconnectedMessage>(this, (msg) => _ = MareHubOnReconnected());
+        Mediator.Subscribe<HubReconnectedMessage>(this, (msg) => _ = SafeRunReconnected());
         Mediator.Subscribe<HubReconnectingMessage>(this, (msg) => MareHubOnReconnecting(msg.Exception));
 
         ServerState = ServerState.Offline;
@@ -425,6 +425,18 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
         else
         {
             Logger.LogInformation("Connection closed");
+        }
+    }
+    
+    private async Task SafeRunReconnected()
+    {
+        try
+        {
+            await MareHubOnReconnected().ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Unhandled exception escaped MareHubOnReconnected internal try/catch");
         }
     }
 
