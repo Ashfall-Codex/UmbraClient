@@ -223,10 +223,14 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
     {
         return new List<ChangelogEntry>
         {
-            new(new Version(2, 5, 4, 5004), "2.5.4.5004", new List<ChangelogLine>
+            new(new Version(2, 5, 4, 5006), "2.5.4.5006", new List<ChangelogLine>
             {
-                new("Autre : Je tente des trucs pour les petites connexions..."),
-
+                new("Amélioration : Le mode « Connexion lente » et l'auto-ajustement réseau sont désormais dissociés dans Réglages → Performance → Réseau.."),
+                new("Amélioration : L'auto-ajustement gagne une période de grâce au démarrage du jeu et à la connexion d'un personnage."),
+                new("Correction : Les évènements serveur arrivant pendant le rechargement initial des paires sont mis en file d'attente puis rejoués proprement."),
+                new("Correction : Annulation propre des transferts. Couper le plugin ou tomber en déconnexion stoppe immédiatement les uploads, downloads et décompressions en cours, au lieu de les laisser tourner plusieurs minutes en arrière-plan."),
+                new("Amélioration : Recherche des paires par UID désormais en O(1). Les fenêtres avec beaucoup de paires (annuaire, syncshells, fenêtre principale) répondent plus vite, particulièrement côté Mac et sur les configurations un peu justes."),
+                new("Autre : Côté serveur — notifications de connexion parallélisées, suivi multi-connexions corrigé (SessionSec/Transport conservés), KeepAlive serveur ramené à 15 s, requêtes lecture seule en AsNoTracking. Connexion initiale et reconnexions sensiblement plus rapides."),
             }),
             new(new Version(2, 5, 3, 5002), "2.5.3.5002", new List<ChangelogLine>
             {
