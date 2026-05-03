@@ -398,6 +398,7 @@ public sealed class PairManager : DisposableMediatorSubscriberBase
 
             if (!_allClientPairs[item.Key].HasAnyConnection() && _allClientPairs.TryRemove(item.Key, out var pair))
             {
+                _pairsByUid.TryRemove(item.Key.UID, out _);
                 pair.MarkOffline();
             }
         }
@@ -416,6 +417,7 @@ public sealed class PairManager : DisposableMediatorSubscriberBase
             {
                 pair.MarkOffline();
                 _allClientPairs.TryRemove(dto.User, out _);
+                _pairsByUid.TryRemove(dto.User.UID, out _);
             }
         }
 
@@ -432,6 +434,7 @@ public sealed class PairManager : DisposableMediatorSubscriberBase
             {
                 pair.MarkOffline();
                 _allClientPairs.TryRemove(dto.User, out _);
+                _pairsByUid.TryRemove(dto.User.UID, out _);
             }
         }
 
