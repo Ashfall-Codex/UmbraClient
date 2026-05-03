@@ -145,8 +145,7 @@ public sealed class TypingIndicatorOverlay : WindowMediatorSubscriberBase
     private unsafe void DrawPartyMemberTyping(ImDrawListPtr drawList, AtkUnitBase* partyList, int memberIndex)
     {
         if (memberIndex < 0 || memberIndex > 7) return;
-
-        var nodeIndex = 23 - memberIndex;
+        var nodeIndex = 24 - memberIndex;
         if (partyList->UldManager.NodeListCount <= nodeIndex) return;
 
         var memberNode = (AtkComponentNode*)partyList->UldManager.NodeList[nodeIndex];

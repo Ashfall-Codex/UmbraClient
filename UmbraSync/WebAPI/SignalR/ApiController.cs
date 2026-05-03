@@ -235,14 +235,9 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
 #endif
                 }
 
-                await LoadInitialPairs().ConfigureAwait(false);
-                await LoadOnlinePairs().ConfigureAwait(false);
+                await LoadBootstrapPairs().ConfigureAwait(false);
                 _pairManager.ApplyPendingCharacterData();
-                
-                if (ShouldStaggerInitialLoad)
-                {
-                    await Task.Delay(PostInitDrain).ConfigureAwait(false);
-                }
+
                 Mediator.Publish(new ConnectedMessage(_connectionDto));
             }
             catch (OperationCanceledException)
@@ -370,87 +365,48 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
         _initialized = true;
     }
     
-    private static readonly TimeSpan InitialBurstThrottleStandard = TimeSpan.FromMilliseconds(80);
-    private static readonly TimeSpan InitialBurstThrottleSlow = TimeSpan.FromMilliseconds(250);
-    private bool ShouldStaggerInitialLoad => _configService.Current.SlowConnection || _configService.Current.StaggeredInitialLoad;
-    private TimeSpan InitialBurstThrottle => _configService.Current.SlowConnection ? InitialBurstThrottleSlow : InitialBurstThrottleStandard;
-    private TimeSpan PostInitDrain => _configService.Current.SlowConnection ? TimeSpan.FromMilliseconds(400) : TimeSpan.FromMilliseconds(150);
-
-    private async Task LoadInitialPairs()
+    private async Task LoadBootstrapPairs()
     {
-        if (ShouldStaggerInitialLoad)
-        {
-            var pairedClients = await UserGetPairedClients().ConfigureAwait(false);
-            foreach (var userPair in pairedClients)
-            {
-                Logger.LogDebug("Individual Pair: {userPair}", userPair);
-                _pairManager.AddUserPair(userPair);
-            }
+        // 3 appels initiaux en parallèle, puis groupUsers en parallèle dans une 2ème vague.
+        var pairedClientsTask = UserGetPairedClients();
+        var groupsTask = GroupsGetAll();
+        var onlinePairsTask = UserGetOnlinePairs();
 
-            await Task.Delay(InitialBurstThrottle).ConfigureAwait(false);
-            var allGroups = await GroupsGetAll().ConfigureAwait(false);
-            foreach (var entry in allGroups)
+        await Task.WhenAll(pairedClientsTask, groupsTask, onlinePairsTask).ConfigureAwait(false);
+
+        var pairedClients = await pairedClientsTask.ConfigureAwait(false);
+        var allGroups = await groupsTask.ConfigureAwait(false);
+        var onlinePairs = await onlinePairsTask.ConfigureAwait(false);
+
+        var groupUsersTasks = allGroups.Select(g => GroupsGetUsersInGroup(g)).ToArray();
+        if (groupUsersTasks.Length > 0)
+        {
+            await Task.WhenAll(groupUsersTasks).ConfigureAwait(false);
+        }
+
+        foreach (var userPair in pairedClients)
+        {
+            Logger.LogDebug("Individual Pair: {userPair}", userPair);
+            _pairManager.AddUserPair(userPair);
+        }
+
+        foreach (var entry in allGroups)
+        {
+            Logger.LogDebug("Group: {entry}", entry);
+            _pairManager.AddGroup(entry);
+        }
+
+        for (int i = 0; i < allGroups.Count; i++)
+        {
+            var users = await groupUsersTasks[i].ConfigureAwait(false);
+            foreach (var user in users)
             {
-                Logger.LogDebug("Group: {entry}", entry);
-                _pairManager.AddGroup(entry);
-            }
-            if (allGroups.Count > 0)
-            {
-                for (int i = 0; i < allGroups.Count; i++)
-                {
-                    if (i > 0) await Task.Delay(InitialBurstThrottle).ConfigureAwait(false);
-                    var users = await GroupsGetUsersInGroup(allGroups[i]).ConfigureAwait(false);
-                    foreach (var user in users)
-                    {
-                        Logger.LogDebug("Group Pair: {user}", user);
-                        _pairManager.AddGroupPair(user, isInitialLoad: true);
-                    }
-                }
+                Logger.LogDebug("Group Pair: {user}", user);
+                _pairManager.AddGroupPair(user, isInitialLoad: true);
             }
         }
-        else
-        {
-            var pairedClientsTask = UserGetPairedClients();
-            var groupsTask = GroupsGetAll();
 
-            await Task.WhenAll(pairedClientsTask, groupsTask).ConfigureAwait(false);
-
-            var pairedClients = await pairedClientsTask.ConfigureAwait(false);
-            var allGroups = await groupsTask.ConfigureAwait(false);
-
-            foreach (var userPair in pairedClients)
-            {
-                Logger.LogDebug("Individual Pair: {userPair}", userPair);
-                _pairManager.AddUserPair(userPair);
-            }
-
-            foreach (var entry in allGroups)
-            {
-                Logger.LogDebug("Group: {entry}", entry);
-                _pairManager.AddGroup(entry);
-            }
-
-            if (allGroups.Count > 0)
-            {
-                var groupUsersTasks = allGroups.Select(g => GroupsGetUsersInGroup(g)).ToList();
-                await Task.WhenAll(groupUsersTasks).ConfigureAwait(false);
-
-                for (int i = 0; i < allGroups.Count; i++)
-                {
-                    var users = await groupUsersTasks[i].ConfigureAwait(false);
-                    foreach (var user in users)
-                    {
-                        Logger.LogDebug("Group Pair: {user}", user);
-                        _pairManager.AddGroupPair(user, isInitialLoad: true);
-                    }
-                }
-            }
-        }
-    }
-
-    private async Task LoadOnlinePairs()
-    {
-        foreach (var entry in await UserGetOnlinePairs().ConfigureAwait(false))
+        foreach (var entry in onlinePairs)
         {
             Logger.LogDebug("Pair online: {pair}", entry);
             _pairManager.MarkPairOnline(entry, sendNotif: false);
@@ -485,8 +441,7 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
                 return;
             }
             ServerState = ServerState.Connected;
-            await LoadInitialPairs().ConfigureAwait(false);
-            await LoadOnlinePairs().ConfigureAwait(false);
+            await LoadBootstrapPairs().ConfigureAwait(false);
             _pairManager.ApplyPendingCharacterData();
             Mediator.Publish(new ConnectedMessage(_connectionDto));
         }

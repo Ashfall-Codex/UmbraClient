@@ -223,6 +223,11 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
     {
         return new List<ChangelogEntry>
         {
+            new(new Version(2, 5, 4, 5004), "2.5.4.5004", new List<ChangelogLine>
+            {
+                new("Autre : Je tente des trucs pour les petites connexions..."),
+
+            }),
             new(new Version(2, 5, 3, 5002), "2.5.3.5002", new List<ChangelogLine>
             {
                 new("Nouveauté : Auto-ajustement réseau. Le plugin détecte automatiquement les boucles de déconnexion/reconnexion courtes et bascule sur le mode connexion lente si nécessaire."),
