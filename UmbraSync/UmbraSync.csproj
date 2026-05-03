@@ -5,7 +5,7 @@
         <LangVersion>13.0</LangVersion>
         <AssemblyName>UmbraSync</AssemblyName>
         <RootNamespace>UmbraSync</RootNamespace>
-        <Version>2.5.4.5003</Version>
+        <Version>2.5.4.5004</Version>
     </PropertyGroup>
 
     <ItemGroup>

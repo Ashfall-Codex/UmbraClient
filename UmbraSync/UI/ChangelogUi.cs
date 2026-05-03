@@ -223,11 +223,10 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
     {
         return new List<ChangelogEntry>
         {
-            new(new Version(2, 5, 4, 5003), "2.5.4.5003", new List<ChangelogLine>
+            new(new Version(2, 5, 4, 5004), "2.5.4.5004", new List<ChangelogLine>
             {
-                new("Correction majeure : Plus de déconnexions à répétition pour les utilisateurs ayant beaucoup de paires (>140). La séquence d'initialisation après connexion est maintenant parallélisée et la notification redondante des paires en ligne côté serveur a été supprimée. Connexion quasi instantanée même avec 200+ paires."),
-                new("Suppression : Le mode « Connexion lente » et l'auto-ajustement réseau étaient des contournements du bug ci-dessus, désormais inutiles."),
-                new("Amélioration : Bootstrap unifié (paires + syncshells + présence en ligne en parallèle) aligné sur les meilleures pratiques."),
+                new("Autre : Je tente des trucs pour les petites connexions..."),
+
             }),
             new(new Version(2, 5, 3, 5002), "2.5.3.5002", new List<ChangelogLine>
             {
