@@ -187,15 +187,36 @@ public class HubFactory : MediatorSubscriberBase
             .WithResolver(messagePackResolver);
 
         var slowMode = _configService.Current.SlowConnection;
-        if (slowMode)
+        var hubUrl = hubConfig.HubUrl;
+        var useFallback = slowMode && !string.IsNullOrWhiteSpace(hubConfig.FallbackHubUrl);
+
+        if (useFallback)
         {
-            Logger.LogInformation("HubFactory: SlowConnection enabled — forcing LongPolling transport (fallback for fragile networks)");
+            hubUrl = hubConfig.FallbackHubUrl!;
+            Logger.LogInformation("HubFactory: SlowConnection enabled — routing via fallback hub {url} (HTTP/3 path, all transports allowed)", hubUrl);
+        }
+        else if (slowMode)
+        {
+            Logger.LogInformation("HubFactory: SlowConnection enabled — forcing LongPolling transport (no fallback URL configured)");
         }
 
         _instance = new HubConnectionBuilder()
-            .WithUrl(hubConfig.HubUrl, options =>
+            .WithUrl(hubUrl, options =>
             {
-                var transports = slowMode ? HttpTransportType.LongPolling : hubConfig.TransportType;
+                HttpTransportType transports;
+                if (useFallback)
+                {
+                    transports = HttpTransportType.WebSockets | HttpTransportType.LongPolling;
+                }
+                else if (slowMode)
+                {
+                    transports = HttpTransportType.LongPolling;
+                }
+                else
+                {
+                    transports = hubConfig.TransportType;
+                }
+
                 options.AccessTokenProvider = () => _tokenProvider.GetOrUpdateToken(ct);
                 options.SkipNegotiation = !slowMode && hubConfig.SkipNegotiation && (transports == HttpTransportType.WebSockets);
                 options.Transports = transports;
