@@ -127,6 +127,12 @@
   <data name="Settings.Transfer.Title" xml:space="preserve">
     <value>Paramètres de transfert</value>
   </data>
+  <data name="Settings.Transfer.AutoFetchMcdfOnConnect" xml:space="preserve">
+    <value>Récupération automatique des partages MCDF à la connexion</value>
+  </data>
+  <data name="Settings.Transfer.AutoFetchMcdfOnConnect.Help" xml:space="preserve">
+    <value>Lorsque cette option est activée, le plugin récupère automatiquement la liste de vos partages MCDF 5 secondes après chaque connexion réussie. Désactivée par défaut le temps d'investiguer un souci de stabilité de connexion lié à cette mécanique. Vous pouvez toujours rafraîchir manuellement depuis la fenêtre CharaData Hub.</value>
+  </data>
   <data name="Settings.Transfer.Precache.Enable" xml:space="preserve">
     <value>Pré‑charger les mods Penumbra vers le serveur</value>
   </data>

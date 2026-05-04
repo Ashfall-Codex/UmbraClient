@@ -34,6 +34,7 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
     private readonly ServerConfigurationManager _serverConfigurationManager;
     private readonly UiSharedService _uiSharedService;
     private readonly McdfShareManager _mcdfShareManager;
+    private readonly MareConfigService _mareConfigService;
     private readonly HousingShareManager? _housingShareManager_housing;
     private readonly HousingFurnitureScanner? _housingScanner;
     private CancellationTokenSource? _closalCts = new();
@@ -134,7 +135,7 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
                          DalamudUtilService dalamudUtilService, FileDialogManager fileDialogManager, PairManager pairManager,
                          CharaDataGposeTogetherManager charaDataGposeTogetherManager, McdfShareManager mcdfShareManager,
                          HousingShareManager housingShareManager, HousingFurnitureScanner housingScanner,
-                         UmbraProfileManager umbraProfileManager)
+                         UmbraProfileManager umbraProfileManager, MareConfigService mareConfigService)
         : base(logger, mediator, $"{Loc.Get("CharaDataHub.WindowTitle")}###UmbraCharaDataUI", performanceCollectorService)
     {
         SetWindowSizeConstraints();
@@ -149,6 +150,7 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
         _pairManager = pairManager;
         _charaDataGposeTogetherManager = charaDataGposeTogetherManager;
         _mcdfShareManager = mcdfShareManager;
+        _mareConfigService = mareConfigService;
         _housingShareManager_housing = housingShareManager;
         _housingScanner = housingScanner;
         _umbraProfileManager = umbraProfileManager;
@@ -158,7 +160,11 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
             IsOpen = true;
             _openDataApplicationShared = true;
         });
-        Mediator.Subscribe<ConnectedMessage>(this, (_) => _mcdfShareManager.StartBackgroundPolling());
+        Mediator.Subscribe<ConnectedMessage>(this, (_) =>
+        {
+            if (_mareConfigService.Current.AutoFetchMcdfOnConnect)
+                _mcdfShareManager.StartBackgroundPolling();
+        });
         Mediator.Subscribe<DisconnectedMessage>(this, (_) => _mcdfShareManager.StopBackgroundPolling());
         InitQuestSyncSubscriptions();
     }

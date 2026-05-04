@@ -372,6 +372,15 @@ public class SettingsUi : WindowMediatorSubscriberBase
         _lastTab = "Transfers";
         DrawSectionHeader(3);
 
+        bool autoFetchMcdfOnConnect = _configService.Current.AutoFetchMcdfOnConnect;
+        if (ImGui.Checkbox(Loc.Get("Settings.Transfer.AutoFetchMcdfOnConnect"), ref autoFetchMcdfOnConnect))
+        {
+            _configService.Current.AutoFetchMcdfOnConnect = autoFetchMcdfOnConnect;
+            _configService.Save();
+        }
+        _uiShared.DrawHelpText(Loc.Get("Settings.Transfer.AutoFetchMcdfOnConnect.Help"));
+
+        ImGui.Separator();
 
         bool enablePenumbraPrecache = _configService.Current.EnablePenumbraPrecache;
         if (ImGui.Checkbox(Loc.Get("Settings.Transfer.Precache.Enable"), ref enablePenumbraPrecache))
