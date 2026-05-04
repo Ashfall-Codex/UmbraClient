@@ -2,6 +2,7 @@
 using MessagePack.Resolvers;
 using Microsoft.AspNetCore.Http.Connections;
 using Microsoft.AspNetCore.SignalR.Client;
+using Microsoft.AspNetCore.SignalR.Protocol;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System.Net.Http.Headers;
@@ -200,7 +201,7 @@ public class HubFactory : MediatorSubscriberBase
             Logger.LogInformation("HubFactory: SlowConnection enabled — forcing LongPolling transport (no fallback URL configured)");
         }
 
-        _instance = new HubConnectionBuilder()
+        var builder = new HubConnectionBuilder()
             .WithUrl(hubUrl, options =>
             {
                 HttpTransportType transports;
@@ -223,17 +224,27 @@ public class HubFactory : MediatorSubscriberBase
                 options.CloseTimeout = TimeSpan.FromSeconds(30);
                 options.WebSocketConfiguration = ws => ws.KeepAliveInterval = TimeSpan.FromSeconds(10);
             })
-            .AddMessagePackProtocol(opt =>
-            {
-                opt.SerializerOptions = messagePackOptions;
-            })
             .WithAutomaticReconnect(new ForeverRetryPolicy(Mediator, _notificationTracker))
             .ConfigureLogging(a =>
             {
                 a.ClearProviders().AddProvider(_loggingProvider);
                 a.SetMinimumLevel(LogLevel.Information);
-            })
-            .Build();
+            });
+
+        if (slowMode)
+        {
+            builder.Services.AddSingleton<IHubProtocol>(new NoLz4MessagePackHubProtocol(messagePackResolver));
+            Logger.LogInformation("HubFactory: SlowConnection — using MessagePack protocol without LZ4 compression");
+        }
+        else
+        {
+            builder.AddMessagePackProtocol(opt =>
+            {
+                opt.SerializerOptions = messagePackOptions;
+            });
+        }
+
+        _instance = builder.Build();
 
         _instance.KeepAliveInterval = TimeSpan.FromSeconds(5);
         _instance.ServerTimeout = TimeSpan.FromMinutes(15);
