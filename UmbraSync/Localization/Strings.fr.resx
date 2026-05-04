@@ -5073,6 +5073,27 @@ Note : Les armes ne s'afficheront pas correctement sauf si vous utilisez le m&#x
   <data name="Settings.Advanced.Debug.LogLevel" xml:space="preserve">
     <value>Niveau de log</value>
   </data>
+  <data name="Settings.Advanced.Debug.NetworkDiag.Enable" xml:space="preserve">
+    <value>Activer le journal de diagnostic réseau</value>
+  </data>
+  <data name="Settings.Advanced.Debug.NetworkDiag.Enable.Help" xml:space="preserve">
+    <value>Enregistre chaque message SignalR (envoyé/reçu), les événements de cycle de vie du Hub et les événements bas niveau de la pile réseau .NET dans un fichier dédié. Utile pour diagnostiquer les problèmes de déconnexion. Une reconnexion est requise pour que le logging au niveau message prenne effet (le fichier est créé immédiatement pour les événements Hub).</value>
+  </data>
+  <data name="Settings.Advanced.Debug.NetworkDiag.RestartTitle" xml:space="preserve">
+    <value>Journal de diagnostic réseau modifié</value>
+  </data>
+  <data name="Settings.Advanced.Debug.NetworkDiag.RestartBody" xml:space="preserve">
+    <value>Reconnectez-vous pour que la modification s'applique au logging des messages SignalR.</value>
+  </data>
+  <data name="Settings.Advanced.Debug.NetworkDiag.OpenFolder" xml:space="preserve">
+    <value>Ouvrir le dossier des journaux</value>
+  </data>
+  <data name="Settings.Advanced.Debug.NetworkDiag.OpenFolder.Help" xml:space="preserve">
+    <value>Ouvre le dossier contenant les fichiers de diagnostic réseau (un fichier par démarrage du plugin).</value>
+  </data>
+  <data name="Settings.Advanced.Debug.NetworkDiag.CurrentFile" xml:space="preserve">
+    <value>Fichier en cours : {0}</value>
+  </data>
   <data name="Settings.Advanced.Debug.LogPerf" xml:space="preserve">
     <value>Journaliser les compteurs de performance</value>
   </data>
