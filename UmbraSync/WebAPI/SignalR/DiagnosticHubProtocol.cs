@@ -38,7 +38,7 @@ internal sealed class DiagnosticHubProtocol : IHubProtocol
         LogSend(message, counting.BytesWritten);
     }
 
-    public bool TryParseMessage(ref ReadOnlySequence<byte> input, IInvocationBinder binder, out HubMessage? message)
+    public bool TryParseMessage(ref ReadOnlySequence<byte> input, IInvocationBinder binder, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out HubMessage? message)
     {
         long lenBefore = input.Length;
         bool result = _inner.TryParseMessage(ref input, binder, out message);

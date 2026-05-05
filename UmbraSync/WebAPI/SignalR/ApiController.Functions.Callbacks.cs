@@ -559,7 +559,8 @@ public partial class ApiController
         lock (_bootstrapLock)
         {
             _bootstrapInProgress = true;
-            while (_pendingBootstrapCallbacks.TryDequeue(out _)) { }
+            // Drain any leftover callback from a previous (cancelled) bootstrap.
+            while (_pendingBootstrapCallbacks.TryDequeue(out _)) { /* discard */ }
         }
     }
 
@@ -567,7 +568,8 @@ public partial class ApiController
     {
         lock (_bootstrapLock)
         {
-            while (_pendingBootstrapCallbacks.TryDequeue(out _)) { }
+            // Discard pending callbacks; we're aborting and they're no longer relevant.
+            while (_pendingBootstrapCallbacks.TryDequeue(out _)) { /* discard */ }
             _bootstrapInProgress = false;
         }
     }

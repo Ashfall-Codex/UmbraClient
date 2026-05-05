@@ -238,17 +238,7 @@ public class HubFactory : MediatorSubscriberBase
 
         bool diagEnabled = _configService.Current.EnableNetworkDiagnosticLog;
 
-        if (slowMode)
-        {
-            IHubProtocol baseProtocol = new NoLz4MessagePackHubProtocol(messagePackResolver);
-            IHubProtocol finalProtocol = diagEnabled
-                ? new DiagnosticHubProtocol(baseProtocol, _networkDiagnostic)
-                : baseProtocol;
-            builder.Services.AddSingleton<IHubProtocol>(finalProtocol);
-            Logger.LogInformation("HubFactory: SlowConnection — using MessagePack protocol without LZ4 compression{DiagSuffix}",
-                diagEnabled ? " [diagnostic wrap enabled]" : string.Empty);
-        }
-        else if (diagEnabled)
+        if (diagEnabled)
         {
             var hubOptions = new MessagePackHubProtocolOptions
             {

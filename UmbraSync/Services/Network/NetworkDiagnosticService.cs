@@ -161,12 +161,14 @@ public sealed class NetworkDiagnosticService : IHostedService, IDisposable
             {
                 try
                 {
-                    _writer?.WriteLine(line);
+                    if (_writer != null)
+                        await _writer.WriteLineAsync(line).ConfigureAwait(false);
 
                     // Flush every 500ms for near-real-time visibility without I/O storms
                     if ((DateTime.UtcNow - sinceLastFlush).TotalMilliseconds > 500)
                     {
-                        _writer?.Flush();
+                        if (_writer != null)
+                            await _writer.FlushAsync(token).ConfigureAwait(false);
                         sinceLastFlush = DateTime.UtcNow;
                     }
                 }
@@ -182,7 +184,12 @@ public sealed class NetworkDiagnosticService : IHostedService, IDisposable
         }
         finally
         {
-            try { _writer?.Flush(); } catch { /* ignore */ }
+            try
+            {
+                if (_writer != null)
+                    await _writer.FlushAsync(CancellationToken.None).ConfigureAwait(false);
+            }
+            catch { /* ignore */ }
         }
     }
 
