@@ -79,10 +79,7 @@ internal class EstablishmentDirectoryUi : WindowMediatorSubscriberBase
 
         Mediator.Subscribe<ConnectedMessage>(this, (msg) =>
         {
-            // N'envoyer EstablishmentList que si l'utilisateur a réellement ouvert l'annuaire.
-            // Réduit le burst de RPC au connect (cause majeure des déconnexions sur middleboxes
-            // stateful — Free FR avec inspection HTTPS notamment). Si la fenêtre est ouverte
-            // ensuite, OnOpen / DrawInternal redéclencheront la récupération à la demande.
+            _activeTab = -1;
             if (!IsOpen) return;
             _ = RefreshList();
             _ = RefreshUpcoming();

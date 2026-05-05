@@ -11,7 +11,7 @@ public sealed class NetworkDiagnosticService : IHostedService, IDisposable
     private readonly ILogger<NetworkDiagnosticService> _logger;
     private readonly MareConfigService _configService;
     private readonly string _logFilesDirectory;
-    private readonly Channel<string> _channel;
+    private volatile Channel<string>? _channel;
     private CancellationTokenSource? _cts;
     private Task? _consumerTask;
     private StreamWriter? _writer;
@@ -28,13 +28,14 @@ public sealed class NetworkDiagnosticService : IHostedService, IDisposable
         _logger = logger;
         _configService = configService;
         _logFilesDirectory = Path.Combine(pluginInterface.GetPluginConfigDirectory(), "NetworkDiag");
-        _channel = Channel.CreateUnbounded<string>(new UnboundedChannelOptions
-        {
-            SingleReader = true,
-            SingleWriter = false,
-            AllowSynchronousContinuations = false
-        });
     }
+
+    private static Channel<string> CreateChannel() => Channel.CreateUnbounded<string>(new UnboundedChannelOptions
+    {
+        SingleReader = true,
+        SingleWriter = false,
+        AllowSynchronousContinuations = false
+    });
 
     public bool IsEnabled => _configService.Current.EnableNetworkDiagnosticLog;
     public string LogFilesDirectory => _logFilesDirectory;
@@ -53,9 +54,6 @@ public sealed class NetworkDiagnosticService : IHostedService, IDisposable
         return Task.CompletedTask;
     }
 
-    /// <summary>
-    /// (Re)démarre le logger si désactivé (utilisable en runtime quand le toggle config change).
-    /// </summary>
     public void StartLogging()
     {
         if (_consumerTask is { IsCompleted: false }) return;
@@ -73,9 +71,11 @@ public sealed class NetworkDiagnosticService : IHostedService, IDisposable
             _writer.WriteLine($"Started: {DateTime.UtcNow:o}");
             _writer.WriteLine($"Process: {Environment.ProcessId} | OS: {Environment.OSVersion}");
             _writer.WriteLine($"=========================================");
-
+            _channel = CreateChannel();
             _cts = new CancellationTokenSource();
-            _consumerTask = Task.Run(() => ConsumeLoopAsync(_cts.Token));
+            var ch = _channel;
+            var token = _cts.Token;
+            _consumerTask = Task.Run(() => ConsumeLoopAsync(ch, token));
 
             _eventListener = new NetworkEventListener(this);
 
@@ -95,7 +95,7 @@ public sealed class NetworkDiagnosticService : IHostedService, IDisposable
             _eventListener = null;
 
             _cts?.Cancel();
-            _channel.Writer.TryComplete();
+            _channel?.Writer.TryComplete();
 
             try
             {
@@ -109,6 +109,7 @@ public sealed class NetworkDiagnosticService : IHostedService, IDisposable
             _cts?.Dispose();
             _cts = null;
             _consumerTask = null;
+            _channel = null;
             _currentFilePath = null;
         }
         catch (Exception ex)
@@ -119,11 +120,12 @@ public sealed class NetworkDiagnosticService : IHostedService, IDisposable
 
     public void Log(string category, string message)
     {
-        if (_writer == null) return;
+        var ch = _channel;
+        if (ch == null || _writer == null) return;
         var now = DateTime.UtcNow;
         var line = string.Create(CultureInfo.InvariantCulture,
             $"[{now:HH:mm:ss.fff}][{category}] {message}");
-        _channel.Writer.TryWrite(line);
+        ch.Writer.TryWrite(line);
     }
 
     public void LogSend(string protocolType, string method, int sizeBytes)
@@ -152,12 +154,12 @@ public sealed class NetworkDiagnosticService : IHostedService, IDisposable
         Log("HubEvent", $"⚠ {eventName} {detail} | idle_since_send={sendIdleMs}ms idle_since_recv={recvIdleMs}ms");
     }
 
-    private async Task ConsumeLoopAsync(CancellationToken token)
+    private async Task ConsumeLoopAsync(Channel<string> channel, CancellationToken token)
     {
         var sinceLastFlush = DateTime.UtcNow;
         try
         {
-            await foreach (var line in _channel.Reader.ReadAllAsync(token).ConfigureAwait(false))
+            await foreach (var line in channel.Reader.ReadAllAsync(token).ConfigureAwait(false))
             {
                 try
                 {

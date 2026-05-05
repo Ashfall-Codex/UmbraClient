@@ -162,6 +162,8 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
         });
         Mediator.Subscribe<ConnectedMessage>(this, (_) =>
         {
+            _mcdfShareManager.EnsureSubscribed();
+
             if (_mareConfigService.Current.AutoFetchMcdfOnConnect)
                 _mcdfShareManager.StartBackgroundPolling();
         });
