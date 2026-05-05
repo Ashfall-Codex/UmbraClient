@@ -1,7 +1,9 @@
 ﻿using MessagePack;
 using MessagePack.Resolvers;
 using Microsoft.AspNetCore.Http.Connections;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.AspNetCore.SignalR.Client;
+using Microsoft.AspNetCore.SignalR.Protocol;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System.Net.Http.Headers;
@@ -10,6 +12,7 @@ using System.Text.Json;
 using UmbraSync.API.SignalR;
 using UmbraSync.MareConfiguration;
 using UmbraSync.Services.Mediator;
+using UmbraSync.Services.Network;
 using UmbraSync.Services.Notification;
 using UmbraSync.Services.ServerConfiguration;
 using UmbraSync.WebAPI.SignalR.Utils;
@@ -28,16 +31,19 @@ public class HubFactory : MediatorSubscriberBase
     private HubConnectionConfig? _cachedConfig;
     private bool _isDisposed = false;
 
+    private readonly NetworkDiagnosticService _networkDiagnostic;
+
     public HubFactory(ILogger<HubFactory> logger, MareMediator mediator,
         ServerConfigurationManager serverConfigurationManager,
         TokenProvider tokenProvider, ILoggerProvider pluginLog, NotificationTracker notificationTracker,
-        MareConfigService configService) : base(logger, mediator)
+        MareConfigService configService, NetworkDiagnosticService networkDiagnostic) : base(logger, mediator)
     {
         _serverConfigurationManager = serverConfigurationManager;
         _tokenProvider = tokenProvider;
         _loggingProvider = pluginLog;
         _notificationTracker = notificationTracker;
         _configService = configService;
+        _networkDiagnostic = networkDiagnostic;
     }
 
     public async Task DisposeHubAsync()
@@ -187,32 +193,70 @@ public class HubFactory : MediatorSubscriberBase
             .WithResolver(messagePackResolver);
 
         var slowMode = _configService.Current.SlowConnection;
-        if (slowMode)
+        var hubUrl = hubConfig.HubUrl;
+        var useFallback = slowMode && !string.IsNullOrWhiteSpace(hubConfig.FallbackHubUrl);
+
+        if (useFallback)
         {
-            Logger.LogInformation("HubFactory: SlowConnection enabled — forcing LongPolling transport (fallback for fragile networks)");
+            hubUrl = hubConfig.FallbackHubUrl!;
+            Logger.LogInformation("HubFactory: SlowConnection enabled — routing via fallback hub {url} (HTTP/3 path, all transports allowed)", hubUrl);
+        }
+        else if (slowMode)
+        {
+            Logger.LogInformation("HubFactory: SlowConnection enabled — forcing LongPolling transport (no fallback URL configured)");
         }
 
-        _instance = new HubConnectionBuilder()
-            .WithUrl(hubConfig.HubUrl, options =>
+        var builder = new HubConnectionBuilder()
+            .WithUrl(hubUrl, options =>
             {
-                var transports = slowMode ? HttpTransportType.LongPolling : hubConfig.TransportType;
+                HttpTransportType transports;
+                if (useFallback)
+                {
+                    transports = HttpTransportType.WebSockets | HttpTransportType.LongPolling;
+                }
+                else if (slowMode)
+                {
+                    transports = HttpTransportType.LongPolling;
+                }
+                else
+                {
+                    transports = hubConfig.TransportType;
+                }
+
                 options.AccessTokenProvider = () => _tokenProvider.GetOrUpdateToken(ct);
                 options.SkipNegotiation = !slowMode && hubConfig.SkipNegotiation && (transports == HttpTransportType.WebSockets);
                 options.Transports = transports;
                 options.CloseTimeout = TimeSpan.FromSeconds(30);
                 options.WebSocketConfiguration = ws => ws.KeepAliveInterval = TimeSpan.FromSeconds(10);
             })
-            .AddMessagePackProtocol(opt =>
-            {
-                opt.SerializerOptions = messagePackOptions;
-            })
             .WithAutomaticReconnect(new ForeverRetryPolicy(Mediator, _notificationTracker))
             .ConfigureLogging(a =>
             {
                 a.ClearProviders().AddProvider(_loggingProvider);
                 a.SetMinimumLevel(LogLevel.Information);
-            })
-            .Build();
+            });
+
+        bool diagEnabled = _configService.Current.EnableNetworkDiagnosticLog;
+
+        if (diagEnabled)
+        {
+            var hubOptions = new MessagePackHubProtocolOptions
+            {
+                SerializerOptions = messagePackOptions
+            };
+            IHubProtocol baseProtocol = new MessagePackHubProtocol(Microsoft.Extensions.Options.Options.Create(hubOptions));
+            builder.Services.AddSingleton<IHubProtocol>(new DiagnosticHubProtocol(baseProtocol, _networkDiagnostic));
+            Logger.LogInformation("HubFactory: MessagePack protocol with diagnostic wrap enabled");
+        }
+        else
+        {
+            builder.AddMessagePackProtocol(opt =>
+            {
+                opt.SerializerOptions = messagePackOptions;
+            });
+        }
+
+        _instance = builder.Build();
 
         _instance.KeepAliveInterval = TimeSpan.FromSeconds(5);
         _instance.ServerTimeout = TimeSpan.FromMinutes(15);
@@ -222,6 +266,12 @@ public class HubFactory : MediatorSubscriberBase
         _instance.Reconnecting += HubOnReconnecting;
         _instance.Reconnected += HubOnReconnected;
 
+        if (diagEnabled)
+        {
+            _networkDiagnostic.LogHubEvent("HubBuilt",
+                $"url={hubUrl} transports={(useFallback ? "WS|LongPolling" : (slowMode ? "LongPolling" : hubConfig.TransportType.ToString()))} slowMode={slowMode}");
+        }
+
         _isDisposed = false;
 
         return _instance;
@@ -229,18 +279,32 @@ public class HubFactory : MediatorSubscriberBase
 
     private Task HubOnClosed(Exception? arg)
     {
+        if (_networkDiagnostic.IsEnabled)
+        {
+            _networkDiagnostic.LogHubEvent("HubClosed",
+                arg == null ? "graceful" : $"{arg.GetType().Name}: {arg.Message}");
+        }
         Mediator.Publish(new HubClosedMessage(arg));
         return Task.CompletedTask;
     }
 
     private Task HubOnReconnected(string? arg)
     {
+        if (_networkDiagnostic.IsEnabled)
+        {
+            _networkDiagnostic.LogHubEvent("HubReconnected", $"connectionId={arg ?? "(null)"}");
+        }
         Mediator.Publish(new HubReconnectedMessage(arg));
         return Task.CompletedTask;
     }
 
     private Task HubOnReconnecting(Exception? arg)
     {
+        if (_networkDiagnostic.IsEnabled)
+        {
+            _networkDiagnostic.LogHubEvent("HubReconnecting",
+                arg == null ? "(no error)" : $"{arg.GetType().Name}: {arg.Message}");
+        }
         Mediator.Publish(new HubReconnectingMessage(arg));
         return Task.CompletedTask;
     }

@@ -127,6 +127,12 @@
   <data name="Settings.Transfer.Title" xml:space="preserve">
     <value>Transfer Settings</value>
   </data>
+  <data name="Settings.Transfer.AutoFetchMcdfOnConnect" xml:space="preserve">
+    <value>Auto-fetch MCDF shares on connection</value>
+  </data>
+  <data name="Settings.Transfer.AutoFetchMcdfOnConnect.Help" xml:space="preserve">
+    <value>When enabled, the plugin automatically fetches your MCDF share list 5 seconds after each successful connection. Disabled by default while a connection-stability issue tied to this feature is being investigated. You can still refresh manually from the CharaData Hub window.</value>
+  </data>
   <data name="Settings.Transfer.Precache.Enable" xml:space="preserve">
     <value>Pre-cache Penumbra mods to server</value>
   </data>
@@ -5156,6 +5162,27 @@ Note: Weapons will not be displayed correctly unless using the same job as the s
   </data>
   <data name="Settings.Advanced.Debug.LogLevel" xml:space="preserve">
     <value>Log Level</value>
+  </data>
+  <data name="Settings.Advanced.Debug.NetworkDiag.Enable" xml:space="preserve">
+    <value>Enable network diagnostic log</value>
+  </data>
+  <data name="Settings.Advanced.Debug.NetworkDiag.Enable.Help" xml:space="preserve">
+    <value>Records every SignalR message (sent/received), Hub lifecycle events and low-level .NET socket events to a dedicated file. Useful to diagnose disconnection issues. A reconnect is required for the message-level logging to take effect (the file is created immediately for hub events).</value>
+  </data>
+  <data name="Settings.Advanced.Debug.NetworkDiag.RestartTitle" xml:space="preserve">
+    <value>Network diagnostic log toggled</value>
+  </data>
+  <data name="Settings.Advanced.Debug.NetworkDiag.RestartBody" xml:space="preserve">
+    <value>Reconnect to apply the change to SignalR message-level logging.</value>
+  </data>
+  <data name="Settings.Advanced.Debug.NetworkDiag.OpenFolder" xml:space="preserve">
+    <value>Open log folder</value>
+  </data>
+  <data name="Settings.Advanced.Debug.NetworkDiag.OpenFolder.Help" xml:space="preserve">
+    <value>Opens the folder containing network diagnostic log files (one file per plugin start).</value>
+  </data>
+  <data name="Settings.Advanced.Debug.NetworkDiag.CurrentFile" xml:space="preserve">
+    <value>Current file: {0}</value>
   </data>
   <data name="Settings.Advanced.Debug.LogPerf" xml:space="preserve">
     <value>Log Performance Counters</value>

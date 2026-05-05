@@ -112,6 +112,8 @@ public class MareConfig : IMareConfiguration
     public bool NetworkAutoTune { get; set; } = true;
     public bool SlowConnectionAutoEnabled { get; set; } = false;
     public DateTime? SlowConnectionAutoEnabledAt { get; set; }
+    public bool AutoFetchMcdfOnConnect { get; set; } = false;
+    public bool EnableNetworkDiagnosticLog { get; set; } = false;
     public int TimeSpanBetweenScansInSeconds { get; set; } = 30;
     public int TransferBarsHeight { get; set; } = 12;
     public bool TransferBarsShowText { get; set; } = true;

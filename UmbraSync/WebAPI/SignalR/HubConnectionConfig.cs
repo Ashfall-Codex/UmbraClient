@@ -11,6 +11,9 @@ public record HubConnectionConfig
     [JsonPropertyName("hub_url")]
     public string HubUrl { get; set; } = string.Empty;
 
+    [JsonPropertyName("fallback_hub_url")]
+    public string? FallbackHubUrl { get; set; }
+
     private readonly bool? _skipNegotiation;
 
     [JsonPropertyName("skip_negotiation")]

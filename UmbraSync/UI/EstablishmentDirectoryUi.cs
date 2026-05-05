@@ -79,6 +79,8 @@ internal class EstablishmentDirectoryUi : WindowMediatorSubscriberBase
 
         Mediator.Subscribe<ConnectedMessage>(this, (msg) =>
         {
+            _activeTab = -1;
+            if (!IsOpen) return;
             _ = RefreshList();
             _ = RefreshUpcoming();
         });

@@ -223,6 +223,16 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
     {
         return new List<ChangelogEntry>
         {
+            new(new Version(2, 5, 5, 5017), "2.5.5.5017", new List<ChangelogLine>
+            {
+                new("Correction : Résolution des déconnexions à répétition. Tout est maintenant étalé pour démarrer plus en douceur."),
+                new("Amélioration : Démarrage de la connexion plus fluide. Les chargements (rappels d'événements, profil RP, annuaire) sont étalés sur quelques secondes au lieu de partir tous d'un coup."),
+                new("Amélioration : L'annuaire des établissements ne se charge plus tout seul au démarrage. Il se rafraîchit uniquement quand vous l'ouvrez."),
+                new("Amélioration : Détection plus rapide des pertes de connexion (vérification toutes les 15 s au lieu de 30)."),
+                new("Nouveauté : Option « Récupération automatique des partages MCDF à la connexion » dans Réglages → Transferts. Désactivée par défaut pour alléger le démarrage. Vous pouvez toujours rafraîchir manuellement depuis le Hub."),
+                new("Nouveauté : Option « Activer le journal de diagnostic réseau » dans Réglages → Avancé → Débogage. À activer uniquement si vous avez des soucis de réseau."),
+                new("Autre : Améliorations internes côté serveur pour mieux maintenir vivantes les connexions sensibles."),
+            }),
             new(new Version(2, 5, 4, 5006), "2.5.4.5006", new List<ChangelogLine>
             {
                 new("Amélioration : Le mode « Connexion lente » et l'auto-ajustement réseau sont désormais dissociés dans Réglages → Performance → Réseau.."),

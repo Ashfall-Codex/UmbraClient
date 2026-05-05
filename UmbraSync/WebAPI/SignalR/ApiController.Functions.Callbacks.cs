@@ -145,6 +145,17 @@ public partial class ApiController
         return Task.CompletedTask;
     }
 
+    /// <summary>
+    /// No-op handler for the server-side keep-alive padding. The payload is intentionally
+    /// discarded — its only purpose is to inject application-level traffic on the wire
+    /// to defeat stateful middleboxes that drop the WS conntrack on short idle windows.
+    /// </summary>
+    public Task Client_KeepAlive(byte[] padding)
+    {
+        // discard payload — see XML doc above
+        return Task.CompletedTask;
+    }
+
     public Task Client_UserAddClientPair(UserPairDto dto)
     {
         if (Logger.IsEnabled(LogLevel.Debug))
@@ -377,6 +388,12 @@ public partial class ApiController
         _mareHub!.On(nameof(Client_UpdateSystemInfo), act);
     }
 
+    public void OnKeepAlive(Action<byte[]> act)
+    {
+        if (_initialized) return;
+        _mareHub!.On(nameof(Client_KeepAlive), act);
+    }
+
     public void OnUserAddClientPair(Action<UserPairDto> act)
     {
         if (_initialized) return;
@@ -542,7 +559,8 @@ public partial class ApiController
         lock (_bootstrapLock)
         {
             _bootstrapInProgress = true;
-            while (_pendingBootstrapCallbacks.TryDequeue(out _)) { }
+            // Drain any leftover callback from a previous (cancelled) bootstrap.
+            while (_pendingBootstrapCallbacks.TryDequeue(out _)) { /* discard */ }
         }
     }
 
@@ -550,7 +568,8 @@ public partial class ApiController
     {
         lock (_bootstrapLock)
         {
-            while (_pendingBootstrapCallbacks.TryDequeue(out _)) { }
+            // Discard pending callbacks; we're aborting and they're no longer relevant.
+            while (_pendingBootstrapCallbacks.TryDequeue(out _)) { /* discard */ }
             _bootstrapInProgress = false;
         }
     }
