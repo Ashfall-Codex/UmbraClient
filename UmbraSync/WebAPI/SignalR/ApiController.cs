@@ -304,9 +304,11 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
 
     private async Task ClientHealthCheck(CancellationToken ct)
     {
+        // 15s : sweet spot WebSocket. Passe la plupart des middleboxes/NAT mobiles
+        // (timeout typique 30s+) sans cramer de la bande passante inutile.
         while (!ct.IsCancellationRequested && _mareHub != null)
         {
-            await Task.Delay(TimeSpan.FromSeconds(30), ct).ConfigureAwait(false);
+            await Task.Delay(TimeSpan.FromSeconds(15), ct).ConfigureAwait(false);
             Logger.LogDebug("Checking Client Health State");
             _ = await CheckClientHealth().ConfigureAwait(false);
         }
@@ -331,6 +333,7 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
         OnDownloadReady((guid) => _ = Client_DownloadReady(guid));
         OnReceiveServerMessage((sev, msg) => _ = Client_ReceiveServerMessage(sev, msg));
         OnUpdateSystemInfo((dto) => _ = Client_UpdateSystemInfo(dto));
+        OnKeepAlive((padding) => _ = Client_KeepAlive(padding));
         OnUserSendOffline((dto) => _ = Client_UserSendOffline(dto));
         OnUserAddClientPair((dto) => _ = Client_UserAddClientPair(dto));
         OnReceivePairRequest((dto) => _ = Client_ReceivePairRequest(dto));

@@ -79,7 +79,7 @@ public class UmbraProfileManager : MediatorSubscriberBase
                 _groupProfiles[msg.Profile.Group.GID] = msg.Profile;
             }
         });
-        Mediator.Subscribe<ConnectedMessage>(this, (msg) => _ = EnsureOwnProfileSyncedAsync());
+        Mediator.Subscribe<ConnectedMessage>(this, (msg) => _ = DelayedEnsureOwnProfileSyncedAsync());
     }
 
     public GroupProfileDto? GetGroupProfile(string gid)
@@ -392,6 +392,24 @@ public class UmbraProfileManager : MediatorSubscriberBase
         Logger.LogInformation("Profile cache cleared by user");
     }
     
+    private async Task DelayedEnsureOwnProfileSyncedAsync()
+    {
+        // Délai jitter (2–5s) post-ConnectedMessage pour éviter de cumuler ce fetch avec
+        // le burst déjà important d'autres services qui réagissent au connect en parallèle.
+        // Sature les middleboxes stateful sur certaines configs FAI sinon.
+        try
+        {
+            int initialDelayMs = Random.Shared.Next(2000, 5000);
+            await Task.Delay(initialDelayMs).ConfigureAwait(false);
+            if (!_apiController.IsConnected) return;
+            await EnsureOwnProfileSyncedAsync().ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "DelayedEnsureOwnProfileSynced failed");
+        }
+    }
+
     private async Task EnsureOwnProfileSyncedAsync()
     {
         try

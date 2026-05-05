@@ -36,6 +36,11 @@ public class EstablishmentReminderService : MediatorSubscriberBase, IDisposable
         {
             try
             {
+                // Initial jitter (3–8s) pour étaler les fetchs post-connect et éviter le burst
+                // simultané qui sature les middleboxes stateful de certains FAI.
+                int initialDelayMs = Random.Shared.Next(3000, 8000);
+                await Task.Delay(initialDelayMs, token).ConfigureAwait(false);
+
                 while (!token.IsCancellationRequested)
                 {
                     await CheckUpcomingEvents(token).ConfigureAwait(false);
