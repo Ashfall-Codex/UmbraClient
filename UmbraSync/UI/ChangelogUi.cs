@@ -228,7 +228,7 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
                 new("Amélioration : Connexion initiale beaucoup plus rapide. Vos paires et syncshells arrivent d'un seul coup au lieu d'apparaître progressivement, et le serveur fait jusqu'à deux tiers de requêtes en moins."),
                 new("Amélioration : Moins de saturation réseau au démarrage. Le client n'envoie plus une rafale de requêtes par syncshell rejointe."),
                 new("Amélioration : Affichage de la liste de paires plus stable au connect."),
-                new("Autre : Refonte interne du protocole de bootstrap (côté client et serveur)."),
+                new("Autre : Refonte interne du protocole démarrage de connexion (côté client et serveur)."),
             }),
             new(new Version(2, 5, 5, 5017), "2.5.5.5017", new List<ChangelogLine>
             {
