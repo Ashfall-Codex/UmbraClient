@@ -192,7 +192,11 @@ public sealed class PairManager : DisposableMediatorSubscriberBase
         {
             foreach (var gid in dto.GIDs)
             {
-                if (!groupsByGid.TryGetValue(gid, out var groupDto)) continue;
+                if (!groupsByGid.TryGetValue(gid, out var groupDto))
+                {
+                    Logger.LogWarning("Bootstrap : GID {gid} listé pour {uid} mais absent de GroupsGetAll (désync RPC)", gid, dto.User.UID);
+                    continue;
+                }
                 var pairUserInfo = groupDto.GroupPairUserInfos.TryGetValue(dto.User.UID, out var info) ? info : GroupUserInfo.None;
                 pair.GroupPair[groupDto] = new GroupPairFullInfoDto(groupDto.Group, dto.User, pairUserInfo, GroupUserPermissions.NoneSet);
             }
