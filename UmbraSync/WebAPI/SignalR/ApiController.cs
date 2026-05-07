@@ -378,7 +378,11 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
     
     private async Task LoadBootstrapPairs()
     {
-        // 3 appels initiaux en parallèle, puis groupUsers en parallèle dans une 2ème vague.
+        // 3 RPC parallèles, c'est tout. Le serveur retourne :
+        //  - UserGetPairedClients : pairs directs ET pairs syncshell-implicites en une passe (helper GetAllPairInfo).
+        //  - GroupsGetAll : DTO enrichi avec GroupPairUserInfos (flags pinned/mod) + GroupUserCount.
+        //  - UserGetOnlinePairs : présence en ligne via Redis.
+        // Plus de fan-out GroupsGetUsersInGroup × N qui saturait middleboxes/connexion lente au connect.
         var pairedClientsTask = UserGetPairedClients();
         var groupsTask = GroupsGetAll();
         var onlinePairsTask = UserGetOnlinePairs();
@@ -388,40 +392,7 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
         var pairedClients = await pairedClientsTask.ConfigureAwait(false);
         var allGroups = await groupsTask.ConfigureAwait(false);
         var onlinePairs = await onlinePairsTask.ConfigureAwait(false);
-
-        var groupUsersTasks = allGroups.Select(g => GroupsGetUsersInGroup(g)).ToArray();
-        if (groupUsersTasks.Length > 0)
-        {
-            await Task.WhenAll(groupUsersTasks).ConfigureAwait(false);
-        }
-
-        foreach (var userPair in pairedClients)
-        {
-            Logger.LogDebug("Individual Pair: {userPair}", userPair);
-            _pairManager.AddUserPair(userPair);
-        }
-
-        foreach (var entry in allGroups)
-        {
-            Logger.LogDebug("Group: {entry}", entry);
-            _pairManager.AddGroup(entry);
-        }
-
-        for (int i = 0; i < allGroups.Count; i++)
-        {
-            var users = await groupUsersTasks[i].ConfigureAwait(false);
-            foreach (var user in users)
-            {
-                Logger.LogDebug("Group Pair: {user}", user);
-                _pairManager.AddGroupPair(user, isInitialLoad: true);
-            }
-        }
-
-        foreach (var entry in onlinePairs)
-        {
-            Logger.LogDebug("Pair online: {pair}", entry);
-            _pairManager.MarkPairOnline(entry, sendNotif: false);
-        }
+        _pairManager.ApplyBootstrapSnapshot(allGroups, pairedClients, onlinePairs);
     }
 
     private void MareHubOnClosed(Exception? arg)
