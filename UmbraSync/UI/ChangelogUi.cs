@@ -223,6 +223,44 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
     {
         return new List<ChangelogEntry>
         {
+            new(new Version(2, 5, 6, 5018), "2.5.6.5018", new List<ChangelogLine>
+            {
+                new("Amélioration : Connexion initiale beaucoup plus rapide. Vos paires et syncshells arrivent d'un seul coup au lieu d'apparaître progressivement, et le serveur fait jusqu'à deux tiers de requêtes en moins."),
+                new("Amélioration : Moins de saturation réseau au démarrage. Le client n'envoie plus une rafale de requêtes par syncshell rejointe."),
+                new("Amélioration : Affichage de la liste de paires plus stable au connect."),
+                new("Autre : Refonte interne du protocole démarrage de connexion (côté client et serveur)."),
+            }),
+            new(new Version(2, 5, 5, 5017), "2.5.5.5017", new List<ChangelogLine>
+            {
+                new("Correction : Résolution des déconnexions à répétition. Tout est maintenant étalé pour démarrer plus en douceur."),
+                new("Amélioration : Démarrage de la connexion plus fluide. Les chargements (rappels d'événements, profil RP, annuaire) sont étalés sur quelques secondes au lieu de partir tous d'un coup."),
+                new("Amélioration : L'annuaire des établissements ne se charge plus tout seul au démarrage. Il se rafraîchit uniquement quand vous l'ouvrez."),
+                new("Amélioration : Détection plus rapide des pertes de connexion (vérification toutes les 15 s au lieu de 30)."),
+                new("Nouveauté : Option « Récupération automatique des partages MCDF à la connexion » dans Réglages → Transferts. Désactivée par défaut pour alléger le démarrage. Vous pouvez toujours rafraîchir manuellement depuis le Hub."),
+                new("Nouveauté : Option « Activer le journal de diagnostic réseau » dans Réglages → Avancé → Débogage. À activer uniquement si vous avez des soucis de réseau."),
+                new("Autre : Améliorations internes côté serveur pour mieux maintenir vivantes les connexions sensibles."),
+            }),
+            new(new Version(2, 5, 4, 5006), "2.5.4.5006", new List<ChangelogLine>
+            {
+                new("Amélioration : Le mode « Connexion lente » et l'auto-ajustement réseau sont désormais dissociés dans Réglages → Performance → Réseau.."),
+                new("Amélioration : L'auto-ajustement gagne une période de grâce au démarrage du jeu et à la connexion d'un personnage."),
+                new("Correction : Les évènements serveur arrivant pendant le rechargement initial des paires sont mis en file d'attente puis rejoués proprement."),
+                new("Correction : Annulation propre des transferts. Couper le plugin ou tomber en déconnexion stoppe immédiatement les uploads, downloads et décompressions en cours, au lieu de les laisser tourner plusieurs minutes en arrière-plan."),
+                new("Amélioration : Recherche des paires par UID désormais en O(1). Les fenêtres avec beaucoup de paires (annuaire, syncshells, fenêtre principale) répondent plus vite, particulièrement côté Mac et sur les configurations un peu justes."),
+                new("Autre : Côté serveur — notifications de connexion parallélisées, suivi multi-connexions corrigé (SessionSec/Transport conservés), KeepAlive serveur ramené à 15 s, requêtes lecture seule en AsNoTracking. Connexion initiale et reconnexions sensiblement plus rapides."),
+            }),
+            new(new Version(2, 5, 3, 5002), "2.5.3.5002", new List<ChangelogLine>
+            {
+                new("Nouveauté : Auto-ajustement réseau. Le plugin détecte automatiquement les boucles de déconnexion/reconnexion courtes et bascule sur le mode connexion lente si nécessaire."),
+                new("Amélioration : Réduction du coût CPU par frame de l'overlay typing et de la découverte nearby."),
+                new("Correction : Ajout d'une scrollbar manquante dans l'annuaire."),
+            }),
+            new(new Version(2, 5, 2, 5001), "2.5.2.5001", new List<ChangelogLine>
+            {
+                new("Autre : Mise à jour API Glamourer."),
+                new("Autre : Mise à jour API Penumbra."),
+                new("Autre : Mise à jour de la library 'Pictomancy'."),
+            }),
             new(new Version(2, 5, 2, 4030), "2.5.2.4030", new List<ChangelogLine>
             {
                 new("Autre : Migration vers Dalamud API 15."),

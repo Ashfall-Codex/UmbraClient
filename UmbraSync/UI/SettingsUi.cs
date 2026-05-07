@@ -22,6 +22,7 @@ using UmbraSync.PlayerData.Pairs;
 using UmbraSync.Services;
 using UmbraSync.Services.AutoDetect;
 using UmbraSync.Services.Mediator;
+using UmbraSync.Services.Network;
 using UmbraSync.Services.ServerConfiguration;
 using UmbraSync.WebAPI;
 using UmbraSync.WebAPI.Files;
@@ -60,6 +61,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
     private readonly RgpdDataService _rgpdDataService;
     private readonly MareConfiguration.SyncshellConfigService _syncshellConfigService;
     private readonly MareConfiguration.CharaDataConfigService _charaDataConfigService;
+    private readonly NetworkDiagnosticService _networkDiagnostic;
     private Dictionary<Guid, string>? _cachedPenumbraCollections;
     private DateTime _lastCollectionRefresh = DateTime.MinValue;
     private bool _rgpdDeleteConfirmShown;
@@ -136,7 +138,8 @@ public class SettingsUi : WindowMediatorSubscriberBase
         RgpdDataService gdprDataService,
         MareConfiguration.SyncshellConfigService syncshellConfigService,
         MareConfiguration.CharaDataConfigService charaDataConfigService,
-        UmbraSync.WebAPI.AshfallConnectService ashfallConnect) : base(logger, mediator, "Umbra Settings", performanceCollector)
+        UmbraSync.WebAPI.AshfallConnectService ashfallConnect,
+        NetworkDiagnosticService networkDiagnostic) : base(logger, mediator, "Umbra Settings", performanceCollector)
     {
         _ashfallConnect = ashfallConnect;
         _configService = configService;
@@ -162,6 +165,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
         _rgpdDataService = gdprDataService;
         _syncshellConfigService = syncshellConfigService;
         _charaDataConfigService = charaDataConfigService;
+        _networkDiagnostic = networkDiagnostic;
         AllowClickthrough = false;
         AllowPinning = false;
         _validationProgress = new Progress<(int, int, FileCacheEntity)>(v => _currentProgress = v);
@@ -379,6 +383,15 @@ public class SettingsUi : WindowMediatorSubscriberBase
         _lastTab = "Transfers";
         DrawSectionHeader(3);
 
+        bool autoFetchMcdfOnConnect = _configService.Current.AutoFetchMcdfOnConnect;
+        if (ImGui.Checkbox(Loc.Get("Settings.Transfer.AutoFetchMcdfOnConnect"), ref autoFetchMcdfOnConnect))
+        {
+            _configService.Current.AutoFetchMcdfOnConnect = autoFetchMcdfOnConnect;
+            _configService.Save();
+        }
+        _uiShared.DrawHelpText(Loc.Get("Settings.Transfer.AutoFetchMcdfOnConnect.Help"));
+
+        ImGui.Separator();
 
         bool enablePenumbraPrecache = _configService.Current.EnablePenumbraPrecache;
         if (ImGui.Checkbox(Loc.Get("Settings.Transfer.Precache.Enable"), ref enablePenumbraPrecache))
@@ -1708,6 +1721,55 @@ public class SettingsUi : WindowMediatorSubscriberBase
 
             ImGuiHelpers.ScaledDummy(2f);
 
+            // --- Network Diagnostic ---
+            bool enableNetDiag = _configService.Current.EnableNetworkDiagnosticLog;
+            if (ImGui.Checkbox(Loc.Get("Settings.Advanced.Debug.NetworkDiag.Enable"), ref enableNetDiag))
+            {
+                _configService.Current.EnableNetworkDiagnosticLog = enableNetDiag;
+                _configService.Save();
+                if (enableNetDiag)
+                    _networkDiagnostic.StartLogging();
+                else
+                    _networkDiagnostic.StopLogging();
+
+                Mediator.Publish(new NotificationMessage(
+                    Loc.Get("Settings.Advanced.Debug.NetworkDiag.RestartTitle"),
+                    Loc.Get("Settings.Advanced.Debug.NetworkDiag.RestartBody"),
+                    UmbraSync.MareConfiguration.Models.NotificationType.Info,
+                    TimeSpan.FromSeconds(8)));
+            }
+            _uiShared.DrawHelpText(Loc.Get("Settings.Advanced.Debug.NetworkDiag.Enable.Help"));
+
+            if (enableNetDiag)
+            {
+                var current = _networkDiagnostic.CurrentFilePath;
+                if (!string.IsNullOrEmpty(current))
+                {
+                    ImGui.TextUnformatted(string.Format(CultureInfo.CurrentCulture,
+                        Loc.Get("Settings.Advanced.Debug.NetworkDiag.CurrentFile"), Path.GetFileName(current)));
+                }
+            }
+
+            if (_uiShared.IconTextButton(FontAwesomeIcon.FolderOpen, Loc.Get("Settings.Advanced.Debug.NetworkDiag.OpenFolder")))
+            {
+                try
+                {
+                    var dir = _networkDiagnostic.LogFilesDirectory;
+                    Directory.CreateDirectory(dir);
+                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(dir)
+                    {
+                        UseShellExecute = true
+                    });
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Could not open network diag folder");
+                }
+            }
+            UiSharedService.AttachToolTip(Loc.Get("Settings.Advanced.Debug.NetworkDiag.OpenFolder.Help"));
+
+            ImGuiHelpers.ScaledDummy(2f);
+
             if (ImGui.TreeNode(Loc.Get("Settings.Advanced.Debug.ActiveBlocks")))
             {
                 var onlinePairs = _pairManager.GetOnlineUserPairs();
@@ -2389,6 +2451,8 @@ public class SettingsUi : WindowMediatorSubscriberBase
         if (ImGui.Checkbox(Loc.Get("Settings.Performance.SlowConnection"), ref slowConnection))
         {
             _configService.Current.SlowConnection = slowConnection;
+            _configService.Current.SlowConnectionAutoEnabled = false;
+            _configService.Current.SlowConnectionAutoEnabledAt = null;
             _configService.Save();
             Mediator.Publish(new NotificationMessage(
                 Loc.Get("Settings.Performance.SlowConnection.RestartTitle"),
@@ -2397,18 +2461,14 @@ public class SettingsUi : WindowMediatorSubscriberBase
                 TimeSpan.FromSeconds(8)));
         }
         _uiShared.DrawHelpText(Loc.Get("Settings.Performance.SlowConnection.Help"));
-        
-        using (var indent = ImRaii.PushIndent())
-        using (ImRaii.Disabled(slowConnection))
+
+        bool networkAutoTune = _configService.Current.NetworkAutoTune;
+        if (ImGui.Checkbox(Loc.Get("Settings.Performance.NetworkAutoTune"), ref networkAutoTune))
         {
-            bool staggeredInitialLoad = slowConnection || _configService.Current.StaggeredInitialLoad;
-            if (ImGui.Checkbox(Loc.Get("Settings.Performance.StaggeredInitialLoad"), ref staggeredInitialLoad))
-            {
-                _configService.Current.StaggeredInitialLoad = staggeredInitialLoad;
-                _configService.Save();
-            }
-            _uiShared.DrawHelpText(Loc.Get("Settings.Performance.StaggeredInitialLoad.Help"));
+            _configService.Current.NetworkAutoTune = networkAutoTune;
+            _configService.Save();
         }
+        _uiShared.DrawHelpText(Loc.Get("Settings.Performance.NetworkAutoTune.Help"));
 
         ImGui.Separator();
         _uiShared.BigText("Individual Limits");

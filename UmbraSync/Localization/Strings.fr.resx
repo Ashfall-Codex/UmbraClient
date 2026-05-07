@@ -127,6 +127,12 @@
   <data name="Settings.Transfer.Title" xml:space="preserve">
     <value>Paramètres de transfert</value>
   </data>
+  <data name="Settings.Transfer.AutoFetchMcdfOnConnect" xml:space="preserve">
+    <value>Récupération automatique des partages MCDF à la connexion</value>
+  </data>
+  <data name="Settings.Transfer.AutoFetchMcdfOnConnect.Help" xml:space="preserve">
+    <value>Lorsque cette option est activée, le plugin récupère automatiquement la liste de vos partages MCDF 5 secondes après chaque connexion réussie. Désactivée par défaut le temps d'investiguer un souci de stabilité de connexion lié à cette mécanique. Vous pouvez toujours rafraîchir manuellement depuis la fenêtre CharaData Hub.</value>
+  </data>
   <data name="Settings.Transfer.Precache.Enable" xml:space="preserve">
     <value>Pré‑charger les mods Penumbra vers le serveur</value>
   </data>
@@ -5019,27 +5025,6 @@ Note : Les armes ne s'afficheront pas correctement sauf si vous utilisez le m&#x
   <data name="Settings.Advanced.SerialApply.Help" xml:space="preserve">
     <value>Expérimental — Peut réduire les problèmes dans les zones peuplées</value>
   </data>
-  <data name="Settings.Performance.Network" xml:space="preserve">
-    <value>Réseau</value>
-  </data>
-  <data name="Settings.Performance.SlowConnection" xml:space="preserve">
-    <value>Mode connexion lente</value>
-  </data>
-  <data name="Settings.Performance.SlowConnection.Help" xml:space="preserve">
-    <value>Activez cette option si vous subissez des déconnexions fréquentes ou des boucles de reconnexion (typiquement avec un wifi instable, une box capricieuse, ou un débit lent / limité). Le plugin bascule sur un mode de communication plus lent mais bien plus résistant et étale les premières demandes après la connexion. Un peu plus lent à se synchroniser, mais ça tient mieux sur les connexions fragiles. Déconnectez puis reconnectez-vous pour que le changement prenne effet.</value>
-  </data>
-  <data name="Settings.Performance.SlowConnection.RestartTitle" xml:space="preserve">
-    <value>Mode connexion lente modifié</value>
-  </data>
-  <data name="Settings.Performance.SlowConnection.RestartBody" xml:space="preserve">
-    <value>Déconnectez-vous puis reconnectez-vous pour que le nouveau mode prenne effet.</value>
-  </data>
-  <data name="Settings.Performance.StaggeredInitialLoad" xml:space="preserve">
-    <value>Étaler le chargement initial après connexion</value>
-  </data>
-  <data name="Settings.Performance.StaggeredInitialLoad.Help" xml:space="preserve">
-    <value>Si activé, étale dans le temps les requêtes initiales après la connexion (pairs, syncshells, membres) au lieu de les lancer toutes en parallèle. Ajoute environ 240 ms au temps de connexion mais réduit les coupures sur les connexions capricieuses. Forcé activé quand le « Mode connexion lente » est activé.</value>
-  </data>
   <data name="Settings.Advanced.CharaData" xml:space="preserve">
     <value>Données de personnage</value>
   </data>
@@ -5087,6 +5072,27 @@ Note : Les armes ne s'afficheront pas correctement sauf si vous utilisez le m&#x
   </data>
   <data name="Settings.Advanced.Debug.LogLevel" xml:space="preserve">
     <value>Niveau de log</value>
+  </data>
+  <data name="Settings.Advanced.Debug.NetworkDiag.Enable" xml:space="preserve">
+    <value>Activer le journal de diagnostic réseau</value>
+  </data>
+  <data name="Settings.Advanced.Debug.NetworkDiag.Enable.Help" xml:space="preserve">
+    <value>Enregistre chaque message SignalR (envoyé/reçu), les événements de cycle de vie du Hub et les événements bas niveau de la pile réseau .NET dans un fichier dédié. Utile pour diagnostiquer les problèmes de déconnexion. Une reconnexion est requise pour que le logging au niveau message prenne effet (le fichier est créé immédiatement pour les événements Hub).</value>
+  </data>
+  <data name="Settings.Advanced.Debug.NetworkDiag.RestartTitle" xml:space="preserve">
+    <value>Journal de diagnostic réseau modifié</value>
+  </data>
+  <data name="Settings.Advanced.Debug.NetworkDiag.RestartBody" xml:space="preserve">
+    <value>Reconnectez-vous pour que la modification s'applique au logging des messages SignalR.</value>
+  </data>
+  <data name="Settings.Advanced.Debug.NetworkDiag.OpenFolder" xml:space="preserve">
+    <value>Ouvrir le dossier des journaux</value>
+  </data>
+  <data name="Settings.Advanced.Debug.NetworkDiag.OpenFolder.Help" xml:space="preserve">
+    <value>Ouvre le dossier contenant les fichiers de diagnostic réseau (un fichier par démarrage du plugin).</value>
+  </data>
+  <data name="Settings.Advanced.Debug.NetworkDiag.CurrentFile" xml:space="preserve">
+    <value>Fichier en cours : {0}</value>
   </data>
   <data name="Settings.Advanced.Debug.LogPerf" xml:space="preserve">
     <value>Journaliser les compteurs de performance</value>
@@ -6011,5 +6017,38 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
   </data>
   <data name="Settings.Performance.PreciseOcclusion.RestartHint" xml:space="preserve">
     <value>La modification prend effet au prochain redémarrage du plugin.</value>
+  </data>
+  <data name="Settings.Performance.Network" xml:space="preserve">
+    <value>Réseau</value>
+  </data>
+  <data name="Settings.Performance.SlowConnection" xml:space="preserve">
+    <value>Mode connexion lente</value>
+  </data>
+  <data name="Settings.Performance.SlowConnection.Help" xml:space="preserve">
+    <value>Activez cette option si vous subissez des déconnexions fréquentes ou des boucles de reconnexion (typiquement avec un wifi instable, une box capricieuse, ou un débit lent / limité). Le plugin bascule sur un mode de communication plus lent mais bien plus résistant. Un peu plus lent à se synchroniser, mais ça tient mieux sur les connexions fragiles. Déconnectez puis reconnectez-vous pour que le changement prenne effet.</value>
+  </data>
+  <data name="Settings.Performance.SlowConnection.RestartTitle" xml:space="preserve">
+    <value>Mode connexion lente modifié</value>
+  </data>
+  <data name="Settings.Performance.SlowConnection.RestartBody" xml:space="preserve">
+    <value>Déconnectez-vous puis reconnectez-vous pour que le nouveau mode prenne effet.</value>
+  </data>
+  <data name="Settings.Performance.NetworkAutoTune" xml:space="preserve">
+    <value>Auto-ajuster en cas de réseau instable</value>
+  </data>
+  <data name="Settings.Performance.NetworkAutoTune.Help" xml:space="preserve">
+    <value>Si activé, le plugin détecte les boucles de déconnexion/reconnexion et bascule automatiquement en « Mode connexion lente » pour stabiliser la session. Le mode normal est retenté toutes les 24 h. Désactivez si vous préférez gérer manuellement les paramètres réseau. Sans effet sur un mode connexion lente activé manuellement.</value>
+  </data>
+  <data name="Network.AutoTune.Activated.Title" xml:space="preserve">
+    <value>Réseau instable détecté</value>
+  </data>
+  <data name="Network.AutoTune.Activated.Body" xml:space="preserve">
+    <value>Plusieurs reconnexions courtes ont été détectées. Activation automatique du mode connexion lente pour stabiliser la session. Vous pouvez désactiver ce comportement dans les paramètres (Performance ▸ Réseau).</value>
+  </data>
+  <data name="Network.AutoTune.Reverted.Title" xml:space="preserve">
+    <value>Test du mode normal</value>
+  </data>
+  <data name="Network.AutoTune.Reverted.Body" xml:space="preserve">
+    <value>24 h se sont écoulées depuis l'activation automatique du mode connexion lente. Retour temporaire en mode normal pour vérifier si la connexion s'est stabilisée. En cas d'instabilité, le mode lent sera réactivé automatiquement.</value>
   </data>
 </root>

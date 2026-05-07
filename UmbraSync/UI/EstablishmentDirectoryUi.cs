@@ -79,6 +79,8 @@ internal class EstablishmentDirectoryUi : WindowMediatorSubscriberBase
 
         Mediator.Subscribe<ConnectedMessage>(this, (msg) =>
         {
+            _activeTab = -1;
+            if (!IsOpen) return;
             _ = RefreshList();
             _ = RefreshUpcoming();
         });
@@ -238,12 +240,14 @@ internal class EstablishmentDirectoryUi : WindowMediatorSubscriberBase
             return;
         }
 
-        using var child = ImRaii.Child("##browseList", new Vector2(0, -ImGui.GetFrameHeightWithSpacing() - 4));
-        if (child)
+        using (var child = ImRaii.Child("##browseList", new Vector2(0, -ImGui.GetFrameHeightWithSpacing() - 4)))
         {
-            foreach (var establishment in _currentResults.Establishments)
+            if (child)
             {
-                DrawEstablishmentCard(establishment);
+                foreach (var establishment in _currentResults.Establishments)
+                {
+                    DrawEstablishmentCard(establishment);
+                }
             }
         }
 
@@ -439,7 +443,8 @@ internal class EstablishmentDirectoryUi : WindowMediatorSubscriberBase
         var catIcon = catIndex >= 0 && catIndex < CategoryIcons.Length ? CategoryIcons[catIndex] : FontAwesomeIcon.QuestionCircle;
         var catName = catIndex >= 0 && catIndex < CategoryNames.Length ? CategoryNames[catIndex] : "?";
 
-        using (var card = ImRaii.Child($"##card_{establishment.Id}", new Vector2(ImGui.GetContentRegionAvail().X, 68), true))
+        using (var card = ImRaii.Child($"##card_{establishment.Id}", new Vector2(ImGui.GetContentRegionAvail().X, 68), true,
+            ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse))
         {
             if (card)
             {
@@ -712,12 +717,14 @@ internal class EstablishmentDirectoryUi : WindowMediatorSubscriberBase
             return;
         }
 
-        using var child = ImRaii.Child("##wildRpList", new Vector2(0, -ImGui.GetFrameHeightWithSpacing() - 4));
-        if (child)
+        using (var child = ImRaii.Child("##wildRpList", new Vector2(0, -ImGui.GetFrameHeightWithSpacing() - 4)))
         {
-            foreach (var announcement in _wildRpResults.Announcements)
+            if (child)
             {
-                DrawWildRpCard(announcement);
+                foreach (var announcement in _wildRpResults.Announcements)
+                {
+                    DrawWildRpCard(announcement);
+                }
             }
         }
 

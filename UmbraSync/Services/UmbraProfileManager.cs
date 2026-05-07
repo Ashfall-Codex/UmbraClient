@@ -33,6 +33,7 @@ public class UmbraProfileManager : MediatorSubscriberBase
     private string? _cacheUid;
     private bool _cacheDirty;
     private Timer? _saveTimer;
+    private CancellationTokenSource? _ownProfileSyncCts;
 
     public string? CurrentUid => _apiController.IsConnected ? _apiController.UID : null;
 
@@ -66,6 +67,7 @@ public class UmbraProfileManager : MediatorSubscriberBase
         });
         Mediator.Subscribe<DisconnectedMessage>(this, (_) =>
         {
+            CancelOwnProfileSync();
             SaveProfileCacheNow();
             _umbraProfiles.Clear();
             _groupProfiles.Clear();
@@ -79,7 +81,12 @@ public class UmbraProfileManager : MediatorSubscriberBase
                 _groupProfiles[msg.Profile.Group.GID] = msg.Profile;
             }
         });
-        Mediator.Subscribe<ConnectedMessage>(this, (msg) => _ = EnsureOwnProfileSyncedAsync());
+        Mediator.Subscribe<ConnectedMessage>(this, (msg) =>
+        {
+            CancelOwnProfileSync();
+            _ownProfileSyncCts = new CancellationTokenSource();
+            _ = DelayedEnsureOwnProfileSyncedAsync(_ownProfileSyncCts.Token);
+        });
     }
 
     public GroupProfileDto? GetGroupProfile(string gid)
@@ -392,7 +399,26 @@ public class UmbraProfileManager : MediatorSubscriberBase
         Logger.LogInformation("Profile cache cleared by user");
     }
     
-    private async Task EnsureOwnProfileSyncedAsync()
+    private async Task DelayedEnsureOwnProfileSyncedAsync(CancellationToken token)
+    {
+        try
+        {
+            int initialDelayMs = Random.Shared.Next(2000, 5000);
+            await Task.Delay(initialDelayMs, token).ConfigureAwait(false);
+            if (token.IsCancellationRequested || !_apiController.IsConnected) return;
+            await EnsureOwnProfileSyncedAsync(token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            // expected on disconnect/dispose
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "DelayedEnsureOwnProfileSynced failed");
+        }
+    }
+
+    private async Task EnsureOwnProfileSyncedAsync(CancellationToken token = default)
     {
         try
         {
@@ -404,8 +430,8 @@ public class UmbraProfileManager : MediatorSubscriberBase
             uint worldId = 0;
             for (int i = 0; i < 20 && (string.Equals(charName, "--", StringComparison.Ordinal) || string.IsNullOrEmpty(charName) || worldId == 0); i++)
             {
-                await Task.Delay(500).ConfigureAwait(false);
-                if (!_apiController.IsConnected) return;
+                await Task.Delay(500, token).ConfigureAwait(false);
+                if (token.IsCancellationRequested || !_apiController.IsConnected) return;
                 charName = await _dalamudUtil.GetPlayerNameAsync().ConfigureAwait(false);
                 worldId = await _dalamudUtil.GetHomeWorldIdAsync().ConfigureAwait(false);
             }
@@ -419,9 +445,27 @@ public class UmbraProfileManager : MediatorSubscriberBase
             Logger.LogInformation("EnsureOwnProfileSynced: Fetching full profile from server for {name}@{worldId}", charName, worldId);
             await GetUmbraProfileFromService(new UserData(_apiController.UID), charName, worldId).ConfigureAwait(false);
         }
+        catch (OperationCanceledException)
+        {
+            // expected on disconnect/dispose
+        }
         catch (Exception ex)
         {
             Logger.LogWarning(ex, "EnsureOwnProfileSynced failed");
+        }
+    }
+
+    private void CancelOwnProfileSync()
+    {
+        try
+        {
+            _ownProfileSyncCts?.Cancel();
+            _ownProfileSyncCts?.Dispose();
+        }
+        catch { /* ignore */ }
+        finally
+        {
+            _ownProfileSyncCts = null;
         }
     }
 

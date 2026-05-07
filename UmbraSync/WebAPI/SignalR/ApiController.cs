@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.SignalR.Client;
 using Microsoft.Extensions.Logging;
+using System.Collections.Concurrent;
 using System.Reflection;
 using System.Globalization;
 using UmbraSync.API.Data;
@@ -42,6 +43,9 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
     private bool _initialized;
     private HubConnection? _mareHub;
     private ServerState _serverState;
+    private readonly Lock _bootstrapLock = new();
+    private volatile bool _bootstrapInProgress;
+    private readonly ConcurrentQueue<Action> _pendingBootstrapCallbacks = new();
 
     public ApiController(ILogger<ApiController> logger, HubFactory hubFactory, DalamudUtilService dalamudUtil,
         PairManager pairManager, ServerConfigurationManager serverManager, MareMediator mediator,
@@ -61,7 +65,7 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
         Mediator.Subscribe<DalamudLoginMessage>(this, (_) => DalamudUtilOnLogIn());
         Mediator.Subscribe<DalamudLogoutMessage>(this, (_) => DalamudUtilOnLogOut());
         Mediator.Subscribe<HubClosedMessage>(this, (msg) => MareHubOnClosed(msg.Exception));
-        Mediator.Subscribe<HubReconnectedMessage>(this, (msg) => _ = MareHubOnReconnected());
+        Mediator.Subscribe<HubReconnectedMessage>(this, (msg) => _ = SafeRunReconnected());
         Mediator.Subscribe<HubReconnectingMessage>(this, (msg) => MareHubOnReconnecting(msg.Exception));
 
         ServerState = ServerState.Offline;
@@ -182,6 +186,8 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
 
                 _mareHub = await _hubFactory.GetOrCreate(token).ConfigureAwait(false);
 
+                BeginBootstrap();
+
                 InitializeApiHooks();
 
                 await _mareHub.StartAsync(token).ConfigureAwait(false);
@@ -235,14 +241,11 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
 #endif
                 }
 
-                await LoadInitialPairs().ConfigureAwait(false);
-                await LoadOnlinePairs().ConfigureAwait(false);
+                await LoadBootstrapPairs().ConfigureAwait(false);
                 _pairManager.ApplyPendingCharacterData();
-                
-                if (ShouldStaggerInitialLoad)
-                {
-                    await Task.Delay(PostInitDrain).ConfigureAwait(false);
-                }
+
+                DrainBootstrapCallbacks();
+
                 Mediator.Publish(new ConnectedMessage(_connectionDto));
             }
             catch (OperationCanceledException)
@@ -301,9 +304,11 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
 
     private async Task ClientHealthCheck(CancellationToken ct)
     {
+        // 15s : sweet spot WebSocket. Passe la plupart des middleboxes/NAT mobiles
+        // (timeout typique 30s+) sans cramer de la bande passante inutile.
         while (!ct.IsCancellationRequested && _mareHub != null)
         {
-            await Task.Delay(TimeSpan.FromSeconds(30), ct).ConfigureAwait(false);
+            await Task.Delay(TimeSpan.FromSeconds(15), ct).ConfigureAwait(false);
             Logger.LogDebug("Checking Client Health State");
             _ = await CheckClientHealth().ConfigureAwait(false);
         }
@@ -328,6 +333,7 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
         OnDownloadReady((guid) => _ = Client_DownloadReady(guid));
         OnReceiveServerMessage((sev, msg) => _ = Client_ReceiveServerMessage(sev, msg));
         OnUpdateSystemInfo((dto) => _ = Client_UpdateSystemInfo(dto));
+        OnKeepAlive((padding) => _ = Client_KeepAlive(padding));
         OnUserSendOffline((dto) => _ = Client_UserSendOffline(dto));
         OnUserAddClientPair((dto) => _ = Client_UserAddClientPair(dto));
         OnReceivePairRequest((dto) => _ = Client_ReceivePairRequest(dto));
@@ -370,91 +376,23 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
         _initialized = true;
     }
     
-    private static readonly TimeSpan InitialBurstThrottleStandard = TimeSpan.FromMilliseconds(80);
-    private static readonly TimeSpan InitialBurstThrottleSlow = TimeSpan.FromMilliseconds(250);
-    private bool ShouldStaggerInitialLoad => _configService.Current.SlowConnection || _configService.Current.StaggeredInitialLoad;
-    private TimeSpan InitialBurstThrottle => _configService.Current.SlowConnection ? InitialBurstThrottleSlow : InitialBurstThrottleStandard;
-    private TimeSpan PostInitDrain => _configService.Current.SlowConnection ? TimeSpan.FromMilliseconds(400) : TimeSpan.FromMilliseconds(150);
-
-    private async Task LoadInitialPairs()
+    private async Task LoadBootstrapPairs()
     {
-        if (ShouldStaggerInitialLoad)
-        {
-            var pairedClients = await UserGetPairedClients().ConfigureAwait(false);
-            foreach (var userPair in pairedClients)
-            {
-                Logger.LogDebug("Individual Pair: {userPair}", userPair);
-                _pairManager.AddUserPair(userPair);
-            }
+        // 3 RPC parallèles, c'est tout. Le serveur retourne :
+        //  - UserGetPairedClients : pairs directs ET pairs syncshell-implicites en une passe (helper GetAllPairInfo).
+        //  - GroupsGetAll : DTO enrichi avec GroupPairUserInfos (flags pinned/mod) + GroupUserCount.
+        //  - UserGetOnlinePairs : présence en ligne via Redis.
+        // Plus de fan-out GroupsGetUsersInGroup × N qui saturait middleboxes/connexion lente au connect.
+        var pairedClientsTask = UserGetPairedClients();
+        var groupsTask = GroupsGetAll();
+        var onlinePairsTask = UserGetOnlinePairs();
 
-            await Task.Delay(InitialBurstThrottle).ConfigureAwait(false);
-            var allGroups = await GroupsGetAll().ConfigureAwait(false);
-            foreach (var entry in allGroups)
-            {
-                Logger.LogDebug("Group: {entry}", entry);
-                _pairManager.AddGroup(entry);
-            }
-            if (allGroups.Count > 0)
-            {
-                for (int i = 0; i < allGroups.Count; i++)
-                {
-                    if (i > 0) await Task.Delay(InitialBurstThrottle).ConfigureAwait(false);
-                    var users = await GroupsGetUsersInGroup(allGroups[i]).ConfigureAwait(false);
-                    foreach (var user in users)
-                    {
-                        Logger.LogDebug("Group Pair: {user}", user);
-                        _pairManager.AddGroupPair(user, isInitialLoad: true);
-                    }
-                }
-            }
-        }
-        else
-        {
-            var pairedClientsTask = UserGetPairedClients();
-            var groupsTask = GroupsGetAll();
+        await Task.WhenAll(pairedClientsTask, groupsTask, onlinePairsTask).ConfigureAwait(false);
 
-            await Task.WhenAll(pairedClientsTask, groupsTask).ConfigureAwait(false);
-
-            var pairedClients = await pairedClientsTask.ConfigureAwait(false);
-            var allGroups = await groupsTask.ConfigureAwait(false);
-
-            foreach (var userPair in pairedClients)
-            {
-                Logger.LogDebug("Individual Pair: {userPair}", userPair);
-                _pairManager.AddUserPair(userPair);
-            }
-
-            foreach (var entry in allGroups)
-            {
-                Logger.LogDebug("Group: {entry}", entry);
-                _pairManager.AddGroup(entry);
-            }
-
-            if (allGroups.Count > 0)
-            {
-                var groupUsersTasks = allGroups.Select(g => GroupsGetUsersInGroup(g)).ToList();
-                await Task.WhenAll(groupUsersTasks).ConfigureAwait(false);
-
-                for (int i = 0; i < allGroups.Count; i++)
-                {
-                    var users = await groupUsersTasks[i].ConfigureAwait(false);
-                    foreach (var user in users)
-                    {
-                        Logger.LogDebug("Group Pair: {user}", user);
-                        _pairManager.AddGroupPair(user, isInitialLoad: true);
-                    }
-                }
-            }
-        }
-    }
-
-    private async Task LoadOnlinePairs()
-    {
-        foreach (var entry in await UserGetOnlinePairs().ConfigureAwait(false))
-        {
-            Logger.LogDebug("Pair online: {pair}", entry);
-            _pairManager.MarkPairOnline(entry, sendNotif: false);
-        }
+        var pairedClients = await pairedClientsTask.ConfigureAwait(false);
+        var allGroups = await groupsTask.ConfigureAwait(false);
+        var onlinePairs = await onlinePairsTask.ConfigureAwait(false);
+        _pairManager.ApplyBootstrapSnapshot(allGroups, pairedClients, onlinePairs);
     }
 
     private void MareHubOnClosed(Exception? arg)
@@ -471,10 +409,23 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
             Logger.LogInformation("Connection closed");
         }
     }
+    
+    private async Task SafeRunReconnected()
+    {
+        try
+        {
+            await MareHubOnReconnected().ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Unhandled exception escaped MareHubOnReconnected internal try/catch");
+        }
+    }
 
     private async Task MareHubOnReconnected()
     {
         ServerState = ServerState.Reconnecting;
+        BeginBootstrap();
         try
         {
             InitializeApiHooks();
@@ -485,9 +436,9 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
                 return;
             }
             ServerState = ServerState.Connected;
-            await LoadInitialPairs().ConfigureAwait(false);
-            await LoadOnlinePairs().ConfigureAwait(false);
+            await LoadBootstrapPairs().ConfigureAwait(false);
             _pairManager.ApplyPendingCharacterData();
+            DrainBootstrapCallbacks();
             Mediator.Publish(new ConnectedMessage(_connectionDto));
         }
         catch (Exception ex)
@@ -524,6 +475,11 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
     private async Task StopConnection(ServerState state)
     {
         ServerState = ServerState.Disconnecting;
+
+        if (_bootstrapInProgress)
+        {
+            AbortBootstrap();
+        }
 
         Logger.LogInformation("Stopping existing connection");
         await _hubFactory.DisposeHubAsync().ConfigureAwait(false);

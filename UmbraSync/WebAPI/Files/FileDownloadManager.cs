@@ -1026,7 +1026,7 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
                     tasks.Add(Task.Run(async () =>
                     {
                         var gate = GetDecompressGate();
-                        await gate.WaitAsync(CancellationToken.None).ConfigureAwait(false);
+                        await gate.WaitAsync(ct).ConfigureAwait(false);
                         var hashSuccess = false;
                         try
                         {
@@ -1092,7 +1092,7 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
                             CompleteDownloadHash(capturedHash, hashSuccess);
                             pendingFallbackHashes.TryRemove(capturedHash, out _);
                         }
-                    }, CancellationToken.None));
+                    }, ct));
                 }
 
                 Task.WaitAll([.. tasks], CancellationToken.None);
@@ -1516,7 +1516,7 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
                     tasks.Add(Task.Run(async () =>
                     {
                         var gate = GetDecompressGate();
-                        await gate.WaitAsync(CancellationToken.None).ConfigureAwait(false);
+                        await gate.WaitAsync(ct).ConfigureAwait(false);
                         var hashSuccess = false;
                         try
                         {
@@ -1587,7 +1587,7 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
                             CompleteDownloadHash(capturedHash, hashSuccess);
                             pendingFallbackHashes.TryRemove(capturedHash, out _);
                         }
-                    }, CancellationToken.None));
+                    }, ct));
                 }
 
                 Task.WaitAll([.. tasks], CancellationToken.None);

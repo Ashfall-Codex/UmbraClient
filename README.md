@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <code>v2.5.2.4029</code> &middot; API <code>v4000</code> &middot; C# 13 / .NET 10 &middot; Dalamud SDK 15.0.0 (Dalamud API15)
+  <code>v2.5.4.5006</code> &middot; API <code>v4000</code> &middot; C# 13 / .NET 10 &middot; Dalamud SDK 15.0.0 (Dalamud API15)
 </p>
 
 ---
@@ -108,6 +108,8 @@
 - **Métriques** : collecte de performances (frame time, latence IPC, débit transfert)
 - **Par joueur** : suivi de la latence de synchronisation, taille des données et taux d'erreur par paire
 - **Analyse personnage** : scan complet des fichiers de mods avec statistiques détaillées
+- **Mode connexion lente** : bascule manuelle vers le transport SignalR `LongPolling` pour contourner les middleboxes FAI qui coupent les WebSockets inactifs
+- **Auto-ajustement réseau** : détection automatique d'instabilité (3 sessions courtes en moins de 3 min) et activation du mode connexion lente avec re-test transparent toutes les 24 h
 
 ---
 
@@ -189,10 +191,10 @@ La commande principale est `/usync`. Un alias `/umbrasync` est également enregi
 
 | Package | Version |
 |---|---|
-| `Microsoft.AspNetCore.SignalR.Client` | 10.0.5 |
-| `Microsoft.AspNetCore.SignalR.Protocols.MessagePack` | 10.0.5 |
-| `MessagePack` | 3.1.4 |
-| `Microsoft.Extensions.Hosting` | 10.0.5 |
+| `Microsoft.AspNetCore.SignalR.Client` | 10.0.6 |
+| `Microsoft.AspNetCore.SignalR.Protocols.MessagePack` | 10.0.6 |
+| `MessagePack` | 2.5.187 |
+| `Microsoft.Extensions.Hosting` | 10.0.6 |
 | `System.IdentityModel.Tokens.Jwt` | 8.16.0 |
 | `K4os.Compression.LZ4.Streams` | 1.3.8 |
 | `Downloader` | 5.1.0 |

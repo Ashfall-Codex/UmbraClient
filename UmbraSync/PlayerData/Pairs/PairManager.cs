@@ -6,6 +6,7 @@ using System.Collections.Concurrent;
 using System.Globalization;
 using UmbraSync.API.Data;
 using UmbraSync.API.Data.Comparer;
+using UmbraSync.API.Data.Enum;
 using UmbraSync.API.Data.Extensions;
 using UmbraSync.API.Dto.Group;
 using UmbraSync.API.Dto.User;
@@ -23,6 +24,7 @@ namespace UmbraSync.PlayerData.Pairs;
 public sealed class PairManager : DisposableMediatorSubscriberBase
 {
     private readonly ConcurrentDictionary<UserData, Pair> _allClientPairs = new(UserDataComparer.Instance);
+    private readonly ConcurrentDictionary<string, Pair> _pairsByUid = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<GroupData, GroupFullInfoDto> _allGroups = new(GroupDataComparer.Instance);
     private readonly ConcurrentDictionary<string, CancellationTokenSource> _pendingOffline = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, OnlineUserCharaDataDto> _pendingCharacterData = new(StringComparer.Ordinal);
@@ -45,6 +47,9 @@ public sealed class PairManager : DisposableMediatorSubscriberBase
     private readonly Lock _lazyRecreateLock = new();
     private bool _lazyRecreateScheduled;
     private int _pendingLazyRecreateCount;
+    // Pendant le bootstrap, on skip RecreateLazyDebounced ; ApplyBootstrapSnapshot fait
+    // un seul RecreateLazyImmediate à la fin de l'apply pour livrer un état UI cohérent.
+    private volatile bool _bootstrapInProgress;
     private static readonly TimeSpan GroupReapplyThrottleDelay = TimeSpan.FromMilliseconds(100);
     private const int MaxConcurrentGroupReapplies = 5;
     private readonly ConcurrentQueue<Pair> _pendingGroupReapplies = new();
@@ -87,7 +92,11 @@ public sealed class PairManager : DisposableMediatorSubscriberBase
     public void AddGroupPair(GroupPairFullInfoDto dto, bool isInitialLoad = false)
     {
         if (!_allClientPairs.ContainsKey(dto.User))
-            _allClientPairs[dto.User] = _pairFactory.Create(dto.User);
+        {
+            var newPair = _pairFactory.Create(dto.User);
+            _allClientPairs[dto.User] = newPair;
+            _pairsByUid[dto.User.UID] = newPair;
+        }
 
         var pair = _allClientPairs[dto.User];
         var group = _allGroups[dto.Group];
@@ -113,13 +122,7 @@ public sealed class PairManager : DisposableMediatorSubscriberBase
 
     public Pair? GetPairByUID(string uid)
     {
-        var existingPair = _allClientPairs.FirstOrDefault(f => uid.Equals(f.Key.UID, StringComparison.Ordinal));
-        if (!Equals(existingPair, default(KeyValuePair<UserData, Pair>)))
-        {
-            return existingPair.Value;
-        }
-
-        return null;
+        return _pairsByUid.TryGetValue(uid, out var pair) ? pair : null;
     }
 
     public bool IsAlreadyDirectPaired(string uid) => GetPairByUID(uid)?.UserPair != null;
@@ -128,7 +131,9 @@ public sealed class PairManager : DisposableMediatorSubscriberBase
     {
         if (!_allClientPairs.ContainsKey(dto.User))
         {
-            _allClientPairs[dto.User] = _pairFactory.Create(dto.User);
+            var newPair = _pairFactory.Create(dto.User);
+            _allClientPairs[dto.User] = newPair;
+            _pairsByUid[dto.User.UID] = newPair;
         }
         else
         {
@@ -158,17 +163,44 @@ public sealed class PairManager : DisposableMediatorSubscriberBase
         }
     }
 
-    public void AddUserPair(UserFullPairDto dto)
+    public void AddUserPair(UserFullPairDto dto, IReadOnlyDictionary<string, GroupFullInfoDto>? groupsByGid = null)
     {
         if (!_allClientPairs.ContainsKey(dto.User))
         {
-            _allClientPairs[dto.User] = _pairFactory.Create(dto.User);
+            var newPair = _pairFactory.Create(dto.User);
+            _allClientPairs[dto.User] = newPair;
+            _pairsByUid[dto.User.UID] = newPair;
         }
 
         var pair = _allClientPairs[dto.User];
         var prevPaused = pair.IsPaused;
-        pair.UserPair = new UserPairDto(dto.User, dto.IndividualPairStatus, dto.OwnPermissions, dto.OtherPermissions);
+
+        // pair.UserPair n'est positionné que pour les pairs directs (Bidirectional/OneSided).
+        // Pour un pair purement implicite via syncshell (IndividualPairStatus.None), on laisse UserPair null
+        // sinon IsAlreadyDirectPaired() et la logique IsPaused considéreraient à tort le pair comme direct.
+        if (dto.IndividualPairStatus != IndividualPairStatus.None)
+        {
+            pair.UserPair = new UserPairDto(dto.User, dto.IndividualPairStatus, dto.OwnPermissions, dto.OtherPermissions);
+        }
+
         pair.SetGroups(dto.GIDs);
+
+        // Au bootstrap, le serveur enrichit GroupFullInfoDto.GroupPairUserInfos avec les flags pinned/mod
+        // de chaque syncshell jointe. On peut donc materialiser pair.GroupPair[group] sans GroupsGetUsersInGroup × N.
+        // Les GroupUserPermissions par-membre sont initialisés à NoneSet ; les events runtime les mettent à jour.
+        if (groupsByGid != null)
+        {
+            foreach (var gid in dto.GIDs)
+            {
+                if (!groupsByGid.TryGetValue(gid, out var groupDto))
+                {
+                    Logger.LogWarning("Bootstrap : GID {gid} listé pour {uid} mais absent de GroupsGetAll (désync RPC)", gid, dto.User.UID);
+                    continue;
+                }
+                var pairUserInfo = groupDto.GroupPairUserInfos.TryGetValue(dto.User.UID, out var info) ? info : GroupUserInfo.None;
+                pair.GroupPair[groupDto] = new GroupPairFullInfoDto(groupDto.Group, dto.User, pairUserInfo, GroupUserPermissions.NoneSet);
+            }
+        }
 
         if (!pair.IsPaused)
         {
@@ -180,6 +212,49 @@ public sealed class PairManager : DisposableMediatorSubscriberBase
         }
 
         RecreateLazyDebounced();
+    }
+
+    /// <summary>
+    /// Bootstrap atomique au connect : applique groupes + pairs + presence en une passe
+    /// avec un seul recompute lazy à la fin (au lieu de 50+ debounced).
+    /// L'UI ne voit pas d'état intermédiaire pendant l'apply.
+    ///
+    /// Le buffering des callbacks runtime (Client_UserSendOnline etc. reçus pendant le bootstrap)
+    /// est déjà géré par BeginBootstrap/DrainBootstrapCallbacks au niveau ApiController.
+    /// </summary>
+    public void ApplyBootstrapSnapshot(
+        IReadOnlyList<GroupFullInfoDto> groups,
+        IReadOnlyList<UserFullPairDto> pairs,
+        IReadOnlyList<OnlineUserIdentDto> online)
+    {
+        var groupsByGid = groups.ToDictionary(g => g.Group.GID, StringComparer.Ordinal);
+
+        _bootstrapInProgress = true;
+        try
+        {
+            foreach (var entry in groups)
+            {
+                Logger.LogDebug("Bootstrap group: {entry}", entry);
+                AddGroup(entry);
+            }
+
+            foreach (var userPair in pairs)
+            {
+                Logger.LogDebug("Bootstrap pair: {userPair}", userPair);
+                AddUserPair(userPair, groupsByGid);
+            }
+
+            foreach (var entry in online)
+            {
+                Logger.LogDebug("Bootstrap pair online: {pair}", entry);
+                MarkPairOnline(entry, sendNotif: false);
+            }
+        }
+        finally
+        {
+            _bootstrapInProgress = false;
+            RecreateLazyImmediate();
+        }
     }
 
     public void UpdateIndividualPairStatus(UserIndividualPairStatusDto dto)
@@ -195,6 +270,7 @@ public sealed class PairManager : DisposableMediatorSubscriberBase
         Logger.LogDebug("Clearing all Pairs");
         DisposePairs();
         _allClientPairs.Clear();
+        _pairsByUid.Clear();
         _allGroups.Clear();
         _pendingCharacterData.Clear();
         LastAddedUser = null;
@@ -394,6 +470,7 @@ public sealed class PairManager : DisposableMediatorSubscriberBase
 
             if (!_allClientPairs[item.Key].HasAnyConnection() && _allClientPairs.TryRemove(item.Key, out var pair))
             {
+                _pairsByUid.TryRemove(item.Key.UID, out _);
                 pair.MarkOffline();
             }
         }
@@ -412,6 +489,7 @@ public sealed class PairManager : DisposableMediatorSubscriberBase
             {
                 pair.MarkOffline();
                 _allClientPairs.TryRemove(dto.User, out _);
+                _pairsByUid.TryRemove(dto.User.UID, out _);
             }
         }
 
@@ -428,6 +506,7 @@ public sealed class PairManager : DisposableMediatorSubscriberBase
             {
                 pair.MarkOffline();
                 _allClientPairs.TryRemove(dto.User, out _);
+                _pairsByUid.TryRemove(dto.User.UID, out _);
             }
         }
 
@@ -967,6 +1046,12 @@ public sealed class PairManager : DisposableMediatorSubscriberBase
     
     private void RecreateLazyDebounced()
     {
+        if (_bootstrapInProgress)
+        {
+            // Skip pendant le bootstrap : ApplyBootstrapSnapshot fait un RecreateLazyImmediate à la fin.
+            return;
+        }
+
         lock (_lazyRecreateLock)
         {
             _pendingLazyRecreateCount++;
