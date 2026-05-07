@@ -155,7 +155,6 @@ public sealed class Plugin : IDalamudPlugin
             collection.AddSingleton<IpcCallerMare>();
             collection.AddSingleton<IpcManager>();
             collection.AddSingleton<NotificationService>();
-            collection.AddSingleton<UmbraSync.Services.Network.NetworkAutoTuneService>();
             collection.AddSingleton<UmbraSync.Services.Network.NetworkDiagnosticService>();
             collection.AddSingleton<TemporarySyncshellNotificationService>();
             collection.AddSingleton<PartyListTypingService>();
@@ -285,7 +284,6 @@ public sealed class Plugin : IDalamudPlugin
             collection.AddHostedService(p => p.GetRequiredService<ConfigurationSaveService>());
             collection.AddHostedService(p => p.GetRequiredService<MareMediator>());
             collection.AddHostedService(p => p.GetRequiredService<NotificationService>());
-            collection.AddHostedService(p => p.GetRequiredService<UmbraSync.Services.Network.NetworkAutoTuneService>());
             collection.AddHostedService(p => p.GetRequiredService<UmbraSync.Services.Network.NetworkDiagnosticService>());
             collection.AddHostedService(p => p.GetRequiredService<TemporarySyncshellNotificationService>());
             collection.AddSingleton<UmbraSync.Services.AutoDetect.PermanentSyncshellAutoDetectMonitor>();

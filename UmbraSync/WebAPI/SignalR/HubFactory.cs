@@ -192,39 +192,14 @@ public class HubFactory : MediatorSubscriberBase
             .WithCompression(MessagePackCompression.Lz4Block)
             .WithResolver(messagePackResolver);
 
-        var slowMode = _configService.Current.SlowConnection;
         var hubUrl = hubConfig.HubUrl;
-        var useFallback = slowMode && !string.IsNullOrWhiteSpace(hubConfig.FallbackHubUrl);
-
-        if (useFallback)
-        {
-            hubUrl = hubConfig.FallbackHubUrl!;
-            Logger.LogInformation("HubFactory: SlowConnection enabled — routing via fallback hub {url} (HTTP/3 path, all transports allowed)", hubUrl);
-        }
-        else if (slowMode)
-        {
-            Logger.LogInformation("HubFactory: SlowConnection enabled — forcing LongPolling transport (no fallback URL configured)");
-        }
 
         var builder = new HubConnectionBuilder()
             .WithUrl(hubUrl, options =>
             {
-                HttpTransportType transports;
-                if (useFallback)
-                {
-                    transports = HttpTransportType.WebSockets | HttpTransportType.LongPolling;
-                }
-                else if (slowMode)
-                {
-                    transports = HttpTransportType.LongPolling;
-                }
-                else
-                {
-                    transports = hubConfig.TransportType;
-                }
-
+                var transports = hubConfig.TransportType;
                 options.AccessTokenProvider = () => _tokenProvider.GetOrUpdateToken(ct);
-                options.SkipNegotiation = !slowMode && hubConfig.SkipNegotiation && (transports == HttpTransportType.WebSockets);
+                options.SkipNegotiation = hubConfig.SkipNegotiation && (transports == HttpTransportType.WebSockets);
                 options.Transports = transports;
                 options.CloseTimeout = TimeSpan.FromSeconds(30);
                 options.WebSocketConfiguration = ws => ws.KeepAliveInterval = TimeSpan.FromSeconds(10);
@@ -269,7 +244,7 @@ public class HubFactory : MediatorSubscriberBase
         if (diagEnabled)
         {
             _networkDiagnostic.LogHubEvent("HubBuilt",
-                $"url={hubUrl} transports={(useFallback ? "WS|LongPolling" : (slowMode ? "LongPolling" : hubConfig.TransportType.ToString()))} slowMode={slowMode}");
+                $"url={hubUrl} transports={hubConfig.TransportType}");
         }
 
         _isDisposed = false;

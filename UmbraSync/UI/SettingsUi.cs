@@ -2445,32 +2445,6 @@ public class SettingsUi : WindowMediatorSubscriberBase
                 : Loc.Get("Settings.Performance.PreciseOcclusion.RestartHint")));
 
         ImGui.Separator();
-        _uiShared.BigText(Loc.Get("Settings.Performance.Network"));
-
-        bool slowConnection = _configService.Current.SlowConnection;
-        if (ImGui.Checkbox(Loc.Get("Settings.Performance.SlowConnection"), ref slowConnection))
-        {
-            _configService.Current.SlowConnection = slowConnection;
-            _configService.Current.SlowConnectionAutoEnabled = false;
-            _configService.Current.SlowConnectionAutoEnabledAt = null;
-            _configService.Save();
-            Mediator.Publish(new NotificationMessage(
-                Loc.Get("Settings.Performance.SlowConnection.RestartTitle"),
-                Loc.Get("Settings.Performance.SlowConnection.RestartBody"),
-                UmbraSync.MareConfiguration.Models.NotificationType.Info,
-                TimeSpan.FromSeconds(8)));
-        }
-        _uiShared.DrawHelpText(Loc.Get("Settings.Performance.SlowConnection.Help"));
-
-        bool networkAutoTune = _configService.Current.NetworkAutoTune;
-        if (ImGui.Checkbox(Loc.Get("Settings.Performance.NetworkAutoTune"), ref networkAutoTune))
-        {
-            _configService.Current.NetworkAutoTune = networkAutoTune;
-            _configService.Save();
-        }
-        _uiShared.DrawHelpText(Loc.Get("Settings.Performance.NetworkAutoTune.Help"));
-
-        ImGui.Separator();
         _uiShared.BigText("Individual Limits");
         bool autoPause = _playerPerformanceConfigService.Current.AutoPausePlayersExceedingThresholds;
         if (ImGui.Checkbox("Automatically block players exceeding thresholds", ref autoPause))

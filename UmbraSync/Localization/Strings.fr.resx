@@ -6018,37 +6018,4 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
   <data name="Settings.Performance.PreciseOcclusion.RestartHint" xml:space="preserve">
     <value>La modification prend effet au prochain redémarrage du plugin.</value>
   </data>
-  <data name="Settings.Performance.Network" xml:space="preserve">
-    <value>Réseau</value>
-  </data>
-  <data name="Settings.Performance.SlowConnection" xml:space="preserve">
-    <value>Mode connexion lente</value>
-  </data>
-  <data name="Settings.Performance.SlowConnection.Help" xml:space="preserve">
-    <value>Activez cette option si vous subissez des déconnexions fréquentes ou des boucles de reconnexion (typiquement avec un wifi instable, une box capricieuse, ou un débit lent / limité). Le plugin bascule sur un mode de communication plus lent mais bien plus résistant. Un peu plus lent à se synchroniser, mais ça tient mieux sur les connexions fragiles. Déconnectez puis reconnectez-vous pour que le changement prenne effet.</value>
-  </data>
-  <data name="Settings.Performance.SlowConnection.RestartTitle" xml:space="preserve">
-    <value>Mode connexion lente modifié</value>
-  </data>
-  <data name="Settings.Performance.SlowConnection.RestartBody" xml:space="preserve">
-    <value>Déconnectez-vous puis reconnectez-vous pour que le nouveau mode prenne effet.</value>
-  </data>
-  <data name="Settings.Performance.NetworkAutoTune" xml:space="preserve">
-    <value>Auto-ajuster en cas de réseau instable</value>
-  </data>
-  <data name="Settings.Performance.NetworkAutoTune.Help" xml:space="preserve">
-    <value>Si activé, le plugin détecte les boucles de déconnexion/reconnexion et bascule automatiquement en « Mode connexion lente » pour stabiliser la session. Le mode normal est retenté toutes les 24 h. Désactivez si vous préférez gérer manuellement les paramètres réseau. Sans effet sur un mode connexion lente activé manuellement.</value>
-  </data>
-  <data name="Network.AutoTune.Activated.Title" xml:space="preserve">
-    <value>Réseau instable détecté</value>
-  </data>
-  <data name="Network.AutoTune.Activated.Body" xml:space="preserve">
-    <value>Plusieurs reconnexions courtes ont été détectées. Activation automatique du mode connexion lente pour stabiliser la session. Vous pouvez désactiver ce comportement dans les paramètres (Performance ▸ Réseau).</value>
-  </data>
-  <data name="Network.AutoTune.Reverted.Title" xml:space="preserve">
-    <value>Test du mode normal</value>
-  </data>
-  <data name="Network.AutoTune.Reverted.Body" xml:space="preserve">
-    <value>24 h se sont écoulées depuis l'activation automatique du mode connexion lente. Retour temporaire en mode normal pour vérifier si la connexion s'est stabilisée. En cas d'instabilité, le mode lent sera réactivé automatiquement.</value>
-  </data>
 </root>
