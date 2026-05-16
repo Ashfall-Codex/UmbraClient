@@ -347,6 +347,7 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
                 new("Nouveauté : Notification une mise à jour d'UmbraSync ou d'un plugin lié, invitant à redémarrer le jeu en cas de souci."),
                 new("Correction : Bouton « Rejoindre » des syncshells publiques ne réagissant que sur la première ligne."),
                 new("Correction : Notification Toast doublé par-dessus la popup lors d'une demande de pair entrante."),
+                new("Correction : Bulle d'écriture qui clignotait avec certains utilisateurs. La bulle se masque maintenant après la fin réelle de la frappe."),
                 new("Correction : Aide du paramètre « Pairs simultanés max » alignée sur la limite réelle."),
                 new("Autre : Mise à jour API Penumbra."),
                 new("Autre : Suppression du code mort."),

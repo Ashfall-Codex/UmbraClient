@@ -81,10 +81,6 @@ public sealed class TypingIndicatorStateService : IMediatorSubscriber, IDisposab
                 _ => new TypingEntry(msg.Typing.User, now, now),
                 (_, existing) => new TypingEntry(msg.Typing.User, existing.FirstSeen, now));
         }
-        else
-        {
-            _typingUsers.TryRemove(uid, out _);
-        }
     }
 
     public bool TryGetSelfTyping(TimeSpan maxAge, out DateTime startTyping, out DateTime lastTyping)
