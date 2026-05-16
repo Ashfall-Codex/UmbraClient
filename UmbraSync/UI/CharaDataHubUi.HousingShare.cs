@@ -11,6 +11,7 @@ namespace UmbraSync.UI;
 
 public sealed partial class CharaDataHubUi
 {
+    private int _housingSubTab;
     private string _housingShareDescription = string.Empty;
     private bool _housingShareInitialized;
     private bool _housingShareToAll = true;
@@ -31,7 +32,7 @@ public sealed partial class CharaDataHubUi
     private string _housingShareEditSyncshellDropdownSelection = string.Empty;
     private string _housingShareEditSyncshellInput = string.Empty;
 
-    private void DrawHousingShare()
+    private void DrawHousingShare(Vector4 accent)
     {
         if (!_uiSharedService.ApiController.IsConnected)
         {
@@ -41,6 +42,27 @@ public sealed partial class CharaDataHubUi
             return;
         }
 
+        var housingLabels = new[] { "Meubles", "PNJ" };
+        var housingIcons = new[] { FontAwesomeIcon.Couch, FontAwesomeIcon.Users };
+        DrawSubTabButtons(housingLabels, housingIcons, ref _housingSubTab, accent);
+
+        ImGuiHelpers.ScaledDummy(4f);
+
+        switch (_housingSubTab)
+        {
+            case 0:
+                using (var id = ImRaii.PushId("housingFurniture"))
+                    DrawHousingFurnitureSection();
+                break;
+            case 1:
+                using (var id = ImRaii.PushId("housingScenario"))
+                    DrawHousingScenarioSection();
+                break;
+        }
+    }
+
+    private void DrawHousingFurnitureSection()
+    {
         var housingShareManager = _housingShareManager_housing;
         var scanner = _housingScanner;
         if (housingShareManager == null || scanner == null) return;
@@ -605,5 +627,41 @@ public sealed partial class CharaDataHubUi
                 _housingShareEditSyncshellInput = gid;
             }
         }
+    }
+
+    private void DrawHousingScenarioSection()
+    {
+        _uiSharedService.BigText("Synchronisation des scénarios PNJ");
+
+        ImGuiHelpers.ScaledDummy(5);
+
+        string? arrPath = _arrPathResolver?.TryGetScenariosPath();
+        if (arrPath == null)
+        {
+            ImGui.PushStyleColor(ImGuiCol.Text, ImGuiColors.DalamudYellow);
+            _uiSharedService.IconText(FontAwesomeIcon.ExclamationTriangle);
+            ImGui.SameLine();
+            ImGui.TextWrapped("Plugin A Realm Repopulated non détecté. Installez-le et redémarrez le plugin pour activer cette section.");
+            ImGui.PopStyleColor();
+            return;
+        }
+
+        ImGui.PushStyleColor(ImGuiCol.Text, ImGuiColors.HealerGreen);
+        _uiSharedService.IconText(FontAwesomeIcon.CheckCircle);
+        ImGui.SameLine();
+        ImGui.TextUnformatted("A Realm Repopulated détecté");
+        ImGui.PopStyleColor();
+
+        ImGui.TextDisabled(arrPath);
+        ImGuiHelpers.ScaledDummy(5);
+
+        UiSharedService.DistanceSeparator();
+
+        ImGui.TextWrapped("Cette section vous permettra bientôt de partager les scénarios NPC custom de votre housing avec vos paires autorisées. Quand un visiteur entrera dans votre housing, son client téléchargera le scénario et les NPCs apparaîtront automatiquement.");
+        ImGuiHelpers.ScaledDummy(3);
+
+        ImGui.PushStyleColor(ImGuiCol.Text, ImGuiColors.DalamudGrey3);
+        ImGui.TextWrapped("Fonctionnalité en cours de développement (Phase 3 : publish + apply ; Phase 4 : gestion des conflits ; Phase 5 : permissions et toggles).");
+        ImGui.PopStyleColor();
     }
 }

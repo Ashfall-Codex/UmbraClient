@@ -37,6 +37,7 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
     private readonly MareConfigService _mareConfigService;
     private readonly HousingShareManager? _housingShareManager_housing;
     private readonly HousingFurnitureScanner? _housingScanner;
+    private readonly ArrPathResolver? _arrPathResolver;
     private CancellationTokenSource? _closalCts = new();
     private bool _disableUI = false;
     private CancellationTokenSource? _disposalCts = new();
@@ -135,6 +136,7 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
                          DalamudUtilService dalamudUtilService, FileDialogManager fileDialogManager, PairManager pairManager,
                          CharaDataGposeTogetherManager charaDataGposeTogetherManager, McdfShareManager mcdfShareManager,
                          HousingShareManager housingShareManager, HousingFurnitureScanner housingScanner,
+                         ArrPathResolver arrPathResolver,
                          UmbraProfileManager umbraProfileManager, MareConfigService mareConfigService)
         : base(logger, mediator, $"{Loc.Get("CharaDataHub.WindowTitle")}###UmbraCharaDataUI", performanceCollectorService)
     {
@@ -153,6 +155,7 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
         _mareConfigService = mareConfigService;
         _housingShareManager_housing = housingShareManager;
         _housingScanner = housingScanner;
+        _arrPathResolver = arrPathResolver;
         _umbraProfileManager = umbraProfileManager;
         Mediator.Subscribe<GposeStartMessage>(this, (_) => IsOpen |= _configService.Current.OpenMareHubOnGposeStart);
         Mediator.Subscribe<OpenCharaDataHubWithFilterMessage>(this, (msg) =>
@@ -2255,7 +2258,7 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
                     break;
                 case 1:
                     using (var id = ImRaii.PushId("housingShare"))
-                        DrawHousingShare();
+                        DrawHousingShare(accent);
                     break;
             }
         }
