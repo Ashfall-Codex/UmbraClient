@@ -243,8 +243,7 @@ public class HubFactory : MediatorSubscriberBase
 
         if (diagEnabled)
         {
-            _networkDiagnostic.LogHubEvent("HubBuilt",
-                $"url={hubUrl} transports={hubConfig.TransportType}");
+            _networkDiagnostic.LogHubEvent("HubBuilt", $"url={hubUrl} transports={hubConfig.TransportType}");
         }
 
         _isDisposed = false;

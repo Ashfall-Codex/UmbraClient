@@ -240,7 +240,7 @@
     <value>Pairs simultanés max</value>
   </data>
   <data name="Settings.Transfer.PairProcessing.MaxConcurrent.Help" xml:space="preserve">
-    <value>Nombre maximum de pairs pouvant être traités en même temps. Des valeurs plus élevées sont plus rapides mais utilisent plus de ressources. Recommandé : 10 (défaut : 10, max : 50)</value>
+    <value>Nombre maximum de pairs pouvant être traités en même temps. Des valeurs plus élevées sont plus rapides mais utilisent plus de ressources. Recommandé : 10 (défaut : 10, max : 10)</value>
   </data>
 
   <!-- Override de collection par Syncshell -->
@@ -1556,6 +1556,15 @@ Veuillez conserver une copie de votre clé secrète au cas où vous auriez besoi
   </data>
   <data name="ChangelogUi.WindowTitle" xml:space="preserve">
     <value>Umbra Sync - Notes de version</value>
+  </data>
+  <data name="ChangelogUi.RestartNotice.Title" xml:space="preserve">
+    <value>Redémarrage recommandé</value>
+  </data>
+  <data name="ChangelogUi.RestartNotice.BodyPluginUpdated" xml:space="preserve">
+    <value>UmbraSync vient d'être mis à jour vers la version {0}. En cas de souci, redémarrez complètement le jeu pour appliquer la mise à jour proprement.</value>
+  </data>
+  <data name="ChangelogUi.RestartNotice.BodyExternalUpdated" xml:space="preserve">
+    <value>Le(s) plugin(s) requis/optionnel(s) suivant(s) ont été mis à jour depuis votre dernière session : {0}. En cas de souci, redémarrez complètement le jeu.</value>
   </data>
   <data name="CharaDataHub.AccessType.AllPairs" xml:space="preserve">
     <value />

@@ -240,7 +240,7 @@
     <value>Max concurrent pairs</value>
   </data>
   <data name="Settings.Transfer.PairProcessing.MaxConcurrent.Help" xml:space="preserve">
-    <value>Maximum number of pairs that can be processed at the same time. Higher values are faster but use more resources. Recommended: 4 (default: 4, max: 16)</value>
+    <value>Maximum number of pairs that can be processed at the same time. Higher values are faster but use more resources. Recommended: 10 (default: 10, max: 10)</value>
   </data>
 
   <!-- Collection Override per Syncshell -->
@@ -1656,6 +1656,15 @@ Click to change.</value>
   </data>
   <data name="ChangelogUi.WindowTitle" xml:space="preserve">
     <value>Umbra Sync - Changelog</value>
+  </data>
+  <data name="ChangelogUi.RestartNotice.Title" xml:space="preserve">
+    <value>Restart recommended</value>
+  </data>
+  <data name="ChangelogUi.RestartNotice.BodyPluginUpdated" xml:space="preserve">
+    <value>UmbraSync has just been updated to version {0}. If you experience any issues, please fully restart the game to apply the update cleanly.</value>
+  </data>
+  <data name="ChangelogUi.RestartNotice.BodyExternalUpdated" xml:space="preserve">
+    <value>The following required/optional plugin(s) have been updated since your last session: {0}. If you experience any issues, please fully restart the game.</value>
   </data>
   <data name="CharaDataHub.AccessType.AllPairs" xml:space="preserve">
     <value>All Pairs</value>
