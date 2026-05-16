@@ -262,17 +262,10 @@ public class NotificationService : DisposableMediatorSubscriberBase, IHostedServ
 
     private bool IsAutoDetectPairRequest(NotificationMessage msg)
     {
-        if (msg.Type != NotificationType.Info) return false;
-
-        // Ne supprimer le toast que si les popups interactives sont activées
+        if (msg.Type != NotificationType.Info && msg.Type != NotificationType.Success) return false;
         if (!_configurationService.Current.UseInteractivePairRequestPopup) return false;
-
-        // Vérifier le titre localisé (notification créée par NearbyPendingService)
         var incomingTitle = Loc.Get("AutoDetect.Notification.IncomingTitle");
         if (string.Equals(msg.Title, incomingTitle, StringComparison.Ordinal)) return true;
-
-        // Vérifier aussi le pattern "Nearby Request" dans le message (pour les messages du serveur)
-        // mais exclure les confirmations d'envoi
         bool isNearbyRequest = ContainsNearbyRequest(msg.Title) || ContainsNearbyRequest(msg.Message);
         if (isNearbyRequest && !IsRequestSentConfirmation(msg)) return true;
 

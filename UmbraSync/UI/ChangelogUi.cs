@@ -6,6 +6,7 @@ using Dalamud.Interface;
 using Dalamud.Interface.Colors;
 using Dalamud.Interface.Utility;
 using Dalamud.Interface.Utility.Raii;
+using Dalamud.Plugin;
 using UmbraSync.Localization;
 using UmbraSync.MareConfiguration;
 using UmbraSync.Services;
@@ -18,26 +19,47 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
 {
     private const int AlwaysExpandedEntryCount = 1;
 
+    private static readonly string[] WatchedExternalPlugins =
+    [
+        "Penumbra",
+        "Glamourer",
+        "CustomizePlus",
+        "SimpleHeels",
+        "Honorific",
+        "Moodles",
+        "PetRenamer",
+        "Brio",
+    ];
+
     private readonly MareConfigService _configService;
     private readonly UiSharedService _uiShared;
+    private readonly IDalamudPluginInterface _pluginInterface;
     private readonly Version _currentVersion;
     private readonly string _currentVersionLabel;
     private readonly IReadOnlyList<ChangelogEntry> _entries;
+    private readonly bool _isUmbraSyncUpdated;
+    private IReadOnlyList<(string Name, string Version)> _updatedExternalPlugins;
+    private readonly Dictionary<string, string> _currentExternalSnapshot;
 
     private bool _historyOpen;
     private bool? _pendingHistoryOpenState;
     private bool _hasAcknowledgedVersion;
 
     public ChangelogUi(ILogger<ChangelogUi> logger, UiSharedService uiShared, MareConfigService configService,
-        MareMediator mediator, PerformanceCollectorService performanceCollectorService)
+        MareMediator mediator, PerformanceCollectorService performanceCollectorService,
+        IDalamudPluginInterface pluginInterface)
         : base(logger, mediator, Loc.Get("ChangelogUi.WindowTitle"), performanceCollectorService)
     {
         _uiShared = uiShared;
         _configService = configService;
+        _pluginInterface = pluginInterface;
         _currentVersion = Assembly.GetExecutingAssembly().GetName().Version ?? new Version(0, 0, 0, 0);
         _currentVersionLabel = _currentVersion.ToString();
         _entries = BuildEntries();
-        _hasAcknowledgedVersion = string.Equals(_configService.Current.LastChangelogVersionSeen, _currentVersionLabel, StringComparison.Ordinal);
+        _isUmbraSyncUpdated = !string.Equals(_configService.Current.LastChangelogVersionSeen, _currentVersionLabel, StringComparison.Ordinal);
+        _hasAcknowledgedVersion = !_isUmbraSyncUpdated;
+
+        (_updatedExternalPlugins, _currentExternalSnapshot) = ComputeExternalPluginState();
 
         RespectCloseHotkey = true;
         SizeConstraints = new()
@@ -48,11 +70,88 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
         Flags |= ImGuiWindowFlags.NoResize;
         ShowCloseButton = true;
 
-        if (!string.Equals(_configService.Current.LastChangelogVersionSeen, _currentVersionLabel, StringComparison.Ordinal))
+        if (_isUmbraSyncUpdated)
         {
             IsOpen = true;
         }
         Mediator.Subscribe<OpenChangelogUiMessage>(this, (_) => IsOpen = true);
+
+        if (_isUmbraSyncUpdated || _updatedExternalPlugins.Count > 0)
+        {
+            Mediator.Subscribe<DalamudLoginMessage>(this, _ => OnLoginPublishUpdateNotice());
+        }
+    }
+
+    private bool _restartNoticePublished;
+
+    private void OnLoginPublishUpdateNotice()
+    {
+        if (_restartNoticePublished) return;
+        _restartNoticePublished = true;
+
+        var title = Loc.Get("ChangelogUi.RestartNotice.Title");
+        var parts = new List<string>();
+        if (_isUmbraSyncUpdated)
+        {
+            parts.Add(string.Format(CultureInfo.CurrentCulture, Loc.Get("ChangelogUi.RestartNotice.BodyPluginUpdated"), _currentVersionLabel));
+        }
+        if (_updatedExternalPlugins.Count > 0)
+        {
+            var pluginList = string.Join(", ", _updatedExternalPlugins.Select(p => $"{p.Name} {p.Version}"));
+            parts.Add(string.Format(CultureInfo.CurrentCulture, Loc.Get("ChangelogUi.RestartNotice.BodyExternalUpdated"), pluginList));
+        }
+        if (parts.Count == 0) return;
+
+        var body = string.Join("\n", parts);
+        // DualNotificationMessage respecte les settings utilisateur (toast/chat/both) via InfoNotification.
+        Mediator.Publish(new DualNotificationMessage(title, body, MareConfiguration.Models.NotificationType.Warning, TimeSpan.FromSeconds(10)));
+
+        PersistExternalSnapshotIfNeeded();
+    }
+
+    private void PersistExternalSnapshotIfNeeded()
+    {
+        if (_currentExternalSnapshot.Count == 0) return;
+
+        bool dirty = false;
+        var stored = _configService.Current.LastSeenExternalPluginVersions;
+        foreach (var kv in _currentExternalSnapshot)
+        {
+            if (!stored.TryGetValue(kv.Key, out var existing) || !string.Equals(existing, kv.Value, StringComparison.Ordinal))
+            {
+                stored[kv.Key] = kv.Value;
+                dirty = true;
+            }
+        }
+        if (dirty)
+            _configService.Save();
+
+        _updatedExternalPlugins = Array.Empty<(string Name, string Version)>();
+    }
+
+    private (IReadOnlyList<(string Name, string Version)> Updated, Dictionary<string, string> Snapshot) ComputeExternalPluginState()
+    {
+        var snapshot = new Dictionary<string, string>(StringComparer.Ordinal);
+        var updated = new List<(string Name, string Version)>();
+        var stored = _configService.Current.LastSeenExternalPluginVersions;
+        bool firstRun = stored.Count == 0;
+
+        foreach (var name in WatchedExternalPlugins)
+        {
+            var state = PluginWatcherService.GetInitialPluginState(_pluginInterface, name);
+            if (state == null || !state.IsLoaded) continue;
+
+            var versionLabel = state.Version.ToString();
+            snapshot[name] = versionLabel;
+
+            if (firstRun) continue;
+            if (!stored.TryGetValue(name, out var previous) || !string.Equals(previous, versionLabel, StringComparison.Ordinal))
+            {
+                updated.Add((name, versionLabel));
+            }
+        }
+
+        return (updated, snapshot);
     }
 
     public override void OnClose()
@@ -211,18 +310,47 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
 
     private void MarkCurrentVersionAsReadIfNeeded()
     {
-        if (_hasAcknowledgedVersion)
-            return;
+        bool dirty = false;
 
-        _configService.Current.LastChangelogVersionSeen = _currentVersionLabel;
-        _configService.Save();
-        _hasAcknowledgedVersion = true;
+        if (!_hasAcknowledgedVersion)
+        {
+            _configService.Current.LastChangelogVersionSeen = _currentVersionLabel;
+            _hasAcknowledgedVersion = true;
+            dirty = true;
+        }
+
+        if (_currentExternalSnapshot.Count > 0)
+        {
+            var stored = _configService.Current.LastSeenExternalPluginVersions;
+            foreach (var kv in _currentExternalSnapshot)
+            {
+                if (!stored.TryGetValue(kv.Key, out var existing) || !string.Equals(existing, kv.Value, StringComparison.Ordinal))
+                {
+                    stored[kv.Key] = kv.Value;
+                    dirty = true;
+                }
+            }
+        }
+
+        if (dirty)
+            _configService.Save();
+
+        _updatedExternalPlugins = Array.Empty<(string Name, string Version)>();
     }
 
     private static IReadOnlyList<ChangelogEntry> BuildEntries()
     {
         return new List<ChangelogEntry>
         {
+            new(new Version(2, 5, 7, 5019), "2.5.7.5019", new List<ChangelogLine>
+            {
+                new("Nouveauté : Notification une mise à jour d'UmbraSync ou d'un plugin lié, invitant à redémarrer le jeu en cas de souci."),
+                new("Correction : Bouton « Rejoindre » des syncshells publiques ne réagissant que sur la première ligne."),
+                new("Correction : Notification Toast doublé par-dessus la popup lors d'une demande de pair entrante."),
+                new("Correction : Aide du paramètre « Pairs simultanés max » alignée sur la limite réelle."),
+                new("Autre : Mise à jour API Penumbra."),
+                new("Autre : Suppression du code mort."),
+            }),
             new(new Version(2, 5, 6, 5018), "2.5.6.5018", new List<ChangelogLine>
             {
                 new("Amélioration : Connexion initiale beaucoup plus rapide. Vos paires et syncshells arrivent d'un seul coup au lieu d'apparaître progressivement, et le serveur fait jusqu'à deux tiers de requêtes en moins."),

@@ -536,10 +536,15 @@ public class AutoDetectUi : WindowMediatorSubscriberBase
                 {
                     ImGui.TextDisabled(Loc.Get("AutoDetectUi.Syncshell.Status.Joining"));
                 }
-                else if (ImGui.Button(Loc.Get("AutoDetectUi.Syncshell.JoinButton")))
+                else
                 {
-                    _syncshellLastError = null;
-                    _ = JoinSyncshellAsync(entry);
+                    ImGui.PushID($"join-{entry.GID}");
+                    if (ImGui.Button(Loc.Get("AutoDetectUi.Syncshell.JoinButton")))
+                    {
+                        _syncshellLastError = null;
+                        _ = JoinSyncshellAsync(entry);
+                    }
+                    ImGui.PopID();
                 }
             }
         }

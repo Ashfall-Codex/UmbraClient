@@ -95,6 +95,7 @@ public class MareConfig : IMareConfiguration
     public bool ShowVisibleUsersSeparately { get; set; } = true;
     public string UiLanguage { get; set; } = "fr";
     public string LastChangelogVersionSeen { get; set; } = string.Empty;
+    public Dictionary<string, string> LastSeenExternalPluginVersions { get; set; } = new(StringComparer.Ordinal);
     public bool DefaultDisableSounds { get; set; }
     public bool DefaultDisableAnimations { get; set; }
     public bool DefaultDisableVfx { get; set; }
@@ -108,10 +109,6 @@ public class MareConfig : IMareConfiguration
     public int AutoDetectDeclineCooldownMinutes { get; set; } = 15;
     public List<string> AutoDetectBlockedUids { get; set; } = [];
     public bool UseInteractivePairRequestPopup { get; set; } = true;
-    public bool SlowConnection { get; set; } = false;
-    public bool NetworkAutoTune { get; set; } = true;
-    public bool SlowConnectionAutoEnabled { get; set; } = false;
-    public DateTime? SlowConnectionAutoEnabledAt { get; set; }
     public bool AutoFetchMcdfOnConnect { get; set; } = false;
     public bool EnableNetworkDiagnosticLog { get; set; } = false;
     public int TimeSpanBetweenScansInSeconds { get; set; } = 30;

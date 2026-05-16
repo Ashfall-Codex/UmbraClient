@@ -240,7 +240,7 @@
     <value>Max concurrent pairs</value>
   </data>
   <data name="Settings.Transfer.PairProcessing.MaxConcurrent.Help" xml:space="preserve">
-    <value>Maximum number of pairs that can be processed at the same time. Higher values are faster but use more resources. Recommended: 4 (default: 4, max: 16)</value>
+    <value>Maximum number of pairs that can be processed at the same time. Higher values are faster but use more resources. Recommended: 10 (default: 10, max: 10)</value>
   </data>
 
   <!-- Collection Override per Syncshell -->
@@ -1656,6 +1656,15 @@ Click to change.</value>
   </data>
   <data name="ChangelogUi.WindowTitle" xml:space="preserve">
     <value>Umbra Sync - Changelog</value>
+  </data>
+  <data name="ChangelogUi.RestartNotice.Title" xml:space="preserve">
+    <value>Restart recommended</value>
+  </data>
+  <data name="ChangelogUi.RestartNotice.BodyPluginUpdated" xml:space="preserve">
+    <value>UmbraSync has just been updated to version {0}. If you experience any issues, please fully restart the game to apply the update cleanly.</value>
+  </data>
+  <data name="ChangelogUi.RestartNotice.BodyExternalUpdated" xml:space="preserve">
+    <value>The following required/optional plugin(s) have been updated since your last session: {0}. If you experience any issues, please fully restart the game.</value>
   </data>
   <data name="CharaDataHub.AccessType.AllPairs" xml:space="preserve">
     <value>All Pairs</value>
@@ -6107,38 +6116,5 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
   </data>
   <data name="Settings.Performance.PreciseOcclusion.RestartHint" xml:space="preserve">
     <value>The change takes effect the next time the plugin is restarted.</value>
-  </data>
-  <data name="Settings.Performance.Network" xml:space="preserve">
-    <value>Network</value>
-  </data>
-  <data name="Settings.Performance.SlowConnection" xml:space="preserve">
-    <value>Slow connection mode</value>
-  </data>
-  <data name="Settings.Performance.SlowConnection.Help" xml:space="preserve">
-    <value>Enable this if you suffer from frequent disconnections or reconnection loops (typically on unstable wifi, capricious ISP boxes or limited bandwidth). Switches to a slower but much more resilient transport (HTTP request/response). Slightly slower to sync, but stays connected on fragile networks. Disconnect and reconnect for the change to take effect.</value>
-  </data>
-  <data name="Settings.Performance.SlowConnection.RestartTitle" xml:space="preserve">
-    <value>Slow connection mode changed</value>
-  </data>
-  <data name="Settings.Performance.SlowConnection.RestartBody" xml:space="preserve">
-    <value>Disconnect then reconnect for the new mode to take effect.</value>
-  </data>
-  <data name="Settings.Performance.NetworkAutoTune" xml:space="preserve">
-    <value>Auto-adjust on unstable network</value>
-  </data>
-  <data name="Settings.Performance.NetworkAutoTune.Help" xml:space="preserve">
-    <value>When enabled, the plugin detects disconnect/reconnect loops and automatically switches to "Slow connection mode" to stabilize the session. Normal mode is retried every 24h. Disable if you prefer to manage network settings manually. Has no effect on a slow connection mode that was enabled manually.</value>
-  </data>
-  <data name="Network.AutoTune.Activated.Title" xml:space="preserve">
-    <value>Unstable network detected</value>
-  </data>
-  <data name="Network.AutoTune.Activated.Body" xml:space="preserve">
-    <value>Several short reconnections were detected. Slow connection mode has been enabled automatically to stabilize the session. You can disable this behavior in settings (Performance ▸ Network).</value>
-  </data>
-  <data name="Network.AutoTune.Reverted.Title" xml:space="preserve">
-    <value>Testing normal mode</value>
-  </data>
-  <data name="Network.AutoTune.Reverted.Body" xml:space="preserve">
-    <value>24h have passed since slow connection mode was auto-enabled. Temporarily reverting to normal mode to check whether the connection has stabilized. If unstable again, slow mode will be re-enabled automatically.</value>
   </data>
 </root>
