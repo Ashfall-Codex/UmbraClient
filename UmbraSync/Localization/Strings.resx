@@ -3200,6 +3200,21 @@ Note: Weapons will not be displayed correctly unless using the same job as the s
   <data name="Settings.EmoteHighlight.HrpColorKey" xml:space="preserve">
     <value>OOC color</value>
   </data>
+  <data name="Settings.EmoteHighlight.PreserveYellShoutColor" xml:space="preserve">
+    <value>Keep native color in /yell and /shout</value>
+  </data>
+  <data name="Settings.EmoteHighlight.PreserveYellShoutColor.Help" xml:space="preserve">
+    <value>Disables emote highlighting in /yell (yellow) and /shout (orange) channels to preserve their native color, useful for quickly identifying which channel a message came from.</value>
+  </data>
+  <data name="Settings.EmoteHighlight.CustomYellShoutColor" xml:space="preserve">
+    <value>Use a dedicated color for /yell and /shout</value>
+  </data>
+  <data name="Settings.EmoteHighlight.CustomYellShoutColor.Help" xml:space="preserve">
+    <value>Applies a specific color to narration (*...*, &lt;...&gt;, [...]) in /yell and /shout channels instead of the default emote color.</value>
+  </data>
+  <data name="Settings.EmoteHighlight.YellShoutColorKey" xml:space="preserve">
+    <value>Narration color (/yell and /shout)</value>
+  </data>
   <data name="Settings.ChatTargetSound.Header" xml:space="preserve">
     <value>Target Sound Notification</value>
   </data>
