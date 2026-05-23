@@ -93,6 +93,14 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
         _consecutiveCdnEnqueueFailures = 0;
         _disableCdnEnqueue = false;
     }
+    
+    // Utilisé par l'option "Re-télécharger" du menu contextuel.
+    public void ResetFailureState()
+    {
+        _cdnFailedHashes.Clear();
+        _hashFailureCooldowns.Clear();
+        ResetDirectDownloadCircuitBreaker();
+    }
 
     private void ReportCdnMissFireAndForget(string hash)
     {

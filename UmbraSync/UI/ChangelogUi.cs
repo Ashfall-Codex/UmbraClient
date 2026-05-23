@@ -344,6 +344,7 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
         {
             new(new Version(2, 5, 8, 5024), "2.5.8.5024", new List<ChangelogLine>
             {
+                new("Amélioration : Rajout d'une option 'Re-télécharger les fichiers' (clic droit) pour forcer le rechargement d'une personne affichée avec des mods incomplets."),
                 new("Correction : Dans certains cas, des fichiers de mods échouaient au téléchargement sans être réessayés, ce qui affichait certains personnages avec des mods incomplets."),
             }),
             new(new Version(2, 5, 8, 5023), "2.5.8.5023", new List<ChangelogLine>

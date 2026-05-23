@@ -227,7 +227,8 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
     {
         _lastDataReceivedAt = DateTime.UtcNow;
     }
-
+    
+    public void ResetDownloadFailures() => _downloadManager.ResetFailureState();
     public void ApplyCharacterData(Guid applicationBase, CharacterData characterData, bool forceApplyCustomization = false)
     {
         _lastApplyAttemptAt = DateTime.UtcNow;
