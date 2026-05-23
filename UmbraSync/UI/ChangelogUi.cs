@@ -342,6 +342,10 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
     {
         return new List<ChangelogEntry>
         {
+            new(new Version(2, 5, 8, 5024), "2.5.8.5024", new List<ChangelogLine>
+            {
+                new("Correction : Dans certains cas, des fichiers de mods échouaient au téléchargement sans être réessayés, ce qui affichait certains personnages avec des mods incomplets."),
+            }),
             new(new Version(2, 5, 8, 5023), "2.5.8.5023", new List<ChangelogLine>
             {
                 new("Nouveauté : Options pour /crier et /hurler dans Réglages → Chat → Coloration des emotes. Vous pouvez désormais conserver la couleur native du canal au lieu de la couleur d'emote, ou définir une couleur dédiée."),
