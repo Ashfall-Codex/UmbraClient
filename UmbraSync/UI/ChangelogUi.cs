@@ -342,6 +342,12 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
     {
         return new List<ChangelogEntry>
         {
+            new(new Version(2, 5, 8, 5023), "2.5.8.5023", new List<ChangelogLine>
+            {
+                new("Nouveauté : Options pour /crier et /hurler dans Réglages → Chat → Coloration des emotes. Vous pouvez désormais conserver la couleur native du canal au lieu de la couleur d'emote, ou définir une couleur dédiée."),
+                new("Correction : Bulle d'écriture qui clignotait sur certaines inclinaisons de caméra côté Windows."),
+                new("Autre : Mise à jour API Umbra pour futurs fonctionnalités."),
+            }),
             new(new Version(2, 5, 7, 5019), "2.5.7.5019", new List<ChangelogLine>
             {
                 new("Nouveauté : Notification une mise à jour d'UmbraSync ou d'un plugin lié, invitant à redémarrer le jeu en cas de souci."),

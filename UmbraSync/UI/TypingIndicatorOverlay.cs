@@ -24,6 +24,21 @@ public sealed class TypingIndicatorOverlay : WindowMediatorSubscriberBase
     private static readonly TimeSpan TypingDisplayDelay = TimeSpan.FromMilliseconds(500);
     private static readonly TimeSpan TypingDisplayFade = TypingDisplayTime;
 
+    private sealed class VisibilityState
+    {
+        public bool Hidden;
+        public int OccludedStreak;
+        public DateTime LastTouched;
+    }
+
+    // Hystérésis : un objet doit rester occlus plusieurs frames consécutives avant qu'on cache la
+    // bulle (absorbe le bruit frame-par-frame du dépth buffer à la rotation caméra). En revanche on
+    // ré-affiche immédiatement dès qu'on n'est plus occlus, pour ne pas paraître en retard.
+    private const int OccludedFramesToHide = 8; // ~130 ms à 60 fps
+    private static readonly TimeSpan VisibilityStateTtl = TimeSpan.FromSeconds(5);
+    private const uint SelfVisibilityKey = uint.MaxValue;
+    private readonly Dictionary<uint, VisibilityState> _visibilityByObjectId = new();
+
     private readonly ILogger<TypingIndicatorOverlay> _typedLogger;
     private readonly MareConfigService _configService;
     private readonly IGameGui _gameGui;
@@ -202,6 +217,8 @@ public sealed class TypingIndicatorOverlay : WindowMediatorSubscriberBase
         var nameplateAddonPtr = (AtkUnitBase*)_gameGui.GetAddonByName("NamePlate", 1).Address;
         _engine.BeginFrame(nameplateAddonPtr);
 
+        PruneVisibilityState(now);
+
         try
         {
         var showSelf = _configService.Current.TypingIndicatorShowSelf;
@@ -214,7 +231,7 @@ public sealed class TypingIndicatorOverlay : WindowMediatorSubscriberBase
             var selfId = GetEntityId(_objectTable.LocalPlayer.Address);
             // For self, if the nameplate isn't available (e.g. user hid their own nameplate),
             // fall back to a world-anchored bubble above the player.
-            if (selfId != 0 && !TryDrawNameplateBubble(drawList, iconWrap, selfId))
+            if (selfId != 0 && !TryDrawNameplateBubble(drawList, iconWrap, selfId, SelfVisibilityKey))
                 DrawWorldFallbackIcon(drawList, iconWrap, _objectTable.LocalPlayer.Position);
         }
 
@@ -230,7 +247,7 @@ public sealed class TypingIndicatorOverlay : WindowMediatorSubscriberBase
             var objectId = pair?.PlayerCharacterId ?? 0;
             if (objectId == 0 || objectId == uint.MaxValue) continue;
 
-            if (TryDrawNameplateBubble(drawList, iconWrap, objectId))
+            if (TryDrawNameplateBubble(drawList, iconWrap, objectId, objectId))
                 continue;
 
             // Fallback world bubble only if the player is nearby (< 15 yalms): this means
@@ -262,7 +279,7 @@ public sealed class TypingIndicatorOverlay : WindowMediatorSubscriberBase
         return new Vector2(baseSize * scaleX, baseSize * scaleY);
     }
 
-    private unsafe bool TryDrawNameplateBubble(ImDrawListPtr drawList, IDalamudTextureWrap textureWrap, uint objectId)
+    private unsafe bool TryDrawNameplateBubble(ImDrawListPtr drawList, IDalamudTextureWrap textureWrap, uint objectId, uint visibilityKey)
     {
         if (textureWrap.Handle == IntPtr.Zero)
             return false;
@@ -341,8 +358,10 @@ public sealed class TypingIndicatorOverlay : WindowMediatorSubscriberBase
             var hiddenCenter = anchor + hiddenOffset + new Vector2(hiddenSize.X * 0.5f, hiddenSize.Y * 0.5f);
             var hiddenTopLeft = hiddenCenter - hiddenSize / 2f;
 
-            if (ShouldSkipByDepth(hiddenCenter)) return true;
-            if (_engine.IsNativeUiOccluded(new Vector4(hiddenTopLeft.X, hiddenTopLeft.Y, hiddenTopLeft.X + hiddenSize.X, hiddenTopLeft.Y + hiddenSize.Y))) return true;
+            bool hiddenOccluded = ShouldSkipByDepth(hiddenCenter)
+                || _engine.IsNativeUiOccluded(new Vector4(hiddenTopLeft.X, hiddenTopLeft.Y, hiddenTopLeft.X + hiddenSize.X, hiddenTopLeft.Y + hiddenSize.Y));
+            if (ResolveHidden(visibilityKey, hiddenOccluded))
+                return true;
 
             drawList.AddImage(textureWrap.Handle, hiddenTopLeft, hiddenTopLeft + hiddenSize, Vector2.Zero, Vector2.One,
                 ImGui.ColorConvertFloat4ToU32(new Vector4(1f, 1f, 1f, 0.95f)));
@@ -361,13 +380,50 @@ public sealed class TypingIndicatorOverlay : WindowMediatorSubscriberBase
 
         var bubbleSize = GetConfiguredBubbleSize(bubbleScaleFactor, bubbleScaleFactor, true);
 
-        if (ShouldSkipByDepth(iconPos + bubbleSize * 0.5f)) return true;
-        if (_engine.IsNativeUiOccluded(new Vector4(iconPos.X, iconPos.Y, iconPos.X + bubbleSize.X, iconPos.Y + bubbleSize.Y))) return true;
+        bool visibleOccluded = ShouldSkipByDepth(iconPos + bubbleSize * 0.5f)
+            || _engine.IsNativeUiOccluded(new Vector4(iconPos.X, iconPos.Y, iconPos.X + bubbleSize.X, iconPos.Y + bubbleSize.Y));
+        if (ResolveHidden(visibilityKey, visibleOccluded))
+            return true;
 
         drawList.AddImage(textureWrap.Handle, iconPos, iconPos + bubbleSize, Vector2.Zero, Vector2.One,
             ImGui.ColorConvertFloat4ToU32(new Vector4(1f, 1f, 1f, 0.95f)));
 
         return true;
+    }
+
+    private bool ResolveHidden(uint key, bool currentlyOccluded)
+    {
+        if (!_visibilityByObjectId.TryGetValue(key, out var st))
+        {
+            st = new VisibilityState { Hidden = currentlyOccluded };
+            _visibilityByObjectId[key] = st;
+        }
+        st.LastTouched = DateTime.UtcNow;
+        if (currentlyOccluded)
+        {
+            st.OccludedStreak++;
+            if (st.OccludedStreak >= OccludedFramesToHide)
+                st.Hidden = true;
+        }
+        else
+        {
+            st.OccludedStreak = 0;
+            st.Hidden = false;
+        }
+        return st.Hidden;
+    }
+
+    private void PruneVisibilityState(DateTime now)
+    {
+        if (_visibilityByObjectId.Count == 0) return;
+        List<uint>? stale = null;
+        foreach (var kv in _visibilityByObjectId)
+        {
+            if ((now - kv.Value.LastTouched) > VisibilityStateTtl)
+                (stale ??= new List<uint>()).Add(kv.Key);
+        }
+        if (stale == null) return;
+        foreach (var k in stale) _visibilityByObjectId.Remove(k);
     }
 
     private unsafe int GetPartyIndexFromAgentHUD(uint objectId)
