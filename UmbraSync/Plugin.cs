@@ -169,6 +169,9 @@ public sealed class Plugin : IDalamudPlugin
             collection.AddSingleton<HousingShareManager>();
             collection.AddSingleton<HousingFurnitureSyncService>();
             collection.AddSingleton<ArrPathResolver>();
+            collection.AddSingleton<ArrScenarioFileService>();
+            collection.AddSingleton<HousingScenarioStateService>();
+            collection.AddSingleton<HousingScenarioManager>();
             collection.AddSingleton<HousingScenarioSyncService>();
             collection.AddSingleton<RgpdDataService>();
             collection.AddSingleton<EstablishmentProximityService>();
