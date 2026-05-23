@@ -116,13 +116,20 @@ public class ChatEmoteHighlightService : DisposableMediatorSubscriberBase
         if (!RpChatTypes.Contains(chatMessage.LogKind))
             return;
 
+        var isYellOrShout = chatMessage.LogKind == XivChatType.Yell || chatMessage.LogKind == XivChatType.Shout;
+
+        if (_configService.Current.EmoteHighlightPreserveYellShoutColor && isYellOrShout)
+            return;
+
         var message = chatMessage.Message;
 
         var pattern = BuildPattern();
         if (pattern == null)
             return;
 
-        var emoteColorKey = _configService.Current.EmoteHighlightColorKey;
+        var emoteColorKey = isYellOrShout && _configService.Current.EmoteHighlightUseCustomYellShoutColor
+            ? _configService.Current.EmoteHighlightYellShoutColorKey
+            : _configService.Current.EmoteHighlightColorKey;
         var hrpColorKey = _configService.Current.EmoteHighlightParenthesesColorKey;
         var quotesColorKey = QuotesColorKey;
         var chatTwoActive = PluginWatcherService.GetInitialPluginState(_pluginInterface, "ChatTwo")?.IsLoaded == true;

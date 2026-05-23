@@ -3101,6 +3101,21 @@ Note : Les armes ne s'afficheront pas correctement sauf si vous utilisez le m&#x
   <data name="Settings.EmoteHighlight.HrpColorKey" xml:space="preserve">
     <value>Couleur HRP</value>
   </data>
+  <data name="Settings.EmoteHighlight.PreserveYellShoutColor" xml:space="preserve">
+    <value>Garder la couleur native dans /crier et /hurler</value>
+  </data>
+  <data name="Settings.EmoteHighlight.PreserveYellShoutColor.Help" xml:space="preserve">
+    <value>Désactive la coloration des emotes dans les canaux /crier (jaune) et /hurler (orange) pour préserver leur couleur native, utile pour reconnaître au premier coup d'œil le canal d'origine d'un message.</value>
+  </data>
+  <data name="Settings.EmoteHighlight.CustomYellShoutColor" xml:space="preserve">
+    <value>Utiliser une couleur dédiée pour /crier et /hurler</value>
+  </data>
+  <data name="Settings.EmoteHighlight.CustomYellShoutColor.Help" xml:space="preserve">
+    <value>Applique une couleur spécifique à la narration (*...*, &lt;...&gt;, [...]) dans les canaux /crier et /hurler, au lieu de la couleur d'emote par défaut.</value>
+  </data>
+  <data name="Settings.EmoteHighlight.YellShoutColorKey" xml:space="preserve">
+    <value>Couleur narration (/crier et /hurler)</value>
+  </data>
   <data name="Settings.ChatTargetSound.Header" xml:space="preserve">
     <value>Son de notification ciblée</value>
   </data>

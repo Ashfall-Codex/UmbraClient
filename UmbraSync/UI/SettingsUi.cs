@@ -71,6 +71,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
     private bool _deleteAccountPopupModalShown = false;
     private bool _emoteColorPaletteOpen = false;
     private bool _hrpColorPaletteOpen = false;
+    private bool _yellShoutColorPaletteOpen = false;
     private string _targetSoundPairSearch = string.Empty;
     private string _targetSoundGroupSearch = string.Empty;
     private string _lastTab = string.Empty;
@@ -844,6 +845,38 @@ public class SettingsUi : WindowMediatorSubscriberBase
                     _configService.Save();
                 }
                 _uiShared.DrawHelpText(Loc.Get("Settings.EmoteHighlight.Quotes.Help"));
+
+                var preserveYellShout = _configService.Current.EmoteHighlightPreserveYellShoutColor;
+                if (ImGui.Checkbox(Loc.Get("Settings.EmoteHighlight.PreserveYellShoutColor"), ref preserveYellShout))
+                {
+                    _configService.Current.EmoteHighlightPreserveYellShoutColor = preserveYellShout;
+                    _configService.Save();
+                }
+                _uiShared.DrawHelpText(Loc.Get("Settings.EmoteHighlight.PreserveYellShoutColor.Help"));
+
+                if (!preserveYellShout)
+                {
+                    using (ImRaii.PushIndent())
+                    {
+                        var customYellShout = _configService.Current.EmoteHighlightUseCustomYellShoutColor;
+                        if (ImGui.Checkbox(Loc.Get("Settings.EmoteHighlight.CustomYellShoutColor"), ref customYellShout))
+                        {
+                            _configService.Current.EmoteHighlightUseCustomYellShoutColor = customYellShout;
+                            _configService.Save();
+                        }
+                        _uiShared.DrawHelpText(Loc.Get("Settings.EmoteHighlight.CustomYellShoutColor.Help"));
+
+                        if (customYellShout)
+                        {
+                            DrawColorPaletteRow(
+                                "yellshout",
+                                Loc.Get("Settings.EmoteHighlight.YellShoutColorKey"),
+                                _configService.Current.EmoteHighlightYellShoutColorKey,
+                                ref _yellShoutColorPaletteOpen,
+                                key => { _configService.Current.EmoteHighlightYellShoutColorKey = key; _configService.Save(); });
+                        }
+                    }
+                }
 
                 DrawColorPaletteRow(
                     "emote",
