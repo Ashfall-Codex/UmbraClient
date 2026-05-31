@@ -342,9 +342,9 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
     {
         return new List<ChangelogEntry>
         {
-            new(new Version(2, 5, 8, 5025), "2.5.8.5025", new List<ChangelogLine>
+            new(new Version(2, 5, 8, 5025), "2.5.9.5025", new List<ChangelogLine>
             {
-                new("Correction : Crash violent à l'entrée de certains housings partagés en MCDF (avec demande de réinstallation du jeu). Les paths reçus sont désormais filtrés pour ne plus pouvoir rediriger d'assets critiques."),
+                new("Correction : Crash violent à l'entrée de certains housings partagés. Les chemins reçus sont désormais filtrés pour ne plus pouvoir rediriger d'assets critiques."),
                 new("Amélioration : Charge GPU étalée à l'application des paires. Réduit les crashs sur certains drivers, notamment AMD RX 9060 / 9070."),
                 new("Nouveauté : Option « Coordonner les redraws Penumbra » dans Réglages → Transferts."),
                 new("Amélioration : « Paires simultanées max » accepte désormais 1 (sérialisation totale) ; défaut abaissé de 10 à 3. Le toggle « Activer le traitement parallèle » est retiré (redondant)."),
