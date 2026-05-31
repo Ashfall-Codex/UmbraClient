@@ -56,6 +56,16 @@ public class ConfigurationMigrator(ILogger<ConfigurationMigrator> logger, MareCo
                 changed = true;
             }
 
+            // Migration : EnableParallelPairProcessing supprimé. Si l'utilisateur l'avait passé
+            // à false explicitement, on préserve l'intention en forçant MaxConcurrentPairApplications=1.
+            if (root.TryGetProperty("EnableParallelPairProcessing", out var enableParallel)
+                && enableParallel.ValueKind == JsonValueKind.False
+                && _mareConfig.Current.MaxConcurrentPairApplications > 1)
+            {
+                _mareConfig.Current.MaxConcurrentPairApplications = 1;
+                changed = true;
+            }
+
             if (changed)
             {
                 _logger.LogInformation("Migrated config");

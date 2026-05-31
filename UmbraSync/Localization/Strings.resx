@@ -230,17 +230,23 @@
   <data name="Settings.Transfer.PairProcessing.Title" xml:space="preserve">
     <value>Pair Processing</value>
   </data>
-  <data name="Settings.Transfer.PairProcessing.Enable" xml:space="preserve">
-    <value>Enable parallel pair processing</value>
-  </data>
-  <data name="Settings.Transfer.PairProcessing.Enable.Help" xml:space="preserve">
-    <value>When enabled, multiple pairs can be processed simultaneously (faster but uses more CPU). When disabled, pairs are processed one at a time (slower but more stable). Recommended: disabled for lower-end PCs.</value>
-  </data>
   <data name="Settings.Transfer.PairProcessing.MaxConcurrent" xml:space="preserve">
-    <value>Max concurrent pairs</value>
+    <value>Max concurrent pairs (GPU apply)</value>
   </data>
   <data name="Settings.Transfer.PairProcessing.MaxConcurrent.Help" xml:space="preserve">
-    <value>Maximum number of pairs that can be processed at the same time. Higher values are faster but use more resources. Recommended: 10 (default: 10, max: 10)</value>
+    <value>Maximum number of pairs whose mods can be applied to Penumbra at the same time. Limits GPU driver pressure (useful on AMD RDNA 4). Set to 1 = full serialization (one pair at a time). Recommended: 3 (default: 3, max: 10).</value>
+  </data>
+  <data name="Settings.Transfer.RedrawCoordination.Enable" xml:space="preserve">
+    <value>Coordinate Penumbra redraws</value>
+  </data>
+  <data name="Settings.Transfer.RedrawCoordination.Enable.Help" xml:space="preserve">
+    <value>Serializes Penumbra redraws and enforces a minimum interval between them. Prevents bursts of simultaneous redraws that can crash unstable GPU drivers (notably AMD RDNA 4). Only disable for debugging.</value>
+  </data>
+  <data name="Settings.Transfer.RedrawCoordination.MinInterval" xml:space="preserve">
+    <value>Min interval between redraws (ms)</value>
+  </data>
+  <data name="Settings.Transfer.RedrawCoordination.MinInterval.Help" xml:space="preserve">
+    <value>Minimum delay between two successive Penumbra redraws. Higher = more spread (better for unstable drivers) but redraws feel slower. Recommended: 100 ms (default: 100, range: 50-500).</value>
   </data>
 
   <!-- Collection Override per Syncshell -->
