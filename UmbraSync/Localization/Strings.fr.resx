@@ -230,6 +230,9 @@
   <data name="Settings.Transfer.PairProcessing.Title" xml:space="preserve">
     <value>Traitement des pairs</value>
   </data>
+  <data name="Settings.Transfer.PairProcessing.Description" xml:space="preserve">
+    <value>Étale la charge GPU lors des bursts d'apply (entrée en zone, housing peuplé). Réduit les crashs de driver sur certaines configs, AMD RDNA 4 notamment.</value>
+  </data>
   <data name="Settings.Transfer.PairProcessing.MaxConcurrent" xml:space="preserve">
     <value>Pairs simultanés max (application GPU)</value>
   </data>

@@ -494,7 +494,10 @@ public class SettingsUi : WindowMediatorSubscriberBase
 
         ImGui.Spacing();
         _uiShared.BigText(Loc.Get("Settings.Transfer.PairProcessing.Title"));
+        UiSharedService.ColorTextWrapped(Loc.Get("Settings.Transfer.PairProcessing.Description"), ImGuiColors.DalamudGrey);
+        ImGuiHelpers.ScaledDummy(4f);
 
+        // Sous-bloc 1 : concurrence d'application GPU
         int maxConcurrentPairApplications = _configService.Current.MaxConcurrentPairApplications;
         ImGui.SetNextItemWidth(MathF.Min(200 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X - 200 * ImGuiHelpers.GlobalScale));
         if (ImGui.SliderInt(Loc.Get("Settings.Transfer.PairProcessing.MaxConcurrent"), ref maxConcurrentPairApplications, 1, 10))
@@ -505,6 +508,9 @@ public class SettingsUi : WindowMediatorSubscriberBase
         }
         _uiShared.DrawHelpText(Loc.Get("Settings.Transfer.PairProcessing.MaxConcurrent.Help"));
 
+        ImGuiHelpers.ScaledDummy(6f);
+
+        // Sous-bloc 2 : coordination des redraws Penumbra
         bool enableRedrawCoordination = _configService.Current.EnableRedrawCoordination;
         if (ImGui.Checkbox(Loc.Get("Settings.Transfer.RedrawCoordination.Enable"), ref enableRedrawCoordination))
         {

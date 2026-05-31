@@ -230,6 +230,9 @@
   <data name="Settings.Transfer.PairProcessing.Title" xml:space="preserve">
     <value>Pair Processing</value>
   </data>
+  <data name="Settings.Transfer.PairProcessing.Description" xml:space="preserve">
+    <value>Spreads GPU load during apply bursts (zone enter, crowded housing). Reduces driver crashes on some configurations, notably AMD RDNA 4.</value>
+  </data>
   <data name="Settings.Transfer.PairProcessing.MaxConcurrent" xml:space="preserve">
     <value>Max concurrent pairs (GPU apply)</value>
   </data>
