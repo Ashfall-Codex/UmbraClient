@@ -426,4 +426,20 @@ public sealed class HousingFurnitureScanner : IMediatorSubscriber
         }
         return false;
     }
+
+    /// <summary>
+    /// Garde-fou central : un path n'est acceptable dans un share housing que s'il pointe vers
+    /// un asset de housing (préfixes <c>bg/ffxiv/hou/</c>, <c>bgcommon/hou/</c>) ET porte une
+    /// extension de ressource attendue (.mdl/.tex/.mtrl/.sgb/.lgb).
+    ///
+    /// Sans ce filtre, un share malformé contenant des paths comme <c>chara/</c>, <c>shader/</c>
+    /// ou <c>common/</c> redirige des assets critiques du jeu → crash du moteur graphique côté
+    /// visiteur et détection de corruption par XIVLauncher (issue #98).
+    /// </summary>
+    public static bool IsHousingShareSafePath(string gamePath)
+    {
+        if (string.IsNullOrWhiteSpace(gamePath))
+            return false;
+        return IsHousingPath(gamePath) && HasValidExtension(gamePath);
+    }
 }
