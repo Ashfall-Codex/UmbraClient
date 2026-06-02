@@ -37,8 +37,8 @@ public class SyncshellAdminUI : WindowMediatorSubscriberBase
     private int _multiInvites;
     private string _newPassword;
     private bool _pwChangeSuccess;
-    private string _newAlias = string.Empty;
-    private bool _aliasChangeSuccess = true;
+    private string _newAlias;
+    private bool _aliasChangeSuccess;
     private Task<int>? _pruneTestTask;
     private Task<int>? _pruneTask;
     private int _pruneDays = 14;
@@ -616,6 +616,13 @@ public class SyncshellAdminUI : WindowMediatorSubscriberBase
                         if (_uiSharedService.IconTextButton(FontAwesomeIcon.Pen, Loc.Get("SyncshellAdmin.Owner.Rename")))
                         {
                             _aliasChangeSuccess = _apiController.GroupChangeAlias(new GroupAliasDto(GroupFullInfo.Group, trimmedAlias)).Result;
+                            if (_aliasChangeSuccess)
+                            {
+                                Mediator.Publish(new NotificationMessage(
+                                    Loc.Get("SyncshellAdmin.Owner.RenameSuccessTitle"),
+                                    string.Format(CultureInfo.CurrentCulture, Loc.Get("SyncshellAdmin.Owner.RenameSuccessMessage"), trimmedAlias),
+                                    NotificationType.Success, TimeSpan.FromSeconds(5)));
+                            }
                         }
                     }
                     UiSharedService.AttachToolTip(Loc.Get("SyncshellAdmin.Owner.RenameTooltip"));

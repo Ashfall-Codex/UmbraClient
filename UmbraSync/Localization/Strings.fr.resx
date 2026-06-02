@@ -3635,6 +3635,12 @@ Note : Les armes ne s'afficheront pas correctement sauf si vous utilisez le m&#x
   <data name="SyncshellAdmin.Owner.RenameFailed" xml:space="preserve">
     <value>Échec du renommage : ce nom est déjà utilisé ou indisponible.</value>
   </data>
+  <data name="SyncshellAdmin.Owner.RenameSuccessTitle" xml:space="preserve">
+    <value>Syncshell renommée</value>
+  </data>
+  <data name="SyncshellAdmin.Owner.RenameSuccessMessage" xml:space="preserve">
+    <value>La syncshell s'appelle désormais « {0} ».</value>
+  </data>
   <data name="SyncshellAdmin.Permissions.Animation" xml:space="preserve">
     <value />
   </data>

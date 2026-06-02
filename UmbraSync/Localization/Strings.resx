@@ -3836,6 +3836,12 @@ Note: Weapons will not be displayed correctly unless using the same job as the s
   <data name="SyncshellAdmin.Owner.RenameFailed" xml:space="preserve">
     <value>Rename failed: this name is already in use or unavailable.</value>
   </data>
+  <data name="SyncshellAdmin.Owner.RenameSuccessTitle" xml:space="preserve">
+    <value>Syncshell renamed</value>
+  </data>
+  <data name="SyncshellAdmin.Owner.RenameSuccessMessage" xml:space="preserve">
+    <value>The syncshell is now named "{0}".</value>
+  </data>
   <data name="SyncshellAdmin.Permissions.Animation" xml:space="preserve">
     <value>Animation Sync</value>
   </data>

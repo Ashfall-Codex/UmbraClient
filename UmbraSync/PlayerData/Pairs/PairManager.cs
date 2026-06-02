@@ -80,7 +80,10 @@ public sealed class PairManager : DisposableMediatorSubscriberBase
     public List<Pair> DirectPairs => _directPairsInternal.Value;
 
     public Dictionary<GroupFullInfoDto, List<Pair>> GroupPairs => _groupPairsInternal.Value;
-    public Dictionary<GroupData, GroupFullInfoDto> Groups => _allGroups.ToDictionary(k => k.Key, k => k.Value);
+    // Conserve la comparaison par GID (GroupDataComparer) : sinon un renommage de syncshell change
+    // l'égalité du record GroupData (qui inclut l'Alias) et casse les lookups Groups[group] alors
+    // que l'entrée existe toujours sous le même GID.
+    public Dictionary<GroupData, GroupFullInfoDto> Groups => _allGroups.ToDictionary(k => k.Key, k => k.Value, GroupDataComparer.Instance);
     public Pair? LastAddedUser { get; internal set; }
 
     public void AddGroup(GroupFullInfoDto dto)
