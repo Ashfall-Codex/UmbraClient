@@ -74,8 +74,10 @@ public class MareConfig : IMareConfiguration
     public bool OpenPopupOnAdd { get; set; } = true;
     public int ParallelDownloads { get; set; } = 10;
     public bool EnableDownloadQueue { get; set; } = true;
-    public bool EnableParallelPairProcessing { get; set; } = true;
-    public int MaxConcurrentPairApplications { get; set; } = 10;
+    public int MaxConcurrentPairApplications { get; set; } = 3;
+    public bool EnableRedrawCoordination { get; set; } = true;
+    public int MinRedrawIntervalMs { get; set; } = 100;
+    public bool AmdConservativeDefaultsApplied { get; set; }
     public int MaxDecompressionThreads { get; set; }
     public int DownloadSpeedLimitInBytes { get; set; }
     public DownloadSpeeds DownloadSpeedType { get; set; } = DownloadSpeeds.MBps;

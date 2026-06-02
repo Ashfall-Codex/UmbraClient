@@ -494,29 +494,43 @@ public class SettingsUi : WindowMediatorSubscriberBase
 
         ImGui.Spacing();
         _uiShared.BigText(Loc.Get("Settings.Transfer.PairProcessing.Title"));
+        UiSharedService.ColorTextWrapped(Loc.Get("Settings.Transfer.PairProcessing.Description"), ImGuiColors.DalamudGrey);
+        ImGuiHelpers.ScaledDummy(4f);
 
-        bool enableParallelPairProcessing = _configService.Current.EnableParallelPairProcessing;
-        if (ImGui.Checkbox(Loc.Get("Settings.Transfer.PairProcessing.Enable"), ref enableParallelPairProcessing))
-        {
-            _configService.Current.EnableParallelPairProcessing = enableParallelPairProcessing;
-            _configService.Save();
-            Mediator.Publish(new PairProcessingLimitChangedMessage());
-        }
-        _uiShared.DrawHelpText(Loc.Get("Settings.Transfer.PairProcessing.Enable.Help"));
-
-        if (!enableParallelPairProcessing) ImGui.BeginDisabled();
-        ImGui.Indent();
+        // Sous-bloc 1 : concurrence d'application GPU
         int maxConcurrentPairApplications = _configService.Current.MaxConcurrentPairApplications;
         ImGui.SetNextItemWidth(MathF.Min(200 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X - 200 * ImGuiHelpers.GlobalScale));
-        if (ImGui.SliderInt(Loc.Get("Settings.Transfer.PairProcessing.MaxConcurrent"), ref maxConcurrentPairApplications, 2, 10))
+        if (ImGui.SliderInt(Loc.Get("Settings.Transfer.PairProcessing.MaxConcurrent"), ref maxConcurrentPairApplications, 1, 10))
         {
             _configService.Current.MaxConcurrentPairApplications = maxConcurrentPairApplications;
             _configService.Save();
             Mediator.Publish(new PairProcessingLimitChangedMessage());
         }
         _uiShared.DrawHelpText(Loc.Get("Settings.Transfer.PairProcessing.MaxConcurrent.Help"));
+
+        ImGuiHelpers.ScaledDummy(6f);
+
+        // Sous-bloc 2 : coordination des redraws Penumbra
+        bool enableRedrawCoordination = _configService.Current.EnableRedrawCoordination;
+        if (ImGui.Checkbox(Loc.Get("Settings.Transfer.RedrawCoordination.Enable"), ref enableRedrawCoordination))
+        {
+            _configService.Current.EnableRedrawCoordination = enableRedrawCoordination;
+            _configService.Save();
+        }
+        _uiShared.DrawHelpText(Loc.Get("Settings.Transfer.RedrawCoordination.Enable.Help"));
+
+        if (!enableRedrawCoordination) ImGui.BeginDisabled();
+        ImGui.Indent();
+        int minRedrawIntervalMs = _configService.Current.MinRedrawIntervalMs;
+        ImGui.SetNextItemWidth(MathF.Min(200 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X - 200 * ImGuiHelpers.GlobalScale));
+        if (ImGui.SliderInt(Loc.Get("Settings.Transfer.RedrawCoordination.MinInterval"), ref minRedrawIntervalMs, 50, 500))
+        {
+            _configService.Current.MinRedrawIntervalMs = minRedrawIntervalMs;
+            _configService.Save();
+        }
+        _uiShared.DrawHelpText(Loc.Get("Settings.Transfer.RedrawCoordination.MinInterval.Help"));
         ImGui.Unindent();
-        if (!enableParallelPairProcessing) ImGui.EndDisabled();
+        if (!enableRedrawCoordination) ImGui.EndDisabled();
 
         ImGui.Separator();
         DrawCollectionOverrides();

@@ -342,6 +342,15 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
     {
         return new List<ChangelogEntry>
         {
+            new(new Version(2, 5, 9, 5025), "2.5.9.5025", new List<ChangelogLine>
+            {
+                new("Correction : Crash violent à l'entrée de certains housings partagés. Les chemins reçus sont désormais filtrés pour ne plus pouvoir rediriger d'assets critiques."),
+                new("Amélioration : Charge GPU étalée à l'application des paires. Réduit les crashs sur certains drivers, notamment AMD RX 9060 / 9070."),
+                new("Amélioration : Réglages GPU automatiquement adaptés sur cartes AMD (occlusion en mode raycast, applications espacées) pour limiter les crashs de driver. Ajustable manuellement dans Réglages."),
+                new("Nouveauté : Option « Coordonner les redraws Penumbra » dans Réglages → Transferts."),
+                new("Amélioration : « Paires simultanées max » accepte désormais 1 (sérialisation totale) ; défaut abaissé de 10 à 3. Le toggle « Activer le traitement parallèle » est retiré (redondant)."),
+                new("Autre : Refonte interne du pipeline d'application (téléchargement, Penumbra et personnalisation séparés)."),
+            }),
             new(new Version(2, 5, 8, 5024), "2.5.8.5024", new List<ChangelogLine>
             {
                 new("Amélioration : Rajout d'une option 'Re-télécharger les fichiers' (clic droit) pour forcer le rechargement d'une personne affichée avec des mods incomplets."),

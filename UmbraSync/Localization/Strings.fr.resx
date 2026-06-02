@@ -230,17 +230,26 @@
   <data name="Settings.Transfer.PairProcessing.Title" xml:space="preserve">
     <value>Traitement des pairs</value>
   </data>
-  <data name="Settings.Transfer.PairProcessing.Enable" xml:space="preserve">
-    <value>Activer le traitement parallèle des pairs</value>
-  </data>
-  <data name="Settings.Transfer.PairProcessing.Enable.Help" xml:space="preserve">
-    <value>Lorsqu'activé, plusieurs pairs peuvent être traités simultanément (plus rapide mais utilise plus de CPU). Lorsque désactivé, les pairs sont traités un par un (plus lent mais plus stable). Recommandé : désactivé pour les PC moins puissants.</value>
+  <data name="Settings.Transfer.PairProcessing.Description" xml:space="preserve">
+    <value>Étale la charge GPU lors des bursts d'apply (entrée en zone, housing peuplé). Réduit les crashs de driver sur certaines configs, AMD RDNA 4 notamment.</value>
   </data>
   <data name="Settings.Transfer.PairProcessing.MaxConcurrent" xml:space="preserve">
-    <value>Pairs simultanés max</value>
+    <value>Pairs simultanés max (application GPU)</value>
   </data>
   <data name="Settings.Transfer.PairProcessing.MaxConcurrent.Help" xml:space="preserve">
-    <value>Nombre maximum de pairs pouvant être traités en même temps. Des valeurs plus élevées sont plus rapides mais utilisent plus de ressources. Recommandé : 10 (défaut : 10, max : 10)</value>
+    <value>Nombre maximum de pairs dont les mods peuvent être appliqués en même temps via Penumbra. Limite la pression sur le driver GPU (utile sur AMD RDNA 4). Mettre à 1 = sérialisation totale (un pair à la fois). Recommandé : 3 (défaut : 3, max : 10).</value>
+  </data>
+  <data name="Settings.Transfer.RedrawCoordination.Enable" xml:space="preserve">
+    <value>Coordonner les redraws Penumbra</value>
+  </data>
+  <data name="Settings.Transfer.RedrawCoordination.Enable.Help" xml:space="preserve">
+    <value>Sérialise les redraws Penumbra et impose un intervalle minimum entre deux. Empêche les bursts de redraws simultanés qui peuvent faire crasher certains drivers GPU instables (AMD RDNA 4 notamment). Désactiver uniquement pour debug.</value>
+  </data>
+  <data name="Settings.Transfer.RedrawCoordination.MinInterval" xml:space="preserve">
+    <value>Intervalle min entre redraws (ms)</value>
+  </data>
+  <data name="Settings.Transfer.RedrawCoordination.MinInterval.Help" xml:space="preserve">
+    <value>Délai minimum entre deux redraws Penumbra successifs. Plus haut = étalement plus marqué (meilleur pour drivers instables) mais redraws perceptiblement plus lents. Recommandé : 100 ms (défaut : 100, plage : 50-500).</value>
   </data>
 
   <!-- Override de collection par Syncshell -->

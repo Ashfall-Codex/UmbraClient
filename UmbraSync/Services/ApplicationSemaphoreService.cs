@@ -35,22 +35,24 @@ public sealed class ApplicationSemaphoreService : DisposableMediatorSubscriberBa
         Mediator.Subscribe<PairProcessingLimitChangedMessage>(this, _ => UpdateSemaphoreLimit());
     }
 
-    private bool IsEnabled => _configService.Current.EnableParallelPairProcessing;
-
     public ApplicationSemaphoreSnapshot GetSnapshot()
     {
         lock (_limitLock)
         {
-            var enabled = IsEnabled;
-            var limit = enabled ? _currentLimit : 1;
+            // The semaphore is always considered "enabled"; setting MaxConcurrentPairApplications
+            // to 1 effectively serializes applications, which used to be the EnableParallelPairProcessing=false case.
+            var enabled = _currentLimit > 1;
             var waiting = _highQueue.Count + _lowQueue.Count;
             var inFlight = Math.Max(0, Volatile.Read(ref _inFlight));
-            return new ApplicationSemaphoreSnapshot(enabled, limit, inFlight, waiting);
+            return new ApplicationSemaphoreSnapshot(enabled, _currentLimit, inFlight, waiting);
         }
     }
-
-    public async ValueTask<IAsyncDisposable> AcquireAsync(CancellationToken cancellationToken, bool highPriority = false)
+    
+    public async ValueTask<IAsyncDisposable> AcquireAsync(CancellationToken cancellationToken, bool highPriority = false, bool gpuHeavy = true)
     {
+        if (!gpuHeavy)
+            return NoopReleaser.Instance;
+
         PriorityWaiter waiter;
 
         lock (_limitLock)
@@ -158,8 +160,6 @@ public sealed class ApplicationSemaphoreService : DisposableMediatorSubscriberBa
 
     private int CalculateLimit()
     {
-        if (!_configService.Current.EnableParallelPairProcessing)
-            return 1;
         return Math.Clamp(_configService.Current.MaxConcurrentPairApplications, 1, HardLimit);
     }
 
