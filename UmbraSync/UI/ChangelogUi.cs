@@ -342,6 +342,27 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
     {
         return new List<ChangelogEntry>
         {
+            new(new Version(2, 5, 9, 6002), "2.5.9.6002", new List<ChangelogLine>
+            {
+                new("Nouveauté : Les propriétaires d'une syncshell peuvent désormais la renommer depuis le panneau d'administration (onglet Owner Settings)."),
+                new("Nouveauté : Option « Coordonner les redraws Penumbra » dans Réglages → Transferts."),
+                new("Correction : Crash violent à l'entrée de certains housings partagés. Les chemins reçus sont désormais filtrés pour ne plus pouvoir rediriger d'assets critiques."),
+                new("Amélioration : Charge GPU étalée à l'application des paires. Réduit les crashs sur certains drivers, notamment AMD RX 9060 / 9070."),
+                new("Amélioration : Réglages GPU automatiquement adaptés sur cartes AMD (occlusion en mode raycast, applications espacées) pour limiter les crashs de driver. Ajustable manuellement dans Réglages."),
+                new("Amélioration : « Paires simultanées max » accepte désormais 1 (sérialisation totale) ; défaut abaissé de 10 à 3. Le toggle « Activer le traitement parallèle » est retiré (redondant)."),
+                new("Autre : Refonte interne du pipeline d'application (téléchargement, Penumbra et personnalisation séparés)."),
+            }),
+            new(new Version(2, 5, 8, 5024), "2.5.8.5024", new List<ChangelogLine>
+            {
+                new("Amélioration : Rajout d'une option 'Re-télécharger les fichiers' (clic droit) pour forcer le rechargement d'une personne affichée avec des mods incomplets."),
+                new("Correction : Dans certains cas, des fichiers de mods échouaient au téléchargement sans être réessayés, ce qui affichait certains personnages avec des mods incomplets."),
+            }),
+            new(new Version(2, 5, 8, 5023), "2.5.8.5023", new List<ChangelogLine>
+            {
+                new("Nouveauté : Options pour /crier et /hurler dans Réglages → Chat → Coloration des emotes. Vous pouvez désormais conserver la couleur native du canal au lieu de la couleur d'emote, ou définir une couleur dédiée."),
+                new("Correction : Bulle d'écriture qui clignotait sur certaines inclinaisons de caméra côté Windows."),
+                new("Autre : Mise à jour API Umbra pour futurs fonctionnalités."),
+            }),
             new(new Version(2, 5, 7, 5019), "2.5.7.5019", new List<ChangelogLine>
             {
                 new("Nouveauté : Notification une mise à jour d'UmbraSync ou d'un plugin lié, invitant à redémarrer le jeu en cas de souci."),

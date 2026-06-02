@@ -151,6 +151,11 @@ public class Pair : DisposableMediatorSubscriberBase
         {
             Add("Ouvrir le profil", _ => Mediator.Publish(new ProfileOpenStandaloneMessage(this)));
             Add("Réappliquer les dernières données", _ => ApplyLastReceivedData(forced: true));
+            Add("Re-télécharger les fichiers", _ =>
+            {
+                CachedPlayer?.ResetDownloadFailures();
+                ApplyLastReceivedData(forced: true);
+            });
 
             bool isBlocked = IsApplicationBlocked;
             bool isBlacklisted = _serverConfigurationManager.IsUidBlacklisted(UserData.UID);

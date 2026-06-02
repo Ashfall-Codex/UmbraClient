@@ -37,6 +37,8 @@ public class SyncshellAdminUI : WindowMediatorSubscriberBase
     private int _multiInvites;
     private string _newPassword;
     private bool _pwChangeSuccess;
+    private string _newAlias;
+    private bool _aliasChangeSuccess;
     private Task<int>? _pruneTestTask;
     private Task<int>? _pruneTask;
     private int _pruneDays = 14;
@@ -118,6 +120,8 @@ public class SyncshellAdminUI : WindowMediatorSubscriberBase
         _newPassword = string.Empty;
         _multiInvites = 30;
         _pwChangeSuccess = true;
+        _newAlias = groupFullInfo.GroupAlias ?? string.Empty;
+        _aliasChangeSuccess = true;
         _autoDetectVisible = groupFullInfo.AutoDetectVisible;
         _autoDetectDesiredVisibility = _autoDetectVisible;
         _autoDetectPasswordDisabled = groupFullInfo.PasswordTemporarilyDisabled;
@@ -594,6 +598,42 @@ public class SyncshellAdminUI : WindowMediatorSubscriberBase
                 var ownerTab = ImRaii.TabItem(Loc.Get("SyncshellAdmin.Tab.Owner"));
                 if (ownerTab)
                 {
+                    ImGui.AlignTextToFramePadding();
+                    ImGui.TextUnformatted(Loc.Get("SyncshellAdmin.Owner.NewAlias"));
+                    var renameButtonSize = _uiSharedService.GetIconTextButtonSize(FontAwesomeIcon.Pen, Loc.Get("SyncshellAdmin.Owner.Rename"));
+                    var renameLabelSize = ImGui.CalcTextSize(Loc.Get("SyncshellAdmin.Owner.NewAlias")).X;
+                    var renameSpacing = ImGui.GetStyle().ItemSpacing.X;
+                    var renameWidth = ImGui.GetWindowContentRegionMax().X - ImGui.GetWindowContentRegionMin().X;
+
+                    ImGui.SameLine();
+                    ImGui.SetNextItemWidth(renameWidth - renameButtonSize - renameLabelSize - renameSpacing * 2);
+                    ImGui.InputTextWithHint("##changealias", Loc.Get("SyncshellAdmin.Owner.AliasPlaceholder"), ref _newAlias, 50);
+                    ImGui.SameLine();
+                    var trimmedAlias = _newAlias.Trim();
+                    using (ImRaii.Disabled(string.IsNullOrWhiteSpace(trimmedAlias)
+                        || string.Equals(trimmedAlias, GroupFullInfo.GroupAlias, StringComparison.Ordinal)))
+                    {
+                        if (_uiSharedService.IconTextButton(FontAwesomeIcon.Pen, Loc.Get("SyncshellAdmin.Owner.Rename")))
+                        {
+                            _aliasChangeSuccess = _apiController.GroupChangeAlias(new GroupAliasDto(GroupFullInfo.Group, trimmedAlias)).Result;
+                            if (_aliasChangeSuccess)
+                            {
+                                Mediator.Publish(new NotificationMessage(
+                                    Loc.Get("SyncshellAdmin.Owner.RenameSuccessTitle"),
+                                    string.Format(CultureInfo.CurrentCulture, Loc.Get("SyncshellAdmin.Owner.RenameSuccessMessage"), trimmedAlias),
+                                    NotificationType.Success, TimeSpan.FromSeconds(5)));
+                            }
+                        }
+                    }
+                    UiSharedService.AttachToolTip(Loc.Get("SyncshellAdmin.Owner.RenameTooltip"));
+
+                    if (!_aliasChangeSuccess)
+                    {
+                        UiSharedService.ColorTextWrapped(Loc.Get("SyncshellAdmin.Owner.RenameFailed"), ImGuiColors.DalamudYellow);
+                    }
+
+                    ImGui.Separator();
+
                     ImGui.AlignTextToFramePadding();
                     ImGui.TextUnformatted(Loc.Get("SyncshellAdmin.Owner.NewPassword"));
                     var availableWidth = ImGui.GetWindowContentRegionMax().X - ImGui.GetWindowContentRegionMin().X;

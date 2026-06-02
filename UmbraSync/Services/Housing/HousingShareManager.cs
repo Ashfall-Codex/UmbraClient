@@ -96,11 +96,20 @@ public sealed class HousingShareManager : IDisposable
             var resolvedPaths = modPaths.Values.Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
             var fileCaches = _fileCacheManager.GetFileCachesByPaths(resolvedPaths);
 
-            // Construire gamePath → hash
+            // Construire gamePath → hash. Défense en profondeur (issue #98) : on ne publie
+            // QUE des paths housing safe. Le scanner filtre déjà à la collecte, mais on rejoue
+            // la garde ici au cas où un futur chemin de collecte oublierait ce check.
             var hashPaths = new Dictionary<string, string>(StringComparer.Ordinal);
             var hashList = new HashSet<string>(StringComparer.Ordinal);
+            var unsafePathCount = 0;
             foreach (var (gamePath, resolvedPath) in modPaths)
             {
+                if (!HousingFurnitureScanner.IsHousingShareSafePath(gamePath))
+                {
+                    unsafePathCount++;
+                    _logger.LogWarning("PublishAsync : rejet d'un gamePath hors whitelist housing : {GamePath}", gamePath);
+                    continue;
+                }
                 if (fileCaches.TryGetValue(resolvedPath, out var cacheEntity) && cacheEntity != null)
                 {
                     hashPaths[gamePath] = cacheEntity.Hash;
@@ -110,6 +119,10 @@ public sealed class HousingShareManager : IDisposable
                 {
                     _logger.LogWarning("Impossible de hacher le fichier {Path} pour le gamePath {GamePath}, ignoré", resolvedPath, gamePath);
                 }
+            }
+            if (unsafePathCount > 0)
+            {
+                _logger.LogWarning("PublishAsync : {Count} path(s) non-housing rejeté(s) avant upload", unsafePathCount);
             }
 
             if (hashPaths.Count == 0)
@@ -366,6 +379,36 @@ public sealed class HousingShareManager : IDisposable
             LastError = Loc.Get("HousingShare.Error.EmptyShare");
             return;
         }
+
+        // Garde-fou critique (issue #98) : on n'autorise QUE les paths housing safe avant de
+        // les écrire dans un mod Penumbra. Un share contenant des paths chara/, shader/, ui/…
+        // redirigerait des assets game critiques côté visiteur et provoquerait un crash du
+        // moteur graphique + un faux positif de corruption par XIVLauncher.
+        var rejectedCount = 0;
+        var sanitizedPaths = new Dictionary<string, string>(modPaths.Count, StringComparer.Ordinal);
+        foreach (var entry in modPaths)
+        {
+            if (HousingFurnitureScanner.IsHousingShareSafePath(entry.Key))
+            {
+                sanitizedPaths[entry.Key] = entry.Value;
+            }
+            else
+            {
+                rejectedCount++;
+                _logger.LogWarning("Housing share {ShareId} : rejet d'un gamePath hors whitelist housing : {GamePath}", shareId, entry.Key);
+            }
+        }
+        if (rejectedCount > 0)
+        {
+            _logger.LogWarning("Housing share {ShareId} : {RejectedCount} path(s) rejeté(s) sur {TotalCount}", shareId, rejectedCount, modPaths.Count);
+        }
+        if (sanitizedPaths.Count == 0)
+        {
+            _logger.LogWarning("Housing share {ShareId} : aucun path housing valide après filtrage, application annulée", shareId);
+            LastError = Loc.Get("HousingShare.Error.EmptyShare");
+            return;
+        }
+        modPaths = sanitizedPaths;
 
         ProgressStatus = Loc.Get("HousingShare.Progress.CreatingMod");
         ProgressPercent = 0.60f;

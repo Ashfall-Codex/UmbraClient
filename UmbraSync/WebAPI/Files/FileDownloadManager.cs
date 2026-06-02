@@ -44,11 +44,13 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
     private const int MaxConsecutiveCdnEnqueueFailures = 2;
     private volatile int _consecutiveCdnEnqueueFailures;
     private volatile bool _disableCdnEnqueue;
-    private readonly ConcurrentDictionary<string, byte> _cdnFailedHashes = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, DateTime> _cdnFailedHashes = new(StringComparer.Ordinal);
+    private static readonly TimeSpan CdnFailureTtl = TimeSpan.FromSeconds(60);
     private readonly ConcurrentDictionary<string, (DateTime LastFailure, int FailCount)> _hashFailureCooldowns = new(StringComparer.Ordinal);
     private const double BaseCooldownSeconds = 15;
     private const double MaxCooldownSeconds = 120;
     private const int MaxTrackedFailureCount = 4;
+    private enum CdnDownloadResult { Success, NotFound, Transient }
 
     public FileDownloadManager(ILogger<FileDownloadManager> logger, MareMediator mediator,
         FileTransferOrchestrator orchestrator,
@@ -91,6 +93,14 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
         _consecutiveCdnEnqueueFailures = 0;
         _disableCdnEnqueue = false;
     }
+    
+    // Utilisé par l'option "Re-télécharger" du menu contextuel.
+    public void ResetFailureState()
+    {
+        _cdnFailedHashes.Clear();
+        _hashFailureCooldowns.Clear();
+        ResetDirectDownloadCircuitBreaker();
+    }
 
     private void ReportCdnMissFireAndForget(string hash)
     {
@@ -126,9 +136,18 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
     }
     public void RecordCdnFailure(string hash)
     {
-        _cdnFailedHashes.TryAdd(hash, 0);
+        _cdnFailedHashes[hash] = DateTime.UtcNow;
     }
-    public bool HasCdnFailure(string hash) => _cdnFailedHashes.ContainsKey(hash);
+    public bool HasCdnFailure(string hash)
+    {
+        if (!_cdnFailedHashes.TryGetValue(hash, out var recordedAt))
+            return false;
+        if (DateTime.UtcNow - recordedAt < CdnFailureTtl)
+            return true;
+        // TTL écoulé → on retente le CDN (auto-récupération, sémantique circuit breaker half-open)
+        _cdnFailedHashes.TryRemove(hash, out _);
+        return false;
+    }
 
     private void CompleteDownloadHash(string hash, bool success)
     {
@@ -386,10 +405,10 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
 
     // --- CDN Direct Download: Phase 1 (download compressed to .lz4tmp) ---
 
-    private async Task<bool> DownloadDirectToLz4TmpAsync(DownloadFileTransfer file, string lz4TmpPath, IProgress<long> progress, CancellationToken ct)
+    private async Task<CdnDownloadResult> DownloadDirectToLz4TmpAsync(DownloadFileTransfer file, string lz4TmpPath, IProgress<long> progress, CancellationToken ct)
     {
         if (!file.HasDirectDownload || file.DirectDownloadUri == null)
-            return false;
+            return CdnDownloadResult.NotFound;
 
         var url = file.DirectDownloadUri.ToString();
         Logger.LogDebug("Direct CDN download (compressed): {hash} from {url}", file.Hash, url);
@@ -420,7 +439,7 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
                 {
                     Logger.LogDebug("Direct CDN 404 for {hash}, will fallback", file.Hash);
                     ReportCdnMissFireAndForget(file.Hash);
-                    return false;
+                    return CdnDownloadResult.NotFound;
                 }
 
                 if (!response.IsSuccessStatusCode)
@@ -456,7 +475,7 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
 
                     Logger.LogDebug("CDN download (compressed) finished for {hash}", file.Hash);
                     #pragma warning disable S1751 // Retry loop: returns on success, catches retry on failure
-                    return true;
+                    return CdnDownloadResult.Success;
                     #pragma warning restore S1751
                 }
                 finally
@@ -472,7 +491,7 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
             {
                 Logger.LogDebug("Direct CDN 404 for {hash}, will fallback", file.Hash);
                 ReportCdnMissFireAndForget(file.Hash);
-                return false;
+                return CdnDownloadResult.NotFound;
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
@@ -486,7 +505,7 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
                 if (attempt >= maxRetries)
                 {
                     Logger.LogWarning("Max retries reached for CDN download of {hash}, will fallback", file.Hash);
-                    return false;
+                    return CdnDownloadResult.Transient;
                 }
 
                 await Task.Delay(retryDelay, ct).ConfigureAwait(false);
@@ -500,7 +519,7 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
                 if (attempt >= maxRetries)
                 {
                     Logger.LogWarning("Max retries reached for CDN download of {hash}, will fallback", file.Hash);
-                    return false;
+                    return CdnDownloadResult.Transient;
                 }
 
                 await Task.Delay(retryDelay, ct).ConfigureAwait(false);
@@ -511,13 +530,13 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
                 if (File.Exists(lz4TmpPath)) try { File.Delete(lz4TmpPath); } catch (Exception) { /* best-effort cleanup */ }
 
                 if (attempt >= maxRetries)
-                    return false;
+                    return CdnDownloadResult.Transient;
 
                 await Task.Delay(retryDelay, ct).ConfigureAwait(false);
             }
         }
 
-        return false;
+        return CdnDownloadResult.Transient;
     }
 
     // --- CDN Direct Download: Phase 2 (decompress + hash verify + persist) ---
@@ -799,9 +818,10 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
                 var goesToFallback = false;
                 try
                 {
-                    downloadSuccess = await DownloadDirectToLz4TmpAsync(file, lz4TmpPath, progress, token).ConfigureAwait(false);
+                    var cdnResult = await DownloadDirectToLz4TmpAsync(file, lz4TmpPath, progress, token).ConfigureAwait(false);
+                    downloadSuccess = cdnResult == CdnDownloadResult.Success;
 
-                    if (downloadSuccess)
+                    if (cdnResult == CdnDownloadResult.Success)
                     {
                         Interlocked.Exchange(ref _consecutiveDirectDownloadFailures, 0);
                         _disableDirectDownloads = false;
@@ -820,34 +840,37 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
                             return Task.CompletedTask;
                         }, CancellationToken.None);
                     }
+                    else if (cdnResult == CdnDownloadResult.NotFound)
+                    {
+                        // 404 : le fichier n'est pas sur le CDN. Le serveur principal peut en avoir une copie chaude,
+                        // et ReportCdnMiss (déjà émis) fait re-vérifier S3. On bascule sur le fallback (blacklist time-boxée).
+                        RecordCdnFailure(file.Hash);
+                        goesToFallback = true;
+                        pendingFallbackHashes.TryAdd(file.Hash, 0);
+                        fallbackFiles.Add(file);
+                    }
                     else
                     {
+                        // Échec transitoire (timeout/réseau) : le fichier EST sur le CDN. On NE blackliste PAS et on NE
+                        // bascule PAS sur le serveur principal (incapable de servir les fichiers S3-only) ; le hash échoue
+                        // ce cycle et le CDN sera réessayé à la prochaine application.
                         var failures = Interlocked.Increment(ref _consecutiveDirectDownloadFailures);
                         if (failures >= MaxConsecutiveDirectDownloadFailures)
                         {
                             _disableDirectDownloads = true;
                             Logger.LogWarning("Direct CDN downloads disabled after {count} consecutive failures", failures);
                         }
-
-                        // Record per-hash CDN failure so next attempt routes to main server
-                        RecordCdnFailure(file.Hash);
-
-                        goesToFallback = true;
-                        pendingFallbackHashes.TryAdd(file.Hash, 0);
-                        fallbackFiles.Add(file);
                     }
                 }
                 catch (OperationCanceledException) when (ct.IsCancellationRequested)
                 {
-                    throw; 
+                    throw;
                 }
                 catch (Exception ex)
                 {
-                    Logger.LogWarning(ex, "[{id}] CDN download error for {hash}, routing to main server fallback", downloadId, file.Hash);
-                    RecordCdnFailure(file.Hash);
-                    goesToFallback = true;
-                    pendingFallbackHashes.TryAdd(file.Hash, 0);
-                    fallbackFiles.Add(file);
+                    // Erreur inattendue → traitée comme transitoire : retry CDN au prochain cycle, pas de blacklist ni de fallback futile.
+                    Logger.LogWarning(ex, "[{id}] CDN download error for {hash}, will retry CDN next cycle", downloadId, file.Hash);
+                    Interlocked.Increment(ref _consecutiveDirectDownloadFailures);
                 }
                 finally
                 {
@@ -1228,9 +1251,10 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
                 var goesToFallback = false;
                 try
                 {
-                    downloadSuccess = await DownloadDirectToLz4TmpAsync(file, lz4TmpPath, progress, token).ConfigureAwait(false);
+                    var cdnResult = await DownloadDirectToLz4TmpAsync(file, lz4TmpPath, progress, token).ConfigureAwait(false);
+                    downloadSuccess = cdnResult == CdnDownloadResult.Success;
 
-                    if (downloadSuccess)
+                    if (cdnResult == CdnDownloadResult.Success)
                     {
                         // Reset circuit breaker on success
                         Interlocked.Exchange(ref _consecutiveDirectDownloadFailures, 0);
@@ -1253,22 +1277,25 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
                             return Task.CompletedTask;
                         }, CancellationToken.None);
                     }
+                    else if (cdnResult == CdnDownloadResult.NotFound)
+                    {
+                        // 404 : fichier absent du CDN. Le serveur principal peut en avoir une copie chaude, et ReportCdnMiss (déjà émis) fait re-vérifier S3. Fallback légitime (blacklist time-boxée).
+                        RecordCdnFailure(file.Hash);
+                        goesToFallback = true;
+                        pendingFallbackHashes.TryAdd(file.Hash, 0);
+                        fallbackFiles.Add(file);
+                    }
                     else
                     {
-                        // Increment failure counter and check circuit breaker threshold
+                        // Échec transitoire (timeout/réseau) : le fichier EST sur le CDN. On NE blackliste PAS et on NE
+                        // bascule PAS sur le serveur principal (incapable de servir les fichiers S3-only) ; le hash échoue
+                        // ce cycle et le CDN sera réessayé à la prochaine application.
                         var failures = Interlocked.Increment(ref _consecutiveDirectDownloadFailures);
                         if (failures >= MaxConsecutiveDirectDownloadFailures)
                         {
                             _disableDirectDownloads = true;
                             Logger.LogWarning("Direct CDN downloads disabled after {count} consecutive failures", failures);
                         }
-
-                        // Record per-hash CDN failure so next attempt routes to main server
-                        RecordCdnFailure(file.Hash);
-
-                        goesToFallback = true;
-                        pendingFallbackHashes.TryAdd(file.Hash, 0);
-                        fallbackFiles.Add(file);
                     }
                 }
                 catch (OperationCanceledException) when (ct.IsCancellationRequested)
@@ -1277,12 +1304,9 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
                 }
                 catch (Exception ex)
                 {
-                    // Unexpected error (including timeout OCE that escaped inner catches) → route to fallback
-                    Logger.LogWarning(ex, "CDN download error for {hash}, routing to main server fallback", file.Hash);
-                    RecordCdnFailure(file.Hash);
-                    goesToFallback = true;
-                    pendingFallbackHashes.TryAdd(file.Hash, 0);
-                    fallbackFiles.Add(file);
+                    // Erreur inattendue → traitée comme transitoire : retry CDN au prochain cycle, pas de blacklist ni de fallback futile.
+                    Logger.LogWarning(ex, "CDN download error for {hash}, will retry CDN next cycle", file.Hash);
+                    Interlocked.Increment(ref _consecutiveDirectDownloadFailures);
                 }
                 finally
                 {

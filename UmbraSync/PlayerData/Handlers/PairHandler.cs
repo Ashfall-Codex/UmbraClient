@@ -7,6 +7,7 @@ using UmbraSync.FileCache;
 using UmbraSync.Interop.Ipc;
 using UmbraSync.PlayerData.Factories;
 using UmbraSync.PlayerData.Pairs;
+using UmbraSync.PlayerData.Redraw;
 using UmbraSync.MareConfiguration;
 using UmbraSync.Services;
 using UmbraSync.Services.Events;
@@ -34,6 +35,7 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
     private readonly VisibilityService _visibilityService;
     private readonly ApplicationSemaphoreService _applicationSemaphoreService;
     private readonly ServerConfigurationManager _serverConfigurationManager;
+    private readonly PairRedrawCoordinator _pairRedrawCoordinator;
     private CancellationTokenSource? _applicationCancellationTokenSource = new();
     private Guid _applicationId;
     private Task? _applicationTask;
@@ -86,7 +88,8 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
         FileCacheManager fileDbManager, MareMediator mediator,
         PlayerPerformanceService playerPerformanceService,
         MareConfigService configService, VisibilityService visibilityService,
-        ApplicationSemaphoreService applicationSemaphoreService, ServerConfigurationManager serverConfigurationManager) : base(logger, mediator)
+        ApplicationSemaphoreService applicationSemaphoreService, ServerConfigurationManager serverConfigurationManager,
+        PairRedrawCoordinator pairRedrawCoordinator) : base(logger, mediator)
     {
         Pair = pair;
         PairAnalyzer = pairAnalyzer;
@@ -101,6 +104,7 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
         _visibilityService = visibilityService;
         _applicationSemaphoreService = applicationSemaphoreService;
         _serverConfigurationManager = serverConfigurationManager;
+        _pairRedrawCoordinator = pairRedrawCoordinator;
 
         _visibilityService.StartTracking(Pair.Ident);
 
@@ -227,7 +231,8 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
     {
         _lastDataReceivedAt = DateTime.UtcNow;
     }
-
+    
+    public void ResetDownloadFailures() => _downloadManager.ResetFailureState();
     public void ApplyCharacterData(Guid applicationBase, CharacterData characterData, bool forceApplyCustomization = false)
     {
         _lastApplyAttemptAt = DateTime.UtcNow;
@@ -860,7 +865,7 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
                     break;
 
                 case PlayerChanges.ForcedRedraw:
-                    await _ipcManager.Penumbra.RedrawAsync(Logger, handler, applicationId, token).ConfigureAwait(false);
+                    await _pairRedrawCoordinator.RedrawAsync(Logger, handler, applicationId, token).ConfigureAwait(false);
                     break;
 
             }
@@ -896,11 +901,9 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
 
         _downloadTask = Task.Run(async () =>
         {
-#pragma warning disable MA0004 // ConfigureAwait on await using requires different syntax
-            await using var semaphoreLease = await _applicationSemaphoreService
-                .AcquireAsync(downloadToken, highPriority: IsVisible)
-                .ConfigureAwait(false);
-#pragma warning restore MA0004
+            // Note: the global GPU-heavy semaphore is acquired later, just before the
+            // Penumbra apply stage — not here — so file downloads (network/CPU bound)
+            // can run in parallel without holding GPU slots. See DownloadAndApplyCharacterAsync.
             if ((updateModdedPaths || updateManip) && !hasOtherChanges && !_forceApplyMods)
             {
                 Logger.LogDebug("[BASE-{appBase}] Applying mod changes only - skipping full redraw", applicationBase);
@@ -1141,6 +1144,12 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
 
         var token = _applicationCancellationTokenSource.Token;
         var hadMissingFiles = _pendingModReapply;
+        
+#pragma warning disable MA0004 // ConfigureAwait on await using
+        await using var applyLease = await _applicationSemaphoreService
+            .AcquireAsync(token, highPriority: IsVisible, gpuHeavy: updateModdedPaths || updateManip)
+            .ConfigureAwait(false);
+#pragma warning restore MA0004
 
         _applicationTask = ApplyCharacterDataAsync(applicationBase, charaData, updatedData, updateModdedPaths, updateManip, moddedPaths, token);
         await _applicationTask.ConfigureAwait(false);
@@ -1466,7 +1475,7 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
                 await _ipcManager.CustomizePlus.RevertByIdAsync(customizeId).ConfigureAwait(false);
                 using GameObjectHandler tempHandler = await _gameObjectHandlerFactory.Create(ObjectKind.MinionOrMount, () => minionOrMount, isWatched: false).ConfigureAwait(false);
                 await _ipcManager.Glamourer.RevertAsync(Logger, tempHandler, applicationId, cancelToken).ConfigureAwait(false);
-                await _ipcManager.Penumbra.RedrawAsync(Logger, tempHandler, applicationId, cancelToken).ConfigureAwait(false);
+                await _pairRedrawCoordinator.RedrawAsync(Logger, tempHandler, applicationId, cancelToken).ConfigureAwait(false);
             }
         }
         else if (objectKind == ObjectKind.Pet)
@@ -1477,7 +1486,7 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
                 await _ipcManager.CustomizePlus.RevertByIdAsync(customizeId).ConfigureAwait(false);
                 using GameObjectHandler tempHandler = await _gameObjectHandlerFactory.Create(ObjectKind.Pet, () => pet, isWatched: false).ConfigureAwait(false);
                 await _ipcManager.Glamourer.RevertAsync(Logger, tempHandler, applicationId, cancelToken).ConfigureAwait(false);
-                await _ipcManager.Penumbra.RedrawAsync(Logger, tempHandler, applicationId, cancelToken).ConfigureAwait(false);
+                await _pairRedrawCoordinator.RedrawAsync(Logger, tempHandler, applicationId, cancelToken).ConfigureAwait(false);
             }
         }
         else if (objectKind == ObjectKind.Companion)
@@ -1488,7 +1497,7 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
                 await _ipcManager.CustomizePlus.RevertByIdAsync(customizeId).ConfigureAwait(false);
                 using GameObjectHandler tempHandler = await _gameObjectHandlerFactory.Create(ObjectKind.Pet, () => companion, isWatched: false).ConfigureAwait(false);
                 await _ipcManager.Glamourer.RevertAsync(Logger, tempHandler, applicationId, cancelToken).ConfigureAwait(false);
-                await _ipcManager.Penumbra.RedrawAsync(Logger, tempHandler, applicationId, cancelToken).ConfigureAwait(false);
+                await _pairRedrawCoordinator.RedrawAsync(Logger, tempHandler, applicationId, cancelToken).ConfigureAwait(false);
             }
         }
     }
