@@ -233,6 +233,7 @@ public sealed class Plugin : IDalamudPlugin
             collection.AddScoped<WindowMediatorSubscriberBase, PairRequestToastUi>();
             collection.AddScoped<WindowMediatorSubscriberBase>(sp => sp.GetRequiredService<AutoDetectUi>());
             collection.AddScoped<WindowMediatorSubscriberBase, ChangelogUi>();
+            collection.AddScoped<WindowMediatorSubscriberBase, TestBuildWarningUi>();
             collection.AddScoped<WindowMediatorSubscriberBase, PopoutProfileUi>();
             collection.AddScoped<UmbraSync.WebAPI.AshfallConnectService>();
             collection.AddSingleton<UmbraSync.Services.AshfallConnectAutoSyncService>();

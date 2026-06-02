@@ -1566,6 +1566,21 @@ Veuillez conserver une copie de votre clé secrète au cas où vous auriez besoi
   <data name="ChangelogUi.WindowTitle" xml:space="preserve">
     <value>Umbra Sync - Notes de version</value>
   </data>
+  <data name="TestBuildWarning.WindowTitle" xml:space="preserve">
+    <value>UmbraSync - Version de test</value>
+  </data>
+  <data name="TestBuildWarning.Header" xml:space="preserve">
+    <value>Version de test</value>
+  </data>
+  <data name="TestBuildWarning.Body" xml:space="preserve">
+    <value>Vous utilisez une version de d&#xE9;veloppement / test d'UmbraSync.&#x0A;&#x0A;Des bugs, plantages et instabilit&#xE9;s sont attendus. Cette version n'est pas destin&#xE9;e &#xE0; un usage quotidien.&#x0A;&#x0A;Merci de ne pas reporter les probl&#xE8;mes de cette version comme s'ils concernaient la version stable.</value>
+  </data>
+  <data name="TestBuildWarning.Acknowledge" xml:space="preserve">
+    <value>J'ai compris</value>
+  </data>
+  <data name="TestBuildWarning.Signature" xml:space="preserve">
+    <value>Votre d&#xE9;veloppeur ador&#xE9; : Keda</value>
+  </data>
   <data name="ChangelogUi.RestartNotice.Title" xml:space="preserve">
     <value>Redémarrage recommandé</value>
   </data>
@@ -5677,6 +5692,9 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
   </data>
   <data name="Establishment.Location.AutoFillTooltip" xml:space="preserve">
     <value>D&#xE9;tecte votre position actuelle et remplit automatiquement les champs de localisation.&#x0A;Vous devez &#xEA;tre &#xE0; l'int&#xE9;rieur de votre maison ou appartement.</value>
+  </data>
+  <data name="Establishment.Location.AutoFillNeedsInside" xml:space="preserve">
+    <value>Placez-vous &#xE0; l'int&#xE9;rieur de votre maison ou appartement pour le remplissage automatique. Sinon, saisissez le quartier et la parcelle manuellement.</value>
   </data>
   <data name="Establishment.Location.Server" xml:space="preserve">
     <value>Serveur</value>

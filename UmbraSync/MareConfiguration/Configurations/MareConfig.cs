@@ -100,6 +100,7 @@ public class MareConfig : IMareConfiguration
     public bool ShowVisibleUsersSeparately { get; set; } = true;
     public string UiLanguage { get; set; } = "fr";
     public string LastChangelogVersionSeen { get; set; } = string.Empty;
+    public string LastTestBuildWarningVersionSeen { get; set; } = string.Empty;
     public Dictionary<string, string> LastSeenExternalPluginVersions { get; set; } = new(StringComparer.Ordinal);
     public bool DefaultDisableSounds { get; set; }
     public bool DefaultDisableAnimations { get; set; }

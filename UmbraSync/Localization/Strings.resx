@@ -1666,6 +1666,21 @@ Click to change.</value>
   <data name="ChangelogUi.WindowTitle" xml:space="preserve">
     <value>Umbra Sync - Changelog</value>
   </data>
+  <data name="TestBuildWarning.WindowTitle" xml:space="preserve">
+    <value>UmbraSync - Test build</value>
+  </data>
+  <data name="TestBuildWarning.Header" xml:space="preserve">
+    <value>Test build</value>
+  </data>
+  <data name="TestBuildWarning.Body" xml:space="preserve">
+    <value>You are running a development / testing build of UmbraSync.&#x0A;&#x0A;Bugs, crashes and instability are expected. This build is not meant for everyday use.&#x0A;&#x0A;Please do not report issues from this build as if they affected the stable version.</value>
+  </data>
+  <data name="TestBuildWarning.Acknowledge" xml:space="preserve">
+    <value>Understood</value>
+  </data>
+  <data name="TestBuildWarning.Signature" xml:space="preserve">
+    <value>Your beloved developer: Keda</value>
+  </data>
   <data name="ChangelogUi.RestartNotice.Title" xml:space="preserve">
     <value>Restart recommended</value>
   </data>
@@ -5767,6 +5782,9 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
   </data>
   <data name="Establishment.Location.AutoFillTooltip" xml:space="preserve">
     <value>Detects your current position and auto-fills the location fields.&#x0A;You must be inside your house or apartment.</value>
+  </data>
+  <data name="Establishment.Location.AutoFillNeedsInside" xml:space="preserve">
+    <value>Go inside your house or apartment to use auto-fill. Otherwise, enter the ward and plot manually.</value>
   </data>
   <data name="Establishment.Location.Server" xml:space="preserve">
     <value>Server</value>

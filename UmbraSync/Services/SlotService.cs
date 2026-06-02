@@ -169,12 +169,15 @@ public class SlotService : MediatorSubscriberBase, IDisposable
         {
             var slotInfo = await _apiController.SlotGetNearby(serverId, territoryId, divisionId, wardId, position.X, queryY, position.Z).ConfigureAwait(false);
 
-            // Vérification côté client: s'assurer que le slot correspond à notre ward/division actuel
-            if (slotInfo?.Location != null && wardId > 0 &&
-                (slotInfo.Location.WardId != wardId || slotInfo.Location.DivisionId != divisionId))
+            // Vérification côté client: s'assurer que le slot correspond à notre ward actuel.
+            // On ne compare PAS la division : son encodage est incohérent entre l'ancien code,
+            // la création récente et la valeur runtime (principale/annexe), ce qui rejetait à tort
+            // des slots valides (notamment les parcelles en annexe). Le serveur a déjà filtré par
+            // proximité de coordonnées, et le ward suffit à garantir la bonne zone résidentielle.
+            if (slotInfo?.Location != null && wardId > 0 && slotInfo.Location.WardId != wardId)
             {
-                Logger.LogDebug("SlotGetNearby returned slot for Ward {slotWard}/Div {slotDiv}, but we are in Ward {currentWard}/Div {currentDiv}. Ignoring.",
-                    slotInfo.Location.WardId, slotInfo.Location.DivisionId, wardId, divisionId);
+                Logger.LogDebug("SlotGetNearby returned slot for Ward {slotWard}, but we are in Ward {currentWard}. Ignoring.",
+                    slotInfo.Location.WardId, wardId);
                 slotInfo = null;
             }
             if (slotInfo != null)
