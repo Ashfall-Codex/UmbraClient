@@ -77,6 +77,7 @@ public class MareConfig : IMareConfiguration
     public int MaxConcurrentPairApplications { get; set; } = 3;
     public bool EnableRedrawCoordination { get; set; } = true;
     public int MinRedrawIntervalMs { get; set; } = 100;
+    public bool AmdConservativeDefaultsApplied { get; set; }
     public int MaxDecompressionThreads { get; set; }
     public int DownloadSpeedLimitInBytes { get; set; }
     public DownloadSpeeds DownloadSpeedType { get; set; } = DownloadSpeeds.MBps;
