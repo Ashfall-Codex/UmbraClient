@@ -3821,6 +3821,27 @@ Note: Weapons will not be displayed correctly unless using the same job as the s
   <data name="SyncshellAdmin.Owner.PasswordPlaceholder" xml:space="preserve">
     <value>Min 10 characters</value>
   </data>
+  <data name="SyncshellAdmin.Owner.NewAlias" xml:space="preserve">
+    <value>New Name</value>
+  </data>
+  <data name="SyncshellAdmin.Owner.AliasPlaceholder" xml:space="preserve">
+    <value>Syncshell name (max 50)</value>
+  </data>
+  <data name="SyncshellAdmin.Owner.Rename" xml:space="preserve">
+    <value>Rename</value>
+  </data>
+  <data name="SyncshellAdmin.Owner.RenameTooltip" xml:space="preserve">
+    <value>Rename the syncshell. The name must be unique and available.</value>
+  </data>
+  <data name="SyncshellAdmin.Owner.RenameFailed" xml:space="preserve">
+    <value>Rename failed: this name is already in use or unavailable.</value>
+  </data>
+  <data name="SyncshellAdmin.Owner.RenameSuccessTitle" xml:space="preserve">
+    <value>Syncshell renamed</value>
+  </data>
+  <data name="SyncshellAdmin.Owner.RenameSuccessMessage" xml:space="preserve">
+    <value>The syncshell is now named "{0}".</value>
+  </data>
   <data name="SyncshellAdmin.Permissions.Animation" xml:space="preserve">
     <value>Animation Sync</value>
   </data>

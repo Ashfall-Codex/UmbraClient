@@ -69,7 +69,7 @@
 ### Syncshells (groupes)
 
 - **Création** : syncshells permanentes ou temporaires (avec date d'expiration)
-- **Administration** : gestion des membres (ban, retrait, permissions), transfert de propriété, changement de mot de passe
+- **Administration** : gestion des membres (ban, retrait, permissions), transfert de propriété, changement de mot de passe, renommage de la syncshell
 - **Invitations temporaires** : génération d'invitations à usage unique
 - **Rôles** : Owner, Moderator, Member avec permissions granulaires
 - **Collection Penumbra** : liaison d'une collection Penumbra spécifique par Syncshell
