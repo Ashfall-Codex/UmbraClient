@@ -2472,10 +2472,12 @@ public class SettingsUi : WindowMediatorSubscriberBase
         _uiShared.BigText(Loc.Get("Settings.Performance.OverlayRendering"));
 
         bool isDxmt = Ashfall.Engine.Platform.PlatformDetector.IsDXMT;
+        bool isAmd = Ashfall.Engine.Platform.PlatformDetector.IsAmd;
+        bool occlusionLocked = isDxmt || isAmd;
 
-        using (ImRaii.Disabled(isDxmt))
+        using (ImRaii.Disabled(occlusionLocked))
         {
-            bool useHighPrecisionOcclusion = _configService.Current.UseHighPrecisionOcclusion && !isDxmt;
+            bool useHighPrecisionOcclusion = _configService.Current.UseHighPrecisionOcclusion && !occlusionLocked;
             if (ImGui.Checkbox(Loc.Get("Settings.Performance.PreciseOcclusion"), ref useHighPrecisionOcclusion))
             {
                 _configService.Current.UseHighPrecisionOcclusion = useHighPrecisionOcclusion;
@@ -2489,7 +2491,9 @@ public class SettingsUi : WindowMediatorSubscriberBase
             + UiSharedService.TooltipSeparator
             + (isDxmt
                 ? Loc.Get("Settings.Performance.PreciseOcclusion.DxmtWarning")
-                : Loc.Get("Settings.Performance.PreciseOcclusion.RestartHint")));
+                : isAmd
+                    ? Loc.Get("Settings.Performance.PreciseOcclusion.AmdWarning")
+                    : Loc.Get("Settings.Performance.PreciseOcclusion.RestartHint")));
 
         ImGui.Separator();
         _uiShared.BigText("Individual Limits");

@@ -6087,6 +6087,9 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
   <data name="Settings.Performance.PreciseOcclusion.DxmtWarning" xml:space="preserve">
     <value>⚠ XIV on Mac avec DXMT actif : cette option est indisponible - DXMT plante lors de la lecture CPU du tampon de profondeur. Veuillez désactiver « Utiliser la traduction directe de D3D11 vers Metal (DXMT) » dans XIV on Mac pour pouvoir l'activer.</value>
   </data>
+  <data name="Settings.Performance.PreciseOcclusion.AmdWarning" xml:space="preserve">
+    <value>⚠ Carte graphique AMD détectée : cette option est indisponible - le driver AMD plante sous la charge de lecture du tampon de profondeur (crashs récurrents constatés, notamment sur RX 9060/9070). L'occlusion utilise le mode raycast à la place.</value>
+  </data>
   <data name="Settings.Performance.PreciseOcclusion.RestartHint" xml:space="preserve">
     <value>La modification prend effet au prochain redémarrage du plugin.</value>
   </data>

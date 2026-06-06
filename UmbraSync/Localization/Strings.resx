@@ -6177,6 +6177,9 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
   <data name="Settings.Performance.PreciseOcclusion.DxmtWarning" xml:space="preserve">
     <value>⚠ XIV on Mac with DXMT enabled: this option is unavailable — DXMT crashes on CPU readback of the depth buffer. Disable "Use direct D3D11 to Metal translation (DXMT)" in XIV on Mac to enable it.</value>
   </data>
+  <data name="Settings.Performance.PreciseOcclusion.AmdWarning" xml:space="preserve">
+    <value>⚠ AMD graphics card detected: this option is unavailable — the AMD driver crashes under depth buffer readback load (recurring crashes observed, notably on RX 9060/9070). Occlusion uses raycast mode instead.</value>
+  </data>
   <data name="Settings.Performance.PreciseOcclusion.RestartHint" xml:space="preserve">
     <value>The change takes effect the next time the plugin is restarted.</value>
   </data>
