@@ -323,15 +323,14 @@ public class EditProfileUi : WindowMediatorSubscriberBase
         var customJson = p.RpCustomFields == null
             ? string.Empty
             : System.Text.Json.JsonSerializer.Serialize(p.RpCustomFields.OrderBy(f => f.Order).Select(f => new { f.Name, f.Value }));
-        return string.Join('', new[] {
+        return string.Join('\u0001',
             p.RpFirstName ?? "", p.RpLastName ?? "", p.RpTitle ?? "",
             p.RpAge ?? "", p.RpRace ?? "", p.RpEthnicity ?? "",
             p.RpHeight ?? "", p.RpBuild ?? "", p.RpResidence ?? "",
             p.RpOccupation ?? "", p.RpAffiliation ?? "", p.RpAlignment ?? "",
             p.RpAdditionalInfo ?? "", p.RpNameColor ?? "",
             p.IsRpNSFW.ToString(), p.RpLevel.ToString(),
-            customJson,
-        });
+            customJson);
     }
 
     private async Task PollServerForRpUpdatesAsync()
@@ -339,10 +338,12 @@ public class EditProfileUi : WindowMediatorSubscriberBase
         if (string.IsNullOrEmpty(_apiController.UID) || !_apiController.IsConnected) return;
         try
         {
+            var charName = await _dalamudUtil.GetPlayerNameAsync().ConfigureAwait(false);
+            var worldId = await _dalamudUtil.GetHomeWorldIdAsync().ConfigureAwait(false);
             var dto = await _apiController.UserGetProfile(new UmbraSync.API.Dto.User.UserDto(new UserData(_apiController.UID))
             {
-                CharacterName = _dalamudUtil.GetPlayerName(),
-                WorldId = _dalamudUtil.GetHomeWorldId(),
+                CharacterName = charName,
+                WorldId = worldId,
             }).ConfigureAwait(false);
 
             List<RpCustomField>? customFields = null;

@@ -41,6 +41,8 @@ public class HousingMonitorService : IHostedService, IMediatorSubscriber
     {
         while (!ct.IsCancellationRequested)
         {
+            if (_dalamudUtil.IsFrameworkUnloading) return;
+
             try
             {
                 var currentLocation = await _dalamudUtil.GetMapDataAsync().ConfigureAwait(false);
@@ -89,8 +91,13 @@ public class HousingMonitorService : IHostedService, IMediatorSubscriber
                     _mediator.Publish(new HousingPositionUpdateMessage(currentLocation.ServerId, currentLocation.TerritoryId, currentLocation.DivisionId, currentLocation.WardId, player.Position));
                 }
             }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
             catch (Exception ex)
             {
+                if (_dalamudUtil.IsFrameworkUnloading) return;
                 _logger.LogError(ex, "Error in HousingMonitorService Loop");
             }
 

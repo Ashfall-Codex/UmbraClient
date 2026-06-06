@@ -19,7 +19,6 @@ public sealed class TestBuildWarningUi : WindowMediatorSubscriberBase
     private readonly MareConfigService _configService;
     private readonly UiSharedService _uiShared;
     private readonly string _versionLabel;
-    private readonly bool _isTestBuild;
 
     public TestBuildWarningUi(ILogger<TestBuildWarningUi> logger, MareMediator mediator,
         MareConfigService configService, UiSharedService uiShared,
@@ -31,11 +30,9 @@ public sealed class TestBuildWarningUi : WindowMediatorSubscriberBase
 
         var version = Assembly.GetExecutingAssembly().GetName().Version ?? new Version(0, 0, 0, 0);
         _versionLabel = version.ToString();
-        _isTestBuild = pluginInterface.IsDev || pluginInterface.IsTesting;
+        bool isTestBuild = pluginInterface.IsDev || pluginInterface.IsTesting;
 
         Flags = ImGuiWindowFlags.NoResize | ImGuiWindowFlags.NoCollapse | ImGuiWindowFlags.NoDocking | ImGuiWindowFlags.AlwaysAutoResize;
-        // Largeur fixe (min.X == max.X), hauteur libre : la fenêtre s'ajuste au contenu et ne
-        // laisse pas d'espace vide sous le bouton.
         SizeConstraints = new()
         {
             MinimumSize = new(440, 0),
@@ -44,7 +41,7 @@ public sealed class TestBuildWarningUi : WindowMediatorSubscriberBase
         ShowCloseButton = false;
         RespectCloseHotkey = false;
 
-        if (_isTestBuild
+        if (isTestBuild
             && !string.Equals(_configService.Current.LastTestBuildWarningVersionSeen, _versionLabel, StringComparison.Ordinal))
         {
             IsOpen = true;

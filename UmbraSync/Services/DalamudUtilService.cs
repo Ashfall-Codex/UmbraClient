@@ -232,6 +232,8 @@ public class DalamudUtilService : IHostedService, IMediatorSubscriber
     {
         if (!_framework.IsInFrameworkUpdateThread) throw new InvalidOperationException("Can only be run on Framework");
     }
+    
+    public bool IsFrameworkUnloading => _framework.IsFrameworkUnloading;
 
     public Dalamud.Game.ClientState.Objects.Types.ICharacter? GetCharacterFromObjectTableByIndex(int index)
     {

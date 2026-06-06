@@ -122,11 +122,7 @@ public sealed class AshfallConnectService : IDisposable
         return new GenerateLinkCodeResult(dto.Code ?? string.Empty, dto.ExpiresAt);
     }
 
-    private sealed class GenerateLinkCodeDto
-    {
-        public string? Code { get; set; }
-        public DateTimeOffset ExpiresAt { get; set; }
-    }
+    private sealed record GenerateLinkCodeDto(string? Code, DateTimeOffset ExpiresAt);
 
     // Pousse la liste actuelle des persos partageant la SecretKey vers Connect.
     public async Task<SyncResult> SyncCharactersAsync(CancellationToken token)
@@ -178,8 +174,8 @@ public sealed class AshfallConnectService : IDisposable
             var server = _serverManager.CurrentServer;
             if (server is null) return new();
 
-            // Les lectures d'état du jeu (nom du joueur, monde) exigent le framework thread ;
-            // cette méthode est appelée depuis des threads async (auto-sync au connect).
+            // Les lectures d'état du jeu — nom du joueur et monde — exigent le framework thread,
+            // car cette méthode est appelée depuis des threads async lors de l'auto-sync au connect.
             var (playerName, playerWorldId) = await _dalamudUtil.RunOnFrameworkThread(
                 () => (_dalamudUtil.GetPlayerName(), _dalamudUtil.GetHomeWorldId())).ConfigureAwait(false);
             if (string.IsNullOrEmpty(playerName) || playerWorldId == 0) return new();
@@ -206,7 +202,7 @@ public sealed class AshfallConnectService : IDisposable
 
     public sealed record CharacterDto(string Name, string World);
     private static readonly System.Text.RegularExpressions.Regex Sha256Pattern =
-        new(@"\b[0-9a-fA-F]{64}\b", System.Text.RegularExpressions.RegexOptions.Compiled);
+        new(@"\b[0-9a-fA-F]{64}\b", System.Text.RegularExpressions.RegexOptions.Compiled, TimeSpan.FromMilliseconds(250));
 
     private static bool ContainsSecretLikePattern(string json)
     {

@@ -318,7 +318,7 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
         ImGuiHelpers.ScaledDummy(cardSpacing / ImGuiHelpers.GlobalScale);
         
         if (_uiSharedService.IconTextButton(Dalamud.Interface.FontAwesomeIcon.ExternalLinkAlt, "Voir le profil enrichi"))
-            OpenEnrichedProfile(profile);
+            OpenEnrichedProfile();
         if (ImGui.IsItemHovered())
             ImGui.SetTooltip("S'ouvre dans votre navigateur web. Le profil doit être en mode \"Public\" sur Connect pour être accessible.");
         ImGuiHelpers.ScaledDummy(cardSpacing / ImGuiHelpers.GlobalScale);
@@ -1033,7 +1033,7 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
         Mediator.Publish(new RemoveWindowMessage(this));
     }
 
-    private void OpenEnrichedProfile(UmbraProfileData profile)
+    private void OpenEnrichedProfile()
     {
         var charName = !string.IsNullOrEmpty(_selectedAltCharName) ? _selectedAltCharName : Pair.PlayerName;
         uint worldId = _selectedAltWorldId is { } w && w != 0 ? w : Pair.WorldId;

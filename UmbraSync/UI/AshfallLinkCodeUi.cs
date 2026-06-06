@@ -16,10 +16,7 @@ namespace UmbraSync.UI;
 public sealed class AshfallLinkCodeUi : WindowMediatorSubscriberBase
 {
     private const string ConnectLinkUrl = "https://connect.ashfall-codex.dev/link";
-    private static readonly Vector4 EmberDeep   = new(0.545f, 0.227f, 0.059f, 1f);
     private static readonly Vector4 Ember       = new(0.831f, 0.384f, 0.165f, 1f);
-    private static readonly Vector4 EmberBright = new(0.941f, 0.565f, 0.259f, 1f);
-    private static readonly Vector4 EmberBorder = new(0.831f, 0.384f, 0.165f, 0.55f);
     private static readonly Vector4 Gold        = new(0.831f, 0.686f, 0.416f, 1f);
 
     private readonly AshfallConnectService _connectService;
@@ -66,7 +63,7 @@ public sealed class AshfallLinkCodeUi : WindowMediatorSubscriberBase
 
     private async Task GenerateAsync()
     {
-        _cts?.Cancel();
+        if (_cts != null) await _cts.CancelAsync().ConfigureAwait(false);
         _cts?.Dispose();
         _cts = new CancellationTokenSource();
         _loading = true;
@@ -84,7 +81,7 @@ public sealed class AshfallLinkCodeUi : WindowMediatorSubscriberBase
                 catch (Exception ex) { _logger?.LogWarning(ex, "Ashfall: polling status failed"); }
             }, _cts.Token);
         }
-        catch (OperationCanceledException) { }
+        catch (OperationCanceledException) { /* annulation attendue (fermeture / régénération) */ }
         catch (Exception ex)
         {
             _error = ex.Message;
@@ -101,10 +98,10 @@ public sealed class AshfallLinkCodeUi : WindowMediatorSubscriberBase
         if (string.IsNullOrEmpty(code)) return;
         try
         {
-            while (!ct.IsCancellationRequested && _code == code && _linkedTo is null)
+            while (!ct.IsCancellationRequested && string.Equals(_code, code, StringComparison.Ordinal) && _linkedTo is null)
             {
                 await Task.Delay(TimeSpan.FromSeconds(3), ct).ConfigureAwait(false);
-                if (ct.IsCancellationRequested || _code != code) return;
+                if (ct.IsCancellationRequested || !string.Equals(_code, code, StringComparison.Ordinal)) return;
 
                 var status = await _connectService.GetLinkCodeStatusAsync(code, ct).ConfigureAwait(false);
                 if (status is null) continue;
@@ -122,7 +119,7 @@ public sealed class AshfallLinkCodeUi : WindowMediatorSubscriberBase
                 }
             }
         }
-        catch (OperationCanceledException) { }
+        catch (OperationCanceledException) { /* annulation attendue (fermeture / régénération) */ }
     }
 
     protected override void DrawInternal()
