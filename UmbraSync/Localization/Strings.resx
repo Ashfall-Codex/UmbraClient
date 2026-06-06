@@ -6183,4 +6183,130 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
   <data name="Settings.Performance.PreciseOcclusion.RestartHint" xml:space="preserve">
     <value>The change takes effect the next time the plugin is restarted.</value>
   </data>
+  <data name="HousingScenario.Title" xml:space="preserve">
+    <value>NPC scenario synchronization</value>
+  </data>
+  <data name="HousingScenario.ArrNotDetected" xml:space="preserve">
+    <value>A Realm Repopulated plugin not detected. Install it and restart the plugin to enable this section.</value>
+  </data>
+  <data name="HousingScenario.ArrDetected" xml:space="preserve">
+    <value>A Realm Repopulated detected</value>
+  </data>
+  <data name="HousingScenario.OperationInProgress" xml:space="preserve">
+    <value>Scenario operation in progress...</value>
+  </data>
+  <data name="HousingScenario.NotInHousing" xml:space="preserve">
+    <value>You are not in a housing area. Enter yours to publish a scenario.</value>
+  </data>
+  <data name="HousingScenario.CurrentLocation" xml:space="preserve">
+    <value>Current location: S{0} W{1} H{2}</value>
+  </data>
+  <data name="HousingScenario.AppliedNotice" xml:space="preserve">
+    <value>A shared scenario is currently applied.</value>
+  </data>
+  <data name="HousingScenario.RemoveManually" xml:space="preserve">
+    <value>Remove manually</value>
+  </data>
+  <data name="HousingScenario.OwnSharesTitle" xml:space="preserve">
+    <value>My shared scenarios</value>
+  </data>
+  <data name="HousingScenario.Refresh" xml:space="preserve">
+    <value>Refresh</value>
+  </data>
+  <data name="HousingScenario.ShowAll" xml:space="preserve">
+    <value>Show all local scenarios (no location filter)</value>
+  </data>
+  <data name="HousingScenario.ShowAllHelp" xml:space="preserve">
+    <value>By default, only scenarios whose Location matches your current housing are shown. Uncheck to see every scenario in the ARR folder.</value>
+  </data>
+  <data name="HousingScenario.NoneFound" xml:space="preserve">
+    <value>No scenario found in your ARR folder.</value>
+  </data>
+  <data name="HousingScenario.NoneMatching" xml:space="preserve">
+    <value>No ARR scenario matches your current location.</value>
+  </data>
+  <data name="HousingScenario.DescriptionHint" xml:space="preserve">
+    <value>Description (visible to pairs)</value>
+  </data>
+  <data name="HousingScenario.ShareToAll" xml:space="preserve">
+    <value>Share with all my pairs and syncshells</value>
+  </data>
+  <data name="HousingScenario.UidHint" xml:space="preserve">
+    <value>UID or vanity</value>
+  </data>
+  <data name="HousingScenario.UidToAdd" xml:space="preserve">
+    <value>Synced UID to add</value>
+  </data>
+  <data name="HousingScenario.SyncshellHint" xml:space="preserve">
+    <value>GID or alias</value>
+  </data>
+  <data name="HousingScenario.SyncshellToAdd" xml:space="preserve">
+    <value>Syncshell to add</value>
+  </data>
+  <data name="HousingScenario.Publish" xml:space="preserve">
+    <value>Publish scenario</value>
+  </data>
+  <data name="HousingScenario.NoOwnShares" xml:space="preserve">
+    <value>No shared scenario published.</value>
+  </data>
+  <data name="HousingScenario.ColDescription" xml:space="preserve">
+    <value>Description</value>
+  </data>
+  <data name="HousingScenario.ColLocation" xml:space="preserve">
+    <value>Location</value>
+  </data>
+  <data name="HousingScenario.ColCreated" xml:space="preserve">
+    <value>Created</value>
+  </data>
+  <data name="HousingScenario.ColAccess" xml:space="preserve">
+    <value>Access</value>
+  </data>
+  <data name="HousingScenario.ColActions" xml:space="preserve">
+    <value>Actions</value>
+  </data>
+  <data name="HousingScenario.AccessSummary" xml:space="preserve">
+    <value>UIDs: {0}, Syncshells: {1}</value>
+  </data>
+  <data name="HousingScenario.AllowedUids" xml:space="preserve">
+    <value>Allowed UIDs:</value>
+  </data>
+  <data name="HousingScenario.NoAllowedUid" xml:space="preserve">
+    <value>No allowed UID</value>
+  </data>
+  <data name="HousingScenario.AllowedSyncshells" xml:space="preserve">
+    <value>Allowed syncshells:</value>
+  </data>
+  <data name="HousingScenario.NoAllowedSyncshell" xml:space="preserve">
+    <value>No allowed syncshell</value>
+  </data>
+  <data name="HousingScenario.Edit" xml:space="preserve">
+    <value>Edit</value>
+  </data>
+  <data name="HousingScenario.Delete" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="HousingScenario.Save" xml:space="preserve">
+    <value>Save</value>
+  </data>
+  <data name="HousingScenario.SelectPair" xml:space="preserve">
+    <value>Select a synced pair...</value>
+  </data>
+  <data name="HousingScenario.Remove" xml:space="preserve">
+    <value>Remove</value>
+  </data>
+  <data name="HousingScenario.Notification.Title" xml:space="preserve">
+    <value>NPC scenario</value>
+  </data>
+  <data name="HousingScenario.Notification.Applied" xml:space="preserve">
+    <value>A shared NPC scenario is applied in this housing.</value>
+  </data>
+  <data name="HousingScenario.Notification.AppliedWithDescription" xml:space="preserve">
+    <value>A shared NPC scenario is applied in this housing: "{0}"</value>
+  </data>
+  <data name="HousingScenario.Notification.OwnerReminder" xml:space="preserve">
+    <value>Reminder: your shared NPC scenario is active in this housing.</value>
+  </data>
+  <data name="HousingScenario.Notification.OwnerReminderWithDescription" xml:space="preserve">
+    <value>Reminder: your shared NPC scenario "{0}" is active in this housing.</value>
+  </data>
 </root>

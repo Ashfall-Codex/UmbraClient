@@ -106,6 +106,8 @@ public class MareConfig : IMareConfiguration
     public bool DefaultDisableAnimations { get; set; }
     public bool DefaultDisableVfx { get; set; }
     public bool DefaultDisableHousingMods { get; set; }
+    public bool DefaultDisableHousingScenarios { get; set; }
+    public string? ArrScenariosPathOverride { get; set; }
     public Dictionary<string, SyncOverrideEntry> PairSyncOverrides { get; set; } = new(StringComparer.Ordinal);
     public Dictionary<string, SyncOverrideEntry> GroupSyncOverrides { get; set; } = new(StringComparer.Ordinal);
     public bool EnableAutoDetectDiscovery { get; set; } = true;

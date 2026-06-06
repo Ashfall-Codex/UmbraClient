@@ -1,5 +1,6 @@
 using Dalamud.Plugin;
 using Microsoft.Extensions.Logging;
+using UmbraSync.MareConfiguration;
 
 namespace UmbraSync.Services.Housing;
 
@@ -10,20 +11,33 @@ public sealed class ArrPathResolver
 
     private readonly ILogger<ArrPathResolver> _logger;
     private readonly IDalamudPluginInterface _pluginInterface;
+    private readonly MareConfigService _configService;
     private bool _missingLogged;
 
-    public ArrPathResolver(ILogger<ArrPathResolver> logger, IDalamudPluginInterface pluginInterface)
+    public ArrPathResolver(ILogger<ArrPathResolver> logger, IDalamudPluginInterface pluginInterface,
+        MareConfigService configService)
     {
         _logger = logger;
         _pluginInterface = pluginInterface;
+        _configService = configService;
     }
-
-    /// <summary>
-    /// Retourne le chemin absolu vers le dossier Scenarios d'ARR, ou null si introuvable.
-    /// Un log warn n'est émis qu'une seule fois par session si le dossier est manquant.
-    /// </summary>
     public string? TryGetScenariosPath()
     {
+        // Override manuel : prioritaire si défini et valide, sinon retour à la détection auto.
+        var overridePath = _configService.Current.ArrScenariosPathOverride;
+        if (!string.IsNullOrWhiteSpace(overridePath))
+        {
+            if (Directory.Exists(overridePath))
+            {
+                return overridePath;
+            }
+            if (!_missingLogged)
+            {
+                _logger.LogWarning("ArrScenariosPathOverride configuré mais introuvable : {Path}. Retour à la détection automatique.", overridePath);
+                _missingLogged = true;
+            }
+        }
+
         DirectoryInfo? pluginConfigsRoot = _pluginInterface.ConfigDirectory.Parent;
         if (pluginConfigsRoot == null)
         {

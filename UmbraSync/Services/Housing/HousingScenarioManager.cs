@@ -5,6 +5,7 @@ using System.Text;
 using System.Text.Json;
 using UmbraSync.API.Dto.CharaData;
 using UmbraSync.API.Dto.HousingScenario;
+using UmbraSync.MareConfiguration;
 using UmbraSync.Services.Mediator;
 using UmbraSync.WebAPI.SignalR;
 
@@ -18,28 +19,38 @@ public sealed class HousingScenarioManager : IDisposable
     private const byte PayloadVersionV1 = 0x01;
     private const string TempFilePrefix = "UmbraTemp_";
 
+    private const string DisabledSuffix = ".umbra-disabled";
+
     private readonly ILogger<HousingScenarioManager> _logger;
     private readonly ApiController _apiController;
     private readonly MareMediator _mediator;
     private readonly ArrPathResolver _arrPathResolver;
     private readonly HousingScenarioStateService _stateService;
+    private readonly ArrScenarioFileService _scenarioFileService;
+    private readonly MareConfigService _configService;
     private readonly SemaphoreSlim _operationSemaphore = new(1, 1);
     private readonly List<HousingScenarioEntryDto> _ownShares = new();
     private Task? _currentTask;
     private CancellationTokenSource? _cleanupDelayCts;
+    private List<RenamedLocalScenario> _renamedLocals = [];
+    private Guid? _lastOwnerReminderShareId;
 
     public HousingScenarioManager(
         ILogger<HousingScenarioManager> logger,
         ApiController apiController,
         MareMediator mediator,
         ArrPathResolver arrPathResolver,
-        HousingScenarioStateService stateService)
+        HousingScenarioStateService stateService,
+        ArrScenarioFileService scenarioFileService,
+        MareConfigService configService)
     {
         _logger = logger;
         _apiController = apiController;
         _mediator = mediator;
         _arrPathResolver = arrPathResolver;
         _stateService = stateService;
+        _scenarioFileService = scenarioFileService;
+        _configService = configService;
     }
 
     public IReadOnlyList<HousingScenarioEntryDto> OwnShares => _ownShares;
@@ -98,7 +109,7 @@ public sealed class HousingScenarioManager : IDisposable
             var shareId = Guid.NewGuid();
             byte[] salt = RandomNumberGenerator.GetBytes(16);
             byte[] nonce = RandomNumberGenerator.GetBytes(12);
-            byte[] key = DeriveKey(shareId, salt);
+            byte[] key = ShareCryptoHelper.DeriveKey(shareId, salt);
             byte[] cipher = new byte[dataBytes.Length];
             byte[] tag = new byte[16];
 
@@ -140,6 +151,13 @@ public sealed class HousingScenarioManager : IDisposable
 
         return RunOperation(async () =>
         {
+            // Désactivation globale : l'utilisateur ne veut aucun scénario partagé.
+            if (_configService.Current.DefaultDisableHousingScenarios)
+            {
+                _logger.LogDebug("Scénarios housing désactivés globalement, apply skip");
+                return;
+            }
+
             string? scenariosPath = _arrPathResolver.TryGetScenariosPath();
             if (scenariosPath == null)
             {
@@ -148,6 +166,32 @@ public sealed class HousingScenarioManager : IDisposable
             }
 
             var shares = await _apiController.HousingScenarioGetForLocation(location).ConfigureAwait(false);
+
+            // Jamais d'auto-application : l'owner possède déjà le scénario original en local,
+            // re-déposer la copie partagée dans ARR créerait un doublon (deux scénarios listés).
+            // On lui rappelle néanmoins qu'un de ses scénarios est publié ici (une fois par visite).
+            var ownShare = shares.Find(s => s.IsOwner);
+            if (ownShare != null && _lastOwnerReminderShareId != ownShare.Id)
+            {
+                _lastOwnerReminderShareId = ownShare.Id;
+                var reminderBody = string.IsNullOrWhiteSpace(ownShare.Description)
+                    ? Localization.Loc.Get("HousingScenario.Notification.OwnerReminder")
+                    : string.Format(System.Globalization.CultureInfo.CurrentCulture,
+                        Localization.Loc.Get("HousingScenario.Notification.OwnerReminderWithDescription"), ownShare.Description);
+                _mediator.Publish(new NotificationMessage(
+                    Localization.Loc.Get("HousingScenario.Notification.Title"),
+                    reminderBody,
+                    MareConfiguration.Models.NotificationType.Info,
+                    TimeSpan.FromSeconds(6)));
+            }
+            shares.RemoveAll(s => s.IsOwner);
+
+            // Override per-pair : on ignore les shares dont l'owner a été explicitement désactivé.
+            var pairOverrides = _configService.Current.PairSyncOverrides;
+            shares.RemoveAll(s => !string.IsNullOrEmpty(s.OwnerUid)
+                && pairOverrides.TryGetValue(s.OwnerUid, out var ov)
+                && ov.DisableHousingScenarios == true);
+
             if (shares.Count == 0)
             {
                 _logger.LogDebug("Aucun scénario partagé pour cette location");
@@ -174,12 +218,13 @@ public sealed class HousingScenarioManager : IDisposable
             }
 
             AppliedShareOwnerUid = share.OwnerUid;
-            await ApplyAsync(share.Id, scenariosPath).ConfigureAwait(false);
+            await ApplyAsync(share, scenariosPath, location).ConfigureAwait(false);
         });
     }
 
-    private async Task ApplyAsync(Guid shareId, string scenariosPath)
+    private async Task ApplyAsync(HousingScenarioEntryDto share, string scenariosPath, LocationInfo location)
     {
+        Guid shareId = share.Id;
         var payload = await _apiController.HousingScenarioDownload(shareId).ConfigureAwait(false);
         if (payload == null)
         {
@@ -188,7 +233,7 @@ public sealed class HousingScenarioManager : IDisposable
         }
 
         // Déchiffrement
-        byte[] key = DeriveKey(payload.ShareId, payload.Salt);
+        byte[] key = ShareCryptoHelper.DeriveKey(payload.ShareId, payload.Salt);
         byte[] plaintext = new byte[payload.CipherData.Length];
         try
         {
@@ -223,6 +268,26 @@ public sealed class HousingScenarioManager : IDisposable
             return;
         }
 
+        // Owner prioritaire (décision produit) : les scénarios ARR locaux dont la Location matche
+        // strictement celle du share sont désactivés le temps de la visite (rename .umbra-disabled),
+        // sinon ARR pourrait charger les deux de façon imprévisible. Le state file est écrit AVANT
+        // le rename pour garantir la restauration après un crash.
+        var conflicts = DetectLocalConflicts(location);
+        if (conflicts.Count > 0)
+        {
+            _stateService.Save(new HousingScenarioStateSnapshot
+            {
+                AppliedShareId = shareId,
+                AppliedAtUtc = DateTime.UtcNow,
+                RenamedLocals = conflicts,
+            });
+            _renamedLocals = RenameConflicts(conflicts);
+        }
+        else
+        {
+            _renamedLocals = [];
+        }
+
         // File-drop : <scenariosPath>/UmbraTemp_{shareId:N}.json
         string tempFileName = $"{TempFilePrefix}{shareId:N}.json";
         string tempPath = Path.Combine(scenariosPath, tempFileName);
@@ -234,6 +299,9 @@ public sealed class HousingScenarioManager : IDisposable
         {
             _logger.LogWarning(ex, "Écriture du temp file scénario échouée : {Path}", tempPath);
             LastError = "Écriture du fichier scénario temporaire échouée.";
+            RestoreRenamedLocals(_renamedLocals);
+            _renamedLocals = [];
+            _stateService.Clear();
             return;
         }
 
@@ -243,12 +311,25 @@ public sealed class HousingScenarioManager : IDisposable
             ActiveTempFile = tempFileName,
             AppliedShareId = shareId,
             AppliedAtUtc = DateTime.UtcNow,
+            RenamedLocals = _renamedLocals,
         });
 
         IsApplied = true;
         AppliedShareId = shareId;
         LastSuccess = "Scénario appliqué.";
         _logger.LogInformation("Scénario {ShareId} appliqué (fichier {File})", shareId, tempFileName);
+
+        // Informe l'utilisateur (toast/chat selon ses préférences de notification).
+        var notifBody = string.IsNullOrWhiteSpace(share.Description)
+            ? Localization.Loc.Get("HousingScenario.Notification.Applied")
+            : string.Format(System.Globalization.CultureInfo.CurrentCulture,
+                Localization.Loc.Get("HousingScenario.Notification.AppliedWithDescription"), share.Description);
+        _mediator.Publish(new NotificationMessage(
+            Localization.Loc.Get("HousingScenario.Notification.Title"),
+            notifBody,
+            MareConfiguration.Models.NotificationType.Info,
+            TimeSpan.FromSeconds(6)));
+        _mediator.Publish(new HousingScenarioAppliedMessage(shareId, location, share.OwnerUid));
 
         // Le FSWatcher d'ARR va le pickup automatiquement via AutoLoadScenarios
     }
@@ -258,6 +339,9 @@ public sealed class HousingScenarioManager : IDisposable
     /// </summary>
     public void ScheduleDelayedCleanup()
     {
+        // Sortie du housing : le rappel owner pourra se ré-afficher à la prochaine visite.
+        _lastOwnerReminderShareId = null;
+
         if (!IsApplied) return;
 
         CancelDelayedCleanup();
@@ -320,6 +404,13 @@ public sealed class HousingScenarioManager : IDisposable
         {
             _logger.LogWarning(ex, "Échec de la suppression du temp file scénario");
         }
+
+        // Restaure les scénarios locaux désactivés. Le state file est la source de vérité
+        // (couvre le cas où la mémoire a été perdue entre l'apply et le remove).
+        var persistedRenames = _stateService.Load()?.RenamedLocals;
+        var renames = persistedRenames is { Count: > 0 } ? persistedRenames : _renamedLocals;
+        RestoreRenamedLocals(renames, scenariosPath);
+        _renamedLocals = [];
 
         _stateService.Clear();
 
@@ -415,6 +506,12 @@ public sealed class HousingScenarioManager : IDisposable
                     _logger.LogWarning("Nom de temp file scénario suspect, ignoré au cleanup : {File}", snapshot.ActiveTempFile);
                 }
             }
+
+            // Restaure les scénarios locaux désactivés lors d'une session précédente (crash/kill).
+            if (scenariosPath != null && snapshot.RenamedLocals is { Count: > 0 })
+            {
+                RestoreRenamedLocals(snapshot.RenamedLocals, scenariosPath);
+            }
         }
         catch (Exception ex)
         {
@@ -447,6 +544,91 @@ public sealed class HousingScenarioManager : IDisposable
         }
     }
 
+    /// <summary>
+    /// Détecte les scénarios ARR locaux en conflit certain avec la location visitée.
+    /// Matching strict : Territory, Ward et Plot doivent être connus ET égaux — un scénario dont
+    /// la location est partiellement non-parsable n'est jamais touché (on ne désactive que ce qui
+    /// est sûr d'être en conflit, jamais un scénario innocent).
+    /// </summary>
+    private List<RenamedLocalScenario> DetectLocalConflicts(LocationInfo location)
+    {
+        var conflicts = new List<RenamedLocalScenario>();
+        foreach (var info in _scenarioFileService.ListLocalScenarios())
+        {
+            if (!info.Territory.HasValue || info.Territory.Value != location.TerritoryId) continue;
+            if (!info.Ward.HasValue || info.Ward.Value != location.WardId) continue;
+            if (!info.Plot.HasValue || info.Plot.Value != location.HouseId) continue;
+            conflicts.Add(new RenamedLocalScenario
+            {
+                OriginalPath = info.FilePath,
+                CurrentPath = info.FilePath + DisabledSuffix,
+            });
+        }
+        return conflicts;
+    }
+
+    /// <summary>Renomme les conflits détectés ; retourne les renames effectivement réalisés.</summary>
+    private List<RenamedLocalScenario> RenameConflicts(List<RenamedLocalScenario> conflicts)
+    {
+        var done = new List<RenamedLocalScenario>();
+        foreach (var entry in conflicts)
+        {
+            try
+            {
+                if (!File.Exists(entry.OriginalPath)) continue;
+                File.Move(entry.OriginalPath, entry.CurrentPath, overwrite: false);
+                done.Add(entry);
+                _logger.LogInformation("Scénario local en conflit désactivé le temps de la visite : {File}", Path.GetFileName(entry.OriginalPath));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Rename du scénario local en conflit échoué : {Path}", entry.OriginalPath);
+            }
+        }
+        return done;
+    }
+
+    /// <summary>
+    /// Restaure les scénarios locaux renommés (.umbra-disabled → .json). Tolérant : un fichier
+    /// déjà restauré ou recréé par l'utilisateur entre-temps n'est jamais écrasé.
+    /// </summary>
+    private void RestoreRenamedLocals(IReadOnlyList<RenamedLocalScenario> renames, string? scenariosPath = null)
+    {
+        foreach (var entry in renames)
+        {
+            try
+            {
+                // Garde anti-traversal : si on connaît le dossier scenarios (cleanup au startup,
+                // state file potentiellement altéré), on ne touche qu'à des fichiers dedans.
+                if (scenariosPath != null
+                    && (!IsInsideDirectory(entry.CurrentPath, scenariosPath) || !IsInsideDirectory(entry.OriginalPath, scenariosPath)))
+                {
+                    _logger.LogWarning("Chemin de restauration hors dossier scenarios, ignoré : {Path}", entry.CurrentPath);
+                    continue;
+                }
+                if (!File.Exists(entry.CurrentPath)) continue;
+                if (File.Exists(entry.OriginalPath))
+                {
+                    _logger.LogWarning("Restauration ignorée, un fichier existe déjà : {Path}", entry.OriginalPath);
+                    continue;
+                }
+                File.Move(entry.CurrentPath, entry.OriginalPath);
+                _logger.LogInformation("Scénario local restauré : {File}", Path.GetFileName(entry.OriginalPath));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Restauration du scénario local échouée : {Path}", entry.CurrentPath);
+            }
+        }
+    }
+
+    private static bool IsInsideDirectory(string path, string directory)
+    {
+        var fullPath = Path.GetFullPath(path);
+        var fullDir = Path.GetFullPath(directory).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        return fullPath.StartsWith(fullDir, StringComparison.OrdinalIgnoreCase);
+    }
+
     private static int TryDetectArrVersion(string scenarioJson)
     {
         try
@@ -464,14 +646,6 @@ public sealed class HousingScenarioManager : IDisposable
         return -1;
     }
 
-    private static byte[] DeriveKey(Guid shareId, byte[] salt)
-    {
-        byte[] shareBytes = shareId.ToByteArray();
-        byte[] material = new byte[shareBytes.Length + salt.Length];
-        Buffer.BlockCopy(shareBytes, 0, material, 0, shareBytes.Length);
-        Buffer.BlockCopy(salt, 0, material, shareBytes.Length, salt.Length);
-        return SHA256.HashData(material);
-    }
 
     public void Dispose()
     {

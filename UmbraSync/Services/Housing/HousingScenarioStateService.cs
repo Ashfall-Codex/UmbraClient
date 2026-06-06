@@ -4,15 +4,18 @@ using System.Text.Json;
 
 namespace UmbraSync.Services.Housing;
 
-/// <summary>
-/// État persisté du scénario actuellement appliqué chez le visiteur.
-/// Lu au startup pour permettre une récupération crash-safe (suppression du temp file orphelin).
-/// </summary>
+public sealed class RenamedLocalScenario
+{
+    public string OriginalPath { get; set; } = string.Empty;
+    public string CurrentPath { get; set; } = string.Empty;
+}
+
 public sealed class HousingScenarioStateSnapshot
 {
     public string? ActiveTempFile { get; set; }
     public Guid? AppliedShareId { get; set; }
     public DateTime? AppliedAtUtc { get; set; }
+    public List<RenamedLocalScenario> RenamedLocals { get; set; } = [];
 }
 
 public sealed class HousingScenarioStateService

@@ -152,7 +152,7 @@ public sealed class HousingShareManager : IDisposable
             var shareId = Guid.NewGuid();
             byte[] salt = RandomNumberGenerator.GetBytes(16);
             byte[] nonce = RandomNumberGenerator.GetBytes(12);
-            byte[] key = DeriveKey(shareId, salt);
+            byte[] key = ShareCryptoHelper.DeriveKey(shareId, salt);
 
             byte[] cipher = new byte[dataBytes.Length];
             byte[] tag = new byte[16];
@@ -337,7 +337,7 @@ public sealed class HousingShareManager : IDisposable
 
         ProgressPercent = 0.10f;
 
-        byte[] key = DeriveKey(payload.ShareId, payload.Salt);
+        byte[] key = ShareCryptoHelper.DeriveKey(payload.ShareId, payload.Salt);
         byte[] plaintext = new byte[payload.CipherData.Length];
         try
         {
@@ -883,12 +883,4 @@ public sealed class HousingShareManager : IDisposable
         return keys.Count;
     }
 
-    private static byte[] DeriveKey(Guid shareId, byte[] salt)
-    {
-        byte[] shareBytes = shareId.ToByteArray();
-        byte[] material = new byte[shareBytes.Length + salt.Length];
-        Buffer.BlockCopy(shareBytes, 0, material, 0, shareBytes.Length);
-        Buffer.BlockCopy(salt, 0, material, shareBytes.Length, salt.Length);
-        return SHA256.HashData(material);
-    }
 }

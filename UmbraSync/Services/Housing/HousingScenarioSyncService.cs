@@ -16,6 +16,7 @@ public sealed class HousingScenarioSyncService : IHostedService, IMediatorSubscr
     private readonly MareMediator _mediator;
     private readonly ArrPathResolver _arrPathResolver;
     private readonly HousingScenarioManager _manager;
+    private LocationInfo? _currentPlotLocation;
 
     public HousingScenarioSyncService(
         ILogger<HousingScenarioSyncService> logger,
@@ -70,18 +71,43 @@ public sealed class HousingScenarioSyncService : IHostedService, IMediatorSubscr
         _logger.LogDebug("Scenario sync : entered housing plot {Server}:{Territory}:{Ward}:{House}",
             msg.LocationInfo.ServerId, msg.LocationInfo.TerritoryId, msg.LocationInfo.WardId, msg.LocationInfo.HouseId);
 
+        _currentPlotLocation = msg.LocationInfo;
         _ = TryApplyScenarioAsync(msg.LocationInfo);
     }
 
     private void OnHousingPlotLeft()
     {
         _logger.LogDebug("Scenario sync : left housing plot");
+        _currentPlotLocation = null;
         _manager.ScheduleDelayedCleanup();
     }
 
     private void OnConnected()
     {
-        _logger.LogDebug("Scenario sync : connected");
+        var location = _currentPlotLocation;
+        if (location == null)
+        {
+            _logger.LogDebug("Scenario sync : connected (hors housing, rien à faire)");
+            return;
+        }
+
+        // Anti-burst (règle post-mortem 2026-05-05) : jitter 2-8s avant le premier RPC pour
+        // étaler le burst de requêtes des services abonnés à ConnectedMessage au lieu de tout
+        // concentrer sur la première seconde de la connexion.
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(Random.Shared.Next(2000, 8000)).ConfigureAwait(false);
+                var current = _currentPlotLocation;
+                if (current == null) return; // housing quitté pendant le jitter
+                await _manager.CheckAndApplyForLocationAsync(current.Value).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Scenario sync au connect échoué");
+            }
+        });
     }
 
     private async Task TryApplyScenarioAsync(LocationInfo location)
