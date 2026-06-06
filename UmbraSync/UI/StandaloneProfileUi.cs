@@ -1038,6 +1038,17 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
         var charName = !string.IsNullOrEmpty(_selectedAltCharName) ? _selectedAltCharName : Pair.PlayerName;
         uint worldId = _selectedAltWorldId is { } w && w != 0 ? w : Pair.WorldId;
 
+        // Paire hors zone : PlayerName/WorldId ne sont pas connus localement. On retombe sur
+        // le premier personnage rencontré (la même source que le sélecteur d'alts de la fiche).
+        if (string.IsNullOrEmpty(charName) || worldId == 0)
+        {
+            var encountered = _umbraProfileManager.GetEncounteredAlts(Pair.UserData.UID);
+            if (encountered.Count > 0)
+            {
+                (charName, worldId) = encountered[0];
+            }
+        }
+
         if (string.IsNullOrEmpty(charName) || worldId == 0)
         {
             Mediator.Publish(new NotificationMessage("Profil enrichi",

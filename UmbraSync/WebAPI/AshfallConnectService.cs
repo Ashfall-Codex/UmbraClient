@@ -96,7 +96,7 @@ public sealed class AshfallConnectService : IDisposable
             .TrimEnd('/');
         var uri = new Uri($"{baseUrl}/main/connect/generate-link-code");
         
-        var characters = CollectCharactersForCurrentKey();
+        var characters = await CollectCharactersForCurrentKeyAsync().ConfigureAwait(false);
         var payload = new { characters };
         var serialized = System.Text.Json.JsonSerializer.Serialize(payload);
         if (ContainsSecretLikePattern(serialized))
@@ -140,7 +140,7 @@ public sealed class AshfallConnectService : IDisposable
             .TrimEnd('/');
         var uri = new Uri($"{baseUrl}/main/connect/sync-characters");
 
-        var characters = CollectCharactersForCurrentKey();
+        var characters = await CollectCharactersForCurrentKeyAsync().ConfigureAwait(false);
         var payload = new { characters };
         var serialized = System.Text.Json.JsonSerializer.Serialize(payload);
         if (ContainsSecretLikePattern(serialized))
@@ -171,15 +171,17 @@ public sealed class AshfallConnectService : IDisposable
 
     public enum SyncResult { Synced, NotLinked, Failed }
 
-    private List<CharacterDto> CollectCharactersForCurrentKey()
+    private async Task<List<CharacterDto>> CollectCharactersForCurrentKeyAsync()
     {
         try
         {
             var server = _serverManager.CurrentServer;
             if (server is null) return new();
 
-            var playerName = _dalamudUtil.GetPlayerName();
-            var playerWorldId = _dalamudUtil.GetHomeWorldId();
+            // Les lectures d'état du jeu (nom du joueur, monde) exigent le framework thread ;
+            // cette méthode est appelée depuis des threads async (auto-sync au connect).
+            var (playerName, playerWorldId) = await _dalamudUtil.RunOnFrameworkThread(
+                () => (_dalamudUtil.GetPlayerName(), _dalamudUtil.GetHomeWorldId())).ConfigureAwait(false);
             if (string.IsNullOrEmpty(playerName) || playerWorldId == 0) return new();
 
             var currentAuth = server.Authentications.FirstOrDefault(a =>
