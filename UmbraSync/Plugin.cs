@@ -266,53 +266,6 @@ public sealed class Plugin : IDalamudPlugin
             collection.AddScoped<GuiHookService>();
             collection.AddScoped<ChatTypingDetectionService>();
             collection.AddSingleton<PictomancyService>();
-            collection.AddSingleton<Ashfall.Engine.OverlayEngine>(sp =>
-            {
-                var log = sp.GetRequiredService<ILogger<Ashfall.Engine.OverlayEngine>>();
-                var cfg = sp.GetRequiredService<MareConfigService>();
-
-                // Le GPU est interrogeable ici (device D3D11 du jeu présent). On prime toujours
-                // le détecteur, puis on applique les init dépendantes du matériel.
-                Ashfall.Engine.Platform.PlatformDetector.Prime();
-
-                // Auto-init à la première exécution : activé par défaut sur Windows natif, sinon laissé off.
-                if (!cfg.Current.OcclusionPreferenceInitialized)
-                {
-                    cfg.Current.UseHighPrecisionOcclusion = Ashfall.Engine.Platform.PlatformDetector.IsNativeDirectX;
-                    cfg.Current.OcclusionPreferenceInitialized = true;
-                    cfg.Save();
-                }
-
-                // Réglages conservateurs one-shot pour les cartes AMD (Windows natif) : le driver
-                // amdxx64.dll plante sous forte pression D3D11. On abaisse une seule fois les réglages
-                // GPU-sensibles, sans jamais écraser un utilisateur déjà plus prudent ni re-forcer
-                // s'il les a remontés ensuite. Voir PlatformDetector.IsAmd.
-                if (!cfg.Current.AmdConservativeDefaultsApplied && Ashfall.Engine.Platform.PlatformDetector.IsAmd)
-                {
-                    bool limiterChanged = false;
-                    if (cfg.Current.UseHighPrecisionOcclusion)
-                        cfg.Current.UseHighPrecisionOcclusion = false;
-                    if (cfg.Current.MaxConcurrentPairApplications > 2)
-                    {
-                        cfg.Current.MaxConcurrentPairApplications = 2;
-                        limiterChanged = true;
-                    }
-                    if (cfg.Current.MinRedrawIntervalMs < 250)
-                        cfg.Current.MinRedrawIntervalMs = 250;
-                    cfg.Current.AmdConservativeDefaultsApplied = true;
-                    cfg.Save();
-                    log.LogInformation("Carte AMD détectée : application des réglages GPU conservateurs (occlusion raycast, 2 applications simultanées max, redraws espacés de 250ms).");
-                    if (limiterChanged)
-                        sp.GetRequiredService<MareMediator>().Publish(new PairProcessingLimitChangedMessage());
-                }
-
-                bool? forceDepth = cfg.Current.UseHighPrecisionOcclusion ? true : null;
-                return Ashfall.Engine.OverlayEngine.CreateDefault(
-                    preferHighPrecision: true,
-                    forceDepthBuffer: forceDepth,
-                    logInfo: m => log.LogInformation("{Msg}", m),
-                    logWarn: (m, ex) => log.LogWarning(ex, "{Msg}", m));
-            });
             collection.AddHostedService(p => p.GetRequiredService<PluginWatcherService>());
             collection.AddHostedService(p => p.GetRequiredService<ConfigurationSaveService>());
             collection.AddHostedService(p => p.GetRequiredService<MareMediator>());

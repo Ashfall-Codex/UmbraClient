@@ -2469,33 +2469,6 @@ public class SettingsUi : WindowMediatorSubscriberBase
             ImGui.TextUnformatted($"{totalVramBytes / 1024.0 / 1024.0 / 1024.0:0.00} GiB");
 
         ImGui.Separator();
-        _uiShared.BigText(Loc.Get("Settings.Performance.OverlayRendering"));
-
-        bool isDxmt = Ashfall.Engine.Platform.PlatformDetector.IsDXMT;
-        bool isAmd = Ashfall.Engine.Platform.PlatformDetector.IsAmd;
-        bool occlusionLocked = isDxmt || isAmd;
-
-        using (ImRaii.Disabled(occlusionLocked))
-        {
-            bool useHighPrecisionOcclusion = _configService.Current.UseHighPrecisionOcclusion && !occlusionLocked;
-            if (ImGui.Checkbox(Loc.Get("Settings.Performance.PreciseOcclusion"), ref useHighPrecisionOcclusion))
-            {
-                _configService.Current.UseHighPrecisionOcclusion = useHighPrecisionOcclusion;
-                _configService.Save();
-            }
-        }
-        _uiShared.DrawHelpText(Loc.Get("Settings.Performance.PreciseOcclusion.Tooltip")
-            + UiSharedService.TooltipSeparator
-            + Loc.Get("Settings.Performance.PreciseOcclusion.Enabled") + Environment.NewLine
-            + Loc.Get("Settings.Performance.PreciseOcclusion.Disabled")
-            + UiSharedService.TooltipSeparator
-            + (isDxmt
-                ? Loc.Get("Settings.Performance.PreciseOcclusion.DxmtWarning")
-                : isAmd
-                    ? Loc.Get("Settings.Performance.PreciseOcclusion.AmdWarning")
-                    : Loc.Get("Settings.Performance.PreciseOcclusion.RestartHint")));
-
-        ImGui.Separator();
         _uiShared.BigText("Individual Limits");
         bool autoPause = _playerPerformanceConfigService.Current.AutoPausePlayersExceedingThresholds;
         if (ImGui.Checkbox("Automatically block players exceeding thresholds", ref autoPause))
