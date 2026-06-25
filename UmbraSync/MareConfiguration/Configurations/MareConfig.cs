@@ -25,8 +25,6 @@ public class MareConfig : IMareConfiguration
     public DtrEntry.Colors DtrColorsInSlot { get; set; } = new(Glow: 0x1EA83Cu);
     public DtrEntry.Colors DtrColorsLeavingSlot { get; set; } = new(Glow: 0x004BFFu);
     public bool UseNameColors { get; set; }
-    public bool UseHighPrecisionOcclusion { get; set; }
-    public bool OcclusionPreferenceInitialized { get; set; }
     public DtrEntry.Colors NameColors { get; set; } = new(Foreground: 0x67EBF5u, Glow: 0x00303Cu);
     public DtrEntry.Colors BlockedNameColors { get; set; } = new(Foreground: 0x8AADC7, Glow: 0x000080u);
     public bool UseRpNamesOnNameplates { get; set; }
@@ -77,7 +75,6 @@ public class MareConfig : IMareConfiguration
     public int MaxConcurrentPairApplications { get; set; } = 3;
     public bool EnableRedrawCoordination { get; set; } = true;
     public int MinRedrawIntervalMs { get; set; } = 100;
-    public bool AmdConservativeDefaultsApplied { get; set; }
     public int MaxDecompressionThreads { get; set; }
     public int DownloadSpeedLimitInBytes { get; set; }
     public DownloadSpeeds DownloadSpeedType { get; set; } = DownloadSpeeds.MBps;
