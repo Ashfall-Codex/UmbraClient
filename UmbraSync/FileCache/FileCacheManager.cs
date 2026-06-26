@@ -582,8 +582,60 @@ public sealed class FileCacheManager : DisposableMediatorSubscriberBase, IHosted
         }
 
         _logger.LogInformation("Started FileCacheManager");
+        
+        _ = Task.Run(() =>
+        {
+            try { CleanupCrashArtifacts(); }
+            catch (Exception ex) { _logger.LogWarning(ex, "Crash artifact cleanup failed"); }
+        });
 
         return Task.CompletedTask;
+    }
+    
+    private void CleanupCrashArtifacts()
+    {
+        var cacheFolder = _configService.Current.CacheFolder;
+        if (string.IsNullOrEmpty(cacheFolder) || !Directory.Exists(cacheFolder))
+            return;
+
+        string[] artifactExtensions = [".tmp", ".lz4tmp", ".cdntmp", ".blk"];
+        int removedArtifacts = 0;
+        int removedZeroByte = 0;
+
+        try
+        {
+            foreach (var filePath in Directory.EnumerateFiles(cacheFolder, "*", SearchOption.TopDirectoryOnly))
+            {
+                try
+                {
+                    var ext = Path.GetExtension(filePath);
+                    if (artifactExtensions.Contains(ext, StringComparer.OrdinalIgnoreCase))
+                    {
+                        File.Delete(filePath);
+                        removedArtifacts++;
+                        continue;
+                    }
+
+                    if (new FileInfo(filePath).Length == 0)
+                    {
+                        File.Delete(filePath);
+                        removedZeroByte++;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug(ex, "Could not clean up cache artifact {file}", filePath);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to enumerate cache folder for crash artifact cleanup");
+            return;
+        }
+
+        if (removedArtifacts > 0 || removedZeroByte > 0)
+            _logger.LogInformation("Crash artifact cleanup: removed {artifacts} download temp file(s) and {zero} zero-byte file(s)", removedArtifacts, removedZeroByte);
     }
 
     public Task StopAsync(CancellationToken cancellationToken)
