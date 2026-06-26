@@ -306,11 +306,51 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
     {
         // 15s : sweet spot WebSocket. Passe la plupart des middleboxes/NAT mobiles
         // (timeout typique 30s+) sans cramer de la bande passante inutile.
+        int consecutiveFailures = 0;
+        const int maxFailuresBeforeReconnect = 2; // ~30s de silence avant de forcer
+
         while (!ct.IsCancellationRequested && _mareHub != null)
         {
             await Task.Delay(TimeSpan.FromSeconds(15), ct).ConfigureAwait(false);
-            Logger.LogDebug("Checking Client Health State");
-            _ = await CheckClientHealth().ConfigureAwait(false);
+            if (ct.IsCancellationRequested || _mareHub == null) break;
+            
+            if (ServerState != ServerState.Connected)
+            {
+                consecutiveFailures = 0;
+                continue;
+            }
+
+            try
+            {
+                Logger.LogDebug("Checking Client Health State");
+                bool healthy = await CheckClientHealth().ConfigureAwait(false);
+                if (healthy)
+                {
+                    consecutiveFailures = 0;
+                    continue;
+                }
+
+                consecutiveFailures++;
+                Logger.LogWarning("Health check unhealthy ({count}/{max}) alors que Connected", consecutiveFailures, maxFailuresBeforeReconnect);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+            catch (Exception ex)
+            {
+                consecutiveFailures++;
+                Logger.LogWarning(ex, "Health check ping échoué ({count}/{max}) alors que Connected", consecutiveFailures, maxFailuresBeforeReconnect);
+            }
+
+            // Mort silencieuse de la connexion que le keepalive SignalR n'a pas encore détectée :
+            // on force une reconnexion propre au lieu de laisser la boucle mourir sans rien faire.
+            if (consecutiveFailures >= maxFailuresBeforeReconnect)
+            {
+                Logger.LogWarning("Health check en échec {count}× — forçage d'une reconnexion", consecutiveFailures);
+                _ = Task.Run(() => CreateConnections());
+                break;
+            }
         }
     }
 

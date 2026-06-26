@@ -21,6 +21,7 @@ public sealed class FileUploadManager : DisposableMediatorSubscriberBase
     private readonly ServerConfigurationManager _serverManager;
     private readonly ConcurrentDictionary<string, DateTime> _verifiedUploadedHashes = new(StringComparer.Ordinal);
     private CancellationTokenSource? _uploadCancellationTokenSource = new();
+    private const int MaxParallelUploads = 3;
 
     public FileUploadManager(ILogger<FileUploadManager> logger, MareMediator mediator,
         FileTransferOrchestrator orchestrator,
@@ -84,35 +85,33 @@ public sealed class FileUploadManager : DisposableMediatorSubscriberBase
             return [.. filesToUpload.Where(f => f.IsForbidden).Select(f => f.Hash)];
         }
 
-        Task uploadTask = Task.CompletedTask;
-        int i = 1;
+        var token = ct ?? CancellationToken.None;
         long uploadedTotal = 0;
-        long lastSize = 0;
-        foreach (var file in filesToUpload)
+        int completed = 0;
+        var total = filesToUpload.Count;
+        using (var uploadSemaphore = new SemaphoreSlim(MaxParallelUploads))
         {
-            // wait for previous upload to finish and report its bytes
-            await uploadTask.ConfigureAwait(false);
-            if (lastSize > 0)
+            var uploadTasks = filesToUpload.Select(async file =>
             {
-                uploadedTotal += lastSize;
-                uploadedBytesProgress?.Report(uploadedTotal);
-            }
-
-            progress.Report(string.Format(System.Globalization.CultureInfo.CurrentCulture,
-                Localization.Loc.Get("Settings.Transfer.Precache.Progress.Uploading"), i++, filesToUpload.Count));
-            Logger.LogDebug("[{hash}] Compressing", file);
-            var data = await _fileDbManager.GetCompressedFileData(file.Hash, ct ?? CancellationToken.None).ConfigureAwait(false);
-            lastSize = data.Item2.LongLength;
-            Logger.LogDebug("[{hash}] Starting upload for {filePath}", data.Item1, _fileDbManager.GetFileCacheByHash(data.Item1)!.ResolvedFilepath);
-            uploadTask = UploadFile(data.Item2, file.Hash, false, ct ?? CancellationToken.None);
-            (ct ?? CancellationToken.None).ThrowIfCancellationRequested();
-        }
-
-        await uploadTask.ConfigureAwait(false);
-        if (lastSize > 0)
-        {
-            uploadedTotal += lastSize;
-            uploadedBytesProgress?.Report(uploadedTotal);
+                await uploadSemaphore.WaitAsync(token).ConfigureAwait(false);
+                try
+                {
+                    var idx = Interlocked.Increment(ref completed);
+                    progress.Report(string.Format(System.Globalization.CultureInfo.CurrentCulture,
+                        Localization.Loc.Get("Settings.Transfer.Precache.Progress.Uploading"), idx, total));
+                    Logger.LogDebug("[{hash}] Compressing", file);
+                    var data = await _fileDbManager.GetCompressedFileData(file.Hash, token).ConfigureAwait(false);
+                    Logger.LogDebug("[{hash}] Starting upload for {filePath}", data.Item1, _fileDbManager.GetFileCacheByHash(data.Item1)!.ResolvedFilepath);
+                    await UploadFile(data.Item2, file.Hash, false, token).ConfigureAwait(false);
+                    var newTotal = Interlocked.Add(ref uploadedTotal, data.Item2.LongLength);
+                    uploadedBytesProgress?.Report(newTotal);
+                }
+                finally
+                {
+                    uploadSemaphore.Release();
+                }
+            }).ToList();
+            await Task.WhenAll(uploadTasks).ConfigureAwait(false);
         }
 
         return [];
@@ -320,22 +319,30 @@ public sealed class FileUploadManager : DisposableMediatorSubscriberBase
 
         var totalSize = CurrentUploads.Sum(c => c.Total);
         Logger.LogDebug("Compressing and uploading files");
-        Task uploadTask = Task.CompletedTask;
-        foreach (var file in CurrentUploads.Where(f => f.CanBeTransferred && !f.IsTransferred).ToList())
+        var toUpload = CurrentUploads.Where(f => f.CanBeTransferred && !f.IsTransferred).ToList();
+        using (var uploadSemaphore = new SemaphoreSlim(MaxParallelUploads))
         {
-            Logger.LogDebug("[{hash}] Compressing", file);
-            var data = await _fileDbManager.GetCompressedFileData(file.Hash, uploadToken).ConfigureAwait(false);
-            CurrentUploads.Single(e => string.Equals(e.Hash, file.Hash, StringComparison.Ordinal)).Total = data.Item2.Length;
-            Logger.LogDebug("[{hash}] Starting upload for {filePath}", file.Hash, _fileDbManager.GetFileCacheByHash(file.Hash)!.ResolvedFilepath);
-            await uploadTask.ConfigureAwait(false);
-            uploadTask = UploadFile(data.Item2, file.Hash, true, uploadToken);
-            uploadToken.ThrowIfCancellationRequested();
+            var uploadTasks = toUpload.Select(async file =>
+            {
+                await uploadSemaphore.WaitAsync(uploadToken).ConfigureAwait(false);
+                try
+                {
+                    Logger.LogDebug("[{hash}] Compressing", file);
+                    var data = await _fileDbManager.GetCompressedFileData(file.Hash, uploadToken).ConfigureAwait(false);
+                    file.Total = data.Item2.Length;
+                    Logger.LogDebug("[{hash}] Starting upload for {filePath}", file.Hash, _fileDbManager.GetFileCacheByHash(file.Hash)!.ResolvedFilepath);
+                    await UploadFile(data.Item2, file.Hash, true, uploadToken).ConfigureAwait(false);
+                }
+                finally
+                {
+                    uploadSemaphore.Release();
+                }
+            }).ToList();
+            await Task.WhenAll(uploadTasks).ConfigureAwait(false);
         }
 
         if (CurrentUploads.Count > 0)
         {
-            await uploadTask.ConfigureAwait(false);
-
             var compressedSize = CurrentUploads.Sum(c => c.Total);
             Logger.LogDebug("Upload complete, compressed {size} to {compressed}", UiSharedService.ByteToString(totalSize), UiSharedService.ByteToString(compressedSize));
 

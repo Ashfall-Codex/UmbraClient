@@ -349,6 +349,14 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
             }
         }
 
+        // Garde-fou : si la requête a échoué (5xx, timeout, etc.) sans être 404/401, le catch
+        // ci-dessus a loggé mais pas relancé — sans cette garde on déréférencerait `response`
+        // (null → NRE, ou corps d'erreur lu comme un fichier). On laisse la boucle de retry batch agir.
+        if (response is null || !response.IsSuccessStatusCode)
+        {
+            throw new InvalidDataException($"Download failed for {requestUrl} (response null or unsuccessful, cancelled: {ct.IsCancellationRequested})");
+        }
+
         ThrottledStream? stream = null;
         try
         {
@@ -402,6 +410,12 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
             response?.Dispose();
         }
     }
+    
+    private static TimeSpan JitteredBackoff(int attempt, double baseMs = 500, double capMs = 8000)
+    {
+        double exp = Math.Min(capMs, baseMs * Math.Pow(2, Math.Max(0, attempt - 1)));
+        return TimeSpan.FromMilliseconds(Random.Shared.NextDouble() * exp);
+    }
 
     // --- CDN Direct Download: Phase 1 (download compressed to .lz4tmp) ---
 
@@ -419,10 +433,11 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
             catch (Exception ex) { Logger.LogWarning(ex, "Cannot delete existing .lz4tmp file {path}", lz4TmpPath); }
         }
 
-        const int maxRetries = 2;
+        // Transitoire CDN → on re-tente le CDN (le serveur principal ne sert jamais les fichiers
+        // S3-cold), donc on s'autorise une tentative de plus avant d'abandonner le cycle.
+        const int maxRetries = 3;
         const int connectionTimeoutSeconds = 15; // Timeout for TCP connect + TLS + headers (generous for slow connections)
-        const int inactivityTimeoutSeconds = 15; // Cancel if no bytes received for this duration
-        var retryDelay = TimeSpan.FromMilliseconds(500);
+        const int inactivityTimeoutSeconds = 30; // Cancel if no bytes received for this duration (généreux pour mobile/lent)
 
         for (int attempt = 1; attempt <= maxRetries; attempt++)
         {
@@ -508,7 +523,7 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
                     return CdnDownloadResult.Transient;
                 }
 
-                await Task.Delay(retryDelay, ct).ConfigureAwait(false);
+                await Task.Delay(JitteredBackoff(attempt), ct).ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (!ct.IsCancellationRequested)
             {
@@ -522,7 +537,7 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
                     return CdnDownloadResult.Transient;
                 }
 
-                await Task.Delay(retryDelay, ct).ConfigureAwait(false);
+                await Task.Delay(JitteredBackoff(attempt), ct).ConfigureAwait(false);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
@@ -532,7 +547,7 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
                 if (attempt >= maxRetries)
                     return CdnDownloadResult.Transient;
 
-                await Task.Delay(retryDelay, ct).ConfigureAwait(false);
+                await Task.Delay(JitteredBackoff(attempt), ct).ConfigureAwait(false);
             }
         }
 
@@ -1000,7 +1015,7 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
                 }
 
                 Logger.LogWarning(ex, "[{id}] Batch download failed (attempt {attempt}/{max}), retrying", downloadId, batchAttempt, maxBatchRetries);
-                await Task.Delay(TimeSpan.FromSeconds(batchAttempt * 2), token).ConfigureAwait(false);
+                await Task.Delay(JitteredBackoff(batchAttempt, 1000, 12000), token).ConfigureAwait(false);
             }
             } // fin boucle retry
 
@@ -1081,7 +1096,10 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
 
                             string calculatedHash = BitConverter.ToString(tmpFileStream.Finish()).Replace("-", "", StringComparison.Ordinal);
 
-                            if (!calculatedHash.Equals(capturedHash, StringComparison.Ordinal))
+                            // Comparaison insensible à la casse : alignée sur le chemin CDN
+                            // (DecompressAndVerifyLz4) qui utilise OrdinalIgnoreCase. Un hash de
+                            // casse différente passait au CDN mais échouait ici → re-download en boucle.
+                            if (!calculatedHash.Equals(capturedHash, StringComparison.OrdinalIgnoreCase))
                             {
                                 Logger.LogError("Hash mismatch after extracting, got {hash}, expected {expectedHash}", calculatedHash, capturedHash);
                                 return;
@@ -1486,7 +1504,7 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
                 }
 
                 Logger.LogWarning(ex, "{dlName}: Batch download failed (attempt {attempt}/{max}), retrying", fi?.Name ?? "?", batchAttempt, maxBatchRetries);
-                await Task.Delay(TimeSpan.FromSeconds(batchAttempt * 2), token).ConfigureAwait(false);
+                await Task.Delay(JitteredBackoff(batchAttempt, 1000, 12000), token).ConfigureAwait(false);
             }
             } // fin boucle retry
 

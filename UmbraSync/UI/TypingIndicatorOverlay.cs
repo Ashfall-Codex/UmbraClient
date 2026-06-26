@@ -24,21 +24,6 @@ public sealed class TypingIndicatorOverlay : WindowMediatorSubscriberBase
     private static readonly TimeSpan TypingDisplayDelay = TimeSpan.FromMilliseconds(500);
     private static readonly TimeSpan TypingDisplayFade = TypingDisplayTime;
 
-    private sealed class VisibilityState
-    {
-        public bool Hidden;
-        public int OccludedStreak;
-        public DateTime LastTouched;
-    }
-
-    // Hystérésis : un objet doit rester occlus plusieurs frames consécutives avant qu'on cache la
-    // bulle (absorbe le bruit frame-par-frame du dépth buffer à la rotation caméra). En revanche on
-    // ré-affiche immédiatement dès qu'on n'est plus occlus, pour ne pas paraître en retard.
-    private const int OccludedFramesToHide = 8; // ~130 ms à 60 fps
-    private static readonly TimeSpan VisibilityStateTtl = TimeSpan.FromSeconds(5);
-    private const uint SelfVisibilityKey = uint.MaxValue;
-    private readonly Dictionary<uint, VisibilityState> _visibilityByObjectId = new();
-
     private readonly ILogger<TypingIndicatorOverlay> _typedLogger;
     private readonly MareConfigService _configService;
     private readonly IGameGui _gameGui;
@@ -50,13 +35,11 @@ public sealed class TypingIndicatorOverlay : WindowMediatorSubscriberBase
     private readonly DalamudUtilService _dalamudUtil;
     private readonly TypingIndicatorStateService _typingStateService;
     private readonly ApiController _apiController;
-    private readonly Ashfall.Engine.OverlayEngine _engine;
 
     public TypingIndicatorOverlay(ILogger<TypingIndicatorOverlay> logger, MareMediator mediator, PerformanceCollectorService performanceCollectorService,
         MareConfigService configService, IGameGui gameGui, ITextureProvider textureProvider, IClientState clientState,
         IPartyList partyList, IObjectTable objectTable, DalamudUtilService dalamudUtil, PairManager pairManager,
-        TypingIndicatorStateService typingStateService, ApiController apiController,
-        Ashfall.Engine.OverlayEngine engine)
+        TypingIndicatorStateService typingStateService, ApiController apiController)
         : base(logger, mediator, nameof(TypingIndicatorOverlay), performanceCollectorService)
     {
         _typedLogger = logger;
@@ -70,7 +53,6 @@ public sealed class TypingIndicatorOverlay : WindowMediatorSubscriberBase
         _pairManager = pairManager;
         _typingStateService = typingStateService;
         _apiController = apiController;
-        _engine = engine;
 
         RespectCloseHotkey = false;
         IsOpen = true;
@@ -191,7 +173,7 @@ public sealed class TypingIndicatorOverlay : WindowMediatorSubscriberBase
     private unsafe void DrawNameplateIndicators(ImDrawListPtr drawList, IReadOnlyDictionary<string, (UserData User, DateTime FirstSeen, DateTime LastUpdate)> activeTypers,
         bool selfActive, DateTime now, DateTime selfStart, DateTime selfLast)
     {
-        // si rien à dessiner, on évite la capture du depth buffer
+        // si rien à dessiner, on évite tout le travail de résolution des nameplates
         bool willDrawSelf = selfActive
             && _configService.Current.TypingIndicatorShowSelf
             && _objectTable.LocalPlayer != null
@@ -214,13 +196,6 @@ public sealed class TypingIndicatorOverlay : WindowMediatorSubscriberBase
         if (iconWrap.Handle == IntPtr.Zero)
             return;
 
-        var nameplateAddonPtr = (AtkUnitBase*)_gameGui.GetAddonByName("NamePlate", 1).Address;
-        _engine.BeginFrame(nameplateAddonPtr);
-
-        PruneVisibilityState(now);
-
-        try
-        {
         var showSelf = _configService.Current.TypingIndicatorShowSelf;
         if (selfActive
             && showSelf
@@ -231,7 +206,7 @@ public sealed class TypingIndicatorOverlay : WindowMediatorSubscriberBase
             var selfId = GetEntityId(_objectTable.LocalPlayer.Address);
             // For self, if the nameplate isn't available (e.g. user hid their own nameplate),
             // fall back to a world-anchored bubble above the player.
-            if (selfId != 0 && !TryDrawNameplateBubble(drawList, iconWrap, selfId, SelfVisibilityKey))
+            if (selfId != 0 && !TryDrawNameplateBubble(drawList, iconWrap, selfId))
                 DrawWorldFallbackIcon(drawList, iconWrap, _objectTable.LocalPlayer.Position);
         }
 
@@ -247,18 +222,13 @@ public sealed class TypingIndicatorOverlay : WindowMediatorSubscriberBase
             var objectId = pair?.PlayerCharacterId ?? 0;
             if (objectId == 0 || objectId == uint.MaxValue) continue;
 
-            if (TryDrawNameplateBubble(drawList, iconWrap, objectId, objectId))
+            if (TryDrawNameplateBubble(drawList, iconWrap, objectId))
                 continue;
 
             // Fallback world bubble only if the player is nearby (< 15 yalms): this means
             // the nameplate is hidden by user settings rather than faded by distance.
             if (TryGetNearbyPlayerPosition(objectId, 15f, out var worldPos))
                 DrawWorldFallbackIcon(drawList, iconWrap, worldPos);
-        }
-        }
-        finally
-        {
-            _engine.EndFrame();
         }
     }
 
@@ -279,7 +249,7 @@ public sealed class TypingIndicatorOverlay : WindowMediatorSubscriberBase
         return new Vector2(baseSize * scaleX, baseSize * scaleY);
     }
 
-    private unsafe bool TryDrawNameplateBubble(ImDrawListPtr drawList, IDalamudTextureWrap textureWrap, uint objectId, uint visibilityKey)
+    private unsafe bool TryDrawNameplateBubble(ImDrawListPtr drawList, IDalamudTextureWrap textureWrap, uint objectId)
     {
         if (textureWrap.Handle == IntPtr.Zero)
             return false;
@@ -298,7 +268,6 @@ public sealed class TypingIndicatorOverlay : WindowMediatorSubscriberBase
 
         AddonNamePlate.NamePlateObject* namePlate = null;
         float distance = 0f;
-        System.Numerics.Vector3 playerWorldPos = default;
 
         for (var i = 0; i < ui3D->NamePlateObjectInfoCount; i++)
         {
@@ -317,14 +286,8 @@ public sealed class TypingIndicatorOverlay : WindowMediatorSubscriberBase
 
             namePlate = &addonNamePlate->NamePlateObjectArray[objectInfo.Value->NamePlateIndex];
             distance = objectInfo.Value->GameObject->YalmDistanceFromPlayerX;
-            var gp = objectInfo.Value->GameObject->Position;
-            playerWorldPos = new System.Numerics.Vector3(gp.X, gp.Y + 2.2f, gp.Z);
             break;
         }
-
-        // Occlusion 3D pixel-perfect via l'engine (stratégie automatique selon plateforme).
-        bool ShouldSkipByDepth(Vector2 center)
-            => _engine.IsWorldOccluded(playerWorldPos, center);
 
         if (namePlate == null || namePlate->RootComponentNode == null)
             return false;
@@ -358,11 +321,6 @@ public sealed class TypingIndicatorOverlay : WindowMediatorSubscriberBase
             var hiddenCenter = anchor + hiddenOffset + new Vector2(hiddenSize.X * 0.5f, hiddenSize.Y * 0.5f);
             var hiddenTopLeft = hiddenCenter - hiddenSize / 2f;
 
-            bool hiddenOccluded = ShouldSkipByDepth(hiddenCenter)
-                || _engine.IsNativeUiOccluded(new Vector4(hiddenTopLeft.X, hiddenTopLeft.Y, hiddenTopLeft.X + hiddenSize.X, hiddenTopLeft.Y + hiddenSize.Y));
-            if (ResolveHidden(visibilityKey, hiddenOccluded))
-                return true;
-
             drawList.AddImage(textureWrap.Handle, hiddenTopLeft, hiddenTopLeft + hiddenSize, Vector2.Zero, Vector2.One,
                 ImGui.ColorConvertFloat4ToU32(new Vector4(1f, 1f, 1f, 0.95f)));
             return true;
@@ -380,50 +338,10 @@ public sealed class TypingIndicatorOverlay : WindowMediatorSubscriberBase
 
         var bubbleSize = GetConfiguredBubbleSize(bubbleScaleFactor, bubbleScaleFactor, true);
 
-        bool visibleOccluded = ShouldSkipByDepth(iconPos + bubbleSize * 0.5f)
-            || _engine.IsNativeUiOccluded(new Vector4(iconPos.X, iconPos.Y, iconPos.X + bubbleSize.X, iconPos.Y + bubbleSize.Y));
-        if (ResolveHidden(visibilityKey, visibleOccluded))
-            return true;
-
         drawList.AddImage(textureWrap.Handle, iconPos, iconPos + bubbleSize, Vector2.Zero, Vector2.One,
             ImGui.ColorConvertFloat4ToU32(new Vector4(1f, 1f, 1f, 0.95f)));
 
         return true;
-    }
-
-    private bool ResolveHidden(uint key, bool currentlyOccluded)
-    {
-        if (!_visibilityByObjectId.TryGetValue(key, out var st))
-        {
-            st = new VisibilityState { Hidden = currentlyOccluded };
-            _visibilityByObjectId[key] = st;
-        }
-        st.LastTouched = DateTime.UtcNow;
-        if (currentlyOccluded)
-        {
-            st.OccludedStreak++;
-            if (st.OccludedStreak >= OccludedFramesToHide)
-                st.Hidden = true;
-        }
-        else
-        {
-            st.OccludedStreak = 0;
-            st.Hidden = false;
-        }
-        return st.Hidden;
-    }
-
-    private void PruneVisibilityState(DateTime now)
-    {
-        if (_visibilityByObjectId.Count == 0) return;
-        List<uint>? stale = null;
-        foreach (var kv in _visibilityByObjectId)
-        {
-            if ((now - kv.Value.LastTouched) > VisibilityStateTtl)
-                (stale ??= new List<uint>()).Add(kv.Key);
-        }
-        if (stale == null) return;
-        foreach (var k in stale) _visibilityByObjectId.Remove(k);
     }
 
     private unsafe int GetPartyIndexFromAgentHUD(uint objectId)
