@@ -127,6 +127,7 @@ public sealed class PenumbraCore : DisposableMediatorSubscriberBase, IPenumbraCo
     
     public void CheckAPI()
     {
+        bool wasAvailable = APIAvailable;
         bool penumbraAvailable = false;
         try
         {
@@ -146,7 +147,12 @@ public sealed class PenumbraCore : DisposableMediatorSubscriberBase, IPenumbraCo
         {
             APIAvailable = penumbraAvailable;
         }
-        // Notification is deferred to CheckAPIWithRetryAsync after all retries are exhausted
+
+        if (!wasAvailable && APIAvailable)
+        {
+            Logger.LogDebug("Penumbra API devenue disponible — publication de PenumbraInitializedMessage");
+            Mediator.Publish(new PenumbraInitializedMessage());
+        }
     }
     
     // Retourne le chemin brut du répertoire de mods Penumbra (sans transformation de casse).
