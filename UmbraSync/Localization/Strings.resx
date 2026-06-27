@@ -4662,6 +4662,9 @@ Note: Weapons will not be displayed correctly unless using the same job as the s
   <data name="Syncshell.Cards.OnlineMembers" xml:space="preserve">
     <value>{0} online / {1} members</value>
   </data>
+  <data name="Syncshell.Cards.MaxCapacity" xml:space="preserve">
+    <value>Max capacity: {0}</value>
+  </data>
   <data name="Syncshell.Cards.Paused" xml:space="preserve">
     <value>Paused</value>
   </data>

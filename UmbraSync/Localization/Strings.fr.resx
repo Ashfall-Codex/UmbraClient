@@ -4563,6 +4563,9 @@ Note : Les armes ne s'afficheront pas correctement sauf si vous utilisez le m&#x
   <data name="Syncshell.Cards.OnlineMembers" xml:space="preserve">
     <value>{0} en ligne / {1} membres</value>
   </data>
+  <data name="Syncshell.Cards.MaxCapacity" xml:space="preserve">
+    <value>Capacité max : {0}</value>
+  </data>
   <data name="Syncshell.Cards.Paused" xml:space="preserve">
     <value>En pause</value>
   </data>
