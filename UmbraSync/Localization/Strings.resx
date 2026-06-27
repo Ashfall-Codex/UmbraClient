@@ -4615,6 +4615,12 @@ Note: Weapons will not be displayed correctly unless using the same job as the s
   <data name="EditProfile.PreviewButton" xml:space="preserve">
     <value>Preview my profile</value>
   </data>
+  <data name="EditProfile.EnrichedProfile.Button" xml:space="preserve">
+    <value>Enriched profile</value>
+  </data>
+  <data name="EditProfile.EnrichedProfile.Tooltip" xml:space="preserve">
+    <value>Opens your enriched profile on Ashfall Connect (web editor). Requires a linked Ashfall Connect account.</value>
+  </data>
   <data name="EditProfile.SaveButton" xml:space="preserve">
     <value>Save Profile</value>
   </data>

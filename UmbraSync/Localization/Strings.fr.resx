@@ -4516,6 +4516,12 @@ Note : Les armes ne s'afficheront pas correctement sauf si vous utilisez le m&#x
   <data name="EditProfile.PreviewButton" xml:space="preserve">
     <value>Prévisualiser mon profil</value>
   </data>
+  <data name="EditProfile.EnrichedProfile.Button" xml:space="preserve">
+    <value>Profil enrichi</value>
+  </data>
+  <data name="EditProfile.EnrichedProfile.Tooltip" xml:space="preserve">
+    <value>Ouvre votre profil enrichi sur Ashfall Connect (édition dans le navigateur). Nécessite un compte Ashfall Connect lié.</value>
+  </data>
   <data name="EditProfile.SaveButton" xml:space="preserve">
     <value>Sauvegarder le profil</value>
   </data>

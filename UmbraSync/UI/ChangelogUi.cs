@@ -342,6 +342,23 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
     {
         return new List<ChangelogEntry>
         {
+            new(new Version(3, 0, 0, 0), "3.0.0.0", new List<ChangelogLine>
+            {
+                new("Nouveauté : Ashfall Connect : liez votre compte à la plateforme Ashfall Connect pour gérer, enrichir et certifier votre fiche RP (niveaux de certification Bronze / Argent / Or via Discord et XIVAuth). Liaison par code à usage unique depuis le plugin."),
+                new("Nouveauté : Synchronisation des scénarios PNJ housing. Partagez les PNJ personnalisés de votre logement (via le plugin A Realm Repopulated) avec vos paires : ils apparaissent automatiquement à la visite et disparaissent à la sortie. Gestion des permissions (paires / syncshells) et des conflits avec vos scénarios locaux."),
+            }),
+            new(new Version(2, 6, 0, 6026), "2.6.0.6026", new List<ChangelogLine>
+            {
+                new("Amélioration : Retrait du masquage 3D des bulles d'écriture derrière les décors qui était source de freezes et de crashs sur certains drivers (notamment AMD). Les bulles reviennent à leur affichage d'avant."),
+                new("Amélioration : Nettoyage automatique au démarrage des fichiers temporaires laissés par un téléchargement interrompu."),
+                new("Amélioration : Détection plus fiable des connexions coupées silencieusement : une reconnexion est désormais forcée automatiquement."),
+                new("Amélioration : Téléchargements plus robustes sur connexions lentes ou instables (délai d'inactivité plus tolérant, tentatives mieux réparties)."),
+                new("Amélioration : Envoi de votre apparence plus rapide (téléversements en parallèle au lieu d'un par un)."),
+                new("Correction : Des fichiers de mods pouvaient se re-télécharger en boucle à cause d'une comparaison de hash trop stricte."),
+                new("Correction : Après un crash du jeu, les mods d'autres joueurs restés « collés » sont nettoyés au redémarrage et l'apparence se ré-applique correctement."),
+                new("Autre : Retrait de la library 'Ashfall.Engine'."),
+                new("Autre : Mise à jour API Glamourer & Penumbra."),
+            }),
             new(new Version(2, 5, 9, 6002), "2.5.9.6002", new List<ChangelogLine>
             {
                 new("Nouveauté : Les propriétaires d'une syncshell peuvent désormais la renommer depuis le panneau d'administration (onglet Owner Settings)."),

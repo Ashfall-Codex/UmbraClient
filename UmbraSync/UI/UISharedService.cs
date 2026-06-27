@@ -115,6 +115,7 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
     private bool _chatAlertExists;
     private bool _simpleTweaksExists;
     private bool _questRebornExists;
+    private bool _aRealmRepopulatedExists;
     public bool ChatTwoExists => _chatTwoExists;
     public bool ExternalNameColorPluginExists => _chatAlertExists || _simpleTweaksExists;
 
@@ -152,6 +153,7 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
             _chatAlertExists = Services.PluginWatcherService.GetInitialPluginState(pluginInterface, "ChatAlerts")?.IsLoaded ?? false;
             _simpleTweaksExists = Services.PluginWatcherService.GetInitialPluginState(pluginInterface, "SimpleTweaksPlugin")?.IsLoaded ?? false;
             _questRebornExists = Services.PluginWatcherService.GetInitialPluginState(pluginInterface, "AQuestReborn")?.IsLoaded ?? false;
+            _aRealmRepopulatedExists = Services.PluginWatcherService.GetInitialPluginState(pluginInterface, "ARealmRepopulated")?.IsLoaded ?? false;
         });
 
         UidFont = pluginInterface.UiBuilder.FontAtlas.NewDelegateFontHandle(e =>
@@ -1300,6 +1302,7 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
                 ("Moodles", _moodlesExists),
                 ("Brio", _brioExists),
                 ("A Quest Reborn", _questRebornExists),
+                ("A Realm Repopulated", _aRealmRepopulatedExists),
             };
             if (ImGui.BeginTable("##OptionalPlugins", 2, ImGuiTableFlags.SizingFixedFit))
             {

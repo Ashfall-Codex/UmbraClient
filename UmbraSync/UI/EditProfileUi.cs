@@ -237,6 +237,13 @@ public class EditProfileUi : WindowMediatorSubscriberBase
         }
         UiSharedService.AttachToolTip(Loc.Get("EditProfile.SetCustomId.Tooltip"));
 
+        ImGui.SameLine();
+        if (_uiSharedService.IconTextButton(FontAwesomeIcon.ExternalLinkAlt, Loc.Get("EditProfile.EnrichedProfile.Button")))
+        {
+            Dalamud.Utility.Util.OpenLink("https://connect.ashfall-codex.dev/account");
+        }
+        UiSharedService.AttachToolTip(Loc.Get("EditProfile.EnrichedProfile.Tooltip"));
+
         DrawVanityPopup();
 
         DrawProfileTabButtons(accent);
