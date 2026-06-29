@@ -1,5 +1,6 @@
 ﻿using Dalamud.Game.ClientState.Objects.Types;
 using Dalamud.Plugin;
+using Glamourer.Api.Enums;
 using Glamourer.Api.Helpers;
 using Glamourer.Api.IpcSubscribers;
 using Microsoft.Extensions.Logging;
@@ -22,6 +23,7 @@ public sealed class IpcCallerGlamourer : DisposableMediatorSubscriberBase, IIpcC
 
     private readonly ApiVersion _glamourerApiVersions;
     private readonly ApplyState? _glamourerApplyAll;
+    private readonly ReapplyState? _glamourerReapply;
     private readonly GetStateBase64? _glamourerGetAllCustomization;
     private readonly RevertState _glamourerRevert;
     private readonly RevertStateName _glamourerRevertByName;
@@ -42,6 +44,7 @@ public sealed class IpcCallerGlamourer : DisposableMediatorSubscriberBase, IIpcC
         _glamourerApiVersions = new ApiVersion(pi);
         _glamourerGetAllCustomization = new GetStateBase64(pi);
         _glamourerApplyAll = new ApplyState(pi);
+        _glamourerReapply = new ReapplyState(pi);
         _glamourerRevert = new RevertState(pi);
         _glamourerRevertByName = new RevertStateName(pi);
         _glamourerUnlock = new UnlockState(pi);
@@ -179,6 +182,32 @@ public sealed class IpcCallerGlamourer : DisposableMediatorSubscriberBase, IIpcC
                 _redrawManager.RedrawSemaphore.Release();
             }
         }
+    }
+
+    /// <summary>
+    /// Réapplication Glamourer « soft » : recharge l'état glamourer du perso SANS redraw Penumbra
+    /// complet ni acquisition du slot redraw. Utilisé pour les changements texture/material seuls
+    /// (cf. PairRedrawDecision.SoftReapply/DeferredSoftReapply) — bien plus léger et sans flicker.
+    /// </summary>
+    public async Task ReapplyDirectAsync(ILogger logger, GameObjectHandler handler, Guid applicationId, CancellationToken token)
+    {
+        if (!APIAvailable || _glamourerReapply == null || _dalamudUtil.IsZoning) return;
+
+        await _dalamudUtil.RunOnFrameworkThread(() =>
+        {
+            if (handler.Address == nint.Zero) return;
+            var gameObj = _dalamudUtil.CreateGameObject(handler.Address);
+            if (gameObj is not ICharacter c) return;
+            try
+            {
+                logger.LogDebug("[{appid}] Calling On IPC: GlamourerReapplyState (soft)", applicationId);
+                _glamourerReapply.Invoke(c.ObjectIndex, LockCode, ApplyFlag.Once);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "[{appid}] Failed to soft-reapply Glamourer data", applicationId);
+            }
+        }).ConfigureAwait(false);
     }
 
     public async Task<string> GetCharacterCustomizationAsync(IntPtr character)

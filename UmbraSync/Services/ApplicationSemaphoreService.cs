@@ -13,7 +13,7 @@ public readonly record struct ApplicationSemaphoreSnapshot(bool IsEnabled, int L
 
 public sealed class ApplicationSemaphoreService : DisposableMediatorSubscriberBase
 {
-    private const int HardLimit = 10;
+    private const int HardLimit = 16;
     private readonly MareConfigService _configService;
     private readonly Lock _limitLock = new();
     private readonly LinkedList<PriorityWaiter> _highQueue = new();

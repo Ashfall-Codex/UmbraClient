@@ -52,12 +52,20 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
     private Guid _deferred = Guid.Empty;
     private Guid _penumbraCollection = Guid.Empty;
     private bool _redrawOnNextApplication = false;
+    // Décisions de redraw (soft/hard) par ObjectKind pour l'application en cours, calculées avec le
+    // même diff que les PlayerChanges. Null quand EnableSoftRedraw est OFF (-> HardRedraw partout).
+    private Dictionary<ObjectKind, PairRedrawDecision>? _pendingRedrawDecisions;
     private readonly Lock _pauseLock = new();
     private Task _pauseTransitionTask = Task.CompletedTask;
     private bool _pauseRequested = false;
     private readonly Lock _visibilityGraceGate = new();
     private CancellationTokenSource? _visibilityGraceCts;
     private static readonly TimeSpan VisibilityEvictionGrace = TimeSpan.FromMinutes(5);
+    // Jitter d'étalement des applications. La détection de visibilité étant throttlée (~5Hz), un
+    // groupe de pairs devenus visibles dans la même fenêtre déclenche leurs applies au même instant.
+    // On étale les kicks (A) et on déphase la boucle de retry (C) par un offset stable par-handler.
+    private const int VisibilityApplyJitterMaxMs = 600;
+    private readonly TimeSpan _reapplyJitter = TimeSpan.FromMilliseconds(Random.Shared.Next(0, 5000));
     private DateTime? _invisibleSinceUtc;
     private DateTime? _visibilityEvictionDueAtUtc;
     private DateTime? _lastDataReceivedAt;
@@ -354,6 +362,12 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
 
         if (Logger.IsEnabled(LogLevel.Debug))
             Logger.LogDebug("[BASE-{appbase}] Downloading and applying character for {name}", applicationBase, this);
+
+        // Décision de redraw (soft/hard) calculée à partir du même diff que les PlayerChanges,
+        // uniquement si la feature est activée. OFF -> null -> HardRedraw (comportement actuel).
+        _pendingRedrawDecisions = _configService.Current.EnableSoftRedraw
+            ? characterData.ComputeRedrawDecisions(_cachedData, charaDataToUpdate)
+            : null;
 
         DownloadAndApplyCharacter(applicationBase, characterData.DeepClone(), charaDataToUpdate);
     }
@@ -865,7 +879,14 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
                     break;
 
                 case PlayerChanges.ForcedRedraw:
-                    await _pairRedrawCoordinator.RedrawAsync(Logger, handler, applicationId, token).ConfigureAwait(false);
+                    // Décision soft/hard quand la feature est active et qu'une décision existe pour ce
+                    // kind, sinon HardRedraw (comportement historique, redraw Penumbra complet)
+                    var redrawDecision = (_configService.Current.EnableSoftRedraw
+                            && _pendingRedrawDecisions != null
+                            && _pendingRedrawDecisions.TryGetValue(objectKind, out var d))
+                        ? d
+                        : PairRedrawDecision.HardRedraw;
+                    await _pairRedrawCoordinator.ExecuteDecisionAsync(redrawDecision, Logger, handler, applicationId, token).ConfigureAwait(false);
                     break;
 
             }
@@ -1288,7 +1309,10 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
             return;
 
         var now = DateTime.UtcNow;
-        if (_lastApplyAttemptAt.HasValue && now - _lastApplyAttemptAt.Value < TimeSpan.FromSeconds(5))
+        // Intervalle déphasé par-handler (5s + offset stable 0-5s) : sans ça, tous les pairs ayant
+        // posé _pendingModReapply au même moment (cache froid à 24 pairs) relancent un apply complet
+        // au MÊME tick toutes les 5s, en lockstep -> burst périodique. Le déphasage les étale.
+        if (_lastApplyAttemptAt.HasValue && now - _lastApplyAttemptAt.Value < TimeSpan.FromSeconds(5) + _reapplyJitter)
             return;
 
         var dataToApply = _cachedData ?? Pair.LastReceivedCharacterData;
@@ -1344,27 +1368,43 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
 
         if (!IsVisible && nowVisible)
         {
-            // This is deferred application attempt, avoid any log output
-            if (_deferred != Guid.Empty)
-            {
-                _isVisible = true;
-                _ = Task.Run(() =>
-                {
-                    ApplyCharacterData(_deferred, _cachedData!, forceApplyCustomization: true);
-                });
-            }
-
             IsVisible = true;
             Mediator.Publish(new PairHandlerVisibleMessage(this));
-            if (_cachedData != null)
+
+            // UNE SEULE application en vol. Avant, la branche _deferred ET la branche _cachedData
+            // lançaient chacune un ApplyCharacterData sur le MÊME _cachedData, en parallèle, avec des
+            // CancellationTokenSource partagés -> annulation mutuelle + course sur _cachedData, ce qui
+            // pouvait laisser le perso en apparence partielle ("les mods sautent"). On choisit donc
+            // une seule source dans l'ordre : application différée -> données en cache -> fallback.
+            // Les données sont capturées dans une locale pour éviter une NRE si _cachedData devient
+            // null (undo/dispose) entre la décision et l'exécution du Task.Run.
+            // Jitter par-handler : quand ~24 pairs deviennent visibles dans la même fenêtre de scan
+            // (~200ms à 5Hz), on évite de lancer 24 ApplyCharacterData (DeepClone + download + apply)
+            // exactement au même instant. Conforme à la règle anti-burst du projet.
+            int applyJitterMs = Random.Shared.Next(0, VisibilityApplyJitterMaxMs);
+
+            if (_deferred != Guid.Empty && _cachedData != null)
+            {
+                // application différée : pas de log (déjà tracé à la réception)
+                Guid deferredId = _deferred;
+                CharacterData deferredData = _cachedData;
+                _ = Task.Run(async () =>
+                {
+                    await Task.Delay(applyJitterMs).ConfigureAwait(false);
+                    ApplyCharacterData(deferredId, deferredData, forceApplyCustomization: true);
+                });
+            }
+            else if (_cachedData != null)
             {
                 Guid appData = Guid.NewGuid();
+                CharacterData cached = _cachedData;
                 if (Logger.IsEnabled(LogLevel.Trace))
                     Logger.LogTrace("[BASE-{appBase}] {pairHandler} visibility changed, now: {visi}, cached data exists", appData, this, IsVisible);
 
-                _ = Task.Run(() =>
+                _ = Task.Run(async () =>
                 {
-                    ApplyCharacterData(appData, _cachedData!, forceApplyCustomization: true);
+                    await Task.Delay(applyJitterMs).ConfigureAwait(false);
+                    ApplyCharacterData(appData, cached, forceApplyCustomization: true);
                 });
             }
             else if (Pair.LastReceivedCharacterData != null)
@@ -1372,8 +1412,9 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
                 Guid appData = Guid.NewGuid();
                 Logger.LogDebug("[BASE-{appBase}] {pairHandler} visibility changed, now: {visi}, using LastReceivedCharacterData fallback", appData, this, IsVisible);
 
-                _ = Task.Run(() =>
+                _ = Task.Run(async () =>
                 {
+                    await Task.Delay(applyJitterMs).ConfigureAwait(false);
                     Pair.ApplyLastReceivedData(forced: true);
                 });
             }

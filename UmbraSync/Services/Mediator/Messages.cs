@@ -29,6 +29,9 @@ public record PriorityFrameworkUpdateMessage : SameThreadMessage;
 public record FrameworkUpdateMessage : SameThreadMessage;
 public record ClassJobChangedMessage(GameObjectHandler GameObjectHandler) : MessageBase;
 public record DelayedFrameworkUpdateMessage : SameThreadMessage;
+// Visibilité événementielle (DrawObjectTrackingService) : un game object a (dé)lié son draw object.
+public record DrawObjectLinkedMessage(nint GameObject, nint DrawObject) : SameThreadMessage;
+public record DrawObjectUnlinkedMessage(nint GameObject, nint DrawObject) : SameThreadMessage;
 public record ZoneSwitchStartMessage : MessageBase;
 public record ZoneSwitchEndMessage : MessageBase;
 public record CutsceneStartMessage : MessageBase;

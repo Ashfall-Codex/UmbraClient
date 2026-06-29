@@ -174,6 +174,11 @@ public class DalamudUtilService : IHostedService, IMediatorSubscriber
     public bool IsInGpose { get; private set; }
     public bool IsLoggedIn { get; private set; }
     public bool IsOnFrameworkThread => _framework.IsInFrameworkUpdateThread;
+
+    /// <summary>Attend <paramref name="frameCount"/> ticks framework (settle avant un soft-reapply différé).</summary>
+    public Task WaitForFrameworkFramesAsync(int frameCount, CancellationToken token = default)
+        => frameCount <= 0 ? Task.CompletedTask : _framework.DelayTicks(frameCount, token);
+
     public bool IsZoning => _condition[ConditionFlag.BetweenAreas] || _condition[ConditionFlag.BetweenAreas51];
     public bool IsInCombatOrPerforming { get; private set; }
     public bool IsInHousingMode => _condition[ConditionFlag.UsingHousingFunctions];

@@ -31,7 +31,7 @@ public class FileTransferOrchestrator : DisposableMediatorSubscriberBase
             ConnectTimeout = TimeSpan.FromSeconds(10),
             PooledConnectionLifetime = TimeSpan.FromMinutes(5),
             PooledConnectionIdleTimeout = TimeSpan.FromSeconds(90),
-            MaxConnectionsPerServer = 24,
+            MaxConnectionsPerServer = 32,
             AutomaticDecompression = DecompressionMethods.None,
         };
         _httpClient = new(handler)
@@ -84,7 +84,11 @@ public class FileTransferOrchestrator : DisposableMediatorSubscriberBase
         try
         {
             _downloadSemaphore.Release();
-            Mediator.Publish(new DownloadLimitChangedMessage());
+            // Ne publier que si une limite de vitesse est active : sinon la redistribution de bande
+            // passante est un no-op, et comme le CDN acquiert/relâche un slot PAR fichier, ça génère
+            // une tempête de messages synchrones (SameThreadMessage) vers tous les FileDownloadManager.
+            if (_mareConfig.Current.DownloadSpeedLimitInBytes > 0)
+                Mediator.Publish(new DownloadLimitChangedMessage());
         }
         catch (SemaphoreFullException)
         {
@@ -128,7 +132,8 @@ public class FileTransferOrchestrator : DisposableMediatorSubscriberBase
         }
 
         await _downloadSemaphore.WaitAsync(token).ConfigureAwait(false);
-        Mediator.Publish(new DownloadLimitChangedMessage());
+        if (_mareConfig.Current.DownloadSpeedLimitInBytes > 0)
+            Mediator.Publish(new DownloadLimitChangedMessage());
     }
 
     public long DownloadLimitPerSlot()

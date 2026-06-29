@@ -802,8 +802,12 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
         {
             Logger.LogInformation("[{id}] Attempting direct CDN download for {count} files", downloadId, directDownloads.Count);
 
-            var slots = Math.Clamp(_mareConfigService.Current.ParallelDownloads, 1, 10);
-            var workerDop = Math.Clamp(slots * 2, 2, 16);
+            var slots = Math.Clamp(_mareConfigService.Current.ParallelDownloads, 1, 20);
+            // Le gate global _downloadSemaphore (= ParallelDownloads) est désormais le vrai plafond de
+            // concurrence, partagé entre tous les pairs. Inutile de lancer slots*2 workers par pair :
+            // l'excédent ne ferait qu'attendre sur le sémaphore global (jusqu'à ~N×40 tâches parquées à
+            // 24 pairs). On aligne workerDop sur slots : un pair seul peut saturer le pool, sans gaspillage.
+            var workerDop = slots;
 
             await Parallel.ForEachAsync(directDownloads, new ParallelOptions
             {
@@ -833,7 +837,17 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
                 var goesToFallback = false;
                 try
                 {
-                    var cdnResult = await DownloadDirectToLz4TmpAsync(file, lz4TmpPath, progress, token).ConfigureAwait(false);
+
+                    await _orchestrator.WaitForDownloadSlotAsync(token).ConfigureAwait(false);
+                    CdnDownloadResult cdnResult;
+                    try
+                    {
+                        cdnResult = await DownloadDirectToLz4TmpAsync(file, lz4TmpPath, progress, token).ConfigureAwait(false);
+                    }
+                    finally
+                    {
+                        _orchestrator.ReleaseDownloadSlot();
+                    }
                     downloadSuccess = cdnResult == CdnDownloadResult.Success;
 
                     if (cdnResult == CdnDownloadResult.Success)
@@ -980,11 +994,13 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
             if (!Guid.TryParse(responseBody.Trim('"'), out Guid requestId)) return;
 
             blockFile = _fileDbManager.GetCacheFilePath(requestId.ToString("N"), "blk");
+            bool slotHeld = false;
             try
             {
                 if (_downloadStatus.TryGetValue(fileGroup.Key, out var slotStatus))
                     slotStatus.DownloadStatus = DownloadStatus.WaitingForSlot;
                 await _orchestrator.WaitForDownloadSlotAsync(token).ConfigureAwait(false);
+                slotHeld = true;
                 if (_downloadStatus.TryGetValue(fileGroup.Key, out slotStatus))
                     slotStatus.DownloadStatus = DownloadStatus.WaitingForQueue;
                 Progress<long> progress = new((bytesDownloaded) =>
@@ -993,18 +1009,24 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
                         value.AddTransferredBytes(bytesDownloaded);
                 });
                 await DownloadAndMungeFileHttpClient(fileGroup.Key, requestId, [.. fileGroup], blockFile, progress, effectiveBaseUri, token).ConfigureAwait(false);
+                // Relâcher le slot global dès la fin du download réseau : la décompression (plus bas)
+                // a son propre gate (GetDecompressGate) et ne doit pas monopoliser un slot de download.
+                _orchestrator.ReleaseDownloadSlot();
+                slotHeld = false;
                 break; // Succès, sortir de la boucle retry
             }
             catch (OperationCanceledException)
             {
-                _orchestrator.ReleaseDownloadSlot();
+                // slotHeld : pas de release si l'annulation est survenue PENDANT l'attente du slot
+                // (WaitForDownloadSlotAsync lève avant d'avoir acquis) -> évite une sur-release.
+                if (slotHeld) _orchestrator.ReleaseDownloadSlot();
                 if (File.Exists(blockFile)) File.Delete(blockFile);
                 ClearDownload();
                 return;
             }
             catch (Exception ex)
             {
-                _orchestrator.ReleaseDownloadSlot();
+                if (slotHeld) _orchestrator.ReleaseDownloadSlot();
                 if (File.Exists(blockFile)) File.Delete(blockFile);
 
                 if (batchAttempt >= maxBatchRetries)
@@ -1021,7 +1043,7 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
 
             if (!File.Exists(blockFile))
             {
-                _orchestrator.ReleaseDownloadSlot();
+                // Slot déjà relâché après le download réseau réussi.
                 ClearDownload();
                 return;
             }
@@ -1149,7 +1171,8 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
             finally
             {
                 Task.WaitAll([.. tasks], CancellationToken.None);
-                _orchestrator.ReleaseDownloadSlot();
+                // Le slot global a déjà été relâché juste après le download réseau (la décompression
+                // ci-dessus n'utilise que GetDecompressGate, pas un slot de download).
                 if (fileBlockStream != null)
                     await fileBlockStream.DisposeAsync().ConfigureAwait(false);
                 File.Delete(blockFile);
@@ -1227,8 +1250,12 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
 
             Mediator.Publish(new DownloadStartedMessage(gameObjectHandler, _downloadStatus));
 
-            var slots = Math.Clamp(_mareConfigService.Current.ParallelDownloads, 1, 10);
-            var workerDop = Math.Clamp(slots * 2, 2, 16);
+            var slots = Math.Clamp(_mareConfigService.Current.ParallelDownloads, 1, 20);
+            // Le gate global _downloadSemaphore (= ParallelDownloads) est désormais le vrai plafond de
+            // concurrence, partagé entre tous les pairs. Inutile de lancer slots*2 workers par pair :
+            // l'excédent ne ferait qu'attendre sur le sémaphore global (jusqu'à ~N×40 tâches parquées à
+            // 24 pairs). On aligne workerDop sur slots : un pair seul peut saturer le pool, sans gaspillage.
+            var workerDop = slots;
 
             await Parallel.ForEachAsync(directDownloads, new ParallelOptions
             {
@@ -1269,7 +1296,18 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
                 var goesToFallback = false;
                 try
                 {
-                    var cdnResult = await DownloadDirectToLz4TmpAsync(file, lz4TmpPath, progress, token).ConfigureAwait(false);
+                    // Voir loop CDN principal : on fait passer le download CDN par le gate global
+                    // ParallelDownloads (le slider) pour qu'il soit respecté entre tous les pairs.
+                    await _orchestrator.WaitForDownloadSlotAsync(token).ConfigureAwait(false);
+                    CdnDownloadResult cdnResult;
+                    try
+                    {
+                        cdnResult = await DownloadDirectToLz4TmpAsync(file, lz4TmpPath, progress, token).ConfigureAwait(false);
+                    }
+                    finally
+                    {
+                        _orchestrator.ReleaseDownloadSlot();
+                    }
                     downloadSuccess = cdnResult == CdnDownloadResult.Success;
 
                     if (cdnResult == CdnDownloadResult.Success)
@@ -1455,11 +1493,13 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
 
             blockFile = _fileDbManager.GetCacheFilePath(requestId.ToString("N"), "blk");
             fi = new FileInfo(blockFile);
+            bool slotHeld = false;
             try
             {
                 if (_downloadStatus.TryGetValue(fileGroup.Key, out var slotStatus))
                     slotStatus.DownloadStatus = DownloadStatus.WaitingForSlot;
                 await _orchestrator.WaitForDownloadSlotAsync(token).ConfigureAwait(false);
+                slotHeld = true;
                 if (_downloadStatus.TryGetValue(fileGroup.Key, out slotStatus))
                     slotStatus.DownloadStatus = DownloadStatus.WaitingForQueue;
                 Progress<long> progress = new((bytesDownloaded) =>
@@ -1479,11 +1519,17 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
                     }
                 });
                 await DownloadAndMungeFileHttpClient(fileGroup.Key, requestId, [.. fileGroup], blockFile, progress, effectiveBaseUri, token).ConfigureAwait(false);
+                // Relâcher le slot global dès la fin du download réseau : la décompression (plus bas)
+                // a son propre gate (GetDecompressGate) et ne doit pas monopoliser un slot de download.
+                _orchestrator.ReleaseDownloadSlot();
+                slotHeld = false;
                 break; // Succès, sortir de la boucle retry
             }
             catch (OperationCanceledException)
             {
-                _orchestrator.ReleaseDownloadSlot();
+                // slotHeld : pas de release si l'annulation est survenue PENDANT l'attente du slot
+                // (WaitForDownloadSlotAsync lève avant d'avoir acquis) -> évite une sur-release.
+                if (slotHeld) _orchestrator.ReleaseDownloadSlot();
                 if (File.Exists(blockFile))
                     File.Delete(blockFile);
                 Logger.LogDebug("{dlName}: Detected cancellation of download for {id}, aborting file extraction", fi?.Name ?? "?", requestId);
@@ -1492,7 +1538,7 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
             }
             catch (Exception ex)
             {
-                _orchestrator.ReleaseDownloadSlot();
+                if (slotHeld) _orchestrator.ReleaseDownloadSlot();
                 if (File.Exists(blockFile))
                     File.Delete(blockFile);
 
@@ -1512,7 +1558,7 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
             if (string.IsNullOrEmpty(blockFile) || !File.Exists(blockFile))
             {
                 Logger.LogError("{dlName}: Block file does not exist, cannot proceed with decompression", fi?.Name ?? "?");
-                _orchestrator.ReleaseDownloadSlot();
+                // Slot déjà relâché après le download réseau réussi.
                 ClearDownload();
                 return;
             }
@@ -1645,7 +1691,8 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
             finally
             {
                 Task.WaitAll([.. tasks], CancellationToken.None);
-                _orchestrator.ReleaseDownloadSlot();
+                // Le slot global a déjà été relâché juste après le download réseau (la décompression
+                // ci-dessus n'utilise que GetDecompressGate, pas un slot de download).
                 if (fileBlockStream != null)
                     await fileBlockStream.DisposeAsync().ConfigureAwait(false);
                 File.Delete(blockFile);

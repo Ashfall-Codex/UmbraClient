@@ -470,7 +470,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
         ImGui.AlignTextToFramePadding();
         ImGui.TextUnformatted(Loc.Get("Settings.Transfer.SpeedLimit.NoLimit"));
         ImGui.SetNextItemWidth(MathF.Min(250 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X - 200 * ImGuiHelpers.GlobalScale));
-        if (ImGui.SliderInt(Loc.Get("Settings.Transfer.ParallelDownloads"), ref maxParallelDownloads, 1, 10))
+        if (ImGui.SliderInt(Loc.Get("Settings.Transfer.ParallelDownloads"), ref maxParallelDownloads, 1, 20))
         {
             _configService.Current.ParallelDownloads = maxParallelDownloads;
             _configService.Save();
@@ -507,7 +507,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
         // Sous-bloc 1 : concurrence d'application GPU
         int maxConcurrentPairApplications = _configService.Current.MaxConcurrentPairApplications;
         ImGui.SetNextItemWidth(MathF.Min(200 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X - 200 * ImGuiHelpers.GlobalScale));
-        if (ImGui.SliderInt(Loc.Get("Settings.Transfer.PairProcessing.MaxConcurrent"), ref maxConcurrentPairApplications, 1, 10))
+        if (ImGui.SliderInt(Loc.Get("Settings.Transfer.PairProcessing.MaxConcurrent"), ref maxConcurrentPairApplications, 1, 16))
         {
             _configService.Current.MaxConcurrentPairApplications = maxConcurrentPairApplications;
             _configService.Save();
@@ -538,6 +538,32 @@ public class SettingsUi : WindowMediatorSubscriberBase
         _uiShared.DrawHelpText(Loc.Get("Settings.Transfer.RedrawCoordination.MinInterval.Help"));
         ImGui.Unindent();
         if (!enableRedrawCoordination) ImGui.EndDisabled();
+
+        ImGuiHelpers.ScaledDummy(6f);
+
+        // Sous-bloc 3 : expérimental — décision de redraw soft/hard
+        bool enableSoftRedraw = _configService.Current.EnableSoftRedraw;
+        if (ImGui.Checkbox("[Expérimental] Redraw intelligent (soft/hard)", ref enableSoftRedraw))
+        {
+            _configService.Current.EnableSoftRedraw = enableSoftRedraw;
+            _configService.Save();
+        }
+        _uiShared.DrawHelpText("Pour un changement de texture/material seul, réapplique l'apparence via Glamourer " +
+            "sans redraw complet (moins de flicker et de charge GPU). Les changements de géométrie (mdl, " +
+            "cheveux, visage, queue, manipulations) restent en redraw complet.\n\nExpérimental : si un mod " +
+            "n'apparaît pas correctement, décoche cette case (retour au comportement actuel, sans redémarrage).");
+
+        // Sous-bloc 4 : expérimental — visibilité événementielle
+        bool enableEventVisibility = _configService.Current.EnableEventVisibility;
+        if (ImGui.Checkbox("[Expérimental] Détection de visibilité événementielle", ref enableEventVisibility))
+        {
+            _configService.Current.EnableEventVisibility = enableEventVisibility;
+            _configService.Save();
+        }
+        _uiShared.DrawHelpText("Détecte l'apparition/disparition des joueurs via des hooks du jeu (réaction immédiate, " +
+            "moins de charge CPU) au lieu d'un scan périodique. Repli automatique sur le scan si les hooks échouent.\n\n" +
+            "Expérimental : ces hooks sont bas niveau ; en cas de souci, décoche (les hooks ne sont alors plus posés). " +
+            "Un changement de cet interrupteur prend effet à la prochaine reconnexion ou au redémarrage du plugin.");
 
         ImGui.Separator();
         DrawCollectionOverrides();

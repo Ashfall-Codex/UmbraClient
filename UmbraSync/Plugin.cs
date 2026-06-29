@@ -135,6 +135,7 @@ public sealed class Plugin : IDalamudPlugin
             collection.AddSingleton<VfxSpawnManager>();
             collection.AddSingleton<BlockedCharacterHandler>();
             collection.AddSingleton<IpcProvider>();
+            collection.AddSingleton<UmbraSync.Services.ActorTracking.DrawObjectTrackingService>();
             collection.AddSingleton<VisibilityService>();
             collection.AddSingleton<EventAggregator>();
             collection.AddSingleton<DalamudUtilService>();
@@ -276,6 +277,7 @@ public sealed class Plugin : IDalamudPlugin
             collection.AddHostedService(p => p.GetRequiredService<FileCacheManager>());
             collection.AddHostedService(p => p.GetRequiredService<ConfigurationMigrator>());
             collection.AddHostedService(p => p.GetRequiredService<DalamudUtilService>());
+            collection.AddHostedService(p => p.GetRequiredService<UmbraSync.Services.ActorTracking.DrawObjectTrackingService>());
             collection.AddHostedService(p => p.GetRequiredService<PerformanceCollectorService>());
             collection.AddHostedService(p => p.GetRequiredService<DtrEntry>());
             collection.AddHostedService(p => p.GetRequiredService<EventAggregator>());

@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging;
 using UmbraSync.Interop.Ipc;
 using UmbraSync.MareConfiguration;
 using UmbraSync.PlayerData.Handlers;
+using UmbraSync.Services;
 using UmbraSync.Services.Mediator;
 
 namespace UmbraSync.PlayerData.Redraw;
@@ -10,24 +11,52 @@ public sealed class PairRedrawCoordinator : DisposableMediatorSubscriberBase
 {
     private readonly MareConfigService _configService;
     private readonly IpcManager _ipcManager;
+    private readonly DalamudUtilService _dalamudUtil;
     private readonly SemaphoreSlim _gate = new(1, 1);
     private DateTime _lastRedrawAtUtc = DateTime.MinValue;
 
     public PairRedrawCoordinator(ILogger<PairRedrawCoordinator> logger, MareMediator mediator,
-        MareConfigService configService, IpcManager ipcManager)
+        MareConfigService configService, IpcManager ipcManager, DalamudUtilService dalamudUtil)
         : base(logger, mediator)
     {
         _configService = configService;
         _ipcManager = ipcManager;
+        _dalamudUtil = dalamudUtil;
     }
 
-    // Garde anti-blocage : la coordination est une optimisation, jamais une exigence de
-    // correction. Un redraw qui ne complète pas (objet disparu après déconnexion d'une paire)
-    // ne doit ni tenir le gate indéfiniment, ni faire attendre indéfiniment les appels suivants
-    // — dont certains s'exécutent sur le framework thread (chemin d'apply sériel) : une attente
-    // infinie y fige le jeu entier.
     private static readonly TimeSpan GateWaitTimeout = TimeSpan.FromSeconds(3);
-    private static readonly TimeSpan RedrawHoldTimeout = TimeSpan.FromSeconds(10);
+    // Frames de settle avant un soft-reapply différé (changements texture/material seuls), cf. Lightless.
+    private const int DeferredSoftReapplyFrames = 5;
+
+    /// <summary>
+    /// Exécute la décision de redraw. Hard → redraw Penumbra complet (avec espacement) ; Soft →
+    /// réapplication Glamourer directe (sans flicker) ; DeferredSoft → settle de quelques frames puis soft.
+    /// Tout est gardé en amont par EnableSoftRedraw : si OFF, l'appelant force HardRedraw.
+    /// </summary>
+    public async Task ExecuteDecisionAsync(PairRedrawDecision decision, ILogger callerLogger, GameObjectHandler handler, Guid applicationId, CancellationToken token)
+    {
+        switch (decision)
+        {
+            case PairRedrawDecision.None:
+                return;
+
+            case PairRedrawDecision.SoftReapply:
+                callerLogger.LogDebug("[{applicationId}] Redraw decision: SoftReapply", applicationId);
+                await _ipcManager.Glamourer.ReapplyDirectAsync(callerLogger, handler, applicationId, token).ConfigureAwait(false);
+                return;
+
+            case PairRedrawDecision.DeferredSoftReapply:
+                callerLogger.LogDebug("[{applicationId}] Redraw decision: DeferredSoftReapply", applicationId);
+                await _dalamudUtil.WaitForFrameworkFramesAsync(DeferredSoftReapplyFrames, token).ConfigureAwait(false);
+                await _ipcManager.Glamourer.ReapplyDirectAsync(callerLogger, handler, applicationId, token).ConfigureAwait(false);
+                return;
+
+            default: // HardRedraw (et tout cas inattendu, par prudence)
+                callerLogger.LogDebug("[{applicationId}] Redraw decision: HardRedraw", applicationId);
+                await RedrawAsync(callerLogger, handler, applicationId, token).ConfigureAwait(false);
+                return;
+        }
+    }
 
     public async Task RedrawAsync(ILogger callerLogger, GameObjectHandler handler, Guid applicationId, CancellationToken token)
     {
@@ -36,46 +65,35 @@ public sealed class PairRedrawCoordinator : DisposableMediatorSubscriberBase
             await _ipcManager.Penumbra.RedrawAsync(callerLogger, handler, applicationId, token).ConfigureAwait(false);
             return;
         }
-
-        if (!await _gate.WaitAsync(GateWaitTimeout, token).ConfigureAwait(false))
+        
+        if (await _gate.WaitAsync(GateWaitTimeout, token).ConfigureAwait(false))
         {
-            // Gate occupé trop longtemps : on exécute sans coordination plutôt que de bloquer
-            // la chaîne (comportement identique à la coordination désactivée).
-            callerLogger.LogWarning("[{applicationId}] Redraw gate occupé > {timeout}s, exécution sans coordination", applicationId, GateWaitTimeout.TotalSeconds);
-            await _ipcManager.Penumbra.RedrawAsync(callerLogger, handler, applicationId, token).ConfigureAwait(false);
-            return;
-        }
-        try
-        {
-            var minInterval = TimeSpan.FromMilliseconds(Math.Max(0, _configService.Current.MinRedrawIntervalMs));
-            if (minInterval > TimeSpan.Zero)
-            {
-                var elapsed = DateTime.UtcNow - _lastRedrawAtUtc;
-                if (elapsed < minInterval)
-                {
-                    var wait = minInterval - elapsed;
-                    callerLogger.LogTrace("[{applicationId}] Redraw throttled, waiting {ms}ms", applicationId, (int)wait.TotalMilliseconds);
-                    await Task.Delay(wait, token).ConfigureAwait(false);
-                }
-            }
-
-            // Timeout de détention : libère le gate même si le redraw ne complète jamais.
-            using var holdTimeoutCts = CancellationTokenSource.CreateLinkedTokenSource(token);
-            holdTimeoutCts.CancelAfter(RedrawHoldTimeout);
             try
             {
-                await _ipcManager.Penumbra.RedrawAsync(callerLogger, handler, applicationId, holdTimeoutCts.Token).ConfigureAwait(false);
+                var minInterval = TimeSpan.FromMilliseconds(Math.Max(0, _configService.Current.MinRedrawIntervalMs));
+                if (minInterval > TimeSpan.Zero)
+                {
+                    var elapsed = DateTime.UtcNow - _lastRedrawAtUtc;
+                    if (elapsed < minInterval)
+                    {
+                        var wait = minInterval - elapsed;
+                        callerLogger.LogTrace("[{applicationId}] Redraw throttled, waiting {ms}ms", applicationId, (int)wait.TotalMilliseconds);
+                        await Task.Delay(wait, token).ConfigureAwait(false);
+                    }
+                }
                 _lastRedrawAtUtc = DateTime.UtcNow;
             }
-            catch (OperationCanceledException) when (!token.IsCancellationRequested)
+            finally
             {
-                callerLogger.LogWarning("[{applicationId}] Redraw sans réponse après {timeout}s, gate libéré", applicationId, RedrawHoldTimeout.TotalSeconds);
+                _gate.Release();
             }
         }
-        finally
+        else
         {
-            _gate.Release();
+            callerLogger.LogTrace("[{applicationId}] Redraw gate occupé > {timeout}s, espacement ignoré", applicationId, GateWaitTimeout.TotalSeconds);
         }
+        
+        await _ipcManager.Penumbra.RedrawAsync(callerLogger, handler, applicationId, token).ConfigureAwait(false);
     }
 
     protected override void Dispose(bool disposing)
