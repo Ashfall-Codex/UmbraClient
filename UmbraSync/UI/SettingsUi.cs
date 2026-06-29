@@ -551,7 +551,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
         _uiShared.DrawHelpText("Pour un changement de texture/material seul, réapplique l'apparence via Glamourer " +
             "sans redraw complet (moins de flicker et de charge GPU). Les changements de géométrie (mdl, " +
             "cheveux, visage, queue, manipulations) restent en redraw complet.\n\nExpérimental : si un mod " +
-            "n'apparaît pas correctement, décoche cette case (retour au comportement actuel, sans redémarrage).");
+            "n'apparaît pas correctement, décochez cette case (retour au comportement actuel, sans redémarrage).");
 
         // Sous-bloc 4 : expérimental — visibilité événementielle
         bool enableEventVisibility = _configService.Current.EnableEventVisibility;
@@ -562,7 +562,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
         }
         _uiShared.DrawHelpText("Détecte l'apparition/disparition des joueurs via des hooks du jeu (réaction immédiate, " +
             "moins de charge CPU) au lieu d'un scan périodique. Repli automatique sur le scan si les hooks échouent.\n\n" +
-            "Expérimental : ces hooks sont bas niveau ; en cas de souci, décoche (les hooks ne sont alors plus posés). " +
+            "Expérimental : ces hooks sont bas niveau ; en cas de souci, décochez (les hooks ne sont alors plus posés). " +
             "Un changement de cet interrupteur prend effet à la prochaine reconnexion ou au redémarrage du plugin.");
 
         ImGui.Separator();
