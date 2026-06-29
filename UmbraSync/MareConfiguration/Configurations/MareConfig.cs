@@ -75,12 +75,8 @@ public class MareConfig : IMareConfiguration
     public int MaxConcurrentPairApplications { get; set; } = 3;
     public bool EnableRedrawCoordination { get; set; } = true;
     public int MinRedrawIntervalMs { get; set; } = 100;
-    // Expérimental (OFF par défaut) : décision de redraw soft/hard (réapplication Glamourer pour les
-    // changements texture/material seuls au lieu d'un redraw Penumbra complet). Voir PairRedrawDecision.
-    public bool EnableSoftRedraw { get; set; } = false;
-    // Expérimental (OFF par défaut) : détection de visibilité événementielle (hooks draw-object) au
-    // lieu du polling. Les hooks ne sont posés que si ce flag est ON. Voir DrawObjectTrackingService.
-    public bool EnableEventVisibility { get; set; } = false;
+    public bool EnableSoftRedraw { get; set; } = true;
+    public bool EnableEventVisibility { get; set; } = true;
     public int MaxDecompressionThreads { get; set; }
     public int DownloadSpeedLimitInBytes { get; set; }
     public DownloadSpeeds DownloadSpeedType { get; set; } = DownloadSpeeds.MBps;
