@@ -26,9 +26,6 @@ public class VisibilityService : DisposableMediatorSubscriberBase
     private readonly HashSet<nint> cachedMareAddresses = new();
     private uint _cachedAddressSum = 0;
     private uint _cachedAddressSumDebounce = 1;
-
-    // Mode événementiel : un évènement draw-object demande un re-scan ; sinon on ne refait un scan
-    // de sécurité qu'à cet intervalle (au lieu du scan systématique du mode polling à ~5Hz).
     private static readonly TimeSpan EventModeSafetyInterval = TimeSpan.FromSeconds(2);
     private volatile bool _scanRequested;
     private DateTime _lastScanUtc = DateTime.MinValue;

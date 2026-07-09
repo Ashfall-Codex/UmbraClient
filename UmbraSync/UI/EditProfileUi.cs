@@ -65,6 +65,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
     private bool _showFileDialogError = false;
     private bool _wasOpen;
     private bool _rpLoaded = false;
+    private string _rpLoadedForKey = string.Empty;
     private bool _hrpLoaded = false;
     private bool _vanityModalOpen = false;
     private string _vanityInput = string.Empty;
@@ -176,13 +177,19 @@ public class EditProfileUi : WindowMediatorSubscriberBase
     {
         _rpLoaded = false;
         _hrpLoaded = false;
-        if (!string.IsNullOrEmpty(_apiController.UID))
+        var charName = _dalamudUtil.GetPlayerName();
+        var worldId = _dalamudUtil.GetHomeWorldId();
+        // Ne pas fetch tant que LocalPlayer n'est pas prêt : un nom "--"/monde 0 partirait sans
+        // contexte perso et le serveur renverrait le profil d'un autre alt. Le draw relancera le
+        // fetch via GetUmbraProfile une fois le perso résolu.
+        if (!string.IsNullOrEmpty(_apiController.UID)
+            && !string.IsNullOrEmpty(charName) && !string.Equals(charName, "--", StringComparison.Ordinal)
+            && worldId > 0)
         {
-
             _ = _umbraProfileManager.GetUmbraProfileFromService(
                 new UserData(_apiController.UID),
-                _dalamudUtil.GetPlayerName(),
-                _dalamudUtil.GetHomeWorldId());
+                charName,
+                worldId);
         }
     }
 
@@ -412,7 +419,19 @@ public class EditProfileUi : WindowMediatorSubscriberBase
 
         if (isRp)
         {
-            if (!_rpLoaded && !string.Equals(umbraProfile.Description, "Loading Data from server...", StringComparison.Ordinal))
+            var curName = _dalamudUtil.GetPlayerName();
+            var curWorld = _dalamudUtil.GetHomeWorldId();
+            bool playerReady = !string.IsNullOrEmpty(curName)
+                && !string.Equals(curName, "--", StringComparison.Ordinal) && curWorld > 0;
+            // Clé perso courante (même format que RpConfigService.GetCharacterKey).
+            var curKey = playerReady ? $"{curName}@{curWorld}" : string.Empty;
+
+            // Switch d'alt fenêtre ouverte : si le perso a changé depuis le dernier chargement,
+            // on recharge pour ne pas garder les champs (ni réécrire le config) de l'ancien perso.
+            if (playerReady && !string.Equals(curKey, _rpLoadedForKey, StringComparison.Ordinal))
+                _rpLoaded = false;
+
+            if (playerReady && !_rpLoaded && !string.Equals(umbraProfile.Description, "Loading Data from server...", StringComparison.Ordinal))
             {
                 _rpDescriptionText = umbraProfile.RpDescription ?? string.Empty;
                 _rpFirstNameText = umbraProfile.RpFirstName ?? string.Empty;
@@ -486,6 +505,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
                 }
 
                 _rpLoaded = true;
+                _rpLoadedForKey = curKey;
                 _hydratedRpSnapshot = ComputeRpSnapshotFromProfile(umbraProfile);
                 _serverHasNewerVersion = false;
                 _lastRpPollUtc = DateTime.UtcNow;
