@@ -72,6 +72,16 @@ public sealed class HousingShareManager : IDisposable
     public string? AppliedShareOwnerUid { get; private set; }
     public string? ProgressStatus { get; private set; }
     public float ProgressPercent { get; private set; }
+    
+    private static bool LocationMatches(LocationInfo a, LocationInfo b)
+    {
+        return a.ServerId == b.ServerId
+            && a.TerritoryId == b.TerritoryId
+            && a.DivisionId == b.DivisionId
+            && a.WardId == b.WardId
+            && a.HouseId == b.HouseId
+            && a.RoomId == b.RoomId;
+    }
 
     public Task PublishAsync(LocationInfo location, string description, List<string> allowedIndividuals, List<string> allowedSyncshells, bool disableSourceMods = false)
     {
@@ -259,6 +269,11 @@ public sealed class HousingShareManager : IDisposable
             ProgressPercent = 0.02f;
 
             var shares = await _apiController.HousingShareGetForLocation(location).ConfigureAwait(false);
+
+            // Garde défensif : n'appliquer que les shares dont la localisation correspond EXACTEMENT,
+            // RoomId/DivisionId inclus (voir HousingScenarioManager pour le détail du bug "appliqué partout").
+            shares.RemoveAll(s => !LocationMatches(s.Location, location));
+
             if (shares.Count == 0)
             {
                 _logger.LogDebug("Aucun share housing trouvé pour cette localisation");

@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using UmbraSync.API.Dto.CharaData;
 using UmbraSync.API.Dto.HousingScenario;
 using UmbraSync.MareConfiguration;
@@ -28,6 +29,7 @@ public sealed class HousingScenarioManager : IDisposable
     private readonly HousingScenarioStateService _stateService;
     private readonly ArrScenarioFileService _scenarioFileService;
     private readonly MareConfigService _configService;
+    private readonly DalamudUtilService _dalamudUtil;
     private readonly SemaphoreSlim _operationSemaphore = new(1, 1);
     private readonly List<HousingScenarioEntryDto> _ownShares = new();
     private Task? _currentTask;
@@ -42,7 +44,8 @@ public sealed class HousingScenarioManager : IDisposable
         ArrPathResolver arrPathResolver,
         HousingScenarioStateService stateService,
         ArrScenarioFileService scenarioFileService,
-        MareConfigService configService)
+        MareConfigService configService,
+        DalamudUtilService dalamudUtil)
     {
         _logger = logger;
         _apiController = apiController;
@@ -51,6 +54,7 @@ public sealed class HousingScenarioManager : IDisposable
         _stateService = stateService;
         _scenarioFileService = scenarioFileService;
         _configService = configService;
+        _dalamudUtil = dalamudUtil;
     }
 
     public IReadOnlyList<HousingScenarioEntryDto> OwnShares => _ownShares;
@@ -167,6 +171,8 @@ public sealed class HousingScenarioManager : IDisposable
 
             var shares = await _apiController.HousingScenarioGetForLocation(location).ConfigureAwait(false);
 
+            shares.RemoveAll(s => !LocationMatches(s.Location, location));
+
             // Jamais d'auto-application : l'owner possède déjà le scénario original en local,
             // re-déposer la copie partagée dans ARR créerait un doublon (deux scénarios listés).
             // On lui rappelle néanmoins qu'un de ses scénarios est publié ici (une fois par visite).
@@ -268,11 +274,15 @@ public sealed class HousingScenarioManager : IDisposable
             return;
         }
 
+        // Position brute courante du visiteur (convention ARR), réutilisée pour la détection de
+        // conflits locaux ET pour la réécriture de la Location du fichier déposé.
+        var arrRaw = await _dalamudUtil.GetArrRawLocationAsync().ConfigureAwait(false);
+
         // Owner prioritaire (décision produit) : les scénarios ARR locaux dont la Location matche
         // strictement celle du share sont désactivés le temps de la visite (rename .umbra-disabled),
         // sinon ARR pourrait charger les deux de façon imprévisible. Le state file est écrit AVANT
         // le rename pour garantir la restauration après un crash.
-        var conflicts = DetectLocalConflicts(location);
+        var conflicts = DetectLocalConflicts(arrRaw);
         if (conflicts.Count > 0)
         {
             _stateService.Save(new HousingScenarioStateSnapshot
@@ -288,12 +298,20 @@ public sealed class HousingScenarioManager : IDisposable
             _renamedLocals = [];
         }
 
+        // Réécriture de la Location vers la position brute COURANTE du visiteur : ARR matche le
+        // scénario sur SA propre Location (jamais sur la nôtre, et sans notion de room), donc en la
+        // forçant à "ici" on garantit un spawn déterministe à l'emplacement du visiteur. Combiné au
+        // gating par RoomId (HousingMonitorService retire le fichier au changement de room), le PNJ
+        // ne peut apparaître QUE dans la room/appartement exacte — le seul moyen de confiner, ARR
+        // étant structurellement aveugle aux rooms.
+        string scenarioJsonToWrite = RewriteScenarioLocation(plaintextDto.ScenarioJson, arrRaw);
+
         // File-drop : <scenariosPath>/UmbraTemp_{shareId:N}.json
         string tempFileName = $"{TempFilePrefix}{shareId:N}.json";
         string tempPath = Path.Combine(scenariosPath, tempFileName);
         try
         {
-            await File.WriteAllTextAsync(tempPath, plaintextDto.ScenarioJson, Encoding.UTF8).ConfigureAwait(false);
+            await File.WriteAllTextAsync(tempPath, scenarioJsonToWrite, Encoding.UTF8).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -543,21 +561,58 @@ public sealed class HousingScenarioManager : IDisposable
             _operationSemaphore.Release();
         }
     }
+    
+    private string RewriteScenarioLocation(string scenarioJson, ArrRawLocation loc)
+    {
+        try
+        {
+            if (JsonNode.Parse(scenarioJson) is not JsonObject root || root["Location"] is not JsonObject location)
+            {
+                _logger.LogDebug("Scénario sans objet Location exploitable, drop verbatim");
+                return scenarioJson;
+            }
 
-    /// <summary>
-    /// Détecte les scénarios ARR locaux en conflit certain avec la location visitée.
-    /// Matching strict : Territory, Ward et Plot doivent être connus ET égaux — un scénario dont
-    /// la location est partiellement non-parsable n'est jamais touché (on ne désactive que ce qui
-    /// est sûr d'être en conflit, jamais un scénario innocent).
-    /// </summary>
-    private List<RenamedLocalScenario> DetectLocalConflicts(LocationInfo location)
+            location["Territory"] = loc.Territory;
+            location["Server"] = loc.Server;
+            location["HousingDivision"] = loc.Division;
+            location["HousingWard"] = loc.Ward;
+            location["HousingPlot"] = loc.Plot;
+
+            return root.ToJsonString();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Réécriture de la Location du scénario échouée, drop verbatim");
+            return scenarioJson;
+        }
+    }
+
+
+    // Égalité stricte de localisation housing
+    private static bool LocationMatches(LocationInfo a, LocationInfo b)
+    {
+        return a.ServerId == b.ServerId
+            && a.TerritoryId == b.TerritoryId
+            && a.DivisionId == b.DivisionId
+            && a.WardId == b.WardId
+            && a.HouseId == b.HouseId
+            && a.RoomId == b.RoomId;
+    }
+
+
+    private List<RenamedLocalScenario> DetectLocalConflicts(ArrRawLocation location)
     {
         var conflicts = new List<RenamedLocalScenario>();
         foreach (var info in _scenarioFileService.ListLocalScenarios())
         {
-            if (!info.Territory.HasValue || info.Territory.Value != location.TerritoryId) continue;
-            if (!info.Ward.HasValue || info.Ward.Value != location.WardId) continue;
-            if (!info.Plot.HasValue || info.Plot.Value != location.HouseId) continue;
+            if (!info.Territory.HasValue || info.Territory.Value != location.Territory) continue;
+            if (location.InHousing)
+            {
+                if (!info.Server.HasValue || info.Server.Value != location.Server) continue;
+                if (!info.HousingDivision.HasValue || info.HousingDivision.Value != location.Division) continue;
+                if (!info.HousingWard.HasValue || info.HousingWard.Value != location.Ward) continue;
+                if (location.Indoor && (!info.HousingPlot.HasValue || info.HousingPlot.Value != location.Plot)) continue;
+            }
             conflicts.Add(new RenamedLocalScenario
             {
                 OriginalPath = info.FilePath,

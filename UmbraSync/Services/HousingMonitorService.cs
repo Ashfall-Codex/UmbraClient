@@ -57,13 +57,15 @@ public class HousingMonitorService : IHostedService, IMediatorSubscriber
                 bool hasChanged = currentLocation.ServerId != _lastLocation.ServerId ||
                                  currentLocation.TerritoryId != _lastLocation.TerritoryId ||
                                  currentLocation.WardId != _lastLocation.WardId ||
-                                 currentLocation.HouseId != _lastLocation.HouseId;
+                                 currentLocation.HouseId != _lastLocation.HouseId ||
+                                 currentLocation.DivisionId != _lastLocation.DivisionId ||
+                                 currentLocation.RoomId != _lastLocation.RoomId;
 
                 if (hasChanged)
                 {
-                    _logger.LogDebug("Location changed from {lastServer}:{lastTerritory}:{lastWard}:{lastHouse} to {currentServer}:{currentTerritory}:{currentWard}:{currentHouse}",
-                        _lastLocation.ServerId, _lastLocation.TerritoryId, _lastLocation.WardId, _lastLocation.HouseId,
-                        currentLocation.ServerId, currentLocation.TerritoryId, currentLocation.WardId, currentLocation.HouseId);
+                    _logger.LogDebug("Location changed from {lastServer}:{lastTerritory}:{lastWard}:{lastHouse}:{lastDivision}:{lastRoom} to {currentServer}:{currentTerritory}:{currentWard}:{currentHouse}:{currentDivision}:{currentRoom}",
+                        _lastLocation.ServerId, _lastLocation.TerritoryId, _lastLocation.WardId, _lastLocation.HouseId, _lastLocation.DivisionId, _lastLocation.RoomId,
+                        currentLocation.ServerId, currentLocation.TerritoryId, currentLocation.WardId, currentLocation.HouseId, currentLocation.DivisionId, currentLocation.RoomId);
 
                     bool wasInHousing = _lastLocation.HouseId != 0;
                     bool isInHousing = currentLocation.HouseId != 0;

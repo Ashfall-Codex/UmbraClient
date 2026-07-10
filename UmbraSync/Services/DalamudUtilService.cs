@@ -28,6 +28,9 @@ using GameObject = FFXIVClientStructs.FFXIV.Client.Game.Object.GameObject;
 
 namespace UmbraSync.Services;
 
+[System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Auto)]
+public readonly record struct ArrRawLocation(uint Server, uint Territory, uint Division, int Ward, int Plot, bool InHousing, bool Indoor);
+
 public class DalamudUtilService : IHostedService, IMediatorSubscriber
 {
     public struct PlayerCharacter
@@ -461,6 +464,32 @@ public class DalamudUtilService : IHostedService, IMediatorSubscriber
     public async Task<LocationInfo> GetMapDataAsync()
     {
         return await RunOnFrameworkThread(GetMapData).ConfigureAwait(false);
+    }
+
+    public unsafe ArrRawLocation GetArrRawLocation()
+    {
+        EnsureIsOnFramework();
+        var houseMan = HousingManager.Instance();
+        uint serverId = LocalPlayer?.CurrentWorld.RowId ?? 0;
+        uint territory = _clientState.TerritoryType;
+        if (houseMan == null)
+        {
+            return new ArrRawLocation(serverId, territory, 0, -1, -1, false, false);
+        }
+        var housingType = houseMan->GetCurrentHousingTerritoryType();
+        return new ArrRawLocation(
+            serverId,
+            territory,
+            (uint)houseMan->GetCurrentDivision(),
+            houseMan->GetCurrentWard(),
+            houseMan->GetCurrentPlot(),
+            housingType != HousingTerritoryType.None,
+            housingType == HousingTerritoryType.Indoor);
+    }
+
+    public async Task<ArrRawLocation> GetArrRawLocationAsync()
+    {
+        return await RunOnFrameworkThread(GetArrRawLocation).ConfigureAwait(false);
     }
 
     public async Task<uint> GetWorldIdAsync()

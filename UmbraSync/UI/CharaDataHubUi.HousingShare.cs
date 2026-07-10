@@ -773,10 +773,10 @@ public sealed partial class CharaDataHubUi
 
     private void DrawHousingScenarioPublishForm(HousingScenarioManager scenarioManager, API.Dto.CharaData.LocationInfo currentLocation)
     {
-        // Filtrage par location courante (sauf si user demande "Tous les scénarios")
+        var arrRaw = _dalamudUtilService.GetArrRawLocationAsync().GetAwaiter().GetResult();
         var matching = _showAllScenarios
             ? _localScenarios
-            : _localScenarios.Where(s => ArrScenarioFileService.MatchesLocation(s, currentLocation)).ToList();
+            : _localScenarios.Where(s => ArrScenarioFileService.MatchesLocation(s, arrRaw)).ToList();
 
         ImGui.Checkbox(Loc.Get("HousingScenario.ShowAll"), ref _showAllScenarios);
         _uiSharedService.DrawHelpText(Loc.Get("HousingScenario.ShowAllHelp"));

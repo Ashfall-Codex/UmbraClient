@@ -39,8 +39,6 @@ public class VisibilityService : DisposableMediatorSubscriberBase
         _drawTracking = drawTracking;
         _configService = configService;
         Mediator.Subscribe<DelayedFrameworkUpdateMessage>(this, (_) => FrameworkUpdate());
-        // En mode événementiel, un (dé)lien draw-object demande un re-scan immédiat (consommé au
-        // prochain tick delayed). Sans impact en mode polling.
         Mediator.Subscribe<DrawObjectLinkedMessage>(this, (_) => _scanRequested = true);
         Mediator.Subscribe<DrawObjectUnlinkedMessage>(this, (_) => _scanRequested = true);
         Mediator.Subscribe<DisconnectedMessage>(this, (_) =>
