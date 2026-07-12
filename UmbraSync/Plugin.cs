@@ -175,7 +175,9 @@ public sealed class Plugin : IDalamudPlugin
             collection.AddSingleton<HousingScenarioStateService>();
             collection.AddSingleton<HousingScenarioManager>();
             collection.AddSingleton<HousingScenarioSyncService>();
-            collection.AddSingleton<HousingLocalScenarioRoomGuard>();
+            collection.AddSingleton<NativeNpcSpawner>();
+            collection.AddSingleton<HousingNpcScenarioStore>();
+            collection.AddSingleton<HousingNpcScenarioService>();
             collection.AddSingleton<RgpdDataService>();
             collection.AddSingleton<EstablishmentProximityService>();
             collection.AddSingleton<EstablishmentReminderService>();
@@ -228,6 +230,8 @@ public sealed class Plugin : IDalamudPlugin
             collection.AddScoped<DataAnalysisUi>();
             collection.AddScoped<CharaDataHubUi>();
             collection.AddScoped<AutoDetectUi>();
+            collection.AddScoped<HousingNpcSceneEditorUi>();
+            collection.AddScoped<WindowMediatorSubscriberBase>(sp => sp.GetRequiredService<HousingNpcSceneEditorUi>());
             collection.AddScoped<WindowMediatorSubscriberBase>(sp => sp.GetRequiredService<SettingsUi>());
             collection.AddScoped<WindowMediatorSubscriberBase>(sp => sp.GetRequiredService<CompactUi>());
             collection.AddScoped<WindowMediatorSubscriberBase, IntroUi>();
@@ -293,7 +297,7 @@ public sealed class Plugin : IDalamudPlugin
             collection.AddHostedService(p => p.GetRequiredService<HousingMonitorService>());
             collection.AddHostedService(p => p.GetRequiredService<HousingFurnitureSyncService>());
             collection.AddHostedService(p => p.GetRequiredService<HousingScenarioSyncService>());
-            collection.AddHostedService(p => p.GetRequiredService<HousingLocalScenarioRoomGuard>());
+            collection.AddHostedService(p => p.GetRequiredService<HousingNpcScenarioService>());
             collection.AddHostedService(p => p.GetRequiredService<UmbraSync.Services.AshfallConnectAutoSyncService>());
         })
         .Build();

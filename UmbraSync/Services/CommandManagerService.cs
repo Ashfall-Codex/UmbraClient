@@ -115,5 +115,17 @@ public sealed class CommandManagerService : IDisposable
         {
             _mediator.Publish(new UiToggleMessage(typeof(DataAnalysisUi)));
         }
+        else if (string.Equals(splitArgs[0], "npcadd", StringComparison.OrdinalIgnoreCase))
+        {
+            _mediator.Publish(new HousingNpcAddRequestMessage());
+        }
+        else if (string.Equals(splitArgs[0], "npcwipe", StringComparison.OrdinalIgnoreCase))
+        {
+            _mediator.Publish(new HousingNpcWipeMessage());
+        }
+        else if (string.Equals(splitArgs[0], "npcedit", StringComparison.OrdinalIgnoreCase))
+        {
+            _mediator.Publish(new UiToggleMessage(typeof(UI.HousingNpcSceneEditorUi)));
+        }
     }
 }
