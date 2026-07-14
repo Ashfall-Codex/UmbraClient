@@ -6204,4 +6204,238 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
   <data name="HousingScenario.Notification.OwnerReminderWithDescription" xml:space="preserve">
     <value>Rappel : votre scénario PNJ partagé « {0} » est actif dans ce housing.</value>
   </data>
+  <data name="HousingNpc.Editor.Title" xml:space="preserve">
+    <value>Éditeur PNJ Housing</value>
+  </data>
+  <data name="HousingNpc.Editor.EnterHousing" xml:space="preserve">
+    <value>Entrez dans un logement pour éditer ses scènes PNJ.</value>
+  </data>
+  <data name="HousingNpc.Editor.RoomInfo" xml:space="preserve">
+    <value>Pièce - Serveur {0}, Ward {1}, Parcelle {2}, Division {3}, Chambre {4}</value>
+  </data>
+  <data name="HousingNpc.Editor.NewScene" xml:space="preserve">
+    <value>Nouvelle scène</value>
+  </data>
+  <data name="HousingNpc.Editor.NoScenes" xml:space="preserve">
+    <value>Aucune scène dans cette pièce. Créez-en une pour commencer.</value>
+  </data>
+  <data name="HousingNpc.Editor.SceneToggleTip" xml:space="preserve">
+    <value>Activer/désactiver cette scène (spawn ou non).</value>
+  </data>
+  <data name="HousingNpc.Editor.DeleteSceneTip" xml:space="preserve">
+    <value>Ctrl+clic pour supprimer la scène.</value>
+  </data>
+  <data name="HousingNpc.Editor.SceneName" xml:space="preserve">
+    <value>Nom de la scène</value>
+  </data>
+  <data name="HousingNpc.Editor.CaptureSelf" xml:space="preserve">
+    <value>Capturer depuis moi</value>
+  </data>
+  <data name="HousingNpc.Editor.CaptureSelfTip" xml:space="preserve">
+    <value>Ajoute un PNJ avec votre apparence actuelle, à votre position.</value>
+  </data>
+  <data name="HousingNpc.Editor.CaptureTarget" xml:space="preserve">
+    <value>Capturer depuis ma cible</value>
+  </data>
+  <data name="HousingNpc.Editor.CaptureTargetTip" xml:space="preserve">
+    <value>Visez un personnage habillé, puis capturez son apparence.</value>
+  </data>
+  <data name="HousingNpc.Editor.Refresh" xml:space="preserve">
+    <value>Rafraîchir</value>
+  </data>
+  <data name="HousingNpc.Editor.NoNpc" xml:space="preserve">
+    <value>Aucun PNJ dans cette scène. Placez-vous à l'endroit voulu et cliquez « Capturer ».</value>
+  </data>
+  <data name="HousingNpc.Editor.NpcName" xml:space="preserve">
+    <value>Nom du PNJ</value>
+  </data>
+  <data name="HousingNpc.Editor.Position" xml:space="preserve">
+    <value>Position</value>
+  </data>
+  <data name="HousingNpc.Editor.Rotation" xml:space="preserve">
+    <value>Rotation</value>
+  </data>
+  <data name="HousingNpc.Editor.Emote" xml:space="preserve">
+    <value>Emote</value>
+  </data>
+  <data name="HousingNpc.Editor.EmoteNone" xml:space="preserve">
+    <value>Aucune</value>
+  </data>
+  <data name="HousingNpc.Editor.Search" xml:space="preserve">
+    <value>Rechercher</value>
+  </data>
+  <data name="HousingNpc.Editor.Loop" xml:space="preserve">
+    <value>Répéter</value>
+  </data>
+  <data name="HousingNpc.Editor.LoopTip" xml:space="preserve">
+    <value>Rejouer l'emote en boucle (utile pour les danses / animations qui se terminent).</value>
+  </data>
+  <data name="HousingNpc.Editor.FacePlayer" xml:space="preserve">
+    <value>Regarder le joueur</value>
+  </data>
+  <data name="HousingNpc.Editor.FacePlayerTip" xml:space="preserve">
+    <value>La tête du PNJ suit votre personnage.</value>
+  </data>
+  <data name="HousingNpc.Editor.Patrol" xml:space="preserve">
+    <value>Ronde - {0} point(s)</value>
+  </data>
+  <data name="HousingNpc.Editor.AddWaypoint" xml:space="preserve">
+    <value>Ajouter un point</value>
+  </data>
+  <data name="HousingNpc.Editor.AddWaypointTip" xml:space="preserve">
+    <value>Le PNJ fera une ronde en boucle entre son point de départ et les points ajoutés. À chaque point, il peut jouer une emote.</value>
+  </data>
+  <data name="HousingNpc.Editor.Run" xml:space="preserve">
+    <value>Courir</value>
+  </data>
+  <data name="HousingNpc.Editor.Point" xml:space="preserve">
+    <value>Point {0}</value>
+  </data>
+  <data name="HousingNpc.Editor.PauseTip" xml:space="preserve">
+    <value>Temps d'arrêt au point, en secondes (laisse jouer l'emote).</value>
+  </data>
+  <data name="HousingNpc.Editor.PlaceHere" xml:space="preserve">
+    <value>Placer à moi</value>
+  </data>
+  <data name="HousingNpc.Editor.Delete" xml:space="preserve">
+    <value>Supprimer</value>
+  </data>
+  <data name="HousingNpc.Editor.DeleteTip" xml:space="preserve">
+    <value>Ctrl+clic pour supprimer.</value>
+  </data>
+  <data name="HousingNpc.Editor.Apply" xml:space="preserve">
+    <value>Appliquer &amp; aperçu</value>
+  </data>
+  <data name="HousingNpc.Editor.Unsaved" xml:space="preserve">
+    <value>modifs non appliquées</value>
+  </data>
+  <data name="HousingNpc.Notif.Title" xml:space="preserve">
+    <value>Scène PNJ</value>
+  </data>
+  <data name="HousingNpc.Notif.NeedHousing" xml:space="preserve">
+    <value>Vous devez être dans un logement.</value>
+  </data>
+  <data name="HousingNpc.Notif.NeedScene" xml:space="preserve">
+    <value>Créez d'abord une scène pour y ajouter un PNJ.</value>
+  </data>
+  <data name="HousingNpc.Notif.Added" xml:space="preserve">
+    <value>PNJ ajouté et spawné.</value>
+  </data>
+  <data name="HousingNpc.Notif.AddFailed" xml:space="preserve">
+    <value>Échec de l'ajout (voir les logs).</value>
+  </data>
+  <data name="HousingNpc.Notif.NoTarget" xml:space="preserve">
+    <value>Aucune cible sélectionnée.</value>
+  </data>
+  <data name="HousingNpc.Notif.NoPlayer" xml:space="preserve">
+    <value>Joueur introuvable.</value>
+  </data>
+  <data name="HousingNpc.Notif.RoomCleared" xml:space="preserve">
+    <value>Pièce vidée ({0} scène(s) supprimée(s)).</value>
+  </data>
+  <data name="HousingNpc.Notif.NothingToClear" xml:space="preserve">
+    <value>Hors logement : rien à vider.</value>
+  </data>
+  <data name="HousingNpc.Editor.ImportChara" xml:space="preserve">
+    <value>Importer un .chara</value>
+  </data>
+  <data name="HousingNpc.Editor.ImportCharaTip" xml:space="preserve">
+    <value>Importe l'apparence depuis un fichier .chara (Anamnesis / Brio / Ktisis) et place le PNJ à votre position.</value>
+  </data>
+  <data name="HousingNpc.Editor.ImportPickFile" xml:space="preserve">
+    <value>Choisir un fichier .chara</value>
+  </data>
+  <data name="HousingNpc.Notif.ImportFailed" xml:space="preserve">
+    <value>Import du .chara échoué (voir journaux).</value>
+  </data>
+  <data name="HousingNpc.Editor.CollapseTip" xml:space="preserve">
+    <value>Réduire / déployer ce PNJ</value>
+  </data>
+  <data name="HousingNpc.Editor.CollapseAll" xml:space="preserve">
+    <value>Tout réduire</value>
+  </data>
+  <data name="HousingNpc.Editor.ExpandAll" xml:space="preserve">
+    <value>Tout déployer</value>
+  </data>
+  <data name="HousingNpc.Editor.CaptureSelfLive" xml:space="preserve">
+    <value>Capturer live depuis moi</value>
+  </data>
+  <data name="HousingNpc.Editor.CaptureSelfLiveTip" xml:space="preserve">
+    <value>Ajoute un PNJ avec votre apparence Umbra COMPLÈTE (mods Penumbra + Glamourer + Customize+), pas seulement l'apparence de base. Nécessite Penumbra et Glamourer.</value>
+  </data>
+  <data name="HousingNpc.Editor.Sequence" xml:space="preserve">
+    <value>Séquence - {0} action(s)</value>
+  </data>
+  <data name="HousingNpc.Editor.LoopSeq" xml:space="preserve">
+    <value>Boucler la séquence</value>
+  </data>
+  <data name="HousingNpc.Editor.LoopSeqTip" xml:space="preserve">
+    <value>Rejoue la séquence d'actions en boucle. Décoché : le PNJ s'arrête après la dernière action.</value>
+  </data>
+  <data name="HousingNpc.Editor.LoopDelayTip" xml:space="preserve">
+    <value>Pause entre deux itérations de la boucle (secondes).</value>
+  </data>
+  <data name="HousingNpc.Editor.AddAction" xml:space="preserve">
+    <value>Ajouter</value>
+  </data>
+  <data name="HousingNpc.Editor.ActEmote" xml:space="preserve">
+    <value>Emote</value>
+  </data>
+  <data name="HousingNpc.Editor.ActMove" xml:space="preserve">
+    <value>Déplacement</value>
+  </data>
+  <data name="HousingNpc.Editor.ActPath" xml:space="preserve">
+    <value>Chemin</value>
+  </data>
+  <data name="HousingNpc.Editor.ActRotation" xml:space="preserve">
+    <value>Rotation</value>
+  </data>
+  <data name="HousingNpc.Editor.ActWait" xml:space="preserve">
+    <value>Attente</value>
+  </data>
+  <data name="HousingNpc.Editor.ActIdle" xml:space="preserve">
+    <value>Repos</value>
+  </data>
+  <data name="HousingNpc.Editor.StayPose" xml:space="preserve">
+    <value>Garder la pose</value>
+  </data>
+  <data name="HousingNpc.Editor.StayPoseTip" xml:space="preserve">
+    <value>Reste dans la pose de l'emote et enchaîne (assis, accoudé…).</value>
+  </data>
+  <data name="HousingNpc.Editor.SpeedWalk" xml:space="preserve">
+    <value>Marche</value>
+  </data>
+  <data name="HousingNpc.Editor.SpeedRun" xml:space="preserve">
+    <value>Course</value>
+  </data>
+  <data name="HousingNpc.Editor.SpeedCustom" xml:space="preserve">
+    <value>Perso</value>
+  </data>
+  <data name="HousingNpc.Editor.UseMyFacing" xml:space="preserve">
+    <value>Mon orientation</value>
+  </data>
+  <data name="HousingNpc.Editor.WaitSec" xml:space="preserve">
+    <value>Attente (s)</value>
+  </data>
+  <data name="HousingNpc.Editor.ImportArr" xml:space="preserve">
+    <value>Importer scénario ARR</value>
+  </data>
+  <data name="HousingNpc.Editor.ImportArrTip" xml:space="preserve">
+    <value>Importe un scénario ARealmRepopulated (.json) en une nouvelle scène, scopée à la pièce actuelle.</value>
+  </data>
+  <data name="HousingNpc.Editor.ImportArrPickFile" xml:space="preserve">
+    <value>Choisir un scénario ARR (.json)</value>
+  </data>
+  <data name="HousingNpc.Notif.ArrImported" xml:space="preserve">
+    <value>{0} PNJ importé(s) depuis ARR.</value>
+  </data>
+  <data name="HousingNpc.Editor.ImportArrPick" xml:space="preserve">
+    <value>Scénarios ARR disponibles :</value>
+  </data>
+  <data name="HousingNpc.Editor.ImportArrEmpty" xml:space="preserve">
+    <value>Aucun scénario ARR trouvé (ARealmRepopulated non installé, ou dossier vide).</value>
+  </data>
+  <data name="HousingNpc.Editor.ImportArrBrowse" xml:space="preserve">
+    <value>Parcourir</value>
+  </data>
 </root>

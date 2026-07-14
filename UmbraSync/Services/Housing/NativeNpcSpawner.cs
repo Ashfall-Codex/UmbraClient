@@ -7,6 +7,7 @@ using System.Numerics;
 using ObjectKind = FFXIVClientStructs.FFXIV.Client.Game.Object.ObjectKind;
 using EquipmentSlot = FFXIVClientStructs.FFXIV.Client.Game.Character.DrawDataContainer.EquipmentSlot;
 using WeaponSlot = FFXIVClientStructs.FFXIV.Client.Game.Character.DrawDataContainer.WeaponSlot;
+using EmoteController = FFXIVClientStructs.FFXIV.Client.Game.Control.EmoteController;
 
 namespace UmbraSync.Services.Housing;
 
@@ -106,7 +107,7 @@ public sealed unsafe class NativeNpcSpawner
         chara->Timeline.IsWeaponDrawn = app.WeaponDrawn;
     }
 
-    public IGameObject? Spawn(string name, Vector3 position, float rotation, NpcAppearance appearance)
+    public IGameObject? Spawn(string name, Vector3 position, float rotation, NpcAppearance appearance, ushort emote = 0)
     {
         var objectManager = ClientObjectManager.Instance();
         var objectIndex = objectManager->CreateBattleCharacter();
@@ -151,7 +152,7 @@ public sealed unsafe class NativeNpcSpawner
             return null;
         }
 
-        DrawWhenReady(bc, appearance);
+        DrawWhenReady(bc, appearance, emote);
         _logger.LogInformation("Acteur natif spawné à l'index {Index} (adresse {Addr:X})", objectIndex, (nint)bc);
         return handle;
     }
@@ -182,7 +183,7 @@ public sealed unsafe class NativeNpcSpawner
         for (int i = 0; i < len; i++) dst[i] = bytes[i];
     }
 
-    private void DrawWhenReady(BattleChara* bc, NpcAppearance appearance)
+    private void DrawWhenReady(BattleChara* bc, NpcAppearance appearance, ushort emote)
     {
         _framework.RunOnTick(() =>
         {
@@ -191,11 +192,77 @@ public sealed unsafe class NativeNpcSpawner
                 bc->Character.GameObject.EnableDraw();
                 ApplyDisplayFlags(bc, appearance);
                 _framework.RunOnTick(() => ApplyDisplayFlags(bc, appearance), delayTicks: 2);
+                if (emote != 0)
+                    _framework.RunOnTick(() => PlayEmote(bc, emote), delayTicks: 30);
             }
             else
             {
-                DrawWhenReady(bc, appearance);
+                DrawWhenReady(bc, appearance, emote);
             }
         });
     }
+
+    private static void PlayEmote(BattleChara* bc, ushort emoteRowId)
+    {
+        if (emoteRowId == 0) return;
+        var opt = new EmoteController.PlayEmoteOption { TargetId = 0, Flags = 1 };
+        bc->EmoteController.PlayEmote(emoteRowId, &opt);
+    }
+
+    public void PlayEmote(nint address, ushort emote)
+    {
+        if (address == nint.Zero || emote == 0) return;
+        PlayEmote((BattleChara*)address, emote);
+    }
+
+    public bool IsEmoting(nint address)
+    {
+        if (address == nint.Zero) return false;
+        return ((BattleChara*)address)->EmoteController.IsEmoting();
+    }
+
+
+    public enum MoveAnim : ushort { Idle = 3, Walking = 13, Running = 22 }
+
+    public Vector3 GetPosition(nint address)
+    {
+        if (address == nint.Zero) return default;
+        var p = ((BattleChara*)address)->Character.GameObject.Position;
+        return new Vector3(p.X, p.Y, p.Z);
+    }
+
+    public float GetRotation(nint address)
+        => address == nint.Zero ? 0f : ((BattleChara*)address)->Character.GameObject.Rotation;
+
+    public void SetTransform(nint address, Vector3 position, float rotation)
+    {
+        if (address == nint.Zero) return;
+        var go = &((BattleChara*)address)->Character.GameObject;
+        go->SetPosition(position.X, position.Y, position.Z);
+        go->SetRotation(rotation);
+    }
+
+    public void SetMovementAnim(nint address, MoveAnim anim)
+    {
+        if (address == nint.Zero) return;
+        var chara = (Character*)address;
+        ushort code = (ushort)anim;
+        if (chara->Timeline.IsWeaponDrawn)
+            code = anim switch { MoveAnim.Idle => 34, MoveAnim.Walking => 41, MoveAnim.Running => 50, _ => code };
+
+        if (anim == MoveAnim.Idle)
+        {
+            if (chara->Mode != CharacterModes.Normal)
+            {
+                chara->SetMode(CharacterModes.Normal, 0);
+                chara->Timeline.BaseOverride = 0;
+            }
+        }
+        else if (chara->Timeline.BaseOverride != code)
+        {
+            chara->SetMode(CharacterModes.AnimLock, 0);
+            chara->Timeline.BaseOverride = code;
+        }
+    }
+
 }

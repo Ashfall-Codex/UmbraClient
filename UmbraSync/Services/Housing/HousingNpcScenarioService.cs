@@ -1,9 +1,11 @@
 using Dalamud.Plugin.Services;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using UmbraSync.API.Data;
 using UmbraSync.API.Dto.CharaData;
 using UmbraSync.MareConfiguration.Models;
 using UmbraSync.Services.Mediator;
+using UmbraSync.Localization;
 
 namespace UmbraSync.Services.Housing;
 
@@ -12,13 +14,45 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
 {
     private readonly HousingNpcScenarioStore _store;
     private readonly NativeNpcSpawner _spawner;
+    private readonly LookAtService _lookAt;
+    private readonly NpcLiveAppearanceService _liveAppearance;
     private readonly DalamudUtilService _dalamudUtil;
     private readonly ITargetManager _targetManager;
 
     private readonly SemaphoreSlim _gate = new(1, 1);
-    private readonly List<nint> _spawned = new();
+    private readonly List<SpawnedNpc> _spawned = new();
     private LocationInfo? _currentLocation;
     private int _nameSeq;
+
+    private readonly Dictionary<nint, ActionRuntime> _runtimes = new();
+    private readonly System.Diagnostics.Stopwatch _moveClock = System.Diagnostics.Stopwatch.StartNew();
+
+    private const float WalkSpeed = 2.5f;   // y/s
+    private const float RunSpeed = 6.3f;    // y/s
+    private const float TurnSpeed = 6.3f;   // rad/s
+    private const float ArriveEps = 0.05f;
+    private const float PostEmotePause = 1f; // délai par défaut après la fin d'une emote
+
+    private sealed record SpawnedNpc(nint Address, NpcLiveHandle? Live);
+
+    // État d'exécution de la séquence d'actions d'un PNJ (avancée chaque frame).
+    private sealed class ActionRuntime
+    {
+        public NpcAction[] Actions = System.Array.Empty<NpcAction>();
+        public bool Looping = true;
+        public float LoopDelay;
+        public int Index;
+        public bool Finished;
+
+        public float WaitLeft;      // pause générique (Wait, post-emote, délai de boucle, démarrage)
+        public int PathIndex;       // point courant d'une action Path
+        public bool AwaitingEmote;  // attente de la fin de l'emote courante
+        public float EmoteGrace;    // délai min avant de tester IsEmoting
+        public ushort CurrentEmote; // emote en cours (pour rejeu si boucle)
+        public bool EmoteLoopThis;  // rejouer l'emote courante en boucle
+        public float EmoteDuration; // durée forcée (0 = jusqu'à la fin une fois)
+        public float EmoteElapsed;
+    }
 
     // Génère un nom d'acteur valide et unique à partir d'un compteur.
     private static string MakeNpcName(int seq)
@@ -30,42 +64,58 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
     }
 
     public HousingNpcScenarioService(ILogger<HousingNpcScenarioService> logger, MareMediator mediator,
-        HousingNpcScenarioStore store, NativeNpcSpawner spawner,
-        DalamudUtilService dalamudUtil, ITargetManager targetManager) : base(logger, mediator)
+        HousingNpcScenarioStore store, NativeNpcSpawner spawner, LookAtService lookAt,
+        NpcLiveAppearanceService liveAppearance, DalamudUtilService dalamudUtil, ITargetManager targetManager)
+        : base(logger, mediator)
     {
         _store = store;
         _spawner = spawner;
+        _lookAt = lookAt;
+        _liveAppearance = liveAppearance;
         _dalamudUtil = dalamudUtil;
         _targetManager = targetManager;
 
         Mediator.Subscribe<HousingPlotEnteredMessage>(this, msg => { _ = OnEnteredAsync(msg.LocationInfo); });
         Mediator.Subscribe<HousingPlotLeftMessage>(this, m => { _ = OnLeftAsync(); });
         Mediator.Subscribe<ZoneSwitchStartMessage>(this, _ => ForgetSpawned());
-        Mediator.Subscribe<HousingNpcAddRequestMessage>(this, m => { _ = AddFromSelfAsync(string.Empty); });
+        Mediator.Subscribe<HousingNpcAddRequestMessage>(this, m => { _ = DebugAddFromSelfAsync(); });
         Mediator.Subscribe<HousingNpcWipeMessage>(this, m => { _ = WipeCurrentRoomAsync(); });
+        Mediator.Subscribe<FrameworkUpdateMessage>(this, m => OnFrameworkUpdate());
     }
 
     public Task StartAsync(CancellationToken cancellationToken) => Task.CompletedTask;
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
     public LocationInfo? CurrentLocation => _currentLocation;
 
-    public HousingNpcScenario? GetCurrentScenario()
-        => _currentLocation is { } loc ? _store.Find(loc) : null;
+    public List<HousingNpcScenario> ScenesForCurrentRoom()
+        => _currentLocation is { } loc ? _store.ScenesForLocation(loc) : new();
 
     public Task RefreshAsync()
         => _currentLocation is { } loc ? OnEnteredAsync(loc) : Task.CompletedTask;
 
-    public async Task RemoveEntryAsync(string entryId)
+    public async Task<string?> CreateSceneAsync(string title)
     {
-        if (_currentLocation is not { } loc) return;
-        _store.RemoveEntry(loc, entryId);
+        if (_currentLocation is not { } loc) return null;
+        var scene = _store.CreateScene(loc, title);
+        await RefreshAsync().ConfigureAwait(false);
+        return scene.Id;
+    }
+
+    public async Task RemoveSceneAsync(string sceneId)
+    {
+        _store.RemoveScene(sceneId);
         await RefreshAsync().ConfigureAwait(false);
     }
 
-    public async Task MoveEntryToPlayerAsync(string entryId)
+    public async Task RemoveEntryAsync(string sceneId, string entryId)
     {
-        if (_currentLocation is not { } loc) return;
-        var entry = _store.Find(loc)?.Entries.FirstOrDefault(e => string.Equals(e.Id, entryId, StringComparison.Ordinal));
+        _store.RemoveEntry(sceneId, entryId);
+        await RefreshAsync().ConfigureAwait(false);
+    }
+
+    public async Task MoveEntryToPlayerAsync(string sceneId, string entryId)
+    {
+        var entry = _store.GetScene(sceneId)?.Entries.FirstOrDefault(e => string.Equals(e.Id, entryId, StringComparison.Ordinal));
         if (entry == null) return;
         var player = await _dalamudUtil.GetPlayerCharacterAsync().ConfigureAwait(false);
         if (player == null) return;
@@ -83,6 +133,56 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
         await RefreshAsync().ConfigureAwait(false);
     }
 
+    private HousingNpcEntry? FindEntry(string sceneId, string entryId)
+        => _store.GetScene(sceneId)?.Entries.FirstOrDefault(e => string.Equals(e.Id, entryId, StringComparison.Ordinal));
+    
+    public async Task AddMovementAtPlayerAsync(string sceneId, string entryId, bool run)
+    {
+        var entry = FindEntry(sceneId, entryId);
+        if (entry == null) return;
+        var player = await _dalamudUtil.GetPlayerCharacterAsync().ConfigureAwait(false);
+        if (player == null) return;
+        entry.Actions.Add(new NpcMovementAction
+        {
+            X = player.Position.X,
+            Y = player.Position.Y,
+            Z = player.Position.Z,
+            Speed = run ? NpcMoveSpeed.Run : NpcMoveSpeed.Walk,
+        });
+        _store.SaveChanges();
+        await RefreshAsync().ConfigureAwait(false);
+    }
+
+    public async Task AddPathPointAtPlayerAsync(string sceneId, string entryId, int actionIndex, bool run)
+    {
+        var entry = FindEntry(sceneId, entryId);
+        if (entry == null || actionIndex < 0 || actionIndex >= entry.Actions.Count) return;
+        if (entry.Actions[actionIndex] is not NpcPathAction path) return;
+        var player = await _dalamudUtil.GetPlayerCharacterAsync().ConfigureAwait(false);
+        if (player == null) return;
+        path.Points.Add(new NpcPathPoint
+        {
+            X = player.Position.X,
+            Y = player.Position.Y,
+            Z = player.Position.Z,
+            Speed = run ? NpcMoveSpeed.Run : NpcMoveSpeed.Walk,
+        });
+        _store.SaveChanges();
+        await RefreshAsync().ConfigureAwait(false);
+    }
+
+    public async Task SetActionRotationToPlayerAsync(string sceneId, string entryId, int actionIndex)
+    {
+        var entry = FindEntry(sceneId, entryId);
+        if (entry == null || actionIndex < 0 || actionIndex >= entry.Actions.Count) return;
+        if (entry.Actions[actionIndex] is not NpcRotationAction rot) return;
+        var player = await _dalamudUtil.GetPlayerCharacterAsync().ConfigureAwait(false);
+        if (player == null) return;
+        rot.TargetRotation = player.Rotation;
+        _store.SaveChanges();
+        await RefreshAsync().ConfigureAwait(false);
+    }
+
     private async Task OnEnteredAsync(LocationInfo loc)
     {
         _currentLocation = loc;
@@ -91,14 +191,16 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
         {
             await DespawnAllInternalAsync().ConfigureAwait(false);
 
-            var scenario = _store.Find(loc);
-            if (scenario == null || scenario.Entries.Count == 0) return;
+            var scenes = _store.ScenesForLocation(loc).Where(s => s.Enabled).ToList();
+            int total = scenes.Sum(s => s.Entries.Count);
+            if (total == 0) return;
 
-            Logger.LogInformation("Scénario PNJ : {Count} PNJ pour la room {Server}:{Territory}:{Ward}:{House}:{Division}:{Room}",
-                scenario.Entries.Count, loc.ServerId, loc.TerritoryId, loc.WardId, loc.HouseId, loc.DivisionId, loc.RoomId);
+            Logger.LogInformation("Scènes PNJ : {Scenes} scène(s) activée(s), {Count} PNJ pour la room {Server}:{Territory}:{Ward}:{House}:{Division}:{Room}",
+                scenes.Count, total, loc.ServerId, loc.TerritoryId, loc.WardId, loc.HouseId, loc.DivisionId, loc.RoomId);
 
-            foreach (var entry in scenario.Entries)
-                await SpawnEntryInternalAsync(entry).ConfigureAwait(false);
+            foreach (var scene in scenes)
+                foreach (var entry in scene.Entries)
+                    await SpawnEntryInternalAsync(entry).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -124,39 +226,366 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
         var name = MakeNpcName(_nameSeq++);
         var pos = new System.Numerics.Vector3(entry.X, entry.Y, entry.Z);
         var actor = await _dalamudUtil.RunOnFrameworkThread(
-            () => _spawner.Spawn(name, pos, entry.Rotation, entry.Appearance)).ConfigureAwait(false);
+            () => _spawner.Spawn(name, pos, entry.Rotation, entry.Appearance, 0)).ConfigureAwait(false);
         if (actor == null) return;
-        _spawned.Add(actor.Address);
+
+        NpcLiveHandle? live = null;
+        if (entry.LiveData != null)
+            live = await _liveAppearance.ApplyAsync(actor.Address, entry.LiveData, CancellationToken.None).ConfigureAwait(false);
+
+        _spawned.Add(new SpawnedNpc(actor.Address, live));
+
+        if (entry.FacePlayer)
+        {
+            await _dalamudUtil.RunOnFrameworkThread(() =>
+            {
+                var p = _dalamudUtil.GetPlayerPointer();
+                if (p != nint.Zero) _lookAt.LookAt(actor.Address, p);
+            }).ConfigureAwait(false);
+        }
+
+        if (entry.Actions.Count > 0)
+        {
+            _runtimes[actor.Address] = new ActionRuntime
+            {
+                Actions = entry.Actions.ToArray(),
+                Looping = entry.Looping,
+                LoopDelay = entry.LoopDelay,
+                WaitLeft = 1f,
+            };
+        }
     }
 
     private async Task DespawnAllInternalAsync()
     {
+        _lookAt.Clear();
+        _runtimes.Clear();
         if (_spawned.Count == 0) return;
-        var addresses = _spawned.ToList();
+        var spawned = _spawned.ToList();
         _spawned.Clear();
-        foreach (var addr in addresses)
+        foreach (var npc in spawned)
         {
-            try { await _dalamudUtil.RunOnFrameworkThread(() => _spawner.Despawn(addr)).ConfigureAwait(false); }
-            catch (Exception ex) { Logger.LogWarning(ex, "Despawn PNJ échoué ({Addr:X})", addr); }
+            try
+            {
+                if (npc.Live != null) await _liveAppearance.RevertAsync(npc.Live).ConfigureAwait(false);
+                await _dalamudUtil.RunOnFrameworkThread(() => _spawner.Despawn(npc.Address)).ConfigureAwait(false);
+            }
+            catch (Exception ex) { Logger.LogWarning(ex, "Despawn PNJ échoué ({Addr:X})", npc.Address); }
         }
     }
 
     private void ForgetSpawned()
     {
+        _lookAt.Clear();
+        _runtimes.Clear();
+        foreach (var npc in _spawned)
+            if (npc.Live != null) _ = _liveAppearance.RevertAsync(npc.Live);
         _spawned.Clear();
     }
 
-    public Task AddFromSelfAsync(string displayName) => AddCapturedAsync(displayName, fromTarget: false);
-    public Task AddFromTargetAsync(string displayName) => AddCapturedAsync(displayName, fromTarget: true);
+    // ---- Moteur de séquence d'actions (avancé chaque frame) ----
 
-    private async Task AddCapturedAsync(string displayName, bool fromTarget)
+    private void OnFrameworkUpdate()
+    {
+        if (_runtimes.Count == 0) { _moveClock.Restart(); return; }
+        float dt = (float)_moveClock.Elapsed.TotalSeconds;
+        _moveClock.Restart();
+        if (dt <= 0f || dt > 0.5f) return;
+
+        foreach (var kv in _runtimes.ToArray())
+        {
+            try { AdvanceActions(kv.Key, kv.Value, dt); }
+            catch (Exception ex) { Logger.LogWarning(ex, "Avance de séquence PNJ échouée"); }
+        }
+    }
+
+    private void AdvanceActions(nint addr, ActionRuntime rt, float dt)
+    {
+        if (rt.Actions.Length == 0 || rt.Finished) return;
+        if (rt.Index >= rt.Actions.Length)
+        {
+            if (!rt.Looping) { rt.Finished = true; _spawner.SetMovementAnim(addr, NativeNpcSpawner.MoveAnim.Idle); return; }
+            rt.Index = 0;
+            rt.WaitLeft = rt.LoopDelay;
+            return;
+        }
+
+        if (rt.WaitLeft > 0f) { rt.WaitLeft -= dt; return; }
+
+        if (rt.AwaitingEmote)
+        {
+            rt.EmoteGrace -= dt;
+            rt.EmoteElapsed += dt;
+            if (rt.EmoteGrace > 0f) return;
+            if (rt.EmoteDuration > 0f)
+            {
+                if (rt.EmoteLoopThis && !_spawner.IsEmoting(addr)) _spawner.PlayEmote(addr, rt.CurrentEmote);
+                if (rt.EmoteElapsed < rt.EmoteDuration) return;
+            }
+            else
+            {
+                if (_spawner.IsEmoting(addr)) return;
+                if (rt.EmoteLoopThis) { _spawner.PlayEmote(addr, rt.CurrentEmote); return; }
+            }
+
+            rt.AwaitingEmote = false;
+            rt.WaitLeft = PostEmotePause; 
+            Advance(rt);
+            return;
+        }
+
+        var action = rt.Actions[rt.Index];
+        if (!action.Enabled) { Advance(rt); return; }
+
+        switch (action)
+        {
+            case NpcEmoteAction e: StepEmote(addr, rt, e); break;
+            case NpcMovementAction m: StepMove(addr, rt, m.X, m.Y, m.Z, SpeedOf(m.Speed, m.CustomSpeed), AnimOf(m.Speed), dt); break;
+            case NpcPathAction p: StepPath(addr, rt, p, dt); break;
+            case NpcRotationAction r: StepRotation(addr, rt, r.TargetRotation, dt); break;
+            case NpcWaitAction w: rt.WaitLeft = w.Duration; _spawner.SetMovementAnim(addr, NativeNpcSpawner.MoveAnim.Idle); Advance(rt); break;
+            case NpcIdleAction: _spawner.SetMovementAnim(addr, NativeNpcSpawner.MoveAnim.Idle); Advance(rt); break;
+            default: Advance(rt); break;
+        }
+    }
+
+    private void StepEmote(nint addr, ActionRuntime rt, NpcEmoteAction e)
+    {
+        if (e.Emote == 0) { Advance(rt); return; }
+        _spawner.SetMovementAnim(addr, NativeNpcSpawner.MoveAnim.Idle);
+        _spawner.PlayEmote(addr, e.Emote);
+        rt.AwaitingEmote = true;
+        rt.EmoteGrace = 0.5f;
+        rt.EmoteElapsed = 0f;
+        rt.CurrentEmote = e.Emote;
+        rt.EmoteLoopThis = e.Loop;
+        rt.EmoteDuration = e.Duration;
+    }
+    
+    private void StepMove(nint addr, ActionRuntime rt, float x, float y, float z, float speed, NativeNpcSpawner.MoveAnim anim, float dt)
+    {
+        if (MoveToward(addr, new System.Numerics.Vector3(x, y, z), speed, anim, dt))
+        {
+            _spawner.SetMovementAnim(addr, NativeNpcSpawner.MoveAnim.Idle);
+            Advance(rt);
+        }
+    }
+
+    private void StepPath(nint addr, ActionRuntime rt, NpcPathAction p, float dt)
+    {
+        if (p.Points.Count == 0) { Advance(rt); return; }
+        if (rt.PathIndex >= p.Points.Count) { _spawner.SetMovementAnim(addr, NativeNpcSpawner.MoveAnim.Idle); Advance(rt); return; }
+
+        var pt = p.Points[rt.PathIndex];
+        if (MoveToward(addr, new System.Numerics.Vector3(pt.X, pt.Y, pt.Z), SpeedOf(pt.Speed, pt.CustomSpeed), AnimOf(pt.Speed), dt))
+            rt.PathIndex++;
+    }
+
+    private void StepRotation(nint addr, ActionRuntime rt, float targetRot, float dt)
+    {
+        float curRot = _spawner.GetRotation(addr);
+        if (!AngleClose(curRot, targetRot, 0.06f))
+        {
+            _spawner.SetTransform(addr, _spawner.GetPosition(addr), RotateToward(curRot, targetRot, TurnSpeed * dt));
+            return;
+        }
+        _spawner.SetTransform(addr, _spawner.GetPosition(addr), targetRot);
+        Advance(rt);
+    }
+
+    // Avance d'un pas vers la cible. Tourne d'abord vers elle, puis translate. True quand arrivé.
+    private bool MoveToward(nint addr, System.Numerics.Vector3 target, float speed, NativeNpcSpawner.MoveAnim anim, float dt)
+    {
+        var cur = _spawner.GetPosition(addr);
+        float targetRot = MathF.Atan2(target.X - cur.X, target.Z - cur.Z);
+        float curRot = _spawner.GetRotation(addr);
+
+        if (!AngleClose(curRot, targetRot, 0.06f))
+        {
+            _spawner.SetMovementAnim(addr, anim);
+            _spawner.SetTransform(addr, cur, RotateToward(curRot, targetRot, TurnSpeed * dt));
+            return false;
+        }
+
+        float dist = System.Numerics.Vector3.Distance(cur, target);
+        if (dist >= ArriveEps)
+        {
+            _spawner.SetMovementAnim(addr, anim);
+            float t = MathF.Min(speed * dt / dist, 1f);
+            var newPos = System.Numerics.Vector3.Lerp(cur, target, t);
+            _spawner.SetTransform(addr, newPos, targetRot);
+            if (System.Numerics.Vector3.Distance(newPos, target) >= ArriveEps) return false;
+        }
+        _spawner.SetTransform(addr, target, targetRot);
+        return true;
+    }
+
+    private static float SpeedOf(NpcMoveSpeed s, float custom) => s switch
+    {
+        NpcMoveSpeed.Run => RunSpeed,
+        NpcMoveSpeed.Custom => custom > 0f ? custom : WalkSpeed,
+        _ => WalkSpeed,
+    };
+
+    private static NativeNpcSpawner.MoveAnim AnimOf(NpcMoveSpeed s)
+        => s == NpcMoveSpeed.Run ? NativeNpcSpawner.MoveAnim.Running : NativeNpcSpawner.MoveAnim.Walking;
+
+    private static void Advance(ActionRuntime rt)
+    {
+        rt.Index++;
+        rt.PathIndex = 0;
+        rt.AwaitingEmote = false;
+        rt.EmoteElapsed = 0f;
+    }
+
+    private static float WrapAngle(float a)
+    {
+        while (a > MathF.PI) a -= MathF.Tau;
+        while (a < -MathF.PI) a += MathF.Tau;
+        return a;
+    }
+
+    private static bool AngleClose(float a, float b, float eps) => MathF.Abs(WrapAngle(a - b)) < eps;
+
+    private static float RotateToward(float from, float to, float step)
+    {
+        float diff = WrapAngle(to - from);
+        return MathF.Abs(diff) <= step ? to : from + (MathF.Sign(diff) * step);
+    }
+
+    public Task AddFromSelfAsync(string sceneId, string displayName) => AddCapturedAsync(sceneId, displayName, fromTarget: false, includeLive: false);
+    public Task AddFromTargetAsync(string sceneId, string displayName) => AddCapturedAsync(sceneId, displayName, fromTarget: true, includeLive: false);
+    public Task AddFromSelfLiveAsync(string sceneId, string displayName) => AddCapturedAsync(sceneId, displayName, fromTarget: false, includeLive: true);
+    public IReadOnlyList<(string Path, string Title)> ListArrScenarios()
+    {
+        var result = new List<(string, string)>();
+        foreach (var file in _store.ListArrScenarioFiles())
+        {
+            var title = ArrScenarioImporter.PeekTitle(file);
+            if (string.IsNullOrWhiteSpace(title)) title = Path.GetFileNameWithoutExtension(file);
+            result.Add((file, title));
+        }
+        return result;
+    }
+
+    public async Task ImportArrScenarioAsync(string path)
     {
         try
         {
+            if (_currentLocation is not { } loc)
+            {
+                Mediator.Publish(new NotificationMessage(Loc.Get("HousingNpc.Notif.Title"), Loc.Get("HousingNpc.Notif.NeedHousing"), NotificationType.Error));
+                return;
+            }
+
+            var parsed = ArrScenarioImporter.Parse(path);
+            var title = string.IsNullOrWhiteSpace(parsed.Title) ? Path.GetFileNameWithoutExtension(path) : parsed.Title;
+            var scene = _store.CreateScene(loc, title);
+
+            foreach (var npc in parsed.Npcs)
+            {
+                scene.Entries.Add(new HousingNpcEntry
+                {
+                    DisplayName = npc.Name,
+                    Appearance = npc.Appearance,
+                    X = npc.X,
+                    Y = npc.Y,
+                    Z = npc.Z,
+                    Rotation = npc.Rotation,
+                    FacePlayer = npc.FacePlayer,
+                    Actions = npc.Actions,
+                    Looping = parsed.Looping,
+                    LoopDelay = parsed.LoopDelay,
+                });
+            }
+            _store.SaveChanges();
+            await RefreshAsync().ConfigureAwait(false);
+
+            Logger.LogInformation("Import ARR : {Npcs} PNJ, {Skipped} action(s) ignorée(s)", parsed.Npcs.Count, parsed.SkippedActions);
+            Mediator.Publish(new NotificationMessage(Loc.Get("HousingNpc.Notif.Title"),
+                string.Format(Loc.Get("HousingNpc.Notif.ArrImported"), parsed.Npcs.Count), NotificationType.Info));
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Import du scénario ARR échoué");
+            Mediator.Publish(new NotificationMessage(Loc.Get("HousingNpc.Notif.Title"), Loc.Get("HousingNpc.Notif.ImportFailed"), NotificationType.Error));
+        }
+    }
+
+    // Importe un .chara (Anamnesis/Brio/Ktisis) et spawne le PNJ à la position du joueur.
+    public async Task AddFromCharaFileAsync(string sceneId, string path)
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(sceneId) || _store.GetScene(sceneId) == null)
+            {
+                Mediator.Publish(new NotificationMessage(Loc.Get("HousingNpc.Notif.Title"), Loc.Get("HousingNpc.Notif.NeedScene"), NotificationType.Error));
+                return;
+            }
+
             var loc = await _dalamudUtil.GetMapDataAsync().ConfigureAwait(false);
             if (loc.HouseId == 0)
             {
-                Mediator.Publish(new NotificationMessage("Scénario PNJ", "Tu dois être dans un logement pour ajouter un PNJ.", NotificationType.Error));
+                Mediator.Publish(new NotificationMessage(Loc.Get("HousingNpc.Notif.Title"), Loc.Get("HousingNpc.Notif.NeedHousing"), NotificationType.Error));
+                return;
+            }
+
+            var player = await _dalamudUtil.GetPlayerCharacterAsync().ConfigureAwait(false);
+            if (player == null) return;
+
+            var (appearance, nickname) = AnamnesisCharaImporter.Parse(path);
+
+            var entry = new HousingNpcEntry
+            {
+                DisplayName = string.IsNullOrWhiteSpace(nickname) ? Path.GetFileNameWithoutExtension(path) : nickname,
+                Appearance = appearance,
+                X = player.Position.X,
+                Y = player.Position.Y,
+                Z = player.Position.Z,
+                Rotation = player.Rotation,
+            };
+            _store.AddEntryToScene(sceneId, entry);
+
+            await _gate.WaitAsync().ConfigureAwait(false);
+            try { await SpawnEntryInternalAsync(entry).ConfigureAwait(false); }
+            finally { _gate.Release(); }
+
+            Mediator.Publish(new NotificationMessage(Loc.Get("HousingNpc.Notif.Title"), Loc.Get("HousingNpc.Notif.Added"), NotificationType.Info));
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Import .chara échoué");
+            Mediator.Publish(new NotificationMessage(Loc.Get("HousingNpc.Notif.Title"), Loc.Get("HousingNpc.Notif.ImportFailed"), NotificationType.Error));
+        }
+    }
+
+    // Commande debug /usync npcadd : crée/réutilise une scène par défaut et y capture le joueur.
+    private async Task DebugAddFromSelfAsync()
+    {
+        var loc = await _dalamudUtil.GetMapDataAsync().ConfigureAwait(false);
+        if (loc.HouseId == 0)
+        {
+            Mediator.Publish(new NotificationMessage(Loc.Get("HousingNpc.Notif.Title"), Loc.Get("HousingNpc.Notif.NeedHousing"), NotificationType.Error));
+            return;
+        }
+        var sceneId = _store.ScenesForLocation(loc).FirstOrDefault()?.Id ?? _store.CreateScene(loc, "Scène").Id;
+        await AddFromSelfAsync(sceneId, string.Empty).ConfigureAwait(false);
+    }
+
+    private async Task AddCapturedAsync(string sceneId, string displayName, bool fromTarget, bool includeLive)
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(sceneId) || _store.GetScene(sceneId) == null)
+            {
+                Mediator.Publish(new NotificationMessage(Loc.Get("HousingNpc.Notif.Title"), Loc.Get("HousingNpc.Notif.NeedScene"), NotificationType.Error));
+                return;
+            }
+
+            var loc = await _dalamudUtil.GetMapDataAsync().ConfigureAwait(false);
+            if (loc.HouseId == 0)
+            {
+                Mediator.Publish(new NotificationMessage(Loc.Get("HousingNpc.Notif.Title"), Loc.Get("HousingNpc.Notif.NeedHousing"), NotificationType.Error));
                 return;
             }
 
@@ -175,33 +604,42 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
 
             if (sourceAddr == nint.Zero)
             {
-                Mediator.Publish(new NotificationMessage("Scénario PNJ", fromTarget ? "Aucune cible sélectionnée." : "Joueur introuvable.", NotificationType.Error));
+                Mediator.Publish(new NotificationMessage(Loc.Get("HousingNpc.Notif.Title"), fromTarget ? Loc.Get("HousingNpc.Notif.NoTarget") : Loc.Get("HousingNpc.Notif.NoPlayer"), NotificationType.Error));
                 return;
             }
 
             var appearance = await _dalamudUtil.RunOnFrameworkThread(() => _spawner.ReadAppearance(sourceAddr)).ConfigureAwait(false);
 
+            CharacterData? liveData = null;
+            if (includeLive)
+            {
+                liveData = await _liveAppearance.CaptureSelfAsync().ConfigureAwait(false);
+                if (liveData == null)
+                    Logger.LogWarning("Capture du live data échouée, apparence brute seule conservée");
+            }
+
             var entry = new HousingNpcEntry
             {
                 DisplayName = string.IsNullOrWhiteSpace(displayName) ? sourceName : displayName,
                 Appearance = appearance,
+                LiveData = liveData,
                 X = player.Position.X,
                 Y = player.Position.Y,
                 Z = player.Position.Z,
                 Rotation = player.Rotation,
             };
-            _store.AddEntry(loc, entry);
+            _store.AddEntryToScene(sceneId, entry);
 
             await _gate.WaitAsync().ConfigureAwait(false);
             try { await SpawnEntryInternalAsync(entry).ConfigureAwait(false); }
             finally { _gate.Release(); }
 
-            Mediator.Publish(new NotificationMessage("Scénario PNJ", "PNJ ajouté à ta room et spawné.", NotificationType.Info));
+            Mediator.Publish(new NotificationMessage(Loc.Get("HousingNpc.Notif.Title"), Loc.Get("HousingNpc.Notif.Added"), NotificationType.Info));
         }
         catch (Exception ex)
         {
             Logger.LogWarning(ex, "Capture PNJ housing échouée");
-            Mediator.Publish(new NotificationMessage("Scénario PNJ", "Échec de l'ajout (voir logs).", NotificationType.Error));
+            Mediator.Publish(new NotificationMessage(Loc.Get("HousingNpc.Notif.Title"), Loc.Get("HousingNpc.Notif.AddFailed"), NotificationType.Error));
         }
     }
 
@@ -210,7 +648,7 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
         var loc = _currentLocation;
         if (loc == null)
         {
-            Mediator.Publish(new NotificationMessage("Scénario PNJ", "Hors housing : rien à vider.", NotificationType.Info));
+            Mediator.Publish(new NotificationMessage(Loc.Get("HousingNpc.Notif.Title"), Loc.Get("HousingNpc.Notif.NothingToClear"), NotificationType.Info));
             return;
         }
 
@@ -219,12 +657,15 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
         finally { _gate.Release(); }
 
         int removed = _store.ClearForLocation(loc.Value);
-        Mediator.Publish(new NotificationMessage("Scénario PNJ", $"Room vidée ({removed} scénario(s) supprimé(s)).", NotificationType.Info));
+        Mediator.Publish(new NotificationMessage(Loc.Get("HousingNpc.Notif.Title"), string.Format(Loc.Get("HousingNpc.Notif.RoomCleared"), removed), NotificationType.Info));
     }
 
     protected override void Dispose(bool disposing)
     {
-        if (disposing) _ = DespawnAllInternalAsync();
+        if (disposing)
+        {
+            _ = DespawnAllInternalAsync();
+        }
         base.Dispose(disposing);
     }
 }

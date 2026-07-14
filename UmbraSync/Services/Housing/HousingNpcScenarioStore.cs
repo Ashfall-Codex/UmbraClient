@@ -1,6 +1,7 @@
 using Dalamud.Plugin;
 using Microsoft.Extensions.Logging;
 using System.Text.Json;
+using UmbraSync.API.Data;
 using UmbraSync.API.Dto.CharaData;
 
 namespace UmbraSync.Services.Housing;
@@ -10,14 +11,54 @@ public sealed class HousingNpcEntry
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
     public string DisplayName { get; set; } = string.Empty;
     public NpcAppearance Appearance { get; set; } = new();
+    public CharacterData? LiveData { get; set; }
     public float X { get; set; }
     public float Y { get; set; }
     public float Z { get; set; }
     public float Rotation { get; set; }
+    public bool FacePlayer { get; set; }
+    public List<NpcAction> Actions { get; set; } = new();
+    public bool Looping { get; set; } = true;
+    public float LoopDelay { get; set; }
+    public ushort Emote { get; set; }
+    public bool EmoteLoop { get; set; }
+    public List<NpcWaypoint> Waypoints { get; set; } = new();
+    public bool Run { get; set; }
+    public void MigrateLegacyToActions()
+    {
+        if (Actions.Count > 0) return;
+        if (Emote == 0 && Waypoints.Count == 0) return;
+
+        if (Emote != 0)
+            Actions.Add(new NpcEmoteAction { Emote = Emote, Loop = EmoteLoop, StayInPose = true });
+
+        var speed = Run ? NpcMoveSpeed.Run : NpcMoveSpeed.Walk;
+        foreach (var wp in Waypoints)
+        {
+            Actions.Add(new NpcMovementAction { X = wp.X, Y = wp.Y, Z = wp.Z, Speed = speed });
+            if (wp.Emote != 0)
+                Actions.Add(new NpcEmoteAction { Emote = wp.Emote });
+            if (wp.PauseSeconds > 0f)
+                Actions.Add(new NpcWaitAction { Duration = wp.PauseSeconds });
+        }
+    }
+}
+
+public sealed class NpcWaypoint
+{
+    public float X { get; set; }
+    public float Y { get; set; }
+    public float Z { get; set; }
+    public ushort Emote { get; set; }
+    public float PauseSeconds { get; set; }
 }
 
 public sealed class HousingNpcScenario
 {
+    public string Id { get; set; } = Guid.NewGuid().ToString("N");
+    public string Title { get; set; } = "Scène";
+    public bool Enabled { get; set; } = true;
+
     public uint ServerId { get; set; }
     public uint TerritoryId { get; set; }
     public uint WardId { get; set; }
@@ -35,7 +76,7 @@ public sealed class HousingNpcScenarioStore
     private readonly ILogger<HousingNpcScenarioStore> _logger;
     private readonly IDalamudPluginInterface _pluginInterface;
     private readonly object _lock = new();
-    private List<HousingNpcScenario> _scenarios = new();
+    private List<HousingNpcScenario> _scenes = new();
 
     public HousingNpcScenarioStore(ILogger<HousingNpcScenarioStore> logger, IDalamudPluginInterface pluginInterface)
     {
@@ -50,31 +91,62 @@ public sealed class HousingNpcScenarioStore
         => s.ServerId == loc.ServerId && s.TerritoryId == loc.TerritoryId && s.WardId == loc.WardId
            && s.HouseId == loc.HouseId && s.DivisionId == loc.DivisionId && s.RoomId == loc.RoomId;
 
-    public HousingNpcScenario? Find(LocationInfo loc)
+    public List<HousingNpcScenario> ScenesForLocation(LocationInfo loc)
     {
-        lock (_lock) return _scenarios.FirstOrDefault(s => Matches(s, loc));
+        lock (_lock) return _scenes.Where(s => Matches(s, loc)).ToList();
     }
 
-    public void AddEntry(LocationInfo loc, HousingNpcEntry entry)
+    public HousingNpcScenario? GetScene(string sceneId)
+    {
+        lock (_lock) return _scenes.FirstOrDefault(s => string.Equals(s.Id, sceneId, StringComparison.Ordinal));
+    }
+
+    public HousingNpcScenario CreateScene(LocationInfo loc, string title)
     {
         lock (_lock)
         {
-            var scenario = _scenarios.FirstOrDefault(s => Matches(s, loc));
-            if (scenario == null)
+            var scene = new HousingNpcScenario
             {
-                scenario = new HousingNpcScenario
-                {
-                    ServerId = loc.ServerId,
-                    TerritoryId = loc.TerritoryId,
-                    WardId = loc.WardId,
-                    HouseId = loc.HouseId,
-                    DivisionId = loc.DivisionId,
-                    RoomId = loc.RoomId,
-                };
-                _scenarios.Add(scenario);
-            }
-            scenario.Entries.Add(entry);
+                Title = string.IsNullOrWhiteSpace(title) ? "Scène" : title,
+                ServerId = loc.ServerId,
+                TerritoryId = loc.TerritoryId,
+                WardId = loc.WardId,
+                HouseId = loc.HouseId,
+                DivisionId = loc.DivisionId,
+                RoomId = loc.RoomId,
+            };
+            _scenes.Add(scene);
             Save();
+            return scene;
+        }
+    }
+
+    public void RemoveScene(string sceneId)
+    {
+        lock (_lock)
+        {
+            if (_scenes.RemoveAll(s => string.Equals(s.Id, sceneId, StringComparison.Ordinal)) > 0) Save();
+        }
+    }
+
+    public void AddEntryToScene(string sceneId, HousingNpcEntry entry)
+    {
+        lock (_lock)
+        {
+            var scene = _scenes.FirstOrDefault(s => string.Equals(s.Id, sceneId, StringComparison.Ordinal));
+            if (scene == null) return;
+            scene.Entries.Add(entry);
+            Save();
+        }
+    }
+
+    public void RemoveEntry(string sceneId, string entryId)
+    {
+        lock (_lock)
+        {
+            var scene = _scenes.FirstOrDefault(s => string.Equals(s.Id, sceneId, StringComparison.Ordinal));
+            if (scene == null) return;
+            if (scene.Entries.RemoveAll(e => string.Equals(e.Id, entryId, StringComparison.Ordinal)) > 0) Save();
         }
     }
 
@@ -82,21 +154,9 @@ public sealed class HousingNpcScenarioStore
     {
         lock (_lock)
         {
-            int removed = _scenarios.RemoveAll(s => Matches(s, loc));
+            int removed = _scenes.RemoveAll(s => Matches(s, loc));
             if (removed > 0) Save();
             return removed;
-        }
-    }
-
-    public void RemoveEntry(LocationInfo loc, string entryId)
-    {
-        lock (_lock)
-        {
-            var scenario = _scenarios.FirstOrDefault(s => Matches(s, loc));
-            if (scenario == null) return;
-            int removed = scenario.Entries.RemoveAll(e => string.Equals(e.Id, entryId, StringComparison.Ordinal));
-            if (scenario.Entries.Count == 0) _scenarios.Remove(scenario);
-            if (removed > 0) Save();
         }
     }
 
@@ -105,17 +165,54 @@ public sealed class HousingNpcScenarioStore
         lock (_lock) Save();
     }
 
+    public IReadOnlyList<string> ListArrScenarioFiles()
+    {
+        try
+        {
+            var pluginConfigs = _pluginInterface.ConfigDirectory.Parent;
+            if (pluginConfigs == null || !pluginConfigs.Exists) return System.Array.Empty<string>();
+
+            var arrDir = FindSubDir(FindSubDir(pluginConfigs.FullName, "ARealmRepopulated"), "Scenarios");
+            if (arrDir == null || !Directory.Exists(arrDir)) return System.Array.Empty<string>();
+
+            return Directory.GetFiles(arrDir, "*.json")
+                .OrderBy(f => Path.GetFileName(f), StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Listing des scénarios ARR échoué");
+            return System.Array.Empty<string>();
+        }
+    }
+
+    // Trouve un sous-dossier par nom, insensible à la casse (Linux vs macOS/Windows).
+    private static string? FindSubDir(string? parent, string name)
+    {
+        if (parent == null || !Directory.Exists(parent)) return null;
+        var exact = Path.Combine(parent, name);
+        if (Directory.Exists(exact)) return exact;
+        return Directory.GetDirectories(parent)
+            .FirstOrDefault(d => string.Equals(Path.GetFileName(d), name, StringComparison.OrdinalIgnoreCase));
+    }
+
     private void Load()
     {
         try
         {
             if (!File.Exists(FilePath)) return;
             var loaded = JsonSerializer.Deserialize<List<HousingNpcScenario>>(File.ReadAllText(FilePath));
-            if (loaded != null) _scenarios = loaded;
+            if (loaded != null)
+            {
+                _scenes = loaded;
+                foreach (var scene in _scenes)
+                    foreach (var entry in scene.Entries)
+                        entry.MigrateLegacyToActions();
+            }
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Chargement des scénarios PNJ housing échoué");
+            _logger.LogWarning(ex, "Chargement des scènes PNJ housing échoué");
         }
     }
 
@@ -123,11 +220,11 @@ public sealed class HousingNpcScenarioStore
     {
         try
         {
-            File.WriteAllText(FilePath, JsonSerializer.Serialize(_scenarios, new JsonSerializerOptions { WriteIndented = true }));
+            File.WriteAllText(FilePath, JsonSerializer.Serialize(_scenes, new JsonSerializerOptions { WriteIndented = true }));
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Sauvegarde des scénarios PNJ housing échouée");
+            _logger.LogWarning(ex, "Sauvegarde des scènes PNJ housing échouée");
         }
     }
 }
