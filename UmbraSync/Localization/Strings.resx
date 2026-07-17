@@ -6198,17 +6198,8 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
   <data name="HousingScenario.Refresh" xml:space="preserve">
     <value>Refresh</value>
   </data>
-  <data name="HousingScenario.ShowAll" xml:space="preserve">
-    <value>Show all local scenarios (no location filter)</value>
-  </data>
-  <data name="HousingScenario.ShowAllHelp" xml:space="preserve">
-    <value>By default, only scenarios whose Location matches your current housing are shown. Uncheck to see every scenario in the ARR folder.</value>
-  </data>
-  <data name="HousingScenario.NoneFound" xml:space="preserve">
-    <value>No scenario found in your ARR folder.</value>
-  </data>
   <data name="HousingScenario.NoneMatching" xml:space="preserve">
-    <value>No ARR scenario matches your current location.</value>
+    <value>No scene for this house. Create one with "Create / edit NPC scenes".</value>
   </data>
   <data name="HousingScenario.DescriptionHint" xml:space="preserve">
     <value>Description (visible to pairs)</value>
@@ -6282,6 +6273,9 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
   <data name="HousingScenario.Notification.Title" xml:space="preserve">
     <value>NPC scenario</value>
   </data>
+  <data name="HousingScenario.Notification.Applying" xml:space="preserve">
+    <value>Applying an NPC scenario… Please wait a few seconds.</value>
+  </data>
   <data name="HousingScenario.Notification.Applied" xml:space="preserve">
     <value>A shared NPC scenario is applied in this housing.</value>
   </data>
@@ -6319,7 +6313,7 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
     <value>Scene name</value>
   </data>
   <data name="HousingNpc.Editor.CaptureSelf" xml:space="preserve">
-    <value>Capture from me</value>
+    <value>Import from my character</value>
   </data>
   <data name="HousingNpc.Editor.CaptureSelfTip" xml:space="preserve">
     <value>Adds an NPC with your current appearance WITHOUT mods, at your position. The Glamourer design is kept, only Penumbra mods are dropped.</value>
@@ -6411,6 +6405,9 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
   <data name="HousingNpc.Notif.NoPlayer" xml:space="preserve">
     <value>Player not found.</value>
   </data>
+  <data name="HousingNpc.Notif.DesignFailed" xml:space="preserve">
+    <value>Glamourer design not found or unreadable.</value>
+  </data>
   <data name="HousingNpc.Notif.RoomCleared" xml:space="preserve">
     <value>Room cleared ({0} scene(s) removed).</value>
   </data>
@@ -6439,10 +6436,28 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
     <value>Expand all</value>
   </data>
   <data name="HousingNpc.Editor.CaptureSelfLive" xml:space="preserve">
-    <value>Capture live from me</value>
+    <value>Import from my modded character</value>
   </data>
   <data name="HousingNpc.Editor.CaptureSelfLiveTip" xml:space="preserve">
     <value>Adds an NPC with your FULL Umbra appearance (Penumbra mods + Glamourer + Customize+), not just the base look. Requires Penumbra and Glamourer.</value>
+  </data>
+  <data name="HousingNpc.Editor.CaptureGlamourer" xml:space="preserve">
+    <value>Import from Glamourer</value>
+  </data>
+  <data name="HousingNpc.Editor.CaptureGlamourerTip" xml:space="preserve">
+    <value>Adds an NPC from one of your Glamourer designs, using your current Penumbra mods. Requires Penumbra and Glamourer.</value>
+  </data>
+  <data name="HousingNpc.Editor.CaptureGlamourerPick" xml:space="preserve">
+    <value>Pick a Glamourer design:</value>
+  </data>
+  <data name="HousingNpc.Editor.CaptureGlamourerLoading" xml:space="preserve">
+    <value>Loading designs…</value>
+  </data>
+  <data name="HousingNpc.Editor.CaptureGlamourerEmpty" xml:space="preserve">
+    <value>No Glamourer design found.</value>
+  </data>
+  <data name="HousingNpc.Editor.Filter" xml:space="preserve">
+    <value>Search</value>
   </data>
   <data name="HousingNpc.Editor.Sequence" xml:space="preserve">
     <value>Sequence - {0} action(s)</value>
@@ -6556,7 +6571,7 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
     <value>Visible</value>
   </data>
   <data name="HousingNpc.Editor.VisibleTip" xml:space="preserve">
-    <value>Shows or hides the NPC. It keeps running its sequence while hidden (equivalent to ARR's Spawn/Despawn actions).</value>
+    <value>Shows or hides the NPC. It keeps running its sequence while hidden.</value>
   </data>
   <data name="HousingNpc.Editor.TimelineIdsHint" xml:space="preserve">
     <value>ID(s)</value>
@@ -6585,7 +6600,13 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
   <data name="HousingScenario.OpenEditor" xml:space="preserve">
     <value>Create / edit NPC scenes</value>
   </data>
-  <data name="HousingScenario.MustBeInHousingEditMode" xml:space="preserve">
-    <value>You must be in Housing Layout mode to create and publish NPC scenarios. This proves ownership of the house.</value>
+  <data name="HousingScenario.NotOwner" xml:space="preserve">
+    <value>You must own this house to create and publish NPC scenarios. No need to be in Housing Layout mode.</value>
+  </data>
+  <data name="HousingScenario.RefreshList" xml:space="preserve">
+    <value>Refresh list</value>
+  </data>
+  <data name="HousingNpc.Editor.SelectTip" xml:space="preserve">
+    <value>Select the NPC to edit its position</value>
   </data>
 </root>

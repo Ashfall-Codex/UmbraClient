@@ -184,6 +184,51 @@ public class DalamudUtilService : IHostedService, IMediatorSubscriber
     public bool IsZoning => _condition[ConditionFlag.BetweenAreas] || _condition[ConditionFlag.BetweenAreas51];
     public bool IsInCombatOrPerforming { get; private set; }
     public bool IsInHousingMode => _condition[ConditionFlag.UsingHousingFunctions];
+    public unsafe bool OwnsCurrentHouse()
+    {
+        EnsureIsOnFramework();
+        var houseMan = HousingManager.Instance();
+        if (houseMan == null) return false;
+        
+        if (houseMan->HasHousePermissions()) return true;
+
+        // Repli : comparaison au bien possédé, si HasHousePermissions ne répond pas dans ce contexte.
+        var current = houseMan->GetCurrentHouseId();
+        if (current.Id == 0) current = houseMan->GetCurrentIndoorHouseId();
+        if (current.Id == 0) return false;
+
+        if (OwnsEstate(EstateType.PersonalEstate, current)) return true;
+        if (OwnsEstate(EstateType.FreeCompanyEstate, current)) return true;
+        if (OwnsEstate(EstateType.PersonalChambers, current)) return true;
+        if (OwnsEstate(EstateType.ApartmentBuilding, current)) return true;
+        if (OwnsEstate(EstateType.ApartmentRoom, current)) return true;
+        for (int i = 0; i < 3; i++)
+            if (OwnsEstate(EstateType.SharedEstate, current, i)) return true;
+        return false;
+    }
+
+    private static unsafe bool OwnsEstate(EstateType type, HouseId current, int sharedEstateIndex = -1)
+    {
+        var owned = HousingManager.GetOwnedHouseId(type, sharedEstateIndex);
+        if (owned.Id == 0) return false;
+        if (owned.TerritoryTypeId != current.TerritoryTypeId) return false;
+        // WorldId comparé seulement s'il est renseigné des deux côtés (défensif : ne pas verrouiller
+        // le propriétaire si le champ n'est pas peuplé pour la maison courante).
+        if (owned.WorldId != 0 && current.WorldId != 0 && owned.WorldId != current.WorldId) return false;
+        if (owned.WardIndex != current.WardIndex) return false;
+
+        if (owned.IsApartment || current.IsApartment)
+        {
+            // Appartement : chaque logement est possédé individuellement → même division ET même numéro.
+            return owned.IsApartment == current.IsApartment
+                && owned.ApartmentDivision == current.ApartmentDivision
+                && owned.RoomNumber == current.RoomNumber;
+        }
+
+        // Maison (perso / CL / partagée) : la parcelle entière appartient au proprio → on ignore le
+        // numéro de chambre, ce qui autorise l'édition de toutes les chambres de sa maison CL.
+        return owned.PlotIndex == current.PlotIndex;
+    }
     public bool HasModifiedGameFiles => _gameData.HasModifiedGameDataFiles;
 
     private unsafe bool IsInActiveDuty()

@@ -708,16 +708,18 @@ public sealed partial class CharaDataHubUi
                 currentLocation.ServerId, currentLocation.WardId, currentLocation.HouseId));
             ImGuiHelpers.ScaledDummy(3);
             
-            bool isInHousingEditMode = _dalamudUtilService.IsInHousingMode;
-            if (!isInHousingEditMode)
+            bool hasPermissions = _dalamudUtilService.OwnsCurrentHouse();
+            if (!hasPermissions)
             {
                 ImGui.PushStyleColor(ImGuiCol.Text, new Vector4(1.0f, 0.5f, 0.2f, 1.0f));
-                ImGui.TextWrapped(Loc.Get("HousingScenario.MustBeInHousingEditMode"));
+                ImGui.TextWrapped(Loc.Get("HousingScenario.NotOwner"));
                 ImGui.PopStyleColor();
                 ImGuiHelpers.ScaledDummy(3);
             }
+            
+            RefreshLocalScenarios();
 
-            using (ImRaii.Disabled(!isInHousingEditMode))
+            using (ImRaii.Disabled(!hasPermissions))
             {
                 if (_uiSharedService.IconTextButton(FontAwesomeIcon.Users, Loc.Get("HousingScenario.OpenEditor")))
                     Mediator.Publish(new UiToggleMessage(typeof(HousingNpcSceneEditorUi)));
@@ -776,7 +778,10 @@ public sealed partial class CharaDataHubUi
 
     private void DrawHousingScenarioPublishForm(HousingScenarioManager scenarioManager, API.Dto.CharaData.LocationInfo currentLocation)
     {
-        // Nos scènes sont déjà scopées à la pièce courante : pas de filtrage par location à faire.
+        if (_uiSharedService.IconTextButton(FontAwesomeIcon.Sync, Loc.Get("HousingScenario.RefreshList")))
+            RefreshLocalScenarios();
+        ImGuiHelpers.ScaledDummy(3);
+        
         var matching = _localScenes;
 
         if (matching.Count == 0)

@@ -25,7 +25,14 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
     private int _nameSeq;
 
     private readonly Dictionary<nint, ActionRuntime> _runtimes = new();
+    private readonly Dictionary<nint, Anchor> _anchors = new();
     private readonly System.Diagnostics.Stopwatch _moveClock = System.Diagnostics.Stopwatch.StartNew();
+
+    private sealed class Anchor
+    {
+        public System.Numerics.Vector3 Pos;
+        public float Rot;
+    }
 
     private const float WalkSpeed = 2.5f;   // y/s
     private const float RunSpeed = 6.3f;    // y/s
@@ -107,7 +114,14 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
         entry.Rotation = rotation;
 
         var addr = TryGetSpawnedAddress(entryId);
-        if (addr != nint.Zero) NativeNpcSpawner.SetTransform(addr, position, rotation);
+        if (addr != nint.Zero) Move(addr, position, rotation);
+    }
+
+    // Déplace un acteur ET mémorise sa position voulue, pour la ré-imposer chaque frame (anti-gravité).
+    private void Move(nint addr, System.Numerics.Vector3 position, float rotation)
+    {
+        if (_anchors.TryGetValue(addr, out var a)) { a.Pos = position; a.Rot = rotation; }
+        NativeNpcSpawner.SetTransform(addr, position, rotation);
     }
 
     public List<HousingNpcScenario> ScenesForCurrentRoom()
@@ -290,6 +304,7 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
             try
             {
                 _runtimes.Remove(npc.Address);
+                _anchors.Remove(npc.Address);
                 if (npc.Live != null) await _liveAppearance.RevertAsync(npc.Live).ConfigureAwait(false);
                 await _dalamudUtil.RunOnFrameworkThread(() => _spawner.Despawn(npc.Address)).ConfigureAwait(false);
             }
@@ -307,9 +322,16 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
 
         NpcLiveHandle? live = null;
         if (entry.LiveData != null)
+        {
+            // Attendre que l'acteur soit réellement rendu : Spawn() rend la main avant que le draw
+            // soit actif (activé sur les ticks suivants). Assigner la collection + redraw trop tôt
+            // laisse le PNJ en apparence brute — visible surtout en zone instanciée (appartement).
+            await WaitUntilRenderedAsync(actor.Address).ConfigureAwait(false);
             live = await _liveAppearance.ApplyAsync(actor.Address, entry.LiveData, CancellationToken.None).ConfigureAwait(false);
+        }
 
         _spawned.Add(new SpawnedNpc(actor.Address, live, shared, entry.Id));
+        _anchors[actor.Address] = new Anchor { Pos = pos, Rot = entry.Rotation };
 
         if (entry.FacePlayer)
         {
@@ -332,11 +354,25 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
             };
         }
     }
+    
+    private async Task WaitUntilRenderedAsync(nint address, int timeoutMs = 6000)
+    {
+        const int stepMs = 100;
+        for (int elapsed = 0; elapsed < timeoutMs; elapsed += stepMs)
+        {
+            bool rendered = await _dalamudUtil.RunOnFrameworkThread(
+                () => _spawner.IsAlive(address) && NativeNpcSpawner.HasDrawObject(address)).ConfigureAwait(false);
+            if (rendered) return;
+            await Task.Delay(stepMs).ConfigureAwait(false);
+        }
+        Logger.LogWarning("PNJ {Addr:X} non rendu après {Timeout}ms — apparence appliquée malgré tout", address, timeoutMs);
+    }
 
     private async Task DespawnAllInternalAsync()
     {
         _lookAt.Clear();
         _runtimes.Clear();
+        _anchors.Clear();
         if (_spawned.Count == 0) return;
         var spawned = _spawned.ToList();
         _spawned.Clear();
@@ -355,27 +391,53 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
     {
         _lookAt.Clear();
         _runtimes.Clear();
+        _anchors.Clear();
         foreach (var npc in _spawned)
             if (npc.Live != null) _ = _liveAppearance.RevertAsync(npc.Live);
         _spawned.Clear();
+    }
+    
+    private void PruneDeadActors()
+    {
+        for (int i = _spawned.Count - 1; i >= 0; i--)
+        {
+            var npc = _spawned[i];
+            if (_spawner.IsAlive(npc.Address)) continue;
+
+            _runtimes.Remove(npc.Address);
+            _anchors.Remove(npc.Address);
+            _spawned.RemoveAt(i);
+            if (npc.Live != null) _ = _liveAppearance.RevertAsync(npc.Live);
+            Logger.LogWarning("PNJ {Addr:X} disparu (acteur libéré par le jeu), état nettoyé", npc.Address);
+        }
     }
 
     // ---- Moteur de séquence d'actions (avancé chaque frame) ----
 
     private void OnFrameworkUpdate()
     {
-        if (_runtimes.Count == 0) { _moveClock.Restart(); return; }
         float dt = (float)_moveClock.Elapsed.TotalSeconds;
         _moveClock.Restart();
-        if (dt <= 0f || dt > 0.5f) return;
+        if (_spawned.Count == 0) return;
 
-        foreach (var kv in _runtimes.ToArray())
+
+        PruneDeadActors();
+        if (_spawned.Count == 0) return;
+        if (_runtimes.Count > 0 && dt > 0f && dt <= 0.5f)
         {
-            try { AdvanceActions(kv.Key, kv.Value, dt); }
-            catch (Exception ex) { Logger.LogWarning(ex, "Avance de séquence PNJ échouée"); }
+            foreach (var kv in _runtimes.ToArray())
+            {
+                try { AdvanceActions(kv.Key, kv.Value, dt); }
+                catch (Exception ex) { Logger.LogWarning(ex, "Avance de séquence PNJ échouée"); }
+            }
+            ReleaseSyncBarriers();
         }
 
-        ReleaseSyncBarriers();
+        foreach (var npc in _spawned)
+        {
+            if (_anchors.TryGetValue(npc.Address, out var a))
+                NativeNpcSpawner.SetTransform(npc.Address, a.Pos, a.Rot);
+        }
     }
 
     private void ReleaseSyncBarriers()
@@ -393,7 +455,7 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
         }
     }
 
-    private static void AdvanceActions(nint addr, ActionRuntime rt, float dt)
+    private void AdvanceActions(nint addr, ActionRuntime rt, float dt)
     {
         if (rt.Actions.Length == 0 || rt.Finished) return;
         if (rt.Index >= rt.Actions.Length)
@@ -479,7 +541,7 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
         rt.EmoteDuration = e.Duration;
     }
     
-    private static void StepMove(nint addr, ActionRuntime rt, float x, float y, float z, float speed, NativeNpcSpawner.MoveAnim anim, float dt)
+    private void StepMove(nint addr, ActionRuntime rt, float x, float y, float z, float speed, NativeNpcSpawner.MoveAnim anim, float dt)
     {
         if (MoveToward(addr, new System.Numerics.Vector3(x, y, z), speed, anim, dt))
         {
@@ -488,7 +550,7 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
         }
     }
 
-    private static void StepPath(nint addr, ActionRuntime rt, NpcPathAction p, float dt)
+    private void StepPath(nint addr, ActionRuntime rt, NpcPathAction p, float dt)
     {
         if (p.Points.Count == 0) { Advance(rt); return; }
         if (rt.PathIndex >= p.Points.Count) { NativeNpcSpawner.SetMovementAnim(addr, NativeNpcSpawner.MoveAnim.Idle); Advance(rt); return; }
@@ -498,20 +560,20 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
             rt.PathIndex++;
     }
 
-    private static void StepRotation(nint addr, ActionRuntime rt, float targetRot, float dt)
+    private void StepRotation(nint addr, ActionRuntime rt, float targetRot, float dt)
     {
         float curRot = NativeNpcSpawner.GetRotation(addr);
         if (!AngleClose(curRot, targetRot, 0.06f))
         {
-            NativeNpcSpawner.SetTransform(addr, NativeNpcSpawner.GetPosition(addr), RotateToward(curRot, targetRot, TurnSpeed * dt));
+            Move(addr, NativeNpcSpawner.GetPosition(addr), RotateToward(curRot, targetRot, TurnSpeed * dt));
             return;
         }
-        NativeNpcSpawner.SetTransform(addr, NativeNpcSpawner.GetPosition(addr), targetRot);
+        Move(addr, NativeNpcSpawner.GetPosition(addr), targetRot);
         Advance(rt);
     }
 
     // Avance d'un pas vers la cible. Tourne d'abord vers elle, puis translate. True quand arrivé.
-    private static bool MoveToward(nint addr, System.Numerics.Vector3 target, float speed, NativeNpcSpawner.MoveAnim anim, float dt)
+    private bool MoveToward(nint addr, System.Numerics.Vector3 target, float speed, NativeNpcSpawner.MoveAnim anim, float dt)
     {
         var cur = NativeNpcSpawner.GetPosition(addr);
         float targetRot = MathF.Atan2(target.X - cur.X, target.Z - cur.Z);
@@ -520,7 +582,7 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
         if (!AngleClose(curRot, targetRot, 0.06f))
         {
             NativeNpcSpawner.SetMovementAnim(addr, anim);
-            NativeNpcSpawner.SetTransform(addr, cur, RotateToward(curRot, targetRot, TurnSpeed * dt));
+            Move(addr, cur, RotateToward(curRot, targetRot, TurnSpeed * dt));
             return false;
         }
 
@@ -530,10 +592,10 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
             NativeNpcSpawner.SetMovementAnim(addr, anim);
             float t = MathF.Min(speed * dt / dist, 1f);
             var newPos = System.Numerics.Vector3.Lerp(cur, target, t);
-            NativeNpcSpawner.SetTransform(addr, newPos, targetRot);
+            Move(addr, newPos, targetRot);
             if (System.Numerics.Vector3.Distance(newPos, target) >= ArriveEps) return false;
         }
-        NativeNpcSpawner.SetTransform(addr, target, targetRot);
+        Move(addr, target, targetRot);
         return true;
     }
 
@@ -681,7 +743,14 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
         await AddFromSelfAsync(sceneId, string.Empty).ConfigureAwait(false);
     }
 
-    private async Task AddCapturedAsync(string sceneId, string displayName, bool includeLive)
+    // Liste des designs Glamourer (pour l'UI « Capturer depuis Glamourer »).
+    public Task<List<(Guid Id, string Name)>> GetGlamourerDesignsAsync() => _liveAppearance.GetDesignsAsync();
+
+    // Capture un PNJ dont l'apparence provient d'un design Glamourer (mods du perso conservés).
+    public Task AddFromGlamourerDesignAsync(string sceneId, Guid designId, string designName)
+        => AddCapturedAsync(sceneId, string.Empty, includeLive: true, (designId, designName));
+
+    private async Task AddCapturedAsync(string sceneId, string displayName, bool includeLive, (Guid Id, string Name)? glamourerDesign = null)
     {
         try
         {
@@ -713,16 +782,30 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
             // Glamourer affiche, donc l'apparence brute seule ne suffit pas.
             var appearance = await _dalamudUtil.RunOnFrameworkThread(() => NativeNpcSpawner.ReadAppearance(sourceAddr)).ConfigureAwait(false);
 
-            CharacterData? liveData = null;
-            var live = await _liveAppearance.CaptureSelfAsync().ConfigureAwait(false);
-            if (live == null)
-                Logger.LogWarning("Capture du live data échouée, apparence brute seule conservée");
+            CharacterData? liveData;
+            if (glamourerDesign.HasValue)
+            {
+                liveData = await _liveAppearance.CaptureDesignOnSelfAsync(glamourerDesign.Value.Id).ConfigureAwait(false);
+                if (liveData == null)
+                {
+                    Mediator.Publish(new NotificationMessage(Loc.Get("HousingNpc.Notif.Title"), Loc.Get("HousingNpc.Notif.DesignFailed"), NotificationType.Error));
+                    return;
+                }
+            }
             else
-                liveData = includeLive ? live : WithoutMods(live);
+            {
+                liveData = null;
+                var live = await _liveAppearance.CaptureSelfAsync().ConfigureAwait(false);
+                if (live == null)
+                    Logger.LogWarning("Capture du live data échouée, apparence brute seule conservée");
+                else
+                    liveData = includeLive ? live : WithoutMods(live);
+            }
 
+            var defaultName = glamourerDesign?.Name ?? player.Name.TextValue;
             var entry = new HousingNpcEntry
             {
-                DisplayName = string.IsNullOrWhiteSpace(displayName) ? player.Name.TextValue : displayName,
+                DisplayName = string.IsNullOrWhiteSpace(displayName) ? defaultName : displayName,
                 Appearance = appearance,
                 LiveData = liveData,
                 X = player.Position.X,

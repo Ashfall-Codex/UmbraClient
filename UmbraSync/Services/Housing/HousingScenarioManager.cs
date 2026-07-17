@@ -338,6 +338,12 @@ public sealed class HousingScenarioManager : IDisposable
             LastError = Localization.Loc.Get("HousingScenario.Error.EmptyScene");
             return;
         }
+        
+        _mediator.Publish(new NotificationMessage(
+            Localization.Loc.Get("HousingScenario.Notification.Title"),
+            Localization.Loc.Get("HousingScenario.Notification.Applying"),
+            MareConfiguration.Models.NotificationType.Info,
+            TimeSpan.FromSeconds(5)));
 
         // Les mods du partage doivent être en cache local avant le spawn, sinon la couche live
         // s'appliquerait avec des fichiers manquants (PNJ en apparence brute).

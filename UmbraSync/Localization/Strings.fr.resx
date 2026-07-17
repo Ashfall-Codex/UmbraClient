@@ -6108,17 +6108,8 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
   <data name="HousingScenario.Refresh" xml:space="preserve">
     <value>Actualiser</value>
   </data>
-  <data name="HousingScenario.ShowAll" xml:space="preserve">
-    <value>Afficher tous les scénarios locaux (sans filtrer par location)</value>
-  </data>
-  <data name="HousingScenario.ShowAllHelp" xml:space="preserve">
-    <value>Par défaut, on n'affiche que les scénarios dont le champ Location matche votre housing actuel. Décochez pour voir tous les scénarios du dossier ARR.</value>
-  </data>
-  <data name="HousingScenario.NoneFound" xml:space="preserve">
-    <value>Aucun scénario trouvé dans votre dossier ARR.</value>
-  </data>
   <data name="HousingScenario.NoneMatching" xml:space="preserve">
-    <value>Aucun scénario ARR ne matche votre location actuelle.</value>
+    <value>Aucune scène pour ce logement. Créez-en une avec « Créer / éditer les scènes PNJ ».</value>
   </data>
   <data name="HousingScenario.DescriptionHint" xml:space="preserve">
     <value>Description (visible par les paires)</value>
@@ -6192,6 +6183,9 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
   <data name="HousingScenario.Notification.Title" xml:space="preserve">
     <value>Scénario PNJ</value>
   </data>
+  <data name="HousingScenario.Notification.Applying" xml:space="preserve">
+    <value>Application d'un scénario PNJ en cours… Patientez quelques secondes.</value>
+  </data>
   <data name="HousingScenario.Notification.Applied" xml:space="preserve">
     <value>Un scénario PNJ partagé est appliqué dans ce housing.</value>
   </data>
@@ -6229,7 +6223,7 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
     <value>Nom de la scène</value>
   </data>
   <data name="HousingNpc.Editor.CaptureSelf" xml:space="preserve">
-    <value>Capturer depuis moi</value>
+    <value>Importer depuis mon personnage</value>
   </data>
   <data name="HousingNpc.Editor.CaptureSelfTip" xml:space="preserve">
     <value>Ajoute un PNJ avec votre apparence actuelle SANS les mods, à votre position. Le design Glamourer est conservé, seuls les mods Penumbra sont retirés.</value>
@@ -6321,6 +6315,9 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
   <data name="HousingNpc.Notif.NoPlayer" xml:space="preserve">
     <value>Joueur introuvable.</value>
   </data>
+  <data name="HousingNpc.Notif.DesignFailed" xml:space="preserve">
+    <value>Design Glamourer introuvable ou illisible.</value>
+  </data>
   <data name="HousingNpc.Notif.RoomCleared" xml:space="preserve">
     <value>Pièce vidée ({0} scène(s) supprimée(s)).</value>
   </data>
@@ -6349,10 +6346,28 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
     <value>Tout déployer</value>
   </data>
   <data name="HousingNpc.Editor.CaptureSelfLive" xml:space="preserve">
-    <value>Capturer live depuis moi</value>
+    <value>Importer depuis mon personnage moddé</value>
   </data>
   <data name="HousingNpc.Editor.CaptureSelfLiveTip" xml:space="preserve">
     <value>Ajoute un PNJ avec votre apparence Umbra COMPLÈTE (mods Penumbra + Glamourer + Customize+), pas seulement l'apparence de base. Nécessite Penumbra et Glamourer.</value>
+  </data>
+  <data name="HousingNpc.Editor.CaptureGlamourer" xml:space="preserve">
+    <value>Importer depuis Glamourer</value>
+  </data>
+  <data name="HousingNpc.Editor.CaptureGlamourerTip" xml:space="preserve">
+    <value>Ajoute un PNJ à partir d'un de vos designs Glamourer, avec vos mods Penumbra actuels. Nécessite Penumbra et Glamourer.</value>
+  </data>
+  <data name="HousingNpc.Editor.CaptureGlamourerPick" xml:space="preserve">
+    <value>Choisissez un design Glamourer :</value>
+  </data>
+  <data name="HousingNpc.Editor.CaptureGlamourerLoading" xml:space="preserve">
+    <value>Chargement des designs…</value>
+  </data>
+  <data name="HousingNpc.Editor.CaptureGlamourerEmpty" xml:space="preserve">
+    <value>Aucun design Glamourer trouvé.</value>
+  </data>
+  <data name="HousingNpc.Editor.Filter" xml:space="preserve">
+    <value>Rechercher</value>
   </data>
   <data name="HousingNpc.Editor.Sequence" xml:space="preserve">
     <value>Séquence - {0} action(s)</value>
@@ -6466,7 +6481,7 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
     <value>Visible</value>
   </data>
   <data name="HousingNpc.Editor.VisibleTip" xml:space="preserve">
-    <value>Affiche ou masque le PNJ. Il continue sa séquence même masqué (équivalent des actions Spawn/Despawn d'ARR).</value>
+    <value>Affiche ou masque le PNJ. Il continue sa séquence même masqué.</value>
   </data>
   <data name="HousingNpc.Editor.TimelineIdsHint" xml:space="preserve">
     <value>ID(s)</value>
@@ -6495,7 +6510,13 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
   <data name="HousingScenario.OpenEditor" xml:space="preserve">
     <value>Créer / éditer les scènes PNJ</value>
   </data>
-  <data name="HousingScenario.MustBeInHousingEditMode" xml:space="preserve">
-    <value>Vous devez être en mode Aménagement pour créer et publier des scénarios PNJ. Cela prouve la propriété du logement.</value>
+  <data name="HousingScenario.NotOwner" xml:space="preserve">
+    <value>Vous devez être propriétaire de ce logement pour créer et publier des scénarios PNJ. Pas besoin d'être en mode Aménagement.</value>
+  </data>
+  <data name="HousingScenario.RefreshList" xml:space="preserve">
+    <value>Rafraîchir la liste</value>
+  </data>
+  <data name="HousingNpc.Editor.SelectTip" xml:space="preserve">
+    <value>Sélectionne le PNJ pour éditer sa position</value>
   </data>
 </root>

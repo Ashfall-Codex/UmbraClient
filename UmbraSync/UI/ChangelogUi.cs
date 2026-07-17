@@ -342,7 +342,7 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
     {
         return new List<ChangelogEntry>
         {
-            new(new Version(3, 0, 0, 0), "3.0.0.2", new List<ChangelogLine>
+            new(new Version(3, 0, 0, 0), "3.0.0.3", new List<ChangelogLine>
             {
                 new("Nouveauté : Ashfall Connect : liez votre compte à la plateforme Ashfall Connect pour gérer, enrichir et certifier votre fiche RP (niveaux de certification Bronze / Argent / Or via Discord et XIVAuth). Liaison par code à usage unique depuis le plugin."),
                 new("Nouveauté : Synchronisation des scénarios PNJ housing. Partagez les PNJ personnalisés de votre logement (via le plugin A Realm Repopulated) avec vos paires : ils apparaissent automatiquement à la visite et disparaissent à la sortie. Gestion des permissions (paires / syncshells) et des conflits avec vos scénarios locaux."),

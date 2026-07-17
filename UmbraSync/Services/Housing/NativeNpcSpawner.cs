@@ -156,6 +156,23 @@ public sealed unsafe class NativeNpcSpawner
         _logger.LogInformation("Acteur natif spawné à l'index {Index} (adresse {Addr:X})", objectIndex, (nint)bc);
         return handle;
     }
+    
+    public bool IsAlive(nint address)
+    {
+        if (address == nint.Zero) return false;
+        foreach (var obj in _objectTable)
+        {
+            if (obj != null && obj.Address == address) return true;
+        }
+        return false;
+    }
+
+    public static bool HasDrawObject(nint address)
+    {
+        if (address == nint.Zero) return false;
+        var go = (GameObject*)address;
+        return go->DrawObject != null && (ulong)go->RenderFlags == 0;
+    }
 
     public void Despawn(nint address)
     {

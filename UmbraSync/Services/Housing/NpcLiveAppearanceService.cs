@@ -18,7 +18,7 @@ public sealed class NpcLiveAppearanceService : DisposableMediatorSubscriberBase
     private readonly DalamudUtilService _dalamudUtil;
     private readonly CharaDataFileHandler _fileHandler;
 
-    private CharacterData? _lastSelfData;
+    private volatile CharacterData? _lastSelfData;
 
     public NpcLiveAppearanceService(ILogger<NpcLiveAppearanceService> logger, MareMediator mediator, IpcManager ipc,
         GameObjectHandlerFactory gameObjectHandlerFactory, FileCacheManager fileCacheManager,
@@ -34,6 +34,44 @@ public sealed class NpcLiveAppearanceService : DisposableMediatorSubscriberBase
         _fileHandler = fileHandler;
     }
     
+    public Task<List<(Guid Id, string Name)>> GetDesignsAsync() => _ipc.Glamourer.GetDesignsAsync();
+    
+    public async Task<CharacterData?> CaptureDesignOnSelfAsync(Guid designId)
+    {
+        var player = await _dalamudUtil.GetPlayerCharacterAsync().ConfigureAwait(false);
+        if (player == null) return null;
+        int index = player.ObjectIndex;
+        var playerAddr = player.Address;
+        var savedState = await _ipc.Glamourer.GetCharacterCustomizationAsync(playerAddr).ConfigureAwait(false);
+        var before = _lastSelfData;
+        try
+        {
+            await _ipc.Glamourer.ApplyDesignToSelfAsync(designId, index).ConfigureAwait(false);
+            const int maxWaitMs = 8000, stepMs = 150, settleMs = 700;
+            CharacterData? captured = null;
+            int waited = 0, sinceChange = 0;
+            while (waited < maxWaitMs)
+            {
+                await Task.Delay(stepMs).ConfigureAwait(false);
+                waited += stepMs;
+                var current = _lastSelfData;
+                if (current == null || ReferenceEquals(current, before)) continue;
+
+                if (!ReferenceEquals(current, captured)) { captured = current; sinceChange = 0; }
+                else if ((sinceChange += stepMs) >= settleMs) break;
+            }
+
+            if (captured == null)
+                Logger.LogWarning("Capture depuis design : aucun recalcul détecté après {Timeout}ms, repli sur le dernier cache", maxWaitMs);
+            return captured ?? _lastSelfData;
+        }
+        finally
+        {
+            if (!string.IsNullOrEmpty(savedState))
+                await _ipc.Glamourer.ApplyStateToSelfAsync(savedState, index).ConfigureAwait(false);
+        }
+    }
+
     public async Task<CharacterData?> CaptureSelfAsync()
     {
         if (_lastSelfData != null)

@@ -28,6 +28,9 @@ public sealed class HousingNpcSceneEditorUi : WindowMediatorSubscriberBase
     private readonly HashSet<string> _collapsed = new(StringComparer.Ordinal); 
     private readonly Dictionary<string, int> _addActionKind = new(StringComparer.Ordinal);
     private IReadOnlyList<(string Path, string Title)>? _arrList;
+    private List<(Guid Id, string Name)>? _glamourerDesigns;
+    private string _glamourerFilter = string.Empty;
+    private bool _loadingDesigns;
 
     public HousingNpcSceneEditorUi(ILogger<HousingNpcSceneEditorUi> logger, MareMediator mediator,
         HousingNpcScenarioService service, UiSharedService uiShared, IDataManager dataManager,
@@ -134,6 +137,17 @@ public sealed class HousingNpcSceneEditorUi : WindowMediatorSubscriberBase
         if (_uiShared.IconTextButton(FontAwesomeIcon.UserAstronaut, Loc.Get("HousingNpc.Editor.CaptureSelfLive")))
             _ = _service.AddFromSelfLiveAsync(current.Id, string.Empty);
         UiSharedService.AttachToolTip(Loc.Get("HousingNpc.Editor.CaptureSelfLiveTip"));
+        ImGui.SameLine();
+        if (_uiShared.IconTextButton(FontAwesomeIcon.Vest, Loc.Get("HousingNpc.Editor.CaptureGlamourer")))
+        {
+            _glamourerFilter = string.Empty;
+            _loadingDesigns = true;
+            _glamourerDesigns = null;
+            _ = LoadGlamourerDesignsAsync();
+            ImGui.OpenPopup("##glamourerDesigns");
+        }
+        UiSharedService.AttachToolTip(Loc.Get("HousingNpc.Editor.CaptureGlamourerTip"));
+        DrawGlamourerDesignPopup(current.Id);
         if (_uiShared.IconTextButton(FontAwesomeIcon.FileImport, Loc.Get("HousingNpc.Editor.ImportChara")))
         {
             var sceneId = current.Id;
@@ -180,11 +194,20 @@ public sealed class HousingNpcSceneEditorUi : WindowMediatorSubscriberBase
                     if (collapsed) _collapsed.Remove(entry.Id); else _collapsed.Add(entry.Id);
                     collapsed = !collapsed;
                 }
-                // Déployer une card sélectionne son PNJ : c'est lui que le gizmo en monde manipule.
-                if (!collapsed) _service.SelectedEntryId = entry.Id;
                 UiSharedService.AttachToolTip(Loc.Get("HousingNpc.Editor.CollapseTip"));
                 ImGui.SameLine();
-                _uiShared.IconText(FontAwesomeIcon.User);
+
+                // Sélection explicite : ce PNJ devient la cible du gizmo en monde. Bouton toujours
+                // visible (indispensable quand la liste est longue) ; le sélectionné est mis en avant.
+                bool isSelected = string.Equals(entry.Id, _service.SelectedEntryId, StringComparison.Ordinal);
+                using (ImRaii.PushColor(ImGuiCol.Button, ImGuiColors.HealerGreen, isSelected))
+                {
+                    if (_uiShared.IconButton(FontAwesomeIcon.LocationCrosshairs))
+                        _service.SelectedEntryId = isSelected ? string.Empty : entry.Id;
+                }
+                UiSharedService.AttachToolTip(Loc.Get("HousingNpc.Editor.SelectTip"));
+                ImGui.SameLine();
+                _uiShared.IconText(isSelected ? FontAwesomeIcon.LocationArrow : FontAwesomeIcon.User);
                 ImGui.SameLine();
                 var name = entry.DisplayName;
                 if (collapsed)
@@ -278,6 +301,56 @@ public sealed class HousingNpcSceneEditorUi : WindowMediatorSubscriberBase
         }
     }
 
+
+    private async Task LoadGlamourerDesignsAsync()
+    {
+        try
+        {
+            var designs = await _service.GetGlamourerDesignsAsync().ConfigureAwait(false);
+            _glamourerDesigns = designs;
+        }
+        finally
+        {
+            _loadingDesigns = false;
+        }
+    }
+
+    private void DrawGlamourerDesignPopup(string sceneId)
+    {
+        using var popup = ImRaii.Popup("##glamourerDesigns");
+        if (!popup) return;
+
+        ImGui.TextColored(ImGuiColors.DalamudGrey, Loc.Get("HousingNpc.Editor.CaptureGlamourerPick"));
+        ImGui.Separator();
+
+        ImGui.SetNextItemWidth(280f * ImGuiHelpers.GlobalScale);
+        ImGui.InputTextWithHint("##glamourerFilter", Loc.Get("HousingNpc.Editor.Filter"), ref _glamourerFilter, 64);
+
+        if (_loadingDesigns)
+        {
+            ImGui.TextColored(ImGuiColors.DalamudGrey, Loc.Get("HousingNpc.Editor.CaptureGlamourerLoading"));
+            return;
+        }
+        if (_glamourerDesigns == null || _glamourerDesigns.Count == 0)
+        {
+            ImGui.TextColored(ImGuiColors.DalamudGrey, Loc.Get("HousingNpc.Editor.CaptureGlamourerEmpty"));
+            return;
+        }
+
+        using var child = ImRaii.Child("##glamourerList", new Vector2(280f * ImGuiHelpers.GlobalScale, 320f * ImGuiHelpers.GlobalScale), true);
+        foreach (var (id, name) in _glamourerDesigns)
+        {
+            if (!string.IsNullOrEmpty(_glamourerFilter)
+                && name.IndexOf(_glamourerFilter, StringComparison.OrdinalIgnoreCase) < 0)
+                continue;
+
+            if (ImGui.Selectable(name + "##" + id))
+            {
+                _ = _service.AddFromGlamourerDesignAsync(sceneId, id, name);
+                ImGui.CloseCurrentPopup();
+            }
+        }
+    }
 
     private bool DrawActions(string sceneId, HousingNpcEntry entry)
     {

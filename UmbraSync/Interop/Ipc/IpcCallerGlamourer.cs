@@ -29,6 +29,8 @@ public sealed class IpcCallerGlamourer : DisposableMediatorSubscriberBase, IIpcC
     private readonly RevertStateName _glamourerRevertByName;
     private readonly UnlockState _glamourerUnlock;
     private readonly UnlockStateName _glamourerUnlockByName;
+    private readonly GetDesignList _glamourerGetDesignList;
+    private readonly ApplyDesign _glamourerApplyDesign;
     private readonly EventSubscriber<nint>? _glamourerStateChanged;
 
     private bool _pluginLoaded;
@@ -49,6 +51,8 @@ public sealed class IpcCallerGlamourer : DisposableMediatorSubscriberBase, IIpcC
         _glamourerRevertByName = new RevertStateName(pi);
         _glamourerUnlock = new UnlockState(pi);
         _glamourerUnlockByName = new UnlockStateName(pi);
+        _glamourerGetDesignList = new GetDesignList(pi);
+        _glamourerApplyDesign = new ApplyDesign(pi);
 
         _logger = logger;
         _dalamudUtil = dalamudUtil;
@@ -306,6 +310,53 @@ public sealed class IpcCallerGlamourer : DisposableMediatorSubscriberBase, IIpcC
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Error during Glamourer RevertByName");
+        }
+    }
+
+    public async Task<List<(Guid Id, string Name)>> GetDesignsAsync()
+    {
+        if (!APIAvailable) return new List<(Guid, string)>();
+        try
+        {
+            return await _dalamudUtil.RunOnFrameworkThread(() =>
+            {
+                var designs = _glamourerGetDesignList.Invoke();
+                return designs
+                    .Select(kv => (kv.Key, kv.Value))
+                    .OrderBy(d => d.Value, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+            }).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Récupération de la liste des designs Glamourer échouée");
+            return new List<(Guid, string)>();
+        }
+    }
+    
+    public async Task ApplyDesignToSelfAsync(Guid designId, int objectIndex)
+    {
+        if (!APIAvailable) return;
+        try
+        {
+            await _dalamudUtil.RunOnFrameworkThread(() => _glamourerApplyDesign.Invoke(designId, objectIndex, 0)).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Application du design Glamourer sur soi échouée");
+        }
+    }
+    
+    public async Task ApplyStateToSelfAsync(string base64, int objectIndex)
+    {
+        if (!APIAvailable || string.IsNullOrEmpty(base64) || _glamourerApplyAll == null) return;
+        try
+        {
+            await _dalamudUtil.RunOnFrameworkThread(() => _glamourerApplyAll.Invoke(base64, objectIndex, 0)).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Restauration de l'état Glamourer du joueur échouée");
         }
     }
 
