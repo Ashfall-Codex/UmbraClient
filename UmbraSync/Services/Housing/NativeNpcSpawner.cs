@@ -222,6 +222,28 @@ public sealed unsafe class NativeNpcSpawner
     }
 
 
+    public void SetVisible(nint address, bool visible)
+    {
+        if (address == nint.Zero) return;
+        var go = &((BattleChara*)address)->Character.GameObject;
+        if (visible)
+        {
+            if (go->IsReadyToDraw()) go->EnableDraw();
+        }
+        else
+        {
+            go->DisableDraw();
+        }
+    }
+
+    public void PlayTimeline(nint address, ushort timelineId)
+    {
+        if (address == nint.Zero || timelineId == 0) return;
+        var chara = (Character*)address;
+        chara->SetMode(CharacterModes.AnimLock, 0);
+        chara->Timeline.BaseOverride = timelineId;
+    }
+
     public enum MoveAnim : ushort { Idle = 3, Walking = 13, Running = 22 }
 
     public Vector3 GetPosition(nint address)

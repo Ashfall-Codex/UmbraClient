@@ -165,37 +165,6 @@ public sealed class HousingNpcScenarioStore
         lock (_lock) Save();
     }
 
-    public IReadOnlyList<string> ListArrScenarioFiles()
-    {
-        try
-        {
-            var pluginConfigs = _pluginInterface.ConfigDirectory.Parent;
-            if (pluginConfigs == null || !pluginConfigs.Exists) return System.Array.Empty<string>();
-
-            var arrDir = FindSubDir(FindSubDir(pluginConfigs.FullName, "ARealmRepopulated"), "Scenarios");
-            if (arrDir == null || !Directory.Exists(arrDir)) return System.Array.Empty<string>();
-
-            return Directory.GetFiles(arrDir, "*.json")
-                .OrderBy(f => Path.GetFileName(f), StringComparer.OrdinalIgnoreCase)
-                .ToList();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Listing des scénarios ARR échoué");
-            return System.Array.Empty<string>();
-        }
-    }
-
-    // Trouve un sous-dossier par nom, insensible à la casse (Linux vs macOS/Windows).
-    private static string? FindSubDir(string? parent, string name)
-    {
-        if (parent == null || !Directory.Exists(parent)) return null;
-        var exact = Path.Combine(parent, name);
-        if (Directory.Exists(exact)) return exact;
-        return Directory.GetDirectories(parent)
-            .FirstOrDefault(d => string.Equals(Path.GetFileName(d), name, StringComparison.OrdinalIgnoreCase));
-    }
-
     private void Load()
     {
         try

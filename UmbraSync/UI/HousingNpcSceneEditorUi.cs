@@ -417,6 +417,35 @@ public sealed class HousingNpcSceneEditorUi : WindowMediatorSubscriberBase
                 if (ImGui.InputFloat(Loc.Get("HousingNpc.Editor.WaitSec"), ref d, 0f, 0f, "%.1f")) { w.Duration = MathF.Max(0f, d); changed = true; }
                 break;
             }
+            case NpcVisibilityAction v:
+            {
+                var visible = v.Visible;
+                if (ImGui.Checkbox(Loc.Get("HousingNpc.Editor.Visible"), ref visible)) { v.Visible = visible; changed = true; }
+                UiSharedService.AttachToolTip(Loc.Get("HousingNpc.Editor.VisibleTip"));
+                break;
+            }
+            case NpcTimelineAction t:
+            {
+                var ids = string.Join(", ", t.TimelineIds);
+                ImGui.SetNextItemWidth(150 * scale);
+                if (ImGui.InputTextWithHint("##tlids", Loc.Get("HousingNpc.Editor.TimelineIdsHint"), ref ids, 64))
+                {
+                    t.TimelineIds = ids.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+                        .Select(x => ushort.TryParse(x, out var id) ? id : (ushort)0)
+                        .Where(id => id != 0)
+                        .ToList();
+                    changed = true;
+                }
+                UiSharedService.AttachToolTip(Loc.Get("HousingNpc.Editor.TimelineIdsTip"));
+                ImGui.SameLine();
+                var td = t.Duration;
+                ImGui.SetNextItemWidth(80 * scale);
+                if (ImGui.InputFloat(Loc.Get("HousingNpc.Editor.WaitSec"), ref td, 0f, 0f, "%.1f")) { t.Duration = MathF.Max(0f, td); changed = true; }
+                break;
+            }
+            case NpcSyncAction:
+                ImGui.TextColored(ImGuiColors.DalamudGrey, Loc.Get("HousingNpc.Editor.SyncHelp"));
+                break;
         }
         return changed;
     }
@@ -430,6 +459,8 @@ public sealed class HousingNpcSceneEditorUi : WindowMediatorSubscriberBase
             Loc.Get("HousingNpc.Editor.ActEmote"), Loc.Get("HousingNpc.Editor.ActMove"),
             Loc.Get("HousingNpc.Editor.ActPath"), Loc.Get("HousingNpc.Editor.ActRotation"),
             Loc.Get("HousingNpc.Editor.ActWait"), Loc.Get("HousingNpc.Editor.ActIdle"),
+            Loc.Get("HousingNpc.Editor.ActVisibility"), Loc.Get("HousingNpc.Editor.ActTimeline"),
+            Loc.Get("HousingNpc.Editor.ActSync"),
         };
         ImGui.SetNextItemWidth(150 * ImGuiHelpers.GlobalScale);
         if (ImGui.Combo("##addkind", ref kind, names, names.Length)) _addActionKind[entry.Id] = kind;
@@ -444,6 +475,9 @@ public sealed class HousingNpcSceneEditorUi : WindowMediatorSubscriberBase
                 case 3: entry.Actions.Add(new NpcRotationAction { TargetRotation = entry.Rotation }); changed = true; break;
                 case 4: entry.Actions.Add(new NpcWaitAction { Duration = 1f }); changed = true; break;
                 case 5: entry.Actions.Add(new NpcIdleAction()); changed = true; break;
+                case 6: entry.Actions.Add(new NpcVisibilityAction()); changed = true; break;
+                case 7: entry.Actions.Add(new NpcTimelineAction()); changed = true; break;
+                case 8: entry.Actions.Add(new NpcSyncAction()); changed = true; break;
             }
         }
         return changed;
@@ -480,6 +514,9 @@ public sealed class HousingNpcSceneEditorUi : WindowMediatorSubscriberBase
         NpcRotationAction => Loc.Get("HousingNpc.Editor.ActRotation"),
         NpcWaitAction => Loc.Get("HousingNpc.Editor.ActWait"),
         NpcIdleAction => Loc.Get("HousingNpc.Editor.ActIdle"),
+        NpcVisibilityAction => Loc.Get("HousingNpc.Editor.ActVisibility"),
+        NpcTimelineAction => Loc.Get("HousingNpc.Editor.ActTimeline"),
+        NpcSyncAction => Loc.Get("HousingNpc.Editor.ActSync"),
         _ => "?",
     };
 

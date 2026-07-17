@@ -22,19 +22,6 @@ public static class ArrScenarioImporter
         public int SkippedActions;
     }
 
-    public static string PeekTitle(string path)
-    {
-        try
-        {
-            using var doc = JsonDocument.Parse(File.ReadAllText(path));
-            return ReadString(doc.RootElement, "Title");
-        }
-        catch
-        {
-            return string.Empty;
-        }
-    }
-
     public static ParsedScenario Parse(string path)
     {
         using var doc = JsonDocument.Parse(File.ReadAllText(path));
@@ -254,6 +241,25 @@ public static class ArrScenarioImporter
                 return new NpcWaitAction { Enabled = enabled, Duration = duration };
             case "Idle":
                 return new NpcIdleAction { Enabled = enabled };
+            case "Spawn":
+                return new NpcVisibilityAction { Enabled = enabled, Visible = true };
+            case "Despawn":
+                return new NpcVisibilityAction { Enabled = enabled, Visible = false };
+            case "Sync":
+                return new NpcSyncAction { Enabled = enabled };
+            case "Timeline":
+                var timeline = new NpcTimelineAction { Enabled = enabled, Duration = duration };
+                if (act.TryGetProperty("ActionSlots", out var slots) && slots.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var slot in slots.EnumerateArray())
+                    {
+                        ushort id = (ushort)ReadInt(slot, "TimelineId");
+                        if (id != 0) timeline.TimelineIds.Add(id);
+                    }
+                }
+                return timeline;
+            case "Empty":
+                return null;
             default:
                 return null;
         }

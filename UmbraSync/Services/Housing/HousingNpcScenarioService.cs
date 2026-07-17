@@ -16,6 +16,7 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
     private readonly NativeNpcSpawner _spawner;
     private readonly LookAtService _lookAt;
     private readonly NpcLiveAppearanceService _liveAppearance;
+    private readonly ArrScenarioFileService _arrScenarioFiles;
     private readonly DalamudUtilService _dalamudUtil;
     private readonly ITargetManager _targetManager;
 
@@ -31,14 +32,19 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
     private const float RunSpeed = 6.3f;    // y/s
     private const float TurnSpeed = 6.3f;   // rad/s
     private const float ArriveEps = 0.05f;
-    private const float PostEmotePause = 1f; // délai par défaut après la fin d'une emote
+    private const float PostEmotePause = 1f;        // délai par défaut après la fin d'une emote
+    private const float DefaultTimelineDuration = 3f; // durée par défaut d'une action Timeline
+    private const float SyncTimeoutSeconds = 30f;    // garde-fou de la barrière Sync
 
-    private sealed record SpawnedNpc(nint Address, NpcLiveHandle? Live);
+    private sealed record SpawnedNpc(nint Address, NpcLiveHandle? Live, bool Shared);
 
     // État d'exécution de la séquence d'actions d'un PNJ (avancée chaque frame).
     private sealed class ActionRuntime
     {
         public NpcAction[] Actions = System.Array.Empty<NpcAction>();
+        public string GroupId = string.Empty; // scène d'appartenance (barrière Sync entre PNJ d'une même scène)
+        public bool AtSync;                   // en attente à un point de rendez-vous
+        public float SyncTimeout;             // garde-fou si un PNJ ne se présente jamais
         public bool Looping = true;
         public float LoopDelay;
         public int Index;
@@ -65,13 +71,15 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
 
     public HousingNpcScenarioService(ILogger<HousingNpcScenarioService> logger, MareMediator mediator,
         HousingNpcScenarioStore store, NativeNpcSpawner spawner, LookAtService lookAt,
-        NpcLiveAppearanceService liveAppearance, DalamudUtilService dalamudUtil, ITargetManager targetManager)
+        NpcLiveAppearanceService liveAppearance, ArrScenarioFileService arrScenarioFiles,
+        DalamudUtilService dalamudUtil, ITargetManager targetManager)
         : base(logger, mediator)
     {
         _store = store;
         _spawner = spawner;
         _lookAt = lookAt;
         _liveAppearance = liveAppearance;
+        _arrScenarioFiles = arrScenarioFiles;
         _dalamudUtil = dalamudUtil;
         _targetManager = targetManager;
 
@@ -200,7 +208,7 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
 
             foreach (var scene in scenes)
                 foreach (var entry in scene.Entries)
-                    await SpawnEntryInternalAsync(entry).ConfigureAwait(false);
+                    await SpawnEntryInternalAsync(entry, scene.Id).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -220,8 +228,49 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
         finally { _gate.Release(); }
     }
 
+    
+    
+    public async Task ApplySharedSceneAsync(HousingNpcScenario scene)
+    {
+        await _gate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            await DespawnSharedInternalAsync().ConfigureAwait(false);
+            foreach (var entry in scene.Entries)
+            {
+                entry.MigrateLegacyToActions();
+                await SpawnEntryInternalAsync(entry, scene.Id, shared: true).ConfigureAwait(false);
+            }
+            Logger.LogInformation("Scène partagée appliquée : {Count} PNJ", scene.Entries.Count);
+        }
+        finally { _gate.Release(); }
+    }
 
-    private async Task SpawnEntryInternalAsync(HousingNpcEntry entry)
+    public async Task RemoveSharedSceneAsync()
+    {
+        await _gate.WaitAsync().ConfigureAwait(false);
+        try { await DespawnSharedInternalAsync().ConfigureAwait(false); }
+        finally { _gate.Release(); }
+    }
+
+    private async Task DespawnSharedInternalAsync()
+    {
+        var shared = _spawned.Where(s => s.Shared).ToList();
+        if (shared.Count == 0) return;
+        _spawned.RemoveAll(s => s.Shared);
+        foreach (var npc in shared)
+        {
+            try
+            {
+                _runtimes.Remove(npc.Address);
+                if (npc.Live != null) await _liveAppearance.RevertAsync(npc.Live).ConfigureAwait(false);
+                await _dalamudUtil.RunOnFrameworkThread(() => _spawner.Despawn(npc.Address)).ConfigureAwait(false);
+            }
+            catch (Exception ex) { Logger.LogWarning(ex, "Despawn PNJ partagé échoué ({Addr:X})", npc.Address); }
+        }
+    }
+
+    private async Task SpawnEntryInternalAsync(HousingNpcEntry entry, string groupId, bool shared = false)
     {
         var name = MakeNpcName(_nameSeq++);
         var pos = new System.Numerics.Vector3(entry.X, entry.Y, entry.Z);
@@ -233,7 +282,7 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
         if (entry.LiveData != null)
             live = await _liveAppearance.ApplyAsync(actor.Address, entry.LiveData, CancellationToken.None).ConfigureAwait(false);
 
-        _spawned.Add(new SpawnedNpc(actor.Address, live));
+        _spawned.Add(new SpawnedNpc(actor.Address, live, shared));
 
         if (entry.FacePlayer)
         {
@@ -249,6 +298,7 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
             _runtimes[actor.Address] = new ActionRuntime
             {
                 Actions = entry.Actions.ToArray(),
+                GroupId = groupId,
                 Looping = entry.Looping,
                 LoopDelay = entry.LoopDelay,
                 WaitLeft = 1f,
@@ -296,6 +346,23 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
         {
             try { AdvanceActions(kv.Key, kv.Value, dt); }
             catch (Exception ex) { Logger.LogWarning(ex, "Avance de séquence PNJ échouée"); }
+        }
+
+        ReleaseSyncBarriers();
+    }
+
+    private void ReleaseSyncBarriers()
+    {
+        foreach (var group in _runtimes.Values.GroupBy(r => r.GroupId, StringComparer.Ordinal))
+        {
+            var active = group.Where(r => !r.Finished).ToList();
+            if (active.Count == 0 || !active.TrueForAll(r => r.AtSync)) continue;
+
+            foreach (var rt in active)
+            {
+                rt.AtSync = false;
+                Advance(rt);
+            }
         }
     }
 
@@ -345,8 +412,23 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
             case NpcRotationAction r: StepRotation(addr, rt, r.TargetRotation, dt); break;
             case NpcWaitAction w: rt.WaitLeft = w.Duration; _spawner.SetMovementAnim(addr, NativeNpcSpawner.MoveAnim.Idle); Advance(rt); break;
             case NpcIdleAction: _spawner.SetMovementAnim(addr, NativeNpcSpawner.MoveAnim.Idle); Advance(rt); break;
+            case NpcVisibilityAction v: _spawner.SetVisible(addr, v.Visible); Advance(rt); break;
+            case NpcTimelineAction t: StepTimeline(addr, rt, t); break;
+            case NpcSyncAction:
+                _spawner.SetMovementAnim(addr, NativeNpcSpawner.MoveAnim.Idle);
+                rt.AtSync = true;
+                rt.SyncTimeout = SyncTimeoutSeconds;
+                break;
             default: Advance(rt); break;
         }
+    }
+
+    private void StepTimeline(nint addr, ActionRuntime rt, NpcTimelineAction t)
+    {
+        if (t.TimelineIds.Count == 0) { Advance(rt); return; }
+        foreach (var id in t.TimelineIds) _spawner.PlayTimeline(addr, id);
+        rt.WaitLeft = t.Duration > 0f ? t.Duration : DefaultTimelineDuration;
+        Advance(rt);
     }
 
     private void StepEmote(nint addr, ActionRuntime rt, NpcEmoteAction e)
@@ -457,16 +539,9 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
     public Task AddFromTargetAsync(string sceneId, string displayName) => AddCapturedAsync(sceneId, displayName, fromTarget: true, includeLive: false);
     public Task AddFromSelfLiveAsync(string sceneId, string displayName) => AddCapturedAsync(sceneId, displayName, fromTarget: false, includeLive: true);
     public IReadOnlyList<(string Path, string Title)> ListArrScenarios()
-    {
-        var result = new List<(string, string)>();
-        foreach (var file in _store.ListArrScenarioFiles())
-        {
-            var title = ArrScenarioImporter.PeekTitle(file);
-            if (string.IsNullOrWhiteSpace(title)) title = Path.GetFileNameWithoutExtension(file);
-            result.Add((file, title));
-        }
-        return result;
-    }
+        => _arrScenarioFiles.ListLocalScenarios()
+            .Select(f => (f.FilePath, string.IsNullOrWhiteSpace(f.Title) ? Path.GetFileNameWithoutExtension(f.FilePath) : f.Title))
+            .ToList();
 
     public async Task ImportArrScenarioAsync(string path)
     {
@@ -547,7 +622,7 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
             _store.AddEntryToScene(sceneId, entry);
 
             await _gate.WaitAsync().ConfigureAwait(false);
-            try { await SpawnEntryInternalAsync(entry).ConfigureAwait(false); }
+            try { await SpawnEntryInternalAsync(entry, sceneId).ConfigureAwait(false); }
             finally { _gate.Release(); }
 
             Mediator.Publish(new NotificationMessage(Loc.Get("HousingNpc.Notif.Title"), Loc.Get("HousingNpc.Notif.Added"), NotificationType.Info));
@@ -631,7 +706,7 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
             _store.AddEntryToScene(sceneId, entry);
 
             await _gate.WaitAsync().ConfigureAwait(false);
-            try { await SpawnEntryInternalAsync(entry).ConfigureAwait(false); }
+            try { await SpawnEntryInternalAsync(entry, sceneId).ConfigureAwait(false); }
             finally { _gate.Release(); }
 
             Mediator.Publish(new NotificationMessage(Loc.Get("HousingNpc.Notif.Title"), Loc.Get("HousingNpc.Notif.Added"), NotificationType.Info));

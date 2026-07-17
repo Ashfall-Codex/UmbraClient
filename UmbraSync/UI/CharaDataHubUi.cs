@@ -38,7 +38,7 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
     private readonly HousingShareManager? _housingShareManager_housing;
     private readonly HousingFurnitureScanner? _housingScanner;
     private readonly ArrPathResolver? _arrPathResolver;
-    private readonly ArrScenarioFileService? _arrScenarioFileService;
+    private readonly HousingNpcScenarioService? _housingNpcScenarioService;
     private readonly HousingScenarioManager? _housingScenarioManager;
     private CancellationTokenSource? _closalCts = new();
     private bool _disableUI = false;
@@ -138,7 +138,7 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
                          DalamudUtilService dalamudUtilService, FileDialogManager fileDialogManager, PairManager pairManager,
                          CharaDataGposeTogetherManager charaDataGposeTogetherManager, McdfShareManager mcdfShareManager,
                          HousingShareManager housingShareManager, HousingFurnitureScanner housingScanner,
-                         ArrPathResolver arrPathResolver, ArrScenarioFileService arrScenarioFileService,
+                         ArrPathResolver arrPathResolver, HousingNpcScenarioService housingNpcScenarioService,
                          HousingScenarioManager housingScenarioManager,
                          UmbraProfileManager umbraProfileManager, MareConfigService mareConfigService)
         : base(logger, mediator, $"{Loc.Get("CharaDataHub.WindowTitle")}###UmbraCharaDataUI", performanceCollectorService)
@@ -159,7 +159,7 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
         _housingShareManager_housing = housingShareManager;
         _housingScanner = housingScanner;
         _arrPathResolver = arrPathResolver;
-        _arrScenarioFileService = arrScenarioFileService;
+        _housingNpcScenarioService = housingNpcScenarioService;
         _housingScenarioManager = housingScenarioManager;
         _umbraProfileManager = umbraProfileManager;
         Mediator.Subscribe<GposeStartMessage>(this, (_) => IsOpen |= _configService.Current.OpenMareHubOnGposeStart);

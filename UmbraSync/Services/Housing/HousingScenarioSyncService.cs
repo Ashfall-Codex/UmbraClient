@@ -14,19 +14,16 @@ public sealed class HousingScenarioSyncService : IHostedService, IMediatorSubscr
 {
     private readonly ILogger<HousingScenarioSyncService> _logger;
     private readonly MareMediator _mediator;
-    private readonly ArrPathResolver _arrPathResolver;
     private readonly HousingScenarioManager _manager;
     private LocationInfo? _currentPlotLocation;
 
     public HousingScenarioSyncService(
         ILogger<HousingScenarioSyncService> logger,
         MareMediator mediator,
-        ArrPathResolver arrPathResolver,
         HousingScenarioManager manager)
     {
         _logger = logger;
         _mediator = mediator;
-        _arrPathResolver = arrPathResolver;
         _manager = manager;
     }
 
@@ -36,21 +33,8 @@ public sealed class HousingScenarioSyncService : IHostedService, IMediatorSubscr
     {
         _logger.LogInformation("Starting HousingScenarioSyncService");
 
-        string? scenariosPath = _arrPathResolver.TryGetScenariosPath();
-        if (scenariosPath != null)
-        {
-            _logger.LogInformation("ARR détecté, dossier Scenarios : {Path}", scenariosPath);
-        }
-
-        // Nettoyage crash-safe : supprime un éventuel temp file orphelin de la session précédente
-        try
-        {
-            _manager.CleanupStaleState();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Cleanup stale scenario state au startup en erreur");
-        }
+        // Plus de nettoyage crash-safe nécessaire : les scènes partagées sont spawnées en mémoire
+        // (aucun fichier écrit sur disque), elles disparaissent donc d'elles-mêmes au redémarrage.
 
         _mediator.Subscribe<HousingPlotEnteredMessage>(this, OnHousingPlotEntered);
         _mediator.Subscribe<HousingPlotLeftMessage>(this, _ => OnHousingPlotLeft());

@@ -15,9 +15,8 @@ public sealed partial class CharaDataHubUi
 {
     private int _housingSubTab;
     private bool _housingScenarioInitialized;
-    private List<ArrScenarioFileInfo> _localScenarios = new();
-    private bool _showAllScenarios;
-    private string _housingScenarioSelectedPath = string.Empty;
+    private List<HousingNpcScenario> _localScenes = new();
+    private string _housingScenarioSelectedId = string.Empty;
     private string _housingScenarioDescription = string.Empty;
     private bool _housingScenarioToAll = true;
     private readonly List<string> _housingScenarioAllowedIndividuals = new();
@@ -659,28 +658,8 @@ public sealed partial class CharaDataHubUi
 
         ImGuiHelpers.ScaledDummy(5);
 
-        string? arrPath = _arrPathResolver?.TryGetScenariosPath();
-        if (arrPath == null)
-        {
-            ImGui.PushStyleColor(ImGuiCol.Text, ImGuiColors.DalamudYellow);
-            _uiSharedService.IconText(FontAwesomeIcon.ExclamationTriangle);
-            ImGui.SameLine();
-            ImGui.TextWrapped(Loc.Get("HousingScenario.ArrNotDetected"));
-            ImGui.PopStyleColor();
-            return;
-        }
-
-        ImGui.PushStyleColor(ImGuiCol.Text, ImGuiColors.HealerGreen);
-        _uiSharedService.IconText(FontAwesomeIcon.CheckCircle);
-        ImGui.SameLine();
-        ImGui.TextUnformatted(Loc.Get("HousingScenario.ArrDetected"));
-        ImGui.PopStyleColor();
-
-        ImGuiHelpers.ScaledDummy(5);
-
         var scenarioManager = _housingScenarioManager;
-        var scenarioFileService = _arrScenarioFileService;
-        if (scenarioManager == null || scenarioFileService == null) return;
+        if (scenarioManager == null || _housingNpcScenarioService == null) return;
 
         // Init au premier affichage
         if (!_housingScenarioInitialized && !scenarioManager.IsBusy)
@@ -765,38 +744,25 @@ public sealed partial class CharaDataHubUi
 
     private void RefreshLocalScenarios()
     {
-        if (_arrScenarioFileService != null)
-        {
-            _localScenarios = _arrScenarioFileService.ListLocalScenarios();
-        }
+        _localScenes = _housingNpcScenarioService?.ScenesForCurrentRoom() ?? new();
     }
 
     private void DrawHousingScenarioPublishForm(HousingScenarioManager scenarioManager, API.Dto.CharaData.LocationInfo currentLocation)
     {
-        var arrRaw = _dalamudUtilService.GetArrRawLocationAsync().GetAwaiter().GetResult();
-        var matching = _showAllScenarios
-            ? _localScenarios
-            : _localScenarios.Where(s => ArrScenarioFileService.MatchesLocation(s, arrRaw)).ToList();
-
-        ImGui.Checkbox(Loc.Get("HousingScenario.ShowAll"), ref _showAllScenarios);
-        _uiSharedService.DrawHelpText(Loc.Get("HousingScenario.ShowAllHelp"));
+        // Nos scènes sont déjà scopées à la pièce courante : pas de filtrage par location à faire.
+        var matching = _localScenes;
 
         if (matching.Count == 0)
         {
-            UiSharedService.ColorTextWrapped(
-                _showAllScenarios
-                    ? Loc.Get("HousingScenario.NoneFound")
-                    : Loc.Get("HousingScenario.NoneMatching"),
-                ImGuiColors.DalamudGrey3);
+            UiSharedService.ColorTextWrapped(Loc.Get("HousingScenario.NoneMatching"), ImGuiColors.DalamudGrey3);
             return;
         }
 
-        // Dropdown des scénarios
-        var selectedInfo = matching.FirstOrDefault(s => string.Equals(s.FilePath, _housingScenarioSelectedPath, StringComparison.Ordinal));
+        var selectedInfo = matching.FirstOrDefault(s => string.Equals(s.Id, _housingScenarioSelectedId, StringComparison.Ordinal));
         if (selectedInfo == null)
         {
             selectedInfo = matching[0];
-            _housingScenarioSelectedPath = selectedInfo.FilePath;
+            _housingScenarioSelectedId = selectedInfo.Id;
         }
 
         ImGui.SetNextItemWidth(360f);
@@ -806,16 +772,10 @@ public sealed partial class CharaDataHubUi
             {
                 foreach (var s in matching)
                 {
-                    bool isSelected = string.Equals(s.FilePath, _housingScenarioSelectedPath, StringComparison.Ordinal);
+                    bool isSelected = string.Equals(s.Id, _housingScenarioSelectedId, StringComparison.Ordinal);
                     if (ImGui.Selectable(FormatScenarioLabel(s), isSelected))
                     {
-                        _housingScenarioSelectedPath = s.FilePath;
-                    }
-                    if (ImGui.IsItemHovered() && !string.IsNullOrEmpty(s.Description))
-                    {
-                        ImGui.BeginTooltip();
-                        ImGui.TextUnformatted(s.Description);
-                        ImGui.EndTooltip();
+                        _housingScenarioSelectedId = s.Id;
                     }
                 }
             }
@@ -916,7 +876,7 @@ public sealed partial class CharaDataHubUi
                     ? _pairManager.Groups.Values.Select(g => g.GID).ToList()
                     : new List<string>(_housingScenarioAllowedSyncshells);
 
-                _ = scenarioManager.PublishAsync(currentLocation, selectedInfo.FilePath, _housingScenarioDescription, individuals, syncshells);
+                _ = scenarioManager.PublishAsync(currentLocation, selectedInfo, _housingScenarioDescription, individuals, syncshells);
 
                 _housingScenarioDescription = string.Empty;
                 _housingScenarioToAll = true;
@@ -1239,10 +1199,6 @@ public sealed partial class CharaDataHubUi
         }
     }
 
-    private static string FormatScenarioLabel(ArrScenarioFileInfo info)
-    {
-        if (!string.IsNullOrEmpty(info.Title))
-            return $"{info.Title}  ({info.FileName})";
-        return info.FileName;
-    }
+    private static string FormatScenarioLabel(HousingNpcScenario scene)
+        => $"{scene.Title}  ({scene.Entries.Count} PNJ)";
 }

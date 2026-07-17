@@ -16,6 +16,9 @@ public enum NpcMoveSpeed
 [JsonDerivedType(typeof(NpcRotationAction), "Rotation")]
 [JsonDerivedType(typeof(NpcWaitAction), "Wait")]
 [JsonDerivedType(typeof(NpcIdleAction), "Idle")]
+[JsonDerivedType(typeof(NpcVisibilityAction), "Visibility")]
+[JsonDerivedType(typeof(NpcTimelineAction), "Timeline")]
+[JsonDerivedType(typeof(NpcSyncAction), "Sync")]
 public abstract class NpcAction
 {
     public bool Enabled { get; set; } = true;
@@ -63,5 +66,20 @@ public sealed class NpcWaitAction : NpcAction
 }
 
 public sealed class NpcIdleAction : NpcAction
+{
+}
+
+public sealed class NpcVisibilityAction : NpcAction
+{
+    public bool Visible { get; set; } = true;
+}
+
+public sealed class NpcTimelineAction : NpcAction
+{
+    public List<ushort> TimelineIds { get; set; } = new();
+    public float Duration { get; set; }
+}
+
+public sealed class NpcSyncAction : NpcAction
 {
 }

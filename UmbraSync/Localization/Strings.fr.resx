@@ -6438,4 +6438,52 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
   <data name="HousingNpc.Editor.ImportArrBrowse" xml:space="preserve">
     <value>Parcourir</value>
   </data>
+  <data name="HousingScenario.Error.EmptyScene" xml:space="preserve">
+    <value>La scène est vide : ajoutez au moins un PNJ avant de la partager.</value>
+  </data>
+  <data name="HousingScenario.Error.Unavailable" xml:space="preserve">
+    <value>Scène indisponible (permissions ?).</value>
+  </data>
+  <data name="HousingScenario.Error.Decrypt" xml:space="preserve">
+    <value>Déchiffrement de la scène échoué.</value>
+  </data>
+  <data name="HousingScenario.Error.Payload" xml:space="preserve">
+    <value>Format de données inattendu.</value>
+  </data>
+  <data name="HousingScenario.Error.LegacyArr" xml:space="preserve">
+    <value>Ce partage utilise l'ancien format ARR, qui n'est plus pris en charge. Son propriétaire doit le republier.</value>
+  </data>
+  <data name="HousingScenario.Error.Deserialize" xml:space="preserve">
+    <value>Lecture de la scène partagée échouée.</value>
+  </data>
+  <data name="HousingScenario.Success.Applied" xml:space="preserve">
+    <value>Scène partagée appliquée.</value>
+  </data>
+  <data name="HousingScenario.Success.Published" xml:space="preserve">
+    <value>Scène publiée.</value>
+  </data>
+  <data name="HousingNpc.Editor.ActVisibility" xml:space="preserve">
+    <value>Visibilité</value>
+  </data>
+  <data name="HousingNpc.Editor.ActTimeline" xml:space="preserve">
+    <value>Animation</value>
+  </data>
+  <data name="HousingNpc.Editor.ActSync" xml:space="preserve">
+    <value>Rendez-vous</value>
+  </data>
+  <data name="HousingNpc.Editor.Visible" xml:space="preserve">
+    <value>Visible</value>
+  </data>
+  <data name="HousingNpc.Editor.VisibleTip" xml:space="preserve">
+    <value>Affiche ou masque le PNJ. Il continue sa séquence même masqué (équivalent des actions Spawn/Despawn d'ARR).</value>
+  </data>
+  <data name="HousingNpc.Editor.TimelineIdsHint" xml:space="preserve">
+    <value>ID(s)</value>
+  </data>
+  <data name="HousingNpc.Editor.TimelineIdsTip" xml:space="preserve">
+    <value>Identifiants d'animation du jeu (ActionTimeline), séparés par des virgules. Permet les animations autres que les emotes.</value>
+  </data>
+  <data name="HousingNpc.Editor.SyncHelp" xml:space="preserve">
+    <value>Attend que tous les PNJ de la scène soient arrivés à leur rendez-vous, puis tout le monde repart ensemble.</value>
+  </data>
 </root>
