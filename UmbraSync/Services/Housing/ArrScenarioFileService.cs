@@ -10,11 +10,6 @@ public sealed class ArrScenarioFileInfo
     public string Title { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
     public int Version { get; set; } = -1;
-    public uint? Territory { get; set; }
-    public uint? Server { get; set; }
-    public uint? HousingDivision { get; set; }
-    public int? HousingWard { get; set; }
-    public int? HousingPlot { get; set; }
 }
 
 public sealed class ArrScenarioFileService
@@ -58,18 +53,6 @@ public sealed class ArrScenarioFileService
         return result;
     }
     
-    public static bool MatchesLocation(ArrScenarioFileInfo info, ArrRawLocation location)
-    {
-        if (info.Territory.HasValue && info.Territory.Value != location.Territory) return false;
-        if (!location.InHousing) return true;
-
-        if (info.Server.HasValue && info.Server.Value != location.Server) return false;
-        if (info.HousingDivision.HasValue && info.HousingDivision.Value != location.Division) return false;
-        if (info.HousingWard.HasValue && info.HousingWard.Value != location.Ward) return false;
-        if (location.Indoor && info.HousingPlot.HasValue && info.HousingPlot.Value != location.Plot) return false;
-        return true;
-    }
-
     private ArrScenarioFileInfo? ParseScenarioFile(string filePath, string fileName)
     {
         try
@@ -86,17 +69,6 @@ public sealed class ArrScenarioFileService
                 Description = ReadString(root, "Description"),
                 Version = ReadInt(root, "Version", -1),
             };
-
-            // Objet "Location" à plat, convention ARR (cf. ScenarioData.ScenarioLocation) :
-            // { Territory, Server, HousingDivision, HousingWard, HousingPlot }.
-            if (root.TryGetProperty("Location", out var loc) && loc.ValueKind == JsonValueKind.Object)
-            {
-                if (TryReadUint(loc, "Territory", out var territory)) info.Territory = territory;
-                if (TryReadUint(loc, "Server", out var server)) info.Server = server;
-                if (TryReadUint(loc, "HousingDivision", out var division)) info.HousingDivision = division;
-                if (TryReadInt(loc, "HousingWard", out var ward)) info.HousingWard = ward;
-                if (TryReadInt(loc, "HousingPlot", out var plot)) info.HousingPlot = plot;
-            }
 
             return info;
         }
