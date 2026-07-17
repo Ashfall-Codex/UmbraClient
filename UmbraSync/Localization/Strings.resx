@@ -6322,13 +6322,7 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
     <value>Capture from me</value>
   </data>
   <data name="HousingNpc.Editor.CaptureSelfTip" xml:space="preserve">
-    <value>Adds an NPC with your current appearance, at your position.</value>
-  </data>
-  <data name="HousingNpc.Editor.CaptureTarget" xml:space="preserve">
-    <value>Capture from my target</value>
-  </data>
-  <data name="HousingNpc.Editor.CaptureTargetTip" xml:space="preserve">
-    <value>Target a dressed character, then capture its appearance.</value>
+    <value>Adds an NPC with your current appearance WITHOUT mods, at your position. The Glamourer design is kept, only Penumbra mods are dropped.</value>
   </data>
   <data name="HousingNpc.Editor.Refresh" xml:space="preserve">
     <value>Refresh</value>
@@ -6413,9 +6407,6 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
   </data>
   <data name="HousingNpc.Notif.AddFailed" xml:space="preserve">
     <value>Add failed (see logs).</value>
-  </data>
-  <data name="HousingNpc.Notif.NoTarget" xml:space="preserve">
-    <value>No target selected.</value>
   </data>
   <data name="HousingNpc.Notif.NoPlayer" xml:space="preserve">
     <value>Player not found.</value>
@@ -6584,5 +6575,17 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
   </data>
   <data name="HousingScenario.HairNotSupported" xml:space="preserve">
     <value>Outfit mods are shared correctly. Modded hairstyles do not show on NPCs yet: they will keep the base hairstyle. The rest of the appearance is faithful.</value>
+  </data>
+  <data name="HousingNpc.Editor.GizmoRotate" xml:space="preserve">
+    <value>Rotate</value>
+  </data>
+  <data name="HousingNpc.Editor.GizmoRotateTip" xml:space="preserve">
+    <value>Switches the in-world manipulator between move and rotate. Expand a card to choose which NPC it targets.</value>
+  </data>
+  <data name="HousingScenario.OpenEditor" xml:space="preserve">
+    <value>Create / edit NPC scenes</value>
+  </data>
+  <data name="HousingScenario.MustBeInHousingEditMode" xml:space="preserve">
+    <value>You must be in Housing Layout mode to create and publish NPC scenarios. This proves ownership of the house.</value>
   </data>
 </root>

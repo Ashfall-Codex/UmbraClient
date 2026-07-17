@@ -6232,13 +6232,7 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
     <value>Capturer depuis moi</value>
   </data>
   <data name="HousingNpc.Editor.CaptureSelfTip" xml:space="preserve">
-    <value>Ajoute un PNJ avec votre apparence actuelle, à votre position.</value>
-  </data>
-  <data name="HousingNpc.Editor.CaptureTarget" xml:space="preserve">
-    <value>Capturer depuis ma cible</value>
-  </data>
-  <data name="HousingNpc.Editor.CaptureTargetTip" xml:space="preserve">
-    <value>Visez un personnage habillé, puis capturez son apparence.</value>
+    <value>Ajoute un PNJ avec votre apparence actuelle SANS les mods, à votre position. Le design Glamourer est conservé, seuls les mods Penumbra sont retirés.</value>
   </data>
   <data name="HousingNpc.Editor.Refresh" xml:space="preserve">
     <value>Rafraîchir</value>
@@ -6323,9 +6317,6 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
   </data>
   <data name="HousingNpc.Notif.AddFailed" xml:space="preserve">
     <value>Échec de l'ajout (voir les logs).</value>
-  </data>
-  <data name="HousingNpc.Notif.NoTarget" xml:space="preserve">
-    <value>Aucune cible sélectionnée.</value>
   </data>
   <data name="HousingNpc.Notif.NoPlayer" xml:space="preserve">
     <value>Joueur introuvable.</value>
@@ -6494,5 +6485,17 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
   </data>
   <data name="HousingScenario.HairNotSupported" xml:space="preserve">
     <value>Les mods de tenue sont bien partagés. Les coiffures moddées ne s'affichent pas encore sur les PNJ : ils garderont la coiffure de base. Le reste de l'apparence est fidèle.</value>
+  </data>
+  <data name="HousingNpc.Editor.GizmoRotate" xml:space="preserve">
+    <value>Tourner</value>
+  </data>
+  <data name="HousingNpc.Editor.GizmoRotateTip" xml:space="preserve">
+    <value>Bascule le repère en monde entre déplacement et rotation. Déployez une card pour choisir le PNJ manipulé.</value>
+  </data>
+  <data name="HousingScenario.OpenEditor" xml:space="preserve">
+    <value>Créer / éditer les scènes PNJ</value>
+  </data>
+  <data name="HousingScenario.MustBeInHousingEditMode" xml:space="preserve">
+    <value>Vous devez être en mode Aménagement pour créer et publier des scénarios PNJ. Cela prouve la propriété du logement.</value>
   </data>
 </root>

@@ -233,6 +233,7 @@ public sealed class Plugin : IDalamudPlugin
             collection.AddScoped<AutoDetectUi>();
             collection.AddScoped<HousingNpcSceneEditorUi>();
             collection.AddScoped<WindowMediatorSubscriberBase>(sp => sp.GetRequiredService<HousingNpcSceneEditorUi>());
+            collection.AddScoped<WindowMediatorSubscriberBase, HousingNpcGizmoOverlayUi>();
             collection.AddScoped<WindowMediatorSubscriberBase>(sp => sp.GetRequiredService<SettingsUi>());
             collection.AddScoped<WindowMediatorSubscriberBase>(sp => sp.GetRequiredService<CompactUi>());
             collection.AddScoped<WindowMediatorSubscriberBase, IntroUi>();

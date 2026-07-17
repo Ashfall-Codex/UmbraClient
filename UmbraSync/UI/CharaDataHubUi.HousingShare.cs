@@ -8,6 +8,7 @@ using System.Numerics;
 using UmbraSync.API.Dto.HousingScenario;
 using UmbraSync.Localization;
 using UmbraSync.Services.Housing;
+using UmbraSync.Services.Mediator;
 
 namespace UmbraSync.UI;
 
@@ -706,8 +707,25 @@ public sealed partial class CharaDataHubUi
                 Loc.Get("HousingScenario.CurrentLocation"),
                 currentLocation.ServerId, currentLocation.WardId, currentLocation.HouseId));
             ImGuiHelpers.ScaledDummy(3);
+            
+            bool isInHousingEditMode = _dalamudUtilService.IsInHousingMode;
+            if (!isInHousingEditMode)
+            {
+                ImGui.PushStyleColor(ImGuiCol.Text, new Vector4(1.0f, 0.5f, 0.2f, 1.0f));
+                ImGui.TextWrapped(Loc.Get("HousingScenario.MustBeInHousingEditMode"));
+                ImGui.PopStyleColor();
+                ImGuiHelpers.ScaledDummy(3);
+            }
 
-            DrawHousingScenarioPublishForm(scenarioManager, currentLocation);
+            using (ImRaii.Disabled(!isInHousingEditMode))
+            {
+                if (_uiSharedService.IconTextButton(FontAwesomeIcon.Users, Loc.Get("HousingScenario.OpenEditor")))
+                    Mediator.Publish(new UiToggleMessage(typeof(HousingNpcSceneEditorUi)));
+
+                ImGuiHelpers.ScaledDummy(3);
+
+                DrawHousingScenarioPublishForm(scenarioManager, currentLocation);
+            }
         }
 
         // État scénario appliqué (côté visiteur)

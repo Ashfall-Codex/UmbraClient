@@ -134,10 +134,6 @@ public sealed class HousingNpcSceneEditorUi : WindowMediatorSubscriberBase
         if (_uiShared.IconTextButton(FontAwesomeIcon.UserAstronaut, Loc.Get("HousingNpc.Editor.CaptureSelfLive")))
             _ = _service.AddFromSelfLiveAsync(current.Id, string.Empty);
         UiSharedService.AttachToolTip(Loc.Get("HousingNpc.Editor.CaptureSelfLiveTip"));
-        if (_uiShared.IconTextButton(FontAwesomeIcon.Crosshairs, Loc.Get("HousingNpc.Editor.CaptureTarget")))
-            _ = _service.AddFromTargetAsync(current.Id, string.Empty);
-        UiSharedService.AttachToolTip(Loc.Get("HousingNpc.Editor.CaptureTargetTip"));
-        ImGui.SameLine();
         if (_uiShared.IconTextButton(FontAwesomeIcon.FileImport, Loc.Get("HousingNpc.Editor.ImportChara")))
         {
             var sceneId = current.Id;
@@ -184,6 +180,8 @@ public sealed class HousingNpcSceneEditorUi : WindowMediatorSubscriberBase
                     if (collapsed) _collapsed.Remove(entry.Id); else _collapsed.Add(entry.Id);
                     collapsed = !collapsed;
                 }
+                // Déployer une card sélectionne son PNJ : c'est lui que le gizmo en monde manipule.
+                if (!collapsed) _service.SelectedEntryId = entry.Id;
                 UiSharedService.AttachToolTip(Loc.Get("HousingNpc.Editor.CollapseTip"));
                 ImGui.SameLine();
                 _uiShared.IconText(FontAwesomeIcon.User);

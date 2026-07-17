@@ -18,7 +18,6 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
     private readonly NpcLiveAppearanceService _liveAppearance;
     private readonly ArrScenarioFileService _arrScenarioFiles;
     private readonly DalamudUtilService _dalamudUtil;
-    private readonly ITargetManager _targetManager;
 
     private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly List<SpawnedNpc> _spawned = new();
@@ -36,7 +35,7 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
     private const float DefaultTimelineDuration = 3f; // durée par défaut d'une action Timeline
     private const float SyncTimeoutSeconds = 30f;    // garde-fou de la barrière Sync
 
-    private sealed record SpawnedNpc(nint Address, NpcLiveHandle? Live, bool Shared);
+    private sealed record SpawnedNpc(nint Address, NpcLiveHandle? Live, bool Shared, string EntryId);
 
     // État d'exécution de la séquence d'actions d'un PNJ (avancée chaque frame).
     private sealed class ActionRuntime
@@ -72,7 +71,7 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
     public HousingNpcScenarioService(ILogger<HousingNpcScenarioService> logger, MareMediator mediator,
         HousingNpcScenarioStore store, NativeNpcSpawner spawner, LookAtService lookAt,
         NpcLiveAppearanceService liveAppearance, ArrScenarioFileService arrScenarioFiles,
-        DalamudUtilService dalamudUtil, ITargetManager targetManager)
+        DalamudUtilService dalamudUtil)
         : base(logger, mediator)
     {
         _store = store;
@@ -81,7 +80,6 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
         _liveAppearance = liveAppearance;
         _arrScenarioFiles = arrScenarioFiles;
         _dalamudUtil = dalamudUtil;
-        _targetManager = targetManager;
 
         Mediator.Subscribe<HousingPlotEnteredMessage>(this, msg => { _ = OnEnteredAsync(msg.LocationInfo); });
         Mediator.Subscribe<HousingPlotLeftMessage>(this, m => { _ = OnLeftAsync(); });
@@ -94,6 +92,23 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
     public Task StartAsync(CancellationToken cancellationToken) => Task.CompletedTask;
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
     public LocationInfo? CurrentLocation => _currentLocation;
+
+    public string SelectedEntryId { get; set; } = string.Empty;
+    public nint TryGetSpawnedAddress(string entryId)
+        => _spawned.Find(s => string.Equals(s.EntryId, entryId, StringComparison.Ordinal))?.Address ?? nint.Zero;
+    
+    public void SetEntryTransformLive(string sceneId, string entryId, System.Numerics.Vector3 position, float rotation)
+    {
+        var entry = FindEntry(sceneId, entryId);
+        if (entry == null) return;
+        entry.X = position.X;
+        entry.Y = position.Y;
+        entry.Z = position.Z;
+        entry.Rotation = rotation;
+
+        var addr = TryGetSpawnedAddress(entryId);
+        if (addr != nint.Zero) NativeNpcSpawner.SetTransform(addr, position, rotation);
+    }
 
     public List<HousingNpcScenario> ScenesForCurrentRoom()
         => _currentLocation is { } loc ? _store.ScenesForLocation(loc) : new();
@@ -140,6 +155,18 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
         _store.SaveChanges();
         await RefreshAsync().ConfigureAwait(false);
     }
+    
+    private static CharacterData WithoutMods(CharacterData data) => new()
+    {
+        GlamourerData = data.GlamourerData,
+        CustomizePlusData = data.CustomizePlusData,
+        HeelsData = data.HeelsData,
+        HonorificData = data.HonorificData,
+        MoodlesData = data.MoodlesData,
+        PetNamesData = data.PetNamesData,
+        ManipulationData = string.Empty,
+        FileReplacements = new(),
+    };
 
     private HousingNpcEntry? FindEntry(string sceneId, string entryId)
         => _store.GetScene(sceneId)?.Entries.FirstOrDefault(e => string.Equals(e.Id, entryId, StringComparison.Ordinal));
@@ -282,7 +309,7 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
         if (entry.LiveData != null)
             live = await _liveAppearance.ApplyAsync(actor.Address, entry.LiveData, CancellationToken.None).ConfigureAwait(false);
 
-        _spawned.Add(new SpawnedNpc(actor.Address, live, shared));
+        _spawned.Add(new SpawnedNpc(actor.Address, live, shared, entry.Id));
 
         if (entry.FacePlayer)
         {
@@ -543,9 +570,8 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
         return MathF.Abs(diff) <= step ? to : from + (MathF.Sign(diff) * step);
     }
 
-    public Task AddFromSelfAsync(string sceneId, string displayName) => AddCapturedAsync(sceneId, displayName, fromTarget: false, includeLive: false);
-    public Task AddFromTargetAsync(string sceneId, string displayName) => AddCapturedAsync(sceneId, displayName, fromTarget: true, includeLive: false);
-    public Task AddFromSelfLiveAsync(string sceneId, string displayName) => AddCapturedAsync(sceneId, displayName, fromTarget: false, includeLive: true);
+    public Task AddFromSelfAsync(string sceneId, string displayName) => AddCapturedAsync(sceneId, displayName, includeLive: false);
+    public Task AddFromSelfLiveAsync(string sceneId, string displayName) => AddCapturedAsync(sceneId, displayName, includeLive: true);
     public IReadOnlyList<(string Path, string Title)> ListArrScenarios()
         => _arrScenarioFiles.ListLocalScenarios()
             .Select(f => (f.FilePath, string.IsNullOrWhiteSpace(f.Title) ? Path.GetFileNameWithoutExtension(f.FilePath) : f.Title))
@@ -655,7 +681,7 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
         await AddFromSelfAsync(sceneId, string.Empty).ConfigureAwait(false);
     }
 
-    private async Task AddCapturedAsync(string sceneId, string displayName, bool fromTarget, bool includeLive)
+    private async Task AddCapturedAsync(string sceneId, string displayName, bool includeLive)
     {
         try
         {
@@ -675,35 +701,28 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
             var player = await _dalamudUtil.GetPlayerCharacterAsync().ConfigureAwait(false);
             if (player == null) return;
 
-            var (sourceAddr, sourceName) = await _dalamudUtil.RunOnFrameworkThread(() =>
-            {
-                if (fromTarget)
-                {
-                    var t = _targetManager.Target;
-                    return (t?.Address ?? nint.Zero, t?.Name.TextValue ?? string.Empty);
-                }
-                return (_dalamudUtil.GetPlayerPointer(), player.Name.TextValue);
-            }).ConfigureAwait(false);
-
+            var sourceAddr = await _dalamudUtil.RunOnFrameworkThread(_dalamudUtil.GetPlayerPointer).ConfigureAwait(false);
             if (sourceAddr == nint.Zero)
             {
-                Mediator.Publish(new NotificationMessage(Loc.Get("HousingNpc.Notif.Title"), fromTarget ? Loc.Get("HousingNpc.Notif.NoTarget") : Loc.Get("HousingNpc.Notif.NoPlayer"), NotificationType.Error));
+                Mediator.Publish(new NotificationMessage(Loc.Get("HousingNpc.Notif.Title"), Loc.Get("HousingNpc.Notif.NoPlayer"), NotificationType.Error));
                 return;
             }
 
+            // Apparence brute = base du modèle (race, corps). Le design Glamourer est réappliqué
+            // par-dessus via le CharacterData : DrawData contient l'équipement RÉEL, pas ce que
+            // Glamourer affiche, donc l'apparence brute seule ne suffit pas.
             var appearance = await _dalamudUtil.RunOnFrameworkThread(() => NativeNpcSpawner.ReadAppearance(sourceAddr)).ConfigureAwait(false);
 
             CharacterData? liveData = null;
-            if (includeLive)
-            {
-                liveData = await _liveAppearance.CaptureSelfAsync().ConfigureAwait(false);
-                if (liveData == null)
-                    Logger.LogWarning("Capture du live data échouée, apparence brute seule conservée");
-            }
+            var live = await _liveAppearance.CaptureSelfAsync().ConfigureAwait(false);
+            if (live == null)
+                Logger.LogWarning("Capture du live data échouée, apparence brute seule conservée");
+            else
+                liveData = includeLive ? live : WithoutMods(live);
 
             var entry = new HousingNpcEntry
             {
-                DisplayName = string.IsNullOrWhiteSpace(displayName) ? sourceName : displayName,
+                DisplayName = string.IsNullOrWhiteSpace(displayName) ? player.Name.TextValue : displayName,
                 Appearance = appearance,
                 LiveData = liveData,
                 X = player.Position.X,
