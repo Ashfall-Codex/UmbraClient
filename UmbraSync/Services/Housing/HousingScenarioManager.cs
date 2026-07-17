@@ -25,7 +25,6 @@ public sealed class HousingScenarioManager : IDisposable
     private readonly MareMediator _mediator;
     private readonly HousingNpcScenarioService _npcService;
     private readonly MareConfigService _configService;
-    private readonly DalamudUtilService _dalamudUtil;
     private readonly SemaphoreSlim _operationSemaphore = new(1, 1);
     private readonly List<HousingScenarioEntryDto> _ownShares = new();
     private Task? _currentTask;
@@ -37,15 +36,13 @@ public sealed class HousingScenarioManager : IDisposable
         ApiController apiController,
         MareMediator mediator,
         HousingNpcScenarioService npcService,
-        MareConfigService configService,
-        DalamudUtilService dalamudUtil)
+        MareConfigService configService)
     {
         _logger = logger;
         _apiController = apiController;
         _mediator = mediator;
         _npcService = npcService;
         _configService = configService;
-        _dalamudUtil = dalamudUtil;
     }
 
     public IReadOnlyList<HousingScenarioEntryDto> OwnShares => _ownShares;

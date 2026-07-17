@@ -203,7 +203,7 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
             int total = scenes.Sum(s => s.Entries.Count);
             if (total == 0) return;
 
-            Logger.LogInformation("Scènes PNJ : {Scenes} scène(s) activée(s), {Count} PNJ pour la room {Server}:{Territory}:{Ward}:{House}:{Division}:{Room}",
+            Logger.LogInformation("Scènes PNJ : {SceneCount} scène(s) activée(s), {NpcCount} PNJ pour la room {Server}:{Territory}:{Ward}:{House}:{Division}:{Room}",
                 scenes.Count, total, loc.ServerId, loc.TerritoryId, loc.WardId, loc.HouseId, loc.DivisionId, loc.RoomId);
 
             foreach (var scene in scenes)
@@ -366,18 +366,26 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
         }
     }
 
-    private void AdvanceActions(nint addr, ActionRuntime rt, float dt)
+    private static void AdvanceActions(nint addr, ActionRuntime rt, float dt)
     {
         if (rt.Actions.Length == 0 || rt.Finished) return;
         if (rt.Index >= rt.Actions.Length)
         {
-            if (!rt.Looping) { rt.Finished = true; _spawner.SetMovementAnim(addr, NativeNpcSpawner.MoveAnim.Idle); return; }
+            if (!rt.Looping) { rt.Finished = true; NativeNpcSpawner.SetMovementAnim(addr, NativeNpcSpawner.MoveAnim.Idle); return; }
             rt.Index = 0;
             rt.WaitLeft = rt.LoopDelay;
             return;
         }
 
         if (rt.WaitLeft > 0f) { rt.WaitLeft -= dt; return; }
+
+        // Rendez-vous atteint : on attend les autres PNJ de la scène (libération dans ReleaseSyncBarriers).
+        if (rt.AtSync)
+        {
+            rt.SyncTimeout -= dt;
+            if (rt.SyncTimeout <= 0f) { rt.AtSync = false; Advance(rt); } // garde-fou : un PNJ ne se présente jamais
+            return;
+        }
 
         if (rt.AwaitingEmote)
         {
@@ -386,13 +394,13 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
             if (rt.EmoteGrace > 0f) return;
             if (rt.EmoteDuration > 0f)
             {
-                if (rt.EmoteLoopThis && !_spawner.IsEmoting(addr)) _spawner.PlayEmote(addr, rt.CurrentEmote);
+                if (rt.EmoteLoopThis && !NativeNpcSpawner.IsEmoting(addr)) NativeNpcSpawner.PlayEmote(addr, rt.CurrentEmote);
                 if (rt.EmoteElapsed < rt.EmoteDuration) return;
             }
             else
             {
-                if (_spawner.IsEmoting(addr)) return;
-                if (rt.EmoteLoopThis) { _spawner.PlayEmote(addr, rt.CurrentEmote); return; }
+                if (NativeNpcSpawner.IsEmoting(addr)) return;
+                if (rt.EmoteLoopThis) { NativeNpcSpawner.PlayEmote(addr, rt.CurrentEmote); return; }
             }
 
             rt.AwaitingEmote = false;
@@ -410,12 +418,12 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
             case NpcMovementAction m: StepMove(addr, rt, m.X, m.Y, m.Z, SpeedOf(m.Speed, m.CustomSpeed), AnimOf(m.Speed), dt); break;
             case NpcPathAction p: StepPath(addr, rt, p, dt); break;
             case NpcRotationAction r: StepRotation(addr, rt, r.TargetRotation, dt); break;
-            case NpcWaitAction w: rt.WaitLeft = w.Duration; _spawner.SetMovementAnim(addr, NativeNpcSpawner.MoveAnim.Idle); Advance(rt); break;
-            case NpcIdleAction: _spawner.SetMovementAnim(addr, NativeNpcSpawner.MoveAnim.Idle); Advance(rt); break;
-            case NpcVisibilityAction v: _spawner.SetVisible(addr, v.Visible); Advance(rt); break;
+            case NpcWaitAction w: rt.WaitLeft = w.Duration; NativeNpcSpawner.SetMovementAnim(addr, NativeNpcSpawner.MoveAnim.Idle); Advance(rt); break;
+            case NpcIdleAction: NativeNpcSpawner.SetMovementAnim(addr, NativeNpcSpawner.MoveAnim.Idle); Advance(rt); break;
+            case NpcVisibilityAction v: NativeNpcSpawner.SetVisible(addr, v.Visible); Advance(rt); break;
             case NpcTimelineAction t: StepTimeline(addr, rt, t); break;
             case NpcSyncAction:
-                _spawner.SetMovementAnim(addr, NativeNpcSpawner.MoveAnim.Idle);
+                NativeNpcSpawner.SetMovementAnim(addr, NativeNpcSpawner.MoveAnim.Idle);
                 rt.AtSync = true;
                 rt.SyncTimeout = SyncTimeoutSeconds;
                 break;
@@ -423,19 +431,19 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
         }
     }
 
-    private void StepTimeline(nint addr, ActionRuntime rt, NpcTimelineAction t)
+    private static void StepTimeline(nint addr, ActionRuntime rt, NpcTimelineAction t)
     {
         if (t.TimelineIds.Count == 0) { Advance(rt); return; }
-        foreach (var id in t.TimelineIds) _spawner.PlayTimeline(addr, id);
+        foreach (var id in t.TimelineIds) NativeNpcSpawner.PlayTimeline(addr, id);
         rt.WaitLeft = t.Duration > 0f ? t.Duration : DefaultTimelineDuration;
         Advance(rt);
     }
 
-    private void StepEmote(nint addr, ActionRuntime rt, NpcEmoteAction e)
+    private static void StepEmote(nint addr, ActionRuntime rt, NpcEmoteAction e)
     {
         if (e.Emote == 0) { Advance(rt); return; }
-        _spawner.SetMovementAnim(addr, NativeNpcSpawner.MoveAnim.Idle);
-        _spawner.PlayEmote(addr, e.Emote);
+        NativeNpcSpawner.SetMovementAnim(addr, NativeNpcSpawner.MoveAnim.Idle);
+        NativeNpcSpawner.PlayEmote(addr, e.Emote);
         rt.AwaitingEmote = true;
         rt.EmoteGrace = 0.5f;
         rt.EmoteElapsed = 0f;
@@ -444,61 +452,61 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
         rt.EmoteDuration = e.Duration;
     }
     
-    private void StepMove(nint addr, ActionRuntime rt, float x, float y, float z, float speed, NativeNpcSpawner.MoveAnim anim, float dt)
+    private static void StepMove(nint addr, ActionRuntime rt, float x, float y, float z, float speed, NativeNpcSpawner.MoveAnim anim, float dt)
     {
         if (MoveToward(addr, new System.Numerics.Vector3(x, y, z), speed, anim, dt))
         {
-            _spawner.SetMovementAnim(addr, NativeNpcSpawner.MoveAnim.Idle);
+            NativeNpcSpawner.SetMovementAnim(addr, NativeNpcSpawner.MoveAnim.Idle);
             Advance(rt);
         }
     }
 
-    private void StepPath(nint addr, ActionRuntime rt, NpcPathAction p, float dt)
+    private static void StepPath(nint addr, ActionRuntime rt, NpcPathAction p, float dt)
     {
         if (p.Points.Count == 0) { Advance(rt); return; }
-        if (rt.PathIndex >= p.Points.Count) { _spawner.SetMovementAnim(addr, NativeNpcSpawner.MoveAnim.Idle); Advance(rt); return; }
+        if (rt.PathIndex >= p.Points.Count) { NativeNpcSpawner.SetMovementAnim(addr, NativeNpcSpawner.MoveAnim.Idle); Advance(rt); return; }
 
         var pt = p.Points[rt.PathIndex];
         if (MoveToward(addr, new System.Numerics.Vector3(pt.X, pt.Y, pt.Z), SpeedOf(pt.Speed, pt.CustomSpeed), AnimOf(pt.Speed), dt))
             rt.PathIndex++;
     }
 
-    private void StepRotation(nint addr, ActionRuntime rt, float targetRot, float dt)
+    private static void StepRotation(nint addr, ActionRuntime rt, float targetRot, float dt)
     {
-        float curRot = _spawner.GetRotation(addr);
+        float curRot = NativeNpcSpawner.GetRotation(addr);
         if (!AngleClose(curRot, targetRot, 0.06f))
         {
-            _spawner.SetTransform(addr, _spawner.GetPosition(addr), RotateToward(curRot, targetRot, TurnSpeed * dt));
+            NativeNpcSpawner.SetTransform(addr, NativeNpcSpawner.GetPosition(addr), RotateToward(curRot, targetRot, TurnSpeed * dt));
             return;
         }
-        _spawner.SetTransform(addr, _spawner.GetPosition(addr), targetRot);
+        NativeNpcSpawner.SetTransform(addr, NativeNpcSpawner.GetPosition(addr), targetRot);
         Advance(rt);
     }
 
     // Avance d'un pas vers la cible. Tourne d'abord vers elle, puis translate. True quand arrivé.
-    private bool MoveToward(nint addr, System.Numerics.Vector3 target, float speed, NativeNpcSpawner.MoveAnim anim, float dt)
+    private static bool MoveToward(nint addr, System.Numerics.Vector3 target, float speed, NativeNpcSpawner.MoveAnim anim, float dt)
     {
-        var cur = _spawner.GetPosition(addr);
+        var cur = NativeNpcSpawner.GetPosition(addr);
         float targetRot = MathF.Atan2(target.X - cur.X, target.Z - cur.Z);
-        float curRot = _spawner.GetRotation(addr);
+        float curRot = NativeNpcSpawner.GetRotation(addr);
 
         if (!AngleClose(curRot, targetRot, 0.06f))
         {
-            _spawner.SetMovementAnim(addr, anim);
-            _spawner.SetTransform(addr, cur, RotateToward(curRot, targetRot, TurnSpeed * dt));
+            NativeNpcSpawner.SetMovementAnim(addr, anim);
+            NativeNpcSpawner.SetTransform(addr, cur, RotateToward(curRot, targetRot, TurnSpeed * dt));
             return false;
         }
 
         float dist = System.Numerics.Vector3.Distance(cur, target);
         if (dist >= ArriveEps)
         {
-            _spawner.SetMovementAnim(addr, anim);
+            NativeNpcSpawner.SetMovementAnim(addr, anim);
             float t = MathF.Min(speed * dt / dist, 1f);
             var newPos = System.Numerics.Vector3.Lerp(cur, target, t);
-            _spawner.SetTransform(addr, newPos, targetRot);
+            NativeNpcSpawner.SetTransform(addr, newPos, targetRot);
             if (System.Numerics.Vector3.Distance(newPos, target) >= ArriveEps) return false;
         }
-        _spawner.SetTransform(addr, target, targetRot);
+        NativeNpcSpawner.SetTransform(addr, target, targetRot);
         return true;
     }
 

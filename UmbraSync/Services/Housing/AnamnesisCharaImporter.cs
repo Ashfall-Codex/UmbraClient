@@ -56,7 +56,7 @@ public static class AnamnesisCharaImporter
             case JsonValueKind.Number:
                 return unchecked((byte)el.GetInt32());
             case JsonValueKind.True:
-                return field == "EnableHighlights" ? (byte)0x80 : (byte)1;
+                return string.Equals(field, "EnableHighlights", StringComparison.Ordinal) ? (byte)0x80 : (byte)1;
             case JsonValueKind.False:
                 return 0;
             case JsonValueKind.String:

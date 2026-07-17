@@ -25,8 +25,8 @@ public sealed class HousingNpcSceneEditorUi : WindowMediatorSubscriberBase
     private string _emoteFilter = string.Empty;
     private List<(ushort Id, string Name, uint Icon)>? _emotes;
     private readonly HashSet<uint> _badIcons = new();
-    private readonly HashSet<string> _collapsed = new(); 
-    private readonly Dictionary<string, int> _addActionKind = new();
+    private readonly HashSet<string> _collapsed = new(StringComparer.Ordinal); 
+    private readonly Dictionary<string, int> _addActionKind = new(StringComparer.Ordinal);
     private IReadOnlyList<(string Path, string Title)>? _arrList;
 
     public HousingNpcSceneEditorUi(ILogger<HousingNpcSceneEditorUi> logger, MareMediator mediator,
@@ -111,7 +111,11 @@ public sealed class HousingNpcSceneEditorUi : WindowMediatorSubscriberBase
         if (sceneToRemove != null) { _ = _service.RemoveSceneAsync(sceneToRemove); return; }
 
         var current = scenes.FirstOrDefault(s => string.Equals(s.Id, _selectedSceneId, StringComparison.Ordinal));
-        if (current == null) { if (dirty) _ = _service.PersistAndRefreshAsync(); return; }
+        if (current == null)
+        {
+            if (dirty) _ = _service.PersistAndRefreshAsync();
+            return;
+        }
 
         ImGui.Separator();
         ImGuiHelpers.ScaledDummy(2f);
@@ -483,7 +487,7 @@ public sealed class HousingNpcSceneEditorUi : WindowMediatorSubscriberBase
         return changed;
     }
 
-    private NpcMoveSpeed DrawSpeedCombo(string id, NpcMoveSpeed current, out bool changed)
+    private static NpcMoveSpeed DrawSpeedCombo(string id, NpcMoveSpeed current, out bool changed)
     {
         changed = false;
         var result = current;

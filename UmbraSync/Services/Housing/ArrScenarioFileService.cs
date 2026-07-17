@@ -97,33 +97,4 @@ public sealed class ArrScenarioFileService
         return fallback;
     }
 
-    private static bool TryReadUint(JsonElement parent, string propertyName, out uint value)
-    {
-        if (parent.TryGetProperty(propertyName, out var prop) && prop.ValueKind == JsonValueKind.Number)
-        {
-            try
-            {
-                value = (uint)prop.GetInt64();
-                return true;
-            }
-            catch
-            {
-                value = 0;
-                return false;
-            }
-        }
-        value = 0;
-        return false;
-    }
-
-    private static bool TryReadInt(JsonElement parent, string propertyName, out int value)
-    {
-        if (parent.TryGetProperty(propertyName, out var prop) && prop.ValueKind == JsonValueKind.Number
-            && prop.TryGetInt32(out value))
-        {
-            return true;
-        }
-        value = 0;
-        return false;
-    }
 }

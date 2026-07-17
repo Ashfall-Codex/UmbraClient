@@ -6,20 +6,23 @@ public static class ArrScenarioImporter
 {
     public sealed class ParsedNpc
     {
-        public string Name = string.Empty;
-        public NpcAppearance Appearance = new();
-        public float X, Y, Z, Rotation;
-        public bool FacePlayer = true;
-        public List<NpcAction> Actions = new();
+        public string Name { get; set; } = string.Empty;
+        public NpcAppearance Appearance { get; set; } = new();
+        public float X { get; set; }
+        public float Y { get; set; }
+        public float Z { get; set; }
+        public float Rotation { get; set; }
+        public bool FacePlayer { get; set; } = true;
+        public List<NpcAction> Actions { get; } = new();
     }
 
     public sealed class ParsedScenario
     {
-        public string Title = string.Empty;
-        public bool Looping = true;
-        public float LoopDelay;
-        public List<ParsedNpc> Npcs = new();
-        public int SkippedActions;
+        public string Title { get; set; } = string.Empty;
+        public bool Looping { get; set; } = true;
+        public float LoopDelay { get; set; }
+        public List<ParsedNpc> Npcs { get; } = new();
+        public int SkippedActions { get; set; }
     }
 
     public static ParsedScenario Parse(string path)

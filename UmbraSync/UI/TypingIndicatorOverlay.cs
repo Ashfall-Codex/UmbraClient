@@ -281,11 +281,11 @@ public sealed class TypingIndicatorOverlay : WindowMediatorSubscriberBase
             if ((byte)objectInfo.Value->GameObject->ObjectKind != 1)
                 continue;
 
-            if (objectInfo.Value->GameObject->YalmDistanceFromPlayerX > 15f)
+            if (objectInfo.Value->GameObject->CurrentDistance > 15f)
                 return false;
 
             namePlate = &addonNamePlate->NamePlateObjectArray[objectInfo.Value->NamePlateIndex];
-            distance = objectInfo.Value->GameObject->YalmDistanceFromPlayerX;
+            distance = objectInfo.Value->GameObject->CurrentDistance;
             break;
         }
 

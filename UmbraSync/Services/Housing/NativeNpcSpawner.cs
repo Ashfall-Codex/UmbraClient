@@ -174,7 +174,7 @@ public sealed unsafe class NativeNpcSpawner
         }
     }
 
-    private void SetName(BattleChara* bc, string name)
+    private static void SetName(BattleChara* bc, string name)
     {
         var bytes = System.Text.Encoding.UTF8.GetBytes(name);
         var dst = bc->Character.GameObject.Name;
@@ -183,17 +183,33 @@ public sealed unsafe class NativeNpcSpawner
         for (int i = 0; i < len; i++) dst[i] = bytes[i];
     }
 
+    // Fire-and-forget encadré : on n'attend pas le tick, mais tout échec est loggé
+    private void RunOnTickSafe(Action action, int delayTicks = 0)
+    {
+        _ = _framework.RunOnTick(() =>
+        {
+            try
+            {
+                action();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Action différée sur le framework thread échouée");
+            }
+        }, delayTicks: delayTicks);
+    }
+
     private void DrawWhenReady(BattleChara* bc, NpcAppearance appearance, ushort emote)
     {
-        _framework.RunOnTick(() =>
+        RunOnTickSafe(() =>
         {
             if (bc->Character.GameObject.IsReadyToDraw())
             {
                 bc->Character.GameObject.EnableDraw();
                 ApplyDisplayFlags(bc, appearance);
-                _framework.RunOnTick(() => ApplyDisplayFlags(bc, appearance), delayTicks: 2);
+                RunOnTickSafe(() => ApplyDisplayFlags(bc, appearance), delayTicks: 2);
                 if (emote != 0)
-                    _framework.RunOnTick(() => PlayEmote(bc, emote), delayTicks: 30);
+                    RunOnTickSafe(() => PlayEmote(bc, emote), delayTicks: 30);
             }
             else
             {
@@ -209,20 +225,20 @@ public sealed unsafe class NativeNpcSpawner
         bc->EmoteController.PlayEmote(emoteRowId, &opt);
     }
 
-    public void PlayEmote(nint address, ushort emote)
+    public static void PlayEmote(nint address, ushort emote)
     {
         if (address == nint.Zero || emote == 0) return;
         PlayEmote((BattleChara*)address, emote);
     }
 
-    public bool IsEmoting(nint address)
+    public static bool IsEmoting(nint address)
     {
         if (address == nint.Zero) return false;
         return ((BattleChara*)address)->EmoteController.IsEmoting();
     }
 
 
-    public void SetVisible(nint address, bool visible)
+    public static void SetVisible(nint address, bool visible)
     {
         if (address == nint.Zero) return;
         var go = &((BattleChara*)address)->Character.GameObject;
@@ -236,7 +252,7 @@ public sealed unsafe class NativeNpcSpawner
         }
     }
 
-    public void PlayTimeline(nint address, ushort timelineId)
+    public static void PlayTimeline(nint address, ushort timelineId)
     {
         if (address == nint.Zero || timelineId == 0) return;
         var chara = (Character*)address;
@@ -246,17 +262,17 @@ public sealed unsafe class NativeNpcSpawner
 
     public enum MoveAnim : ushort { Idle = 3, Walking = 13, Running = 22 }
 
-    public Vector3 GetPosition(nint address)
+    public static Vector3 GetPosition(nint address)
     {
         if (address == nint.Zero) return default;
         var p = ((BattleChara*)address)->Character.GameObject.Position;
         return new Vector3(p.X, p.Y, p.Z);
     }
 
-    public float GetRotation(nint address)
+    public static float GetRotation(nint address)
         => address == nint.Zero ? 0f : ((BattleChara*)address)->Character.GameObject.Rotation;
 
-    public void SetTransform(nint address, Vector3 position, float rotation)
+    public static void SetTransform(nint address, Vector3 position, float rotation)
     {
         if (address == nint.Zero) return;
         var go = &((BattleChara*)address)->Character.GameObject;
@@ -264,7 +280,7 @@ public sealed unsafe class NativeNpcSpawner
         go->SetRotation(rotation);
     }
 
-    public void SetMovementAnim(nint address, MoveAnim anim)
+    public static void SetMovementAnim(nint address, MoveAnim anim)
     {
         if (address == nint.Zero) return;
         var chara = (Character*)address;

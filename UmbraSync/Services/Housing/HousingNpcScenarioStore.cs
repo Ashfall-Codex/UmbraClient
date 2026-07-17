@@ -75,7 +75,7 @@ public sealed class HousingNpcScenarioStore
 
     private readonly ILogger<HousingNpcScenarioStore> _logger;
     private readonly IDalamudPluginInterface _pluginInterface;
-    private readonly object _lock = new();
+    private readonly System.Threading.Lock _lock = new();
     private List<HousingNpcScenario> _scenes = new();
 
     public HousingNpcScenarioStore(ILogger<HousingNpcScenarioStore> logger, IDalamudPluginInterface pluginInterface)

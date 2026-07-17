@@ -33,7 +33,7 @@ public sealed unsafe class LookAtService : IDisposable
     private readonly delegate* unmanaged<CharacterLookAtController*, CharacterLookAtTargetParam*, int, CharacterLookAtUpdateParam*, void> _setupLookAt = null!;
 
     private readonly Dictionary<ulong, ulong> _lookingAt = new();
-    private readonly object _lock = new();
+    private readonly System.Threading.Lock _lock = new();
 
     public LookAtService(ILogger<LookAtService> logger, IGameInteropProvider interop)
     {
