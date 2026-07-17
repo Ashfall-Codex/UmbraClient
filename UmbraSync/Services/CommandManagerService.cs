@@ -127,5 +127,9 @@ public sealed class CommandManagerService : IDisposable
         {
             _mediator.Publish(new UiToggleMessage(typeof(UI.HousingNpcSceneEditorUi)));
         }
+        else if (string.Equals(splitArgs[0], "npcsharetest", StringComparison.OrdinalIgnoreCase))
+        {
+            _mediator.Publish(new HousingNpcShareTestMessage());
+        }
     }
 }

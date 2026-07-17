@@ -6,9 +6,7 @@ using UmbraSync.Services.Mediator;
 namespace UmbraSync.Services.Housing;
 
 /// <summary>
-/// Orchestrateur du sync des scénarios NPC : réagit aux events Mediator pour
-/// déclencher le HousingScenarioManager (apply / cleanup différé) et nettoie
-/// l'état orphelin au démarrage.
+/// Orchestrateur du sync des scénarios NPC
 /// </summary>
 public sealed class HousingScenarioSyncService : IHostedService, IMediatorSubscriber
 {
@@ -39,6 +37,7 @@ public sealed class HousingScenarioSyncService : IHostedService, IMediatorSubscr
         _mediator.Subscribe<HousingPlotEnteredMessage>(this, OnHousingPlotEntered);
         _mediator.Subscribe<HousingPlotLeftMessage>(this, _ => OnHousingPlotLeft());
         _mediator.Subscribe<ConnectedMessage>(this, _ => OnConnected());
+        _mediator.Subscribe<HousingNpcShareTestMessage>(this, _ => OnShareTest());
 
         return Task.CompletedTask;
     }
@@ -64,6 +63,22 @@ public sealed class HousingScenarioSyncService : IHostedService, IMediatorSubscr
         _logger.LogDebug("Scenario sync : left housing plot");
         _currentPlotLocation = null;
         _manager.ScheduleDelayedCleanup();
+    }
+
+    private void OnShareTest()
+    {
+        _logger.LogInformation("npcsharetest : commande reçue");
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await _manager.ForceApplyOwnShareAsync().ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "npcsharetest échoué");
+            }
+        });
     }
 
     private void OnConnected()

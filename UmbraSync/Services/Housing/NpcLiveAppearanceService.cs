@@ -6,31 +6,46 @@ using UmbraSync.Interop.Ipc;
 using UmbraSync.PlayerData.Factories;
 using UmbraSync.PlayerData.Handlers;
 using UmbraSync.Services.CharaData;
+using UmbraSync.Services.Mediator;
 
 namespace UmbraSync.Services.Housing;
 
-public sealed class NpcLiveAppearanceService
+public sealed class NpcLiveAppearanceService : DisposableMediatorSubscriberBase
 {
-    private readonly ILogger<NpcLiveAppearanceService> _logger;
     private readonly IpcManager _ipc;
     private readonly GameObjectHandlerFactory _gameObjectHandlerFactory;
     private readonly FileCacheManager _fileCacheManager;
     private readonly DalamudUtilService _dalamudUtil;
     private readonly CharaDataFileHandler _fileHandler;
 
-    public NpcLiveAppearanceService(ILogger<NpcLiveAppearanceService> logger, IpcManager ipc,
+    private CharacterData? _lastSelfData;
+
+    public NpcLiveAppearanceService(ILogger<NpcLiveAppearanceService> logger, MareMediator mediator, IpcManager ipc,
         GameObjectHandlerFactory gameObjectHandlerFactory, FileCacheManager fileCacheManager,
         DalamudUtilService dalamudUtil, CharaDataFileHandler fileHandler)
+        : base(logger, mediator)
     {
-        _logger = logger;
+        // Snapshot live complet de notre perso : c'est CELUI envoyé aux pairs.
+        Mediator.Subscribe<CharacterDataCreatedMessage>(this, msg => _lastSelfData = msg.CharacterData);
         _ipc = ipc;
         _gameObjectHandlerFactory = gameObjectHandlerFactory;
         _fileCacheManager = fileCacheManager;
         _dalamudUtil = dalamudUtil;
         _fileHandler = fileHandler;
     }
+    
+    public async Task<CharacterData?> CaptureSelfAsync()
+    {
+        if (_lastSelfData != null)
+        {
+            Logger.LogInformation("Capture live : cache live utilisé ({Count} remplacement(s))",
+                _lastSelfData.FileReplacements.TryGetValue(ObjectKind.Player, out var r) ? r.Count : 0);
+            return _lastSelfData;
+        }
 
-    public Task<CharacterData?> CaptureSelfAsync() => _fileHandler.CreatePlayerData();
+        Logger.LogWarning("Capture live : cache live indisponible, repli sur l'export MCDF (apparence potentiellement incomplète)");
+        return await _fileHandler.CreatePlayerData().ConfigureAwait(false);
+    }
     
     public async Task<NpcLiveHandle?> ApplyAsync(nint address, CharacterData data, CancellationToken token)
     {
@@ -47,14 +62,23 @@ public sealed class NpcLiveAppearanceService
             data.GlamourerData.TryGetValue(ObjectKind.Player, out var glamourer);
             data.CustomizePlusData.TryGetValue(ObjectKind.Player, out var customizePlus);
 
-            var collection = await _ipc.Penumbra.CreateTemporaryCollectionAsync(_logger, "UmbraNpc-" + appId.ToString("N")).ConfigureAwait(false);
-            await _ipc.Penumbra.AssignTemporaryCollectionAsync(_logger, collection, idx).ConfigureAwait(false);
-            await _ipc.Penumbra.SetTemporaryModsAsync(_logger, appId, collection, modPaths).ConfigureAwait(false);
-            await _ipc.Penumbra.SetManipulationDataAsync(_logger, appId, collection, data.ManipulationData ?? string.Empty).ConfigureAwait(false);
+            // Un écart entre replacements et modPaths signale des fichiers de mods absents du cache
+            // local (apparence incomplète) — c'est le symptôme qui avait révélé la capture amputée.
+            int totalReplacements = data.FileReplacements.TryGetValue(ObjectKind.Player, out var reps) ? reps.Count : -1;
+            if (totalReplacements != modPaths.Count)
+            {
+                Logger.LogWarning("Live PNJ : {Missing} fichier(s) de mod absents du cache local ({Reps} attendus, {Mods} résolus)",
+                    totalReplacements - modPaths.Count, totalReplacements, modPaths.Count);
+            }
 
-            await _ipc.Glamourer.ApplyAllAsync(_logger, handler, glamourer, appId, token).ConfigureAwait(false);
-            await _ipc.Penumbra.RedrawAsync(_logger, handler, appId, token).ConfigureAwait(false);
-            await _dalamudUtil.WaitWhileCharacterIsDrawing(_logger, handler, appId, 30000, token).ConfigureAwait(false);
+            var collection = await _ipc.Penumbra.CreateTemporaryCollectionAsync(Logger, "UmbraNpc-" + appId.ToString("N")).ConfigureAwait(false);
+            await _ipc.Penumbra.AssignTemporaryCollectionAsync(Logger, collection, idx).ConfigureAwait(false);
+            await _ipc.Penumbra.SetTemporaryModsAsync(Logger, appId, collection, modPaths).ConfigureAwait(false);
+            await _ipc.Penumbra.SetManipulationDataAsync(Logger, appId, collection, data.ManipulationData ?? string.Empty).ConfigureAwait(false);
+
+            await _ipc.Glamourer.ApplyAllAsync(Logger, handler, glamourer, appId, token).ConfigureAwait(false);
+            await _ipc.Penumbra.RedrawAsync(Logger, handler, appId, token).ConfigureAwait(false);
+            await _dalamudUtil.WaitWhileCharacterIsDrawing(Logger, handler, appId, 30000, token).ConfigureAwait(false);
 
             Guid? customizeProfile = null;
             if (!string.IsNullOrEmpty(customizePlus))
@@ -66,7 +90,7 @@ public sealed class NpcLiveAppearanceService
             if (!string.IsNullOrEmpty(data.PetNamesData))
                 await _ipc.PetNames.SetPlayerData(handler.Address, data.PetNamesData).ConfigureAwait(false);
 
-            _logger.LogInformation("Live data appliqué au PNJ (index {Index}, {Mods} fichier(s) mod)", idx, modPaths.Count);
+            Logger.LogInformation("Live data appliqué au PNJ (index {Index}, {Mods} fichier(s) mod)", idx, modPaths.Count);
             return new NpcLiveHandle
             {
                 ApplicationId = appId,
@@ -78,7 +102,7 @@ public sealed class NpcLiveAppearanceService
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Application du live data au PNJ échouée");
+            Logger.LogWarning(ex, "Application du live data au PNJ échouée");
             handler.Dispose();
             return null;
         }
@@ -90,11 +114,11 @@ public sealed class NpcLiveAppearanceService
         {
             if (handle.CustomizeProfile != null)
                 await _ipc.CustomizePlus.RevertByIdAsync(handle.CustomizeProfile).ConfigureAwait(false);
-            await _ipc.Penumbra.RemoveTemporaryCollectionAsync(_logger, handle.ApplicationId, handle.Collection).ConfigureAwait(false);
+            await _ipc.Penumbra.RemoveTemporaryCollectionAsync(Logger, handle.ApplicationId, handle.Collection).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Nettoyage du live data PNJ échoué");
+            Logger.LogWarning(ex, "Nettoyage du live data PNJ échoué");
         }
         finally
         {

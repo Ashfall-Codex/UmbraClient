@@ -6486,4 +6486,13 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
   <data name="HousingNpc.Editor.SyncHelp" xml:space="preserve">
     <value>Attend que tous les PNJ de la scène soient arrivés à leur rendez-vous, puis tout le monde repart ensemble.</value>
   </data>
+  <data name="HousingScenario.Error.NotInHousing" xml:space="preserve">
+    <value>Vous devez être dans un logement.</value>
+  </data>
+  <data name="HousingScenario.Error.NoShareHere" xml:space="preserve">
+    <value>Aucune scène partagée pour cette pièce. Publiez-en une d'abord.</value>
+  </data>
+  <data name="HousingScenario.HairNotSupported" xml:space="preserve">
+    <value>Les mods de tenue sont bien partagés. Les coiffures moddées ne s'affichent pas encore sur les PNJ : ils garderont la coiffure de base. Le reste de l'apparence est fidèle.</value>
+  </data>
 </root>

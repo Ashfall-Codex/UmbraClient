@@ -137,6 +137,7 @@ public record HousingPlotEnteredMessage(LocationInfo LocationInfo) : MessageBase
 public record HousingPlotLeftMessage : MessageBase;
 public record HousingNpcAddRequestMessage : MessageBase;
 public record HousingNpcWipeMessage : MessageBase;
+public record HousingNpcShareTestMessage : MessageBase;
 public record HousingPositionUpdateMessage(uint ServerId, uint TerritoryId, uint DivisionId, uint WardId, Vector3 Position) : MessageBase;
 public record HousingModsAppliedMessage(LocationInfo Location) : MessageBase;
 public record HousingModsRemovedMessage : MessageBase;

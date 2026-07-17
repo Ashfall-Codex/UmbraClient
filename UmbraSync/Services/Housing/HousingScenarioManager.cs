@@ -4,10 +4,14 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using UmbraSync.API.Data;
 using UmbraSync.API.Dto.CharaData;
 using UmbraSync.API.Dto.HousingScenario;
 using UmbraSync.MareConfiguration;
 using UmbraSync.Services.Mediator;
+using UmbraSync.FileCache;
+using UmbraSync.PlayerData.Factories;
+using UmbraSync.WebAPI.Files;
 using UmbraSync.WebAPI.SignalR;
 
 namespace UmbraSync.Services.Housing;
@@ -17,14 +21,18 @@ namespace UmbraSync.Services.Housing;
 /// </summary>
 public sealed class HousingScenarioManager : IDisposable
 {
-    private const byte PayloadVersionV1 = 0x01; // legacy : JSON ARR file-drop (obsolète, ignoré à la lecture)
-    private const byte PayloadVersionV2 = 0x02; // scène PNJ native UmbraSync
+    private const byte PayloadVersionV1 = 0x01;
+    private const byte PayloadVersionV2 = 0x02;
 
     private readonly ILogger<HousingScenarioManager> _logger;
     private readonly ApiController _apiController;
     private readonly MareMediator _mediator;
     private readonly HousingNpcScenarioService _npcService;
     private readonly MareConfigService _configService;
+    private readonly FileCacheManager _fileCacheManager;
+    private readonly FileUploadManager _fileUploadManager;
+    private readonly FileDownloadManagerFactory _fileDownloadManagerFactory;
+    private FileDownloadManager? _fileDownloadManager;
     private readonly SemaphoreSlim _operationSemaphore = new(1, 1);
     private readonly List<HousingScenarioEntryDto> _ownShares = new();
     private Task? _currentTask;
@@ -36,13 +44,19 @@ public sealed class HousingScenarioManager : IDisposable
         ApiController apiController,
         MareMediator mediator,
         HousingNpcScenarioService npcService,
-        MareConfigService configService)
+        MareConfigService configService,
+        FileCacheManager fileCacheManager,
+        FileUploadManager fileUploadManager,
+        FileDownloadManagerFactory fileDownloadManagerFactory)
     {
         _logger = logger;
         _apiController = apiController;
         _mediator = mediator;
         _npcService = npcService;
         _configService = configService;
+        _fileCacheManager = fileCacheManager;
+        _fileUploadManager = fileUploadManager;
+        _fileDownloadManagerFactory = fileDownloadManagerFactory;
     }
 
     public IReadOnlyList<HousingScenarioEntryDto> OwnShares => _ownShares;
@@ -62,6 +76,17 @@ public sealed class HousingScenarioManager : IDisposable
                 LastError = Localization.Loc.Get("HousingScenario.Error.EmptyScene");
                 _logger.LogWarning("Publish refusé : scène vide");
                 return;
+            }
+
+
+            var modHashes = CollectModHashes(scene);
+            if (modHashes.Count > 0)
+            {
+                _logger.LogInformation("Publication : upload de {Count} fichier(s) de mod PNJ", modHashes.Count);
+                var uploadProgress = new Progress<string>(status => _logger.LogDebug("Upload mods PNJ : {Status}", status));
+                var missingLocally = await _fileUploadManager.UploadFiles(modHashes.ToList(), uploadProgress).ConfigureAwait(false);
+                if (missingLocally.Count > 0)
+                    _logger.LogWarning("{Count} fichier(s) de mod introuvable(s) localement à l'upload", missingLocally.Count);
             }
 
             string sceneJson = SerializeSceneForShare(scene);
@@ -189,6 +214,62 @@ public sealed class HousingScenarioManager : IDisposable
         });
     }
 
+
+    public Task ForceApplyOwnShareAsync()
+    {
+        void Toast(string message, MareConfiguration.Models.NotificationType type)
+            => _mediator.Publish(new NotificationMessage("npcsharetest", message, type, TimeSpan.FromSeconds(8)));
+
+        return RunOperation(async () =>
+        {
+            _logger.LogInformation("npcsharetest : démarrage");
+
+            if (_npcService.CurrentLocation is not { } location)
+            {
+                LastError = Localization.Loc.Get("HousingScenario.Error.NotInHousing");
+                _logger.LogWarning("npcsharetest : hors logement");
+                Toast(LastError, MareConfiguration.Models.NotificationType.Error);
+                return;
+            }
+
+            List<HousingScenarioEntryDto> shares;
+            try
+            {
+                shares = await _apiController.HousingScenarioGetForLocation(location).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "npcsharetest : récupération des partages échouée");
+                Toast("Récupération des partages échouée (serveur ?).", MareConfiguration.Models.NotificationType.Error);
+                return;
+            }
+
+            _logger.LogInformation("npcsharetest : {Count} partage(s) renvoyé(s) par le serveur pour S{Server}:W{Ward}:H{House}:R{Room}",
+                shares.Count, location.ServerId, location.WardId, location.HouseId, location.RoomId);
+
+            shares.RemoveAll(s => !LocationMatches(s.Location, location));
+            if (shares.Count == 0)
+            {
+                LastError = Localization.Loc.Get("HousingScenario.Error.NoShareHere");
+                _logger.LogWarning("npcsharetest : aucun partage pour cette pièce");
+                Toast(LastError, MareConfiguration.Models.NotificationType.Error);
+                return;
+            }
+
+            if (IsApplied) await RemoveAppliedInternalAsync().ConfigureAwait(false);
+
+            var share = shares[0];
+            AppliedShareOwnerUid = share.OwnerUid;
+            _logger.LogInformation("npcsharetest : application forcée du partage {ShareId} (owner={IsOwner})", share.Id, share.IsOwner);
+            await ApplyAsync(share, location).ConfigureAwait(false);
+
+            if (!string.IsNullOrEmpty(LastError))
+                Toast(LastError!, MareConfiguration.Models.NotificationType.Error);
+            else
+                Toast(Localization.Loc.Get("HousingScenario.Success.Applied"), MareConfiguration.Models.NotificationType.Info);
+        });
+    }
+
     private async Task ApplyAsync(HousingScenarioEntryDto share, LocationInfo location)
     {
         Guid shareId = share.Id;
@@ -257,6 +338,10 @@ public sealed class HousingScenarioManager : IDisposable
             LastError = Localization.Loc.Get("HousingScenario.Error.EmptyScene");
             return;
         }
+
+        // Les mods du partage doivent être en cache local avant le spawn, sinon la couche live
+        // s'appliquerait avec des fichiers manquants (PNJ en apparence brute).
+        await DownloadMissingModsAsync(scene, shareId).ConfigureAwait(false);
 
         // Spawn natif : aucun fichier écrit, aucune dépendance à ARR. Le confinement à la room
         // exacte est garanti par le matching serveur (LocationInfo complet, RoomId inclus).
@@ -457,7 +542,7 @@ public sealed class HousingScenarioManager : IDisposable
                 Id = entry.Id,
                 DisplayName = entry.DisplayName,
                 Appearance = entry.Appearance,
-                LiveData = null, // mods volontairement exclus du partage
+                LiveData = entry.LiveData, // mods inclus : les fichiers sont uploadés par hash au publish
                 X = entry.X,
                 Y = entry.Y,
                 Z = entry.Z,
@@ -473,9 +558,65 @@ public sealed class HousingScenarioManager : IDisposable
     }
 
 
+    private static HashSet<string> CollectModHashes(HousingNpcScenario scene)
+    {
+        var hashes = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var entry in scene.Entries)
+        {
+            if (entry.LiveData == null) continue;
+            foreach (var replacements in entry.LiveData.FileReplacements.Values)
+            {
+                foreach (var rep in replacements)
+                {
+                    // Les file swaps pointent vers un chemin de jeu, il n'y a rien à transférer.
+                    if (!string.IsNullOrEmpty(rep.FileSwapPath) || string.IsNullOrEmpty(rep.Hash)) continue;
+                    hashes.Add(rep.Hash);
+                }
+            }
+        }
+        return hashes;
+    }
+
+    /// <summary>Télécharge les fichiers de mods du partage absents du cache local.</summary>
+    private async Task DownloadMissingModsAsync(HousingNpcScenario scene, Guid shareId)
+    {
+        var missing = new List<FileReplacementData>();
+        foreach (var entry in scene.Entries)
+        {
+            if (entry.LiveData == null) continue;
+            foreach (var replacements in entry.LiveData.FileReplacements.Values)
+            {
+                foreach (var rep in replacements)
+                {
+                    if (!string.IsNullOrEmpty(rep.FileSwapPath) || string.IsNullOrEmpty(rep.Hash)) continue;
+                    if (_fileCacheManager.GetFileCacheByHash(rep.Hash) != null) continue;
+                    if (missing.Exists(f => string.Equals(f.Hash, rep.Hash, StringComparison.Ordinal))) continue;
+                    missing.Add(new FileReplacementData { Hash = rep.Hash, GamePaths = rep.GamePaths });
+                }
+            }
+        }
+
+        if (missing.Count == 0) return;
+
+        _logger.LogInformation("Scène partagée {ShareId} : téléchargement de {Count} fichier(s) de mod", shareId, missing.Count);
+        _fileDownloadManager ??= _fileDownloadManagerFactory.Create();
+        using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(10));
+        var downloadId = $"HousingNpc_{shareId:N}";
+        try
+        {
+            await _fileDownloadManager.InitiateDownloadList(downloadId, missing, cts.Token).ConfigureAwait(false);
+            await _fileDownloadManager.DownloadFiles(downloadId, missing, cts.Token).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Téléchargement des mods de la scène partagée {ShareId} échoué", shareId);
+        }
+    }
+
     public void Dispose()
     {
         CancelDelayedCleanup();
+        _fileDownloadManager?.Dispose();
         _operationSemaphore.Dispose();
     }
 }

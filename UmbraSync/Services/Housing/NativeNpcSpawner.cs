@@ -27,7 +27,7 @@ public sealed unsafe class NativeNpcSpawner
 
     private const int EquipSlotCount = 10; // Head..LFinger
 
-    public NpcAppearance ReadAppearance(nint characterAddress)
+    public static NpcAppearance ReadAppearance(nint characterAddress)
     {
         var app = new NpcAppearance();
         if (characterAddress == nint.Zero) return app;

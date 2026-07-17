@@ -691,7 +691,7 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
                 return;
             }
 
-            var appearance = await _dalamudUtil.RunOnFrameworkThread(() => _spawner.ReadAppearance(sourceAddr)).ConfigureAwait(false);
+            var appearance = await _dalamudUtil.RunOnFrameworkThread(() => NativeNpcSpawner.ReadAppearance(sourceAddr)).ConfigureAwait(false);
 
             CharacterData? liveData = null;
             if (includeLive)
