@@ -732,7 +732,7 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
         return CurrentDownloads;
     }
 
-    public async Task<List<DownloadFileTransfer>> InitiateDownloadList(GameObjectHandler gameObjectHandler, List<FileReplacementData> fileReplacement, TextureCompressionMode compressedUsage, CancellationToken ct)
+    public async Task<List<DownloadFileTransfer>> InitiateDownloadList(GameObjectHandler gameObjectHandler, List<FileReplacementData> fileReplacement, TextureCompressionMode compressedUsage, HashSet<string> locallyPresentFiles, CancellationToken ct)
     {
         Logger.LogDebug("Download start: {id}", gameObjectHandler.Name);
 
@@ -770,17 +770,38 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
             var dto = downloadFileInfoFromService[i];
             _compressedAlternateManager.SetCompressedAlternate(dto.Hash, dto.CompressedAlternateFileDownload?.Hash, dto.WillNotBeCompressed);
 
-            if (compressedUsage != TextureCompressionMode.AlwaysSourceQuality && dto.CompressedAlternateFileDownload != null)
+            bool usingAlternate = false;
+            if (dto.CompressedAlternateFileDownload != null)
             {
                 var alt = dto.CompressedAlternateFileDownload;
-                var src = fileReplacement.FirstOrDefault(f => string.Equals(f.Hash, dto.Hash, StringComparison.OrdinalIgnoreCase));
-                if (src != null && src.GamePaths.Length > 0
-                    && !fileReplacement.Any(f => string.Equals(f.Hash, alt.Hash, StringComparison.OrdinalIgnoreCase)))
+                // Un alternate n'a pas lui-même d'alternate.
+                _compressedAlternateManager.SetCompressedAlternate(alt.Hash, null, neverWillHaveAlternate: true);
+
+                if (compressedUsage != TextureCompressionMode.AlwaysSourceQuality)
                 {
-                    fileReplacement.Add(new FileReplacementData { GamePaths = src.GamePaths, Hash = alt.Hash });
+                    usingAlternate = true;
+                    var src = fileReplacement.FirstOrDefault(f => string.Equals(f.Hash, dto.Hash, StringComparison.OrdinalIgnoreCase));
+                    if (src != null && src.GamePaths.Length > 0
+                        && !fileReplacement.Any(f => string.Equals(f.Hash, alt.Hash, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        fileReplacement.Add(new FileReplacementData { GamePaths = src.GamePaths, Hash = alt.Hash });
+                    }
+                    Logger.LogDebug("BC7: downloading compressed {alt} instead of {src}", alt.Hash, dto.Hash);
+                    downloadFileInfoFromService[i] = alt;
+
+                    // Si le BC7 est déjà en local, pas besoin de le re-télécharger.
+                    if (!locallyPresentFiles.Contains(alt.Hash) && _fileDbManager.GetFileCacheByHash(alt.Hash) != null)
+                        locallyPresentFiles.Add(alt.Hash);
                 }
-                Logger.LogDebug("BC7: downloading compressed {alt} instead of {src}", alt.Hash, dto.Hash);
-                downloadFileInfoFromService[i] = alt;
+            }
+
+            // Fichier envoyé juste pour vérifier un alternate (mode AlwaysCompressed) : si on n'utilise pas d'alt,
+            // ou si l'alt utilisé est déjà présent, inutile de (re)télécharger.
+            if ((locallyPresentFiles.Contains(dto.Hash) && !usingAlternate)
+                || (usingAlternate && locallyPresentFiles.Contains(downloadFileInfoFromService[i].Hash)))
+            {
+                downloadFileInfoFromService.RemoveAt(i);
+                i--;
             }
         }
 
