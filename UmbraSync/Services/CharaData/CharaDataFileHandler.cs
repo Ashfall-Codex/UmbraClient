@@ -113,7 +113,7 @@ public sealed class CharaDataFileHandler(
 
     public async Task DownloadFilesAsync(GameObjectHandler tempHandler, List<FileReplacementData> missingFiles, Dictionary<string, string> modPaths, CancellationToken token)
     {
-        await _fileDownloadManager.InitiateDownloadList(tempHandler, missingFiles, token).ConfigureAwait(false);
+        await _fileDownloadManager.InitiateDownloadList(tempHandler, missingFiles, UmbraSync.MareConfiguration.Models.TextureCompressionMode.AlwaysSourceQuality, token).ConfigureAwait(false);
         await _fileDownloadManager.DownloadFiles(tempHandler, missingFiles, token).ConfigureAwait(false);
         token.ThrowIfCancellationRequested();
         foreach (var file in missingFiles.SelectMany(m => m.GamePaths, (FileEntry, GamePath) => (FileEntry.Hash, GamePath)))

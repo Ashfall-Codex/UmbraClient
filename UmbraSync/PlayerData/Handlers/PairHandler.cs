@@ -9,6 +9,7 @@ using UmbraSync.PlayerData.Factories;
 using UmbraSync.PlayerData.Pairs;
 using UmbraSync.PlayerData.Redraw;
 using UmbraSync.MareConfiguration;
+using UmbraSync.MareConfiguration.Models;
 using UmbraSync.Services;
 using UmbraSync.Services.Events;
 using UmbraSync.Services.Mediator;
@@ -35,6 +36,8 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
     private readonly VisibilityService _visibilityService;
     private readonly ApplicationSemaphoreService _applicationSemaphoreService;
     private readonly ServerConfigurationManager _serverConfigurationManager;
+    private readonly CompressedAlternateManager _compressedAlternateManager;
+    private readonly PlayerPerformanceConfigService _playerPerformanceConfigService;
     private readonly PairRedrawCoordinator _pairRedrawCoordinator;
     private CancellationTokenSource? _applicationCancellationTokenSource = new();
     private Guid _applicationId;
@@ -97,7 +100,8 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
         PlayerPerformanceService playerPerformanceService,
         MareConfigService configService, VisibilityService visibilityService,
         ApplicationSemaphoreService applicationSemaphoreService, ServerConfigurationManager serverConfigurationManager,
-        PairRedrawCoordinator pairRedrawCoordinator) : base(logger, mediator)
+        PairRedrawCoordinator pairRedrawCoordinator, CompressedAlternateManager compressedAlternateManager,
+        PlayerPerformanceConfigService playerPerformanceConfigService) : base(logger, mediator)
     {
         Pair = pair;
         PairAnalyzer = pairAnalyzer;
@@ -113,6 +117,8 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
         _applicationSemaphoreService = applicationSemaphoreService;
         _serverConfigurationManager = serverConfigurationManager;
         _pairRedrawCoordinator = pairRedrawCoordinator;
+        _compressedAlternateManager = compressedAlternateManager;
+        _playerPerformanceConfigService = playerPerformanceConfigService;
 
         _visibilityService.StartTracking(Pair.Ident);
 
@@ -1012,7 +1018,8 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
         {
             Logger.LogTrace("[BASE-{appBase}] DownloadAndApplyCharacterAsync > updateModdedPaths", applicationBase);
             int attempts = 0;
-            List<FileReplacementData> toDownloadReplacements = TryCalculateModdedDictionary(applicationBase, charaData, out moddedPaths, downloadToken);
+            var compressedUsage = ComputeCompressedAlternateUsage();
+            List<FileReplacementData> toDownloadReplacements = TryCalculateModdedDictionary(applicationBase, charaData, compressedUsage, out moddedPaths, downloadToken);
 
             while (toDownloadReplacements.Count > 0 && attempts++ <= 10 && !downloadToken.IsCancellationRequested)
             {
@@ -1026,7 +1033,7 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
 
                 Mediator.Publish(new EventMessage(new Event(PlayerName, Pair.UserData, nameof(PairHandler), EventSeverity.Informational,
                     $"Starting download for {toDownloadReplacements.Count} files")));
-                var toDownloadFiles = await _downloadManager.InitiateDownloadList(_charaHandler!, toDownloadReplacements, downloadToken).ConfigureAwait(false);
+                var toDownloadFiles = await _downloadManager.InitiateDownloadList(_charaHandler!, toDownloadReplacements, compressedUsage, downloadToken).ConfigureAwait(false);
 
                 if (!_playerPerformanceService.ComputeAndAutoPauseOnVRAMUsageThresholds(this, charaData, toDownloadFiles))
                 {
@@ -1050,7 +1057,7 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
                     return;
                 }
 
-                toDownloadReplacements = TryCalculateModdedDictionary(applicationBase, charaData, out moddedPaths, downloadToken);
+                toDownloadReplacements = TryCalculateModdedDictionary(applicationBase, charaData, compressedUsage, out moddedPaths, downloadToken);
 
                 var forbiddenOnly = toDownloadReplacements.Where(c =>
                     _downloadManager.ForbiddenTransfers.Exists(f => string.Equals(f.Hash, c.Hash, StringComparison.Ordinal))).ToList();
@@ -1078,7 +1085,7 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
                 await Task.Delay(TimeSpan.FromSeconds(backoffSeconds), downloadToken).ConfigureAwait(false);
             }
 
-            var finalMissing = TryCalculateModdedDictionary(applicationBase, charaData, out moddedPaths, downloadToken);
+            var finalMissing = TryCalculateModdedDictionary(applicationBase, charaData, compressedUsage, out moddedPaths, downloadToken);
             if (finalMissing.Count > 0)
             {
                 var nonForbiddenMissing = finalMissing.Count(c =>
@@ -1099,7 +1106,7 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
             {
                 Mediator.Publish(new HaltScanMessage(nameof(PlayerPerformanceService.ShrinkTextures)));
                 if (await _playerPerformanceService.ShrinkTextures(this, charaData, downloadToken).ConfigureAwait(false))
-                    _ = TryCalculateModdedDictionary(applicationBase, charaData, out moddedPaths, downloadToken);
+                    _ = TryCalculateModdedDictionary(applicationBase, charaData, ComputeCompressedAlternateUsage(), out moddedPaths, downloadToken);
             }
             finally
             {
@@ -1543,7 +1550,20 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
         }
     }
 
-    private List<FileReplacementData> TryCalculateModdedDictionary(Guid applicationBase, CharacterData charaData, out Dictionary<(string GamePath, string? Hash), string> moddedDictionary, CancellationToken token)
+    // Détermine le mode de compression pour ce pair : override par UID sinon config globale.
+    private TextureCompressionMode ComputeCompressedAlternateUsage()
+    {
+        var cfg = _playerPerformanceConfigService.Current;
+        if (cfg.UIDsToOverride.Exists(uid =>
+                string.Equals(uid, Pair.UserData.UID, StringComparison.Ordinal)
+                || string.Equals(uid, Pair.UserData.Alias, StringComparison.Ordinal)))
+        {
+            return TextureCompressionMode.AlwaysSourceQuality;
+        }
+        return cfg.TextureCompressionMode;
+    }
+
+    private List<FileReplacementData> TryCalculateModdedDictionary(Guid applicationBase, CharacterData charaData, TextureCompressionMode compressedUsage, out Dictionary<(string GamePath, string? Hash), string> moddedDictionary, CancellationToken token)
     {
         Stopwatch st = Stopwatch.StartNew();
         ConcurrentBag<FileReplacementData> missingFiles = [];
@@ -1562,7 +1582,28 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
             (item) =>
             {
                 token.ThrowIfCancellationRequested();
+
                 var fileCache = _fileDbManager.GetFileCacheByHash(item.Hash, preferSubst: true);
+
+                // BC7 : rediriger vers l'alternate compressé si dispo et mode compressé.
+                if (compressedUsage != TextureCompressionMode.AlwaysSourceQuality
+                    && _compressedAlternateManager.TryGetCachedCompressedAlternate(item.Hash, out var altHash)
+                    && altHash != null)
+                {
+                    var altCache = _fileDbManager.GetFileCacheByHash(altHash, preferSubst: true);
+                    if (altCache != null)
+                    {
+                        foreach (var gamePath in item.GamePaths)
+                            outputDict[(gamePath, item.Hash)] = altCache.ResolvedFilepath;
+                        return;
+                    }
+                    if (fileCache == null)
+                    {
+                        missingFiles.Add(new FileReplacementData { GamePaths = item.GamePaths, Hash = altHash });
+                        return;
+                    }
+                }
+
                 if (fileCache != null)
                 {
                     if (string.IsNullOrEmpty(new FileInfo(fileCache.ResolvedFilepath).Extension))

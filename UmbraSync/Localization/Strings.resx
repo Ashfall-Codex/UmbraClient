@@ -6609,4 +6609,28 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
   <data name="HousingNpc.Editor.SelectTip" xml:space="preserve">
     <value>Select the NPC to edit its position</value>
   </data>
+  <data name="Settings.Performance.Bc7.Use" xml:space="preserve">
+    <value>Use BC7 compressed textures</value>
+  </data>
+  <data name="Settings.Performance.Bc7.Help1" xml:space="preserve">
+    <value>Downloads server-side BC7-compressed textures when available.</value>
+  </data>
+  <data name="Settings.Performance.Bc7.Help2" xml:space="preserve">
+    <value>On by default. Disable to fall back to full source-quality textures if you notice any visual issue.</value>
+  </data>
+  <data name="Settings.Performance.Bc7.OverrideDesc" xml:space="preserve">
+    <value>Force source quality for these UIDs:</value>
+  </data>
+  <data name="Settings.Performance.Bc7.SearchHint" xml:space="preserve">
+    <value>Search a pair (UID, alias, note)</value>
+  </data>
+  <data name="Settings.Performance.Bc7.NoMatch" xml:space="preserve">
+    <value>No matching pair.</value>
+  </data>
+  <data name="Settings.Performance.Bc7.AddUidHelp" xml:space="preserve">
+    <value>Click a pair to keep it at source quality (no BC7).</value>
+  </data>
+  <data name="Settings.Performance.Bc7.DeleteUid" xml:space="preserve">
+    <value>Delete selected UID</value>
+  </data>
 </root>

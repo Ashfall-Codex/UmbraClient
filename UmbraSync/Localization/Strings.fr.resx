@@ -6519,4 +6519,28 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
   <data name="HousingNpc.Editor.SelectTip" xml:space="preserve">
     <value>Sélectionne le PNJ pour éditer sa position</value>
   </data>
+  <data name="Settings.Performance.Bc7.Use" xml:space="preserve">
+    <value>Utiliser les textures compressées BC7</value>
+  </data>
+  <data name="Settings.Performance.Bc7.Help1" xml:space="preserve">
+    <value>Télécharge les textures compressées en BC7 côté serveur quand elles sont disponibles.</value>
+  </data>
+  <data name="Settings.Performance.Bc7.Help2" xml:space="preserve">
+    <value>Activé par défaut. Désactivez pour revenir aux textures pleine qualité source si vous constatez un souci visuel.</value>
+  </data>
+  <data name="Settings.Performance.Bc7.OverrideDesc" xml:space="preserve">
+    <value>Forcer la qualité source pour ces UIDs :</value>
+  </data>
+  <data name="Settings.Performance.Bc7.SearchHint" xml:space="preserve">
+    <value>Rechercher une paire (UID, alias, note)</value>
+  </data>
+  <data name="Settings.Performance.Bc7.NoMatch" xml:space="preserve">
+    <value>Aucune paire trouvée.</value>
+  </data>
+  <data name="Settings.Performance.Bc7.AddUidHelp" xml:space="preserve">
+    <value>Cliquez sur une paire pour la conserver en qualité source (pas de BC7).</value>
+  </data>
+  <data name="Settings.Performance.Bc7.DeleteUid" xml:space="preserve">
+    <value>Supprimer l'UID sélectionné</value>
+  </data>
 </root>

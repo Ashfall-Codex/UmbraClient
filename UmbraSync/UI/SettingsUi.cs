@@ -2485,6 +2485,101 @@ public class SettingsUi : WindowMediatorSubscriberBase
                 + "Caution!!! This will cause a re-download of all textures when the shrink option is disabled.");
         }
 
+        ImGui.Dummy(new Vector2(5));
+        bool useBc7 = _playerPerformanceConfigService.Current.TextureCompressionMode != TextureCompressionMode.AlwaysSourceQuality;
+        if (ImGui.Checkbox(Loc.Get("Settings.Performance.Bc7.Use"), ref useBc7))
+        {
+            _playerPerformanceConfigService.Current.TextureCompressionMode = useBc7
+                ? TextureCompressionMode.AlwaysCompressed
+                : TextureCompressionMode.AlwaysSourceQuality;
+            _playerPerformanceConfigService.Save();
+            recalculatePerformance = true;
+        }
+        _uiShared.DrawHelpText(Loc.Get("Settings.Performance.Bc7.Help1") + UiSharedService.TooltipSeparator
+            + Loc.Get("Settings.Performance.Bc7.Help2"));
+
+        using (ImRaii.Disabled(!useBc7))
+        {
+            using var indent = ImRaii.PushIndent();
+            UiSharedService.TextWrapped(Loc.Get("Settings.Performance.Bc7.OverrideDesc"));
+            var ovAvail = ImGui.GetContentRegionAvail().X;
+            var overrideList = _playerPerformanceConfigService.Current.UIDsToOverride;
+            var comboWidth = MathF.Min(240 * ImGuiHelpers.GlobalScale, ovAvail * 0.6f);
+            ImGui.SetNextItemWidth(comboWidth);
+            ImGui.InputTextWithHint("##bc7pairsearch", Loc.Get("Settings.Performance.Bc7.SearchHint"), ref _bc7PairSearch, 50);
+            bool showResults = ImGui.IsItemActive();
+
+            var search = _bc7PairSearch.Trim();
+            if (showResults || search.Length > 0)
+            {
+                var candidates = _pairManager.DirectPairs
+                    .Where(p => !overrideList.Contains(p.UserData.UID, StringComparer.Ordinal))
+                    .Where(p => string.IsNullOrEmpty(search)
+                        || (p.UserData.UID?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false)
+                        || (p.UserData.Alias?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false)
+                        || (p.GetNote()?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false)
+                        || (p.PlayerName?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false))
+                    .OrderBy(p => p.GetNoteOrName() ?? p.UserData.AliasOrUID, StringComparer.OrdinalIgnoreCase)
+                    .Take(50)
+                    .ToList();
+
+                using var results = ImRaii.ListBox("##bc7pairresults", new Vector2(comboWidth, 5 * ImGui.GetTextLineHeightWithSpacing()));
+                if (results)
+                {
+                    if (candidates.Count == 0)
+                    {
+                        ImGui.TextDisabled(Loc.Get("Settings.Performance.Bc7.NoMatch"));
+                    }
+                    foreach (var p in candidates)
+                    {
+                        var label = $"{p.GetNoteOrName() ?? p.UserData.AliasOrUID} ({p.UserData.UID})";
+                        if (ImGui.Selectable(label + "##bc7add" + p.UserData.UID))
+                        {
+                            overrideList.Add(p.UserData.UID);
+                            _playerPerformanceConfigService.Save();
+                            recalculatePerformance = true;
+                            recalculatePerformanceUID = p.UserData.UID;
+                            _bc7PairSearch = string.Empty;
+                        }
+                    }
+                }
+            }
+            _uiShared.DrawHelpText(Loc.Get("Settings.Performance.Bc7.AddUidHelp"));
+
+            if (_selectedBc7OverrideEntry > overrideList.Count - 1)
+                _selectedBc7OverrideEntry = -1;
+            ImGui.SetNextItemWidth(MathF.Min(200 * ImGuiHelpers.GlobalScale, ovAvail * 0.5f));
+            using (var lb = ImRaii.ListBox("##bc7overridelist"))
+            {
+                if (lb)
+                {
+                    for (int i = 0; i < overrideList.Count; i++)
+                    {
+                        var uid = overrideList[i];
+                        var pairName = _pairManager.DirectPairs
+                            .FirstOrDefault(p => string.Equals(p.UserData.UID, uid, StringComparison.Ordinal))?.GetNoteOrName();
+                        var label = string.IsNullOrEmpty(pairName) ? uid : $"{pairName} ({uid})";
+                        if (ImGui.Selectable(label + "##bc7ov" + i, _selectedBc7OverrideEntry == i))
+                            _selectedBc7OverrideEntry = i;
+                    }
+                }
+            }
+            using (ImRaii.Disabled(_selectedBc7OverrideEntry == -1))
+            {
+                using var pushId = ImRaii.PushId("deleteSelectedBc7Override");
+                if (_uiShared.IconTextButton(FontAwesomeIcon.Trash, Loc.Get("Settings.Performance.Bc7.DeleteUid")))
+                {
+                    var removed = overrideList[_selectedBc7OverrideEntry];
+                    overrideList.RemoveAt(_selectedBc7OverrideEntry);
+                    if (_selectedBc7OverrideEntry > overrideList.Count - 1)
+                        --_selectedBc7OverrideEntry;
+                    _playerPerformanceConfigService.Save();
+                    recalculatePerformance = true;
+                    recalculatePerformanceUID = removed;
+                }
+            }
+        }
+
         var totalVramBytes = _pairManager.GetOnlineUserPairs().Where(p => p.IsVisible && p.LastAppliedApproximateVRAMBytes > 0).Sum(p => p.LastAppliedApproximateVRAMBytes);
 
         ImGui.TextUnformatted("Current VRAM utilization by all nearby players:");
@@ -3340,6 +3435,9 @@ public class SettingsUi : WindowMediatorSubscriberBase
 
     private string _uidToAddForIgnoreBlacklist = string.Empty;
     private int _selectedEntryBlacklist = -1;
+
+    private int _selectedBc7OverrideEntry = -1;
+    private string _bc7PairSearch = string.Empty;
 
     private void DrawSettingsContent()
     {

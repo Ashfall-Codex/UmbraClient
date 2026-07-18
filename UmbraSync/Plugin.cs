@@ -107,6 +107,7 @@ public sealed class Plugin : IDalamudPlugin
             collection.AddSingleton<UmbraProfileManager>();
             collection.AddSingleton<GameObjectHandlerFactory>();
             collection.AddSingleton<FileDownloadDeduplicator>();
+            collection.AddSingleton<UmbraSync.FileCache.CompressedAlternateManager>();
             collection.AddSingleton<FileDownloadManagerFactory>();
             collection.AddSingleton<UmbraSync.PlayerData.Redraw.PairRedrawCoordinator>();
             collection.AddSingleton<PairHandlerFactory>();

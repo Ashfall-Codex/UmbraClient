@@ -7,6 +7,7 @@ using System.Net.Http.Json;
 using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using UmbraSync.API.Data;
+using UmbraSync.MareConfiguration.Models;
 using UmbraSync.API.Dto.Files;
 using UmbraSync.API.Routes;
 using UmbraSync.FileCache;
@@ -52,10 +53,12 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
     private const int MaxTrackedFailureCount = 4;
     private enum CdnDownloadResult { Success, NotFound, Transient }
 
+    private readonly CompressedAlternateManager _compressedAlternateManager;
+
     public FileDownloadManager(ILogger<FileDownloadManager> logger, MareMediator mediator,
         FileTransferOrchestrator orchestrator,
         FileCacheManager fileCacheManager, FileCompactor fileCompactor, MareConfigService mareConfigService,
-        FileDownloadDeduplicator deduplicator) : base(logger, mediator)
+        FileDownloadDeduplicator deduplicator, CompressedAlternateManager compressedAlternateManager) : base(logger, mediator)
     {
         _downloadStatus = new ConcurrentDictionary<string, FileDownloadStatus>(StringComparer.Ordinal);
         _orchestrator = orchestrator;
@@ -63,6 +66,7 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
         _fileCompactor = fileCompactor;
         _mareConfigService = mareConfigService;
         _deduplicator = deduplicator;
+        _compressedAlternateManager = compressedAlternateManager;
         _activeDownloadStreams = new();
         _decompressGateCapacity = ResolveDecompressionLimit(mareConfigService.Current);
         _decompressGate = new SemaphoreSlim(_decompressGateCapacity);
@@ -728,7 +732,7 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
         return CurrentDownloads;
     }
 
-    public async Task<List<DownloadFileTransfer>> InitiateDownloadList(GameObjectHandler gameObjectHandler, List<FileReplacementData> fileReplacement, CancellationToken ct)
+    public async Task<List<DownloadFileTransfer>> InitiateDownloadList(GameObjectHandler gameObjectHandler, List<FileReplacementData> fileReplacement, TextureCompressionMode compressedUsage, CancellationToken ct)
     {
         Logger.LogDebug("Download start: {id}", gameObjectHandler.Name);
 
@@ -757,6 +761,26 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
             if (!_orchestrator.ForbiddenTransfers.Exists(f => string.Equals(f.Hash, dto.Hash, StringComparison.Ordinal)))
             {
                 _orchestrator.ForbiddenTransfers.Add(new DownloadFileTransfer(dto));
+            }
+        }
+
+        // BC7 : mémoriser les alternates, et si le mode est compressé, télécharger le BC7 à la place de l'original.
+        for (int i = 0; i < downloadFileInfoFromService.Count; i++)
+        {
+            var dto = downloadFileInfoFromService[i];
+            _compressedAlternateManager.SetCompressedAlternate(dto.Hash, dto.CompressedAlternateFileDownload?.Hash, dto.WillNotBeCompressed);
+
+            if (compressedUsage != TextureCompressionMode.AlwaysSourceQuality && dto.CompressedAlternateFileDownload != null)
+            {
+                var alt = dto.CompressedAlternateFileDownload;
+                var src = fileReplacement.FirstOrDefault(f => string.Equals(f.Hash, dto.Hash, StringComparison.OrdinalIgnoreCase));
+                if (src != null && src.GamePaths.Length > 0
+                    && !fileReplacement.Any(f => string.Equals(f.Hash, alt.Hash, StringComparison.OrdinalIgnoreCase)))
+                {
+                    fileReplacement.Add(new FileReplacementData { GamePaths = src.GamePaths, Hash = alt.Hash });
+                }
+                Logger.LogDebug("BC7: downloading compressed {alt} instead of {src}", alt.Hash, dto.Hash);
+                downloadFileInfoFromService[i] = alt;
             }
         }
 
