@@ -345,7 +345,7 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
             new(new Version(3, 0, 0, 4), "3.0.0.4", new List<ChangelogLine>
             {
                 new("Nouveauté : Ashfall Connect : liez votre compte à la plateforme Ashfall Connect pour gérer, enrichir et certifier votre fiche RP (niveaux de certification Bronze / Argent / Or via Discord et XIVAuth). Liaison par code à usage unique depuis le plugin."),
-                new("Nouveauté : Ajout de la compression BC7."),
+                new("Nouveauté : Compression BC7 des textures. Les textures des joueurs synchronisés sont automatiquement compressées côté serveur, ce qui réduit la mémoire vidéo utilisée et allège les téléchargements — un vrai plus sur les petites configurations. Activé par défaut, désactivable dans Réglages ▸ Performance, avec une liste de paires à conserver en qualité source (pratique pour le GPose)."),
                 new("Nouveauté : Synchronisation des scénarios PNJ housing. Partagez les PNJ personnalisés de votre logement avec vos paires : ils apparaissent automatiquement à la visite et disparaissent à la sortie. Gestion des permissions (paires / syncshells) et des conflits avec vos scénarios locaux."),
             }),
             new(new Version(2, 6, 0, 6026), "2.6.0.6026", new List<ChangelogLine>
