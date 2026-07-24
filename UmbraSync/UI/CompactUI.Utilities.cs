@@ -23,6 +23,52 @@ public partial class CompactUi
         ImGuiHelpers.ScaledDummy(2f);
     }
 
+    private int _titleAccentClicks;
+    private long _titleAccentLastClickMs;
+    private bool _titleAccentVisible;
+
+    private void RegisterSidebarAccent(CompactUiSection section)
+    {
+        if (section != CompactUiSection.Social) return;
+
+        long now = Environment.TickCount64;
+        _titleAccentClicks = now - _titleAccentLastClickMs > 1500 ? 1 : _titleAccentClicks + 1;
+        _titleAccentLastClickMs = now;
+
+        if (_titleAccentClicks >= 7)
+        {
+            _titleAccentClicks = 0;
+            _titleAccentVisible = !_titleAccentVisible;
+        }
+    }
+
+    private void DrawTitleAccent()
+    {
+        if (!_titleAccentVisible) return;
+
+        var style = ImGui.GetStyle();
+        var windowPos = ImGui.GetWindowPos();
+        var labelSize = ImGui.CalcTextSize(WindowName.Split("###")[0]);
+        float labelEnd = windowPos.X + style.FramePadding.X + labelSize.X;
+
+        var iconPos = new Vector2(labelEnd + 10f * ImGuiHelpers.GlobalScale, windowPos.Y + style.FramePadding.Y);
+        float gap = 6f * ImGuiHelpers.GlobalScale;
+
+        var drawList = ImGui.GetWindowDrawList();
+        drawList.PushClipRectFullScreen();
+        using (_uiSharedService.IconFont.Push())
+        {
+            string crown = FontAwesomeIcon.Crown.ToIconString();
+            string glass = FontAwesomeIcon.WineGlassAlt.ToIconString();
+            float crownWidth = ImGui.CalcTextSize(crown).X;
+
+            drawList.AddText(iconPos, ImGui.ColorConvertFloat4ToU32(new Vector4(0.93f, 0.78f, 0.36f, 1f)), crown);
+            drawList.AddText(iconPos with { X = iconPos.X + crownWidth + gap },
+                ImGui.ColorConvertFloat4ToU32(new Vector4(0.72f, 0.24f, 0.33f, 1f)), glass);
+        }
+        drawList.PopClipRect();
+    }
+
     private void DrawTransfers()
     {
         var currentUploads = _fileTransferManager.CurrentUploads.ToList();

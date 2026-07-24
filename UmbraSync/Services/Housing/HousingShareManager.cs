@@ -23,6 +23,12 @@ public sealed class HousingShareManager : IDisposable
 {
     internal const string HousingModPrefix = "UmbraHousing_";
 
+    /// Répertoire de construction temporaire, volontairement hors du pattern <see cref="HousingModPrefix"/>
+    /// pour ne pas être emporté par le nettoyage des mods orphelins pendant la construction.
+    private const string StagingModPrefix = "UmbraHousingStaging_";
+
+    private static readonly char[] PathSeparators = ['/', '\\'];
+
     /// Octet de version pour le nouveau format avec transfert de fichiers.
     private const byte PayloadVersionFileTransfer = 1;
 
@@ -109,30 +115,52 @@ public sealed class HousingShareManager : IDisposable
             // Construire gamePath → hash. Défense en profondeur (issue #98) : on ne publie
             // QUE des paths housing safe. Le scanner filtre déjà à la collecte, mais on rejoue
             // la garde ici au cas où un futur chemin de collecte oublierait ce check.
+            var modRoot = _penumbra.GetModDirectoryRaw();
             var hashPaths = new Dictionary<string, string>(StringComparer.Ordinal);
-            var hashList = new HashSet<string>(StringComparer.Ordinal);
+            // Mods sources dont chaque fichier collecté part bien dans le share / dont au moins un est perdu.
+            var contributingMods = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            var incompleteMods = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var unsafePathCount = 0;
             foreach (var (gamePath, resolvedPath) in modPaths)
             {
+                var ownerMod = ExtractModDirName(resolvedPath, modRoot);
+                bool published = false;
+
                 if (!HousingFurnitureScanner.IsHousingShareSafePath(gamePath))
                 {
                     unsafePathCount++;
                     _logger.LogWarning("PublishAsync : rejet d'un gamePath hors whitelist housing : {GamePath}", gamePath);
-                    continue;
                 }
-                if (fileCaches.TryGetValue(resolvedPath, out var cacheEntity) && cacheEntity != null)
+                else if (fileCaches.TryGetValue(resolvedPath, out var cacheEntity) && cacheEntity != null)
                 {
                     hashPaths[gamePath] = cacheEntity.Hash;
-                    hashList.Add(cacheEntity.Hash);
+                    published = true;
                 }
                 else
                 {
                     _logger.LogWarning("Impossible de hacher le fichier {Path} pour le gamePath {GamePath}, ignoré", resolvedPath, gamePath);
                 }
+
+                if (ownerMod == null) continue;
+                if (published) contributingMods[gamePath] = ownerMod;
+                else incompleteMods.Add(ownerMod);
             }
             if (unsafePathCount > 0)
             {
                 _logger.LogWarning("PublishAsync : {Count} path(s) non-housing rejeté(s) avant upload", unsafePathCount);
+            }
+
+            // Ne pas publier de meuble à moitié : un .mtrl transmis sans la .tex qu'il référence
+            // s'affiche en noir chez tous les visiteurs. Cohérence garantie dès la source.
+            var incompletePublished = PruneIncompleteFurniture(modPaths.Keys.Where(HousingFurnitureScanner.IsHousingShareSafePath), hashPaths);
+            if (incompletePublished > 0)
+            {
+                _logger.LogWarning("PublishAsync : {Count} meuble(s) incomplet(s) exclu(s) du partage", incompletePublished);
+                // Un meuble exclu signifie que son mod source n'est pas couvert par le share.
+                foreach (var (gamePath, ownerMod) in contributingMods)
+                {
+                    if (!hashPaths.ContainsKey(gamePath)) incompleteMods.Add(ownerMod);
+                }
             }
 
             if (hashPaths.Count == 0)
@@ -140,6 +168,8 @@ public sealed class HousingShareManager : IDisposable
                 LastError = Loc.Get("HousingShare.Error.HashingFailed");
                 return;
             }
+
+            var hashList = new HashSet<string>(hashPaths.Values, StringComparer.Ordinal);
 
             // Upload des fichiers sur le serveur
             ProgressStatus = Loc.Get("HousingShare.Progress.Uploading");
@@ -187,7 +217,9 @@ public sealed class HousingShareManager : IDisposable
 
             await _apiController.HousingShareUpload(uploadDto).ConfigureAwait(false);
             await InternalRefreshAsync().ConfigureAwait(false);
-            var furnitureCount = _scanner.CollectedFurnitureCount;
+            // Compter ce qui part réellement dans le share, pas ce que le scan avait collecté :
+            // les meubles incomplets viennent d'en être écartés.
+            var furnitureCount = CountDistinctFurniture(hashPaths.Keys);
 
             // Arrêter le scan après la publication
             _scanner.StopScan();
@@ -206,8 +238,18 @@ public sealed class HousingShareManager : IDisposable
                     if (defaultCollId != null && defaultCollId.Value != Guid.Empty)
                     {
                         var disabledMods = new List<string>();
+                        var keptMods = new List<string>();
                         foreach (var modDirName in sourceMods)
                         {
+                            // Désactiver un mod dont le share ne transporte pas tout le contenu ferait
+                            // disparaître ce qui n'a pas été capturé (revêtements, textures partagées…).
+                            if (incompleteMods.Contains(modDirName))
+                            {
+                                keptMods.Add(modDirName);
+                                _logger.LogWarning("Mod source housing {ModDir} conservé actif : contenu non couvert par le share", modDirName);
+                                continue;
+                            }
+
                             var result = await _penumbra.TrySetModEnabledAsync(_logger, defaultCollId.Value, modDirName, false).ConfigureAwait(false);
                             _logger.LogInformation("Désactivation du mod source housing {ModDir} : {Result}", modDirName, result);
                             disabledMods.Add(modDirName);
@@ -216,6 +258,11 @@ public sealed class HousingShareManager : IDisposable
                         {
                             LastSuccess += " " + string.Format(CultureInfo.CurrentCulture,
                                 Loc.Get("HousingShare.SourceMod.Disabled"), string.Join(", ", disabledMods));
+                        }
+                        if (keptMods.Count > 0)
+                        {
+                            LastSuccess += " " + string.Format(CultureInfo.CurrentCulture,
+                                Loc.Get("HousingShare.SourceMod.KeptActive"), string.Join(", ", keptMods));
                         }
                     }
                 }
@@ -367,6 +414,7 @@ public sealed class HousingShareManager : IDisposable
         }
 
         Dictionary<string, string> modPaths;
+        HashSet<string> expectedPaths;
 
         // Détection de la version du payload
         if (plaintext.Length > 0 && plaintext[0] < 0x80)
@@ -374,7 +422,7 @@ public sealed class HousingShareManager : IDisposable
             var version = plaintext[0];
             if (version == PayloadVersionFileTransfer)
             {
-                modPaths = await ResolveFileTransferPayload(plaintext, shareId).ConfigureAwait(false);
+                (modPaths, expectedPaths) = await ResolveFileTransferPayload(plaintext, shareId).ConfigureAwait(false);
             }
             else
             {
@@ -387,6 +435,7 @@ public sealed class HousingShareManager : IDisposable
         {
             // Ancien format (MessagePack brut) : gamePath → filePath local
             modPaths = MessagePackSerializer.Deserialize<Dictionary<string, string>>(plaintext);
+            expectedPaths = new HashSet<string>(modPaths.Keys, StringComparer.Ordinal);
         }
 
         if (modPaths.Count == 0)
@@ -424,18 +473,40 @@ public sealed class HousingShareManager : IDisposable
             return;
         }
         modPaths = sanitizedPaths;
+        expectedPaths.RemoveWhere(p => !HousingFurnitureScanner.IsHousingShareSafePath(p));
+        
+        var incompleteFurniture = PruneIncompleteFurniture(expectedPaths, modPaths);
+        if (incompleteFurniture > 0)
+        {
+            _logger.LogWarning("Housing share {ShareId} : {Count} meuble(s) incomplet(s) écarté(s), fichiers introuvables",
+                shareId, incompleteFurniture);
+        }
+        if (modPaths.Count == 0)
+        {
+            _logger.LogWarning("Housing share {ShareId} : aucun meuble complet à appliquer", shareId);
+            LastError = Loc.Get("HousingShare.Error.DownloadFailed");
+            return;
+        }
 
         ProgressStatus = Loc.Get("HousingShare.Progress.CreatingMod");
         ProgressPercent = 0.60f;
 
-        // Supprimer l'ancien mod s'il existe
-        await RemoveInstalledModAsync().ConfigureAwait(false);
 
-        // Créer le mod Penumbra sur disque
         var modDirName = $"{HousingModPrefix}{shareId:N}";
-        var created = await CreatePenumbraModAsync(shareId, modPaths).ConfigureAwait(false);
-        if (!created)
+        var stagingDir = await CreatePenumbraModAsync(shareId, modPaths).ConfigureAwait(false);
+        if (stagingDir == null)
         {
+            LastError = Loc.Get("HousingShare.Error.EmptyShare");
+            return;
+        }
+
+        await RemoveInstalledModAsync().ConfigureAwait(false);
+        if (!PromoteStagedMod(stagingDir, modDirName))
+        {
+
+            IsApplied = false;
+            AppliedShareId = null;
+            AppliedShareOwnerUid = null;
             LastError = Loc.Get("HousingShare.Error.EmptyShare");
             return;
         }
@@ -618,6 +689,19 @@ public sealed class HousingShareManager : IDisposable
                     _logger.LogDebug(ex, "Impossible de supprimer le répertoire orphelin {Dir}", dir);
                 }
             }
+
+            foreach (var dir in Directory.GetDirectories(modRoot, $"{StagingModPrefix}*"))
+            {
+                try
+                {
+                    Directory.Delete(dir, recursive: true);
+                    _logger.LogInformation("Nettoyage du staging housing abandonné : {Dir}", Path.GetFileName(dir));
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug(ex, "Impossible de supprimer le staging orphelin {Dir}", dir);
+                }
+            }
         }
         catch (Exception ex)
         {
@@ -625,57 +709,64 @@ public sealed class HousingShareManager : IDisposable
         }
     }
 
-    private async Task<Dictionary<string, string>> ResolveFileTransferPayload(byte[] plaintext, Guid shareId)
+    private async Task<(Dictionary<string, string> Resolved, HashSet<string> Expected)> ResolveFileTransferPayload(byte[] plaintext, Guid shareId)
     {
         // Désérialiser sans le premier octet (version)
         var hashMap = MessagePackSerializer.Deserialize<Dictionary<string, string>>(
             new ReadOnlyMemory<byte>(plaintext, 1, plaintext.Length - 1));
 
-        if (hashMap == null || hashMap.Count == 0)
-            return new Dictionary<string, string>(StringComparer.Ordinal);
-
         var modPaths = new Dictionary<string, string>(StringComparer.Ordinal);
+        var expected = new HashSet<string>(StringComparer.Ordinal);
+
+        if (hashMap == null || hashMap.Count == 0)
+            return (modPaths, expected);
+
         var missingFiles = new List<FileReplacementData>();
+
+        var fallbackPaths = new Dictionary<string, string>(StringComparer.Ordinal);
 
         // Résoudre les hashes via le cache local
         ProgressPercent = 0.15f;
-        int cacheHits = 0, cacheMisses = 0, fileNotFound = 0;
+        int cacheHits = 0, cacheMisses = 0, staleGenerated = 0;
         foreach (var (gamePath, hash) in hashMap)
         {
+            expected.Add(gamePath);
             var cached = _fileCacheManager.GetFileCacheByHash(hash);
-            if (cached != null)
+            var resolvedPath = cached?.ResolvedFilepath;
+            bool usable = resolvedPath != null && File.Exists(resolvedPath);
+            if (usable && IsInsideGeneratedHousingMod(resolvedPath!))
+            {
+                staleGenerated++;
+                fallbackPaths[gamePath] = resolvedPath!;
+                usable = false;
+            }
+
+            if (usable)
             {
                 cacheHits++;
-                var resolvedPath = cached.ResolvedFilepath;
-                if (!File.Exists(resolvedPath))
+                modPaths[gamePath] = resolvedPath!;
+                continue;
+            }
+
+            // Regrouper par hash pour éviter les doublons
+            var existing = missingFiles.Find(f => string.Equals(f.Hash, hash, StringComparison.Ordinal));
+            if (existing == null)
+            {
+                missingFiles.Add(new FileReplacementData
                 {
-                    fileNotFound++;
-                    _logger.LogWarning("Fichier cache introuvable sur disque : {Hash} → {Path}", hash, resolvedPath);
-                }
-                modPaths[gamePath] = resolvedPath;
+                    Hash = hash,
+                    GamePaths = [gamePath]
+                });
             }
             else
             {
-                // Regrouper par hash pour éviter les doublons
-                var existing = missingFiles.Find(f => string.Equals(f.Hash, hash, StringComparison.Ordinal));
-                if (existing == null)
-                {
-                    missingFiles.Add(new FileReplacementData
-                    {
-                        Hash = hash,
-                        GamePaths = [gamePath]
-                    });
-                }
-                else
-                {
-                    existing.GamePaths = existing.GamePaths.Concat([gamePath]).ToArray();
-                }
-                cacheMisses++;
+                existing.GamePaths = existing.GamePaths.Concat([gamePath]).ToArray();
             }
+            cacheMisses++;
         }
 
-        _logger.LogInformation("[HousingResolve] Résolution : {Hits} en cache, {Misses} manquants, {NotFound} fichiers introuvables sur disque",
-            cacheHits, cacheMisses, fileNotFound);
+        _logger.LogInformation("[HousingResolve] Résolution : {Hits} en cache, {Misses} à télécharger (dont {Stale} issus du mod housing généré)",
+            cacheHits, cacheMisses, staleGenerated);
 
         // Télécharger les fichiers manquants
         if (missingFiles.Count > 0)
@@ -697,9 +788,15 @@ public sealed class HousingShareManager : IDisposable
             foreach (var file in missingFiles.SelectMany(m => m.GamePaths, (entry, gp) => (entry.Hash, GamePath: gp)))
             {
                 var localFile = _fileCacheManager.GetFileCacheByHash(file.Hash)?.ResolvedFilepath;
-                if (localFile != null)
+                if (localFile != null && File.Exists(localFile))
                 {
                     modPaths[file.GamePath] = localFile;
+                }
+                else if (fallbackPaths.TryGetValue(file.GamePath, out var fallback) && File.Exists(fallback))
+                {
+
+                    modPaths[file.GamePath] = fallback;
+                    _logger.LogInformation("Fichier {Hash} récupéré depuis le mod housing précédent pour {GamePath}", file.Hash, file.GamePath);
                 }
                 else
                 {
@@ -708,21 +805,70 @@ public sealed class HousingShareManager : IDisposable
             }
         }
 
-        return modPaths;
+        return (modPaths, expected);
     }
+    private static string? ExtractModDirName(string resolvedPath, string? modRoot)
+    {
+        if (string.IsNullOrEmpty(modRoot) || string.IsNullOrEmpty(resolvedPath)) return null;
 
-    // Crée un mod Penumbra sur disque avec la structure de fichiers miroir.
-    private async Task<bool> CreatePenumbraModAsync(Guid shareId, Dictionary<string, string> modPaths)
+        try
+        {
+            var relative = Path.GetRelativePath(modRoot, resolvedPath);
+            if (relative.StartsWith("..", StringComparison.Ordinal) || Path.IsPathRooted(relative))
+                return null;
+
+            var separator = relative.IndexOfAny(PathSeparators);
+            return separator > 0 ? relative[..separator] : null;
+        }
+        catch (ArgumentException)
+        {
+            return null;
+        }
+    }
+    
+    private static bool IsInsideGeneratedHousingMod(string path)
+    {
+        foreach (var segment in path.Split(PathSeparators))
+        {
+            if (segment.StartsWith(HousingModPrefix, StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+        return false;
+    }
+    
+    private static int PruneIncompleteFurniture(IEnumerable<string> expectedPaths, Dictionary<string, string> resolved)
+    {
+        var incomplete = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var gamePath in expectedPaths)
+        {
+            if (resolved.ContainsKey(gamePath)) continue;
+            var key = HousingFurnitureScanner.ExtractFurnitureKey(gamePath);
+            if (key != null) incomplete.Add(key);
+        }
+
+        if (incomplete.Count == 0) return 0;
+
+        foreach (var gamePath in resolved.Keys.ToList())
+        {
+            var key = HousingFurnitureScanner.ExtractFurnitureKey(gamePath);
+            if (key != null && incomplete.Contains(key))
+                resolved.Remove(gamePath);
+        }
+
+        return incomplete.Count;
+    }
+    
+    private async Task<string?> CreatePenumbraModAsync(Guid shareId, Dictionary<string, string> modPaths)
     {
         var modRoot = _penumbra.GetModDirectoryRaw();
         if (string.IsNullOrEmpty(modRoot))
         {
             _logger.LogWarning("Impossible d'obtenir le répertoire de mods Penumbra");
-            return false;
+            return null;
         }
 
-        var modDirName = $"{HousingModPrefix}{shareId:N}";
-        var modDir = Path.Combine(modRoot, modDirName);
+        // Nom volontairement hors du pattern UmbraHousing_* pour que CleanupStaleMods ne l'emporte pas
+        var modDir = Path.Combine(modRoot, $"{StagingModPrefix}{shareId:N}");
 
         // Re-création propre si le répertoire existe déjà
         if (Directory.Exists(modDir))
@@ -785,8 +931,20 @@ public sealed class HousingShareManager : IDisposable
             filesMapping[gamePath] = gamePath;
         }
 
-        _logger.LogInformation("Mod housing créé : {Dir} ({Copies} fichiers copiés, {Total} dans le mapping)",
-            modDirName, copies, filesMapping.Count);
+        var droppedAfterCopy = PruneIncompleteFurniture(modPaths.Keys, filesMapping);
+        if (droppedAfterCopy > 0)
+        {
+            _logger.LogWarning("Mod housing : {Count} meuble(s) écarté(s) après échec de copie", droppedAfterCopy);
+        }
+
+        _logger.LogInformation("Mod housing préparé : {Dir} ({Copies} fichiers copiés, {Total} dans le mapping)",
+            Path.GetFileName(modDir), copies, filesMapping.Count);
+
+        if (filesMapping.Count == 0)
+        {
+            try { Directory.Delete(modDir, recursive: true); } catch { /* staging inutilisable, best effort */ }
+            return null;
+        }
 
         // Écrire default_mod.json
         var defaultMod = new
@@ -798,7 +956,33 @@ public sealed class HousingShareManager : IDisposable
         var defaultModJson = JsonSerializer.Serialize(defaultMod, new JsonSerializerOptions { WriteIndented = true });
         await File.WriteAllTextAsync(Path.Combine(modDir, "default_mod.json"), defaultModJson).ConfigureAwait(false);
 
-        return filesMapping.Count > 0;
+        return modDir;
+    }
+    
+    private bool PromoteStagedMod(string stagingDir, string modDirName)
+    {
+        var modRoot = _penumbra.GetModDirectoryRaw();
+        if (string.IsNullOrEmpty(modRoot))
+        {
+            _logger.LogWarning("Impossible d'obtenir le répertoire de mods Penumbra pour la promotion du staging");
+            return false;
+        }
+
+        var targetDir = Path.Combine(modRoot, modDirName);
+        try
+        {
+            if (Directory.Exists(targetDir))
+                Directory.Delete(targetDir, recursive: true);
+
+            Directory.Move(stagingDir, targetDir);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Impossible de promouvoir le mod housing {Staging} vers {Target}", stagingDir, targetDir);
+            try { Directory.Delete(stagingDir, recursive: true); } catch { /* best effort */ }
+            return false;
+        }
     }
 
     // Supprime le mod housing installé de Penumbra et du disque.

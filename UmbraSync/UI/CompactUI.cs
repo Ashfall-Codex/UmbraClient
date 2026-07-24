@@ -182,6 +182,8 @@ public partial class CompactUi : WindowMediatorSubscriberBase
 
     protected override void DrawInternal()
     {
+        DrawTitleAccent();
+
         var sidebarWidth = ImGuiHelpers.ScaledVector2(SidebarWidth, 0).X;
 
         using var fontScale = UiSharedService.PushFontScale(ContentFontScale);

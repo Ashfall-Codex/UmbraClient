@@ -161,9 +161,11 @@ public sealed class HousingFurnitureScanner : IMediatorSubscriber
 
         _logger.LogDebug("[HousingScan] Scan du répertoire de mod : {Path}", modBasePath);
 
-        // Passe 1 : collecter tous les fichiers avec extension valide et identifier si c'est un mod housing
+        var jsonHousingPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        ParseModJsonForHousingPaths(modBasePath, jsonHousingPaths);
+        
         var allFiles = new List<string>();
-        bool isHousingMod = false;
+        bool isHousingMod = jsonHousingPaths.Count > 0;
 
         try
         {
@@ -191,6 +193,13 @@ public sealed class HousingFurnitureScanner : IMediatorSubscriber
             _logger.LogDebug("[HousingScan] Mod {Path} : {Scanned} fichiers scannés, pas un mod housing",
                 Path.GetFileName(modBasePath), allFiles.Count);
             return;
+        }
+
+        candidatePaths.UnionWith(jsonHousingPaths);
+        if (jsonHousingPaths.Count > 0)
+        {
+            _logger.LogInformation("[HousingScan] {Count} chemins housing extraits des JSON du mod {Mod}",
+                jsonHousingPaths.Count, Path.GetFileName(modBasePath));
         }
 
         // Tracker le répertoire source (hors mods générés par UmbraSync)
@@ -229,10 +238,6 @@ public sealed class HousingFurnitureScanner : IMediatorSubscriber
 
         _logger.LogDebug("[HousingScan] Mod {Path} : {Scanned} fichiers scannés, {Housing} housing + {Shared} partagés",
             Path.GetFileName(modBasePath), allFiles.Count, housingFound, sharedFound);
-
-        // Passe 3 : parser les fichiers JSON du mod pour capturer les mappings game_path → mod_path
-        // Nécessaire pour les textures partagées (common/) dont le chemin filesystem ne correspond pas au game path réel
-        ParseModJsonForHousingPaths(modBasePath, candidatePaths);
     }
     
     private static string? ExtractHousingGamePath(string relativePath)
@@ -264,8 +269,6 @@ public sealed class HousingFurnitureScanner : IMediatorSubscriber
     // Parse les fichiers JSON de configuration du mod Penumbra pour extraire les game paths housing.
     private void ParseModJsonForHousingPaths(string modBasePath, HashSet<string> candidatePaths)
     {
-        int initialCount = candidatePaths.Count;
-
         // Parser default_mod.json
         var defaultModFile = Path.Combine(modBasePath, "default_mod.json");
         if (File.Exists(defaultModFile))
@@ -284,13 +287,6 @@ public sealed class HousingFurnitureScanner : IMediatorSubscriber
         catch (Exception ex)
         {
             _logger.LogDebug(ex, "[HousingScan] Erreur lors de l'énumération des fichiers group JSON dans {Path}", modBasePath);
-        }
-
-        int newPaths = candidatePaths.Count - initialCount;
-        if (newPaths > 0)
-        {
-            _logger.LogInformation("[HousingScan] {Count} chemins housing supplémentaires extraits des JSON du mod {Mod}",
-                newPaths, Path.GetFileName(modBasePath));
         }
     }
 
@@ -392,7 +388,9 @@ public sealed class HousingFurnitureScanner : IMediatorSubscriber
     }
     
     // Extrait l'identification du meuble depuis un chemin de jeu.
-    private static string? ExtractFurnitureKey(string gamePath)
+    // Sert aussi de clé de regroupement pour garantir la cohérence d'un meuble à l'application
+    // (un .mtrl appliqué sans sa .tex donne une surface noire).
+    public static string? ExtractFurnitureKey(string gamePath)
     {
         var segments = gamePath.Split('/');
         for (int i = 0; i < segments.Length; i++)

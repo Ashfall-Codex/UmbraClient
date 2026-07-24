@@ -94,6 +94,8 @@ public partial class CompactUi
                     _editProfileUi.RefreshFromServer();
                 }
             }
+
+            RegisterSidebarAccent(section);
         }
 
         _sidebarButtonRects[section] = (ImGui.GetItemRectMin(), ImGui.GetItemRectMax());

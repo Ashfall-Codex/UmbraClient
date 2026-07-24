@@ -5436,6 +5436,9 @@ Note: Weapons will not be displayed correctly unless using the same job as the s
   <data name="HousingShare.SourceMod.Disabled" xml:space="preserve">
     <value>Source mod(s) disabled: {0}</value>
   </data>
+  <data name="HousingShare.SourceMod.KeptActive" xml:space="preserve">
+    <value>Mod(s) kept enabled because the share does not cover all of their files: {0}</value>
+  </data>
   <data name="QuestSync.Title" xml:space="preserve">
     <value>Quest Sync</value>
   </data>

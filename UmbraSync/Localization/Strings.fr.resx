@@ -5346,6 +5346,9 @@ Note : Les armes ne s'afficheront pas correctement sauf si vous utilisez le m&#x
   <data name="HousingShare.SourceMod.Disabled" xml:space="preserve">
     <value>Mod(s) source désactivé(s) : {0}</value>
   </data>
+  <data name="HousingShare.SourceMod.KeptActive" xml:space="preserve">
+    <value>Mod(s) conservé(s) actif(s) car le partage ne couvre pas tous leurs fichiers : {0}</value>
+  </data>
   <data name="QuestSync.Title" xml:space="preserve">
     <value>Quest Sync</value>
   </data>
