@@ -564,6 +564,16 @@ public sealed class HousingShareManager : IDisposable
                 Loc.Get("HousingShare.Notification.FurnitureApplied"),
                 NotificationType.Success,
                 TimeSpan.FromSeconds(6)));
+            
+            if (modPaths.Keys.Any(p => p.StartsWith("bg/", StringComparison.OrdinalIgnoreCase)))
+            {
+                _logger.LogInformation("Le share contient du décor de zone : rechargement de la maison nécessaire côté visiteur");
+                _mediator.Publish(new NotificationMessage(
+                    Loc.Get("HousingShare.Notification.ShareTitle"),
+                    Loc.Get("HousingShare.Notification.ReloadForDecor"),
+                    NotificationType.Info,
+                    TimeSpan.FromSeconds(10)));
+            }
         }
         catch (Exception ex)
         {

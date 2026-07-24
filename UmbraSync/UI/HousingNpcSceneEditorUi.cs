@@ -235,6 +235,10 @@ public sealed class HousingNpcSceneEditorUi : WindowMediatorSubscriberBase
                 if (ImGui.Checkbox(Loc.Get("HousingNpc.Editor.FacePlayer"), ref face)) { entry.FacePlayer = face; dirty = true; }
                 UiSharedService.AttachToolTip(Loc.Get("HousingNpc.Editor.FacePlayerTip"));
 
+                var hideWeapon = entry.Appearance.HideWeapon;
+                if (ImGui.Checkbox(Loc.Get("HousingNpc.Editor.HideWeapon"), ref hideWeapon)) { entry.Appearance.HideWeapon = hideWeapon; dirty = true; }
+                UiSharedService.AttachToolTip(Loc.Get("HousingNpc.Editor.HideWeaponTip"));
+
                 if (DrawActions(current.Id, entry)) dirty = true;
 
                 ImGui.Separator();

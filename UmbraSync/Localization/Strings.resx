@@ -5400,6 +5400,9 @@ Note: Weapons will not be displayed correctly unless using the same job as the s
   <data name="HousingShare.Notification.Applied" xml:space="preserve">
     <value>Housing mods applied ({0})</value>
   </data>
+  <data name="HousingShare.Notification.ReloadForDecor" xml:space="preserve">
+    <value>This house shares wall, floor or ceiling coverings. Step outside and come back in to see them.</value>
+  </data>
   <data name="HousingShare.Notification.ReenterForEffect" xml:space="preserve">
     <value>Mods registered. Re-enter the house for them to take effect.</value>
   </data>
@@ -6356,6 +6359,12 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
   </data>
   <data name="HousingNpc.Editor.FacePlayerTip" xml:space="preserve">
     <value>The NPC's head follows your character.</value>
+  </data>
+  <data name="HousingNpc.Editor.HideWeapon" xml:space="preserve">
+    <value>Hide weapons</value>
+  </data>
+  <data name="HousingNpc.Editor.HideWeaponTip" xml:space="preserve">
+    <value>Hides the NPC's weapons, regardless of the appearance captured. Apply to take effect.</value>
   </data>
   <data name="HousingNpc.Editor.Patrol" xml:space="preserve">
     <value>Patrol - {0} point(s)</value>

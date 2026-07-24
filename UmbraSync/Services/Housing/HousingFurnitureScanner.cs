@@ -9,7 +9,9 @@ namespace UmbraSync.Services.Housing;
 
 public sealed class HousingFurnitureScanner : IMediatorSubscriber
 {
-    private static readonly string[] HousingPathPrefixes = ["bg/ffxiv/hou/", "bgcommon/hou/"];
+
+    private static readonly string[] HousingPathRoots = ["bgcommon/hou/", "bg/ffxiv/"];
+    private const string HousingZoneSegment = "/hou/";
     private static readonly string[] AllowedExtensions = [".mdl", ".tex", ".mtrl", ".sgb", ".lgb"];
     private static readonly string[] GamePathPrefixes = ["bgcommon/", "bg/", "common/", "chara/", "vfx/", "shader/"];
     private const int StabilizationDelayMs = 5000;
@@ -242,13 +244,13 @@ public sealed class HousingFurnitureScanner : IMediatorSubscriber
     
     private static string? ExtractHousingGamePath(string relativePath)
     {
-        foreach (var prefix in HousingPathPrefixes)
+        foreach (var root in HousingPathRoots)
         {
-            var index = relativePath.IndexOf(prefix, StringComparison.OrdinalIgnoreCase);
-            if (index >= 0)
-            {
-                return relativePath[index..].ToLowerInvariant();
-            }
+            var index = relativePath.IndexOf(root, StringComparison.OrdinalIgnoreCase);
+            if (index < 0) continue;
+
+            var candidate = relativePath[index..].ToLowerInvariant();
+            if (IsHousingPath(candidate)) return candidate;
         }
         return null;
     }
@@ -407,12 +409,14 @@ public sealed class HousingFurnitureScanner : IMediatorSubscriber
 
     private static bool IsHousingPath(string gamePath)
     {
-        foreach (var prefix in HousingPathPrefixes)
-        {
-            if (gamePath.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-                return true;
-        }
-        return false;
+        // Mobilier et assets communs de housing.
+        if (gamePath.StartsWith("bgcommon/hou/", StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        // Décor de la parcelle et de l'intérieur : bg/ffxiv/<zone>/hou/<code>/… Le segment /hou/
+        // est exigé pour ne pas ouvrir la porte au reste du background (villes, donjons…).
+        return gamePath.StartsWith("bg/ffxiv/", StringComparison.OrdinalIgnoreCase)
+            && gamePath.Contains(HousingZoneSegment, StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool HasValidExtension(string gamePath)

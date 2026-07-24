@@ -5310,6 +5310,9 @@ Note : Les armes ne s'afficheront pas correctement sauf si vous utilisez le m&#x
   <data name="HousingShare.Notification.Applied" xml:space="preserve">
     <value>Mods de maison appliqués ({0})</value>
   </data>
+  <data name="HousingShare.Notification.ReloadForDecor" xml:space="preserve">
+    <value>Cette maison partage des revêtements de murs, sols ou plafonds. Ressortez et rentrez pour les voir.</value>
+  </data>
   <data name="HousingShare.Notification.ReenterForEffect" xml:space="preserve">
     <value>Mods enregistrés. Re-entrez dans la maison pour les voir.</value>
   </data>
@@ -6266,6 +6269,12 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
   </data>
   <data name="HousingNpc.Editor.FacePlayerTip" xml:space="preserve">
     <value>La tête du PNJ suit votre personnage.</value>
+  </data>
+  <data name="HousingNpc.Editor.HideWeapon" xml:space="preserve">
+    <value>Masquer les armes</value>
+  </data>
+  <data name="HousingNpc.Editor.HideWeaponTip" xml:space="preserve">
+    <value>Masque les armes du PNJ, quelle que soit l'apparence capturée. Cliquez sur Appliquer pour prendre effet.</value>
   </data>
   <data name="HousingNpc.Editor.Patrol" xml:space="preserve">
     <value>Ronde - {0} point(s)</value>

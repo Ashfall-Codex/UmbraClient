@@ -36,10 +36,10 @@ public sealed class NpcLiveAppearanceService : DisposableMediatorSubscriberBase
     
     public Task<List<(Guid Id, string Name)>> GetDesignsAsync() => _ipc.Glamourer.GetDesignsAsync();
     
-    public async Task<CharacterData?> CaptureDesignOnSelfAsync(Guid designId)
+    public async Task<(CharacterData? Data, NpcAppearance? Appearance)> CaptureDesignOnSelfAsync(Guid designId)
     {
         var player = await _dalamudUtil.GetPlayerCharacterAsync().ConfigureAwait(false);
-        if (player == null) return null;
+        if (player == null) return (null, null);
         int index = player.ObjectIndex;
         var playerAddr = player.Address;
         var savedState = await _ipc.Glamourer.GetCharacterCustomizationAsync(playerAddr).ConfigureAwait(false);
@@ -63,7 +63,13 @@ public sealed class NpcLiveAppearanceService : DisposableMediatorSubscriberBase
 
             if (captured == null)
                 Logger.LogWarning("Capture depuis design : aucun recalcul détecté après {Timeout}ms, repli sur le dernier cache", maxWaitMs);
-            return captured ?? _lastSelfData;
+
+            var appearance = await _dalamudUtil.RunOnFrameworkThread(
+                () => NativeNpcSpawner.ReadAppearance(playerAddr)).ConfigureAwait(false);
+            Logger.LogDebug("Capture depuis design : casque masqué={Hat}, arme masquée={Weapon}, visière={Visor}",
+                appearance.HideHeadgear, appearance.HideWeapon, appearance.VisorToggled);
+
+            return (captured ?? _lastSelfData, appearance);
         }
         finally
         {

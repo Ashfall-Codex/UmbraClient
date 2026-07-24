@@ -98,13 +98,19 @@ public sealed unsafe class NativeNpcSpawner
         ApplyWeapon(chara, WeaponSlot.OffHand, app.OffHand);
     }
 
+    public static void ApplyDisplayFlags(nint address, NpcAppearance app)
+    {
+        if (address == nint.Zero) return;
+        ApplyDisplayFlags((BattleChara*)address, app);
+    }
+    
     private static void ApplyDisplayFlags(BattleChara* bc, NpcAppearance app)
     {
         var chara = (Character*)bc;
-        chara->DrawData.HideHeadgear(0, app.HideHeadgear);
-        chara->DrawData.HideWeapons(app.HideWeapon);
-        chara->DrawData.IsVisorToggled = app.VisorToggled;
-        chara->Timeline.IsWeaponDrawn = app.WeaponDrawn;
+        if (app.HideHeadgear) chara->DrawData.HideHeadgear(0, true);
+        if (app.HideWeapon) chara->DrawData.HideWeapons(true);
+        if (app.VisorToggled) chara->DrawData.IsVisorToggled = true;
+        if (app.WeaponDrawn) chara->Timeline.IsWeaponDrawn = true;
     }
 
     public IGameObject? Spawn(string name, Vector3 position, float rotation, NpcAppearance appearance, ushort emote = 0)

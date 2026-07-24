@@ -328,6 +328,9 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
             // laisse le PNJ en apparence brute — visible surtout en zone instanciée (appartement).
             await WaitUntilRenderedAsync(actor.Address).ConfigureAwait(false);
             live = await _liveAppearance.ApplyAsync(actor.Address, entry.LiveData, CancellationToken.None).ConfigureAwait(false);
+            
+            await _dalamudUtil.RunOnFrameworkThread(
+                () => NativeNpcSpawner.ApplyDisplayFlags(actor.Address, entry.Appearance)).ConfigureAwait(false);
         }
 
         _spawned.Add(new SpawnedNpc(actor.Address, live, shared, entry.Id));
@@ -785,12 +788,16 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
             CharacterData? liveData;
             if (glamourerDesign.HasValue)
             {
-                liveData = await _liveAppearance.CaptureDesignOnSelfAsync(glamourerDesign.Value.Id).ConfigureAwait(false);
+                var (designData, designAppearance) = await _liveAppearance.CaptureDesignOnSelfAsync(glamourerDesign.Value.Id).ConfigureAwait(false);
+                liveData = designData;
                 if (liveData == null)
                 {
                     Mediator.Publish(new NotificationMessage(Loc.Get("HousingNpc.Notif.Title"), Loc.Get("HousingNpc.Notif.DesignFailed"), NotificationType.Error));
                     return;
                 }
+                // Le design fait autorité sur les états d'affichage : sans ça, un design qui masque
+                // l'arme se voyait rendu avec l'arme du personnage au moment de la capture.
+                if (designAppearance != null) appearance = designAppearance;
             }
             else
             {
