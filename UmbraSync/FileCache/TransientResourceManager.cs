@@ -207,7 +207,15 @@ public sealed class TransientResourceManager : DisposableMediatorSubscriberBase
 
     private void DalamudUtil_FrameworkUpdate()
     {
-        _cachedFrameAddresses = _cachedFrameAddresses = new ConcurrentDictionary<nint, ObjectKind>(_playerRelatedPointers.Where(k => k.Address != nint.Zero).ToDictionary(c => c.CurrentAddress(), c => c.ObjectKind));
+
+        ConcurrentDictionary<nint, ObjectKind> frameAddresses = [];
+        foreach (GameObjectHandler handler in _playerRelatedPointers)
+        {
+            nint address = handler.CurrentAddress();
+            if (address == nint.Zero) continue;
+            frameAddresses[address] = handler.ObjectKind;
+        }
+        _cachedFrameAddresses = frameAddresses;
         lock (_cacheAdditionLock)
         {
             _cachedHandledPaths.Clear();

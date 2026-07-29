@@ -1061,18 +1061,27 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
 
                 var forbiddenOnly = toDownloadReplacements.Where(c =>
                     _downloadManager.ForbiddenTransfers.Exists(f => string.Equals(f.Hash, c.Hash, StringComparison.Ordinal))).ToList();
+                var missingOnServerOnly = toDownloadReplacements.Where(c =>
+                    !_downloadManager.ForbiddenTransfers.Exists(f => string.Equals(f.Hash, c.Hash, StringComparison.Ordinal))
+                    && _downloadManager.IsHashMissingOnServer(c.Hash)).ToList();
                 var onCooldownOnly = toDownloadReplacements.Where(c =>
                     !_downloadManager.ForbiddenTransfers.Exists(f => string.Equals(f.Hash, c.Hash, StringComparison.Ordinal))
+                    && !_downloadManager.IsHashMissingOnServer(c.Hash)
                     && _downloadManager.IsHashOnCooldown(c.Hash)).ToList();
-                var retriableNow = toDownloadReplacements.Count - forbiddenOnly.Count - onCooldownOnly.Count;
+                var retriableNow = toDownloadReplacements.Count - forbiddenOnly.Count - missingOnServerOnly.Count - onCooldownOnly.Count;
 
                 if (retriableNow == 0)
                 {
                     if (onCooldownOnly.Count > 0)
                     {
-                        Logger.LogWarning("[BASE-{appBase}] {cooldown} fichiers en cooldown et {forbidden} non accessible sur {total}. Reapply.",
-                            applicationBase, onCooldownOnly.Count, forbiddenOnly.Count, toDownloadReplacements.Count);
+                        Logger.LogWarning("[BASE-{appBase}] {cooldown} fichiers en cooldown, {missing} absents du serveur et {forbidden} non accessible sur {total}. Reapply.",
+                            applicationBase, onCooldownOnly.Count, missingOnServerOnly.Count, forbiddenOnly.Count, toDownloadReplacements.Count);
                         _pendingModReapply = true;
+                    }
+                    else if (missingOnServerOnly.Count > 0)
+                    {
+                        Logger.LogWarning("[BASE-{appBase}] {missing} fichiers absents du serveur sur {total} : application partielle sans reapply (le pair doit repousser ses données)",
+                            applicationBase, missingOnServerOnly.Count, toDownloadReplacements.Count);
                     }
                     else
                     {
@@ -1088,17 +1097,18 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
             var finalMissing = TryCalculateModdedDictionary(applicationBase, charaData, compressedUsage, out _, out moddedPaths, downloadToken);
             if (finalMissing.Count > 0)
             {
-                var nonForbiddenMissing = finalMissing.Count(c =>
-                    !_downloadManager.ForbiddenTransfers.Exists(f => string.Equals(f.Hash, c.Hash, StringComparison.Ordinal)));
-                if (nonForbiddenMissing > 0)
+                var retriableMissing = finalMissing.Count(c =>
+                    !_downloadManager.ForbiddenTransfers.Exists(f => string.Equals(f.Hash, c.Hash, StringComparison.Ordinal))
+                    && !_downloadManager.IsHashMissingOnServer(c.Hash));
+                if (retriableMissing > 0)
                 {
-                    Logger.LogWarning("[BASE-{appBase}] Applying with {missing} missing files ({nonForbidden} non-forbidden) — reapply scheduled",
-                        applicationBase, finalMissing.Count, nonForbiddenMissing);
+                    Logger.LogWarning("[BASE-{appBase}] Applying with {missing} missing files ({retriable} retriable) — reapply scheduled",
+                        applicationBase, finalMissing.Count, retriableMissing);
                     _pendingModReapply = true;
                 }
                 else
                 {
-                    Logger.LogDebug("[BASE-{appBase}] {count} missing files are all permanently forbidden", applicationBase, finalMissing.Count);
+                    Logger.LogDebug("[BASE-{appBase}] {count} missing files are all forbidden or absent server-side, no reapply", applicationBase, finalMissing.Count);
                 }
             }
 

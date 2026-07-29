@@ -20,6 +20,8 @@ public class FileTransferOrchestrator : DisposableMediatorSubscriberBase
     private int _availableDownloadSlots;
     private SemaphoreSlim _downloadSemaphore;
     private int CurrentlyUsedDownloadSlots => _availableDownloadSlots - _downloadSemaphore.CurrentCount;
+    private readonly Lock _initializationLock = new();
+    private TaskCompletionSource _initialized = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     public FileTransferOrchestrator(ILogger<FileTransferOrchestrator> logger, MareConfigService mareConfig,
         MareMediator mediator, TokenProvider tokenProvider) : base(logger, mediator)
@@ -48,11 +50,21 @@ public class FileTransferOrchestrator : DisposableMediatorSubscriberBase
         Mediator.Subscribe<ConnectedMessage>(this, (msg) =>
         {
             FilesCdnUri = msg.Connection.ServerInfo.FileServerAddress;
+            lock (_initializationLock)
+            {
+                if (FilesCdnUri != null)
+                    _initialized.TrySetResult();
+            }
         });
 
         Mediator.Subscribe<DisconnectedMessage>(this, (msg) =>
         {
             FilesCdnUri = null;
+            lock (_initializationLock)
+            {
+                if (_initialized.Task.IsCompleted)
+                    _initialized = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            }
         });
         Mediator.Subscribe<DownloadReadyMessage>(this, (msg) =>
         {
@@ -63,6 +75,32 @@ public class FileTransferOrchestrator : DisposableMediatorSubscriberBase
     public Uri? FilesCdnUri { private set; get; }
     public List<FileTransfer> ForbiddenTransfers { get; } = [];
     public bool IsInitialized => FilesCdnUri != null;
+
+    /// <summary>
+    /// Attend que le serveur ait annoncé son adresse de serveur de fichiers (ConnectedMessage).
+    /// Le hub SignalR démarre avant que ce message soit publié : sans cette attente, un push
+    /// déclenché juste après la connexion part avec des fichiers non uploadés.
+    /// </summary>
+    public async Task<bool> WaitForInitializationAsync(TimeSpan timeout, CancellationToken ct)
+    {
+        if (IsInitialized) return true;
+
+        Task initializedTask;
+        lock (_initializationLock)
+        {
+            initializedTask = _initialized.Task;
+        }
+
+        try
+        {
+            await initializedTask.WaitAsync(timeout, ct).ConfigureAwait(false);
+            return IsInitialized;
+        }
+        catch (TimeoutException)
+        {
+            return false;
+        }
+    }
 
     public void ClearDownloadRequest(Guid guid)
     {

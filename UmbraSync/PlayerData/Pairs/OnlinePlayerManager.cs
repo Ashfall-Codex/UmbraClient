@@ -104,7 +104,16 @@ public class OnlinePlayerManager : DisposableMediatorSubscriberBase
         _previouslyVisiblePlayers.Clear();
         _previouslyVisiblePlayers.AddRange(allVisibleUsers);
 
-        if (newVisibleUsers.Count == 0) return;
+        if (newVisibleUsers.Count == 0)
+        {
+            if (_usersToPushDataTo.Count > 0 && _lastUploadFailureUtc > DateTime.MinValue
+                && DateTime.UtcNow - _lastUploadFailureUtc >= UploadFailureCooldown)
+            {
+                Logger.LogDebug("Nouvelle tentative de push après échec d'upload pour {count} joueurs", _usersToPushDataTo.Count);
+                PushCharacterData(forced: true);
+            }
+            return;
+        }
 
         Logger.LogDebug("Nouveaux joueurs visibles détectés: {users}",
             string.Join(", ", newVisibleUsers.Select(k => k.AliasOrUID)));

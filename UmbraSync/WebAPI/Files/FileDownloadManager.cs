@@ -48,6 +48,8 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
     private readonly ConcurrentDictionary<string, DateTime> _cdnFailedHashes = new(StringComparer.Ordinal);
     private static readonly TimeSpan CdnFailureTtl = TimeSpan.FromSeconds(60);
     private readonly ConcurrentDictionary<string, (DateTime LastFailure, int FailCount)> _hashFailureCooldowns = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, DateTime> _serverMissingHashes = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly TimeSpan ServerMissingTtl = TimeSpan.FromMinutes(10);
     private const double BaseCooldownSeconds = 15;
     private const double MaxCooldownSeconds = 120;
     private const int MaxTrackedFailureCount = 4;
@@ -103,6 +105,7 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
     {
         _cdnFailedHashes.Clear();
         _hashFailureCooldowns.Clear();
+        _serverMissingHashes.Clear();
         ResetDirectDownloadCircuitBreaker();
     }
 
@@ -127,6 +130,42 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
     public List<DownloadFileTransfer> CurrentDownloads { get; private set; } = [];
 
     public List<FileTransfer> ForbiddenTransfers => _orchestrator.ForbiddenTransfers;
+
+    /// <summary>
+    /// Hashes que le serveur déclare absents (FileExists=false) : le pair a poussé un manifest dont
+    /// les fichiers n'ont jamais été uploadés. Inutile de retenter avant qu'il ne repousse ses données.
+    /// </summary>
+    public bool IsHashMissingOnServer(string hash)
+    {
+        if (!_serverMissingHashes.TryGetValue(hash, out var recordedAt))
+            return false;
+        if (DateTime.UtcNow - recordedAt < ServerMissingTtl)
+            return true;
+        _serverMissingHashes.TryRemove(hash, out _);
+        return false;
+    }
+
+    private void TrackHashesMissingOnServer(List<DownloadFileDto> dtos)
+    {
+        List<string>? missing = null;
+        foreach (var dto in dtos)
+        {
+            if (dto.IsForbidden || string.IsNullOrEmpty(dto.Hash)) continue;
+            if (dto.FileExists)
+            {
+                _serverMissingHashes.TryRemove(dto.Hash, out _);
+                continue;
+            }
+            if (_serverMissingHashes.TryAdd(dto.Hash, DateTime.UtcNow))
+                (missing ??= []).Add(dto.Hash);
+        }
+
+        if (missing != null)
+        {
+            Logger.LogWarning("{count} fichiers absents du serveur (jamais uploadés par le pair) : {hashes}",
+                missing.Count, string.Join(", ", missing));
+        }
+    }
 
     public bool IsHashOnCooldown(string hash)
     {
@@ -155,8 +194,10 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
 
     private void CompleteDownloadHash(string hash, bool success)
     {
-        if (!_deduplicator.Complete(hash, success))
-            return;
+        // Le résultat de Complete ne concerne que le réveil des waiters : un hash téléchargé par lot
+        // (fichiers sans direct download) n'est jamais claimé, et conditionner le cooldown à cette
+        // valeur laissait ces hashes sans backoff — d'où des reapply en boucle serrée.
+        _deduplicator.Complete(hash, success);
 
         if (success)
         {
@@ -168,6 +209,15 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
             _hashFailureCooldowns.AddOrUpdate(hash,
                 _ => (DateTime.UtcNow, 1),
                 (_, existing) => (DateTime.UtcNow, Math.Min(existing.FailCount + 1, MaxTrackedFailureCount)));
+        }
+    }
+
+    private void FailBatchHashes(IEnumerable<DownloadFileTransfer> fileGroup, ConcurrentDictionary<string, byte> pendingFallbackHashes)
+    {
+        foreach (var file in fileGroup)
+        {
+            CompleteDownloadHash(file.Hash, false);
+            pendingFallbackHashes.TryRemove(file.Hash, out _);
         }
     }
 
@@ -718,6 +768,8 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
 
         Logger.LogDebug("Files with size 0 or less: {files}", string.Join(", ", downloadFileInfoFromService.Where(f => f.Size <= 0).Select(f => f.Hash)));
 
+        TrackHashesMissingOnServer(downloadFileInfoFromService);
+
         foreach (var dto in downloadFileInfoFromService.Where(c => c.IsForbidden))
         {
             if (!_orchestrator.ForbiddenTransfers.Exists(f => string.Equals(f.Hash, dto.Hash, StringComparison.Ordinal)))
@@ -755,6 +807,8 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
         ];
 
         Logger.LogDebug("Files with size 0 or less: {files}", string.Join(", ", downloadFileInfoFromService.Where(f => f.Size <= 0).Select(f => f.Hash)));
+
+        TrackHashesMissingOnServer(downloadFileInfoFromService);
 
         foreach (var dto in downloadFileInfoFromService.Where(c => c.IsForbidden))
         {
@@ -997,46 +1051,20 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
         async (fileGroup, token) =>
         {
             var firstFile = fileGroup.First();
-            var fileCount = fileGroup.Count();
             const int maxBatchRetries = 2;
             string blockFile = string.Empty;
 
             for (int batchAttempt = 1; batchAttempt <= maxBatchRetries; batchAttempt++)
             {
-            var cdnUri = firstFile.DownloadUri;
-            var mainServerUri = _orchestrator.FilesCdnUri!;
-            var hasCdnFailedHashes = fileGroup.Any(f => HasCdnFailure(f.Hash));
-            var skipCdn = _disableCdnEnqueue || _disableDirectDownloads || hasCdnFailedHashes;
-            var effectiveBaseUri = skipCdn ? mainServerUri : cdnUri;
-
-            var requestIdResponse = await _orchestrator.SendRequestAsync(HttpMethod.Post, MareFiles.RequestEnqueueFullPath(effectiveBaseUri),
-                fileGroup.Select(c => c.Hash), token).ConfigureAwait(false);
-            var responseBody = await requestIdResponse.Content.ReadAsStringAsync(token).ConfigureAwait(false);
-            Logger.LogInformation("[{id}] Sent request for {n} files on server {uri} with result {result}", downloadId, fileCount, effectiveBaseUri, responseBody);
-
-            if (!requestIdResponse.IsSuccessStatusCode && effectiveBaseUri == cdnUri && cdnUri != mainServerUri)
+            var enqueueResult = await RequestBatchEnqueueAsync([.. fileGroup.Select(c => c.Hash)], firstFile.DownloadUri, token, downloadId).ConfigureAwait(false);
+            if (enqueueResult == null)
             {
-                var failures = Interlocked.Increment(ref _consecutiveCdnEnqueueFailures);
-                if (failures >= MaxConsecutiveCdnEnqueueFailures)
-                {
-                    _disableCdnEnqueue = true;
-                }
-
-                effectiveBaseUri = mainServerUri;
-                requestIdResponse = await _orchestrator.SendRequestAsync(HttpMethod.Post, MareFiles.RequestEnqueueFullPath(effectiveBaseUri),
-                    fileGroup.Select(c => c.Hash), token).ConfigureAwait(false);
-                responseBody = await requestIdResponse.Content.ReadAsStringAsync(token).ConfigureAwait(false);
+                FailBatchHashes(fileGroup, pendingFallbackHashes);
+                return;
             }
 
-            if (!requestIdResponse.IsSuccessStatusCode) return;
-
-            if (effectiveBaseUri == cdnUri && _consecutiveCdnEnqueueFailures > 0)
-            {
-                Interlocked.Exchange(ref _consecutiveCdnEnqueueFailures, 0);
-                _disableCdnEnqueue = false;
-            }
-
-            if (!Guid.TryParse(responseBody.Trim('"'), out Guid requestId)) return;
+            var requestId = enqueueResult.RequestId;
+            var effectiveBaseUri = enqueueResult.BaseUri;
 
             blockFile = _fileDbManager.GetCacheFilePath(requestId.ToString("N"), "blk");
             bool slotHeld = false;
@@ -1470,71 +1498,23 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
         async (fileGroup, token) =>
         {
             var firstFile = fileGroup.First();
-            var fileCount = fileGroup.Count();
             const int maxBatchRetries = 2;
             string blockFile = string.Empty;
             FileInfo? fi = null;
 
             for (int batchAttempt = 1; batchAttempt <= maxBatchRetries; batchAttempt++)
             {
-            // Determine effective base URI: skip CDN if circuit breaker active or hashes have CDN failures
-            var cdnUri = firstFile.DownloadUri;
-            var mainServerUri = _orchestrator.FilesCdnUri!;
-            var hasCdnFailedHashes = fileGroup.Any(f => HasCdnFailure(f.Hash));
-            var skipCdn = _disableCdnEnqueue || _disableDirectDownloads || hasCdnFailedHashes;
-            var effectiveBaseUri = skipCdn ? mainServerUri : cdnUri;
-
-            if (skipCdn)
+            var enqueueResult = await RequestBatchEnqueueAsync([.. fileGroup.Select(c => c.Hash)], firstFile.DownloadUri, token).ConfigureAwait(false);
+            if (enqueueResult == null)
             {
-                Logger.LogInformation("Routing batch to main server (enqueue={enqueueDisabled}, direct={directDisabled}, cdnFailed={cdnFailed}) for {count} files",
-                    _disableCdnEnqueue, _disableDirectDownloads, hasCdnFailedHashes, fileCount);
-            }
-
-            // let server predownload files
-            var requestIdResponse = await _orchestrator.SendRequestAsync(HttpMethod.Post, MareFiles.RequestEnqueueFullPath(effectiveBaseUri),
-                fileGroup.Select(c => c.Hash), token).ConfigureAwait(false);
-            var responseBody = await requestIdResponse.Content.ReadAsStringAsync(token).ConfigureAwait(false);
-            Logger.LogInformation("Sent request for {n} files on server {uri} with result {result}", fileCount, effectiveBaseUri,
-                responseBody);
-
-            // If CDN enqueue failed, try fallback to main server
-            if (!requestIdResponse.IsSuccessStatusCode && effectiveBaseUri == cdnUri && cdnUri != mainServerUri)
-            {
-                Logger.LogWarning("CDN enqueue failed with status {status}, trying main server fallback", requestIdResponse.StatusCode);
-                var failures = Interlocked.Increment(ref _consecutiveCdnEnqueueFailures);
-                if (failures >= MaxConsecutiveCdnEnqueueFailures)
-                {
-                    _disableCdnEnqueue = true;
-                    Logger.LogWarning("CDN enqueue disabled after {count} consecutive failures", failures);
-                }
-
-                effectiveBaseUri = mainServerUri;
-                requestIdResponse = await _orchestrator.SendRequestAsync(HttpMethod.Post, MareFiles.RequestEnqueueFullPath(effectiveBaseUri),
-                    fileGroup.Select(c => c.Hash), token).ConfigureAwait(false);
-                responseBody = await requestIdResponse.Content.ReadAsStringAsync(token).ConfigureAwait(false);
-                Logger.LogInformation("Main server fallback for {n} files: {result}", fileCount, responseBody);
-            }
-
-            if (!requestIdResponse.IsSuccessStatusCode)
-            {
-                Logger.LogError("Enqueue request failed with status {status}: {body}", requestIdResponse.StatusCode, responseBody);
+                // Sans ça les hashes restent claimés côté déduplicateur (30 min) et aucun cooldown
+                // n'est posé : le PairHandler reapply en boucle serrée sans jamais progresser.
+                FailBatchHashes(fileGroup, pendingFallbackHashes);
                 return;
             }
 
-            // CDN enqueue succeeded - reset counter if it was the CDN
-            if (effectiveBaseUri == cdnUri && _consecutiveCdnEnqueueFailures > 0)
-            {
-                Interlocked.Exchange(ref _consecutiveCdnEnqueueFailures, 0);
-                _disableCdnEnqueue = false;
-            }
-
-            if (!Guid.TryParse(responseBody.Trim('"'), out Guid requestId))
-            {
-                Logger.LogError("Enqueue request returned invalid GUID: {body}", responseBody);
-                return;
-            }
-
-            Logger.LogDebug("GUID {requestId} for {n} files on server {uri}", requestId, fileCount, effectiveBaseUri);
+            var requestId = enqueueResult.RequestId;
+            var effectiveBaseUri = enqueueResult.BaseUri;
 
             blockFile = _fileDbManager.GetCacheFilePath(requestId.ToString("N"), "blk");
             fi = new FileInfo(blockFile);
@@ -1770,6 +1750,85 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
             {
                 CompleteDownloadHash(hash, false);
             }
+        }
+    }
+
+    private sealed record BatchEnqueueResult(Guid RequestId, Uri BaseUri);
+
+    /// <summary>
+    /// Demande au serveur de préparer un lot de fichiers, avec bascule sur le serveur principal si le
+    /// CDN répond en erreur <b>ou</b> s'il est injoignable (DNS, timeout, TLS) : SendRequestAsync lève
+    /// dans ce cas, et le fallback conditionné au seul code HTTP n'était alors jamais atteint.
+    /// </summary>
+    private async Task<BatchEnqueueResult?> RequestBatchEnqueueAsync(List<string> hashes, Uri cdnUri, CancellationToken token, string? downloadId = null)
+    {
+        var mainServerUri = _orchestrator.FilesCdnUri!;
+        var hasCdnFailedHashes = hashes.Exists(HasCdnFailure);
+        var skipCdn = _disableCdnEnqueue || _disableDirectDownloads || hasCdnFailedHashes;
+        var effectiveBaseUri = skipCdn ? mainServerUri : cdnUri;
+        var logPrefix = string.IsNullOrEmpty(downloadId) ? string.Empty : "[" + downloadId + "] ";
+
+        if (skipCdn)
+        {
+            Logger.LogInformation("{prefix}Routing batch to main server (enqueue={enqueueDisabled}, direct={directDisabled}, cdnFailed={cdnFailed}) for {count} files",
+                logPrefix, _disableCdnEnqueue, _disableDirectDownloads, hasCdnFailedHashes, hashes.Count);
+        }
+
+        var (success, responseBody) = await TryEnqueueAsync(effectiveBaseUri, hashes, logPrefix, token).ConfigureAwait(false);
+
+        if (!success && effectiveBaseUri == cdnUri && cdnUri != mainServerUri)
+        {
+            var failures = Interlocked.Increment(ref _consecutiveCdnEnqueueFailures);
+            if (failures >= MaxConsecutiveCdnEnqueueFailures)
+            {
+                _disableCdnEnqueue = true;
+                Logger.LogWarning("CDN enqueue disabled after {count} consecutive failures", failures);
+            }
+
+            Logger.LogWarning("{prefix}CDN enqueue failed, trying main server fallback", logPrefix);
+            effectiveBaseUri = mainServerUri;
+            (success, responseBody) = await TryEnqueueAsync(effectiveBaseUri, hashes, logPrefix, token).ConfigureAwait(false);
+        }
+
+        if (!success)
+        {
+            Logger.LogError("{prefix}Enqueue request failed: {body}", logPrefix, responseBody);
+            return null;
+        }
+
+        if (effectiveBaseUri == cdnUri && _consecutiveCdnEnqueueFailures > 0)
+        {
+            Interlocked.Exchange(ref _consecutiveCdnEnqueueFailures, 0);
+            _disableCdnEnqueue = false;
+        }
+
+        if (!Guid.TryParse(responseBody.Trim('"'), out Guid requestId))
+        {
+            Logger.LogError("{prefix}Enqueue request returned invalid GUID: {body}", logPrefix, responseBody);
+            return null;
+        }
+
+        Logger.LogDebug("{prefix}GUID {requestId} for {n} files on server {uri}", logPrefix, requestId, hashes.Count, effectiveBaseUri);
+        return new BatchEnqueueResult(requestId, effectiveBaseUri);
+    }
+
+    private async Task<(bool Success, string Body)> TryEnqueueAsync(Uri baseUri, List<string> hashes, string logPrefix, CancellationToken token)
+    {
+        try
+        {
+            using var response = await _orchestrator.SendRequestAsync(HttpMethod.Post, MareFiles.RequestEnqueueFullPath(baseUri), hashes, token).ConfigureAwait(false);
+            var body = await response.Content.ReadAsStringAsync(token).ConfigureAwait(false);
+            Logger.LogInformation("{prefix}Sent request for {n} files on server {uri} with result {result}", logPrefix, hashes.Count, baseUri, body);
+            return (response.IsSuccessStatusCode, body);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "{prefix}Enqueue request to {uri} failed", logPrefix, baseUri);
+            return (false, ex.Message);
         }
     }
 
