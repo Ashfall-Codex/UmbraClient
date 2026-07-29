@@ -1048,7 +1048,7 @@ Veuillez conserver une copie de votre clé secrète au cas où vous auriez besoi
     <value>SyncSlot</value>
   </data>
   <data name="SlotPopup.WelcomeTo" xml:space="preserve">
-    <value>Bienvenue à {0} !</value>
+    <value>{0} vous accueille !</value>
   </data>
   <data name="SlotPopup.SyncshellFound" xml:space="preserve">
     <value>Une Syncshell est associée à ce lieu : {0}</value>
@@ -1096,7 +1096,7 @@ Veuillez conserver une copie de votre clé secrète au cas où vous auriez besoi
     <value>Vous avez refusé de rejoindre la Syncshell pour {0}. Vous ne serez plus sollicité pour ce lieu durant cette session.</value>
   </data>
   <data name="Slot.Toast.Welcome" xml:space="preserve">
-    <value>Bienvenue chez {0}</value>
+    <value>{0} vous accueille</value>
   </data>
   <data name="Slot.Toast.Leaving" xml:space="preserve">
     <value>Vous quittez {0}</value>
@@ -1111,7 +1111,7 @@ Veuillez conserver une copie de votre clé secrète au cas où vous auriez besoi
     <value>Impossible de rejoindre la Syncshell de {0}. Veuillez réessayer.</value>
   </data>
   <data name="Slot.Toast.BackInRange" xml:space="preserve">
-    <value>Vous êtes de retour dans la zone de {0}. Le décompte de sortie automatique a été annulé.</value>
+    <value>{0} : vous êtes de retour dans la zone. Le décompte de sortie automatique a été annulé.</value>
   </data>
   <data name="Slot.Toast.AutoLeft" xml:space="preserve">
     <value>Vous avez quitté la Syncshell {0} après 5 minutes d'inactivité dans la zone.</value>
