@@ -149,7 +149,13 @@ public class SlotService : MediatorSubscriberBase, IDisposable
         // au lieu d'une liste hardcodée de territoryId qui peut devenir obsolète
         if (wardId == 0)
         {
-            Logger.LogTrace("Slot: wardId=0, pas en zone résidentielle (territory={territory})", territoryId);
+            if (!HasSlotState) return;
+            if (!_apiController.IsConnected) return;
+
+            Logger.LogTrace("Slot: sortie de zone résidentielle (territory={territory})", territoryId);
+            _currentPlot = null;
+            _lastQueryPosition = Vector3.Zero;
+            HandleSlotOutOfRange("hors zone résidentielle");
             return;
         }
         var dx = position.X - _lastQueryPosition.X;
@@ -251,37 +257,51 @@ public class SlotService : MediatorSubscriberBase, IDisposable
                 {
                     return;
                 }
-                
-                _consecutiveSlotMisses++;
-                if (_consecutiveSlotMisses < SlotMissThreshold)
-                {
-                    Logger.LogDebug("Slot miss {count}/{threshold}, debounce en cours", _consecutiveSlotMisses, SlotMissThreshold);
-                    return;
-                }
 
-                // Si on était dans un slot via le système de Slot, on lance le timer de 5 minutes si on s'éloigne
-                if (_joinedViaSlot && _currentSlotSyncshell != null && _leaveTimerCts == null)
-                {
-                    StartLeaveTimer();
-                }
-                _slotReferenceY = null;
-
-                if (_detectedSlotByDistance != null && _lastNotifiedSlot?.SlotId == _detectedSlotByDistance.SlotId)
-                {
-                    var isMember = _pairManager.Groups.Any(g => _detectedSlotByDistance.AssociatedSyncshell != null && string.Equals(g.Key.GID, _detectedSlotByDistance.AssociatedSyncshell.Gid, StringComparison.Ordinal));
-                    if (isMember && !_joinedViaSlot)
-                    {
-                        Mediator.Publish(new NotificationMessage(Loc.Get("SlotPopup.Title"), string.Format(Loc.Get("Slot.Toast.Leaving"), _detectedSlotByDistance.SlotName), MareConfiguration.Models.NotificationType.Info));
-                    }
-                    _lastNotifiedSlot = null;
-                }
-                _detectedSlotByDistance = null;
+                HandleSlotOutOfRange("aucun slot à proximité");
             }
         }
         catch (Exception ex)
         {
             Logger.LogWarning(ex, "Error in OnHousingPositionUpdate");
         }
+    }
+    
+    private bool HasSlotState => _joinedViaSlot || _detectedSlotByDistance != null
+        || _slotReferenceY != null || _consecutiveSlotMisses > 0;
+    private void HandleSlotOutOfRange(string reason)
+    {
+        _consecutiveSlotMisses++;
+        if (_consecutiveSlotMisses < SlotMissThreshold)
+        {
+            Logger.LogDebug("Slot miss {count}/{threshold} ({reason}), debounce en cours", _consecutiveSlotMisses, SlotMissThreshold, reason);
+            return;
+        }
+
+        // Si on était dans un slot via le système de Slot, on lance le timer de 5 minutes si on s'éloigne
+        if (_joinedViaSlot && _currentSlotSyncshell != null && _leaveTimerCts == null)
+        {
+            Logger.LogInformation("Slot hors portée ({reason}), démarrage du timer de sortie", reason);
+            StartLeaveTimer();
+        }
+        _slotReferenceY = null;
+
+        if (_detectedSlotByDistance != null && _lastNotifiedSlot?.SlotId == _detectedSlotByDistance.SlotId)
+        {
+            var isMember = _pairManager.Groups.Any(g => _detectedSlotByDistance.AssociatedSyncshell != null && string.Equals(g.Key.GID, _detectedSlotByDistance.AssociatedSyncshell.Gid, StringComparison.Ordinal));
+            if (isMember && !_joinedViaSlot)
+            {
+                Mediator.Publish(new NotificationMessage(Loc.Get("SlotPopup.Title"), string.Format(Loc.Get("Slot.Toast.Leaving"), _detectedSlotByDistance.SlotName), MareConfiguration.Models.NotificationType.Info));
+            }
+            _lastNotifiedSlot = null;
+        }
+        _detectedSlotByDistance = null;
+    }
+    
+    public void NotifySlotZoneLeft()
+    {
+        if (!HasSlotState) return;
+        HandleSlotOutOfRange("zone d'établissement quittée");
     }
 
     private async Task ClearState()

@@ -50,6 +50,7 @@ public class EstablishmentSyncSlotService : MediatorSubscriberBase, IDisposable
         {
             Logger.LogInformation("Left establishment {id}", _currentEstablishmentId.Value);
             _currentEstablishmentId = null;
+            _slotService.NotifySlotZoneLeft();
         }
     }
 
