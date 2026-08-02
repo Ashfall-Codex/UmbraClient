@@ -65,6 +65,14 @@ public sealed class HousingNpcScenario
     public uint HouseId { get; set; }
     public uint DivisionId { get; set; }
     public uint RoomId { get; set; }
+
+    /// <summary>
+    /// Territory de l'intérieur où la scène a été créée : il encode le plan (S/M/L, appartement, chambre)
+    /// alors que <see cref="TerritoryId"/> ne porte que le quartier. Sert à valider une réattribution
+    /// vers un autre logement. 0 = inconnu (scènes antérieures à ce champ).
+    /// </summary>
+    public uint InteriorTerritoryId { get; set; }
+
     public List<HousingNpcEntry> Entries { get; set; } = new();
 }
 
@@ -96,12 +104,66 @@ public sealed class HousingNpcScenarioStore
         lock (_lock) return _scenes.Where(s => Matches(s, loc)).ToList();
     }
 
+    /// <summary>Toutes les scènes, y compris celles d'un autre logement (invisibles via <see cref="ScenesForLocation"/>).</summary>
+    public List<HousingNpcScenario> AllScenes()
+    {
+        lock (_lock) return _scenes.ToList();
+    }
+
+    /// <summary>Scènes qui ne correspondent pas au logement courant : candidates à une réattribution.</summary>
+    public List<HousingNpcScenario> ScenesNotAtLocation(LocationInfo loc)
+    {
+        lock (_lock) return _scenes.Where(s => !Matches(s, loc)).ToList();
+    }
+
+    /// <summary>
+    /// Ré-attribue une scène à un autre logement : seules les 6 clés de localisation changent,
+    /// les PNJ et leurs coordonnées (locales au plan intérieur) sont conservés tels quels.
+    /// </summary>
+    public bool ReassignScene(string sceneId, LocationInfo loc, uint interiorTerritoryId)
+    {
+        lock (_lock)
+        {
+            var scene = _scenes.FirstOrDefault(s => string.Equals(s.Id, sceneId, StringComparison.Ordinal));
+            if (scene == null) return false;
+
+            scene.ServerId = loc.ServerId;
+            scene.TerritoryId = loc.TerritoryId;
+            scene.WardId = loc.WardId;
+            scene.HouseId = loc.HouseId;
+            scene.DivisionId = loc.DivisionId;
+            scene.RoomId = loc.RoomId;
+            if (interiorTerritoryId != 0) scene.InteriorTerritoryId = interiorTerritoryId;
+            Save();
+            return true;
+        }
+    }
+
+    /// <summary>
+    /// Renseigne le plan intérieur des scènes du logement courant qui ne le connaissent pas encore
+    /// (créées avant l'introduction du champ). Répare le parc existant au fil des visites.
+    /// </summary>
+    public void StampInteriorTerritory(LocationInfo loc, uint interiorTerritoryId)
+    {
+        if (interiorTerritoryId == 0) return;
+        lock (_lock)
+        {
+            bool changed = false;
+            foreach (var scene in _scenes.Where(s => Matches(s, loc) && s.InteriorTerritoryId == 0))
+            {
+                scene.InteriorTerritoryId = interiorTerritoryId;
+                changed = true;
+            }
+            if (changed) Save();
+        }
+    }
+
     public HousingNpcScenario? GetScene(string sceneId)
     {
         lock (_lock) return _scenes.FirstOrDefault(s => string.Equals(s.Id, sceneId, StringComparison.Ordinal));
     }
 
-    public HousingNpcScenario CreateScene(LocationInfo loc, string title)
+    public HousingNpcScenario CreateScene(LocationInfo loc, string title, uint interiorTerritoryId = 0)
     {
         lock (_lock)
         {
@@ -114,6 +176,7 @@ public sealed class HousingNpcScenarioStore
                 HouseId = loc.HouseId,
                 DivisionId = loc.DivisionId,
                 RoomId = loc.RoomId,
+                InteriorTerritoryId = interiorTerritoryId,
             };
             _scenes.Add(scene);
             Save();

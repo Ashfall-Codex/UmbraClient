@@ -22,6 +22,8 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
     private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly List<SpawnedNpc> _spawned = new();
     private LocationInfo? _currentLocation;
+    private uint _currentInteriorTerritoryId;
+    private readonly HashSet<string> _reassignHintShown = new(StringComparer.Ordinal);
     private int _nameSeq;
 
     private readonly Dictionary<nint, ActionRuntime> _runtimes = new();
@@ -100,6 +102,9 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
     public LocationInfo? CurrentLocation => _currentLocation;
 
+    /// <summary>Plan intérieur du logement courant (0 si inconnu / hors housing).</summary>
+    public uint CurrentInteriorTerritoryId => _currentInteriorTerritoryId;
+
     public string SelectedEntryId { get; set; } = string.Empty;
     public nint TryGetSpawnedAddress(string entryId)
         => _spawned.Find(s => string.Equals(s.EntryId, entryId, StringComparison.Ordinal))?.Address ?? nint.Zero;
@@ -127,13 +132,50 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
     public List<HousingNpcScenario> ScenesForCurrentRoom()
         => _currentLocation is { } loc ? _store.ScenesForLocation(loc) : new();
 
+    /// <summary>
+    /// Scènes rattachées à un autre logement. Un déménagement ne détruit rien : les scènes restent
+    /// dans le fichier, seule la clé de localisation ne correspond plus. Elles sont récupérables via
+    /// <see cref="ReassignSceneToCurrentAsync"/>.
+    /// </summary>
+    public List<HousingNpcScenario> OrphanScenes()
+        => _currentLocation is { } loc ? _store.ScenesNotAtLocation(loc) : _store.AllScenes();
+
+    /// <summary>
+    /// true si la scène a été créée dans un intérieur de même plan que le logement courant : les
+    /// coordonnées des PNJ y restent valides. false si le plan diffère, null si l'origine est inconnue.
+    /// </summary>
+    public bool? IsLayoutCompatible(HousingNpcScenario scene)
+    {
+        if (scene.InteriorTerritoryId == 0 || _currentInteriorTerritoryId == 0) return null;
+        return scene.InteriorTerritoryId == _currentInteriorTerritoryId;
+    }
+
+    /// <summary>Ré-attribue une scène au logement courant (déménagement).</summary>
+    public async Task<bool> ReassignSceneToCurrentAsync(string sceneId)
+    {
+        if (_currentLocation is not { } loc)
+        {
+            Mediator.Publish(new NotificationMessage(Loc.Get("HousingNpc.Notif.Title"), Loc.Get("HousingNpc.Notif.NeedHousing"), NotificationType.Error));
+            return false;
+        }
+
+        if (!_store.ReassignScene(sceneId, loc, _currentInteriorTerritoryId)) return false;
+
+        Logger.LogInformation("Scène {SceneId} ré-attribuée au logement courant {Server}:{Territory}:{Ward}:{House}:{Division}:{Room}",
+            sceneId, loc.ServerId, loc.TerritoryId, loc.WardId, loc.HouseId, loc.DivisionId, loc.RoomId);
+
+        await RefreshAsync().ConfigureAwait(false);
+        Mediator.Publish(new NotificationMessage(Loc.Get("HousingNpc.Notif.Title"), Loc.Get("HousingNpc.Notif.SceneReassigned"), NotificationType.Info));
+        return true;
+    }
+
     public Task RefreshAsync()
         => _currentLocation is { } loc ? OnEnteredAsync(loc) : Task.CompletedTask;
 
     public async Task<string?> CreateSceneAsync(string title)
     {
         if (_currentLocation is not { } loc) return null;
-        var scene = _store.CreateScene(loc, title);
+        var scene = _store.CreateScene(loc, title, _currentInteriorTerritoryId);
         await RefreshAsync().ConfigureAwait(false);
         return scene.Id;
     }
@@ -235,6 +277,18 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
     private async Task OnEnteredAsync(LocationInfo loc)
     {
         _currentLocation = loc;
+        try
+        {
+            _currentInteriorTerritoryId = await _dalamudUtil.GetInteriorTerritoryIdAsync().ConfigureAwait(false);
+            _store.StampInteriorTerritory(loc, _currentInteriorTerritoryId);
+        }
+        catch (Exception ex)
+        {
+            _currentInteriorTerritoryId = 0;
+            Logger.LogWarning(ex, "Lecture du plan intérieur échouée");
+        }
+
+        bool nothingHere = false;
         await _gate.WaitAsync().ConfigureAwait(false);
         try
         {
@@ -242,7 +296,11 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
 
             var scenes = _store.ScenesForLocation(loc).Where(s => s.Enabled).ToList();
             int total = scenes.Sum(s => s.Entries.Count);
-            if (total == 0) return;
+            if (total == 0)
+            {
+                nothingHere = true;
+                return;
+            }
 
             Logger.LogInformation("Scènes PNJ : {SceneCount} scène(s) activée(s), {NpcCount} PNJ pour la room {Server}:{Territory}:{Ward}:{House}:{Division}:{Room}",
                 scenes.Count, total, loc.ServerId, loc.TerritoryId, loc.WardId, loc.HouseId, loc.DivisionId, loc.RoomId);
@@ -259,14 +317,51 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
         {
             _gate.Release();
         }
+
+        // Hors du verrou : purement informatif, et l'aller-retour framework n'a pas à le retenir.
+        if (nothingHere) await SuggestReassignAsync(loc).ConfigureAwait(false);
     }
 
     private async Task OnLeftAsync()
     {
         _currentLocation = null;
+        _currentInteriorTerritoryId = 0;
         await _gate.WaitAsync().ConfigureAwait(false);
         try { await DespawnAllInternalAsync().ConfigureAwait(false); }
         finally { _gate.Release(); }
+    }
+
+    /// <summary>
+    /// Chez soi, sans aucune scène pour ce logement mais avec des scènes rattachées ailleurs : signale
+    /// une fois (par logement et par session) qu'elles sont récupérables, sinon l'utilisateur les croit perdues.
+    /// </summary>
+    private async Task SuggestReassignAsync(LocationInfo loc)
+    {
+        try
+        {
+            string key = $"{loc.ServerId}:{loc.TerritoryId}:{loc.WardId}:{loc.HouseId}:{loc.DivisionId}:{loc.RoomId}";
+            if (!_reassignHintShown.Add(key)) return;
+
+            var orphans = _store.ScenesNotAtLocation(loc).Where(s => s.Entries.Count > 0).ToList();
+            if (orphans.Count == 0) return;
+
+            // Ne rien suggérer chez les autres : la réattribution n'a de sens que dans son propre logement.
+            if (!await _dalamudUtil.RunOnFrameworkThread(() => _dalamudUtil.OwnsCurrentHouse()).ConfigureAwait(false)) return;
+
+            // Un plan différent invaliderait les coordonnées : on ne pousse la suggestion que si
+            // au moins une scène est géométriquement compatible, ou d'origine inconnue.
+            if (_currentInteriorTerritoryId != 0
+                && orphans.All(s => s.InteriorTerritoryId != 0 && s.InteriorTerritoryId != _currentInteriorTerritoryId))
+                return;
+
+            Mediator.Publish(new NotificationMessage(Loc.Get("HousingNpc.Notif.Title"),
+                string.Format(Loc.Get("HousingNpc.Notif.OrphanScenes"), orphans.Count), NotificationType.Info,
+                TimeSpan.FromSeconds(12)));
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Suggestion de réattribution échouée");
+        }
     }
 
     
@@ -654,7 +749,7 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
 
             var parsed = ArrScenarioImporter.Parse(path);
             var title = string.IsNullOrWhiteSpace(parsed.Title) ? Path.GetFileNameWithoutExtension(path) : parsed.Title;
-            var scene = _store.CreateScene(loc, title);
+            var scene = _store.CreateScene(loc, title, _currentInteriorTerritoryId);
 
             foreach (var npc in parsed.Npcs)
             {
@@ -742,7 +837,8 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
             Mediator.Publish(new NotificationMessage(Loc.Get("HousingNpc.Notif.Title"), Loc.Get("HousingNpc.Notif.NeedHousing"), NotificationType.Error));
             return;
         }
-        var sceneId = _store.ScenesForLocation(loc).FirstOrDefault()?.Id ?? _store.CreateScene(loc, "Scène").Id;
+        var sceneId = _store.ScenesForLocation(loc).FirstOrDefault()?.Id
+            ?? _store.CreateScene(loc, "Scène", _currentInteriorTerritoryId).Id;
         await AddFromSelfAsync(sceneId, string.Empty).ConfigureAwait(false);
     }
 

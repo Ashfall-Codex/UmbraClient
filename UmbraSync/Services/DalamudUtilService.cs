@@ -496,6 +496,27 @@ public class DalamudUtilService : IHostedService, IMediatorSubscriber
         };
     }
 
+    /// <summary>
+    /// Territory réel de l'intérieur courant (celui qui encode le plan S/M/L, l'appartement, la chambre),
+    /// avant l'écrasement par <see cref="HousingManager.GetOriginalHouseTerritoryTypeId"/> que fait
+    /// <see cref="GetMapData"/>. Renvoie 0 si on n'est pas dans un intérieur.
+    /// Sert de garde-fou à la réattribution d'une scène PNJ : deux intérieurs de même territory
+    /// partagent la même géométrie, donc les coordonnées locales restent valides.
+    /// </summary>
+    public unsafe uint GetInteriorTerritoryId()
+    {
+        EnsureIsOnFramework();
+        var houseMan = HousingManager.Instance();
+        if (houseMan == null || !houseMan->IsInside()) return 0;
+        var agentMap = AgentMap.Instance();
+        return agentMap == null ? 0 : agentMap->CurrentTerritoryId;
+    }
+
+    public async Task<uint> GetInteriorTerritoryIdAsync()
+    {
+        return await RunOnFrameworkThread(GetInteriorTerritoryId).ConfigureAwait(false);
+    }
+
     public unsafe void SetMarkerAndOpenMap(Vector3 position, Map map)
     {
         EnsureIsOnFramework();

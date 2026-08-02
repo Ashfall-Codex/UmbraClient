@@ -6480,6 +6480,54 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
   <data name="HousingScenario.Success.Published" xml:space="preserve">
     <value>Scène publiée.</value>
   </data>
+  <data name="HousingScenario.Success.Republished" xml:space="preserve">
+    <value>Partage republié sur le logement courant.</value>
+  </data>
+  <data name="HousingScenario.Error.OldShareNotDeleted" xml:space="preserve">
+    <value>Le partage a bien été republié ici, mais l'ancien n'a pas pu être supprimé. Supprimez-le manuellement.</value>
+  </data>
+  <data name="HousingScenario.RepublishHere" xml:space="preserve">
+    <value>Republier ici</value>
+  </data>
+  <data name="HousingScenario.RepublishHereTip" xml:space="preserve">
+    <value>Déplace ce partage vers le logement où vous vous trouvez : le contenu est republié à la nouvelle adresse, puis l'ancien partage est supprimé. Maintenez CTRL pour confirmer.</value>
+  </data>
+  <data name="HousingScenario.OrphanShareTip" xml:space="preserve">
+    <value>Ce partage pointe vers un logement qui ne figure pas parmi ceux que vous possédez. Si vous avez déménagé, republiez-le depuis votre nouveau logement : sinon il continuera de s'appliquer chez le futur propriétaire de cette parcelle.</value>
+  </data>
+  <data name="HousingNpc.Notif.SceneReassigned" xml:space="preserve">
+    <value>Scène ré-attribuée à ce logement.</value>
+  </data>
+  <data name="HousingNpc.Notif.OrphanScenes" xml:space="preserve">
+    <value>{0} scène(s) rattachée(s) à un autre logement. Ouvrez l'éditeur de scènes pour les déplacer ici.</value>
+  </data>
+  <data name="HousingNpc.Editor.OrphanHeader" xml:space="preserve">
+    <value>Scènes d'autres logements ({0})</value>
+  </data>
+  <data name="HousingNpc.Editor.OrphanHelp" xml:space="preserve">
+    <value>Ces scènes ont été créées dans un autre logement. Rien n'est perdu après un déménagement : déplacez-les ici pour les réutiliser. Les positions des PNJ sont conservées telles quelles, elles ne restent valables que si le plan intérieur est identique.</value>
+  </data>
+  <data name="HousingNpc.Editor.OrphanMoveHere" xml:space="preserve">
+    <value>Déplacer ici</value>
+  </data>
+  <data name="HousingNpc.Editor.OrphanOrigin" xml:space="preserve">
+    <value>— origine : S{0} P{1} M{2} Ch{3}</value>
+  </data>
+  <data name="HousingNpc.Editor.OrphanMoveTipSameLayout" xml:space="preserve">
+    <value>Même plan intérieur que ce logement : les positions des PNJ restent exactes.</value>
+  </data>
+  <data name="HousingNpc.Editor.OrphanMoveTipOtherLayout" xml:space="preserve">
+    <value>Plan intérieur différent : les PNJ risquent de se retrouver hors des murs ou sous le sol, et devront être repositionnés. Maintenez CTRL pour confirmer.</value>
+  </data>
+  <data name="HousingNpc.Editor.OrphanMoveTipUnknownLayout" xml:space="preserve">
+    <value>Plan d'origine inconnu (scène créée avant le suivi du plan) : impossible de garantir que les positions resteront valables. Maintenez CTRL pour confirmer.</value>
+  </data>
+  <data name="HousingNpc.Editor.OrphanLayoutWarn" xml:space="preserve">
+    <value>plan différent</value>
+  </data>
+  <data name="HousingNpc.Editor.OrphanLayoutUnknown" xml:space="preserve">
+    <value>plan inconnu</value>
+  </data>
   <data name="HousingNpc.Editor.ActVisibility" xml:space="preserve">
     <value>Visibilité</value>
   </data>

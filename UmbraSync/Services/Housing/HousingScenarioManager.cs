@@ -69,73 +69,116 @@ public sealed class HousingScenarioManager : IDisposable
     public Task PublishAsync(LocationInfo location, HousingNpcScenario scene, string description,
         List<string> allowedIndividuals, List<string> allowedSyncshells)
     {
+        return RunOperation(() => PublishInternalAsync(location, scene, description, allowedIndividuals, allowedSyncshells));
+    }
+
+    private async Task PublishInternalAsync(LocationInfo location, HousingNpcScenario scene, string description,
+        List<string> allowedIndividuals, List<string> allowedSyncshells)
+    {
+        if (scene.Entries.Count == 0)
+        {
+            LastError = Localization.Loc.Get("HousingScenario.Error.EmptyScene");
+            _logger.LogWarning("Publish refusé : scène vide");
+            return;
+        }
+
+
+        var modHashes = CollectModHashes(scene);
+        if (modHashes.Count > 0)
+        {
+            _logger.LogInformation("Publication : upload de {Count} fichier(s) de mod PNJ", modHashes.Count);
+            var uploadProgress = new Progress<string>(status => _logger.LogDebug("Upload mods PNJ : {Status}", status));
+            var missingLocally = await _fileUploadManager.UploadFiles(modHashes.ToList(), uploadProgress).ConfigureAwait(false);
+            if (missingLocally.Count > 0)
+                _logger.LogWarning("{Count} fichier(s) de mod introuvable(s) localement à l'upload", missingLocally.Count);
+        }
+
+        string sceneJson = SerializeSceneForShare(scene);
+
+        var plaintextDto = new HousingScenarioPlaintextV2
+        {
+            SceneJson = sceneJson,
+            SceneFormatVersion = 1,
+        };
+
+        byte[] mapBytes = MessagePackSerializer.Serialize(plaintextDto);
+        byte[] dataBytes = new byte[1 + mapBytes.Length];
+        dataBytes[0] = PayloadVersionV2;
+        Buffer.BlockCopy(mapBytes, 0, dataBytes, 1, mapBytes.Length);
+
+        // Chiffrement AES-GCM
+        var shareId = Guid.NewGuid();
+        byte[] salt = RandomNumberGenerator.GetBytes(16);
+        byte[] nonce = RandomNumberGenerator.GetBytes(12);
+        byte[] key = ShareCryptoHelper.DeriveKey(shareId, salt);
+        byte[] cipher = new byte[dataBytes.Length];
+        byte[] tag = new byte[16];
+
+        using (var aes = new AesGcm(key, 16))
+        {
+            aes.Encrypt(nonce, dataBytes, cipher, tag);
+        }
+
+        var uploadDto = new HousingScenarioUploadRequestDto
+        {
+            ShareId = shareId,
+            Location = location,
+            Description = description,
+            CipherData = cipher,
+            Nonce = nonce,
+            Salt = salt,
+            Tag = tag,
+            AllowedIndividuals = allowedIndividuals,
+            AllowedSyncshells = allowedSyncshells,
+        };
+
+        await _apiController.HousingScenarioUpload(uploadDto).ConfigureAwait(false);
+        await InternalRefreshAsync().ConfigureAwait(false);
+
+        LastSuccess = Localization.Loc.Get("HousingScenario.Success.Published");
+        _logger.LogInformation("Scénario {ShareId} publié pour la location S{Server}:W{Ward}:H{House}",
+            shareId, location.ServerId, location.WardId, location.HouseId);
+
+        _mediator.Publish(new HousingScenarioPublishedMessage(shareId, location));
+    }
+
+    /// <summary>
+    /// Déplace un partage existant vers une autre localisation (déménagement). La location est immuable
+    /// côté serveur : on republie le contenu déchiffré à la nouvelle adresse, puis on supprime l'ancien
+    /// partage — dans cet ordre, pour ne jamais perdre la scène si la republication échoue.
+    /// </summary>
+    public Task RepublishAtAsync(Guid shareId, LocationInfo newLocation)
+    {
         return RunOperation(async () =>
         {
-            if (scene.Entries.Count == 0)
+            var source = _ownShares.FirstOrDefault(s => s.Id == shareId);
+            if (source == null)
             {
-                LastError = Localization.Loc.Get("HousingScenario.Error.EmptyScene");
-                _logger.LogWarning("Publish refusé : scène vide");
+                LastError = Localization.Loc.Get("HousingScenario.Error.Unavailable");
                 return;
             }
 
+            var scene = await DownloadAndDecryptSceneAsync(shareId).ConfigureAwait(false);
+            if (scene == null) return; // LastError déjà posé
 
-            var modHashes = CollectModHashes(scene);
-            if (modHashes.Count > 0)
+            await PublishInternalAsync(newLocation, scene, source.Description,
+                new List<string>(source.AllowedIndividuals), new List<string>(source.AllowedSyncshells)).ConfigureAwait(false);
+
+            // La republication a échoué (payload vide, upload en erreur) : on garde l'ancien partage.
+            if (LastError != null) return;
+
+            bool deleted = await _apiController.HousingScenarioDelete(shareId).ConfigureAwait(false);
+            if (!deleted)
             {
-                _logger.LogInformation("Publication : upload de {Count} fichier(s) de mod PNJ", modHashes.Count);
-                var uploadProgress = new Progress<string>(status => _logger.LogDebug("Upload mods PNJ : {Status}", status));
-                var missingLocally = await _fileUploadManager.UploadFiles(modHashes.ToList(), uploadProgress).ConfigureAwait(false);
-                if (missingLocally.Count > 0)
-                    _logger.LogWarning("{Count} fichier(s) de mod introuvable(s) localement à l'upload", missingLocally.Count);
+                _logger.LogWarning("Ancien partage {ShareId} non supprimé après republication", shareId);
+                LastError = Localization.Loc.Get("HousingScenario.Error.OldShareNotDeleted");
+                return;
             }
 
-            string sceneJson = SerializeSceneForShare(scene);
-
-            var plaintextDto = new HousingScenarioPlaintextV2
-            {
-                SceneJson = sceneJson,
-                SceneFormatVersion = 1,
-            };
-
-            byte[] mapBytes = MessagePackSerializer.Serialize(plaintextDto);
-            byte[] dataBytes = new byte[1 + mapBytes.Length];
-            dataBytes[0] = PayloadVersionV2;
-            Buffer.BlockCopy(mapBytes, 0, dataBytes, 1, mapBytes.Length);
-
-            // Chiffrement AES-GCM
-            var shareId = Guid.NewGuid();
-            byte[] salt = RandomNumberGenerator.GetBytes(16);
-            byte[] nonce = RandomNumberGenerator.GetBytes(12);
-            byte[] key = ShareCryptoHelper.DeriveKey(shareId, salt);
-            byte[] cipher = new byte[dataBytes.Length];
-            byte[] tag = new byte[16];
-
-            using (var aes = new AesGcm(key, 16))
-            {
-                aes.Encrypt(nonce, dataBytes, cipher, tag);
-            }
-
-            var uploadDto = new HousingScenarioUploadRequestDto
-            {
-                ShareId = shareId,
-                Location = location,
-                Description = description,
-                CipherData = cipher,
-                Nonce = nonce,
-                Salt = salt,
-                Tag = tag,
-                AllowedIndividuals = allowedIndividuals,
-                AllowedSyncshells = allowedSyncshells,
-            };
-
-            await _apiController.HousingScenarioUpload(uploadDto).ConfigureAwait(false);
-            await InternalRefreshAsync().ConfigureAwait(false);
-
-            LastSuccess = Localization.Loc.Get("HousingScenario.Success.Published");
-            _logger.LogInformation("Scénario {ShareId} publié pour la location S{Server}:W{Ward}:H{House}",
-                shareId, location.ServerId, location.WardId, location.HouseId);
-
-            _mediator.Publish(new HousingScenarioPublishedMessage(shareId, location));
+            _ownShares.RemoveAll(s => s.Id == shareId);
+            LastSuccess = Localization.Loc.Get("HousingScenario.Success.Republished");
+            _logger.LogInformation("Partage {ShareId} republié sur S{Server}:W{Ward}:H{House}",
+                shareId, newLocation.ServerId, newLocation.WardId, newLocation.HouseId);
         });
     }
 
@@ -270,14 +313,17 @@ public sealed class HousingScenarioManager : IDisposable
         });
     }
 
-    private async Task ApplyAsync(HousingScenarioEntryDto share, LocationInfo location)
+    /// <summary>
+    /// Télécharge un partage et en extrait la scène. Renvoie null en posant <see cref="LastError"/>
+    /// si le payload est indisponible, illisible, obsolète (v1 ARR) ou vide.
+    /// </summary>
+    private async Task<HousingNpcScenario?> DownloadAndDecryptSceneAsync(Guid shareId)
     {
-        Guid shareId = share.Id;
         var payload = await _apiController.HousingScenarioDownload(shareId).ConfigureAwait(false);
         if (payload == null)
         {
             LastError = Localization.Loc.Get("HousingScenario.Error.Unavailable");
-            return;
+            return null;
         }
 
         // Déchiffrement
@@ -292,14 +338,14 @@ public sealed class HousingScenarioManager : IDisposable
         {
             _logger.LogWarning(ex, "Déchiffrement scénario {ShareId} échoué", shareId);
             LastError = Localization.Loc.Get("HousingScenario.Error.Decrypt");
-            return;
+            return null;
         }
 
         if (plaintext.Length < 2)
         {
             _logger.LogWarning("Payload tronqué pour {ShareId}", shareId);
             LastError = Localization.Loc.Get("HousingScenario.Error.Payload");
-            return;
+            return null;
         }
 
         // Les partages v1 (file-drop ARR) ne sont plus supportés : UmbraSync spawne ses PNJ
@@ -308,14 +354,14 @@ public sealed class HousingScenarioManager : IDisposable
         {
             _logger.LogInformation("Partage {ShareId} au format ARR (v1) : obsolète, ignoré", shareId);
             LastError = Localization.Loc.Get("HousingScenario.Error.LegacyArr");
-            return;
+            return null;
         }
 
         if (plaintext[0] != PayloadVersionV2)
         {
             _logger.LogWarning("Version de payload inconnue ({Version}) pour {ShareId}", plaintext[0], shareId);
             LastError = Localization.Loc.Get("HousingScenario.Error.Payload");
-            return;
+            return null;
         }
 
         HousingNpcScenario? scene;
@@ -329,16 +375,25 @@ public sealed class HousingScenarioManager : IDisposable
         {
             _logger.LogWarning(ex, "Désérialisation payload scénario échouée {ShareId}", shareId);
             LastError = Localization.Loc.Get("HousingScenario.Error.Deserialize");
-            return;
+            return null;
         }
 
         if (scene == null || scene.Entries.Count == 0)
         {
             _logger.LogWarning("Scène partagée vide pour {ShareId}", shareId);
             LastError = Localization.Loc.Get("HousingScenario.Error.EmptyScene");
-            return;
+            return null;
         }
-        
+
+        return scene;
+    }
+
+    private async Task ApplyAsync(HousingScenarioEntryDto share, LocationInfo location)
+    {
+        Guid shareId = share.Id;
+        var scene = await DownloadAndDecryptSceneAsync(shareId).ConfigureAwait(false);
+        if (scene == null) return; // LastError déjà posé
+
         _mediator.Publish(new NotificationMessage(
             Localization.Loc.Get("HousingScenario.Notification.Title"),
             Localization.Loc.Get("HousingScenario.Notification.Applying"),
@@ -525,6 +580,9 @@ public sealed class HousingScenarioManager : IDisposable
     /// <summary>
     /// Sérialise la scène pour le partage, en retirant les données « live » (mods) de chaque PNJ :
     /// le visiteur ne possède pas les fichiers de mods, seule l'apparence brute est transmissible.
+    /// Les champs de localisation ne sont pas recopiés : le partage est adressé par la
+    /// <see cref="LocationInfo"/> du DTO d'upload, et une scène republiée ailleurs (déménagement)
+    /// embarquerait sinon une adresse d'origine trompeuse.
     /// </summary>
     private static string SerializeSceneForShare(HousingNpcScenario scene)
     {
@@ -533,12 +591,6 @@ public sealed class HousingScenarioManager : IDisposable
             Id = scene.Id,
             Title = scene.Title,
             Enabled = true,
-            ServerId = scene.ServerId,
-            TerritoryId = scene.TerritoryId,
-            WardId = scene.WardId,
-            HouseId = scene.HouseId,
-            DivisionId = scene.DivisionId,
-            RoomId = scene.RoomId,
         };
 
         foreach (var entry in scene.Entries)

@@ -38,6 +38,7 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
     private readonly HousingShareManager? _housingShareManager_housing;
     private readonly HousingFurnitureScanner? _housingScanner;
     private readonly HousingNpcScenarioService? _housingNpcScenarioService;
+    private readonly HousingOwnershipService _housingOwnershipService;
     private readonly HousingScenarioManager? _housingScenarioManager;
     private CancellationTokenSource? _closalCts = new();
     private bool _disableUI = false;
@@ -139,6 +140,7 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
                          HousingShareManager housingShareManager, HousingFurnitureScanner housingScanner,
                          HousingNpcScenarioService housingNpcScenarioService,
                          HousingScenarioManager housingScenarioManager,
+                         HousingOwnershipService housingOwnershipService,
                          UmbraProfileManager umbraProfileManager, MareConfigService mareConfigService)
         : base(logger, mediator, $"{Loc.Get("CharaDataHub.WindowTitle")}###UmbraCharaDataUI", performanceCollectorService)
     {
@@ -159,6 +161,7 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
         _housingScanner = housingScanner;
         _housingNpcScenarioService = housingNpcScenarioService;
         _housingScenarioManager = housingScenarioManager;
+        _housingOwnershipService = housingOwnershipService;
         _umbraProfileManager = umbraProfileManager;
         Mediator.Subscribe<GposeStartMessage>(this, (_) => IsOpen |= _configService.Current.OpenMareHubOnGposeStart);
         Mediator.Subscribe<OpenCharaDataHubWithFilterMessage>(this, (msg) =>

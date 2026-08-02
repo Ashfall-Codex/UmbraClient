@@ -180,6 +180,7 @@ public sealed class Plugin : IDalamudPlugin
             collection.AddSingleton<NpcLiveAppearanceService>();
             collection.AddSingleton<HousingNpcScenarioStore>();
             collection.AddSingleton<HousingNpcScenarioService>();
+            collection.AddSingleton<HousingOwnershipService>();
             collection.AddSingleton<RgpdDataService>();
             collection.AddSingleton<EstablishmentProximityService>();
             collection.AddSingleton<EstablishmentReminderService>();
@@ -301,6 +302,7 @@ public sealed class Plugin : IDalamudPlugin
             collection.AddHostedService(p => p.GetRequiredService<HousingFurnitureSyncService>());
             collection.AddHostedService(p => p.GetRequiredService<HousingScenarioSyncService>());
             collection.AddHostedService(p => p.GetRequiredService<HousingNpcScenarioService>());
+            collection.AddHostedService(p => p.GetRequiredService<HousingOwnershipService>());
             collection.AddHostedService(p => p.GetRequiredService<UmbraSync.Services.AshfallConnectAutoSyncService>());
         })
         .Build();

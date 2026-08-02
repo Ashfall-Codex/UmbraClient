@@ -947,7 +947,17 @@ public sealed partial class CharaDataHubUi
             ImGui.TextUnformatted(string.IsNullOrEmpty(entry.Description) ? entry.Id.ToString("D", CultureInfo.InvariantCulture) : entry.Description);
 
             ImGui.TableNextColumn();
-            ImGui.TextUnformatted($"S{entry.Location.ServerId} W{entry.Location.WardId} H{entry.Location.HouseId}");
+            bool isOrphan = _housingOwnershipService.IsLikelyOrphan(entry.Location);
+            if (isOrphan)
+            {
+                ImGui.TextColored(ImGuiColors.DalamudYellow, $"S{entry.Location.ServerId} W{entry.Location.WardId} H{entry.Location.HouseId}");
+                if (ImGui.IsItemHovered())
+                    ImGui.SetTooltip(Loc.Get("HousingScenario.OrphanShareTip"));
+            }
+            else
+            {
+                ImGui.TextUnformatted($"S{entry.Location.ServerId} W{entry.Location.WardId} H{entry.Location.HouseId}");
+            }
 
             ImGui.TableNextColumn();
             ImGui.TextUnformatted(entry.CreatedUtc.ToLocalTime().ToString("g", CultureInfo.CurrentCulture));
@@ -1014,11 +1024,33 @@ public sealed partial class CharaDataHubUi
                     _ = scenarioManager.DeleteAsync(entry.Id);
                     if (_housingScenarioEditingId == entry.Id) _housingScenarioEditingId = null;
                 }
+
+                // La localisation d'un partage est immuable côté serveur : après un déménagement,
+                // la seule issue est de republier le contenu à la nouvelle adresse.
+                if (_housingNpcScenarioService?.CurrentLocation is { } here
+                    && !LocationEquals(here, entry.Location)
+                    && _dalamudUtilService.OwnsCurrentHouse())
+                {
+                    ImGui.SameLine();
+                    using (ImRaii.Disabled(scenarioManager.IsBusy || !UiSharedService.CtrlPressed()))
+                    {
+                        if (ImGui.SmallButton(Loc.Get("HousingScenario.RepublishHere")))
+                        {
+                            _ = scenarioManager.RepublishAtAsync(entry.Id, here);
+                            if (_housingScenarioEditingId == entry.Id) _housingScenarioEditingId = null;
+                        }
+                    }
+                    UiSharedService.AttachToolTip(Loc.Get("HousingScenario.RepublishHereTip"));
+                }
             }
         }
 
         ImGui.EndTable();
     }
+
+    private static bool LocationEquals(API.Dto.CharaData.LocationInfo a, API.Dto.CharaData.LocationInfo b)
+        => a.ServerId == b.ServerId && a.TerritoryId == b.TerritoryId && a.DivisionId == b.DivisionId
+           && a.WardId == b.WardId && a.HouseId == b.HouseId && a.RoomId == b.RoomId;
 
     private void DrawHousingScenarioEditSection(HousingScenarioManager scenarioManager, HousingScenarioEntryDto entry)
     {

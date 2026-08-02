@@ -79,6 +79,7 @@ public sealed class HousingNpcSceneEditorUi : WindowMediatorSubscriberBase
         if (scenes.Count == 0)
         {
             ImGui.TextColored(ImGuiColors.DalamudGrey, Loc.Get("HousingNpc.Editor.NoScenes"));
+            DrawOrphanScenes();
             return;
         }
 
@@ -264,6 +265,63 @@ public sealed class HousingNpcSceneEditorUi : WindowMediatorSubscriberBase
         {
             ImGui.SameLine();
             ImGui.TextColored(ImGuiColors.DalamudYellow, Loc.Get("HousingNpc.Editor.Unsaved"));
+        }
+
+        DrawOrphanScenes();
+    }
+
+    /// <summary>
+    /// Scènes rattachées à un autre logement (typiquement après un déménagement) : elles restent
+    /// stockées mais ne correspondent plus à la localisation courante, donc invisibles ailleurs.
+    /// </summary>
+    private void DrawOrphanScenes()
+    {
+        var orphans = _service.OrphanScenes();
+        if (orphans.Count == 0) return;
+
+        ImGuiHelpers.ScaledDummy(6f);
+        ImGui.Separator();
+        if (!ImGui.CollapsingHeader(string.Format(Loc.Get("HousingNpc.Editor.OrphanHeader"), orphans.Count)))
+            return;
+
+        ImGui.TextWrapped(Loc.Get("HousingNpc.Editor.OrphanHelp"));
+        ImGuiHelpers.ScaledDummy(3f);
+
+        foreach (var scene in orphans)
+        {
+            using var id = ImRaii.PushId("orphan-" + scene.Id);
+
+            var compatible = _service.IsLayoutCompatible(scene);
+            bool needsConfirm = compatible != true;
+
+            using (ImRaii.Disabled(needsConfirm && !UiSharedService.CtrlPressed()))
+            {
+                if (_uiShared.IconTextButton(FontAwesomeIcon.PeopleCarry, Loc.Get("HousingNpc.Editor.OrphanMoveHere")))
+                    _ = _service.ReassignSceneToCurrentAsync(scene.Id);
+            }
+            UiSharedService.AttachToolTip(compatible switch
+            {
+                true => Loc.Get("HousingNpc.Editor.OrphanMoveTipSameLayout"),
+                false => Loc.Get("HousingNpc.Editor.OrphanMoveTipOtherLayout"),
+                null => Loc.Get("HousingNpc.Editor.OrphanMoveTipUnknownLayout"),
+            });
+
+            ImGui.SameLine();
+            ImGui.TextUnformatted($"{scene.Title} ({scene.Entries.Count})");
+            ImGui.SameLine();
+            ImGui.TextColored(ImGuiColors.DalamudGrey,
+                string.Format(Loc.Get("HousingNpc.Editor.OrphanOrigin"), scene.ServerId, scene.WardId, scene.HouseId, scene.RoomId));
+
+            if (compatible == false)
+            {
+                ImGui.SameLine();
+                ImGui.TextColored(ImGuiColors.DalamudYellow, Loc.Get("HousingNpc.Editor.OrphanLayoutWarn"));
+            }
+            else if (compatible == null)
+            {
+                ImGui.SameLine();
+                ImGui.TextColored(ImGuiColors.DalamudGrey3, Loc.Get("HousingNpc.Editor.OrphanLayoutUnknown"));
+            }
         }
     }
 
