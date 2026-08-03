@@ -64,6 +64,7 @@ public record ResumeScanMessage(string Source) : MessageBase;
 public record NotificationMessage
     (string Title, string Message, NotificationType Type, TimeSpan? TimeShownOnScreen = null) : MessageBase;
 public record DualNotificationMessage(string Title, string Message, NotificationType Type, TimeSpan? ToastDuration = null) : MessageBase;
+public record ServerBroadcastMessage(string Message, MessageSeverity Severity) : MessageBase;
 public record CreateCacheForObjectMessage(GameObjectHandler ObjectToCreateFor) : MessageBase;
 public record ClearCacheForObjectMessage(GameObjectHandler ObjectToCreateFor) : MessageBase;
 public record CharacterDataCreatedMessage(CharacterData CharacterData) : SameThreadMessage;

@@ -4821,6 +4821,12 @@ Note : Les armes ne s'afficheront pas correctement sauf si vous utilisez le m&#x
   <data name="Notification.Server.Warning" xml:space="preserve">
     <value>Avertissement du serveur</value>
   </data>
+  <data name="Notification.ForceDisconnect.Title" xml:space="preserve">
+    <value>Déconnecté par le serveur</value>
+  </data>
+  <data name="Notification.ForceDisconnect.Body" xml:space="preserve">
+    <value>Votre clé secrète a été régénérée. Saisissez la nouvelle clé dans les paramètres pour vous reconnecter.</value>
+  </data>
   <data name="Notification.Nearby.Blocked.Title" xml:space="preserve">
     <value>Demande bloquée</value>
   </data>

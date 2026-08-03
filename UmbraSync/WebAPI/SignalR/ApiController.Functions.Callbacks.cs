@@ -139,6 +139,43 @@ public partial class ApiController
         return Task.CompletedTask;
     }
 
+    public Task Client_ReceiveBroadcast(BroadcastMessageDto broadcast)
+    {
+        if (broadcast == null || string.IsNullOrWhiteSpace(broadcast.Message))
+            return Task.CompletedTask;
+
+        if (ServerState is Utils.ServerState.Offline or Utils.ServerState.Disconnected or Utils.ServerState.Disconnecting)
+            return Task.CompletedTask;
+
+        Logger.LogInformation("Client_ReceiveBroadcast: {severity}", broadcast.Severity);
+        Mediator.Publish(new ServerBroadcastMessage(broadcast.Message.Trim(), broadcast.Severity));
+        return Task.CompletedTask;
+    }
+
+    public Task Client_ForceDisconnect(string reason)
+    {
+        Logger.LogWarning("Client_ForceDisconnect reçu du serveur");
+
+        var message = string.IsNullOrWhiteSpace(reason) ? Loc.Get("Notification.ForceDisconnect.Body") : reason;
+        Mediator.Publish(new NotificationMessage(Loc.Get("Notification.ForceDisconnect.Title"), message,
+            NotificationType.Error, TimeSpan.FromSeconds(15)));
+        Mediator.Publish(new ServerBroadcastMessage(message, MessageSeverity.Error));
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await StopConnection(Utils.ServerState.Unauthorized).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "Échec de la déconnexion demandée par le serveur");
+            }
+        });
+
+        return Task.CompletedTask;
+    }
+
     public Task Client_UpdateSystemInfo(SystemInfoDto systemInfo)
     {
         SystemInfoDto = systemInfo;
@@ -380,6 +417,18 @@ public partial class ApiController
     {
         if (_initialized) return;
         _mareHub!.On(nameof(Client_ReceiveServerMessage), act);
+    }
+
+    public void OnReceiveBroadcast(Action<BroadcastMessageDto> act)
+    {
+        if (_initialized) return;
+        _mareHub!.On(nameof(Client_ReceiveBroadcast), act);
+    }
+
+    public void OnForceDisconnect(Action<string> act)
+    {
+        if (_initialized) return;
+        _mareHub!.On(nameof(Client_ForceDisconnect), act);
     }
 
     public void OnUpdateSystemInfo(Action<SystemInfoDto> act)

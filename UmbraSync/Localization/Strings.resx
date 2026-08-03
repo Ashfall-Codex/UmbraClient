@@ -4911,6 +4911,12 @@ Note: Weapons will not be displayed correctly unless using the same job as the s
   <data name="Notification.Server.Warning" xml:space="preserve">
     <value>Warning from</value>
   </data>
+  <data name="Notification.ForceDisconnect.Title" xml:space="preserve">
+    <value>Disconnected by the server</value>
+  </data>
+  <data name="Notification.ForceDisconnect.Body" xml:space="preserve">
+    <value>Your secret key has been regenerated. Enter the new key in the settings to reconnect.</value>
+  </data>
   <data name="Notification.Nearby.Blocked.Title" xml:space="preserve">
     <value>Nearby request blocked</value>
   </data>
