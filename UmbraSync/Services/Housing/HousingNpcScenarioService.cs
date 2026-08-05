@@ -1009,6 +1009,7 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
                     Logger.LogWarning("Capture du live data échouée, apparence brute seule conservée");
                 else
                     liveData = includeLive ? live : WithoutMods(live);
+                Logger.LogInformation("Ajout PNJ : capture {Mode}", includeLive ? "AVEC les mods" : "SANS les mods");
             }
 
             var defaultName = glamourerDesign?.Name ?? player.Name.TextValue;

@@ -105,11 +105,11 @@ public sealed class NpcLiveAppearanceService : DisposableMediatorSubscriberBase
         {
             var appId = Guid.NewGuid();
             var modPaths = BuildModPaths(data);
-
-            // Un écart entre replacements et modPaths signale des fichiers de mods absents du cache
-            // local (apparence incomplète) — c'est le symptôme qui avait révélé la capture amputée.
-            int totalReplacements = data.FileReplacements.TryGetValue(ObjectKind.Player, out var reps) ? reps.Count : -1;
-            if (totalReplacements != modPaths.Count)
+            
+            int totalReplacements = data.FileReplacements.TryGetValue(ObjectKind.Player, out var reps) ? reps.Count : 0;
+            Logger.LogInformation("Live PNJ : {Reps} remplacement(s) reçus, {Mods} résolus depuis le cache local",
+                totalReplacements, modPaths.Count);
+            if (totalReplacements > modPaths.Count)
             {
                 Logger.LogWarning("Live PNJ : {Missing} fichier(s) de mod absents du cache local ({Reps} attendus, {Mods} résolus)",
                     totalReplacements - modPaths.Count, totalReplacements, modPaths.Count);

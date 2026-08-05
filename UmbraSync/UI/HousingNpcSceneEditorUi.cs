@@ -135,7 +135,7 @@ public sealed class HousingNpcSceneEditorUi : WindowMediatorSubscriberBase
             _ = _service.AddFromSelfAsync(current.Id, string.Empty);
         UiSharedService.AttachToolTip(Loc.Get("HousingNpc.Editor.CaptureSelfTip"));
         ImGui.SameLine();
-        if (_uiShared.IconTextButton(FontAwesomeIcon.UserAstronaut, Loc.Get("HousingNpc.Editor.CaptureSelfLive")))
+        if (_uiShared.IconTextButton(FontAwesomeIcon.Magic, Loc.Get("HousingNpc.Editor.CaptureSelfLive")))
             _ = _service.AddFromSelfLiveAsync(current.Id, string.Empty);
         UiSharedService.AttachToolTip(Loc.Get("HousingNpc.Editor.CaptureSelfLiveTip"));
         ImGui.SameLine();
