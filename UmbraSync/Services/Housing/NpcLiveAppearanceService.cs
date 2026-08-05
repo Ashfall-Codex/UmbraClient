@@ -17,14 +17,16 @@ public sealed class NpcLiveAppearanceService : DisposableMediatorSubscriberBase
     private readonly FileCacheManager _fileCacheManager;
     private readonly DalamudUtilService _dalamudUtil;
     private readonly CharaDataFileHandler _fileHandler;
+    private readonly NativeNpcSpawner _spawner;
 
     private volatile CharacterData? _lastSelfData;
 
     public NpcLiveAppearanceService(ILogger<NpcLiveAppearanceService> logger, MareMediator mediator, IpcManager ipc,
         GameObjectHandlerFactory gameObjectHandlerFactory, FileCacheManager fileCacheManager,
-        DalamudUtilService dalamudUtil, CharaDataFileHandler fileHandler)
+        DalamudUtilService dalamudUtil, CharaDataFileHandler fileHandler, NativeNpcSpawner spawner)
         : base(logger, mediator)
     {
+        _spawner = spawner;
         // Snapshot live complet de notre perso : c'est CELUI envoyé aux pairs.
         Mediator.Subscribe<CharacterDataCreatedMessage>(this, msg => _lastSelfData = msg.CharacterData);
         _ipc = ipc;
@@ -95,13 +97,13 @@ public sealed class NpcLiveAppearanceService : DisposableMediatorSubscriberBase
     {
         if (!_ipc.Initialized || address == nint.Zero) return null;
 
-        var handler = await _gameObjectHandlerFactory.Create(ObjectKind.Player, () => address, isWatched: false).ConfigureAwait(false);
+        int idx = await _dalamudUtil.RunOnFrameworkThread(() => _spawner.GetObjectTableIndex(address)).ConfigureAwait(false);
+        if (idx < 0) return null;
+        var handler = await _gameObjectHandlerFactory.Create(
+            ObjectKind.Player, () => _spawner.ResolveIfAlive(idx, address), isWatched: false).ConfigureAwait(false);
         try
         {
             var appId = Guid.NewGuid();
-            int idx = await _dalamudUtil.RunOnFrameworkThread(() => handler.GetGameObject()?.ObjectIndex ?? -1).ConfigureAwait(false);
-            if (idx < 0) { handler.Dispose(); return null; }
-
             var modPaths = BuildModPaths(data);
 
             // Un écart entre replacements et modPaths signale des fichiers de mods absents du cache
@@ -148,6 +150,11 @@ public sealed class NpcLiveAppearanceService : DisposableMediatorSubscriberBase
             await _ipc.Glamourer.ApplyAllAsync(Logger, handle.Handler, glamourer, handle.ApplicationId, token).ConfigureAwait(false);
             await _ipc.Penumbra.RedrawAsync(Logger, handle.Handler, handle.ApplicationId, token).ConfigureAwait(false);
             await _dalamudUtil.WaitWhileCharacterIsDrawing(Logger, handle.Handler, handle.ApplicationId, 30000, token).ConfigureAwait(false);
+            if (handle.Handler.Address == nint.Zero)
+            {
+                Logger.LogWarning("Live PNJ : acteur de l'index {Index} disparu pendant le redraw, finalisation abandonnée", handle.ObjectIndex);
+                return;
+            }
 
             if (!string.IsNullOrEmpty(customizePlus))
                 handle.CustomizeProfile = await _ipc.CustomizePlus.SetBodyScaleAsync(handle.Handler.Address, customizePlus).ConfigureAwait(false);
@@ -182,7 +189,7 @@ public sealed class NpcLiveAppearanceService : DisposableMediatorSubscriberBase
         }
         finally
         {
-            handle.Handler.Dispose();
+            handle.DisposeHandler();
         }
     }
 
@@ -208,9 +215,16 @@ public sealed class NpcLiveAppearanceService : DisposableMediatorSubscriberBase
 
 public sealed class NpcLiveHandle
 {
+    private int _handlerDisposed;
+
     public Guid ApplicationId { get; set; }
     public Guid Collection { get; set; }
     public int ObjectIndex { get; set; }
     public Guid? CustomizeProfile { get; set; }
     public GameObjectHandler Handler { get; set; } = null!;
+    public void DisposeHandler()
+    {
+        if (Interlocked.Exchange(ref _handlerDisposed, 1) != 0) return;
+        Handler.Dispose();
+    }
 }

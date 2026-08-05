@@ -563,7 +563,11 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
         }
 
         foreach (var npc in spawned)
-            if (npc.Live != null) RevertLiveSafe(npc.Live);
+        {
+            if (npc.Live == null) continue;
+            npc.Live.DisposeHandler();
+            RevertLiveSafe(npc.Live);
+        }
     }
 
     // Le revert n'est pas attendu (appelé depuis le framework thread), mais ne doit pas
@@ -588,7 +592,11 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
             _runtimes.Remove(npc.Address);
             _anchors.Remove(npc.Address);
             _spawned.RemoveAt(i);
-            if (npc.Live != null) RevertLiveSafe(npc.Live);
+            if (npc.Live != null)
+            {
+                npc.Live.DisposeHandler();
+                RevertLiveSafe(npc.Live);
+            }
             Logger.LogWarning("PNJ {Addr:X} disparu (acteur libéré par le jeu), état nettoyé", npc.Address);
         }
     }
