@@ -121,6 +121,8 @@ public sealed class NpcLiveAppearanceService : DisposableMediatorSubscriberBase
             await _ipc.Penumbra.SetTemporaryModsAsync(Logger, appId, collection, modPaths).ConfigureAwait(false);
             await _ipc.Penumbra.SetManipulationDataAsync(Logger, appId, collection, data.ManipulationData ?? string.Empty).ConfigureAwait(false);
 
+            await WaitForCollectionReadyAsync(idx, collection).ConfigureAwait(false);
+
             return new NpcLiveHandle
             {
                 ApplicationId = appId,
@@ -135,6 +137,29 @@ public sealed class NpcLiveAppearanceService : DisposableMediatorSubscriberBase
             handler.Dispose();
             return null;
         }
+    }
+
+    private async Task WaitForCollectionReadyAsync(int objectIndex, Guid expected)
+    {
+        const int timeoutMs = 1500;
+        const int stepMs = 25;
+        const int settleMs = 150;
+
+        for (int elapsed = 0; elapsed < timeoutMs; elapsed += stepMs)
+        {
+            var effective = await _ipc.Penumbra.GetCollectionForObjectAsync(objectIndex).ConfigureAwait(false);
+            if (effective.CollectionId == expected)
+            {
+                Logger.LogDebug("Live PNJ : collection {Collection} effective sur l'index {Index} après {Elapsed} ms",
+                    expected, objectIndex, elapsed);
+                await Task.Delay(settleMs).ConfigureAwait(false);
+                return;
+            }
+            await Task.Delay(stepMs).ConfigureAwait(false);
+        }
+
+        Logger.LogWarning("Live PNJ : collection {Collection} toujours pas effective sur l'index {Index} après {Timeout} ms, draw lancé quand même",
+            expected, objectIndex, timeoutMs);
     }
 
     /// <summary>

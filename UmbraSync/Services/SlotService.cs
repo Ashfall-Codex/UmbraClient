@@ -58,9 +58,19 @@ public class SlotService : MediatorSubscriberBase, IDisposable
 
             if (_transientConfigService.Current.LastJoinedSlotSyncshellPerUid.TryGetValue(uid, out var lastJoined))
             {
+                // Le slot restauré fait foi : c'est celui qu'on a rejoint, donc celui qu'il faudra
+                // quitter. S'il diffère du slot détecté à proximité, la comparaison faite dans
+                // OnHousingPositionUpdate s'en aperçoit et enclenche la sortie.
+                if (_detectedSlotByDistance != null
+                    && !string.Equals(_detectedSlotByDistance.AssociatedSyncshell?.Gid, lastJoined.Gid, StringComparison.Ordinal))
+                {
+                    Logger.LogInformation("Slot rejoint restauré ({restored}) alors qu'un autre slot est détecté à proximité ({detected}) : sortie du précédent à venir",
+                        lastJoined.Name, _detectedSlotByDistance.SlotName);
+                }
+
                 _currentSlotSyncshell = lastJoined;
                 _joinedViaSlot = true;
-                Logger.LogInformation("Loaded last joined slot syncshell {name} for UID {uid}", _currentSlotSyncshell.Name, uid);
+                Logger.LogInformation("Loaded last joined slot syncshell {name} for UID {uid}", lastJoined.Name, uid);
             }
             else
             {
@@ -138,26 +148,48 @@ public class SlotService : MediatorSubscriberBase, IDisposable
         }
     }
 
+    private string? _slotTransitionLog;
+    private void LogSlotTransitionOnce(string message)
+    {
+        if (string.Equals(_slotTransitionLog, message, StringComparison.Ordinal)) return;
+        _slotTransitionLog = message;
+        Logger.LogInformation("{message}", message);
+    }
+
     private async void OnHousingPositionUpdate(uint serverId, uint territoryId, uint divisionId, uint wardId, Vector3 position)
     {
         if (!_configService.Current.EnableSlotNotifications)
         {
-            Logger.LogTrace("Slot: notifications désactivées");
+            // En Information et une seule fois : ce réglage désactive toute la détection de sortie,
+            // y compris le timer d'auto-départ, et rien ne le signalait dans le journal.
+            LogSlotTransitionOnce("Slot: notifications désactivées, aucune détection de sortie");
             return;
         }
         // Utiliser wardId > 0 pour détecter toute zone résidentielle (extérieur, intérieur, lobby d'appartements)
         // au lieu d'une liste hardcodée de territoryId qui peut devenir obsolète
         if (wardId == 0)
         {
-            if (!HasSlotState) return;
-            if (!_apiController.IsConnected) return;
+            if (!HasSlotState)
+            {
+                LogSlotTransitionOnce("Slot: hors zone résidentielle, aucun état de slot à libérer");
+                return;
+            }
+            if (!_apiController.IsConnected)
+            {
+                LogSlotTransitionOnce("Slot: hors zone résidentielle mais déconnecté, sortie différée");
+                return;
+            }
 
-            Logger.LogTrace("Slot: sortie de zone résidentielle (territory={territory})", territoryId);
+            LogSlotTransitionOnce($"Slot: sortie de zone résidentielle (territory={territoryId}, "
+                + $"joinedViaSlot={_joinedViaSlot}, syncshell={_currentSlotSyncshell?.Name ?? "aucune"}, "
+                + $"plot={(_currentPlot == null ? "null" : "non-null")}, timerEnCours={IsLeaveTimerRunning})");
             _currentPlot = null;
             _lastQueryPosition = Vector3.Zero;
             HandleSlotOutOfRange("hors zone résidentielle");
             return;
         }
+
+        _slotTransitionLog = null;
         var dx = position.X - _lastQueryPosition.X;
         var dz = position.Z - _lastQueryPosition.Z;
         if (dx * dx + dz * dz < 4.0f) return;
@@ -194,7 +226,29 @@ public class SlotService : MediatorSubscriberBase, IDisposable
             // Si on détecte un slot à proximité
             if (slotInfo != null)
             {
+                // Le slot détecté n'est pas forcément celui qu'on a rejoint : on peut se trouver dans
+                // l'établissement de quelqu'un d'autre. Remettre le compteur à zéro sans vérifier
+                // suspendait la sortie du slot rejoint tant qu'on était dans un établissement — même
+                // étranger — et le timer ne démarrait jamais.
+                if (_joinedViaSlot && _currentSlotSyncshell != null
+                    && !string.Equals(slotInfo.AssociatedSyncshell?.Gid, _currentSlotSyncshell.Gid, StringComparison.Ordinal))
+                {
+                    LogSlotTransitionOnce($"Slot: « {slotInfo.SlotName} » détecté, différent du slot rejoint "
+                        + $"« {_currentSlotSyncshell.Name} » — sortie du précédent en cours");
+
+                    // Pas de debounce ici : celui de HandleSlotOutOfRange absorbe les faux négatifs de
+                    // la détection par distance, alors qu'on a bien reçu un slot — un autre, ce qui est
+                    // une certitude. Il serait de toute façon inatteignable : le tick sort en amont
+                    // tant que le joueur n'a pas parcouru 2 yalms, donc un joueur immobile restait
+                    // bloqué à 1/3 et ne quittait jamais le slot précédent.
+                    _slotReferenceY = null;
+                    _detectedSlotByDistance = null;
+                    if (_leaveTimerCts == null) StartLeaveTimer();
+                    return;
+                }
+
                 _consecutiveSlotMisses = 0;
+                _slotTransitionLog = null;
                 _slotReferenceY ??= position.Y;
 
                 // Si un timer de sortie était en cours, on l'annule puisqu'on est de nouveau à proximité

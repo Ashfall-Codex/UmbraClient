@@ -6462,6 +6462,12 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
   <data name="HousingNpc.Notif.Title" xml:space="preserve">
     <value>NPC scene</value>
   </data>
+  <data name="HousingNpc.ApplyOverlay.Title" xml:space="preserve">
+    <value>Placing NPCs</value>
+  </data>
+  <data name="HousingNpc.ApplyOverlay.Progress" xml:space="preserve">
+    <value>{0} / {1} character(s) placed</value>
+  </data>
   <data name="HousingNpc.Notif.NeedHousing" xml:space="preserve">
     <value>You must be in a house.</value>
   </data>

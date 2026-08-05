@@ -342,6 +342,13 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
     {
         return new List<ChangelogEntry>
         {
+            new(new Version(3, 0, 0, 8006), "3.0.0.8006", new List<ChangelogLine>
+            {
+                new("Nouveauté : Un bandeau de progression s'affiche pendant la mise en place d'une scène PNJ."),
+                new("Correction : Crash du jeu en logement avec les PNJ. Quand le jeu libérait les PNJ d'une scène, UmbraSync continuait de les suivre et le jeu se fermait brutalement."),
+                new("Amélioration : Les deux boutons d'import de PNJ deviennent « Importer SANS mods » et « Importer AVEC mods »."),
+                new("Autre : Les scènes PNJ indiquent dans les logs le mode d'import utilisé et le nombre de mods réellement transmis, pour diagnostiquer plus vite une apparence incomplète."),
+            }),
             new(new Version(3, 0, 0, 8005), "3.0.0.8005", new List<ChangelogLine>
             {
                 new("Nouveauté : Ashfall Connect. Liez votre compte à la plateforme Ashfall Connect pour gérer, enrichir et certifier votre fiche RP. Liaison par code à usage unique depuis le plugin, niveaux de certification Bronze / Argent / Or via Discord et XIVAuth, et bouton « Profil enrichi » dans l'éditeur de profil."),

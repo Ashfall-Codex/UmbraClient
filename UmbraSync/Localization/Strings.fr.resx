@@ -6372,6 +6372,12 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
   <data name="HousingNpc.Notif.Title" xml:space="preserve">
     <value>Scène PNJ</value>
   </data>
+  <data name="HousingNpc.ApplyOverlay.Title" xml:space="preserve">
+    <value>Mise en place des PNJ...</value>
+  </data>
+  <data name="HousingNpc.ApplyOverlay.Progress" xml:space="preserve">
+    <value>{0} / {1} personnage(s) en place</value>
+  </data>
   <data name="HousingNpc.Notif.NeedHousing" xml:space="preserve">
     <value>Vous devez être dans un logement.</value>
   </data>

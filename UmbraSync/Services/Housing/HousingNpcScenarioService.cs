@@ -115,6 +115,27 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
     }
     public LocationInfo? CurrentLocation => _currentLocation;
 
+    private int _applyTotal;
+    private int _applyDone;
+    public (int Done, int Total) ApplyProgress => (Volatile.Read(ref _applyDone), Volatile.Read(ref _applyTotal));
+    private ApplyScope BeginApply(int total)
+    {
+        Volatile.Write(ref _applyDone, 0);
+        Volatile.Write(ref _applyTotal, total);
+        return new ApplyScope(this);
+    }
+
+    private void StepApply() => Interlocked.Increment(ref _applyDone);
+
+    private sealed class ApplyScope(HousingNpcScenarioService owner) : IDisposable
+    {
+        public void Dispose()
+        {
+            Volatile.Write(ref owner._applyTotal, 0);
+            Volatile.Write(ref owner._applyDone, 0);
+        }
+    }
+
     /// <summary>Plan intérieur du logement courant (0 si inconnu / hors housing).</summary>
     public uint CurrentInteriorTerritoryId => _currentInteriorTerritoryId;
 
@@ -324,9 +345,13 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
             Logger.LogInformation("Scènes PNJ : {SceneCount} scène(s) activée(s), {NpcCount} PNJ pour la room {Server}:{Territory}:{Ward}:{House}:{Division}:{Room}",
                 scenes.Count, total, loc.ServerId, loc.TerritoryId, loc.WardId, loc.HouseId, loc.DivisionId, loc.RoomId);
 
+            using var progress = BeginApply(total);
             foreach (var scene in scenes)
                 foreach (var entry in scene.Entries)
+                {
                     await SpawnEntryInternalAsync(entry, scene.Id).ConfigureAwait(false);
+                    StepApply();
+                }
         }
         catch (Exception ex)
         {
@@ -391,10 +416,12 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
         try
         {
             await DespawnSharedInternalAsync().ConfigureAwait(false);
+            using var progress = BeginApply(scene.Entries.Count);
             foreach (var entry in scene.Entries)
             {
                 entry.MigrateLegacyToActions();
                 await SpawnEntryInternalAsync(entry, scene.Id, shared: true).ConfigureAwait(false);
+                StepApply();
             }
             Logger.LogInformation("Scène partagée appliquée : {Count} PNJ", scene.Entries.Count);
         }
