@@ -659,15 +659,6 @@ public sealed partial class CharaDataHubUi
 
         ImGuiHelpers.ScaledDummy(5);
 
-        // Limite connue : les mods de tenue passent, les coiffures ne s'affichent pas encore
-        ImGui.PushStyleColor(ImGuiCol.Text, ImGuiColors.DalamudYellow);
-        _uiSharedService.IconText(FontAwesomeIcon.InfoCircle);
-        ImGui.SameLine();
-        ImGui.TextWrapped(Loc.Get("HousingScenario.HairNotSupported"));
-        ImGui.PopStyleColor();
-
-        ImGuiHelpers.ScaledDummy(5);
-
         var scenarioManager = _housingScenarioManager;
         if (scenarioManager == null || _housingNpcScenarioService == null) return;
 
