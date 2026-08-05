@@ -316,6 +316,12 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
 
         DrawHeroCard(profile, texture, accent);
         ImGuiHelpers.ScaledDummy(cardSpacing / ImGuiHelpers.GlobalScale);
+        
+        if (_uiSharedService.IconTextButton(Dalamud.Interface.FontAwesomeIcon.ExternalLinkAlt, "Voir le profil enrichi"))
+            OpenEnrichedProfile();
+        if (ImGui.IsItemHovered())
+            ImGui.SetTooltip("S'ouvre dans votre navigateur web. Le profil doit être en mode \"Public\" sur Connect pour être accessible.");
+        ImGuiHelpers.ScaledDummy(cardSpacing / ImGuiHelpers.GlobalScale);
 
         bool hasAnyRpContent = !string.IsNullOrEmpty(profile.RpAge)
             || !string.IsNullOrEmpty(profile.RpHeight)
@@ -1025,5 +1031,63 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
     public override void OnClose()
     {
         Mediator.Publish(new RemoveWindowMessage(this));
+    }
+
+    private void OpenEnrichedProfile()
+    {
+        var charName = !string.IsNullOrEmpty(_selectedAltCharName) ? _selectedAltCharName : Pair.PlayerName;
+        uint worldId = _selectedAltWorldId is { } w && w != 0 ? w : Pair.WorldId;
+
+        // Paire hors zone : PlayerName/WorldId ne sont pas connus localement. On retombe sur
+        // le premier personnage rencontré (la même source que le sélecteur d'alts de la fiche).
+        if (string.IsNullOrEmpty(charName) || worldId == 0)
+        {
+            var encountered = _umbraProfileManager.GetEncounteredAlts(Pair.UserData.UID);
+            if (encountered.Count > 0)
+            {
+                (charName, worldId) = encountered[0];
+            }
+        }
+
+        if (string.IsNullOrEmpty(charName) || worldId == 0)
+        {
+            Mediator.Publish(new NotificationMessage("Profil enrichi",
+                "Impossible de déterminer le personnage ou le monde pour construire l'URL.",
+                MareConfiguration.Models.NotificationType.Warning, TimeSpan.FromSeconds(4)));
+            return;
+        }
+
+        var worldData = _dalamudUtil.WorldData.Value;
+        var worldName = worldData.GetValueOrDefault((ushort)worldId, string.Empty);
+        if (string.IsNullOrEmpty(worldName))
+        {
+            Mediator.Publish(new NotificationMessage("Profil enrichi",
+                "Monde inconnu — impossible de construire l'URL.",
+                MareConfiguration.Models.NotificationType.Warning, TimeSpan.FromSeconds(4)));
+            return;
+        }
+
+        var url = $"https://hub.ashfall-codex.dev/{Slugify(worldName)}/{Slugify(charName)}";
+        Dalamud.Utility.Util.OpenLink(url);
+        Mediator.Publish(new NotificationMessage("Profil enrichi",
+            "Ouverture dans votre navigateur web…",
+            MareConfiguration.Models.NotificationType.Info, TimeSpan.FromSeconds(3)));
+    }
+
+    /// Slugify aligné sur celui de Connect (PublicProfileEndpoints.Slugify) : NFD-decompose,
+    /// strip diacritiques, lowercase ; espaces / tirets / apostrophes → '-', tout le reste = drop.
+    private static string Slugify(string s)
+    {
+        var sb = new System.Text.StringBuilder();
+        foreach (var ch in s.Normalize(System.Text.NormalizationForm.FormD))
+        {
+            var cat = System.Globalization.CharUnicodeInfo.GetUnicodeCategory(ch);
+            if (cat == System.Globalization.UnicodeCategory.NonSpacingMark) continue;
+            if (char.IsLetterOrDigit(ch)) sb.Append(char.ToLowerInvariant(ch));
+            else if (ch == ' ' || ch == '-' || ch == '\'') sb.Append('-');
+        }
+        var slug = sb.ToString();
+        while (slug.Contains("--", StringComparison.Ordinal)) slug = slug.Replace("--", "-", StringComparison.Ordinal);
+        return slug.Trim('-');
     }
 }

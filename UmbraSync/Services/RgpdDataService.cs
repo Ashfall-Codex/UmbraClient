@@ -10,7 +10,16 @@ namespace UmbraSync.Services;
 public class RgpdDataService : DisposableMediatorSubscriberBase
 {
     private readonly MareConfigService _configService;
+    private readonly NotesConfigService _notesConfigService;
+    private readonly ServerTagConfigService _serverTagConfigService;
+    private readonly RpConfigService _rpConfigService;
+    private readonly ServerBlockConfigService _serverBlockConfigService;
+    private readonly EstablishmentConfigService _establishmentConfigService;
+    private readonly SyncshellConfigService _syncshellConfigService;
+    private readonly CharaDataConfigService _charaDataConfigService;
     private readonly string _configDirectory;
+    private static readonly TimeSpan BackupPurgeDelay = TimeSpan.FromSeconds(8);
+
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true,
@@ -19,16 +28,33 @@ public class RgpdDataService : DisposableMediatorSubscriberBase
 
     public RgpdDataService(ILogger<RgpdDataService> logger, MareMediator mediator,
         MareConfigService configService,
+        NotesConfigService notesConfigService,
+        ServerTagConfigService serverTagConfigService,
+        RpConfigService rpConfigService,
+        ServerBlockConfigService serverBlockConfigService,
+        EstablishmentConfigService establishmentConfigService,
+        SyncshellConfigService syncshellConfigService,
+        CharaDataConfigService charaDataConfigService,
         Dalamud.Plugin.IDalamudPluginInterface pluginInterface) : base(logger, mediator)
     {
         _configService = configService;
+        _notesConfigService = notesConfigService;
+        _serverTagConfigService = serverTagConfigService;
+        _rpConfigService = rpConfigService;
+        _serverBlockConfigService = serverBlockConfigService;
+        _establishmentConfigService = establishmentConfigService;
+        _syncshellConfigService = syncshellConfigService;
+        _charaDataConfigService = charaDataConfigService;
         _configDirectory = pluginInterface.ConfigDirectory.FullName;
 
         Mediator.Subscribe<RgpdDataExportRequestMessage>(this, (msg) => _ = Task.Run(ExportLocalData));
         Mediator.Subscribe<RgpdLocalDataDeletionRequestMessage>(this, (msg) => _ = Task.Run(DeleteLocalData));
     }
-
-    public bool IsRgpdConsentValid => _configService.Current.RgpdConsentGiven;
+    public bool IsRgpdConsentValid => _configService.Current.RgpdConsentGiven
+        && _configService.Current.AcceptedRgpdVersion >= MareConfig.ExpectedRgpdVersion;
+    
+    public bool IsRgpdConsentOutdated => _configService.Current.RgpdConsentGiven
+        && _configService.Current.AcceptedRgpdVersion < MareConfig.ExpectedRgpdVersion;
 
     public void AcceptRgpdConsent(bool dataCollection, bool dataSharing, bool thirdPartyPlugins)
     {
@@ -54,34 +80,63 @@ public class RgpdDataService : DisposableMediatorSubscriberBase
         Mediator.Publish(new RgpdConsentUpdatedMessage(false));
     }
 
+    private string NetworkDiagnosticDirectory => Path.Combine(_configDirectory, "NetworkDiag");
+
+    private string ResolveExportDirectory()
+        => !string.IsNullOrEmpty(_configService.Current.ExportFolder)
+            ? _configService.Current.ExportFolder
+            : _configDirectory;
+
     private void ExportLocalData()
     {
         try
         {
-            var exportData = new Dictionary<string, object>(StringComparer.Ordinal)
+            var exportData = new Dictionary<string, object?>(StringComparer.Ordinal)
             {
                 ["export_date"] = DateTime.UtcNow.ToString("O"),
-                ["rgpd_version"] = _configService.Current.AcceptedRgpdVersion,
-                ["consent_date"] = _configService.Current.RgpdConsentDate?.ToString("O") ?? "N/A",
-                ["consent_data_collection"] = _configService.Current.RgpdConsentDataCollection,
-                ["consent_data_sharing"] = _configService.Current.RgpdConsentDataSharing,
-                ["consent_third_party_plugins"] = _configService.Current.RgpdConsentThirdPartyPlugins,
-                ["cache_folder"] = _configService.Current.CacheFolder,
-                ["export_folder"] = _configService.Current.ExportFolder,
-                ["ui_language"] = _configService.Current.UiLanguage,
+                ["export_format_version"] = 2,
+                ["consent"] = new Dictionary<string, object?>(StringComparer.Ordinal)
+                {
+                    ["given"] = _configService.Current.RgpdConsentGiven,
+                    ["accepted_version"] = _configService.Current.AcceptedRgpdVersion,
+                    ["expected_version"] = MareConfig.ExpectedRgpdVersion,
+                    ["date"] = _configService.Current.RgpdConsentDate?.ToString("O"),
+                    ["data_collection"] = _configService.Current.RgpdConsentDataCollection,
+                    ["data_sharing"] = _configService.Current.RgpdConsentDataSharing,
+                    ["third_party_plugins"] = _configService.Current.RgpdConsentThirdPartyPlugins,
+                },
+                ["settings"] = new Dictionary<string, object?>(StringComparer.Ordinal)
+                {
+                    ["cache_folder"] = _configService.Current.CacheFolder,
+                    ["export_folder"] = _configService.Current.ExportFolder,
+                    ["ui_language"] = _configService.Current.UiLanguage,
+                    ["network_diagnostic_log_enabled"] = _configService.Current.EnableNetworkDiagnosticLog,
+                },
+                ["rp_profiles"] = _rpConfigService.Current.CharacterProfiles,
+                ["pair_notes"] = _notesConfigService.Current.ServerNotes,
+                ["pair_groups"] = _serverTagConfigService.Current.ServerTagStorage,
+                ["blocked_players"] = _serverBlockConfigService.Current.ServerBlocks,
+                ["establishments"] = new Dictionary<string, object?>(StringComparer.Ordinal)
+                {
+                    ["bookmarked"] = _establishmentConfigService.Current.BookmarkedEstablishments,
+                    ["syncslot_bindings"] = _establishmentConfigService.Current.EstablishmentSyncSlotBindings,
+                },
+                ["syncshells"] = new Dictionary<string, object?>(StringComparer.Ordinal)
+                {
+                    ["favorites"] = _syncshellConfigService.Current.FavoriteSyncshells,
+                    ["collection_overrides"] = _syncshellConfigService.Current.GroupCollectionOverrides,
+                },
+                ["chara_data"] = new Dictionary<string, object?>(StringComparer.Ordinal)
+                {
+                    ["favorites"] = _charaDataConfigService.Current.FavoriteCodes,
+                    ["last_saved_location"] = _charaDataConfigService.Current.LastSavedCharaDataLocation,
+                    ["mcdf_local_folder"] = _charaDataConfigService.Current.McdfLocalFolder,
+                },
+                ["network_diagnostic_logs"] = CollectNetworkDiagnosticLogs(),
+                ["file_cache"] = SummarizeFileCache(),
             };
 
-            var notesPath = Path.Combine(_configDirectory, "notes.json");
-            if (File.Exists(notesPath))
-            {
-                exportData["notes_file"] = notesPath;
-                exportData["notes_file_size_bytes"] = new FileInfo(notesPath).Length;
-            }
-
-            var exportDir = !string.IsNullOrEmpty(_configService.Current.ExportFolder)
-                ? _configService.Current.ExportFolder
-                : _configDirectory;
-
+            var exportDir = ResolveExportDirectory();
             Directory.CreateDirectory(exportDir);
             var exportPath = Path.Combine(exportDir, $"umbrasync_rgpd_export_{DateTime.UtcNow:yyyyMMdd_HHmmss}.json");
             var json = JsonSerializer.Serialize(exportData, JsonOptions);
@@ -93,34 +148,178 @@ public class RgpdDataService : DisposableMediatorSubscriberBase
         catch (Exception ex)
         {
             Logger.LogError(ex, "Failed to export RGPD local data");
+            Mediator.Publish(new RgpdDataExportReadyMessage(null));
         }
+    }
+
+    private List<Dictionary<string, object?>> CollectNetworkDiagnosticLogs()
+    {
+        var result = new List<Dictionary<string, object?>>();
+        try
+        {
+            if (!Directory.Exists(NetworkDiagnosticDirectory)) return result;
+            foreach (var file in Directory.EnumerateFiles(NetworkDiagnosticDirectory))
+            {
+                var info = new FileInfo(file);
+                result.Add(new Dictionary<string, object?>(StringComparer.Ordinal)
+                {
+                    ["path"] = info.FullName,
+                    ["size_bytes"] = info.Length,
+                    ["last_write_utc"] = info.LastWriteTimeUtc.ToString("O"),
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Could not enumerate network diagnostic logs for RGPD export");
+        }
+        return result;
+    }
+
+    private Dictionary<string, object?> SummarizeFileCache()
+    {
+        var summary = new Dictionary<string, object?>(StringComparer.Ordinal)
+        {
+            ["folder"] = _configService.Current.CacheFolder,
+        };
+        try
+        {
+            var folder = _configService.Current.CacheFolder;
+            if (string.IsNullOrEmpty(folder) || !Directory.Exists(folder)) return summary;
+
+            long count = 0;
+            long bytes = 0;
+            foreach (var file in Directory.EnumerateFiles(folder))
+            {
+                count++;
+                bytes += new FileInfo(file).Length;
+            }
+            summary["file_count"] = count;
+            summary["size_bytes"] = bytes;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Could not summarize file cache for RGPD export");
+        }
+        return summary;
     }
 
     private void DeleteLocalData()
     {
         try
         {
-            var notesPath = Path.Combine(_configDirectory, "notes.json");
-            if (File.Exists(notesPath)) File.Delete(notesPath);
 
-            var exportDir = !string.IsNullOrEmpty(_configService.Current.ExportFolder)
-                ? _configService.Current.ExportFolder
-                : _configDirectory;
+            _rpConfigService.Current.CharacterProfiles.Clear();
+            _rpConfigService.Save();
 
-            if (Directory.Exists(exportDir))
-            {
-                foreach (var file in Directory.GetFiles(exportDir, "umbrasync_rgpd_export_*.json"))
-                    File.Delete(file);
-            }
+            _notesConfigService.Current.ServerNotes.Clear();
+            _notesConfigService.Save();
+
+            _serverTagConfigService.Current.ServerTagStorage.Clear();
+            _serverTagConfigService.Save();
+
+            _serverBlockConfigService.Current.ServerBlocks.Clear();
+            _serverBlockConfigService.Save();
+
+            _establishmentConfigService.Current.BookmarkedEstablishments.Clear();
+            _establishmentConfigService.Current.EstablishmentSyncSlotBindings.Clear();
+            _establishmentConfigService.Save();
+
+            _syncshellConfigService.Current.FavoriteSyncshells.Clear();
+            _syncshellConfigService.Current.GroupCollectionOverrides.Clear();
+            _syncshellConfigService.Save();
+
+            _charaDataConfigService.Current.FavoriteCodes.Clear();
+            _charaDataConfigService.Current.LastSavedCharaDataLocation = string.Empty;
+            _charaDataConfigService.Save();
+
+            DeleteNetworkDiagnosticLogs();
+            DeletePreviousExports();
 
             RevokeRgpdConsent();
 
-            Logger.LogInformation("RGPD local data deleted");
-            Mediator.Publish(new RgpdLocalDataDeletionCompleteMessage());
+
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await Task.Delay(BackupPurgeDelay).ConfigureAwait(false);
+                    PurgeConfigBackups();
+                    Logger.LogInformation("RGPD local data deleted");
+                    Mediator.Publish(new RgpdLocalDataDeletionCompleteMessage());
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogError(ex, "Failed to purge config backups during RGPD deletion");
+                    Mediator.Publish(new RgpdLocalDataDeletionCompleteMessage());
+                }
+            });
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Failed to delete RGPD local data");
+            Mediator.Publish(new RgpdLocalDataDeletionCompleteMessage());
+        }
+    }
+
+    private void DeleteNetworkDiagnosticLogs()
+    {
+        try
+        {
+            if (!Directory.Exists(NetworkDiagnosticDirectory)) return;
+            foreach (var file in Directory.GetFiles(NetworkDiagnosticDirectory))
+            {
+                try { File.Delete(file); }
+                catch (IOException) { /* fichier en cours d'écriture par la session active */ }
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Could not delete network diagnostic logs");
+        }
+    }
+
+    private void DeletePreviousExports()
+    {
+        try
+        {
+            var exportDir = ResolveExportDirectory();
+            if (!Directory.Exists(exportDir)) return;
+            foreach (var file in Directory.GetFiles(exportDir, "umbrasync_rgpd_export_*.json"))
+                File.Delete(file);
+            foreach (var file in Directory.GetFiles(exportDir, "umbrasync_server_export_*.json"))
+                File.Delete(file);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Could not delete previous RGPD exports");
+        }
+    }
+
+    private void PurgeConfigBackups()
+    {
+        var backupFolder = Path.Combine(_configDirectory, ConfigurationSaveService.BackupFolder);
+        if (!Directory.Exists(backupFolder)) return;
+
+        string[] purgedConfigs =
+        [
+            RpConfigService.ConfigName,
+            NotesConfigService.ConfigName,
+            ServerTagConfigService.ConfigName,
+            ServerBlockConfigService.ConfigName,
+            EstablishmentConfigService.ConfigName,
+            SyncshellConfigService.ConfigName,
+            CharaDataConfigService.ConfigName,
+        ];
+
+        foreach (var configName in purgedConfigs)
+        {
+            var prefix = configName.Split('.')[0];
+            foreach (var file in Directory.GetFiles(backupFolder, prefix + "*"))
+            {
+                try { File.Delete(file); }
+                catch (IOException ex) { Logger.LogWarning(ex, "Could not delete config backup {file}", file); }
+            }
         }
     }
 }

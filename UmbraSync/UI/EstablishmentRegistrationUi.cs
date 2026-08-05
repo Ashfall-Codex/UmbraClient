@@ -668,9 +668,25 @@ internal class EstablishmentRegistrationUi : WindowMediatorSubscriberBase
         try
         {
             var loc = _dalamudUtilService.GetMapData();
+
+            // La capture de la parcelle/chambre n'est fiable que si le joueur est DANS son logement.
+            // Hors logement, WardId/HouseId/RoomId reviennent à 0 : on refuse de remplir avec des
+            // valeurs bidon (Ward 1 / Parcelle 1) qui créeraient un slot pointant vers une mauvaise
+            // parcelle (cause des slots cassés "S:0 P:0"). L'adresse reste saisissable manuellement.
+            if (loc.WardId == 0 || (loc.HouseId == 0 && loc.RoomId == 0))
+            {
+                _logger.LogDebug("Auto-remplissage refusé : hors logement (Ward={ward}, House={house}, Room={room})",
+                    loc.WardId, loc.HouseId, loc.RoomId);
+                Mediator.Publish(new NotificationMessage(
+                    Loc.Get("Establishment.Location.AutoFill"),
+                    Loc.Get("Establishment.Location.AutoFillNeedsInside"),
+                    NotificationType.Warning, TimeSpan.FromSeconds(6)));
+                return;
+            }
+
             _selectedWorldId = (ushort)loc.ServerId;
             _selectedDistrictIndex = ResolveDistrictIndex(loc.TerritoryId);
-            _ward = loc.WardId > 0 ? (int)loc.WardId : 1;
+            _ward = (int)loc.WardId;
             _isSubdivision = loc.DivisionId > 1;
 
             if (loc.RoomId > 0)
@@ -681,7 +697,7 @@ internal class EstablishmentRegistrationUi : WindowMediatorSubscriberBase
             else
             {
                 _housingType = 0;
-                _plot = loc.HouseId > 0 ? (int)loc.HouseId : 1;
+                _plot = (int)loc.HouseId;
             }
         }
         catch (Exception ex)

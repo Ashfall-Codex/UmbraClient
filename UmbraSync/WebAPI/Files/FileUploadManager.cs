@@ -121,8 +121,15 @@ public sealed class FileUploadManager : DisposableMediatorSubscriberBase
     {
         if (!_orchestrator.IsInitialized)
         {
-            Logger.LogWarning("FileTransferOrchestrator n'est pas initialisé, upload ignoré pour {hash}", data.DataHash.Value);
-            return data;
+            Logger.LogDebug("FileTransferOrchestrator pas encore initialisé, attente avant upload de {hash}", data.DataHash.Value);
+            if (!await _orchestrator.WaitForInitializationAsync(TimeSpan.FromSeconds(10), CancellationToken.None).ConfigureAwait(false))
+            {
+                // Surtout ne pas retourner data tel quel : l'appelant pousserait un manifest
+                // référençant des fichiers jamais uploadés, que les pairs ne pourraient
+                // jamais télécharger (pièces de mod manquantes en boucle).
+                throw new InvalidOperationException(
+                    $"FileTransferOrchestrator non initialisé, upload impossible pour {data.DataHash.Value}");
+            }
         }
 
         CancelUpload();

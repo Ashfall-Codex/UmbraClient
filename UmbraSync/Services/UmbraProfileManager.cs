@@ -442,7 +442,7 @@ public class UmbraProfileManager : MediatorSubscriberBase
                 return;
             }
 
-            Logger.LogInformation("EnsureOwnProfileSynced: Fetching full profile from server for {name}@{worldId}", charName, worldId);
+            Logger.LogInformation("EnsureOwnProfileSynced: Fetching full profile from server for {uid}@{worldId}", _apiController.UID, worldId);
             await GetUmbraProfileFromService(new UserData(_apiController.UID), charName, worldId).ConfigureAwait(false);
         }
         catch (OperationCanceledException)

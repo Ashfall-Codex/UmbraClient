@@ -65,6 +65,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
     private bool _showFileDialogError = false;
     private bool _wasOpen;
     private bool _rpLoaded = false;
+    private string _rpLoadedForKey = string.Empty;
     private bool _hrpLoaded = false;
     private bool _vanityModalOpen = false;
     private string _vanityInput = string.Empty;
@@ -90,6 +91,9 @@ public class EditProfileUi : WindowMediatorSubscriberBase
     private Vector3 _rpNameColorVec;
     private string _savedRpNameColorHex = string.Empty;
     private string _savedRpCustomFieldsJson = string.Empty;
+    private string _hydratedRpSnapshot = string.Empty;
+    private bool _serverHasNewerVersion = false;
+    private DateTime _lastRpPollUtc = DateTime.MinValue;
     private readonly BbCodeToolbar _bbCodeToolbar;
     public EditProfileUi(ILogger<EditProfileUi> logger, MareMediator mediator,
         ApiController apiController, UiSharedService uiSharedService, FileDialogManager fileDialogManager,
@@ -168,6 +172,27 @@ public class EditProfileUi : WindowMediatorSubscriberBase
         Mediator.Subscribe<ConnectedMessage>(this, (msg) => _ = Task.Run(_honorificEditor.RunRestoreLoopAsync));
     }
 
+    public override void OnOpen() => RefreshFromServer();
+    public void RefreshFromServer()
+    {
+        _rpLoaded = false;
+        _hrpLoaded = false;
+        var charName = _dalamudUtil.GetPlayerName();
+        var worldId = _dalamudUtil.GetHomeWorldId();
+        // Ne pas fetch tant que LocalPlayer n'est pas prêt : un nom "--"/monde 0 partirait sans
+        // contexte perso et le serveur renverrait le profil d'un autre alt. Le draw relancera le
+        // fetch via GetUmbraProfile une fois le perso résolu.
+        if (!string.IsNullOrEmpty(_apiController.UID)
+            && !string.IsNullOrEmpty(charName) && !string.Equals(charName, "--", StringComparison.Ordinal)
+            && worldId > 0)
+        {
+            _ = _umbraProfileManager.GetUmbraProfileFromService(
+                new UserData(_apiController.UID),
+                charName,
+                worldId);
+        }
+    }
+
     protected override void DrawInternal()
     {
         var accent = UiSharedService.AccentColor;
@@ -218,6 +243,13 @@ public class EditProfileUi : WindowMediatorSubscriberBase
             ImGui.OpenPopup(Loc.Get("EditProfile.SetCustomId.Title"));
         }
         UiSharedService.AttachToolTip(Loc.Get("EditProfile.SetCustomId.Tooltip"));
+
+        ImGui.SameLine();
+        if (_uiSharedService.IconTextButton(FontAwesomeIcon.ExternalLinkAlt, Loc.Get("EditProfile.EnrichedProfile.Button")))
+        {
+            Dalamud.Utility.Util.OpenLink("https://connect.ashfall-codex.dev/account");
+        }
+        UiSharedService.AttachToolTip(Loc.Get("EditProfile.EnrichedProfile.Tooltip"));
 
         DrawVanityPopup();
 
@@ -284,9 +316,91 @@ public class EditProfileUi : WindowMediatorSubscriberBase
         DrawProfileContent(_activeTab == 0);
     }
 
+    private void DrawRefreshControl()
+    {
+        if (_uiSharedService.IconButton(FontAwesomeIcon.Sync))
+        {
+            RefreshFromServer();
+        }
+        UiSharedService.AttachToolTip("Recharger le profil depuis le serveur");
+        if (_serverHasNewerVersion)
+        {
+            ImGui.SameLine();
+            using (ImRaii.PushColor(ImGuiCol.Text, ImGuiColors.DalamudYellow))
+                ImGui.TextUnformatted("Mise à jour disponible");
+            UiSharedService.AttachToolTip("Le profil a été modifié sur le serveur (Ashfall Connect ?). Cliquez sur le bouton de rechargement pour voir les changements.");
+        }
+    }
+
+    private static string ComputeRpSnapshotFromProfile(UmbraProfileData p)
+    {
+        var customJson = p.RpCustomFields == null
+            ? string.Empty
+            : System.Text.Json.JsonSerializer.Serialize(p.RpCustomFields.OrderBy(f => f.Order).Select(f => new { f.Name, f.Value }));
+        return string.Join('\u0001',
+            p.RpFirstName ?? "", p.RpLastName ?? "", p.RpTitle ?? "",
+            p.RpAge ?? "", p.RpRace ?? "", p.RpEthnicity ?? "",
+            p.RpHeight ?? "", p.RpBuild ?? "", p.RpResidence ?? "",
+            p.RpOccupation ?? "", p.RpAffiliation ?? "", p.RpAlignment ?? "",
+            p.RpAdditionalInfo ?? "", p.RpNameColor ?? "",
+            p.IsRpNSFW.ToString(), p.RpLevel.ToString(),
+            customJson);
+    }
+
+    private async Task PollServerForRpUpdatesAsync()
+    {
+        if (string.IsNullOrEmpty(_apiController.UID) || !_apiController.IsConnected) return;
+        try
+        {
+            var charName = await _dalamudUtil.GetPlayerNameAsync().ConfigureAwait(false);
+            var worldId = await _dalamudUtil.GetHomeWorldIdAsync().ConfigureAwait(false);
+            var dto = await _apiController.UserGetProfile(new UmbraSync.API.Dto.User.UserDto(new UserData(_apiController.UID))
+            {
+                CharacterName = charName,
+                WorldId = worldId,
+            }).ConfigureAwait(false);
+
+            List<RpCustomField>? customFields = null;
+            if (!string.IsNullOrEmpty(dto.RpCustomFields))
+            {
+                try { customFields = System.Text.Json.JsonSerializer.Deserialize<List<RpCustomField>>(dto.RpCustomFields); }
+                catch { customFields = null; }
+            }
+            var pseudoProfile = new UmbraProfileData(
+                IsFlagged: false, IsNSFW: dto.IsNSFW ?? false,
+                Base64ProfilePicture: string.Empty, Description: string.Empty,
+                Base64RpProfilePicture: null, RpDescription: dto.RpDescription, IsRpNSFW: dto.IsRpNSFW ?? false,
+                RpFirstName: dto.RpFirstName, RpLastName: dto.RpLastName, RpTitle: dto.RpTitle, RpAge: dto.RpAge,
+                RpRace: dto.RpRace, RpEthnicity: dto.RpEthnicity,
+                RpHeight: dto.RpHeight, RpBuild: dto.RpBuild, RpResidence: dto.RpResidence,
+                RpOccupation: dto.RpOccupation, RpAffiliation: dto.RpAffiliation,
+                RpAlignment: dto.RpAlignment, RpAdditionalInfo: dto.RpAdditionalInfo,
+                RpNameColor: dto.RpNameColor,
+                RpCustomFields: customFields,
+                ChatIcon: dto.ChatIcon ?? 0, RpLevel: dto.RpLevel ?? 0);
+
+            var serverSnapshot = ComputeRpSnapshotFromProfile(pseudoProfile);
+            if (!string.Equals(serverSnapshot, _hydratedRpSnapshot, StringComparison.Ordinal))
+            {
+                _serverHasNewerVersion = true;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Échec du poll RP profile (silencieux)");
+        }
+    }
+
     private void DrawProfileContent(bool isRp)
     {
         _moodlesEditor.EnsureRefreshed();
+        
+        if (isRp && _rpLoaded && !_serverHasNewerVersion
+            && DateTime.UtcNow - _lastRpPollUtc > TimeSpan.FromSeconds(30))
+        {
+            _lastRpPollUtc = DateTime.UtcNow;
+            _ = PollServerForRpUpdatesAsync();
+        }
 
         var umbraProfile = _umbraProfileManager.GetUmbraProfile(new UserData(_apiController.UID));
 
@@ -299,12 +413,25 @@ public class EditProfileUi : WindowMediatorSubscriberBase
 
         _uiSharedService.BigText(isRp ? "Profil RP" : "Profil HRP");
         ImGui.SameLine();
+        if (isRp) DrawRefreshControl();
         DrawHeaderButtons(isRp, umbraProfile);
         ImGuiHelpers.ScaledDummy(new Vector2(0f, ImGui.GetStyle().ItemSpacing.Y / 2));
 
         if (isRp)
         {
-            if (!_rpLoaded && !string.Equals(umbraProfile.Description, "Loading Data from server...", StringComparison.Ordinal))
+            var curName = _dalamudUtil.GetPlayerName();
+            var curWorld = _dalamudUtil.GetHomeWorldId();
+            bool playerReady = !string.IsNullOrEmpty(curName)
+                && !string.Equals(curName, "--", StringComparison.Ordinal) && curWorld > 0;
+            // Clé perso courante (même format que RpConfigService.GetCharacterKey).
+            var curKey = playerReady ? $"{curName}@{curWorld}" : string.Empty;
+
+            // Switch d'alt fenêtre ouverte : si le perso a changé depuis le dernier chargement,
+            // on recharge pour ne pas garder les champs (ni réécrire le config) de l'ancien perso.
+            if (playerReady && !string.Equals(curKey, _rpLoadedForKey, StringComparison.Ordinal))
+                _rpLoaded = false;
+
+            if (playerReady && !_rpLoaded && !string.Equals(umbraProfile.Description, "Loading Data from server...", StringComparison.Ordinal))
             {
                 _rpDescriptionText = umbraProfile.RpDescription ?? string.Empty;
                 _rpFirstNameText = umbraProfile.RpFirstName ?? string.Empty;
@@ -322,9 +449,31 @@ public class EditProfileUi : WindowMediatorSubscriberBase
                 _rpAdditionalInfoText = umbraProfile.RpAdditionalInfo ?? string.Empty;
 
                 var configProfile = _rpConfigService.GetCurrentCharacterProfile();
-                _rpCustomFields = configProfile.RpCustomFields
+                // Source de vérité = serveur (Connect peut le modifier entre deux ouvertures du
+                // plugin). Fallback config locale uniquement si le serveur a renvoyé null (perso
+                // jamais sync). Une liste vide côté serveur signifie "tout supprimé" et est respectée.
+                var customFieldsSource = umbraProfile.RpCustomFields ?? configProfile.RpCustomFields;
+                _rpCustomFields = customFieldsSource
                     .Select(f => new RpCustomField { Name = f.Name, Value = f.Value, Order = f.Order })
                     .ToList();
+                configProfile.RpCustomFields = _rpCustomFields
+                    .Select(f => new RpCustomField { Name = f.Name, Value = f.Value, Order = f.Order })
+                    .ToList();
+                configProfile.RpFirstName = _rpFirstNameText;
+                configProfile.RpLastName = _rpLastNameText;
+                configProfile.RpTitle = _rpTitleText;
+                configProfile.RpAge = _rpAgeText;
+                configProfile.RpRace = _rpRaceText;
+                configProfile.RpEthnicity = _rpEthnicityText;
+                configProfile.RpHeight = _rpHeightText;
+                configProfile.RpBuild = _rpBuildText;
+                configProfile.RpResidence = _rpResidenceText;
+                configProfile.RpOccupation = _rpOccupationText;
+                configProfile.RpAffiliation = _rpAffiliationText;
+                configProfile.RpAlignment = _rpAlignmentText;
+                configProfile.RpAdditionalInfo = _rpAdditionalInfoText;
+                configProfile.RpNameColor = umbraProfile.RpNameColor ?? string.Empty;
+                _rpConfigService.Save();
 
                 _chatIconPicker.SelectedIcon = umbraProfile.ChatIcon > 0 ? umbraProfile.ChatIcon : configProfile.ChatIcon;
                 _rpLevel = umbraProfile.RpLevel != 0 ? umbraProfile.RpLevel : configProfile.RpLevel;
@@ -356,6 +505,10 @@ public class EditProfileUi : WindowMediatorSubscriberBase
                 }
 
                 _rpLoaded = true;
+                _rpLoadedForKey = curKey;
+                _hydratedRpSnapshot = ComputeRpSnapshotFromProfile(umbraProfile);
+                _serverHasNewerVersion = false;
+                _lastRpPollUtc = DateTime.UtcNow;
                 SnapshotSavedState(true);
             }
         }

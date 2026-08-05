@@ -1666,6 +1666,21 @@ Click to change.</value>
   <data name="ChangelogUi.WindowTitle" xml:space="preserve">
     <value>Umbra Sync - Changelog</value>
   </data>
+  <data name="TestBuildWarning.WindowTitle" xml:space="preserve">
+    <value>UmbraSync - Test build</value>
+  </data>
+  <data name="TestBuildWarning.Header" xml:space="preserve">
+    <value>Test build</value>
+  </data>
+  <data name="TestBuildWarning.Body" xml:space="preserve">
+    <value>You are running a development / testing build of UmbraSync.&#x0A;&#x0A;Bugs, crashes and instability are expected. This build is not meant for everyday use.&#x0A;&#x0A;Please do not report issues from this build as if they affected the stable version.</value>
+  </data>
+  <data name="TestBuildWarning.Acknowledge" xml:space="preserve">
+    <value>Understood</value>
+  </data>
+  <data name="TestBuildWarning.Signature" xml:space="preserve">
+    <value>Your beloved developer: Keda</value>
+  </data>
   <data name="ChangelogUi.RestartNotice.Title" xml:space="preserve">
     <value>Restart recommended</value>
   </data>
@@ -4600,6 +4615,12 @@ Note: Weapons will not be displayed correctly unless using the same job as the s
   <data name="EditProfile.PreviewButton" xml:space="preserve">
     <value>Preview my profile</value>
   </data>
+  <data name="EditProfile.EnrichedProfile.Button" xml:space="preserve">
+    <value>Enriched profile</value>
+  </data>
+  <data name="EditProfile.EnrichedProfile.Tooltip" xml:space="preserve">
+    <value>Opens your enriched profile on Ashfall Connect (web editor). Requires a linked Ashfall Connect account.</value>
+  </data>
   <data name="EditProfile.SaveButton" xml:space="preserve">
     <value>Save Profile</value>
   </data>
@@ -4640,6 +4661,9 @@ Note: Weapons will not be displayed correctly unless using the same job as the s
   <!-- Syncshell Cards -->
   <data name="Syncshell.Cards.OnlineMembers" xml:space="preserve">
     <value>{0} online / {1} members</value>
+  </data>
+  <data name="Syncshell.Cards.MaxCapacity" xml:space="preserve">
+    <value>Max capacity: {0}</value>
   </data>
   <data name="Syncshell.Cards.Paused" xml:space="preserve">
     <value>Paused</value>
@@ -4886,6 +4910,12 @@ Note: Weapons will not be displayed correctly unless using the same job as the s
   </data>
   <data name="Notification.Server.Warning" xml:space="preserve">
     <value>Warning from</value>
+  </data>
+  <data name="Notification.ForceDisconnect.Title" xml:space="preserve">
+    <value>Disconnected by the server</value>
+  </data>
+  <data name="Notification.ForceDisconnect.Body" xml:space="preserve">
+    <value>Your secret key has been regenerated. Enter the new key in the settings to reconnect.</value>
   </data>
   <data name="Notification.Nearby.Blocked.Title" xml:space="preserve">
     <value>Nearby request blocked</value>
@@ -5376,6 +5406,9 @@ Note: Weapons will not be displayed correctly unless using the same job as the s
   <data name="HousingShare.Notification.Applied" xml:space="preserve">
     <value>Housing mods applied ({0})</value>
   </data>
+  <data name="HousingShare.Notification.ReloadForDecor" xml:space="preserve">
+    <value>This house shares wall, floor or ceiling coverings. Step outside and come back in to see them.</value>
+  </data>
   <data name="HousingShare.Notification.ReenterForEffect" xml:space="preserve">
     <value>Mods registered. Re-enter the house for them to take effect.</value>
   </data>
@@ -5411,6 +5444,9 @@ Note: Weapons will not be displayed correctly unless using the same job as the s
   </data>
   <data name="HousingShare.SourceMod.Disabled" xml:space="preserve">
     <value>Source mod(s) disabled: {0}</value>
+  </data>
+  <data name="HousingShare.SourceMod.KeptActive" xml:space="preserve">
+    <value>Mod(s) kept enabled because the share does not cover all of their files: {0}</value>
   </data>
   <data name="QuestSync.Title" xml:space="preserve">
     <value>Quest Sync</value>
@@ -5516,7 +5552,7 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
     <value>Export Your Data (GDPR Art. 20)</value>
   </data>
   <data name="Settings.Privacy.Export.Description" xml:space="preserve">
-    <value>Export a copy of all your personal data stored locally and/or on the server.</value>
+    <value>Export a copy of your personal data as JSON. The local export contains your RP profiles, your notes about pairs, your groups, blocked players, favourites and settings; the server export summarises what the server keeps about your account.</value>
   </data>
   <data name="Settings.Privacy.Export.LocalButton" xml:space="preserve">
     <value>Export (local)</value>
@@ -5537,7 +5573,7 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
     <value>Delete Local Data (GDPR Art. 17)</value>
   </data>
   <data name="Settings.Privacy.Delete.Description" xml:space="preserve">
-    <value>Deletes notes, exports, and resets consent. Server data is not affected.</value>
+    <value>Erases the personal data kept on your machine: RP profiles, notes about pairs, groups, blocked players, syncshell and MCDF favourites, saved establishments, network diagnostic logs and previous exports, configuration backups included. Consent is reset. The mod cache and server-side data are not affected.</value>
   </data>
   <data name="Settings.Privacy.Delete.LocalButton" xml:space="preserve">
     <value>Delete local data</value>
@@ -5546,10 +5582,52 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
     <value>Confirm deletion</value>
   </data>
   <data name="Settings.Privacy.Delete.ConfirmMessage" xml:space="preserve">
-    <value>Your local notes and GDPR exports will be deleted, and your consent will be reset. This action is irreversible.</value>
+    <value>The following will be deleted: your local RP profiles, your pair notes and groups, your blocked players, your syncshell and MCDF favourites, your saved establishments, your network diagnostic logs, your previous exports and the matching configuration backups. Your consent will be reset. This action cannot be undone.</value>
   </data>
   <data name="Settings.Privacy.Delete.ConfirmYes" xml:space="preserve">
     <value>Delete</value>
+  </data>
+  <data name="Settings.Privacy.Delete.InProgress" xml:space="preserve">
+    <value>Deletion in progress…</value>
+  </data>
+  <data name="Settings.Privacy.Delete.Done" xml:space="preserve">
+    <value>Local deletion complete. Your server-side data is unaffected.</value>
+  </data>
+  <data name="Settings.Privacy.ServerDelete.Header" xml:space="preserve">
+    <value>Server-side data erasure</value>
+  </data>
+  <data name="Settings.Privacy.ServerDelete.Description" xml:space="preserve">
+    <value>Permanently deletes your account and everything kept on the server: RP profiles, pairings, syncshell memberships, MCDF and housing shares, establishments and uploaded mod files. Secondary accounts attached to yours are deleted as well.</value>
+  </data>
+  <data name="Settings.Privacy.ServerDelete.Button" xml:space="preserve">
+    <value>Delete my server-side data</value>
+  </data>
+  <data name="Settings.Privacy.ServerDelete.Offline" xml:space="preserve">
+    <value>You must be connected to the server to request erasure.</value>
+  </data>
+  <data name="Settings.Privacy.ServerDelete.ConfirmTitle" xml:space="preserve">
+    <value>Confirm erasure</value>
+  </data>
+  <data name="Settings.Privacy.ServerDelete.ConfirmMessage" xml:space="preserve">
+    <value>This action cannot be undone. Your account, your secondary accounts and all associated data will be removed from the server.</value>
+  </data>
+  <data name="Settings.Privacy.ServerDelete.ConfirmPrompt" xml:space="preserve">
+    <value>Type "{0}" to confirm:</value>
+  </data>
+  <data name="Settings.Privacy.ServerDelete.ConfirmWord" xml:space="preserve">
+    <value>DELETE</value>
+  </data>
+  <data name="Settings.Privacy.ServerDelete.ConfirmYes" xml:space="preserve">
+    <value>Delete permanently</value>
+  </data>
+  <data name="Settings.Privacy.ServerDelete.InProgress" xml:space="preserve">
+    <value>Erasure requested from the server…</value>
+  </data>
+  <data name="Settings.Privacy.ServerDelete.Done" xml:space="preserve">
+    <value>Erasure complete. Your account no longer exists on this server.</value>
+  </data>
+  <data name="Settings.Privacy.ServerDelete.Failed" xml:space="preserve">
+    <value>Erasure failed. Try again once reconnected to the server.</value>
   </data>
   <data name="Settings.Privacy.Revoke.Header" xml:space="preserve">
     <value>Revoke Consent</value>
@@ -5603,7 +5681,19 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
     <value>Data collected:</value>
   </data>
   <data name="Rgpd.Consent.DataCollected.Details" xml:space="preserve">
-    <value>• Unique identifier (UID)&#x0A;• Appearance data (Penumbra mods, Glamourer states)&#x0A;• RP profiles (name, description, image)&#x0A;• Pairing list and syncshell memberships&#x0A;• Mod files uploaded for synchronization</value>
+    <value>• Unique identifier (UID), last login date and IP address for the duration of the session&#x0A;• Appearance data: Penumbra mods, Glamourer states and mod files uploaded for synchronization&#x0A;• RP profiles: first name, last name, title, description, picture and custom fields, per character&#x0A;• Pairing list, notes you write about your pairs and syncshell memberships&#x0A;• Shares you publish: MCDF, housing layouts and NPC scenarios&#x0A;• RP establishments you create: name, logo, banner, housing location and events&#x0A;• "Wild RP" announcements: character name, world, zone and residential ward, visible in the directory&#x0A;• Typing indicator: signal sent to your pairs while you type&#x0A;• Ashfall Connect, if you link your account: name and world of your characters sent to connect.ashfall-codex.dev, along with the Discord or XIVAuth identity you associate with it</value>
+  </data>
+  <data name="Rgpd.Consent.Outdated" xml:space="preserve">
+    <value>The scope of the data being processed has changed since you last gave consent. Please read this page again and confirm your agreement.</value>
+  </data>
+  <data name="Rgpd.Consent.Controller" xml:space="preserve">
+    <value>Data controller: the Ashfall Codex team, publisher of UmbraSync and of the umbra-sync.net server. For any request regarding your data, contact us through the Ashfall Codex Discord server.</value>
+  </data>
+  <data name="Rgpd.Consent.Retention" xml:space="preserve">
+    <value>Retention: your data is kept as long as your account stays active. An account left unused beyond the period set by the server administrator is deleted automatically, along with the files attached to it. Uploaded mod files are kept for as long as they need to be distributed to your pairs.</value>
+  </data>
+  <data name="Rgpd.Consent.ConnectNotice" xml:space="preserve">
+    <value>Ashfall Connect is a separate service. Deleting your UmbraSync account does not erase the RP profile hosted on Connect: deletion must be requested there separately from your Connect account.</value>
   </data>
   <data name="Rgpd.Consent.DataCollection" xml:space="preserve">
     <value>I consent to data collection (required)</value>
@@ -5627,7 +5717,7 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
     <value>Your rights:</value>
   </data>
   <data name="Rgpd.Consent.Rights.Summary" xml:space="preserve">
-    <value>You can access, export, rectify, or delete your data at any time from the "Privacy" tab in settings. You may withdraw your consent at any time.</value>
+    <value>You can access, export, rectify, or delete your data at any time from the "Privacy" tab in settings, including requesting the erasure of all your server-side data. You may withdraw your consent at any time.</value>
   </data>
   <data name="Rgpd.Consent.AcceptButton" xml:space="preserve">
     <value>I accept and continue</value>
@@ -5767,6 +5857,9 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
   </data>
   <data name="Establishment.Location.AutoFillTooltip" xml:space="preserve">
     <value>Detects your current position and auto-fills the location fields.&#x0A;You must be inside your house or apartment.</value>
+  </data>
+  <data name="Establishment.Location.AutoFillNeedsInside" xml:space="preserve">
+    <value>Go inside your house or apartment to use auto-fill. Otherwise, enter the ward and plot manually.</value>
   </data>
   <data name="Establishment.Location.Server" xml:space="preserve">
     <value>Server</value>
@@ -6140,5 +6233,524 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
   </data>
   <data name="WildRp.Ward" xml:space="preserve">
     <value>Ward {0}</value>
+  </data>
+  <data name="HousingScenario.Title" xml:space="preserve">
+    <value>NPC scenario synchronization</value>
+  </data>
+  <data name="HousingScenario.ArrNotDetected" xml:space="preserve">
+    <value>A Realm Repopulated plugin not detected. Install it and restart the plugin to enable this section.</value>
+  </data>
+  <data name="HousingScenario.ArrDetected" xml:space="preserve">
+    <value>A Realm Repopulated detected</value>
+  </data>
+  <data name="HousingScenario.OperationInProgress" xml:space="preserve">
+    <value>Scenario operation in progress...</value>
+  </data>
+  <data name="HousingScenario.NotInHousing" xml:space="preserve">
+    <value>You are not in a housing area. Enter yours to publish a scenario.</value>
+  </data>
+  <data name="HousingScenario.CurrentLocation" xml:space="preserve">
+    <value>Current location: S{0} W{1} H{2}</value>
+  </data>
+  <data name="HousingScenario.AppliedNotice" xml:space="preserve">
+    <value>A shared scenario is currently applied.</value>
+  </data>
+  <data name="HousingScenario.RemoveManually" xml:space="preserve">
+    <value>Remove manually</value>
+  </data>
+  <data name="HousingScenario.OwnSharesTitle" xml:space="preserve">
+    <value>My shared scenarios</value>
+  </data>
+  <data name="HousingScenario.Refresh" xml:space="preserve">
+    <value>Refresh</value>
+  </data>
+  <data name="HousingScenario.NoneMatching" xml:space="preserve">
+    <value>No scene for this house. Create one with "Create / edit NPC scenes".</value>
+  </data>
+  <data name="HousingScenario.DescriptionHint" xml:space="preserve">
+    <value>Description (visible to pairs)</value>
+  </data>
+  <data name="HousingScenario.ShareToAll" xml:space="preserve">
+    <value>Share with all my pairs and syncshells</value>
+  </data>
+  <data name="HousingScenario.UidHint" xml:space="preserve">
+    <value>UID or vanity</value>
+  </data>
+  <data name="HousingScenario.UidToAdd" xml:space="preserve">
+    <value>Synced UID to add</value>
+  </data>
+  <data name="HousingScenario.SyncshellHint" xml:space="preserve">
+    <value>GID or alias</value>
+  </data>
+  <data name="HousingScenario.SyncshellToAdd" xml:space="preserve">
+    <value>Syncshell to add</value>
+  </data>
+  <data name="HousingScenario.Publish" xml:space="preserve">
+    <value>Publish scenario</value>
+  </data>
+  <data name="HousingScenario.NoOwnShares" xml:space="preserve">
+    <value>No shared scenario published.</value>
+  </data>
+  <data name="HousingScenario.ColDescription" xml:space="preserve">
+    <value>Description</value>
+  </data>
+  <data name="HousingScenario.ColLocation" xml:space="preserve">
+    <value>Location</value>
+  </data>
+  <data name="HousingScenario.ColCreated" xml:space="preserve">
+    <value>Created</value>
+  </data>
+  <data name="HousingScenario.ColAccess" xml:space="preserve">
+    <value>Access</value>
+  </data>
+  <data name="HousingScenario.ColActions" xml:space="preserve">
+    <value>Actions</value>
+  </data>
+  <data name="HousingScenario.AccessSummary" xml:space="preserve">
+    <value>UIDs: {0}, Syncshells: {1}</value>
+  </data>
+  <data name="HousingScenario.AllowedUids" xml:space="preserve">
+    <value>Allowed UIDs:</value>
+  </data>
+  <data name="HousingScenario.NoAllowedUid" xml:space="preserve">
+    <value>No allowed UID</value>
+  </data>
+  <data name="HousingScenario.AllowedSyncshells" xml:space="preserve">
+    <value>Allowed syncshells:</value>
+  </data>
+  <data name="HousingScenario.NoAllowedSyncshell" xml:space="preserve">
+    <value>No allowed syncshell</value>
+  </data>
+  <data name="HousingScenario.Edit" xml:space="preserve">
+    <value>Edit</value>
+  </data>
+  <data name="HousingScenario.Delete" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="HousingScenario.Save" xml:space="preserve">
+    <value>Save</value>
+  </data>
+  <data name="HousingScenario.SelectPair" xml:space="preserve">
+    <value>Select a synced pair...</value>
+  </data>
+  <data name="HousingScenario.Remove" xml:space="preserve">
+    <value>Remove</value>
+  </data>
+  <data name="HousingScenario.Notification.Title" xml:space="preserve">
+    <value>NPC scenario</value>
+  </data>
+  <data name="HousingScenario.Notification.Applying" xml:space="preserve">
+    <value>Applying an NPC scenario… Please wait a few seconds.</value>
+  </data>
+  <data name="HousingScenario.Notification.Applied" xml:space="preserve">
+    <value>A shared NPC scenario is applied in this housing.</value>
+  </data>
+  <data name="HousingScenario.Notification.AppliedWithDescription" xml:space="preserve">
+    <value>A shared NPC scenario is applied in this housing: "{0}"</value>
+  </data>
+  <data name="HousingScenario.Notification.OwnerReminder" xml:space="preserve">
+    <value>Reminder: your shared NPC scenario is active in this housing.</value>
+  </data>
+  <data name="HousingScenario.Notification.OwnerReminderWithDescription" xml:space="preserve">
+    <value>Reminder: your shared NPC scenario "{0}" is active in this housing.</value>
+  </data>
+  <data name="HousingNpc.Editor.Title" xml:space="preserve">
+    <value>Housing NPC Editor</value>
+  </data>
+  <data name="HousingNpc.Editor.EnterHousing" xml:space="preserve">
+    <value>Enter a house to edit its NPC scenes.</value>
+  </data>
+  <data name="HousingNpc.Editor.RoomInfo" xml:space="preserve">
+    <value>Room - Server {0}, Ward {1}, Plot {2}, Division {3}, Room {4}</value>
+  </data>
+  <data name="HousingNpc.Editor.NewScene" xml:space="preserve">
+    <value>New scene</value>
+  </data>
+  <data name="HousingNpc.Editor.NoScenes" xml:space="preserve">
+    <value>No scene in this room. Create one to start.</value>
+  </data>
+  <data name="HousingNpc.Editor.SceneToggleTip" xml:space="preserve">
+    <value>Enable/disable this scene (spawn or not).</value>
+  </data>
+  <data name="HousingNpc.Editor.DeleteSceneTip" xml:space="preserve">
+    <value>Ctrl+click to delete the scene.</value>
+  </data>
+  <data name="HousingNpc.Editor.SceneName" xml:space="preserve">
+    <value>Scene name</value>
+  </data>
+  <data name="HousingNpc.Editor.CaptureSelf" xml:space="preserve">
+    <value>Import from my character</value>
+  </data>
+  <data name="HousingNpc.Editor.CaptureSelfTip" xml:space="preserve">
+    <value>Adds an NPC with your current appearance WITHOUT mods, at your position. The Glamourer design is kept, only Penumbra mods are dropped.</value>
+  </data>
+  <data name="HousingNpc.Editor.Refresh" xml:space="preserve">
+    <value>Refresh</value>
+  </data>
+  <data name="HousingNpc.Editor.NoNpc" xml:space="preserve">
+    <value>No NPC in this scene. Stand where you want and click Capture.</value>
+  </data>
+  <data name="HousingNpc.Editor.NpcName" xml:space="preserve">
+    <value>NPC name</value>
+  </data>
+  <data name="HousingNpc.Editor.Position" xml:space="preserve">
+    <value>Position</value>
+  </data>
+  <data name="HousingNpc.Editor.Rotation" xml:space="preserve">
+    <value>Rotation</value>
+  </data>
+  <data name="HousingNpc.Editor.Emote" xml:space="preserve">
+    <value>Emote</value>
+  </data>
+  <data name="HousingNpc.Editor.EmoteNone" xml:space="preserve">
+    <value>None</value>
+  </data>
+  <data name="HousingNpc.Editor.Search" xml:space="preserve">
+    <value>Search</value>
+  </data>
+  <data name="HousingNpc.Editor.Loop" xml:space="preserve">
+    <value>Loop</value>
+  </data>
+  <data name="HousingNpc.Editor.LoopTip" xml:space="preserve">
+    <value>Replay the emote in a loop (useful for dances / animations that end).</value>
+  </data>
+  <data name="HousingNpc.Editor.FacePlayer" xml:space="preserve">
+    <value>Look at player</value>
+  </data>
+  <data name="HousingNpc.Editor.FacePlayerTip" xml:space="preserve">
+    <value>The NPC's head follows your character.</value>
+  </data>
+  <data name="HousingNpc.Editor.HideWeapon" xml:space="preserve">
+    <value>Hide weapons</value>
+  </data>
+  <data name="HousingNpc.Editor.HideWeaponTip" xml:space="preserve">
+    <value>Hides the NPC's weapons, regardless of the appearance captured. Apply to take effect.</value>
+  </data>
+  <data name="HousingNpc.Editor.Patrol" xml:space="preserve">
+    <value>Patrol - {0} point(s)</value>
+  </data>
+  <data name="HousingNpc.Editor.AddWaypoint" xml:space="preserve">
+    <value>Add waypoint</value>
+  </data>
+  <data name="HousingNpc.Editor.AddWaypointTip" xml:space="preserve">
+    <value>The NPC will patrol in a loop between its start point and the added points. At each point it can play an emote.</value>
+  </data>
+  <data name="HousingNpc.Editor.Run" xml:space="preserve">
+    <value>Run</value>
+  </data>
+  <data name="HousingNpc.Editor.Point" xml:space="preserve">
+    <value>Point {0}</value>
+  </data>
+  <data name="HousingNpc.Editor.PauseTip" xml:space="preserve">
+    <value>Pause time at the point, in seconds (lets the emote play).</value>
+  </data>
+  <data name="HousingNpc.Editor.PlaceHere" xml:space="preserve">
+    <value>Place at me</value>
+  </data>
+  <data name="HousingNpc.Editor.Delete" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="HousingNpc.Editor.DeleteTip" xml:space="preserve">
+    <value>Ctrl+click to delete.</value>
+  </data>
+  <data name="HousingNpc.Editor.Apply" xml:space="preserve">
+    <value>Apply &amp; preview</value>
+  </data>
+  <data name="HousingNpc.Editor.Unsaved" xml:space="preserve">
+    <value>unsaved changes</value>
+  </data>
+  <data name="HousingNpc.Notif.Title" xml:space="preserve">
+    <value>NPC scene</value>
+  </data>
+  <data name="HousingNpc.Notif.NeedHousing" xml:space="preserve">
+    <value>You must be in a house.</value>
+  </data>
+  <data name="HousingNpc.Notif.NeedScene" xml:space="preserve">
+    <value>Create a scene first to add an NPC.</value>
+  </data>
+  <data name="HousingNpc.Notif.Added" xml:space="preserve">
+    <value>NPC added and spawned.</value>
+  </data>
+  <data name="HousingNpc.Notif.AddFailed" xml:space="preserve">
+    <value>Add failed (see logs).</value>
+  </data>
+  <data name="HousingNpc.Notif.NoPlayer" xml:space="preserve">
+    <value>Player not found.</value>
+  </data>
+  <data name="HousingNpc.Notif.DesignFailed" xml:space="preserve">
+    <value>Glamourer design not found or unreadable.</value>
+  </data>
+  <data name="HousingNpc.Notif.RoomCleared" xml:space="preserve">
+    <value>Room cleared ({0} scene(s) removed).</value>
+  </data>
+  <data name="HousingNpc.Notif.NothingToClear" xml:space="preserve">
+    <value>Not in housing: nothing to clear.</value>
+  </data>
+  <data name="HousingNpc.Editor.ImportChara" xml:space="preserve">
+    <value>Import a .chara</value>
+  </data>
+  <data name="HousingNpc.Editor.ImportCharaTip" xml:space="preserve">
+    <value>Imports the appearance from a .chara file (Anamnesis / Brio / Ktisis) and places the NPC at your position.</value>
+  </data>
+  <data name="HousingNpc.Editor.ImportPickFile" xml:space="preserve">
+    <value>Pick a .chara file</value>
+  </data>
+  <data name="HousingNpc.Notif.ImportFailed" xml:space="preserve">
+    <value>Failed to import the .chara (see logs).</value>
+  </data>
+  <data name="HousingNpc.Editor.CollapseTip" xml:space="preserve">
+    <value>Collapse / expand this NPC</value>
+  </data>
+  <data name="HousingNpc.Editor.CollapseAll" xml:space="preserve">
+    <value>Collapse all</value>
+  </data>
+  <data name="HousingNpc.Editor.ExpandAll" xml:space="preserve">
+    <value>Expand all</value>
+  </data>
+  <data name="HousingNpc.Editor.CaptureSelfLive" xml:space="preserve">
+    <value>Import from my modded character</value>
+  </data>
+  <data name="HousingNpc.Editor.CaptureSelfLiveTip" xml:space="preserve">
+    <value>Adds an NPC with your FULL Umbra appearance (Penumbra mods + Glamourer + Customize+), not just the base look. Requires Penumbra and Glamourer.</value>
+  </data>
+  <data name="HousingNpc.Editor.CaptureGlamourer" xml:space="preserve">
+    <value>Import from Glamourer</value>
+  </data>
+  <data name="HousingNpc.Editor.CaptureGlamourerTip" xml:space="preserve">
+    <value>Adds an NPC from one of your Glamourer designs, using your current Penumbra mods. Requires Penumbra and Glamourer.</value>
+  </data>
+  <data name="HousingNpc.Editor.CaptureGlamourerPick" xml:space="preserve">
+    <value>Pick a Glamourer design:</value>
+  </data>
+  <data name="HousingNpc.Editor.CaptureGlamourerLoading" xml:space="preserve">
+    <value>Loading designs…</value>
+  </data>
+  <data name="HousingNpc.Editor.CaptureGlamourerEmpty" xml:space="preserve">
+    <value>No Glamourer design found.</value>
+  </data>
+  <data name="HousingNpc.Editor.Filter" xml:space="preserve">
+    <value>Search</value>
+  </data>
+  <data name="HousingNpc.Editor.Sequence" xml:space="preserve">
+    <value>Sequence - {0} action(s)</value>
+  </data>
+  <data name="HousingNpc.Editor.LoopSeq" xml:space="preserve">
+    <value>Loop the sequence</value>
+  </data>
+  <data name="HousingNpc.Editor.LoopSeqTip" xml:space="preserve">
+    <value>Replays the action sequence in a loop. Unchecked: the NPC stops after the last action.</value>
+  </data>
+  <data name="HousingNpc.Editor.LoopDelayTip" xml:space="preserve">
+    <value>Pause between two loop iterations (seconds).</value>
+  </data>
+  <data name="HousingNpc.Editor.AddAction" xml:space="preserve">
+    <value>Add</value>
+  </data>
+  <data name="HousingNpc.Editor.ActEmote" xml:space="preserve">
+    <value>Emote</value>
+  </data>
+  <data name="HousingNpc.Editor.ActMove" xml:space="preserve">
+    <value>Movement</value>
+  </data>
+  <data name="HousingNpc.Editor.ActPath" xml:space="preserve">
+    <value>Path</value>
+  </data>
+  <data name="HousingNpc.Editor.ActRotation" xml:space="preserve">
+    <value>Rotation</value>
+  </data>
+  <data name="HousingNpc.Editor.ActWait" xml:space="preserve">
+    <value>Wait</value>
+  </data>
+  <data name="HousingNpc.Editor.ActIdle" xml:space="preserve">
+    <value>Idle</value>
+  </data>
+  <data name="HousingNpc.Editor.StayPose" xml:space="preserve">
+    <value>Hold pose</value>
+  </data>
+  <data name="HousingNpc.Editor.StayPoseTip" xml:space="preserve">
+    <value>Stays in the emote pose and carries on (sitting, leaning…).</value>
+  </data>
+  <data name="HousingNpc.Editor.SpeedWalk" xml:space="preserve">
+    <value>Walk</value>
+  </data>
+  <data name="HousingNpc.Editor.SpeedRun" xml:space="preserve">
+    <value>Run</value>
+  </data>
+  <data name="HousingNpc.Editor.SpeedCustom" xml:space="preserve">
+    <value>Custom</value>
+  </data>
+  <data name="HousingNpc.Editor.UseMyFacing" xml:space="preserve">
+    <value>My facing</value>
+  </data>
+  <data name="HousingNpc.Editor.WaitSec" xml:space="preserve">
+    <value>Wait (s)</value>
+  </data>
+  <data name="HousingNpc.Editor.ImportArr" xml:space="preserve">
+    <value>Import ARR scenario</value>
+  </data>
+  <data name="HousingNpc.Editor.ImportArrTip" xml:space="preserve">
+    <value>Imports an ARealmRepopulated scenario (.json) as a new scene, scoped to the current room.</value>
+  </data>
+  <data name="HousingNpc.Editor.ImportArrPickFile" xml:space="preserve">
+    <value>Pick an ARR scenario (.json)</value>
+  </data>
+  <data name="HousingNpc.Notif.ArrImported" xml:space="preserve">
+    <value>{0} NPC(s) imported from ARR.</value>
+  </data>
+  <data name="HousingNpc.Editor.ImportArrPick" xml:space="preserve">
+    <value>Available ARR scenarios:</value>
+  </data>
+  <data name="HousingNpc.Editor.ImportArrEmpty" xml:space="preserve">
+    <value>No ARR scenario found (ARealmRepopulated not installed, or empty folder).</value>
+  </data>
+  <data name="HousingNpc.Editor.ImportArrBrowse" xml:space="preserve">
+    <value>Browse</value>
+  </data>
+  <data name="HousingScenario.Error.EmptyScene" xml:space="preserve">
+    <value>The scene is empty: add at least one NPC before sharing it.</value>
+  </data>
+  <data name="HousingScenario.Error.Unavailable" xml:space="preserve">
+    <value>Scene unavailable (permissions?).</value>
+  </data>
+  <data name="HousingScenario.Error.Decrypt" xml:space="preserve">
+    <value>Failed to decrypt the scene.</value>
+  </data>
+  <data name="HousingScenario.Error.Payload" xml:space="preserve">
+    <value>Unexpected data format.</value>
+  </data>
+  <data name="HousingScenario.Error.LegacyArr" xml:space="preserve">
+    <value>This share uses the old ARR format, which is no longer supported. Its owner needs to republish it.</value>
+  </data>
+  <data name="HousingScenario.Error.Deserialize" xml:space="preserve">
+    <value>Failed to read the shared scene.</value>
+  </data>
+  <data name="HousingScenario.Success.Applied" xml:space="preserve">
+    <value>Shared scene applied.</value>
+  </data>
+  <data name="HousingScenario.Success.Published" xml:space="preserve">
+    <value>Scene published.</value>
+  </data>
+  <data name="HousingScenario.Success.Republished" xml:space="preserve">
+    <value>Share republished to the current house.</value>
+  </data>
+  <data name="HousingScenario.Error.OldShareNotDeleted" xml:space="preserve">
+    <value>The share was republished here, but the old one could not be deleted. Please remove it manually.</value>
+  </data>
+  <data name="HousingScenario.RepublishHere" xml:space="preserve">
+    <value>Republish here</value>
+  </data>
+  <data name="HousingScenario.RepublishHereTip" xml:space="preserve">
+    <value>Moves this share to the house you are currently in: the content is republished at the new address, then the old share is deleted. Hold CTRL to confirm.</value>
+  </data>
+  <data name="HousingScenario.OrphanShareTip" xml:space="preserve">
+    <value>This share points to a house that is not among the ones you own. If you moved out, republish it from your new house: otherwise it will keep applying for whoever buys that plot next.</value>
+  </data>
+  <data name="HousingNpc.Notif.SceneReassigned" xml:space="preserve">
+    <value>Scene reassigned to this house.</value>
+  </data>
+  <data name="HousingNpc.Notif.OrphanScenes" xml:space="preserve">
+    <value>{0} scene(s) belong to another house. Open the scene editor to move them here.</value>
+  </data>
+  <data name="HousingNpc.Editor.OrphanHeader" xml:space="preserve">
+    <value>Scenes from other houses ({0})</value>
+  </data>
+  <data name="HousingNpc.Editor.OrphanHelp" xml:space="preserve">
+    <value>These scenes were created in another house. Nothing is lost when you move out: bring them here to reuse them. NPC positions are kept as-is, and only remain accurate if the interior layout is identical.</value>
+  </data>
+  <data name="HousingNpc.Editor.OrphanMoveHere" xml:space="preserve">
+    <value>Move here</value>
+  </data>
+  <data name="HousingNpc.Editor.OrphanOrigin" xml:space="preserve">
+    <value>— from: S{0} W{1} H{2} R{3}</value>
+  </data>
+  <data name="HousingNpc.Editor.OrphanMoveTipSameLayout" xml:space="preserve">
+    <value>Same interior layout as this house: NPC positions stay accurate.</value>
+  </data>
+  <data name="HousingNpc.Editor.OrphanMoveTipOtherLayout" xml:space="preserve">
+    <value>Different interior layout: NPCs may end up outside the walls or below the floor and will need repositioning. Hold CTRL to confirm.</value>
+  </data>
+  <data name="HousingNpc.Editor.OrphanMoveTipUnknownLayout" xml:space="preserve">
+    <value>Original layout unknown (scene created before layout tracking): positions cannot be guaranteed. Hold CTRL to confirm.</value>
+  </data>
+  <data name="HousingNpc.Editor.OrphanLayoutWarn" xml:space="preserve">
+    <value>different layout</value>
+  </data>
+  <data name="HousingNpc.Editor.OrphanLayoutUnknown" xml:space="preserve">
+    <value>unknown layout</value>
+  </data>
+  <data name="HousingNpc.Editor.ActVisibility" xml:space="preserve">
+    <value>Visibility</value>
+  </data>
+  <data name="HousingNpc.Editor.ActTimeline" xml:space="preserve">
+    <value>Animation</value>
+  </data>
+  <data name="HousingNpc.Editor.ActSync" xml:space="preserve">
+    <value>Rendezvous</value>
+  </data>
+  <data name="HousingNpc.Editor.Visible" xml:space="preserve">
+    <value>Visible</value>
+  </data>
+  <data name="HousingNpc.Editor.VisibleTip" xml:space="preserve">
+    <value>Shows or hides the NPC. It keeps running its sequence while hidden.</value>
+  </data>
+  <data name="HousingNpc.Editor.TimelineIdsHint" xml:space="preserve">
+    <value>ID(s)</value>
+  </data>
+  <data name="HousingNpc.Editor.TimelineIdsTip" xml:space="preserve">
+    <value>Game animation ids (ActionTimeline), comma-separated. Allows animations other than emotes.</value>
+  </data>
+  <data name="HousingNpc.Editor.SyncHelp" xml:space="preserve">
+    <value>Waits until every NPC in the scene has reached its rendezvous, then they all resume together.</value>
+  </data>
+  <data name="HousingScenario.Error.NotInHousing" xml:space="preserve">
+    <value>You must be inside a house.</value>
+  </data>
+  <data name="HousingScenario.Error.NoShareHere" xml:space="preserve">
+    <value>No shared scene for this room. Publish one first.</value>
+  </data>
+  <data name="HousingScenario.HairNotSupported" xml:space="preserve">
+    <value>Outfit mods are shared correctly. Modded hairstyles do not show on NPCs yet: they will keep the base hairstyle. The rest of the appearance is faithful.</value>
+  </data>
+  <data name="HousingNpc.Editor.GizmoRotate" xml:space="preserve">
+    <value>Rotate</value>
+  </data>
+  <data name="HousingNpc.Editor.GizmoRotateTip" xml:space="preserve">
+    <value>Switches the in-world manipulator between move and rotate. Expand a card to choose which NPC it targets.</value>
+  </data>
+  <data name="HousingScenario.OpenEditor" xml:space="preserve">
+    <value>Create / edit NPC scenes</value>
+  </data>
+  <data name="HousingScenario.NotOwner" xml:space="preserve">
+    <value>You must own this house to create and publish NPC scenarios. No need to be in Housing Layout mode.</value>
+  </data>
+  <data name="HousingScenario.RefreshList" xml:space="preserve">
+    <value>Refresh list</value>
+  </data>
+  <data name="HousingNpc.Editor.SelectTip" xml:space="preserve">
+    <value>Select the NPC to edit its position</value>
+  </data>
+  <data name="Settings.Performance.Bc7.Use" xml:space="preserve">
+    <value>Use BC7 compressed textures</value>
+  </data>
+  <data name="Settings.Performance.Bc7.Help1" xml:space="preserve">
+    <value>Downloads server-side BC7-compressed textures when available.</value>
+  </data>
+  <data name="Settings.Performance.Bc7.Help2" xml:space="preserve">
+    <value>On by default. Disable to fall back to full source-quality textures if you notice any visual issue.</value>
+  </data>
+  <data name="Settings.Performance.Bc7.OverrideDesc" xml:space="preserve">
+    <value>Force source quality for these UIDs:</value>
+  </data>
+  <data name="Settings.Performance.Bc7.SearchHint" xml:space="preserve">
+    <value>Search a pair (UID, alias, note)</value>
+  </data>
+  <data name="Settings.Performance.Bc7.NoMatch" xml:space="preserve">
+    <value>No matching pair.</value>
+  </data>
+  <data name="Settings.Performance.Bc7.AddUidHelp" xml:space="preserve">
+    <value>Click a pair to keep it at source quality (no BC7).</value>
+  </data>
+  <data name="Settings.Performance.Bc7.DeleteUid" xml:space="preserve">
+    <value>Delete selected UID</value>
   </data>
 </root>

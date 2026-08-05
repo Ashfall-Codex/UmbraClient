@@ -29,6 +29,9 @@ public record PriorityFrameworkUpdateMessage : SameThreadMessage;
 public record FrameworkUpdateMessage : SameThreadMessage;
 public record ClassJobChangedMessage(GameObjectHandler GameObjectHandler) : MessageBase;
 public record DelayedFrameworkUpdateMessage : SameThreadMessage;
+// Visibilité événementielle (DrawObjectTrackingService) : un game object a (dé)lié son draw object.
+public record DrawObjectLinkedMessage(nint GameObject, nint DrawObject) : SameThreadMessage;
+public record DrawObjectUnlinkedMessage(nint GameObject, nint DrawObject) : SameThreadMessage;
 public record ZoneSwitchStartMessage : MessageBase;
 public record ZoneSwitchEndMessage : MessageBase;
 public record CutsceneStartMessage : MessageBase;
@@ -61,6 +64,7 @@ public record ResumeScanMessage(string Source) : MessageBase;
 public record NotificationMessage
     (string Title, string Message, NotificationType Type, TimeSpan? TimeShownOnScreen = null) : MessageBase;
 public record DualNotificationMessage(string Title, string Message, NotificationType Type, TimeSpan? ToastDuration = null) : MessageBase;
+public record ServerBroadcastMessage(string Message, MessageSeverity Severity) : MessageBase;
 public record CreateCacheForObjectMessage(GameObjectHandler ObjectToCreateFor) : MessageBase;
 public record ClearCacheForObjectMessage(GameObjectHandler ObjectToCreateFor) : MessageBase;
 public record CharacterDataCreatedMessage(CharacterData CharacterData) : SameThreadMessage;
@@ -132,9 +136,15 @@ public record SyncshellAutoDetectStateChanged(string Gid, bool Visible, bool Pas
 public record GroupLeftMessage(string Gid) : MessageBase;
 public record HousingPlotEnteredMessage(LocationInfo LocationInfo) : MessageBase;
 public record HousingPlotLeftMessage : MessageBase;
+public record HousingNpcAddRequestMessage : MessageBase;
+public record HousingNpcWipeMessage : MessageBase;
+public record HousingNpcShareTestMessage : MessageBase;
 public record HousingPositionUpdateMessage(uint ServerId, uint TerritoryId, uint DivisionId, uint WardId, Vector3 Position) : MessageBase;
 public record HousingModsAppliedMessage(LocationInfo Location) : MessageBase;
 public record HousingModsRemovedMessage : MessageBase;
+public record HousingScenarioAppliedMessage(Guid ShareId, LocationInfo Location, string OwnerUid) : MessageBase;
+public record HousingScenarioRemovedMessage : MessageBase;
+public record HousingScenarioPublishedMessage(Guid ShareId, LocationInfo Location) : MessageBase;
 public record HousingScanCompleteMessage(LocationInfo Location, int FileCount) : MessageBase;
 public record ManualPairInviteMessage(string SourceUid, string SourceAlias, string TargetUid, string? DisplayName, string InviteId) : MessageBase;
 public record ApplyDefaultPairPermissionsMessage(UserPairDto Pair) : MessageBase;
@@ -155,7 +165,7 @@ public record QuestSessionEventTriggeredMessage(UserData Sender, QuestEventTrigg
 public record QuestSessionBranchingChoiceMessage(UserData Sender, QuestBranchingChoiceDto Choice) : MessageBase;
 public record RgpdConsentUpdatedMessage(bool ConsentGiven) : MessageBase;
 public record RgpdDataExportRequestMessage : MessageBase;
-public record RgpdDataExportReadyMessage(string ExportPath) : MessageBase;
+public record RgpdDataExportReadyMessage(string? ExportPath) : MessageBase;
 public record RgpdLocalDataDeletionRequestMessage : MessageBase;
 public record RgpdLocalDataDeletionCompleteMessage : MessageBase;
 public record SwitchToRgpdConsentUiMessage : MessageBase;

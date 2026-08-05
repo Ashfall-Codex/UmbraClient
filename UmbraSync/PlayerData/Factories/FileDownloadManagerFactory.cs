@@ -15,9 +15,11 @@ public class FileDownloadManagerFactory
     private readonly ILoggerFactory _loggerFactory;
     private readonly MareMediator _mareMediator;
     private readonly FileDownloadDeduplicator _deduplicator;
+    private readonly CompressedAlternateManager _compressedAlternateManager;
 
     public FileDownloadManagerFactory(ILoggerFactory loggerFactory, MareMediator mareMediator, FileTransferOrchestrator fileTransferOrchestrator,
-        FileCacheManager fileCacheManager, FileCompactor fileCompactor, MareConfigService mareConfigService, FileDownloadDeduplicator deduplicator)
+        FileCacheManager fileCacheManager, FileCompactor fileCompactor, MareConfigService mareConfigService, FileDownloadDeduplicator deduplicator,
+        CompressedAlternateManager compressedAlternateManager)
     {
         _loggerFactory = loggerFactory;
         _mareMediator = mareMediator;
@@ -26,10 +28,11 @@ public class FileDownloadManagerFactory
         _fileCompactor = fileCompactor;
         _mareConfigService = mareConfigService;
         _deduplicator = deduplicator;
+        _compressedAlternateManager = compressedAlternateManager;
     }
 
     public FileDownloadManager Create()
     {
-        return new FileDownloadManager(_loggerFactory.CreateLogger<FileDownloadManager>(), _mareMediator, _fileTransferOrchestrator, _fileCacheManager, _fileCompactor, _mareConfigService, _deduplicator);
+        return new FileDownloadManager(_loggerFactory.CreateLogger<FileDownloadManager>(), _mareMediator, _fileTransferOrchestrator, _fileCacheManager, _fileCompactor, _mareConfigService, _deduplicator, _compressedAlternateManager);
     }
 }

@@ -9,6 +9,7 @@ using UmbraSync.PlayerData.Factories;
 using UmbraSync.PlayerData.Pairs;
 using UmbraSync.PlayerData.Redraw;
 using UmbraSync.MareConfiguration;
+using UmbraSync.MareConfiguration.Models;
 using UmbraSync.Services;
 using UmbraSync.Services.Events;
 using UmbraSync.Services.Mediator;
@@ -35,6 +36,8 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
     private readonly VisibilityService _visibilityService;
     private readonly ApplicationSemaphoreService _applicationSemaphoreService;
     private readonly ServerConfigurationManager _serverConfigurationManager;
+    private readonly CompressedAlternateManager _compressedAlternateManager;
+    private readonly PlayerPerformanceConfigService _playerPerformanceConfigService;
     private readonly PairRedrawCoordinator _pairRedrawCoordinator;
     private CancellationTokenSource? _applicationCancellationTokenSource = new();
     private Guid _applicationId;
@@ -58,6 +61,11 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
     private readonly Lock _visibilityGraceGate = new();
     private CancellationTokenSource? _visibilityGraceCts;
     private static readonly TimeSpan VisibilityEvictionGrace = TimeSpan.FromMinutes(5);
+    // Jitter d'étalement des applications. La détection de visibilité étant throttlée (~5Hz), un
+    // groupe de pairs devenus visibles dans la même fenêtre déclenche leurs applies au même instant.
+    // On étale les kicks (A) et on déphase la boucle de retry (C) par un offset stable par-handler.
+    private const int VisibilityApplyJitterMaxMs = 600;
+    private readonly TimeSpan _reapplyJitter = TimeSpan.FromMilliseconds(Random.Shared.Next(0, 5000));
     private DateTime? _invisibleSinceUtc;
     private DateTime? _visibilityEvictionDueAtUtc;
     private DateTime? _lastDataReceivedAt;
@@ -89,7 +97,8 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
         PlayerPerformanceService playerPerformanceService,
         MareConfigService configService, VisibilityService visibilityService,
         ApplicationSemaphoreService applicationSemaphoreService, ServerConfigurationManager serverConfigurationManager,
-        PairRedrawCoordinator pairRedrawCoordinator) : base(logger, mediator)
+        PairRedrawCoordinator pairRedrawCoordinator, CompressedAlternateManager compressedAlternateManager,
+        PlayerPerformanceConfigService playerPerformanceConfigService) : base(logger, mediator)
     {
         Pair = pair;
         PairAnalyzer = pairAnalyzer;
@@ -105,6 +114,8 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
         _applicationSemaphoreService = applicationSemaphoreService;
         _serverConfigurationManager = serverConfigurationManager;
         _pairRedrawCoordinator = pairRedrawCoordinator;
+        _compressedAlternateManager = compressedAlternateManager;
+        _playerPerformanceConfigService = playerPerformanceConfigService;
 
         _visibilityService.StartTracking(Pair.Ident);
 
@@ -341,10 +352,12 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
             _forceApplyMods = false;
         }
 
+        bool redrawForcedExternally = false;
         if (_redrawOnNextApplication && charaDataToUpdate.TryGetValue(ObjectKind.Player, out var player))
         {
             player.Add(PlayerChanges.ForcedRedraw);
             _redrawOnNextApplication = false;
+            redrawForcedExternally = true;
         }
 
         if (charaDataToUpdate.TryGetValue(ObjectKind.Player, out var playerChanges))
@@ -355,7 +368,21 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
         if (Logger.IsEnabled(LogLevel.Debug))
             Logger.LogDebug("[BASE-{appbase}] Downloading and applying character for {name}", applicationBase, this);
 
-        DownloadAndApplyCharacter(applicationBase, characterData.DeepClone(), charaDataToUpdate);
+        // Décision de redraw (soft/hard) calculée à partir du même diff que les PlayerChanges,
+        // uniquement si la feature est activée. OFF -> null -> HardRedraw (comportement actuel).
+        // Elle voyage avec l'application : un second push pour la même paire ne doit pas réécrire
+        // la décision d'une application encore en vol (elle s'appliquerait à un diff différent).
+        var redrawDecisions = _configService.Current.EnableSoftRedraw
+            ? characterData.ComputeRedrawDecisions(_cachedData, charaDataToUpdate)
+            : null;
+
+        // Un redraw imposé de l'extérieur (changement de job) ne se déduit pas du diff de fichiers :
+        // sans ça, un changement de job simultané à un diff texture seule tombait en soft reapply
+        // et la paire restait affichée avec l'équipement du job précédent.
+        if (redrawForcedExternally && redrawDecisions != null)
+            redrawDecisions[ObjectKind.Player] = PairRedrawDecision.HardRedraw;
+
+        DownloadAndApplyCharacter(applicationBase, characterData.DeepClone(), charaDataToUpdate, redrawDecisions);
     }
 
     public override string ToString()
@@ -421,7 +448,7 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
         }
         catch (Exception ex)
         {
-            Logger.LogWarning(ex, "Error on disposal of {name}", name);
+            Logger.LogWarning(ex, "Error on disposal of {user}", Pair.UserData.UID);
         }
         finally
         {
@@ -517,7 +544,7 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
         }
         catch (Exception ex)
         {
-            Logger.LogWarning(ex, "Error on undoing application of {name}", name);
+            Logger.LogWarning(ex, "Error on undoing application of {user}", Pair.UserData.UID);
         }
     }
     
@@ -551,7 +578,7 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
                 }
                 catch (Exception ex)
                 {
-                    Logger.LogWarning(ex, "[{applicationId}] Failed to clear Penumbra mods for {name}", applicationId, name);
+                    Logger.LogWarning(ex, "[{applicationId}] Failed to clear Penumbra mods for {user}", applicationId, Pair.UserData.UID);
                 }
             }
             var kinds = new HashSet<ObjectKind>(_customizeIds.Keys);
@@ -570,7 +597,7 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
             }
             if (string.IsNullOrEmpty(characterName))
             {
-                Logger.LogWarning("[{applicationId}] Failed to determine character name for {handler}, using fallback", applicationId, name);
+                Logger.LogWarning("[{applicationId}] Failed to determine character name for {user}, using fallback", applicationId, Pair.UserData.UID);
                 characterName = name ?? Pair.UserData.UID;
             }
 
@@ -586,23 +613,23 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
                 }
                 catch (OperationCanceledException)
                 {
-                    Logger.LogWarning("[{applicationId}] Revert operation timed out for {kind} on {name}", applicationId, kind, characterName);
+                    Logger.LogWarning("[{applicationId}] Revert operation timed out for {kind} on {user}", applicationId, kind, Pair.UserData.UID);
                     break;
                 }
                 catch (Exception ex)
                 {
-                    Logger.LogWarning(ex, "[{applicationId}] Failed to revert {kind} for {name}", applicationId, kind, characterName);
+                    Logger.LogWarning(ex, "[{applicationId}] Failed to revert {kind} for {user}", applicationId, kind, Pair.UserData.UID);
                 }
             }
 
             _cachedData = null;
             Mediator.Publish(new PairDataAppliedMessage(Pair.UserData.UID, null));
 
-            Logger.LogInformation("[{applicationId}] Revert to restored state complete for {name}", applicationId, characterName);
+            Logger.LogInformation("[{applicationId}] Revert to restored state complete for {user}", applicationId, Pair.UserData.UID);
         }
         catch (Exception ex)
         {
-            Logger.LogWarning(ex, "[{applicationId}] Failed to revert handler {name} during pause", applicationId, name);
+            Logger.LogWarning(ex, "[{applicationId}] Failed to revert handler {user} during pause", applicationId, Pair.UserData.UID);
         }
     }
     
@@ -631,7 +658,7 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
                 }
                 catch (Exception ex)
                 {
-                    Logger.LogError(ex, "Failed applying queued data for {name} ({user})", PlayerName, Pair.UserData.UID);
+                    Logger.LogError(ex, "Failed applying queued data for {user}", Pair.UserData.UID);
                 }
             });
         }
@@ -660,8 +687,7 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
 
                 if (IsVisible) return;
 
-                Logger.LogInformation("Visibility grace period expired for {name} ({user}), scheduling for deletion",
-                    PlayerName, Pair.UserData.UID);
+                Logger.LogInformation("Visibility grace period expired for {user}, scheduling for deletion", Pair.UserData.UID);
                 ScheduledForDeletion = true;
 
                 // Clean up Penumbra collection when the grace period expires
@@ -709,7 +735,7 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
     {
         try
         {
-            Logger.LogInformation("Pausing handler for {name} ({user})", PlayerName, Pair.UserData.UID);
+            Logger.LogInformation("Pausing handler for {user}", Pair.UserData.UID);
             DisableSync();
             if (_charaHandler is not null && _charaHandler.Address != nint.Zero)
             {
@@ -718,11 +744,11 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
             }
             Mediator.Publish(new PlayerVisibilityMessage(Pair.Ident, IsVisible: false, Invalidate: true));
 
-            Logger.LogInformation("Pause complete for {name} ({user})", PlayerName, Pair.UserData.UID);
+            Logger.LogInformation("Pause complete for {user}", Pair.UserData.UID);
         }
         catch (Exception ex)
         {
-            Logger.LogWarning(ex, "Failed to pause handler for {name} ({user})", PlayerName, Pair.UserData.UID);
+            Logger.LogWarning(ex, "Failed to pause handler for {user}", Pair.UserData.UID);
         }
     }
     
@@ -730,7 +756,7 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
     {
         try
         {
-            Logger.LogInformation("Resuming handler for {name} ({user})", PlayerName, Pair.UserData.UID);
+            Logger.LogInformation("Resuming handler for {user}", Pair.UserData.UID);
 
             if (_charaHandler is null || _charaHandler.Address == nint.Zero)
             {
@@ -749,11 +775,11 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
             Logger.LogDebug("Applying last received data for {name} ({user})", PlayerName, Pair.UserData.UID);
             Pair.ApplyLastReceivedData(forced: true);
 
-            Logger.LogInformation("Resume complete for {name} ({user})", PlayerName, Pair.UserData.UID);
+            Logger.LogInformation("Resume complete for {user}", Pair.UserData.UID);
         }
         catch (Exception ex)
         {
-            Logger.LogWarning(ex, "Failed to resume handler for {name} ({user})", PlayerName, Pair.UserData.UID);
+            Logger.LogWarning(ex, "Failed to resume handler for {user}", Pair.UserData.UID);
         }
     }
     
@@ -776,7 +802,8 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
         }
     }
 
-    private async Task ApplyCustomizationDataAsync(Guid applicationId, KeyValuePair<ObjectKind, HashSet<PlayerChanges>> changes, CharacterData charaData, CancellationToken token)
+    private async Task ApplyCustomizationDataAsync(Guid applicationId, KeyValuePair<ObjectKind, HashSet<PlayerChanges>> changes, CharacterData charaData,
+        IReadOnlyDictionary<ObjectKind, PairRedrawDecision>? redrawDecisions, CancellationToken token)
     {
         if (PlayerCharacter == nint.Zero) return;
         var ptr = PlayerCharacter;
@@ -806,13 +833,13 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
                 var orderedChanges = changes.Value.OrderBy(p => (int)p).ToList();
                 var serialChangeList = orderedChanges.Where(p => p <= PlayerChanges.ForcedRedraw).ToList();
                 var asyncChangeList = orderedChanges.Where(p => p > PlayerChanges.ForcedRedraw).ToList();
-                await _dalamudUtil.RunOnFrameworkThread(async () => await ProcessCustomizationChangesAsync(handler, applicationId, changes.Key, serialChangeList, charaData, token).ConfigureAwait(false)).ConfigureAwait(false);
-                await Task.Run(async () => await ProcessCustomizationChangesAsync(handler, applicationId, changes.Key, asyncChangeList, charaData, token).ConfigureAwait(false), CancellationToken.None).ConfigureAwait(false);
+                await _dalamudUtil.RunOnFrameworkThread(async () => await ProcessCustomizationChangesAsync(handler, applicationId, changes.Key, serialChangeList, charaData, redrawDecisions, token).ConfigureAwait(false)).ConfigureAwait(false);
+                await Task.Run(async () => await ProcessCustomizationChangesAsync(handler, applicationId, changes.Key, asyncChangeList, charaData, redrawDecisions, token).ConfigureAwait(false), CancellationToken.None).ConfigureAwait(false);
             }
             else
             {
                 var orderedChanges = changes.Value.OrderBy(p => (int)p).ToList();
-                await ProcessCustomizationChangesAsync(handler, applicationId, changes.Key, orderedChanges, charaData, token).ConfigureAwait(false);
+                await ProcessCustomizationChangesAsync(handler, applicationId, changes.Key, orderedChanges, charaData, redrawDecisions, token).ConfigureAwait(false);
             }
         }
         finally
@@ -822,7 +849,8 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
     }
 
     private async Task ProcessCustomizationChangesAsync(GameObjectHandler handler, Guid applicationId, ObjectKind objectKind,
-        IEnumerable<PlayerChanges> changeList, CharacterData charaData, CancellationToken token)
+        IEnumerable<PlayerChanges> changeList, CharacterData charaData,
+        IReadOnlyDictionary<ObjectKind, PairRedrawDecision>? redrawDecisions, CancellationToken token)
     {
         foreach (var change in changeList)
         {
@@ -865,7 +893,14 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
                     break;
 
                 case PlayerChanges.ForcedRedraw:
-                    await _pairRedrawCoordinator.RedrawAsync(Logger, handler, applicationId, token).ConfigureAwait(false);
+                    // Décision soft/hard quand la feature est active et qu'une décision existe pour ce
+                    // kind, sinon HardRedraw (comportement historique, redraw Penumbra complet)
+                    var redrawDecision = (_configService.Current.EnableSoftRedraw
+                            && redrawDecisions != null
+                            && redrawDecisions.TryGetValue(objectKind, out var d))
+                        ? d
+                        : PairRedrawDecision.HardRedraw;
+                    await _pairRedrawCoordinator.ExecuteDecisionAsync(redrawDecision, Logger, handler, applicationId, token).ConfigureAwait(false);
                     break;
 
             }
@@ -874,7 +909,8 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
         }
     }
 
-    private void DownloadAndApplyCharacter(Guid applicationBase, CharacterData charaData, Dictionary<ObjectKind, HashSet<PlayerChanges>> updatedData)
+    private void DownloadAndApplyCharacter(Guid applicationBase, CharacterData charaData, Dictionary<ObjectKind, HashSet<PlayerChanges>> updatedData,
+        IReadOnlyDictionary<ObjectKind, PairRedrawDecision>? redrawDecisions)
     {
         if (updatedData.Count == 0)
         {
@@ -907,13 +943,13 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
             if ((updateModdedPaths || updateManip) && !hasOtherChanges && !_forceApplyMods)
             {
                 Logger.LogDebug("[BASE-{appBase}] Applying mod changes only - skipping full redraw", applicationBase);
-                await ApplyModChangesOnlyAsync(applicationBase, charaData, updatedData, updateModdedPaths, updateManip, downloadToken).ConfigureAwait(false);
+                await ApplyModChangesOnlyAsync(applicationBase, charaData, updatedData, updateModdedPaths, updateManip, redrawDecisions, downloadToken).ConfigureAwait(false);
                 return;
             }
 
             try
             {
-                await DownloadAndApplyCharacterAsync(applicationBase, charaData, updatedData, updateModdedPaths, updateManip, downloadToken).ConfigureAwait(false);
+                await DownloadAndApplyCharacterAsync(applicationBase, charaData, updatedData, updateModdedPaths, updateManip, redrawDecisions, downloadToken).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
@@ -930,7 +966,8 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
     }
     
     private async Task ApplyModChangesOnlyAsync(Guid applicationBase, CharacterData charaData,
-        Dictionary<ObjectKind, HashSet<PlayerChanges>> updatedData, bool updateModdedPaths, bool updateManip, CancellationToken token)
+        Dictionary<ObjectKind, HashSet<PlayerChanges>> updatedData, bool updateModdedPaths, bool updateManip,
+        IReadOnlyDictionary<ObjectKind, PairRedrawDecision>? redrawDecisions, CancellationToken token)
     {
         Logger.LogDebug("[BASE-{applicationBase}] Applying mod changes only", applicationBase);
 
@@ -968,21 +1005,21 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
             }
 
             Logger.LogDebug("[BASE-{applicationBase}] Applying mod changes using simplified mechanism", applicationBase);
-            await DownloadAndApplyCharacterAsync(applicationBase, charaData, modOnlyUpdatedData, updateModdedPaths, updateManip, token).ConfigureAwait(false);
+            await DownloadAndApplyCharacterAsync(applicationBase, charaData, modOnlyUpdatedData, updateModdedPaths, updateManip, redrawDecisions, token).ConfigureAwait(false);
 
             Logger.LogDebug("[BASE-{applicationBase}] Mod changes applied without forced redraw", applicationBase);
         }
         catch (Exception ex)
         {
             Logger.LogWarning(ex, "[BASE-{applicationBase}] Failed to apply mod changes only, falling back to full apply", applicationBase);
-            await DownloadAndApplyCharacterAsync(applicationBase, charaData, updatedData, updateModdedPaths, updateManip, token).ConfigureAwait(false);
+            await DownloadAndApplyCharacterAsync(applicationBase, charaData, updatedData, updateModdedPaths, updateManip, redrawDecisions, token).ConfigureAwait(false);
         }
     }
 
     private Task? _pairDownloadTask;
 
     private async Task DownloadAndApplyCharacterAsync(Guid applicationBase, CharacterData charaData, Dictionary<ObjectKind, HashSet<PlayerChanges>> updatedData,
-        bool updateModdedPaths, bool updateManip, CancellationToken downloadToken)
+        bool updateModdedPaths, bool updateManip, IReadOnlyDictionary<ObjectKind, PairRedrawDecision>? redrawDecisions, CancellationToken downloadToken)
     {
         Logger.LogTrace("[BASE-{appBase}] DownloadAndApplyCharacterAsync", applicationBase);
         Dictionary<(string GamePath, string? Hash), string> moddedPaths = [];
@@ -991,7 +1028,8 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
         {
             Logger.LogTrace("[BASE-{appBase}] DownloadAndApplyCharacterAsync > updateModdedPaths", applicationBase);
             int attempts = 0;
-            List<FileReplacementData> toDownloadReplacements = TryCalculateModdedDictionary(applicationBase, charaData, out moddedPaths, downloadToken);
+            var compressedUsage = ComputeCompressedAlternateUsage();
+            List<FileReplacementData> toDownloadReplacements = TryCalculateModdedDictionary(applicationBase, charaData, compressedUsage, out var locallyPresentFiles, out moddedPaths, downloadToken);
 
             while (toDownloadReplacements.Count > 0 && attempts++ <= 10 && !downloadToken.IsCancellationRequested)
             {
@@ -1005,7 +1043,7 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
 
                 Mediator.Publish(new EventMessage(new Event(PlayerName, Pair.UserData, nameof(PairHandler), EventSeverity.Informational,
                     $"Starting download for {toDownloadReplacements.Count} files")));
-                var toDownloadFiles = await _downloadManager.InitiateDownloadList(_charaHandler!, toDownloadReplacements, downloadToken).ConfigureAwait(false);
+                var toDownloadFiles = await _downloadManager.InitiateDownloadList(_charaHandler!, toDownloadReplacements, compressedUsage, locallyPresentFiles, downloadToken).ConfigureAwait(false);
 
                 if (!_playerPerformanceService.ComputeAndAutoPauseOnVRAMUsageThresholds(this, charaData, toDownloadFiles))
                 {
@@ -1029,22 +1067,31 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
                     return;
                 }
 
-                toDownloadReplacements = TryCalculateModdedDictionary(applicationBase, charaData, out moddedPaths, downloadToken);
+                toDownloadReplacements = TryCalculateModdedDictionary(applicationBase, charaData, compressedUsage, out locallyPresentFiles, out moddedPaths, downloadToken);
 
                 var forbiddenOnly = toDownloadReplacements.Where(c =>
                     _downloadManager.ForbiddenTransfers.Exists(f => string.Equals(f.Hash, c.Hash, StringComparison.Ordinal))).ToList();
+                var missingOnServerOnly = toDownloadReplacements.Where(c =>
+                    !_downloadManager.ForbiddenTransfers.Exists(f => string.Equals(f.Hash, c.Hash, StringComparison.Ordinal))
+                    && _downloadManager.IsHashMissingOnServer(c.Hash)).ToList();
                 var onCooldownOnly = toDownloadReplacements.Where(c =>
                     !_downloadManager.ForbiddenTransfers.Exists(f => string.Equals(f.Hash, c.Hash, StringComparison.Ordinal))
+                    && !_downloadManager.IsHashMissingOnServer(c.Hash)
                     && _downloadManager.IsHashOnCooldown(c.Hash)).ToList();
-                var retriableNow = toDownloadReplacements.Count - forbiddenOnly.Count - onCooldownOnly.Count;
+                var retriableNow = toDownloadReplacements.Count - forbiddenOnly.Count - missingOnServerOnly.Count - onCooldownOnly.Count;
 
                 if (retriableNow == 0)
                 {
                     if (onCooldownOnly.Count > 0)
                     {
-                        Logger.LogWarning("[BASE-{appBase}] {cooldown} fichiers en cooldown et {forbidden} non accessible sur {total}. Reapply.",
-                            applicationBase, onCooldownOnly.Count, forbiddenOnly.Count, toDownloadReplacements.Count);
+                        Logger.LogWarning("[BASE-{appBase}] {cooldown} fichiers en cooldown, {missing} absents du serveur et {forbidden} non accessible sur {total}. Reapply.",
+                            applicationBase, onCooldownOnly.Count, missingOnServerOnly.Count, forbiddenOnly.Count, toDownloadReplacements.Count);
                         _pendingModReapply = true;
+                    }
+                    else if (missingOnServerOnly.Count > 0)
+                    {
+                        Logger.LogWarning("[BASE-{appBase}] {missing} fichiers absents du serveur sur {total} : application partielle sans reapply (le pair doit repousser ses données)",
+                            applicationBase, missingOnServerOnly.Count, toDownloadReplacements.Count);
                     }
                     else
                     {
@@ -1057,20 +1104,21 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
                 await Task.Delay(TimeSpan.FromSeconds(backoffSeconds), downloadToken).ConfigureAwait(false);
             }
 
-            var finalMissing = TryCalculateModdedDictionary(applicationBase, charaData, out moddedPaths, downloadToken);
+            var finalMissing = TryCalculateModdedDictionary(applicationBase, charaData, compressedUsage, out _, out moddedPaths, downloadToken);
             if (finalMissing.Count > 0)
             {
-                var nonForbiddenMissing = finalMissing.Count(c =>
-                    !_downloadManager.ForbiddenTransfers.Exists(f => string.Equals(f.Hash, c.Hash, StringComparison.Ordinal)));
-                if (nonForbiddenMissing > 0)
+                var retriableMissing = finalMissing.Count(c =>
+                    !_downloadManager.ForbiddenTransfers.Exists(f => string.Equals(f.Hash, c.Hash, StringComparison.Ordinal))
+                    && !_downloadManager.IsHashMissingOnServer(c.Hash));
+                if (retriableMissing > 0)
                 {
-                    Logger.LogWarning("[BASE-{appBase}] Applying with {missing} missing files ({nonForbidden} non-forbidden) — reapply scheduled",
-                        applicationBase, finalMissing.Count, nonForbiddenMissing);
+                    Logger.LogWarning("[BASE-{appBase}] Applying with {missing} missing files ({retriable} retriable) — reapply scheduled",
+                        applicationBase, finalMissing.Count, retriableMissing);
                     _pendingModReapply = true;
                 }
                 else
                 {
-                    Logger.LogDebug("[BASE-{appBase}] {count} missing files are all permanently forbidden", applicationBase, finalMissing.Count);
+                    Logger.LogDebug("[BASE-{appBase}] {count} missing files are all forbidden or absent server-side, no reapply", applicationBase, finalMissing.Count);
                 }
             }
 
@@ -1078,7 +1126,7 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
             {
                 Mediator.Publish(new HaltScanMessage(nameof(PlayerPerformanceService.ShrinkTextures)));
                 if (await _playerPerformanceService.ShrinkTextures(this, charaData, downloadToken).ConfigureAwait(false))
-                    _ = TryCalculateModdedDictionary(applicationBase, charaData, out moddedPaths, downloadToken);
+                    _ = TryCalculateModdedDictionary(applicationBase, charaData, ComputeCompressedAlternateUsage(), out _, out moddedPaths, downloadToken);
             }
             finally
             {
@@ -1151,7 +1199,7 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
             .ConfigureAwait(false);
 #pragma warning restore MA0004
 
-        _applicationTask = ApplyCharacterDataAsync(applicationBase, charaData, updatedData, updateModdedPaths, updateManip, moddedPaths, token);
+        _applicationTask = ApplyCharacterDataAsync(applicationBase, charaData, updatedData, updateModdedPaths, updateManip, moddedPaths, redrawDecisions, token);
         await _applicationTask.ConfigureAwait(false);
         if (hadMissingFiles && !_pendingModReapply)
         {
@@ -1161,7 +1209,7 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
     }
 
     private async Task ApplyCharacterDataAsync(Guid applicationBase, CharacterData charaData, Dictionary<ObjectKind, HashSet<PlayerChanges>> updatedData, bool updateModdedPaths, bool updateManip,
-        Dictionary<(string GamePath, string? Hash), string> moddedPaths, CancellationToken token)
+        Dictionary<(string GamePath, string? Hash), string> moddedPaths, IReadOnlyDictionary<ObjectKind, PairRedrawDecision>? redrawDecisions, CancellationToken token)
     {
         ushort objIndex = ushort.MaxValue;
         try
@@ -1212,7 +1260,7 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
 
             foreach (var kind in updatedData)
             {
-                await ApplyCustomizationDataAsync(_applicationId, kind, charaData, token).ConfigureAwait(false);
+                await ApplyCustomizationDataAsync(_applicationId, kind, charaData, redrawDecisions, token).ConfigureAwait(false);
                 token.ThrowIfCancellationRequested();
             }
 
@@ -1288,7 +1336,10 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
             return;
 
         var now = DateTime.UtcNow;
-        if (_lastApplyAttemptAt.HasValue && now - _lastApplyAttemptAt.Value < TimeSpan.FromSeconds(5))
+        // Intervalle déphasé par-handler (5s + offset stable 0-5s) : sans ça, tous les pairs ayant
+        // posé _pendingModReapply au même moment (cache froid à 24 pairs) relancent un apply complet
+        // au MÊME tick toutes les 5s, en lockstep -> burst périodique. Le déphasage les étale.
+        if (_lastApplyAttemptAt.HasValue && now - _lastApplyAttemptAt.Value < TimeSpan.FromSeconds(5) + _reapplyJitter)
             return;
 
         var dataToApply = _cachedData ?? Pair.LastReceivedCharacterData;
@@ -1344,27 +1395,43 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
 
         if (!IsVisible && nowVisible)
         {
-            // This is deferred application attempt, avoid any log output
-            if (_deferred != Guid.Empty)
-            {
-                _isVisible = true;
-                _ = Task.Run(() =>
-                {
-                    ApplyCharacterData(_deferred, _cachedData!, forceApplyCustomization: true);
-                });
-            }
-
             IsVisible = true;
             Mediator.Publish(new PairHandlerVisibleMessage(this));
-            if (_cachedData != null)
+
+            // UNE SEULE application en vol. Avant, la branche _deferred ET la branche _cachedData
+            // lançaient chacune un ApplyCharacterData sur le MÊME _cachedData, en parallèle, avec des
+            // CancellationTokenSource partagés -> annulation mutuelle + course sur _cachedData, ce qui
+            // pouvait laisser le perso en apparence partielle ("les mods sautent"). On choisit donc
+            // une seule source dans l'ordre : application différée -> données en cache -> fallback.
+            // Les données sont capturées dans une locale pour éviter une NRE si _cachedData devient
+            // null (undo/dispose) entre la décision et l'exécution du Task.Run.
+            // Jitter par-handler : quand ~24 pairs deviennent visibles dans la même fenêtre de scan
+            // (~200ms à 5Hz), on évite de lancer 24 ApplyCharacterData (DeepClone + download + apply)
+            // exactement au même instant. Conforme à la règle anti-burst du projet.
+            int applyJitterMs = Random.Shared.Next(0, VisibilityApplyJitterMaxMs);
+
+            if (_deferred != Guid.Empty && _cachedData != null)
+            {
+                // application différée : pas de log (déjà tracé à la réception)
+                Guid deferredId = _deferred;
+                CharacterData deferredData = _cachedData;
+                _ = Task.Run(async () =>
+                {
+                    await Task.Delay(applyJitterMs).ConfigureAwait(false);
+                    ApplyCharacterData(deferredId, deferredData, forceApplyCustomization: true);
+                });
+            }
+            else if (_cachedData != null)
             {
                 Guid appData = Guid.NewGuid();
+                CharacterData cached = _cachedData;
                 if (Logger.IsEnabled(LogLevel.Trace))
                     Logger.LogTrace("[BASE-{appBase}] {pairHandler} visibility changed, now: {visi}, cached data exists", appData, this, IsVisible);
 
-                _ = Task.Run(() =>
+                _ = Task.Run(async () =>
                 {
-                    ApplyCharacterData(appData, _cachedData!, forceApplyCustomization: true);
+                    await Task.Delay(applyJitterMs).ConfigureAwait(false);
+                    ApplyCharacterData(appData, cached, forceApplyCustomization: true);
                 });
             }
             else if (Pair.LastReceivedCharacterData != null)
@@ -1372,8 +1439,9 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
                 Guid appData = Guid.NewGuid();
                 Logger.LogDebug("[BASE-{appBase}] {pairHandler} visibility changed, now: {visi}, using LastReceivedCharacterData fallback", appData, this, IsVisible);
 
-                _ = Task.Run(() =>
+                _ = Task.Run(async () =>
                 {
+                    await Task.Delay(applyJitterMs).ConfigureAwait(false);
                     Pair.ApplyLastReceivedData(forced: true);
                 });
             }
@@ -1502,12 +1570,29 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
         }
     }
 
-    private List<FileReplacementData> TryCalculateModdedDictionary(Guid applicationBase, CharacterData charaData, out Dictionary<(string GamePath, string? Hash), string> moddedDictionary, CancellationToken token)
+    // Détermine le mode de compression pour ce pair : override par UID sinon config globale.
+    private TextureCompressionMode ComputeCompressedAlternateUsage()
+    {
+        var cfg = _playerPerformanceConfigService.Current;
+        if (cfg.UIDsToOverride.Exists(uid =>
+                string.Equals(uid, Pair.UserData.UID, StringComparison.Ordinal)
+                || string.Equals(uid, Pair.UserData.Alias, StringComparison.Ordinal)))
+        {
+            return TextureCompressionMode.AlwaysSourceQuality;
+        }
+        return cfg.TextureCompressionMode;
+    }
+
+    private List<FileReplacementData> TryCalculateModdedDictionary(Guid applicationBase, CharacterData charaData, TextureCompressionMode compressedUsage, out HashSet<string> locallyPresentFiles, out Dictionary<(string GamePath, string? Hash), string> moddedDictionary, CancellationToken token)
     {
         Stopwatch st = Stopwatch.StartNew();
         ConcurrentBag<FileReplacementData> missingFiles = [];
         moddedDictionary = [];
+        locallyPresentFiles = new HashSet<string>(StringComparer.Ordinal);
         ConcurrentDictionary<(string GamePath, string? Hash), string> outputDict = new();
+        // Hashes déjà en local envoyés au download uniquement pour découvrir un alternate (mode AlwaysCompressed) :
+        // si aucun alt n'existe, le download ne les re-téléchargera pas.
+        var locallyPresentFileSet = new ConcurrentDictionary<string, byte>(StringComparer.Ordinal);
         bool hasMigrationChanges = false;
 
         try
@@ -1521,15 +1606,54 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
             (item) =>
             {
                 token.ThrowIfCancellationRequested();
+
+                var replacementItem = item;
                 var fileCache = _fileDbManager.GetFileCacheByHash(item.Hash, preferSubst: true);
+                // "confirmed" = on connaît le statut d'alternate de ce hash (existe ou n'existera jamais).
+                bool confirmed = _compressedAlternateManager.TryGetCachedCompressedAlternate(item.Hash, out var altHash);
+
+                if (compressedUsage == TextureCompressionMode.AlwaysSourceQuality)
+                {
+                    // Rien : on garde la source.
+                }
+                else if (compressedUsage == TextureCompressionMode.CompressedNewDownloads)
+                {
+                    // BC7 seulement si la source n'est pas déjà en local.
+                    if (fileCache == null && confirmed && altHash != null)
+                    {
+                        replacementItem = new FileReplacementData { GamePaths = item.GamePaths, Hash = altHash };
+                        fileCache = _fileDbManager.GetFileCacheByHash(altHash, preferSubst: true);
+                    }
+                }
+                else // AlwaysCompressed
+                {
+                    if (confirmed)
+                    {
+                        // On sait : s'il y a un alt on l'utilise (même si la source est en local -> gain VRAM), sinon source.
+                        if (altHash != null)
+                        {
+                            replacementItem = new FileReplacementData { GamePaths = item.GamePaths, Hash = altHash };
+                            fileCache = _fileDbManager.GetFileCacheByHash(altHash, preferSubst: true);
+                        }
+                    }
+                    else
+                    {
+                        // Statut inconnu : envoyer la source au download pour découvrir un alt, mais la marquer "déjà présente"
+                        // pour ne pas la re-télécharger si aucun alt n'existe.
+                        locallyPresentFileSet[item.Hash] = 0;
+                        fileCache = null;
+                    }
+                }
+
                 if (fileCache != null)
                 {
                     if (string.IsNullOrEmpty(new FileInfo(fileCache.ResolvedFilepath).Extension))
                     {
                         hasMigrationChanges = true;
-                        fileCache = _fileDbManager.MigrateFileHashToExtension(fileCache, item.GamePaths[0].Split(".")[^1]);
+                        fileCache = _fileDbManager.MigrateFileHashToExtension(fileCache, replacementItem.GamePaths[0].Split(".")[^1]);
                     }
 
+                    // Clé = gamePath + hash original ; valeur = fichier réel (source ou BC7 selon substitution).
                     foreach (var gamePath in item.GamePaths)
                     {
                         outputDict[(gamePath, item.Hash)] = fileCache.ResolvedFilepath;
@@ -1537,10 +1661,12 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
                 }
                 else
                 {
-                    Logger.LogTrace("Missing file: {hash}", item.Hash);
-                    missingFiles.Add(item);
+                    Logger.LogTrace("Missing file: {hash}", replacementItem.Hash);
+                    missingFiles.Add(replacementItem);
                 }
             });
+
+            locallyPresentFiles = new HashSet<string>(locallyPresentFileSet.Keys, StringComparer.Ordinal);
 
             moddedDictionary = outputDict.ToDictionary(k => k.Key, k => k.Value);
 

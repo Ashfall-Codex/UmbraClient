@@ -40,6 +40,32 @@ internal class EstablishmentDetailUi : WindowMediatorSubscriberBase
     private bool _editIsPublic = true;
     private int? _editManagerRpProfileId;
     private bool _editShowManagerOnProfile = true;
+    private int _editHousingType; // 0=Maison, 1=Appartement
+    private bool _editLocationDirty;
+    private int _editDistrictIndex;
+    private int _editWard = 1;
+    private int _editPlot = 1;
+    private int _editRoomNumber = 1;
+    private bool _editIsSubdivision;
+    private ulong? _editServerId;
+
+    private static readonly (string NameFr, string NameEn, uint TerritoryId)[] ResidentialDistricts =
+    [
+        ("Brumée", "Mist", 339),
+        ("Lavandière", "The Lavender Beds", 340),
+        ("La Coupe", "The Goblet", 341),
+        ("Shirogane", "Shirogane", 641),
+        ("Empyrée", "Empyreum", 979),
+    ];
+    private static readonly string[] DistrictNames = ResidentialDistricts.Select(d => d.NameFr).ToArray();
+    private static string[] HousingTypeNames => [Loc.Get("Establishment.Location.House"), Loc.Get("Establishment.Location.Apartment")];
+
+    private static int ResolveDistrictIndex(uint territoryId)
+    {
+        for (int i = 0; i < ResidentialDistricts.Length; i++)
+            if (ResidentialDistricts[i].TerritoryId == territoryId) return i;
+        return 0;
+    }
 
     // Manager profile cache
     private IDalamudTextureWrap? _managerProfileTexture;
@@ -438,6 +464,51 @@ internal class EstablishmentDetailUi : WindowMediatorSubscriberBase
         ImGui.InputTextWithHint($"{Loc.Get("Establishment.Field.Faction")}##edit", Loc.Get("Establishment.Field.Optional"), ref _editFactionTag, 50);
 
         ImGui.Checkbox($"{Loc.Get("Establishment.Field.PublicDirectory")}##edit", ref _editIsPublic);
+
+        ImGui.Spacing();
+        ImGui.Separator();
+        ImGui.Spacing();
+        
+        ImGui.TextColored(UiSharedService.AccentColor, Loc.Get("Establishment.Section.Location"));
+        ImGui.Spacing();
+
+        ImGui.TextColored(ImGuiColors.DalamudGrey, Loc.Get("Establishment.Location.District"));
+        ImGui.SetNextItemWidth(220);
+        if (ImGui.Combo("##editDistrict", ref _editDistrictIndex, DistrictNames, DistrictNames.Length))
+            _editLocationDirty = true;
+
+        ImGui.SetNextItemWidth(220);
+        if (ImGui.Combo("##editHousingType", ref _editHousingType, HousingTypeNames, HousingTypeNames.Length))
+            _editLocationDirty = true;
+
+        ImGui.TextColored(ImGuiColors.DalamudGrey, Loc.Get("Establishment.Location.Ward"));
+        ImGui.SetNextItemWidth(220);
+        if (ImGui.InputInt("##editWard", ref _editWard, 1, 1))
+            _editLocationDirty = true;
+        _editWard = Math.Clamp(_editWard, 1, 30);
+
+        if (_editHousingType == 0)
+        {
+            ImGui.TextColored(ImGuiColors.DalamudGrey, Loc.Get("Establishment.Location.Plot"));
+            ImGui.SetNextItemWidth(220);
+            if (ImGui.InputInt("##editPlot", ref _editPlot, 1, 1))
+                _editLocationDirty = true;
+            _editPlot = Math.Clamp(_editPlot, 1, 60);
+            if (_editPlot > 30) _editIsSubdivision = true;
+
+            ImGui.TextColored(ImGuiColors.DalamudGrey, Loc.Get("Establishment.Location.Annex"));
+            if (ImGui.Checkbox("##editAnnexe", ref _editIsSubdivision))
+                _editLocationDirty = true;
+            UiSharedService.AttachToolTip(Loc.Get("Establishment.Location.AnnexTooltip"));
+        }
+        else
+        {
+            ImGui.TextColored(ImGuiColors.DalamudGrey, Loc.Get("Establishment.Location.RoomNumber"));
+            ImGui.SetNextItemWidth(220);
+            if (ImGui.InputInt("##editRoom", ref _editRoomNumber, 1, 1))
+                _editLocationDirty = true;
+            _editRoomNumber = Math.Max(_editRoomNumber, 1);
+        }
 
         ImGui.Spacing();
         ImGui.Separator();
@@ -1098,8 +1169,35 @@ internal class EstablishmentDetailUi : WindowMediatorSubscriberBase
         _editIsPublic = _establishment.IsPublic;
         _editManagerRpProfileId = _establishment.ManagerRpProfileId;
         _editShowManagerOnProfile = _establishment.ShowManagerOnProfile;
+
+        var loc = _establishment.Location;
+        _editLocationDirty = false;
+        _editServerId = loc?.ServerId;
+        _editDistrictIndex = loc != null ? ResolveDistrictIndex(loc.TerritoryId) : 0;
+        _editHousingType = (loc?.IsApartment ?? false) ? 1 : 0;
+        _editWard = (int)Math.Clamp(loc?.WardId ?? 1u, 1u, 30u);
+        _editPlot = (int)Math.Clamp(loc?.PlotId ?? 1u, 1u, 60u);
+        _editRoomNumber = (int)Math.Max(loc?.RoomId ?? 1u, 1u);
+        _editIsSubdivision = (loc?.DivisionId ?? 1u) > 1u;
+
         _ownRpProfiles = null;
         _ownRpProfilesLoading = false;
+    }
+
+    private EstablishmentLocationDto BuildEditedLocation()
+    {
+        bool isApt = _editHousingType == 1;
+        return new EstablishmentLocationDto
+        {
+            LocationType = 0,
+            TerritoryId = ResidentialDistricts[_editDistrictIndex].TerritoryId,
+            ServerId = _editServerId,
+            WardId = (uint)_editWard,
+            PlotId = isApt ? null : (uint)_editPlot,
+            DivisionId = _editIsSubdivision ? 2u : 1u,
+            IsApartment = isApt ? true : null,
+            RoomId = isApt && _editRoomNumber > 0 ? (uint)_editRoomNumber : null,
+        };
     }
 
     private async Task SaveChanges()
@@ -1120,7 +1218,7 @@ internal class EstablishmentDetailUi : WindowMediatorSubscriberBase
                 BannerImageBase64 = _establishment.BannerImageBase64,
                 ManagerRpProfileId = _editManagerRpProfileId,
                 ShowManagerOnProfile = _editShowManagerOnProfile,
-                Location = _establishment.Location
+                Location = _editLocationDirty ? BuildEditedLocation() : _establishment.Location
             };
 
             var success = await _apiController.EstablishmentUpdate(request).ConfigureAwait(false);

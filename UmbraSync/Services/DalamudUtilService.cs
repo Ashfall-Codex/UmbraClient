@@ -174,9 +174,59 @@ public class DalamudUtilService : IHostedService, IMediatorSubscriber
     public bool IsInGpose { get; private set; }
     public bool IsLoggedIn { get; private set; }
     public bool IsOnFrameworkThread => _framework.IsInFrameworkUpdateThread;
+
+    /// <summary>Attend <paramref name="frameCount"/> ticks framework (settle avant un soft-reapply différé).</summary>
+    public Task WaitForFrameworkFramesAsync(int frameCount, CancellationToken token = default)
+        => frameCount <= 0 ? Task.CompletedTask : _framework.DelayTicks(frameCount, token);
+
     public bool IsZoning => _condition[ConditionFlag.BetweenAreas] || _condition[ConditionFlag.BetweenAreas51];
     public bool IsInCombatOrPerforming { get; private set; }
     public bool IsInHousingMode => _condition[ConditionFlag.UsingHousingFunctions];
+    public unsafe bool OwnsCurrentHouse()
+    {
+        EnsureIsOnFramework();
+        var houseMan = HousingManager.Instance();
+        if (houseMan == null) return false;
+        
+        if (houseMan->HasHousePermissions()) return true;
+
+        // Repli : comparaison au bien possédé, si HasHousePermissions ne répond pas dans ce contexte.
+        var current = houseMan->GetCurrentHouseId();
+        if (current.Id == 0) current = houseMan->GetCurrentIndoorHouseId();
+        if (current.Id == 0) return false;
+
+        if (OwnsEstate(EstateType.PersonalEstate, current)) return true;
+        if (OwnsEstate(EstateType.FreeCompanyEstate, current)) return true;
+        if (OwnsEstate(EstateType.PersonalChambers, current)) return true;
+        if (OwnsEstate(EstateType.ApartmentBuilding, current)) return true;
+        if (OwnsEstate(EstateType.ApartmentRoom, current)) return true;
+        for (int i = 0; i < 3; i++)
+            if (OwnsEstate(EstateType.SharedEstate, current, i)) return true;
+        return false;
+    }
+
+    private static unsafe bool OwnsEstate(EstateType type, HouseId current, int sharedEstateIndex = -1)
+    {
+        var owned = HousingManager.GetOwnedHouseId(type, sharedEstateIndex);
+        if (owned.Id == 0) return false;
+        if (owned.TerritoryTypeId != current.TerritoryTypeId) return false;
+        // WorldId comparé seulement s'il est renseigné des deux côtés (défensif : ne pas verrouiller
+        // le propriétaire si le champ n'est pas peuplé pour la maison courante).
+        if (owned.WorldId != 0 && current.WorldId != 0 && owned.WorldId != current.WorldId) return false;
+        if (owned.WardIndex != current.WardIndex) return false;
+
+        if (owned.IsApartment || current.IsApartment)
+        {
+            // Appartement : chaque logement est possédé individuellement → même division ET même numéro.
+            return owned.IsApartment == current.IsApartment
+                && owned.ApartmentDivision == current.ApartmentDivision
+                && owned.RoomNumber == current.RoomNumber;
+        }
+
+        // Maison (perso / CL / partagée) : la parcelle entière appartient au proprio → on ignore le
+        // numéro de chambre, ce qui autorise l'édition de toutes les chambres de sa maison CL.
+        return owned.PlotIndex == current.PlotIndex;
+    }
     public bool HasModifiedGameFiles => _gameData.HasModifiedGameDataFiles;
 
     private unsafe bool IsInActiveDuty()
@@ -232,6 +282,8 @@ public class DalamudUtilService : IHostedService, IMediatorSubscriber
     {
         if (!_framework.IsInFrameworkUpdateThread) throw new InvalidOperationException("Can only be run on Framework");
     }
+    
+    public bool IsFrameworkUnloading => _framework.IsFrameworkUnloading;
 
     public Dalamud.Game.ClientState.Objects.Types.ICharacter? GetCharacterFromObjectTableByIndex(int index)
     {
@@ -440,6 +492,27 @@ public class DalamudUtilService : IHostedService, IMediatorSubscriber
             HouseId = houseId,
             RoomId = roomId
         };
+    }
+
+    /// <summary>
+    /// Territory réel de l'intérieur courant (celui qui encode le plan S/M/L, l'appartement, la chambre),
+    /// avant l'écrasement par <see cref="HousingManager.GetOriginalHouseTerritoryTypeId"/> que fait
+    /// <see cref="GetMapData"/>. Renvoie 0 si on n'est pas dans un intérieur.
+    /// Sert de garde-fou à la réattribution d'une scène PNJ : deux intérieurs de même territory
+    /// partagent la même géométrie, donc les coordonnées locales restent valides.
+    /// </summary>
+    public unsafe uint GetInteriorTerritoryId()
+    {
+        EnsureIsOnFramework();
+        var houseMan = HousingManager.Instance();
+        if (houseMan == null || !houseMan->IsInside()) return 0;
+        var agentMap = AgentMap.Instance();
+        return agentMap == null ? 0 : agentMap->CurrentTerritoryId;
+    }
+
+    public async Task<uint> GetInteriorTerritoryIdAsync()
+    {
+        return await RunOnFrameworkThread(GetInteriorTerritoryId).ConfigureAwait(false);
     }
 
     public unsafe void SetMarkerAndOpenMap(Vector3 position, Map map)

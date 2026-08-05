@@ -9,7 +9,9 @@ namespace UmbraSync.Services.Housing;
 
 public sealed class HousingFurnitureScanner : IMediatorSubscriber
 {
-    private static readonly string[] HousingPathPrefixes = ["bg/ffxiv/hou/", "bgcommon/hou/"];
+
+    private static readonly string[] HousingPathRoots = ["bgcommon/hou/", "bg/ffxiv/"];
+    private const string HousingZoneSegment = "/hou/";
     private static readonly string[] AllowedExtensions = [".mdl", ".tex", ".mtrl", ".sgb", ".lgb"];
     private static readonly string[] GamePathPrefixes = ["bgcommon/", "bg/", "common/", "chara/", "vfx/", "shader/"];
     private const int StabilizationDelayMs = 5000;
@@ -161,9 +163,11 @@ public sealed class HousingFurnitureScanner : IMediatorSubscriber
 
         _logger.LogDebug("[HousingScan] Scan du répertoire de mod : {Path}", modBasePath);
 
-        // Passe 1 : collecter tous les fichiers avec extension valide et identifier si c'est un mod housing
+        var jsonHousingPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        ParseModJsonForHousingPaths(modBasePath, jsonHousingPaths);
+        
         var allFiles = new List<string>();
-        bool isHousingMod = false;
+        bool isHousingMod = jsonHousingPaths.Count > 0;
 
         try
         {
@@ -191,6 +195,13 @@ public sealed class HousingFurnitureScanner : IMediatorSubscriber
             _logger.LogDebug("[HousingScan] Mod {Path} : {Scanned} fichiers scannés, pas un mod housing",
                 Path.GetFileName(modBasePath), allFiles.Count);
             return;
+        }
+
+        candidatePaths.UnionWith(jsonHousingPaths);
+        if (jsonHousingPaths.Count > 0)
+        {
+            _logger.LogInformation("[HousingScan] {Count} chemins housing extraits des JSON du mod {Mod}",
+                jsonHousingPaths.Count, Path.GetFileName(modBasePath));
         }
 
         // Tracker le répertoire source (hors mods générés par UmbraSync)
@@ -229,21 +240,17 @@ public sealed class HousingFurnitureScanner : IMediatorSubscriber
 
         _logger.LogDebug("[HousingScan] Mod {Path} : {Scanned} fichiers scannés, {Housing} housing + {Shared} partagés",
             Path.GetFileName(modBasePath), allFiles.Count, housingFound, sharedFound);
-
-        // Passe 3 : parser les fichiers JSON du mod pour capturer les mappings game_path → mod_path
-        // Nécessaire pour les textures partagées (common/) dont le chemin filesystem ne correspond pas au game path réel
-        ParseModJsonForHousingPaths(modBasePath, candidatePaths);
     }
     
     private static string? ExtractHousingGamePath(string relativePath)
     {
-        foreach (var prefix in HousingPathPrefixes)
+        foreach (var root in HousingPathRoots)
         {
-            var index = relativePath.IndexOf(prefix, StringComparison.OrdinalIgnoreCase);
-            if (index >= 0)
-            {
-                return relativePath[index..].ToLowerInvariant();
-            }
+            var index = relativePath.IndexOf(root, StringComparison.OrdinalIgnoreCase);
+            if (index < 0) continue;
+
+            var candidate = relativePath[index..].ToLowerInvariant();
+            if (IsHousingPath(candidate)) return candidate;
         }
         return null;
     }
@@ -264,8 +271,6 @@ public sealed class HousingFurnitureScanner : IMediatorSubscriber
     // Parse les fichiers JSON de configuration du mod Penumbra pour extraire les game paths housing.
     private void ParseModJsonForHousingPaths(string modBasePath, HashSet<string> candidatePaths)
     {
-        int initialCount = candidatePaths.Count;
-
         // Parser default_mod.json
         var defaultModFile = Path.Combine(modBasePath, "default_mod.json");
         if (File.Exists(defaultModFile))
@@ -284,13 +289,6 @@ public sealed class HousingFurnitureScanner : IMediatorSubscriber
         catch (Exception ex)
         {
             _logger.LogDebug(ex, "[HousingScan] Erreur lors de l'énumération des fichiers group JSON dans {Path}", modBasePath);
-        }
-
-        int newPaths = candidatePaths.Count - initialCount;
-        if (newPaths > 0)
-        {
-            _logger.LogInformation("[HousingScan] {Count} chemins housing supplémentaires extraits des JSON du mod {Mod}",
-                newPaths, Path.GetFileName(modBasePath));
         }
     }
 
@@ -392,7 +390,9 @@ public sealed class HousingFurnitureScanner : IMediatorSubscriber
     }
     
     // Extrait l'identification du meuble depuis un chemin de jeu.
-    private static string? ExtractFurnitureKey(string gamePath)
+    // Sert aussi de clé de regroupement pour garantir la cohérence d'un meuble à l'application
+    // (un .mtrl appliqué sans sa .tex donne une surface noire).
+    public static string? ExtractFurnitureKey(string gamePath)
     {
         var segments = gamePath.Split('/');
         for (int i = 0; i < segments.Length; i++)
@@ -409,12 +409,14 @@ public sealed class HousingFurnitureScanner : IMediatorSubscriber
 
     private static bool IsHousingPath(string gamePath)
     {
-        foreach (var prefix in HousingPathPrefixes)
-        {
-            if (gamePath.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-                return true;
-        }
-        return false;
+        // Mobilier et assets communs de housing.
+        if (gamePath.StartsWith("bgcommon/hou/", StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        // Décor de la parcelle et de l'intérieur : bg/ffxiv/<zone>/hou/<code>/… Le segment /hou/
+        // est exigé pour ne pas ouvrir la porte au reste du background (villes, donjons…).
+        return gamePath.StartsWith("bg/ffxiv/", StringComparison.OrdinalIgnoreCase)
+            && gamePath.Contains(HousingZoneSegment, StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool HasValidExtension(string gamePath)

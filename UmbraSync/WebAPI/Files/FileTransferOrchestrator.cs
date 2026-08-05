@@ -20,6 +20,8 @@ public class FileTransferOrchestrator : DisposableMediatorSubscriberBase
     private int _availableDownloadSlots;
     private SemaphoreSlim _downloadSemaphore;
     private int CurrentlyUsedDownloadSlots => _availableDownloadSlots - _downloadSemaphore.CurrentCount;
+    private readonly Lock _initializationLock = new();
+    private TaskCompletionSource _initialized = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     public FileTransferOrchestrator(ILogger<FileTransferOrchestrator> logger, MareConfigService mareConfig,
         MareMediator mediator, TokenProvider tokenProvider) : base(logger, mediator)
@@ -31,7 +33,7 @@ public class FileTransferOrchestrator : DisposableMediatorSubscriberBase
             ConnectTimeout = TimeSpan.FromSeconds(10),
             PooledConnectionLifetime = TimeSpan.FromMinutes(5),
             PooledConnectionIdleTimeout = TimeSpan.FromSeconds(90),
-            MaxConnectionsPerServer = 24,
+            MaxConnectionsPerServer = 32,
             AutomaticDecompression = DecompressionMethods.None,
         };
         _httpClient = new(handler)
@@ -48,11 +50,21 @@ public class FileTransferOrchestrator : DisposableMediatorSubscriberBase
         Mediator.Subscribe<ConnectedMessage>(this, (msg) =>
         {
             FilesCdnUri = msg.Connection.ServerInfo.FileServerAddress;
+            lock (_initializationLock)
+            {
+                if (FilesCdnUri != null)
+                    _initialized.TrySetResult();
+            }
         });
 
         Mediator.Subscribe<DisconnectedMessage>(this, (msg) =>
         {
             FilesCdnUri = null;
+            lock (_initializationLock)
+            {
+                if (_initialized.Task.IsCompleted)
+                    _initialized = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            }
         });
         Mediator.Subscribe<DownloadReadyMessage>(this, (msg) =>
         {
@@ -63,6 +75,32 @@ public class FileTransferOrchestrator : DisposableMediatorSubscriberBase
     public Uri? FilesCdnUri { private set; get; }
     public List<FileTransfer> ForbiddenTransfers { get; } = [];
     public bool IsInitialized => FilesCdnUri != null;
+
+    /// <summary>
+    /// Attend que le serveur ait annoncé son adresse de serveur de fichiers (ConnectedMessage).
+    /// Le hub SignalR démarre avant que ce message soit publié : sans cette attente, un push
+    /// déclenché juste après la connexion part avec des fichiers non uploadés.
+    /// </summary>
+    public async Task<bool> WaitForInitializationAsync(TimeSpan timeout, CancellationToken ct)
+    {
+        if (IsInitialized) return true;
+
+        Task initializedTask;
+        lock (_initializationLock)
+        {
+            initializedTask = _initialized.Task;
+        }
+
+        try
+        {
+            await initializedTask.WaitAsync(timeout, ct).ConfigureAwait(false);
+            return IsInitialized;
+        }
+        catch (TimeoutException)
+        {
+            return false;
+        }
+    }
 
     public void ClearDownloadRequest(Guid guid)
     {
@@ -84,7 +122,11 @@ public class FileTransferOrchestrator : DisposableMediatorSubscriberBase
         try
         {
             _downloadSemaphore.Release();
-            Mediator.Publish(new DownloadLimitChangedMessage());
+            // Ne publier que si une limite de vitesse est active : sinon la redistribution de bande
+            // passante est un no-op, et comme le CDN acquiert/relâche un slot PAR fichier, ça génère
+            // une tempête de messages synchrones (SameThreadMessage) vers tous les FileDownloadManager.
+            if (_mareConfig.Current.DownloadSpeedLimitInBytes > 0)
+                Mediator.Publish(new DownloadLimitChangedMessage());
         }
         catch (SemaphoreFullException)
         {
@@ -128,7 +170,8 @@ public class FileTransferOrchestrator : DisposableMediatorSubscriberBase
         }
 
         await _downloadSemaphore.WaitAsync(token).ConfigureAwait(false);
-        Mediator.Publish(new DownloadLimitChangedMessage());
+        if (_mareConfig.Current.DownloadSpeedLimitInBytes > 0)
+            Mediator.Publish(new DownloadLimitChangedMessage());
     }
 
     public long DownloadLimitPerSlot()

@@ -416,7 +416,7 @@ internal sealed class GroupPanel
             {
                 var totalMembers = pairsInGroup.Count + 1;
                 var connectedMembers = pairsInGroup.Count(p => p.IsOnline) + 1;
-                var maxCapacity = ApiController.ServerInfo.MaxGroupUserCount;
+                var maxCapacity = groupDto.MaxUserCount > 0 ? groupDto.MaxUserCount : ApiController.ServerInfo.MaxGroupUserCount;
                 ImGui.TextUnformatted($"{connectedMembers}/{totalMembers}");
                 UiSharedService.AttachToolTip(string.Format(CultureInfo.CurrentCulture, Loc.Get("Syncshell.Card.ConnectedTooltip"),
                     connectedMembers, totalMembers, maxCapacity, groupDto.Group.GID));
@@ -1376,6 +1376,8 @@ internal sealed class GroupPanel
                 ImGui.BeginTooltip();
                 ImGui.TextUnformatted(groupName);
                 ImGui.TextUnformatted(string.Format(CultureInfo.CurrentCulture, Loc.Get("Syncshell.Cards.OnlineMembers"), connectedMembers, totalMembers));
+                var cardMaxCapacity = groupDto.MaxUserCount > 0 ? groupDto.MaxUserCount : ApiController.ServerInfo.MaxGroupUserCount;
+                ImGui.TextUnformatted(string.Format(CultureInfo.CurrentCulture, Loc.Get("Syncshell.Cards.MaxCapacity"), cardMaxCapacity));
                 if (!string.IsNullOrEmpty(groupDto.Group.Alias) && !string.Equals(groupDto.Group.Alias, groupName, StringComparison.Ordinal))
                 {
                     ImGui.TextUnformatted($"ID: {groupDto.GID}");

@@ -1,9 +1,11 @@
-﻿using Dalamud.Game.Text.SeStringHandling;
+﻿using Dalamud.Game.Text;
+using Dalamud.Game.Text.SeStringHandling;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using System.Globalization;
+using UmbraSync.API.Data.Enum;
 using UmbraSync.Localization;
 using UmbraSync.MareConfiguration;
 using UmbraSync.MareConfiguration.Models;
@@ -46,6 +48,7 @@ public class NotificationService : DisposableMediatorSubscriberBase, IHostedServ
         Mediator.Subscribe<NotificationMessage>(this, ShowNotification);
         Mediator.Subscribe<DualNotificationMessage>(this, ShowDualNotification);
         Mediator.Subscribe<Services.Mediator.SyncshellAutoDetectStateChanged>(this, OnSyncshellAutoDetectStateChanged);
+        Mediator.Subscribe<ServerBroadcastMessage>(this, ShowBroadcast);
         return Task.CompletedTask;
     }
 
@@ -94,6 +97,37 @@ public class NotificationService : DisposableMediatorSubscriberBase, IHostedServ
                 PrintErrorChat(msg.Message);
                 break;
         }
+    }
+    
+    private void ShowBroadcast(ServerBroadcastMessage msg)
+    {
+        if (!_dalamudUtilService.IsLoggedIn) return;
+        if (string.IsNullOrWhiteSpace(msg.Message)) return;
+
+        Logger.LogInformation("Server broadcast ({severity})", msg.Severity);
+
+        // Le chat du jeu n'affiche pas les retours à la ligne : une entrée par ligne.
+        var lines = msg.Message.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        foreach (var line in lines)
+        {
+            PrintBroadcastChat(line, msg.Severity);
+        }
+    }
+
+    private void PrintBroadcastChat(string line, MessageSeverity severity)
+    {
+        SeStringBuilder se = new SeStringBuilder().AddUiForeground("[UmbraSync] ", 45).AddUiForegroundOff();
+
+        if (severity == MessageSeverity.Information)
+            se.AddText(line);
+        else
+            se.AddUiForeground(line, 31).AddUiForegroundOff();
+
+        _chatGui.Print(new XivChatEntry
+        {
+            Message = se.BuiltString,
+            Type = XivChatType.Echo
+        });
     }
 
     private void ShowNotification(NotificationMessage msg)

@@ -19,8 +19,11 @@ public class PairHandlerFactory(ILoggerFactory loggerFactory, GameObjectHandlerF
     PairAnalyzerFactory pairAnalyzerFactory,
     MareConfigService configService, VisibilityService visibilityService,
     ApplicationSemaphoreService applicationSemaphoreService, ServerConfigurationManager serverConfigurationManager,
-    PairRedrawCoordinator pairRedrawCoordinator)
+    PairRedrawCoordinator pairRedrawCoordinator, CompressedAlternateManager compressedAlternateManager,
+    PlayerPerformanceConfigService playerPerformanceConfigService)
 {
+    private readonly CompressedAlternateManager _compressedAlternateManager = compressedAlternateManager;
+    private readonly PlayerPerformanceConfigService _playerPerformanceConfigService = playerPerformanceConfigService;
     private readonly MareConfigService _configService = configService;
     private readonly DalamudUtilService _dalamudUtilService = dalamudUtilService;
     private readonly FileCacheManager _fileCacheManager = fileCacheManager;
@@ -43,6 +46,6 @@ public class PairHandlerFactory(ILoggerFactory loggerFactory, GameObjectHandlerF
         return new PairHandler(_loggerFactory.CreateLogger<PairHandler>(), pair, _pairAnalyzerFactory.Create(pair), _gameObjectHandlerFactory,
             _ipcManager, _fileDownloadManagerFactory.Create(), _pluginWarningNotificationManager, _dalamudUtilService, _hostApplicationLifetime,
             _fileCacheManager, _mareMediator, _playerPerformanceService, _configService, _visibilityService, _applicationSemaphoreService, _serverConfigurationManager,
-            _pairRedrawCoordinator);
+            _pairRedrawCoordinator, _compressedAlternateManager, _playerPerformanceConfigService);
     }
 }

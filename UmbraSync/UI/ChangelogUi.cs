@@ -342,6 +342,25 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
     {
         return new List<ChangelogEntry>
         {
+            new(new Version(3, 0, 0, 8050), "3.0.0.8050", new List<ChangelogLine>
+            {
+                new("Nouveauté : Ashfall Connect. Liez votre compte à la plateforme Ashfall Connect pour gérer, enrichir et certifier votre fiche RP. Liaison par code à usage unique depuis le plugin, niveaux de certification Bronze / Argent / Or via Discord et XIVAuth, et bouton « Profil enrichi » dans l'éditeur de profil."),
+                new("Nouveauté : Housing PNJ. Peuplez votre intérieur de personnages : vous les habillez, les placez, les animez, et vos paires les voient apparaître en arrivant chez vous."),
+                new("Nouveauté : Import de vos scénarios A Realm Repopulated existants : apparence, position, orientation et séquence d'actions de chaque PNJ sont récupérées. Placez-vous dans la pièce voulue avant d'importer."),
+                new("Nouveauté : Compression BC7 des textures. Les textures des joueurs autour de vous sont compressées côté serveur : elles se téléchargent environ deux fois plus vite et pèsent nettement moins lourd sur votre carte graphique, donc moins de saccades et de crashs quand il y a du monde. Activée par défaut, désactivable dans Réglages → Performance, avec une liste de paires à conserver en qualité source."),
+                new("Nouveauté : Les revêtements de murs, sols et plafonds moddés sont désormais inclus dans le partage housing. Jusqu'ici seul le mobilier était transmis. Ces éléments ne se rechargent pas à chaud : un message invite vos visiteurs à ressortir puis rentrer pour les afficher."),
+                new("Nouveauté : La capacité maximale d'une syncshell peut aller jusqu'à 300 membres."),
+                new("Amélioration : Redraw intelligent. Un simple changement de texture ou de matériau réapplique l'apparence sans redraw complet. Les changements de modèle, cheveux, visage ou queue déclenchent toujours un redraw complet. Activé par défaut, désactivable dans Réglages -> Transferts."),
+                new("Amélioration : Détection de visibilité événementielle. L'apparition et la disparition des joueurs sont détectées à l'instant où elles se produisent, au lieu d'une vérification périodique : réaction plus immédiate et charge continue réduite. Repli automatique sur l'ancienne méthode si nécessaire, désactivable dans Réglages → Transferts."),
+                new("Amélioration : Stabilité en logement bondé et en événement à 20+ personnes. Fini les apparences qui « sautent » — qui repassaient en version de base avant de se resynchroniser."),
+                new("Amélioration : Le réglage « Téléchargements parallèles » est devenu un vrai plafond global partagé, réglable jusqu'à 20. Plus de téléchargements en surnombre qui saturaient la connexion sur les grosses scènes, et les emplacements ne sont plus monopolisés pendant la décompression."),
+                new("Amélioration : Partage housing plus fiable. Un meuble dont tous les fichiers ne peuvent pas être transmis est écarté du partage au lieu d'arriver à moitié (fini les meubles noirs), vos mods sources restent actifs, le mod housing est construit à part puis installé d'un bloc, et les fichiers déjà présents sont réutilisés d'une visite à l'autre."),
+                new("Correction : Personnages fantômes. Lors d'un changement de personnage, l'ancien pouvait rester affiché en ligne plusieurs minutes chez vos paires."),
+                new("Correction : En cas de coupure vers le CDN, le téléchargement bascule réellement sur le serveur principal. Et quand un fichier reste introuvable, UmbraSync applique l'apparence disponible au lieu de réessayer indéfiniment."),
+                new("Correction : SyncSlots dont on ne sortait jamais. Vous restiez considéré comme présent après avoir quitté le quartier résidentiel : l'encart « Zone SyncSlot » s'affichait partout et vous restiez membre de la syncshell indéfiniment. La sortie est maintenant détectée dès que vous quittez le quartier, y compris pour un établissement lié à une syncshell."),
+                new("Autre : A Realm Repopulated ajouté à la liste des plugins compatibles détectés pour importer des scenarios PNJ."),
+                new("Autre : Mise à jour API Penumbra & Glamourer."),
+            }),
             new(new Version(2, 6, 0, 6026), "2.6.0.6026", new List<ChangelogLine>
             {
                 new("Amélioration : Retrait du masquage 3D des bulles d'écriture derrière les décors qui était source de freezes et de crashs sur certains drivers (notamment AMD). Les bulles reviennent à leur affichage d'avant."),

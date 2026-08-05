@@ -107,6 +107,7 @@ public sealed class Plugin : IDalamudPlugin
             collection.AddSingleton<UmbraProfileManager>();
             collection.AddSingleton<GameObjectHandlerFactory>();
             collection.AddSingleton<FileDownloadDeduplicator>();
+            collection.AddSingleton<UmbraSync.FileCache.CompressedAlternateManager>();
             collection.AddSingleton<FileDownloadManagerFactory>();
             collection.AddSingleton<UmbraSync.PlayerData.Redraw.PairRedrawCoordinator>();
             collection.AddSingleton<PairHandlerFactory>();
@@ -135,6 +136,7 @@ public sealed class Plugin : IDalamudPlugin
             collection.AddSingleton<VfxSpawnManager>();
             collection.AddSingleton<BlockedCharacterHandler>();
             collection.AddSingleton<IpcProvider>();
+            collection.AddSingleton<UmbraSync.Services.ActorTracking.DrawObjectTrackingService>();
             collection.AddSingleton<VisibilityService>();
             collection.AddSingleton<EventAggregator>();
             collection.AddSingleton<DalamudUtilService>();
@@ -169,6 +171,16 @@ public sealed class Plugin : IDalamudPlugin
             collection.AddSingleton<HousingFurnitureScanner>();
             collection.AddSingleton<HousingShareManager>();
             collection.AddSingleton<HousingFurnitureSyncService>();
+            collection.AddSingleton<ArrPathResolver>();
+            collection.AddSingleton<ArrScenarioFileService>();
+            collection.AddSingleton<HousingScenarioManager>();
+            collection.AddSingleton<HousingScenarioSyncService>();
+            collection.AddSingleton<NativeNpcSpawner>();
+            collection.AddSingleton<LookAtService>();
+            collection.AddSingleton<NpcLiveAppearanceService>();
+            collection.AddSingleton<HousingNpcScenarioStore>();
+            collection.AddSingleton<HousingNpcScenarioService>();
+            collection.AddSingleton<HousingOwnershipService>();
             collection.AddSingleton<RgpdDataService>();
             collection.AddSingleton<EstablishmentProximityService>();
             collection.AddSingleton<EstablishmentReminderService>();
@@ -221,6 +233,9 @@ public sealed class Plugin : IDalamudPlugin
             collection.AddScoped<DataAnalysisUi>();
             collection.AddScoped<CharaDataHubUi>();
             collection.AddScoped<AutoDetectUi>();
+            collection.AddScoped<HousingNpcSceneEditorUi>();
+            collection.AddScoped<WindowMediatorSubscriberBase>(sp => sp.GetRequiredService<HousingNpcSceneEditorUi>());
+            collection.AddScoped<WindowMediatorSubscriberBase, HousingNpcGizmoOverlayUi>();
             collection.AddScoped<WindowMediatorSubscriberBase>(sp => sp.GetRequiredService<SettingsUi>());
             collection.AddScoped<WindowMediatorSubscriberBase>(sp => sp.GetRequiredService<CompactUi>());
             collection.AddScoped<WindowMediatorSubscriberBase, IntroUi>();
@@ -228,7 +243,12 @@ public sealed class Plugin : IDalamudPlugin
             collection.AddScoped<WindowMediatorSubscriberBase, PairRequestToastUi>();
             collection.AddScoped<WindowMediatorSubscriberBase>(sp => sp.GetRequiredService<AutoDetectUi>());
             collection.AddScoped<WindowMediatorSubscriberBase, ChangelogUi>();
+            collection.AddScoped<WindowMediatorSubscriberBase, TestBuildWarningUi>();
             collection.AddScoped<WindowMediatorSubscriberBase, PopoutProfileUi>();
+            collection.AddScoped<UmbraSync.WebAPI.AshfallConnectService>();
+            collection.AddSingleton<UmbraSync.Services.AshfallConnectAutoSyncService>();
+            collection.AddScoped<UmbraSync.UI.AshfallLinkCodeUi>();
+            collection.AddScoped<WindowMediatorSubscriberBase>(sp => sp.GetRequiredService<UmbraSync.UI.AshfallLinkCodeUi>());
             collection.AddScoped<WindowMediatorSubscriberBase>(sp => sp.GetRequiredService<DataAnalysisUi>());
             collection.AddScoped<WindowMediatorSubscriberBase, EventViewerUI>();
             collection.AddScoped<WindowMediatorSubscriberBase, CharaDataHubUi>();
@@ -266,6 +286,7 @@ public sealed class Plugin : IDalamudPlugin
             collection.AddHostedService(p => p.GetRequiredService<FileCacheManager>());
             collection.AddHostedService(p => p.GetRequiredService<ConfigurationMigrator>());
             collection.AddHostedService(p => p.GetRequiredService<DalamudUtilService>());
+            collection.AddHostedService(p => p.GetRequiredService<UmbraSync.Services.ActorTracking.DrawObjectTrackingService>());
             collection.AddHostedService(p => p.GetRequiredService<PerformanceCollectorService>());
             collection.AddHostedService(p => p.GetRequiredService<DtrEntry>());
             collection.AddHostedService(p => p.GetRequiredService<EventAggregator>());
@@ -279,6 +300,10 @@ public sealed class Plugin : IDalamudPlugin
             collection.AddHostedService(p => p.GetRequiredService<PenumbraPrecacheService>());
             collection.AddHostedService(p => p.GetRequiredService<HousingMonitorService>());
             collection.AddHostedService(p => p.GetRequiredService<HousingFurnitureSyncService>());
+            collection.AddHostedService(p => p.GetRequiredService<HousingScenarioSyncService>());
+            collection.AddHostedService(p => p.GetRequiredService<HousingNpcScenarioService>());
+            collection.AddHostedService(p => p.GetRequiredService<HousingOwnershipService>());
+            collection.AddHostedService(p => p.GetRequiredService<UmbraSync.Services.AshfallConnectAutoSyncService>());
         })
         .Build();
 

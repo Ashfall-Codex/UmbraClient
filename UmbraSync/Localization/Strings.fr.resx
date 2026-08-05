@@ -1048,7 +1048,7 @@ Veuillez conserver une copie de votre clé secrète au cas où vous auriez besoi
     <value>SyncSlot</value>
   </data>
   <data name="SlotPopup.WelcomeTo" xml:space="preserve">
-    <value>Bienvenue à {0} !</value>
+    <value>{0} vous accueille !</value>
   </data>
   <data name="SlotPopup.SyncshellFound" xml:space="preserve">
     <value>Une Syncshell est associée à ce lieu : {0}</value>
@@ -1096,7 +1096,7 @@ Veuillez conserver une copie de votre clé secrète au cas où vous auriez besoi
     <value>Vous avez refusé de rejoindre la Syncshell pour {0}. Vous ne serez plus sollicité pour ce lieu durant cette session.</value>
   </data>
   <data name="Slot.Toast.Welcome" xml:space="preserve">
-    <value>Bienvenue chez {0}</value>
+    <value>{0} vous accueille</value>
   </data>
   <data name="Slot.Toast.Leaving" xml:space="preserve">
     <value>Vous quittez {0}</value>
@@ -1111,7 +1111,7 @@ Veuillez conserver une copie de votre clé secrète au cas où vous auriez besoi
     <value>Impossible de rejoindre la Syncshell de {0}. Veuillez réessayer.</value>
   </data>
   <data name="Slot.Toast.BackInRange" xml:space="preserve">
-    <value>Vous êtes de retour dans la zone de {0}. Le décompte de sortie automatique a été annulé.</value>
+    <value>{0} : vous êtes de retour dans la zone. Le décompte de sortie automatique a été annulé.</value>
   </data>
   <data name="Slot.Toast.AutoLeft" xml:space="preserve">
     <value>Vous avez quitté la Syncshell {0} après 5 minutes d'inactivité dans la zone.</value>
@@ -1565,6 +1565,21 @@ Veuillez conserver une copie de votre clé secrète au cas où vous auriez besoi
   </data>
   <data name="ChangelogUi.WindowTitle" xml:space="preserve">
     <value>Umbra Sync - Notes de version</value>
+  </data>
+  <data name="TestBuildWarning.WindowTitle" xml:space="preserve">
+    <value>UmbraSync - Version de test</value>
+  </data>
+  <data name="TestBuildWarning.Header" xml:space="preserve">
+    <value>Version de test</value>
+  </data>
+  <data name="TestBuildWarning.Body" xml:space="preserve">
+    <value>Vous utilisez une version de d&#xE9;veloppement / test d'UmbraSync.&#x0A;&#x0A;Des bugs, plantages et instabilit&#xE9;s sont attendus. Cette version n'est pas destin&#xE9;e &#xE0; un usage quotidien.&#x0A;&#x0A;Merci de ne pas reporter les probl&#xE8;mes de cette version comme s'ils concernaient la version stable.</value>
+  </data>
+  <data name="TestBuildWarning.Acknowledge" xml:space="preserve">
+    <value>J'ai compris</value>
+  </data>
+  <data name="TestBuildWarning.Signature" xml:space="preserve">
+    <value>Votre d&#xE9;veloppeur ador&#xE9; : Keda</value>
   </data>
   <data name="ChangelogUi.RestartNotice.Title" xml:space="preserve">
     <value>Redémarrage recommandé</value>
@@ -4501,6 +4516,12 @@ Note : Les armes ne s'afficheront pas correctement sauf si vous utilisez le m&#x
   <data name="EditProfile.PreviewButton" xml:space="preserve">
     <value>Prévisualiser mon profil</value>
   </data>
+  <data name="EditProfile.EnrichedProfile.Button" xml:space="preserve">
+    <value>Profil enrichi</value>
+  </data>
+  <data name="EditProfile.EnrichedProfile.Tooltip" xml:space="preserve">
+    <value>Ouvre votre profil enrichi sur Ashfall Connect (édition dans le navigateur). Nécessite un compte Ashfall Connect lié.</value>
+  </data>
   <data name="EditProfile.SaveButton" xml:space="preserve">
     <value>Sauvegarder le profil</value>
   </data>
@@ -4541,6 +4562,9 @@ Note : Les armes ne s'afficheront pas correctement sauf si vous utilisez le m&#x
   <!-- Cartes Syncshell -->
   <data name="Syncshell.Cards.OnlineMembers" xml:space="preserve">
     <value>{0} en ligne / {1} membres</value>
+  </data>
+  <data name="Syncshell.Cards.MaxCapacity" xml:space="preserve">
+    <value>Capacité max : {0}</value>
   </data>
   <data name="Syncshell.Cards.Paused" xml:space="preserve">
     <value>En pause</value>
@@ -4796,6 +4820,12 @@ Note : Les armes ne s'afficheront pas correctement sauf si vous utilisez le m&#x
   </data>
   <data name="Notification.Server.Warning" xml:space="preserve">
     <value>Avertissement du serveur</value>
+  </data>
+  <data name="Notification.ForceDisconnect.Title" xml:space="preserve">
+    <value>Déconnecté par le serveur</value>
+  </data>
+  <data name="Notification.ForceDisconnect.Body" xml:space="preserve">
+    <value>Votre clé secrète a été régénérée. Saisissez la nouvelle clé dans les paramètres pour vous reconnecter.</value>
   </data>
   <data name="Notification.Nearby.Blocked.Title" xml:space="preserve">
     <value>Demande bloquée</value>
@@ -5286,6 +5316,9 @@ Note : Les armes ne s'afficheront pas correctement sauf si vous utilisez le m&#x
   <data name="HousingShare.Notification.Applied" xml:space="preserve">
     <value>Mods de maison appliqués ({0})</value>
   </data>
+  <data name="HousingShare.Notification.ReloadForDecor" xml:space="preserve">
+    <value>Cette maison partage des revêtements de murs, sols ou plafonds. Ressortez et rentrez pour les voir.</value>
+  </data>
   <data name="HousingShare.Notification.ReenterForEffect" xml:space="preserve">
     <value>Mods enregistrés. Re-entrez dans la maison pour les voir.</value>
   </data>
@@ -5321,6 +5354,9 @@ Note : Les armes ne s'afficheront pas correctement sauf si vous utilisez le m&#x
   </data>
   <data name="HousingShare.SourceMod.Disabled" xml:space="preserve">
     <value>Mod(s) source désactivé(s) : {0}</value>
+  </data>
+  <data name="HousingShare.SourceMod.KeptActive" xml:space="preserve">
+    <value>Mod(s) conservé(s) actif(s) car le partage ne couvre pas tous leurs fichiers : {0}</value>
   </data>
   <data name="QuestSync.Title" xml:space="preserve">
     <value>Quest Sync</value>
@@ -5426,7 +5462,7 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
     <value>Export de vos données (Art. 20 RGPD)</value>
   </data>
   <data name="Settings.Privacy.Export.Description" xml:space="preserve">
-    <value>Exportez une copie de toutes vos données personnelles stockées localement et/ou sur le serveur.</value>
+    <value>Exportez une copie de vos données personnelles au format JSON. L'export local contient vos fiches RP, vos notes sur vos paires, vos groupes, vos joueurs bloqués, vos favoris et vos réglages ; l'export serveur récapitule ce que le serveur conserve sur votre compte.</value>
   </data>
   <data name="Settings.Privacy.Export.LocalButton" xml:space="preserve">
     <value>Exporter (local)</value>
@@ -5447,7 +5483,7 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
     <value>Suppression des données locales (Art. 17 RGPD)</value>
   </data>
   <data name="Settings.Privacy.Delete.Description" xml:space="preserve">
-    <value>Supprime les notes, exports et réinitialise le consentement. Les données serveur ne sont pas affectées.</value>
+    <value>Efface les données personnelles conservées sur votre machine : fiches RP, notes sur vos paires, groupes, joueurs bloqués, favoris de syncshells et de MCDF, établissements enregistrés, journaux de diagnostic réseau et exports précédents, sauvegardes de configuration comprises. Le consentement est réinitialisé. Le cache de mods et les données serveur ne sont pas affectés.</value>
   </data>
   <data name="Settings.Privacy.Delete.LocalButton" xml:space="preserve">
     <value>Supprimer les données locales</value>
@@ -5456,10 +5492,52 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
     <value>Confirmer la suppression</value>
   </data>
   <data name="Settings.Privacy.Delete.ConfirmMessage" xml:space="preserve">
-    <value>Vos notes locales et exports RGPD seront supprimés, et votre consentement sera réinitialisé. Cette action est irréversible.</value>
+    <value>Seront supprimés : vos fiches RP locales, vos notes et groupes de paires, vos joueurs bloqués, vos favoris de syncshells et de MCDF, vos établissements enregistrés, vos journaux de diagnostic réseau, vos exports précédents et les sauvegardes de configuration correspondantes. Votre consentement sera réinitialisé. Cette action est irréversible.</value>
   </data>
   <data name="Settings.Privacy.Delete.ConfirmYes" xml:space="preserve">
     <value>Supprimer</value>
+  </data>
+  <data name="Settings.Privacy.Delete.InProgress" xml:space="preserve">
+    <value>Suppression en cours…</value>
+  </data>
+  <data name="Settings.Privacy.Delete.Done" xml:space="preserve">
+    <value>Suppression locale terminée. Vos données serveur ne sont pas affectées.</value>
+  </data>
+  <data name="Settings.Privacy.ServerDelete.Header" xml:space="preserve">
+    <value>Effacement des données serveur</value>
+  </data>
+  <data name="Settings.Privacy.ServerDelete.Description" xml:space="preserve">
+    <value>Supprime définitivement votre compte et l'ensemble des données conservées sur le serveur : profils RP, appairages, appartenances aux syncshells, partages MCDF et housing, établissements et fichiers de mods envoyés. Les comptes secondaires rattachés au vôtre sont supprimés également.</value>
+  </data>
+  <data name="Settings.Privacy.ServerDelete.Button" xml:space="preserve">
+    <value>Supprimer mes données serveur</value>
+  </data>
+  <data name="Settings.Privacy.ServerDelete.Offline" xml:space="preserve">
+    <value>Vous devez être connecté au serveur pour demander l'effacement.</value>
+  </data>
+  <data name="Settings.Privacy.ServerDelete.ConfirmTitle" xml:space="preserve">
+    <value>Confirmer l'effacement</value>
+  </data>
+  <data name="Settings.Privacy.ServerDelete.ConfirmMessage" xml:space="preserve">
+    <value>Cette action est irréversible. Votre compte, vos comptes secondaires et toutes les données associées seront supprimés du serveur.</value>
+  </data>
+  <data name="Settings.Privacy.ServerDelete.ConfirmPrompt" xml:space="preserve">
+    <value>Saisissez « {0} » pour confirmer :</value>
+  </data>
+  <data name="Settings.Privacy.ServerDelete.ConfirmWord" xml:space="preserve">
+    <value>SUPPRIMER</value>
+  </data>
+  <data name="Settings.Privacy.ServerDelete.ConfirmYes" xml:space="preserve">
+    <value>Supprimer définitivement</value>
+  </data>
+  <data name="Settings.Privacy.ServerDelete.InProgress" xml:space="preserve">
+    <value>Effacement demandé au serveur…</value>
+  </data>
+  <data name="Settings.Privacy.ServerDelete.Done" xml:space="preserve">
+    <value>Effacement effectué. Votre compte n'existe plus sur ce serveur.</value>
+  </data>
+  <data name="Settings.Privacy.ServerDelete.Failed" xml:space="preserve">
+    <value>L'effacement a échoué. Réessayez une fois reconnecté au serveur.</value>
   </data>
   <data name="Settings.Privacy.Revoke.Header" xml:space="preserve">
     <value>Retrait du consentement</value>
@@ -5513,7 +5591,19 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
     <value>Données collectées :</value>
   </data>
   <data name="Rgpd.Consent.DataCollected.Details" xml:space="preserve">
-    <value>• Identifiant unique (UID)&#x0A;• Données d'apparence (mods Penumbra, états Glamourer)&#x0A;• Profils RP (nom, description, image)&#x0A;• Liste d'appairage et appartenances aux syncshells&#x0A;• Fichiers de mods uploadés pour la synchronisation</value>
+    <value>• Identifiant unique (UID), date de dernière connexion et adresse IP le temps de la session&#x0A;• Données d'apparence : mods Penumbra, états Glamourer et fichiers de mods envoyés pour la synchronisation&#x0A;• Profils RP : prénom, nom, titre, description, photo et champs personnalisés, par personnage&#x0A;• Liste d'appairage, notes que vous rédigez sur vos paires et appartenances aux syncshells&#x0A;• Partages que vous publiez : MCDF, agencements de logement et scénarios PNJ&#x0A;• Établissements RP que vous créez : nom, logo, bannière, emplacement du logement et événements&#x0A;• Annonces « RP sauvage » : nom du personnage, monde, zone et secteur résidentiel, visibles dans l'annuaire&#x0A;• Indicateur d'écriture : signal transmis à vos paires pendant que vous tapez&#x0A;• Ashfall Connect, si vous liez votre compte : nom et monde de vos personnages transmis à connect.ashfall-codex.dev, ainsi que l'identité Discord ou XIVAuth que vous y associez</value>
+  </data>
+  <data name="Rgpd.Consent.Outdated" xml:space="preserve">
+    <value>Le périmètre des données traitées a évolué depuis votre dernier consentement. Merci de relire cette page et de confirmer votre accord.</value>
+  </data>
+  <data name="Rgpd.Consent.Controller" xml:space="preserve">
+    <value>Responsable du traitement : l'équipe Ashfall Codex, éditrice d'UmbraSync et du serveur umbra-sync.net. Pour toute demande relative à vos données, contactez-nous depuis le serveur Discord Ashfall Codex.</value>
+  </data>
+  <data name="Rgpd.Consent.Retention" xml:space="preserve">
+    <value>Conservation : vos données sont conservées tant que votre compte reste actif. Un compte laissé inutilisé au-delà de la période fixée par l'administrateur du serveur est supprimé automatiquement, avec les fichiers qui lui sont rattachés. Les fichiers de mods envoyés sont conservés le temps nécessaire à leur distribution à vos paires.</value>
+  </data>
+  <data name="Rgpd.Consent.ConnectNotice" xml:space="preserve">
+    <value>Ashfall Connect est un service distinct. Supprimer votre compte UmbraSync n'efface pas la fiche RP hébergée sur Connect : la suppression s'y demande séparément depuis votre compte Connect.</value>
   </data>
   <data name="Rgpd.Consent.DataCollection" xml:space="preserve">
     <value>J'accepte la collecte de mes données (obligatoire)</value>
@@ -5537,7 +5627,7 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
     <value>Vos droits :</value>
   </data>
   <data name="Rgpd.Consent.Rights.Summary" xml:space="preserve">
-    <value>Vous pouvez à tout moment accéder, exporter, rectifier ou supprimer vos données depuis l'onglet « Vie privée » des paramètres. Vous pouvez retirer votre consentement à tout moment.</value>
+    <value>Vous pouvez à tout moment accéder, exporter, rectifier ou supprimer vos données depuis l'onglet « Vie privée » des paramètres, y compris demander l'effacement de toutes vos données côté serveur. Vous pouvez retirer votre consentement à tout moment.</value>
   </data>
   <data name="Rgpd.Consent.AcceptButton" xml:space="preserve">
     <value>J'accepte et je continue</value>
@@ -5677,6 +5767,9 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
   </data>
   <data name="Establishment.Location.AutoFillTooltip" xml:space="preserve">
     <value>D&#xE9;tecte votre position actuelle et remplit automatiquement les champs de localisation.&#x0A;Vous devez &#xEA;tre &#xE0; l'int&#xE9;rieur de votre maison ou appartement.</value>
+  </data>
+  <data name="Establishment.Location.AutoFillNeedsInside" xml:space="preserve">
+    <value>Placez-vous &#xE0; l'int&#xE9;rieur de votre maison ou appartement pour le remplissage automatique. Sinon, saisissez le quartier et la parcelle manuellement.</value>
   </data>
   <data name="Establishment.Location.Server" xml:space="preserve">
     <value>Serveur</value>
@@ -6050,5 +6143,524 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
   </data>
   <data name="WildRp.Ward" xml:space="preserve">
     <value>Secteur {0}</value>
+  </data>
+  <data name="HousingScenario.Title" xml:space="preserve">
+    <value>Synchronisation des scénarios PNJ</value>
+  </data>
+  <data name="HousingScenario.ArrNotDetected" xml:space="preserve">
+    <value>Plugin A Realm Repopulated non détecté. Installez-le et redémarrez le plugin pour activer cette section.</value>
+  </data>
+  <data name="HousingScenario.ArrDetected" xml:space="preserve">
+    <value>A Realm Repopulated détecté</value>
+  </data>
+  <data name="HousingScenario.OperationInProgress" xml:space="preserve">
+    <value>Opération scénario en cours...</value>
+  </data>
+  <data name="HousingScenario.NotInHousing" xml:space="preserve">
+    <value>Vous n'êtes pas dans un housing. Entrez dans le vôtre pour publier un scénario.</value>
+  </data>
+  <data name="HousingScenario.CurrentLocation" xml:space="preserve">
+    <value>Location actuelle : S{0} W{1} H{2}</value>
+  </data>
+  <data name="HousingScenario.AppliedNotice" xml:space="preserve">
+    <value>Un scénario partagé est actuellement appliqué chez vous.</value>
+  </data>
+  <data name="HousingScenario.RemoveManually" xml:space="preserve">
+    <value>Retirer manuellement</value>
+  </data>
+  <data name="HousingScenario.OwnSharesTitle" xml:space="preserve">
+    <value>Mes scénarios partagés</value>
+  </data>
+  <data name="HousingScenario.Refresh" xml:space="preserve">
+    <value>Actualiser</value>
+  </data>
+  <data name="HousingScenario.NoneMatching" xml:space="preserve">
+    <value>Aucune scène pour ce logement. Créez-en une avec « Créer / éditer les scènes PNJ ».</value>
+  </data>
+  <data name="HousingScenario.DescriptionHint" xml:space="preserve">
+    <value>Description (visible par les paires)</value>
+  </data>
+  <data name="HousingScenario.ShareToAll" xml:space="preserve">
+    <value>Partager à tous mes paires et syncshells</value>
+  </data>
+  <data name="HousingScenario.UidHint" xml:space="preserve">
+    <value>UID ou vanity</value>
+  </data>
+  <data name="HousingScenario.UidToAdd" xml:space="preserve">
+    <value>UID synchronisé à ajouter</value>
+  </data>
+  <data name="HousingScenario.SyncshellHint" xml:space="preserve">
+    <value>GID ou alias</value>
+  </data>
+  <data name="HousingScenario.SyncshellToAdd" xml:space="preserve">
+    <value>Syncshell à ajouter</value>
+  </data>
+  <data name="HousingScenario.Publish" xml:space="preserve">
+    <value>Publier le scénario</value>
+  </data>
+  <data name="HousingScenario.NoOwnShares" xml:space="preserve">
+    <value>Aucun scénario partagé publié.</value>
+  </data>
+  <data name="HousingScenario.ColDescription" xml:space="preserve">
+    <value>Description</value>
+  </data>
+  <data name="HousingScenario.ColLocation" xml:space="preserve">
+    <value>Location</value>
+  </data>
+  <data name="HousingScenario.ColCreated" xml:space="preserve">
+    <value>Créé le</value>
+  </data>
+  <data name="HousingScenario.ColAccess" xml:space="preserve">
+    <value>Accès</value>
+  </data>
+  <data name="HousingScenario.ColActions" xml:space="preserve">
+    <value>Actions</value>
+  </data>
+  <data name="HousingScenario.AccessSummary" xml:space="preserve">
+    <value>UID : {0}, Syncshells : {1}</value>
+  </data>
+  <data name="HousingScenario.AllowedUids" xml:space="preserve">
+    <value>UID autorisés:</value>
+  </data>
+  <data name="HousingScenario.NoAllowedUid" xml:space="preserve">
+    <value>Aucun UID autorisé</value>
+  </data>
+  <data name="HousingScenario.AllowedSyncshells" xml:space="preserve">
+    <value>Syncshells autorisées:</value>
+  </data>
+  <data name="HousingScenario.NoAllowedSyncshell" xml:space="preserve">
+    <value>Aucune syncshell autorisée</value>
+  </data>
+  <data name="HousingScenario.Edit" xml:space="preserve">
+    <value>Modifier</value>
+  </data>
+  <data name="HousingScenario.Delete" xml:space="preserve">
+    <value>Supprimer</value>
+  </data>
+  <data name="HousingScenario.Save" xml:space="preserve">
+    <value>Sauvegarder</value>
+  </data>
+  <data name="HousingScenario.SelectPair" xml:space="preserve">
+    <value>Sélectionner un pair synchronisé...</value>
+  </data>
+  <data name="HousingScenario.Remove" xml:space="preserve">
+    <value>Retirer</value>
+  </data>
+  <data name="HousingScenario.Notification.Title" xml:space="preserve">
+    <value>Scénario PNJ</value>
+  </data>
+  <data name="HousingScenario.Notification.Applying" xml:space="preserve">
+    <value>Application d'un scénario PNJ en cours… Patientez quelques secondes.</value>
+  </data>
+  <data name="HousingScenario.Notification.Applied" xml:space="preserve">
+    <value>Un scénario PNJ partagé est appliqué dans ce housing.</value>
+  </data>
+  <data name="HousingScenario.Notification.AppliedWithDescription" xml:space="preserve">
+    <value>Un scénario PNJ partagé est appliqué dans ce housing : « {0} »</value>
+  </data>
+  <data name="HousingScenario.Notification.OwnerReminder" xml:space="preserve">
+    <value>Rappel : votre scénario PNJ partagé est actif dans ce housing.</value>
+  </data>
+  <data name="HousingScenario.Notification.OwnerReminderWithDescription" xml:space="preserve">
+    <value>Rappel : votre scénario PNJ partagé « {0} » est actif dans ce housing.</value>
+  </data>
+  <data name="HousingNpc.Editor.Title" xml:space="preserve">
+    <value>Éditeur PNJ Housing</value>
+  </data>
+  <data name="HousingNpc.Editor.EnterHousing" xml:space="preserve">
+    <value>Entrez dans un logement pour éditer ses scènes PNJ.</value>
+  </data>
+  <data name="HousingNpc.Editor.RoomInfo" xml:space="preserve">
+    <value>Pièce - Serveur {0}, Ward {1}, Parcelle {2}, Division {3}, Chambre {4}</value>
+  </data>
+  <data name="HousingNpc.Editor.NewScene" xml:space="preserve">
+    <value>Nouvelle scène</value>
+  </data>
+  <data name="HousingNpc.Editor.NoScenes" xml:space="preserve">
+    <value>Aucune scène dans cette pièce. Créez-en une pour commencer.</value>
+  </data>
+  <data name="HousingNpc.Editor.SceneToggleTip" xml:space="preserve">
+    <value>Activer/désactiver cette scène (spawn ou non).</value>
+  </data>
+  <data name="HousingNpc.Editor.DeleteSceneTip" xml:space="preserve">
+    <value>Ctrl+clic pour supprimer la scène.</value>
+  </data>
+  <data name="HousingNpc.Editor.SceneName" xml:space="preserve">
+    <value>Nom de la scène</value>
+  </data>
+  <data name="HousingNpc.Editor.CaptureSelf" xml:space="preserve">
+    <value>Importer depuis mon personnage</value>
+  </data>
+  <data name="HousingNpc.Editor.CaptureSelfTip" xml:space="preserve">
+    <value>Ajoute un PNJ avec votre apparence actuelle SANS les mods, à votre position. Le design Glamourer est conservé, seuls les mods Penumbra sont retirés.</value>
+  </data>
+  <data name="HousingNpc.Editor.Refresh" xml:space="preserve">
+    <value>Rafraîchir</value>
+  </data>
+  <data name="HousingNpc.Editor.NoNpc" xml:space="preserve">
+    <value>Aucun PNJ dans cette scène. Placez-vous à l'endroit voulu et cliquez « Capturer ».</value>
+  </data>
+  <data name="HousingNpc.Editor.NpcName" xml:space="preserve">
+    <value>Nom du PNJ</value>
+  </data>
+  <data name="HousingNpc.Editor.Position" xml:space="preserve">
+    <value>Position</value>
+  </data>
+  <data name="HousingNpc.Editor.Rotation" xml:space="preserve">
+    <value>Rotation</value>
+  </data>
+  <data name="HousingNpc.Editor.Emote" xml:space="preserve">
+    <value>Emote</value>
+  </data>
+  <data name="HousingNpc.Editor.EmoteNone" xml:space="preserve">
+    <value>Aucune</value>
+  </data>
+  <data name="HousingNpc.Editor.Search" xml:space="preserve">
+    <value>Rechercher</value>
+  </data>
+  <data name="HousingNpc.Editor.Loop" xml:space="preserve">
+    <value>Répéter</value>
+  </data>
+  <data name="HousingNpc.Editor.LoopTip" xml:space="preserve">
+    <value>Rejouer l'emote en boucle (utile pour les danses / animations qui se terminent).</value>
+  </data>
+  <data name="HousingNpc.Editor.FacePlayer" xml:space="preserve">
+    <value>Regarder le joueur</value>
+  </data>
+  <data name="HousingNpc.Editor.FacePlayerTip" xml:space="preserve">
+    <value>La tête du PNJ suit votre personnage.</value>
+  </data>
+  <data name="HousingNpc.Editor.HideWeapon" xml:space="preserve">
+    <value>Masquer les armes</value>
+  </data>
+  <data name="HousingNpc.Editor.HideWeaponTip" xml:space="preserve">
+    <value>Masque les armes du PNJ, quelle que soit l'apparence capturée. Cliquez sur Appliquer pour prendre effet.</value>
+  </data>
+  <data name="HousingNpc.Editor.Patrol" xml:space="preserve">
+    <value>Ronde - {0} point(s)</value>
+  </data>
+  <data name="HousingNpc.Editor.AddWaypoint" xml:space="preserve">
+    <value>Ajouter un point</value>
+  </data>
+  <data name="HousingNpc.Editor.AddWaypointTip" xml:space="preserve">
+    <value>Le PNJ fera une ronde en boucle entre son point de départ et les points ajoutés. À chaque point, il peut jouer une emote.</value>
+  </data>
+  <data name="HousingNpc.Editor.Run" xml:space="preserve">
+    <value>Courir</value>
+  </data>
+  <data name="HousingNpc.Editor.Point" xml:space="preserve">
+    <value>Point {0}</value>
+  </data>
+  <data name="HousingNpc.Editor.PauseTip" xml:space="preserve">
+    <value>Temps d'arrêt au point, en secondes (laisse jouer l'emote).</value>
+  </data>
+  <data name="HousingNpc.Editor.PlaceHere" xml:space="preserve">
+    <value>Placer à moi</value>
+  </data>
+  <data name="HousingNpc.Editor.Delete" xml:space="preserve">
+    <value>Supprimer</value>
+  </data>
+  <data name="HousingNpc.Editor.DeleteTip" xml:space="preserve">
+    <value>Ctrl+clic pour supprimer.</value>
+  </data>
+  <data name="HousingNpc.Editor.Apply" xml:space="preserve">
+    <value>Appliquer &amp; aperçu</value>
+  </data>
+  <data name="HousingNpc.Editor.Unsaved" xml:space="preserve">
+    <value>modifs non appliquées</value>
+  </data>
+  <data name="HousingNpc.Notif.Title" xml:space="preserve">
+    <value>Scène PNJ</value>
+  </data>
+  <data name="HousingNpc.Notif.NeedHousing" xml:space="preserve">
+    <value>Vous devez être dans un logement.</value>
+  </data>
+  <data name="HousingNpc.Notif.NeedScene" xml:space="preserve">
+    <value>Créez d'abord une scène pour y ajouter un PNJ.</value>
+  </data>
+  <data name="HousingNpc.Notif.Added" xml:space="preserve">
+    <value>PNJ ajouté et spawné.</value>
+  </data>
+  <data name="HousingNpc.Notif.AddFailed" xml:space="preserve">
+    <value>Échec de l'ajout (voir les logs).</value>
+  </data>
+  <data name="HousingNpc.Notif.NoPlayer" xml:space="preserve">
+    <value>Joueur introuvable.</value>
+  </data>
+  <data name="HousingNpc.Notif.DesignFailed" xml:space="preserve">
+    <value>Design Glamourer introuvable ou illisible.</value>
+  </data>
+  <data name="HousingNpc.Notif.RoomCleared" xml:space="preserve">
+    <value>Pièce vidée ({0} scène(s) supprimée(s)).</value>
+  </data>
+  <data name="HousingNpc.Notif.NothingToClear" xml:space="preserve">
+    <value>Hors logement : rien à vider.</value>
+  </data>
+  <data name="HousingNpc.Editor.ImportChara" xml:space="preserve">
+    <value>Importer un .chara</value>
+  </data>
+  <data name="HousingNpc.Editor.ImportCharaTip" xml:space="preserve">
+    <value>Importe l'apparence depuis un fichier .chara (Anamnesis / Brio / Ktisis) et place le PNJ à votre position.</value>
+  </data>
+  <data name="HousingNpc.Editor.ImportPickFile" xml:space="preserve">
+    <value>Choisir un fichier .chara</value>
+  </data>
+  <data name="HousingNpc.Notif.ImportFailed" xml:space="preserve">
+    <value>Import du .chara échoué (voir journaux).</value>
+  </data>
+  <data name="HousingNpc.Editor.CollapseTip" xml:space="preserve">
+    <value>Réduire / déployer ce PNJ</value>
+  </data>
+  <data name="HousingNpc.Editor.CollapseAll" xml:space="preserve">
+    <value>Tout réduire</value>
+  </data>
+  <data name="HousingNpc.Editor.ExpandAll" xml:space="preserve">
+    <value>Tout déployer</value>
+  </data>
+  <data name="HousingNpc.Editor.CaptureSelfLive" xml:space="preserve">
+    <value>Importer depuis mon personnage moddé</value>
+  </data>
+  <data name="HousingNpc.Editor.CaptureSelfLiveTip" xml:space="preserve">
+    <value>Ajoute un PNJ avec votre apparence Umbra COMPLÈTE (mods Penumbra + Glamourer + Customize+), pas seulement l'apparence de base. Nécessite Penumbra et Glamourer.</value>
+  </data>
+  <data name="HousingNpc.Editor.CaptureGlamourer" xml:space="preserve">
+    <value>Importer depuis Glamourer</value>
+  </data>
+  <data name="HousingNpc.Editor.CaptureGlamourerTip" xml:space="preserve">
+    <value>Ajoute un PNJ à partir d'un de vos designs Glamourer, avec vos mods Penumbra actuels. Nécessite Penumbra et Glamourer.</value>
+  </data>
+  <data name="HousingNpc.Editor.CaptureGlamourerPick" xml:space="preserve">
+    <value>Choisissez un design Glamourer :</value>
+  </data>
+  <data name="HousingNpc.Editor.CaptureGlamourerLoading" xml:space="preserve">
+    <value>Chargement des designs…</value>
+  </data>
+  <data name="HousingNpc.Editor.CaptureGlamourerEmpty" xml:space="preserve">
+    <value>Aucun design Glamourer trouvé.</value>
+  </data>
+  <data name="HousingNpc.Editor.Filter" xml:space="preserve">
+    <value>Rechercher</value>
+  </data>
+  <data name="HousingNpc.Editor.Sequence" xml:space="preserve">
+    <value>Séquence - {0} action(s)</value>
+  </data>
+  <data name="HousingNpc.Editor.LoopSeq" xml:space="preserve">
+    <value>Boucler la séquence</value>
+  </data>
+  <data name="HousingNpc.Editor.LoopSeqTip" xml:space="preserve">
+    <value>Rejoue la séquence d'actions en boucle. Décoché : le PNJ s'arrête après la dernière action.</value>
+  </data>
+  <data name="HousingNpc.Editor.LoopDelayTip" xml:space="preserve">
+    <value>Pause entre deux itérations de la boucle (secondes).</value>
+  </data>
+  <data name="HousingNpc.Editor.AddAction" xml:space="preserve">
+    <value>Ajouter</value>
+  </data>
+  <data name="HousingNpc.Editor.ActEmote" xml:space="preserve">
+    <value>Emote</value>
+  </data>
+  <data name="HousingNpc.Editor.ActMove" xml:space="preserve">
+    <value>Déplacement</value>
+  </data>
+  <data name="HousingNpc.Editor.ActPath" xml:space="preserve">
+    <value>Chemin</value>
+  </data>
+  <data name="HousingNpc.Editor.ActRotation" xml:space="preserve">
+    <value>Rotation</value>
+  </data>
+  <data name="HousingNpc.Editor.ActWait" xml:space="preserve">
+    <value>Attente</value>
+  </data>
+  <data name="HousingNpc.Editor.ActIdle" xml:space="preserve">
+    <value>Repos</value>
+  </data>
+  <data name="HousingNpc.Editor.StayPose" xml:space="preserve">
+    <value>Garder la pose</value>
+  </data>
+  <data name="HousingNpc.Editor.StayPoseTip" xml:space="preserve">
+    <value>Reste dans la pose de l'emote et enchaîne (assis, accoudé…).</value>
+  </data>
+  <data name="HousingNpc.Editor.SpeedWalk" xml:space="preserve">
+    <value>Marche</value>
+  </data>
+  <data name="HousingNpc.Editor.SpeedRun" xml:space="preserve">
+    <value>Course</value>
+  </data>
+  <data name="HousingNpc.Editor.SpeedCustom" xml:space="preserve">
+    <value>Perso</value>
+  </data>
+  <data name="HousingNpc.Editor.UseMyFacing" xml:space="preserve">
+    <value>Mon orientation</value>
+  </data>
+  <data name="HousingNpc.Editor.WaitSec" xml:space="preserve">
+    <value>Attente (s)</value>
+  </data>
+  <data name="HousingNpc.Editor.ImportArr" xml:space="preserve">
+    <value>Importer scénario ARR</value>
+  </data>
+  <data name="HousingNpc.Editor.ImportArrTip" xml:space="preserve">
+    <value>Importe un scénario ARealmRepopulated (.json) en une nouvelle scène, scopée à la pièce actuelle.</value>
+  </data>
+  <data name="HousingNpc.Editor.ImportArrPickFile" xml:space="preserve">
+    <value>Choisir un scénario ARR (.json)</value>
+  </data>
+  <data name="HousingNpc.Notif.ArrImported" xml:space="preserve">
+    <value>{0} PNJ importé(s) depuis ARR.</value>
+  </data>
+  <data name="HousingNpc.Editor.ImportArrPick" xml:space="preserve">
+    <value>Scénarios ARR disponibles :</value>
+  </data>
+  <data name="HousingNpc.Editor.ImportArrEmpty" xml:space="preserve">
+    <value>Aucun scénario ARR trouvé (ARealmRepopulated non installé, ou dossier vide).</value>
+  </data>
+  <data name="HousingNpc.Editor.ImportArrBrowse" xml:space="preserve">
+    <value>Parcourir</value>
+  </data>
+  <data name="HousingScenario.Error.EmptyScene" xml:space="preserve">
+    <value>La scène est vide : ajoutez au moins un PNJ avant de la partager.</value>
+  </data>
+  <data name="HousingScenario.Error.Unavailable" xml:space="preserve">
+    <value>Scène indisponible (permissions ?).</value>
+  </data>
+  <data name="HousingScenario.Error.Decrypt" xml:space="preserve">
+    <value>Déchiffrement de la scène échoué.</value>
+  </data>
+  <data name="HousingScenario.Error.Payload" xml:space="preserve">
+    <value>Format de données inattendu.</value>
+  </data>
+  <data name="HousingScenario.Error.LegacyArr" xml:space="preserve">
+    <value>Ce partage utilise l'ancien format ARR, qui n'est plus pris en charge. Son propriétaire doit le republier.</value>
+  </data>
+  <data name="HousingScenario.Error.Deserialize" xml:space="preserve">
+    <value>Lecture de la scène partagée échouée.</value>
+  </data>
+  <data name="HousingScenario.Success.Applied" xml:space="preserve">
+    <value>Scène partagée appliquée.</value>
+  </data>
+  <data name="HousingScenario.Success.Published" xml:space="preserve">
+    <value>Scène publiée.</value>
+  </data>
+  <data name="HousingScenario.Success.Republished" xml:space="preserve">
+    <value>Partage republié sur le logement courant.</value>
+  </data>
+  <data name="HousingScenario.Error.OldShareNotDeleted" xml:space="preserve">
+    <value>Le partage a bien été republié ici, mais l'ancien n'a pas pu être supprimé. Supprimez-le manuellement.</value>
+  </data>
+  <data name="HousingScenario.RepublishHere" xml:space="preserve">
+    <value>Republier ici</value>
+  </data>
+  <data name="HousingScenario.RepublishHereTip" xml:space="preserve">
+    <value>Déplace ce partage vers le logement où vous vous trouvez : le contenu est republié à la nouvelle adresse, puis l'ancien partage est supprimé. Maintenez CTRL pour confirmer.</value>
+  </data>
+  <data name="HousingScenario.OrphanShareTip" xml:space="preserve">
+    <value>Ce partage pointe vers un logement qui ne figure pas parmi ceux que vous possédez. Si vous avez déménagé, republiez-le depuis votre nouveau logement : sinon il continuera de s'appliquer chez le futur propriétaire de cette parcelle.</value>
+  </data>
+  <data name="HousingNpc.Notif.SceneReassigned" xml:space="preserve">
+    <value>Scène ré-attribuée à ce logement.</value>
+  </data>
+  <data name="HousingNpc.Notif.OrphanScenes" xml:space="preserve">
+    <value>{0} scène(s) rattachée(s) à un autre logement. Ouvrez l'éditeur de scènes pour les déplacer ici.</value>
+  </data>
+  <data name="HousingNpc.Editor.OrphanHeader" xml:space="preserve">
+    <value>Scènes d'autres logements ({0})</value>
+  </data>
+  <data name="HousingNpc.Editor.OrphanHelp" xml:space="preserve">
+    <value>Ces scènes ont été créées dans un autre logement. Rien n'est perdu après un déménagement : déplacez-les ici pour les réutiliser. Les positions des PNJ sont conservées telles quelles, elles ne restent valables que si le plan intérieur est identique.</value>
+  </data>
+  <data name="HousingNpc.Editor.OrphanMoveHere" xml:space="preserve">
+    <value>Déplacer ici</value>
+  </data>
+  <data name="HousingNpc.Editor.OrphanOrigin" xml:space="preserve">
+    <value>— origine : S{0} P{1} M{2} Ch{3}</value>
+  </data>
+  <data name="HousingNpc.Editor.OrphanMoveTipSameLayout" xml:space="preserve">
+    <value>Même plan intérieur que ce logement : les positions des PNJ restent exactes.</value>
+  </data>
+  <data name="HousingNpc.Editor.OrphanMoveTipOtherLayout" xml:space="preserve">
+    <value>Plan intérieur différent : les PNJ risquent de se retrouver hors des murs ou sous le sol, et devront être repositionnés. Maintenez CTRL pour confirmer.</value>
+  </data>
+  <data name="HousingNpc.Editor.OrphanMoveTipUnknownLayout" xml:space="preserve">
+    <value>Plan d'origine inconnu (scène créée avant le suivi du plan) : impossible de garantir que les positions resteront valables. Maintenez CTRL pour confirmer.</value>
+  </data>
+  <data name="HousingNpc.Editor.OrphanLayoutWarn" xml:space="preserve">
+    <value>plan différent</value>
+  </data>
+  <data name="HousingNpc.Editor.OrphanLayoutUnknown" xml:space="preserve">
+    <value>plan inconnu</value>
+  </data>
+  <data name="HousingNpc.Editor.ActVisibility" xml:space="preserve">
+    <value>Visibilité</value>
+  </data>
+  <data name="HousingNpc.Editor.ActTimeline" xml:space="preserve">
+    <value>Animation</value>
+  </data>
+  <data name="HousingNpc.Editor.ActSync" xml:space="preserve">
+    <value>Rendez-vous</value>
+  </data>
+  <data name="HousingNpc.Editor.Visible" xml:space="preserve">
+    <value>Visible</value>
+  </data>
+  <data name="HousingNpc.Editor.VisibleTip" xml:space="preserve">
+    <value>Affiche ou masque le PNJ. Il continue sa séquence même masqué.</value>
+  </data>
+  <data name="HousingNpc.Editor.TimelineIdsHint" xml:space="preserve">
+    <value>ID(s)</value>
+  </data>
+  <data name="HousingNpc.Editor.TimelineIdsTip" xml:space="preserve">
+    <value>Identifiants d'animation du jeu (ActionTimeline), séparés par des virgules. Permet les animations autres que les emotes.</value>
+  </data>
+  <data name="HousingNpc.Editor.SyncHelp" xml:space="preserve">
+    <value>Attend que tous les PNJ de la scène soient arrivés à leur rendez-vous, puis tout le monde repart ensemble.</value>
+  </data>
+  <data name="HousingScenario.Error.NotInHousing" xml:space="preserve">
+    <value>Vous devez être dans un logement.</value>
+  </data>
+  <data name="HousingScenario.Error.NoShareHere" xml:space="preserve">
+    <value>Aucune scène partagée pour cette pièce. Publiez-en une d'abord.</value>
+  </data>
+  <data name="HousingScenario.HairNotSupported" xml:space="preserve">
+    <value>Les mods de tenue sont bien partagés. Les coiffures moddées ne s'affichent pas encore sur les PNJ : ils garderont la coiffure de base. Le reste de l'apparence est fidèle.</value>
+  </data>
+  <data name="HousingNpc.Editor.GizmoRotate" xml:space="preserve">
+    <value>Tourner</value>
+  </data>
+  <data name="HousingNpc.Editor.GizmoRotateTip" xml:space="preserve">
+    <value>Bascule le repère en monde entre déplacement et rotation. Déployez une card pour choisir le PNJ manipulé.</value>
+  </data>
+  <data name="HousingScenario.OpenEditor" xml:space="preserve">
+    <value>Créer / éditer les scènes PNJ</value>
+  </data>
+  <data name="HousingScenario.NotOwner" xml:space="preserve">
+    <value>Vous devez être propriétaire de ce logement pour créer et publier des scénarios PNJ. Pas besoin d'être en mode Aménagement.</value>
+  </data>
+  <data name="HousingScenario.RefreshList" xml:space="preserve">
+    <value>Rafraîchir la liste</value>
+  </data>
+  <data name="HousingNpc.Editor.SelectTip" xml:space="preserve">
+    <value>Sélectionne le PNJ pour éditer sa position</value>
+  </data>
+  <data name="Settings.Performance.Bc7.Use" xml:space="preserve">
+    <value>Utiliser les textures compressées BC7</value>
+  </data>
+  <data name="Settings.Performance.Bc7.Help1" xml:space="preserve">
+    <value>Télécharge les textures compressées en BC7 côté serveur quand elles sont disponibles.</value>
+  </data>
+  <data name="Settings.Performance.Bc7.Help2" xml:space="preserve">
+    <value>Activé par défaut. Désactivez pour revenir aux textures pleine qualité source si vous constatez un souci visuel.</value>
+  </data>
+  <data name="Settings.Performance.Bc7.OverrideDesc" xml:space="preserve">
+    <value>Forcer la qualité source pour ces UIDs :</value>
+  </data>
+  <data name="Settings.Performance.Bc7.SearchHint" xml:space="preserve">
+    <value>Rechercher une paire (UID, alias, note)</value>
+  </data>
+  <data name="Settings.Performance.Bc7.NoMatch" xml:space="preserve">
+    <value>Aucune paire trouvée.</value>
+  </data>
+  <data name="Settings.Performance.Bc7.AddUidHelp" xml:space="preserve">
+    <value>Cliquez sur une paire pour la conserver en qualité source (pas de BC7).</value>
+  </data>
+  <data name="Settings.Performance.Bc7.DeleteUid" xml:space="preserve">
+    <value>Supprimer l'UID sélectionné</value>
   </data>
 </root>

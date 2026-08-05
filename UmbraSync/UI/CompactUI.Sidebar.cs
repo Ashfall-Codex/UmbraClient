@@ -87,8 +87,15 @@ public partial class CompactUi
             }
             else
             {
+                var previousSection = _activeSection;
                 _activeSection = section;
+                if (section == CompactUiSection.EditProfile && previousSection != CompactUiSection.EditProfile)
+                {
+                    _editProfileUi.RefreshFromServer();
+                }
             }
+
+            RegisterSidebarAccent(section);
         }
 
         _sidebarButtonRects[section] = (ImGui.GetItemRectMin(), ImGui.GetItemRectMax());

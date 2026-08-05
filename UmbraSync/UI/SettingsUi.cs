@@ -53,6 +53,11 @@ public class SettingsUi : WindowMediatorSubscriberBase
     private readonly ServerConfigurationManager _serverConfigurationManager;
     private readonly UiSharedService _uiShared;
     private readonly ChatTypingDetectionService _chatTypingDetectionService;
+    private readonly UmbraSync.WebAPI.AshfallConnectService _ashfallConnect;
+    private UmbraSync.WebAPI.AshfallConnectService.MyStatusResult? _ashfallStatus;
+    private DateTime _ashfallStatusFetchedAt = DateTime.MinValue;
+    private bool _ashfallStatusLoading;
+    private static readonly TimeSpan AshfallStatusTtl = TimeSpan.FromSeconds(30);
     private readonly RgpdDataService _rgpdDataService;
     private readonly MareConfiguration.SyncshellConfigService _syncshellConfigService;
     private readonly MareConfiguration.CharaDataConfigService _charaDataConfigService;
@@ -60,8 +65,11 @@ public class SettingsUi : WindowMediatorSubscriberBase
     private Dictionary<Guid, string>? _cachedPenumbraCollections;
     private DateTime _lastCollectionRefresh = DateTime.MinValue;
     private bool _rgpdDeleteConfirmShown;
+    private bool _rgpdServerDeleteConfirmShown;
     private bool _rgpdRevokeConfirmShown;
     private string? _rgpdExportStatusMessage;
+    private string? _rgpdDeleteStatusMessage;
+    private string _rgpdServerDeleteTypedConfirmation = string.Empty;
     private static readonly string DtrDefaultPreviewText = DtrEntry.DefaultGlyph + " 123";
     private bool _deleteAccountPopupModalShown = false;
     private bool _emoteColorPaletteOpen = false;
@@ -134,8 +142,10 @@ public class SettingsUi : WindowMediatorSubscriberBase
         RgpdDataService gdprDataService,
         MareConfiguration.SyncshellConfigService syncshellConfigService,
         MareConfiguration.CharaDataConfigService charaDataConfigService,
+        UmbraSync.WebAPI.AshfallConnectService ashfallConnect,
         NetworkDiagnosticService networkDiagnostic) : base(logger, mediator, "Umbra Settings", performanceCollector)
     {
+        _ashfallConnect = ashfallConnect;
         _configService = configService;
         _pairManager = pairManager;
         _guiHookService = guiHookService;
@@ -171,6 +181,12 @@ public class SettingsUi : WindowMediatorSubscriberBase
         };
 
         Mediator.Subscribe<OpenSettingsUiMessage>(this, (_) => Toggle());
+        Mediator.Subscribe<RgpdDataExportReadyMessage>(this, (msg) =>
+            _rgpdExportStatusMessage = string.IsNullOrEmpty(msg.ExportPath)
+                ? Loc.Get("Settings.Privacy.Export.Failed")
+                : string.Format(CultureInfo.InvariantCulture, Loc.Get("Settings.Privacy.Export.Success"), msg.ExportPath));
+        Mediator.Subscribe<RgpdLocalDataDeletionCompleteMessage>(this, (_) =>
+            _rgpdDeleteStatusMessage = Loc.Get("Settings.Privacy.Delete.Done"));
         Mediator.Subscribe<SwitchToIntroUiMessage>(this, (_) => IsOpen = false);
         Mediator.Subscribe<CutsceneStartMessage>(this, (_) => UiSharedService_GposeStart());
         Mediator.Subscribe<CutsceneEndMessage>(this, (_) => UiSharedService_GposeEnd());
@@ -463,7 +479,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
         ImGui.AlignTextToFramePadding();
         ImGui.TextUnformatted(Loc.Get("Settings.Transfer.SpeedLimit.NoLimit"));
         ImGui.SetNextItemWidth(MathF.Min(250 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X - 200 * ImGuiHelpers.GlobalScale));
-        if (ImGui.SliderInt(Loc.Get("Settings.Transfer.ParallelDownloads"), ref maxParallelDownloads, 1, 10))
+        if (ImGui.SliderInt(Loc.Get("Settings.Transfer.ParallelDownloads"), ref maxParallelDownloads, 1, 20))
         {
             _configService.Current.ParallelDownloads = maxParallelDownloads;
             _configService.Save();
@@ -500,7 +516,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
         // Sous-bloc 1 : concurrence d'application GPU
         int maxConcurrentPairApplications = _configService.Current.MaxConcurrentPairApplications;
         ImGui.SetNextItemWidth(MathF.Min(200 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X - 200 * ImGuiHelpers.GlobalScale));
-        if (ImGui.SliderInt(Loc.Get("Settings.Transfer.PairProcessing.MaxConcurrent"), ref maxConcurrentPairApplications, 1, 10))
+        if (ImGui.SliderInt(Loc.Get("Settings.Transfer.PairProcessing.MaxConcurrent"), ref maxConcurrentPairApplications, 1, 16))
         {
             _configService.Current.MaxConcurrentPairApplications = maxConcurrentPairApplications;
             _configService.Save();
@@ -531,6 +547,32 @@ public class SettingsUi : WindowMediatorSubscriberBase
         _uiShared.DrawHelpText(Loc.Get("Settings.Transfer.RedrawCoordination.MinInterval.Help"));
         ImGui.Unindent();
         if (!enableRedrawCoordination) ImGui.EndDisabled();
+
+        ImGuiHelpers.ScaledDummy(6f);
+
+        // Sous-bloc 3 : expérimental — décision de redraw soft/hard
+        bool enableSoftRedraw = _configService.Current.EnableSoftRedraw;
+        if (ImGui.Checkbox("[Expérimental] Redraw intelligent (soft/hard)", ref enableSoftRedraw))
+        {
+            _configService.Current.EnableSoftRedraw = enableSoftRedraw;
+            _configService.Save();
+        }
+        _uiShared.DrawHelpText("Pour un changement de texture/material seul, réapplique l'apparence via Glamourer " +
+            "sans redraw complet (moins de flicker et de charge GPU). Les changements de géométrie (mdl, " +
+            "cheveux, visage, queue, manipulations) restent en redraw complet.\n\nExpérimental : si un mod " +
+            "n'apparaît pas correctement, décochez cette case (retour au comportement actuel, sans redémarrage).");
+
+        // Sous-bloc 4 : expérimental — visibilité événementielle
+        bool enableEventVisibility = _configService.Current.EnableEventVisibility;
+        if (ImGui.Checkbox("[Expérimental] Détection de visibilité événementielle", ref enableEventVisibility))
+        {
+            _configService.Current.EnableEventVisibility = enableEventVisibility;
+            _configService.Save();
+        }
+        _uiShared.DrawHelpText("Détecte l'apparition/disparition des joueurs via des hooks du jeu (réaction immédiate, " +
+            "moins de charge CPU) au lieu d'un scan périodique. Repli automatique sur le scan si les hooks échouent.\n\n" +
+            "Expérimental : ces hooks sont bas niveau ; en cas de souci, décochez (les hooks ne sont alors plus posés). " +
+            "Un changement de cet interrupteur prend effet à la prochaine reconnexion ou au redémarrage du plugin.");
 
         ImGui.Separator();
         DrawCollectionOverrides();
@@ -1501,6 +1543,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
 
             if (ImGui.Button(Loc.Get("Settings.Privacy.Delete.ConfirmYes"), new Vector2(buttonSize, 0)))
             {
+                _rgpdDeleteStatusMessage = Loc.Get("Settings.Privacy.Delete.InProgress");
                 Mediator.Publish(new RgpdLocalDataDeletionRequestMessage());
                 _rgpdDeleteConfirmShown = false;
             }
@@ -1509,6 +1552,83 @@ public class SettingsUi : WindowMediatorSubscriberBase
                 _rgpdDeleteConfirmShown = false;
 
             UiSharedService.SetScaledWindowSize(350);
+            ImGui.EndPopup();
+        }
+
+        if (!string.IsNullOrEmpty(_rgpdDeleteStatusMessage))
+        {
+            ImGuiHelpers.ScaledDummy(2f);
+            UiSharedService.TextWrapped(_rgpdDeleteStatusMessage);
+        }
+
+        ImGuiHelpers.ScaledDummy(8f);
+        ImGui.Separator();
+        ImGuiHelpers.ScaledDummy(4f);
+
+        // --- Server-side erasure (RGPD art. 17) ---
+        UiSharedService.ColorTextWrapped(Loc.Get("Settings.Privacy.ServerDelete.Header"), UiSharedService.AccentColor);
+        ImGuiHelpers.ScaledDummy(2f);
+        UiSharedService.TextWrapped(Loc.Get("Settings.Privacy.ServerDelete.Description"));
+        ImGuiHelpers.ScaledDummy(2f);
+        UiSharedService.ColorTextWrapped(Loc.Get("Rgpd.Consent.ConnectNotice"), ImGuiColors.DalamudGrey3);
+        ImGuiHelpers.ScaledDummy(4f);
+
+        using (ImRaii.Disabled(!ApiController.ServerAlive))
+        {
+            if (_uiShared.IconTextButton(FontAwesomeIcon.UserSlash, Loc.Get("Settings.Privacy.ServerDelete.Button")))
+            {
+                _rgpdServerDeleteTypedConfirmation = string.Empty;
+                _rgpdServerDeleteConfirmShown = true;
+                ImGui.OpenPopup("###rgpdDeleteServerPopup");
+            }
+        }
+        if (!ApiController.ServerAlive)
+        {
+            ImGuiHelpers.ScaledDummy(2f);
+            UiSharedService.ColorTextWrapped(Loc.Get("Settings.Privacy.ServerDelete.Offline"), ImGuiColors.DalamudYellow);
+        }
+
+        if (ImGui.BeginPopupModal(Loc.Get("Settings.Privacy.ServerDelete.ConfirmTitle") + "###rgpdDeleteServerPopup", ref _rgpdServerDeleteConfirmShown, UiSharedService.PopupWindowFlags))
+        {
+            UiSharedService.ColorTextWrapped(Loc.Get("Settings.Privacy.ServerDelete.ConfirmMessage"), ImGuiColors.DalamudRed);
+            ImGuiHelpers.ScaledDummy(4f);
+
+            var expectedWord = Loc.Get("Settings.Privacy.ServerDelete.ConfirmWord");
+            UiSharedService.TextWrapped(string.Format(CultureInfo.InvariantCulture, Loc.Get("Settings.Privacy.ServerDelete.ConfirmPrompt"), expectedWord));
+            ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X);
+            ImGui.InputText("##rgpdServerDeleteConfirm", ref _rgpdServerDeleteTypedConfirmation, 32);
+
+            ImGui.Separator();
+            ImGui.Spacing();
+            var serverButtonSize = (ImGui.GetWindowContentRegionMax().X - ImGui.GetWindowContentRegionMin().X - ImGui.GetStyle().ItemSpacing.X) / 2;
+
+            using (ImRaii.Disabled(!string.Equals(_rgpdServerDeleteTypedConfirmation.Trim(), expectedWord, StringComparison.OrdinalIgnoreCase)))
+            {
+                if (ImGui.Button(Loc.Get("Settings.Privacy.ServerDelete.ConfirmYes"), new Vector2(serverButtonSize, 0)))
+                {
+                    _rgpdServerDeleteConfirmShown = false;
+                    _rgpdServerDeleteTypedConfirmation = string.Empty;
+                    _rgpdDeleteStatusMessage = Loc.Get("Settings.Privacy.ServerDelete.InProgress");
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            await _apiController.UserRgpdDeleteAllData().ConfigureAwait(false);
+                            _rgpdDeleteStatusMessage = Loc.Get("Settings.Privacy.ServerDelete.Done");
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "RGPD server-side erasure failed");
+                            _rgpdDeleteStatusMessage = Loc.Get("Settings.Privacy.ServerDelete.Failed");
+                        }
+                    });
+                }
+            }
+            ImGui.SameLine();
+            if (ImGui.Button(Loc.Get("Common.Cancel") + "##cancelRgpdServerDelete", new Vector2(serverButtonSize, 0)))
+                _rgpdServerDeleteConfirmShown = false;
+
+            UiSharedService.SetScaledWindowSize(400);
             ImGui.EndPopup();
         }
 
@@ -2452,6 +2572,101 @@ public class SettingsUi : WindowMediatorSubscriberBase
                 + "Caution!!! This will cause a re-download of all textures when the shrink option is disabled.");
         }
 
+        ImGui.Dummy(new Vector2(5));
+        bool useBc7 = _playerPerformanceConfigService.Current.TextureCompressionMode != TextureCompressionMode.AlwaysSourceQuality;
+        if (ImGui.Checkbox(Loc.Get("Settings.Performance.Bc7.Use"), ref useBc7))
+        {
+            _playerPerformanceConfigService.Current.TextureCompressionMode = useBc7
+                ? TextureCompressionMode.AlwaysCompressed
+                : TextureCompressionMode.AlwaysSourceQuality;
+            _playerPerformanceConfigService.Save();
+            recalculatePerformance = true;
+        }
+        _uiShared.DrawHelpText(Loc.Get("Settings.Performance.Bc7.Help1") + UiSharedService.TooltipSeparator
+            + Loc.Get("Settings.Performance.Bc7.Help2"));
+
+        using (ImRaii.Disabled(!useBc7))
+        {
+            using var indent = ImRaii.PushIndent();
+            UiSharedService.TextWrapped(Loc.Get("Settings.Performance.Bc7.OverrideDesc"));
+            var ovAvail = ImGui.GetContentRegionAvail().X;
+            var overrideList = _playerPerformanceConfigService.Current.UIDsToOverride;
+            var comboWidth = MathF.Min(240 * ImGuiHelpers.GlobalScale, ovAvail * 0.6f);
+            ImGui.SetNextItemWidth(comboWidth);
+            ImGui.InputTextWithHint("##bc7pairsearch", Loc.Get("Settings.Performance.Bc7.SearchHint"), ref _bc7PairSearch, 50);
+            bool showResults = ImGui.IsItemActive();
+
+            var search = _bc7PairSearch.Trim();
+            if (showResults || search.Length > 0)
+            {
+                var candidates = _pairManager.DirectPairs
+                    .Where(p => !overrideList.Contains(p.UserData.UID, StringComparer.Ordinal))
+                    .Where(p => string.IsNullOrEmpty(search)
+                        || (p.UserData.UID?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false)
+                        || (p.UserData.Alias?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false)
+                        || (p.GetNote()?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false)
+                        || (p.PlayerName?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false))
+                    .OrderBy(p => p.GetNoteOrName() ?? p.UserData.AliasOrUID, StringComparer.OrdinalIgnoreCase)
+                    .Take(50)
+                    .ToList();
+
+                using var results = ImRaii.ListBox("##bc7pairresults", new Vector2(comboWidth, 5 * ImGui.GetTextLineHeightWithSpacing()));
+                if (results)
+                {
+                    if (candidates.Count == 0)
+                    {
+                        ImGui.TextDisabled(Loc.Get("Settings.Performance.Bc7.NoMatch"));
+                    }
+                    foreach (var p in candidates)
+                    {
+                        var label = $"{p.GetNoteOrName() ?? p.UserData.AliasOrUID} ({p.UserData.UID})";
+                        if (ImGui.Selectable(label + "##bc7add" + p.UserData.UID))
+                        {
+                            overrideList.Add(p.UserData.UID);
+                            _playerPerformanceConfigService.Save();
+                            recalculatePerformance = true;
+                            recalculatePerformanceUID = p.UserData.UID;
+                            _bc7PairSearch = string.Empty;
+                        }
+                    }
+                }
+            }
+            _uiShared.DrawHelpText(Loc.Get("Settings.Performance.Bc7.AddUidHelp"));
+
+            if (_selectedBc7OverrideEntry > overrideList.Count - 1)
+                _selectedBc7OverrideEntry = -1;
+            ImGui.SetNextItemWidth(MathF.Min(200 * ImGuiHelpers.GlobalScale, ovAvail * 0.5f));
+            using (var lb = ImRaii.ListBox("##bc7overridelist"))
+            {
+                if (lb)
+                {
+                    for (int i = 0; i < overrideList.Count; i++)
+                    {
+                        var uid = overrideList[i];
+                        var pairName = _pairManager.DirectPairs
+                            .FirstOrDefault(p => string.Equals(p.UserData.UID, uid, StringComparison.Ordinal))?.GetNoteOrName();
+                        var label = string.IsNullOrEmpty(pairName) ? uid : $"{pairName} ({uid})";
+                        if (ImGui.Selectable(label + "##bc7ov" + i, _selectedBc7OverrideEntry == i))
+                            _selectedBc7OverrideEntry = i;
+                    }
+                }
+            }
+            using (ImRaii.Disabled(_selectedBc7OverrideEntry == -1))
+            {
+                using var pushId = ImRaii.PushId("deleteSelectedBc7Override");
+                if (_uiShared.IconTextButton(FontAwesomeIcon.Trash, Loc.Get("Settings.Performance.Bc7.DeleteUid")))
+                {
+                    var removed = overrideList[_selectedBc7OverrideEntry];
+                    overrideList.RemoveAt(_selectedBc7OverrideEntry);
+                    if (_selectedBc7OverrideEntry > overrideList.Count - 1)
+                        --_selectedBc7OverrideEntry;
+                    _playerPerformanceConfigService.Save();
+                    recalculatePerformance = true;
+                    recalculatePerformanceUID = removed;
+                }
+            }
+        }
+
         var totalVramBytes = _pairManager.GetOnlineUserPairs().Where(p => p.IsVisible && p.LastAppliedApproximateVRAMBytes > 0).Sum(p => p.LastAppliedApproximateVRAMBytes);
 
         ImGui.TextUnformatted("Current VRAM utilization by all nearby players:");
@@ -2702,6 +2917,8 @@ public class SettingsUi : WindowMediatorSubscriberBase
     {
         _lastTab = "Compte";
         DrawSectionHeader(6);
+
+        DrawAshfallConnectSection();
 
         var idx = _serverConfigurationManager.CurrentServerIndex;
         var playerName = _dalamudUtilService.GetPlayerName();
@@ -3146,11 +3363,168 @@ public class SettingsUi : WindowMediatorSubscriberBase
             }
     }
 
+    /// Bloc "Ashfall Connect" en fin de la section Compte. Affichage conditionnel :
+    ///   - Connect désactivé côté serveur → bouton "Générer" qui renverra 503
+    ///   - Personnage non lié → bouton "Générer un code de lien"
+    ///   - Personnage lié → état "Compte lié · niveau X"
+    private void DrawAshfallConnectSection()
+    {
+        // Palette Ashfall (cohérente avec la web app Connect) :
+        var ember = new Vector4(0.831f, 0.384f, 0.165f, 1f);
+        var emberBright = new Vector4(0.941f, 0.565f, 0.259f, 1f);
+        var gold = new Vector4(0.831f, 0.686f, 0.416f, 1f);
+        var emberFaint = new Vector4(0.831f, 0.384f, 0.165f, 0.06f);
+        var emberBorder = new Vector4(0.831f, 0.384f, 0.165f, 0.45f);
+
+        LoadAshfallStatusIfNeeded();
+
+        var isLinked = _ashfallStatus?.Linked == true;
+
+        using (Dalamud.Interface.Utility.Raii.ImRaii.PushColor(ImGuiCol.ChildBg, emberFaint))
+        using (Dalamud.Interface.Utility.Raii.ImRaii.PushColor(ImGuiCol.Border, emberBorder))
+        using (Dalamud.Interface.Utility.Raii.ImRaii.PushStyle(ImGuiStyleVar.ChildRounding, 6f))
+        using (Dalamud.Interface.Utility.Raii.ImRaii.PushStyle(ImGuiStyleVar.ChildBorderSize, 1f))
+        using (Dalamud.Interface.Utility.Raii.ImRaii.PushStyle(ImGuiStyleVar.WindowPadding, new Vector2(12, 8)))
+        {
+            using (var child = Dalamud.Interface.Utility.Raii.ImRaii.Child("##ashfall-connect-section", new Vector2(-1, 68), border: true, flags: ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse))
+            {
+                if (!child.Success) return;
+
+                // Header : picto + nom (gold) sur la 1re ligne, à gauche
+                using (Dalamud.Interface.Utility.Raii.ImRaii.PushFont(Dalamud.Interface.UiBuilder.IconFont))
+                using (Dalamud.Interface.Utility.Raii.ImRaii.PushColor(ImGuiCol.Text, gold))
+                    ImGui.Text(Dalamud.Interface.FontAwesomeIcon.Gem.ToIconString());
+                ImGui.SameLine();
+                using (Dalamud.Interface.Utility.Raii.ImRaii.PushColor(ImGuiCol.Text, gold))
+                    ImGui.Text("Ashfall Connect");
+                ImGui.SameLine();
+                if (isLinked)
+                {
+                    using (Dalamud.Interface.Utility.Raii.ImRaii.PushColor(ImGuiCol.Text, new Vector4(0.29f, 0.87f, 0.51f, 1f)))
+                        ImGui.Text("· lié");
+                }
+                else
+                {
+                    ImGui.TextDisabled("(optionnel)");
+                }
+
+                // À droite : statut "Vérifié" si lié, sinon bouton "Générer"
+                var avail = ImGui.GetContentRegionAvail().X;
+                if (isLinked)
+                {
+                    var levelLabel = _ashfallStatus?.Level switch
+                    {
+                        "gold" => "Or",
+                        "silver" => "Argent",
+                        "bronze" => "Bronze",
+                        _ => "Vérifié",
+                    };
+                    var rightText = $"◆  Niveau {levelLabel}";
+                    var rightSize = ImGui.CalcTextSize(rightText);
+                    const float syncBtnW = 140f;
+                    const float gap = 12f;
+                    var syncX = ImGui.GetCursorPosX() + avail - syncBtnW;
+                    var rightX = syncX - gap - rightSize.X;
+                    ImGui.SameLine(rightX);
+                    using (Dalamud.Interface.Utility.Raii.ImRaii.PushColor(ImGuiCol.Text, gold))
+                        ImGui.Text(rightText);
+                    ImGui.SameLine(syncX);
+                    if (_uiShared.IconTextButton(Dalamud.Interface.FontAwesomeIcon.Sync, "Synchroniser",
+                        width: syncBtnW, buttonColor: ember, height: 24f))
+                        _ = TriggerAshfallSyncAsync();
+                    if (ImGui.IsItemHovered())
+                        ImGui.SetTooltip("Pousse la liste actuelle des personnages associés à votre clé vers Ashfall Connect.");
+                }
+                else
+                {
+                    const float btnW = 170f;
+                    const float btnH = 24f;
+                    ImGui.SameLine(ImGui.GetCursorPosX() + avail - btnW);
+                    using (Dalamud.Interface.Utility.Raii.ImRaii.PushColor(ImGuiCol.Button, ember))
+                    using (Dalamud.Interface.Utility.Raii.ImRaii.PushColor(ImGuiCol.ButtonHovered, emberBright))
+                    using (Dalamud.Interface.Utility.Raii.ImRaii.PushColor(ImGuiCol.ButtonActive, ember))
+                    using (Dalamud.Interface.Utility.Raii.ImRaii.PushStyle(ImGuiStyleVar.FrameRounding, 4f))
+                    {
+                        if (ImGui.Button("Générer un code de lien", new Vector2(btnW, btnH)))
+                        {
+                            Mediator.Publish(new UmbraSync.Services.Mediator.UiToggleMessage(typeof(UmbraSync.UI.AshfallLinkCodeUi)));
+                            // Force un refetch dans 5s pour que la section réagisse à la liaison.
+                            _ashfallStatusFetchedAt = DateTime.UtcNow - AshfallStatusTtl + TimeSpan.FromSeconds(5);
+                        }
+                    }
+                }
+
+                // Description discrète en sous-ligne
+                if (isLinked)
+                    ImGui.TextDisabled("Ce personnage est rattaché à votre compte Ashfall. Gérez vos identités sur Ashfall Connect.");
+                else
+                    ImGui.TextDisabled("Liez ce personnage à votre compte Ashfall pour gérer vos identités depuis Ashfall Connect.");
+            }
+        }
+        ImGui.Spacing();
+    }
+
+    private void LoadAshfallStatusIfNeeded()
+    {
+        if (_ashfallStatusLoading) return;
+        if ((DateTime.UtcNow - _ashfallStatusFetchedAt) < AshfallStatusTtl) return;
+        _ashfallStatusLoading = true;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                _ashfallStatus = await _ashfallConnect.GetMyStatusAsync(CancellationToken.None).ConfigureAwait(false);
+                _ashfallStatusFetchedAt = DateTime.UtcNow;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Ashfall: échec du fetch du status, fallback silencieux");
+            }
+            finally
+            {
+                _ashfallStatusLoading = false;
+            }
+        });
+    }
+
+    private async Task TriggerAshfallSyncAsync()
+    {
+        try
+        {
+            var result = await _ashfallConnect.SyncCharactersAsync(CancellationToken.None).ConfigureAwait(false);
+            switch (result)
+            {
+                case UmbraSync.WebAPI.AshfallConnectService.SyncResult.Synced:
+                    Mediator.Publish(new NotificationMessage(
+                        "Ashfall Connect", "Personnages synchronisés.",
+                        NotificationType.Success, TimeSpan.FromSeconds(3)));
+                    break;
+                case UmbraSync.WebAPI.AshfallConnectService.SyncResult.NotLinked:
+                    Mediator.Publish(new NotificationMessage(
+                        "Ashfall Connect", "Ce personnage n'est pas (encore) lié à un compte Ashfall.",
+                        NotificationType.Warning, TimeSpan.FromSeconds(4)));
+                    break;
+                default:
+                    Mediator.Publish(new NotificationMessage(
+                        "Ashfall Connect", "Échec de la synchronisation. Réessayez plus tard.",
+                        NotificationType.Error, TimeSpan.FromSeconds(4)));
+                    break;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Ashfall: échec du sync manuel");
+        }
+    }
+
     private string _uidToAddForIgnore = string.Empty;
     private int _selectedEntry = -1;
 
     private string _uidToAddForIgnoreBlacklist = string.Empty;
     private int _selectedEntryBlacklist = -1;
+
+    private int _selectedBc7OverrideEntry = -1;
+    private string _bc7PairSearch = string.Empty;
 
     private void DrawSettingsContent()
     {

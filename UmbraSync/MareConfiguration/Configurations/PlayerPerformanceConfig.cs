@@ -14,4 +14,6 @@ public class PlayerPerformanceConfig : IMareConfiguration
     public bool IgnoreDirectPairs { get; set; } = true;
     public TextureShrinkMode TextureShrinkMode { get; set; } = TextureShrinkMode.Default;
     public bool TextureShrinkDeleteOriginal { get; set; } = false;
+    public TextureCompressionMode TextureCompressionMode { get; set; } = TextureCompressionMode.AlwaysCompressed;
+    public List<string> UIDsToOverride { get; set; } = [];
 }

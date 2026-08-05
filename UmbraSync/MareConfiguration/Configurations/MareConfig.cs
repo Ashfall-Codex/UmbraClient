@@ -75,6 +75,8 @@ public class MareConfig : IMareConfiguration
     public int MaxConcurrentPairApplications { get; set; } = 3;
     public bool EnableRedrawCoordination { get; set; } = true;
     public int MinRedrawIntervalMs { get; set; } = 100;
+    public bool EnableSoftRedraw { get; set; } = true;
+    public bool EnableEventVisibility { get; set; } = true;
     public int MaxDecompressionThreads { get; set; }
     public int DownloadSpeedLimitInBytes { get; set; }
     public DownloadSpeeds DownloadSpeedType { get; set; } = DownloadSpeeds.MBps;
@@ -97,11 +99,14 @@ public class MareConfig : IMareConfiguration
     public bool ShowVisibleUsersSeparately { get; set; } = true;
     public string UiLanguage { get; set; } = "fr";
     public string LastChangelogVersionSeen { get; set; } = string.Empty;
+    public string LastTestBuildWarningVersionSeen { get; set; } = string.Empty;
     public Dictionary<string, string> LastSeenExternalPluginVersions { get; set; } = new(StringComparer.Ordinal);
     public bool DefaultDisableSounds { get; set; }
     public bool DefaultDisableAnimations { get; set; }
     public bool DefaultDisableVfx { get; set; }
     public bool DefaultDisableHousingMods { get; set; }
+    public bool DefaultDisableHousingScenarios { get; set; }
+    public string? ArrScenariosPathOverride { get; set; }
     public Dictionary<string, SyncOverrideEntry> PairSyncOverrides { get; set; } = new(StringComparer.Ordinal);
     public Dictionary<string, SyncOverrideEntry> GroupSyncOverrides { get; set; } = new(StringComparer.Ordinal);
     public bool EnableAutoDetectDiscovery { get; set; } = true;
@@ -136,7 +141,7 @@ public class MareConfig : IMareConfiguration
     public bool UmbraAPI { get; set; } = true;
     public bool EnableSlotNotifications { get; set; } = true;
     public float DefaultSlotRadius { get; set; } = 10f;
-    public const int ExpectedRgpdVersion = 1;
+    public const int ExpectedRgpdVersion = 2;
     public bool RgpdConsentGiven { get; set; }
     public DateTime? RgpdConsentDate { get; set; }
     public int AcceptedRgpdVersion { get; set; }

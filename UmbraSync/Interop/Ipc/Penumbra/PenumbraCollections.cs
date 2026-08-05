@@ -14,6 +14,7 @@ public sealed class PenumbraCollections : IDisposable
     private readonly PenumbraIpc.GetCollection _penumbraGetCollection;
     private readonly PenumbraIpc.DeleteTemporaryCollection _penumbraRemoveTemporaryCollection;
     private readonly PenumbraIpc.GetCollections _penumbraGetCollections;
+    private readonly PenumbraIpc.GetCollectionForObject _penumbraGetCollectionForObject;
     private readonly ConcurrentDictionary<Guid, string> _activeTemporaryCollections = new();
     private readonly MediatorSubscriberBase _subscriber;
     private int _cleanupScheduled;
@@ -28,6 +29,7 @@ public sealed class PenumbraCollections : IDisposable
         _penumbraAssignTemporaryCollection = new PenumbraIpc.AssignTemporaryCollection(_core.PluginInterface);
         _penumbraGetCollection = new PenumbraIpc.GetCollection(_core.PluginInterface);
         _penumbraGetCollections = new PenumbraIpc.GetCollections(_core.PluginInterface);
+        _penumbraGetCollectionForObject = new PenumbraIpc.GetCollectionForObject(_core.PluginInterface);
 
         // S'abonner à l'événement d'initialisation de Penumbra pour cleanup
         _subscriber = new CollectionsSubscriber(_core.Logger, _core.Mediator, this);
@@ -42,15 +44,29 @@ public sealed class PenumbraCollections : IDisposable
         }
     }
 
-    public async Task AssignTemporaryCollectionAsync(ILogger logger, Guid collName, int idx)
+    public async Task<PenumbraEnum.PenumbraApiEc> AssignTemporaryCollectionAsync(ILogger logger, Guid collName, int idx)
     {
-        if (!_core.APIAvailable || collName == Guid.Empty) return;
+        if (!_core.APIAvailable || collName == Guid.Empty) return PenumbraEnum.PenumbraApiEc.NothingChanged;
 
-        await _core.DalamudUtil.RunOnFrameworkThread(() =>
+        return await _core.DalamudUtil.RunOnFrameworkThread(() =>
         {
             var retAssign = _penumbraAssignTemporaryCollection.Invoke(collName, idx, forceAssignment: true);
             logger.LogTrace("Assigning Temp Collection {collName} to index {idx}, Success: {ret}", collName, idx, retAssign);
-            return collName;
+            if (retAssign != PenumbraEnum.PenumbraApiEc.Success)
+                logger.LogWarning("Assignation de la collection {collName} à l'index {idx} refusée par Penumbra : {ret}", collName, idx, retAssign);
+            return retAssign;
+        }).ConfigureAwait(false);
+    }
+
+    /// <summary>Collection réellement utilisée par Penumbra pour cet index d'objet (diagnostic).</summary>
+    public async Task<(bool ObjectValid, bool IndividualSet, Guid CollectionId, string CollectionName)> GetCollectionForObjectAsync(int idx)
+    {
+        if (!_core.APIAvailable) return (false, false, Guid.Empty, string.Empty);
+
+        return await _core.DalamudUtil.RunOnFrameworkThread(() =>
+        {
+            var r = _penumbraGetCollectionForObject.Invoke(idx);
+            return (r.ObjectValid, r.IndividualSet, r.EffectiveCollection.Id, r.EffectiveCollection.Name);
         }).ConfigureAwait(false);
     }
 
