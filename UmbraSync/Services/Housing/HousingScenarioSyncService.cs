@@ -36,6 +36,10 @@ public sealed class HousingScenarioSyncService : IHostedService, IMediatorSubscr
 
         _mediator.Subscribe<HousingPlotEnteredMessage>(this, OnHousingPlotEntered);
         _mediator.Subscribe<HousingPlotLeftMessage>(this, _ => OnHousingPlotLeft());
+        // Le changement de zone détruit les acteurs natifs des PNJ : l'état « appliqué » du manager
+        // ne correspond plus à rien et doit être invalidé, sinon un retour rapide dans le logement
+        // annule le nettoyage différé et le scénario n'est jamais respawné.
+        _mediator.Subscribe<ZoneSwitchStartMessage>(this, _ => _manager.InvalidateAppliedAfterZoneSwitch());
         _mediator.Subscribe<ConnectedMessage>(this, _ => OnConnected());
         _mediator.Subscribe<HousingNpcShareTestMessage>(this, _ => OnShareTest());
 
