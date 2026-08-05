@@ -342,7 +342,7 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
     {
         return new List<ChangelogEntry>
         {
-            new(new Version(3, 0, 0, 6), "3.0.0.6", new List<ChangelogLine>
+            new(new Version(3, 0, 0, 8050), "3.0.0.8050", new List<ChangelogLine>
             {
                 new("Nouveauté : Ashfall Connect. Liez votre compte à la plateforme Ashfall Connect pour gérer, enrichir et certifier votre fiche RP. Liaison par code à usage unique depuis le plugin, niveaux de certification Bronze / Argent / Or via Discord et XIVAuth, et bouton « Profil enrichi » dans l'éditeur de profil."),
                 new("Nouveauté : Housing PNJ. Peuplez votre intérieur de personnages : vous les habillez, les placez, les animez, et vos paires les voient apparaître en arrivant chez vous."),
@@ -358,7 +358,7 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
                 new("Correction : Personnages fantômes. Lors d'un changement de personnage, l'ancien pouvait rester affiché en ligne plusieurs minutes chez vos paires."),
                 new("Correction : En cas de coupure vers le CDN, le téléchargement bascule réellement sur le serveur principal. Et quand un fichier reste introuvable, UmbraSync applique l'apparence disponible au lieu de réessayer indéfiniment."),
                 new("Correction : SyncSlots dont on ne sortait jamais. Vous restiez considéré comme présent après avoir quitté le quartier résidentiel : l'encart « Zone SyncSlot » s'affichait partout et vous restiez membre de la syncshell indéfiniment. La sortie est maintenant détectée dès que vous quittez le quartier, y compris pour un établissement lié à une syncshell."),
-                new("Autre : A Realm Repopulated ajouté à la liste des plugins compatibles détectés."),
+                new("Autre : A Realm Repopulated ajouté à la liste des plugins compatibles détectés pour importer des scenarios PNJ."),
                 new("Autre : Mise à jour API Penumbra & Glamourer."),
             }),
             new(new Version(2, 6, 0, 6026), "2.6.0.6026", new List<ChangelogLine>

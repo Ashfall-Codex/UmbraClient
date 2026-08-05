@@ -819,12 +819,14 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
         }
 
         // BC7 : mémoriser les alternates, et si le mode est compressé, télécharger le BC7 à la place de l'original.
-        for (int i = 0; i < downloadFileInfoFromService.Count; i++)
+        // La liste est reconstruite plutôt que mutée en cours d'itération, ce qui préserve l'ordre d'origine.
+        var retainedDownloads = new List<DownloadFileDto>(downloadFileInfoFromService.Count);
+        foreach (var dto in downloadFileInfoFromService)
         {
-            var dto = downloadFileInfoFromService[i];
             _compressedAlternateManager.SetCompressedAlternate(dto.Hash, dto.CompressedAlternateFileDownload?.Hash, dto.WillNotBeCompressed);
 
             bool usingAlternate = false;
+            var effectiveDto = dto;
             if (dto.CompressedAlternateFileDownload != null)
             {
                 var alt = dto.CompressedAlternateFileDownload;
@@ -841,7 +843,7 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
                         fileReplacement.Add(new FileReplacementData { GamePaths = src.GamePaths, Hash = alt.Hash });
                     }
                     Logger.LogDebug("BC7: downloading compressed {alt} instead of {src}", alt.Hash, dto.Hash);
-                    downloadFileInfoFromService[i] = alt;
+                    effectiveDto = alt;
 
                     // Si le BC7 est déjà en local, pas besoin de le re-télécharger.
                     if (!locallyPresentFiles.Contains(alt.Hash) && _fileDbManager.GetFileCacheByHash(alt.Hash) != null)
@@ -852,12 +854,15 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
             // Fichier envoyé juste pour vérifier un alternate (mode AlwaysCompressed) : si on n'utilise pas d'alt,
             // ou si l'alt utilisé est déjà présent, inutile de (re)télécharger.
             if ((locallyPresentFiles.Contains(dto.Hash) && !usingAlternate)
-                || (usingAlternate && locallyPresentFiles.Contains(downloadFileInfoFromService[i].Hash)))
+                || (usingAlternate && locallyPresentFiles.Contains(effectiveDto.Hash)))
             {
-                downloadFileInfoFromService.RemoveAt(i);
-                i--;
+                continue;
             }
+
+            retainedDownloads.Add(effectiveDto);
         }
+
+        downloadFileInfoFromService = retainedDownloads;
 
         CurrentDownloads = downloadFileInfoFromService.Distinct().Select(d => new DownloadFileTransfer(d))
             .Where(d => d.CanBeTransferred).ToList();
