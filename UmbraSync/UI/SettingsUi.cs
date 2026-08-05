@@ -65,8 +65,11 @@ public class SettingsUi : WindowMediatorSubscriberBase
     private Dictionary<Guid, string>? _cachedPenumbraCollections;
     private DateTime _lastCollectionRefresh = DateTime.MinValue;
     private bool _rgpdDeleteConfirmShown;
+    private bool _rgpdServerDeleteConfirmShown;
     private bool _rgpdRevokeConfirmShown;
     private string? _rgpdExportStatusMessage;
+    private string? _rgpdDeleteStatusMessage;
+    private string _rgpdServerDeleteTypedConfirmation = string.Empty;
     private static readonly string DtrDefaultPreviewText = DtrEntry.DefaultGlyph + " 123";
     private bool _deleteAccountPopupModalShown = false;
     private bool _emoteColorPaletteOpen = false;
@@ -178,6 +181,12 @@ public class SettingsUi : WindowMediatorSubscriberBase
         };
 
         Mediator.Subscribe<OpenSettingsUiMessage>(this, (_) => Toggle());
+        Mediator.Subscribe<RgpdDataExportReadyMessage>(this, (msg) =>
+            _rgpdExportStatusMessage = string.IsNullOrEmpty(msg.ExportPath)
+                ? Loc.Get("Settings.Privacy.Export.Failed")
+                : string.Format(CultureInfo.InvariantCulture, Loc.Get("Settings.Privacy.Export.Success"), msg.ExportPath));
+        Mediator.Subscribe<RgpdLocalDataDeletionCompleteMessage>(this, (_) =>
+            _rgpdDeleteStatusMessage = Loc.Get("Settings.Privacy.Delete.Done"));
         Mediator.Subscribe<SwitchToIntroUiMessage>(this, (_) => IsOpen = false);
         Mediator.Subscribe<CutsceneStartMessage>(this, (_) => UiSharedService_GposeStart());
         Mediator.Subscribe<CutsceneEndMessage>(this, (_) => UiSharedService_GposeEnd());
@@ -1534,6 +1543,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
 
             if (ImGui.Button(Loc.Get("Settings.Privacy.Delete.ConfirmYes"), new Vector2(buttonSize, 0)))
             {
+                _rgpdDeleteStatusMessage = Loc.Get("Settings.Privacy.Delete.InProgress");
                 Mediator.Publish(new RgpdLocalDataDeletionRequestMessage());
                 _rgpdDeleteConfirmShown = false;
             }
@@ -1542,6 +1552,83 @@ public class SettingsUi : WindowMediatorSubscriberBase
                 _rgpdDeleteConfirmShown = false;
 
             UiSharedService.SetScaledWindowSize(350);
+            ImGui.EndPopup();
+        }
+
+        if (!string.IsNullOrEmpty(_rgpdDeleteStatusMessage))
+        {
+            ImGuiHelpers.ScaledDummy(2f);
+            UiSharedService.TextWrapped(_rgpdDeleteStatusMessage);
+        }
+
+        ImGuiHelpers.ScaledDummy(8f);
+        ImGui.Separator();
+        ImGuiHelpers.ScaledDummy(4f);
+
+        // --- Server-side erasure (RGPD art. 17) ---
+        UiSharedService.ColorTextWrapped(Loc.Get("Settings.Privacy.ServerDelete.Header"), UiSharedService.AccentColor);
+        ImGuiHelpers.ScaledDummy(2f);
+        UiSharedService.TextWrapped(Loc.Get("Settings.Privacy.ServerDelete.Description"));
+        ImGuiHelpers.ScaledDummy(2f);
+        UiSharedService.ColorTextWrapped(Loc.Get("Rgpd.Consent.ConnectNotice"), ImGuiColors.DalamudGrey3);
+        ImGuiHelpers.ScaledDummy(4f);
+
+        using (ImRaii.Disabled(!ApiController.ServerAlive))
+        {
+            if (_uiShared.IconTextButton(FontAwesomeIcon.UserSlash, Loc.Get("Settings.Privacy.ServerDelete.Button")))
+            {
+                _rgpdServerDeleteTypedConfirmation = string.Empty;
+                _rgpdServerDeleteConfirmShown = true;
+                ImGui.OpenPopup("###rgpdDeleteServerPopup");
+            }
+        }
+        if (!ApiController.ServerAlive)
+        {
+            ImGuiHelpers.ScaledDummy(2f);
+            UiSharedService.ColorTextWrapped(Loc.Get("Settings.Privacy.ServerDelete.Offline"), ImGuiColors.DalamudYellow);
+        }
+
+        if (ImGui.BeginPopupModal(Loc.Get("Settings.Privacy.ServerDelete.ConfirmTitle") + "###rgpdDeleteServerPopup", ref _rgpdServerDeleteConfirmShown, UiSharedService.PopupWindowFlags))
+        {
+            UiSharedService.ColorTextWrapped(Loc.Get("Settings.Privacy.ServerDelete.ConfirmMessage"), ImGuiColors.DalamudRed);
+            ImGuiHelpers.ScaledDummy(4f);
+
+            var expectedWord = Loc.Get("Settings.Privacy.ServerDelete.ConfirmWord");
+            UiSharedService.TextWrapped(string.Format(CultureInfo.InvariantCulture, Loc.Get("Settings.Privacy.ServerDelete.ConfirmPrompt"), expectedWord));
+            ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X);
+            ImGui.InputText("##rgpdServerDeleteConfirm", ref _rgpdServerDeleteTypedConfirmation, 32);
+
+            ImGui.Separator();
+            ImGui.Spacing();
+            var serverButtonSize = (ImGui.GetWindowContentRegionMax().X - ImGui.GetWindowContentRegionMin().X - ImGui.GetStyle().ItemSpacing.X) / 2;
+
+            using (ImRaii.Disabled(!string.Equals(_rgpdServerDeleteTypedConfirmation.Trim(), expectedWord, StringComparison.OrdinalIgnoreCase)))
+            {
+                if (ImGui.Button(Loc.Get("Settings.Privacy.ServerDelete.ConfirmYes"), new Vector2(serverButtonSize, 0)))
+                {
+                    _rgpdServerDeleteConfirmShown = false;
+                    _rgpdServerDeleteTypedConfirmation = string.Empty;
+                    _rgpdDeleteStatusMessage = Loc.Get("Settings.Privacy.ServerDelete.InProgress");
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            await _apiController.UserRgpdDeleteAllData().ConfigureAwait(false);
+                            _rgpdDeleteStatusMessage = Loc.Get("Settings.Privacy.ServerDelete.Done");
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "RGPD server-side erasure failed");
+                            _rgpdDeleteStatusMessage = Loc.Get("Settings.Privacy.ServerDelete.Failed");
+                        }
+                    });
+                }
+            }
+            ImGui.SameLine();
+            if (ImGui.Button(Loc.Get("Common.Cancel") + "##cancelRgpdServerDelete", new Vector2(serverButtonSize, 0)))
+                _rgpdServerDeleteConfirmShown = false;
+
+            UiSharedService.SetScaledWindowSize(400);
             ImGui.EndPopup();
         }
 

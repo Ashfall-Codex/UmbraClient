@@ -5552,7 +5552,7 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
     <value>Export Your Data (GDPR Art. 20)</value>
   </data>
   <data name="Settings.Privacy.Export.Description" xml:space="preserve">
-    <value>Export a copy of all your personal data stored locally and/or on the server.</value>
+    <value>Export a copy of your personal data as JSON. The local export contains your RP profiles, your notes about pairs, your groups, blocked players, favourites and settings; the server export summarises what the server keeps about your account.</value>
   </data>
   <data name="Settings.Privacy.Export.LocalButton" xml:space="preserve">
     <value>Export (local)</value>
@@ -5573,7 +5573,7 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
     <value>Delete Local Data (GDPR Art. 17)</value>
   </data>
   <data name="Settings.Privacy.Delete.Description" xml:space="preserve">
-    <value>Deletes notes, exports, and resets consent. Server data is not affected.</value>
+    <value>Erases the personal data kept on your machine: RP profiles, notes about pairs, groups, blocked players, syncshell and MCDF favourites, saved establishments, network diagnostic logs and previous exports, configuration backups included. Consent is reset. The mod cache and server-side data are not affected.</value>
   </data>
   <data name="Settings.Privacy.Delete.LocalButton" xml:space="preserve">
     <value>Delete local data</value>
@@ -5582,10 +5582,52 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
     <value>Confirm deletion</value>
   </data>
   <data name="Settings.Privacy.Delete.ConfirmMessage" xml:space="preserve">
-    <value>Your local notes and GDPR exports will be deleted, and your consent will be reset. This action is irreversible.</value>
+    <value>The following will be deleted: your local RP profiles, your pair notes and groups, your blocked players, your syncshell and MCDF favourites, your saved establishments, your network diagnostic logs, your previous exports and the matching configuration backups. Your consent will be reset. This action cannot be undone.</value>
   </data>
   <data name="Settings.Privacy.Delete.ConfirmYes" xml:space="preserve">
     <value>Delete</value>
+  </data>
+  <data name="Settings.Privacy.Delete.InProgress" xml:space="preserve">
+    <value>Deletion in progress…</value>
+  </data>
+  <data name="Settings.Privacy.Delete.Done" xml:space="preserve">
+    <value>Local deletion complete. Your server-side data is unaffected.</value>
+  </data>
+  <data name="Settings.Privacy.ServerDelete.Header" xml:space="preserve">
+    <value>Server-side data erasure</value>
+  </data>
+  <data name="Settings.Privacy.ServerDelete.Description" xml:space="preserve">
+    <value>Permanently deletes your account and everything kept on the server: RP profiles, pairings, syncshell memberships, MCDF and housing shares, establishments and uploaded mod files. Secondary accounts attached to yours are deleted as well.</value>
+  </data>
+  <data name="Settings.Privacy.ServerDelete.Button" xml:space="preserve">
+    <value>Delete my server-side data</value>
+  </data>
+  <data name="Settings.Privacy.ServerDelete.Offline" xml:space="preserve">
+    <value>You must be connected to the server to request erasure.</value>
+  </data>
+  <data name="Settings.Privacy.ServerDelete.ConfirmTitle" xml:space="preserve">
+    <value>Confirm erasure</value>
+  </data>
+  <data name="Settings.Privacy.ServerDelete.ConfirmMessage" xml:space="preserve">
+    <value>This action cannot be undone. Your account, your secondary accounts and all associated data will be removed from the server.</value>
+  </data>
+  <data name="Settings.Privacy.ServerDelete.ConfirmPrompt" xml:space="preserve">
+    <value>Type "{0}" to confirm:</value>
+  </data>
+  <data name="Settings.Privacy.ServerDelete.ConfirmWord" xml:space="preserve">
+    <value>DELETE</value>
+  </data>
+  <data name="Settings.Privacy.ServerDelete.ConfirmYes" xml:space="preserve">
+    <value>Delete permanently</value>
+  </data>
+  <data name="Settings.Privacy.ServerDelete.InProgress" xml:space="preserve">
+    <value>Erasure requested from the server…</value>
+  </data>
+  <data name="Settings.Privacy.ServerDelete.Done" xml:space="preserve">
+    <value>Erasure complete. Your account no longer exists on this server.</value>
+  </data>
+  <data name="Settings.Privacy.ServerDelete.Failed" xml:space="preserve">
+    <value>Erasure failed. Try again once reconnected to the server.</value>
   </data>
   <data name="Settings.Privacy.Revoke.Header" xml:space="preserve">
     <value>Revoke Consent</value>
@@ -5639,7 +5681,19 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
     <value>Data collected:</value>
   </data>
   <data name="Rgpd.Consent.DataCollected.Details" xml:space="preserve">
-    <value>• Unique identifier (UID)&#x0A;• Appearance data (Penumbra mods, Glamourer states)&#x0A;• RP profiles (name, description, image)&#x0A;• Pairing list and syncshell memberships&#x0A;• Mod files uploaded for synchronization</value>
+    <value>• Unique identifier (UID), last login date and IP address for the duration of the session&#x0A;• Appearance data: Penumbra mods, Glamourer states and mod files uploaded for synchronization&#x0A;• RP profiles: first name, last name, title, description, picture and custom fields, per character&#x0A;• Pairing list, notes you write about your pairs and syncshell memberships&#x0A;• Shares you publish: MCDF, housing layouts and NPC scenarios&#x0A;• RP establishments you create: name, logo, banner, housing location and events&#x0A;• "Wild RP" announcements: character name, world, zone and residential ward, visible in the directory&#x0A;• Typing indicator: signal sent to your pairs while you type&#x0A;• Ashfall Connect, if you link your account: name and world of your characters sent to connect.ashfall-codex.dev, along with the Discord or XIVAuth identity you associate with it</value>
+  </data>
+  <data name="Rgpd.Consent.Outdated" xml:space="preserve">
+    <value>The scope of the data being processed has changed since you last gave consent. Please read this page again and confirm your agreement.</value>
+  </data>
+  <data name="Rgpd.Consent.Controller" xml:space="preserve">
+    <value>Data controller: the Ashfall Codex team, publisher of UmbraSync and of the umbra-sync.net server. For any request regarding your data, contact us through the Ashfall Codex Discord server.</value>
+  </data>
+  <data name="Rgpd.Consent.Retention" xml:space="preserve">
+    <value>Retention: your data is kept as long as your account stays active. An account left unused beyond the period set by the server administrator is deleted automatically, along with the files attached to it. Uploaded mod files are kept for as long as they need to be distributed to your pairs.</value>
+  </data>
+  <data name="Rgpd.Consent.ConnectNotice" xml:space="preserve">
+    <value>Ashfall Connect is a separate service. Deleting your UmbraSync account does not erase the RP profile hosted on Connect: deletion must be requested there separately from your Connect account.</value>
   </data>
   <data name="Rgpd.Consent.DataCollection" xml:space="preserve">
     <value>I consent to data collection (required)</value>
@@ -5663,7 +5717,7 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
     <value>Your rights:</value>
   </data>
   <data name="Rgpd.Consent.Rights.Summary" xml:space="preserve">
-    <value>You can access, export, rectify, or delete your data at any time from the "Privacy" tab in settings. You may withdraw your consent at any time.</value>
+    <value>You can access, export, rectify, or delete your data at any time from the "Privacy" tab in settings, including requesting the erasure of all your server-side data. You may withdraw your consent at any time.</value>
   </data>
   <data name="Rgpd.Consent.AcceptButton" xml:space="preserve">
     <value>I accept and continue</value>

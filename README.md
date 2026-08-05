@@ -22,6 +22,8 @@
 - **Glamourer** : synchronisation de l'apparence complète (customization, états, verrouillages)
 - **Plugins tiers** : intégration native avec Customize+, Heels, Honorific, Moodles, PetNames et Brio
 - **Transfert intelligent** : envoi et réception rapides des mods, reprise automatique en cas de coupure, évite les doublons et vérifie l'intégrité des fichiers
+- **Distribution CDN** : téléchargement prioritaire depuis le CDN avec bascule automatique vers le serveur principal en cas d'indisponibilité
+- **Compression BC7** : les textures synchronisées sont converties côté serveur en BC7 et distribuées sous forme d'alternates, ce qui réduit la mémoire vidéo et le volume téléchargé. Trois modes au choix : qualité source, compression des nouveaux téléchargements, ou tout compressé
 - **Cache local** : gestion automatique du cache de mods avec compaction, nettoyage et monitoring de taille
 
 ### AutoDetect
@@ -64,7 +66,12 @@
 
 - **Scan de meubles** : détection automatique des meubles et décorations de votre logement
 - **Snapshot de layout** : capture et partage de l'agencement complet de votre housing
-- **Scénarios PNJ (A Realm Repopulated)** : partagez les PNJ personnalisés de votre logement avec vos paires. Ils apparaissent automatiquement quand un visiteur autorisé entre, et disparaissent à la sortie. Permissions par paire / syncshell et gestion des conflits avec vos scénarios locaux
+- **Revêtements** : les murs, sols et plafonds moddés sont inclus dans le partage, au même titre que le mobilier
+- **Scénarios PNJ** : partagez les PNJ personnalisés de votre logement avec vos paires. Ils apparaissent automatiquement quand un visiteur autorisé entre, et disparaissent à la sortie. Permissions par paire / syncshell et gestion des conflits avec vos scénarios locaux
+- **Spawn natif** : les PNJ sont créés directement par le plugin, sans dépendance à un plugin tiers. Apparence issue d'un MCDF ou d'un design Glamourer, avec masquage optionnel des armes, du casque et de la visière
+- **Éditeur de scènes** : placement et rotation des PNJ en temps réel via un gizmo 3D, positions persistantes et regard orientable
+- **Détection de propriété** : `HousingOwnershipService` mémorise les logements dont vous êtes réellement propriétaire pour la session, ce qui conditionne les actions de partage
+- **Mod housing isolé** : le mod est construit à part puis installé d'un bloc, avec nettoyage des résidus et réutilisation des fichiers déjà téléchargés
 - **Chiffrement** : données protégées par AES-GCM en transit
 - **Application** : import du layout partagé par un autre joueur
 
@@ -97,13 +104,19 @@
 - **Overlay d'écriture** : indicateur visuel sur les nameplates des joueurs en train d'écrire
 - **Changelog intégré** : affichage automatique des nouveautés à chaque mise à jour
 - **Notifications** : système centralisé avec badge, toast et panneau dédié, respectant les préférences d'affichage utilisateur (Nowhere/Chat/Toast/Both)
+- **Messages de service** : diffusion de messages par le serveur (information, avertissement, erreur) et notification explicite en cas de déconnexion forcée
 
 ### Conformité RGPD
 
-- **Consentement** : fenêtre de consentement au premier lancement, versionné et révocable
-- **Export de données** : exportation complète de vos données personnelles
-- **Suppression** : suppression de compte et de toutes les données associées
-- **Droits utilisateur** : accès, effacement, opposition conformes au règlement
+- **Consentement versionné** : écran de consentement au premier lancement, détaillant le périmètre exact des traitements. Toute extension de ce périmètre incrémente `MareConfig.ExpectedRgpdVersion` et déclenche une nouvelle demande de consentement au lancement suivant
+- **Export local** : export JSON du contenu réel conservé sur la machine — fiches RP, notes et groupes de paires, joueurs bloqués, favoris de syncshells et de MCDF, établissements, réglages et inventaire des journaux de diagnostic
+- **Export serveur** : récapitulatif de ce que le serveur détient sur le compte (UID, appairages, syncshells, profils, partages, fichiers envoyés)
+- **Suppression locale** : effacement des données personnelles de la machine, sauvegardes de configuration comprises
+- **Effacement serveur** : suppression définitive du compte, des comptes secondaires et de toutes les données associées, avec confirmation par saisie
+- **Révocation** : retrait du consentement à tout moment, qui ramène le plugin à l'écran d'accueil
+- **Droits utilisateur** : accès, rectification, effacement, portabilité, opposition et limitation
+
+> Ashfall Connect est un service distinct : supprimer un compte UmbraSync n'efface pas la fiche RP hébergée sur Connect, dont la suppression se demande séparément.
 
 ### Performance et monitoring
 
@@ -112,6 +125,7 @@
 - **Analyse personnage** : scan complet des fichiers de mods avec statistiques détaillées
 - **Mode connexion lente** : bascule manuelle vers le transport SignalR `LongPolling` pour contourner les middleboxes FAI qui coupent les WebSockets inactifs
 - **Auto-ajustement réseau** : détection automatique d'instabilité (3 sessions courtes en moins de 3 min) et activation du mode connexion lente avec re-test transparent toutes les 24 h
+- **Diagnostic réseau** : journal optionnel (Paramètres ▸ Avancé ▸ Débogage) capturant chaque message SignalR et les événements sockets, écrit dans `NetworkDiag/` et purgé par la suppression locale RGPD
 
 ---
 
@@ -122,7 +136,7 @@ Le projet est composé de plusieurs modules :
 | Composant | Technologie | Description |
 |---|---|---|
 | `UmbraSync/` | C# 13 / .NET 10 / Dalamud SDK | Plugin FFXIV principal |
-| `UmbraAPI/` | C# / .NET 10 | API partagée (contrats et DTOs : 60+ DTOs) |
+| `UmbraAPI/` | Submodule git | API partagée avec le serveur (contrats et DTOs) |
 | `Penumbra.Api/` | Submodule git | API d'intégration Penumbra |
 | `Glamourer.Api/` | Submodule git | API d'intégration Glamourer |
 | `ffxiv_pictomancy/` | Submodule git | Bibliothèque de dessin 3D dans le monde |
@@ -183,6 +197,10 @@ La commande principale est `/usync`. Un alias `/umbrasync` est également enregi
 |---|---|
 | `/usync perf [secondes]` | Affiche les métriques de performance |
 | `/usync medi` | Affiche les informations du système Mediator |
+| `/usync npcadd` | Ajoute un PNJ housing à la scène courante |
+| `/usync npcedit` | Ouvre l'éditeur de scènes PNJ |
+| `/usync npcwipe` | Retire tous les PNJ housing spawnés |
+| `/usync npcsharetest` | Déclenche un test de partage de scénario PNJ |
 
 ---
 
@@ -198,6 +216,7 @@ La commande principale est `/usync`. Un alias `/umbrasync` est également enregi
 | `Microsoft.Extensions.Hosting` | 10.0.6 |
 | `System.IdentityModel.Tokens.Jwt` | 8.16.0 |
 | `K4os.Compression.LZ4.Streams` | 1.3.8 |
+| `K4os.Compression.LZ4.Legacy` | 1.3.8 |
 | `Downloader` | 5.1.0 |
 | `Chaos.NaCl.Standard` | 1.0.0 |
 | `Brio.API` | 3.0.1 |
@@ -205,6 +224,8 @@ La commande principale est `/usync`. Un alias `/umbrasync` est également enregi
 | `Glamourer.Api` | 2.8.0 |
 | `Dalamud.NET.Sdk` | 15.0.0 |
 | `DalamudPackager` | 15.0.0 |
+
+Analyseurs statiques appliqués à la compilation : `Meziantou.Analyzer` 3.0.25 et `SonarAnalyzer.CSharp` 10.21.0.
 
 ### Submodules git
 
@@ -222,7 +243,9 @@ La commande principale est `/usync`. Un alias `/umbrasync` est également enregi
 - **Francais** (langue par defaut)
 - **English**
 
-Basée sur des fichiers `.resx` (`Localization/Strings.resx` pour le français, `Strings.fr.resx` pour l'anglais) avec plus de 500 clés de traduction. Changement de langue à chaud via les paramètres.
+Basée sur des fichiers `.resx` : `Localization/Strings.resx` porte les chaînes anglaises (ressource neutre, source des traductions Crowdin) et `Strings.fr.resx` les chaînes françaises. Environ 2 200 clés de traduction, avec changement de langue à chaud via les paramètres.
+
+Une clé absente de `Strings.fr.resx` retombe sur la ressource neutre et s'affiche donc en anglais, y compris pour un utilisateur configuré en français.
 
 ---
 
@@ -230,49 +253,54 @@ Basée sur des fichiers `.resx` (`Localization/Strings.resx` pour le français, 
 
 ```
 UmbraSync/
-├── Communication/          # (hérité) Communication WebSocket
-├── FileCache/              # Gestion du cache de mods (compaction, monitoring)
+├── FileCache/              # Cache de mods (compaction, monitoring, alternates BC7)
 ├── Interop/                # Intégration Dalamud et IPC
 │   ├── Ipc/                # 9 callers IPC (Penumbra, Glamourer, Customize+, etc.)
 │   ├── Penumbra/           # Composants IPC Penumbra
 │   ├── GameModel/          # Interop modèles de jeu
 │   └── ChatTwo/            # Compatibilité ChatTwo
-├── Localization/           # Fichiers .resx (FR/EN)
-├── MareConfiguration/      # 14 classes de configuration
+├── Localization/           # Fichiers .resx (EN neutre / FR)
+├── MareConfiguration/      # 14 fichiers de configuration versionnés + migrations
 ├── Models/                 # Modèles de données (MoodleStatusInfo, etc.)
 ├── PlayerData/             # Gestion des paires et données de synchronisation
 │   ├── Pairs/              # PairManager, Pair, PairAnalyzer
 │   ├── Factories/          # Factories de création
 │   ├── Handlers/           # PairHandler, GameObjectHandler
+│   ├── Redraw/             # Orchestration des redraws
+│   ├── Services/           # Services de cycle de vie des données de paire
 │   └── Data/               # Modèles de remplacement de fichiers
-├── Services/               # 36+ services
+├── Services/               # 50+ services
+│   ├── ActorTracking/      # Suivi des acteurs du jeu
 │   ├── AutoDetect/         # Détection de proximité et découverte
 │   ├── CharaData/          # Gestion des données personnage (MCDF)
 │   ├── Events/             # Système d'événements (EventAggregator)
-│   ├── Housing/            # Fonctionnalités housing
+│   ├── Housing/            # Housing, scénarios PNJ et spawn natif
 │   ├── Mediator/           # Bus de messages central
+│   ├── Network/            # Diagnostic réseau et écoute des événements sockets
 │   ├── Notification/       # Système de notifications
 │   ├── Rendering/          # PictomancyService
 │   └── ServerConfiguration/ # Configuration serveur
-├── UI/                     # 18+ fenêtres ImGui
+├── UI/                     # 38 fenêtres et vues ImGui
 │   ├── Components/         # Composants réutilisables (DrawPairBase, GroupPanel, BbCodeRenderer/Toolbar, HonorificEditor, MoodlesEditor, ChatIconPicker)
+│   │   └── Popup/          # Handlers de popups (ban, report, slot)
 │   ├── Handlers/           # Handlers UI (TagHandler, UidDisplayHandler)
 │   └── *.cs                # Fenêtres principales
 ├── Utils/                  # Utilitaires (crypto, hashing, extensions)
 ├── WebAPI/                 # Client HTTP et SignalR
-│   ├── SignalR/            # ApiController (9 modules fonctionnels)
+│   ├── SignalR/            # ApiController (13 modules fonctionnels)
 │   ├── Files/              # Gestion des transferts de fichiers
-│   └── AutoDetect/         # Client API de découverte
+│   ├── AutoDetect/         # Client API de découverte
+│   └── AshfallConnectService.cs  # Client HTTP Ashfall Connect
 ├── Plugin.cs               # Point d'entrée IDalamudPlugin
 ├── MarePlugin.cs           # Logique plugin (IHostedService)
 └── UmbraSync.csproj        # Fichier projet
 
 UmbraAPI/
 └── UmbraSyncAPI/
-    ├── SignalR/             # IMareHub (183 méthodes), IMareHubClient
-    ├── Dto/                 # 58 DTOs (User, Group, CharaData, Files, Housing, etc.)
-    ├── Data/                # Enums et modèles de données
-    └── Routes/              # Définitions de routes API
+    ├── SignalR/            # IMareHub (121 méthodes), IMareHubClient
+    ├── Dto/                # 84 DTOs (User, Group, CharaData, Files, Housing, Establishment, WildRp, Rgpd, etc.)
+    ├── Data/               # Enums et modèles de données
+    └── Routes/             # Définitions de routes API
 ```
 
 ---

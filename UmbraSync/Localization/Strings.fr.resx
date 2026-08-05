@@ -5462,7 +5462,7 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
     <value>Export de vos données (Art. 20 RGPD)</value>
   </data>
   <data name="Settings.Privacy.Export.Description" xml:space="preserve">
-    <value>Exportez une copie de toutes vos données personnelles stockées localement et/ou sur le serveur.</value>
+    <value>Exportez une copie de vos données personnelles au format JSON. L'export local contient vos fiches RP, vos notes sur vos paires, vos groupes, vos joueurs bloqués, vos favoris et vos réglages ; l'export serveur récapitule ce que le serveur conserve sur votre compte.</value>
   </data>
   <data name="Settings.Privacy.Export.LocalButton" xml:space="preserve">
     <value>Exporter (local)</value>
@@ -5483,7 +5483,7 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
     <value>Suppression des données locales (Art. 17 RGPD)</value>
   </data>
   <data name="Settings.Privacy.Delete.Description" xml:space="preserve">
-    <value>Supprime les notes, exports et réinitialise le consentement. Les données serveur ne sont pas affectées.</value>
+    <value>Efface les données personnelles conservées sur votre machine : fiches RP, notes sur vos paires, groupes, joueurs bloqués, favoris de syncshells et de MCDF, établissements enregistrés, journaux de diagnostic réseau et exports précédents, sauvegardes de configuration comprises. Le consentement est réinitialisé. Le cache de mods et les données serveur ne sont pas affectés.</value>
   </data>
   <data name="Settings.Privacy.Delete.LocalButton" xml:space="preserve">
     <value>Supprimer les données locales</value>
@@ -5492,10 +5492,52 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
     <value>Confirmer la suppression</value>
   </data>
   <data name="Settings.Privacy.Delete.ConfirmMessage" xml:space="preserve">
-    <value>Vos notes locales et exports RGPD seront supprimés, et votre consentement sera réinitialisé. Cette action est irréversible.</value>
+    <value>Seront supprimés : vos fiches RP locales, vos notes et groupes de paires, vos joueurs bloqués, vos favoris de syncshells et de MCDF, vos établissements enregistrés, vos journaux de diagnostic réseau, vos exports précédents et les sauvegardes de configuration correspondantes. Votre consentement sera réinitialisé. Cette action est irréversible.</value>
   </data>
   <data name="Settings.Privacy.Delete.ConfirmYes" xml:space="preserve">
     <value>Supprimer</value>
+  </data>
+  <data name="Settings.Privacy.Delete.InProgress" xml:space="preserve">
+    <value>Suppression en cours…</value>
+  </data>
+  <data name="Settings.Privacy.Delete.Done" xml:space="preserve">
+    <value>Suppression locale terminée. Vos données serveur ne sont pas affectées.</value>
+  </data>
+  <data name="Settings.Privacy.ServerDelete.Header" xml:space="preserve">
+    <value>Effacement des données serveur</value>
+  </data>
+  <data name="Settings.Privacy.ServerDelete.Description" xml:space="preserve">
+    <value>Supprime définitivement votre compte et l'ensemble des données conservées sur le serveur : profils RP, appairages, appartenances aux syncshells, partages MCDF et housing, établissements et fichiers de mods envoyés. Les comptes secondaires rattachés au vôtre sont supprimés également.</value>
+  </data>
+  <data name="Settings.Privacy.ServerDelete.Button" xml:space="preserve">
+    <value>Supprimer mes données serveur</value>
+  </data>
+  <data name="Settings.Privacy.ServerDelete.Offline" xml:space="preserve">
+    <value>Vous devez être connecté au serveur pour demander l'effacement.</value>
+  </data>
+  <data name="Settings.Privacy.ServerDelete.ConfirmTitle" xml:space="preserve">
+    <value>Confirmer l'effacement</value>
+  </data>
+  <data name="Settings.Privacy.ServerDelete.ConfirmMessage" xml:space="preserve">
+    <value>Cette action est irréversible. Votre compte, vos comptes secondaires et toutes les données associées seront supprimés du serveur.</value>
+  </data>
+  <data name="Settings.Privacy.ServerDelete.ConfirmPrompt" xml:space="preserve">
+    <value>Saisissez « {0} » pour confirmer :</value>
+  </data>
+  <data name="Settings.Privacy.ServerDelete.ConfirmWord" xml:space="preserve">
+    <value>SUPPRIMER</value>
+  </data>
+  <data name="Settings.Privacy.ServerDelete.ConfirmYes" xml:space="preserve">
+    <value>Supprimer définitivement</value>
+  </data>
+  <data name="Settings.Privacy.ServerDelete.InProgress" xml:space="preserve">
+    <value>Effacement demandé au serveur…</value>
+  </data>
+  <data name="Settings.Privacy.ServerDelete.Done" xml:space="preserve">
+    <value>Effacement effectué. Votre compte n'existe plus sur ce serveur.</value>
+  </data>
+  <data name="Settings.Privacy.ServerDelete.Failed" xml:space="preserve">
+    <value>L'effacement a échoué. Réessayez une fois reconnecté au serveur.</value>
   </data>
   <data name="Settings.Privacy.Revoke.Header" xml:space="preserve">
     <value>Retrait du consentement</value>
@@ -5549,7 +5591,19 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
     <value>Données collectées :</value>
   </data>
   <data name="Rgpd.Consent.DataCollected.Details" xml:space="preserve">
-    <value>• Identifiant unique (UID)&#x0A;• Données d'apparence (mods Penumbra, états Glamourer)&#x0A;• Profils RP (nom, description, image)&#x0A;• Liste d'appairage et appartenances aux syncshells&#x0A;• Fichiers de mods uploadés pour la synchronisation</value>
+    <value>• Identifiant unique (UID), date de dernière connexion et adresse IP le temps de la session&#x0A;• Données d'apparence : mods Penumbra, états Glamourer et fichiers de mods envoyés pour la synchronisation&#x0A;• Profils RP : prénom, nom, titre, description, photo et champs personnalisés, par personnage&#x0A;• Liste d'appairage, notes que vous rédigez sur vos paires et appartenances aux syncshells&#x0A;• Partages que vous publiez : MCDF, agencements de logement et scénarios PNJ&#x0A;• Établissements RP que vous créez : nom, logo, bannière, emplacement du logement et événements&#x0A;• Annonces « RP sauvage » : nom du personnage, monde, zone et secteur résidentiel, visibles dans l'annuaire&#x0A;• Indicateur d'écriture : signal transmis à vos paires pendant que vous tapez&#x0A;• Ashfall Connect, si vous liez votre compte : nom et monde de vos personnages transmis à connect.ashfall-codex.dev, ainsi que l'identité Discord ou XIVAuth que vous y associez</value>
+  </data>
+  <data name="Rgpd.Consent.Outdated" xml:space="preserve">
+    <value>Le périmètre des données traitées a évolué depuis votre dernier consentement. Merci de relire cette page et de confirmer votre accord.</value>
+  </data>
+  <data name="Rgpd.Consent.Controller" xml:space="preserve">
+    <value>Responsable du traitement : l'équipe Ashfall Codex, éditrice d'UmbraSync et du serveur umbra-sync.net. Pour toute demande relative à vos données, contactez-nous depuis le serveur Discord Ashfall Codex.</value>
+  </data>
+  <data name="Rgpd.Consent.Retention" xml:space="preserve">
+    <value>Conservation : vos données sont conservées tant que votre compte reste actif. Un compte laissé inutilisé au-delà de la période fixée par l'administrateur du serveur est supprimé automatiquement, avec les fichiers qui lui sont rattachés. Les fichiers de mods envoyés sont conservés le temps nécessaire à leur distribution à vos paires.</value>
+  </data>
+  <data name="Rgpd.Consent.ConnectNotice" xml:space="preserve">
+    <value>Ashfall Connect est un service distinct. Supprimer votre compte UmbraSync n'efface pas la fiche RP hébergée sur Connect : la suppression s'y demande séparément depuis votre compte Connect.</value>
   </data>
   <data name="Rgpd.Consent.DataCollection" xml:space="preserve">
     <value>J'accepte la collecte de mes données (obligatoire)</value>
@@ -5573,7 +5627,7 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
     <value>Vos droits :</value>
   </data>
   <data name="Rgpd.Consent.Rights.Summary" xml:space="preserve">
-    <value>Vous pouvez à tout moment accéder, exporter, rectifier ou supprimer vos données depuis l'onglet « Vie privée » des paramètres. Vous pouvez retirer votre consentement à tout moment.</value>
+    <value>Vous pouvez à tout moment accéder, exporter, rectifier ou supprimer vos données depuis l'onglet « Vie privée » des paramètres, y compris demander l'effacement de toutes vos données côté serveur. Vous pouvez retirer votre consentement à tout moment.</value>
   </data>
   <data name="Rgpd.Consent.AcceptButton" xml:space="preserve">
     <value>J'accepte et je continue</value>

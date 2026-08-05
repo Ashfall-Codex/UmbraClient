@@ -42,7 +42,7 @@ public sealed class AshfallConnectAutoSyncService : DisposableMediatorSubscriber
         {
             try
             {
-                await Task.Delay(TimeSpan.FromSeconds(2), token).ConfigureAwait(false);
+                await Task.Delay(Random.Shared.Next(2000, 8000), token).ConfigureAwait(false);
                 if (token.IsCancellationRequested) return;
                 using var scope = _scopeFactory.CreateScope();
                 var connectService = scope.ServiceProvider.GetRequiredService<AshfallConnectService>();

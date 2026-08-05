@@ -441,7 +441,7 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
         }
         catch (Exception ex)
         {
-            Logger.LogWarning(ex, "Error on disposal of {name}", name);
+            Logger.LogWarning(ex, "Error on disposal of {user}", Pair.UserData.UID);
         }
         finally
         {
@@ -537,7 +537,7 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
         }
         catch (Exception ex)
         {
-            Logger.LogWarning(ex, "Error on undoing application of {name}", name);
+            Logger.LogWarning(ex, "Error on undoing application of {user}", Pair.UserData.UID);
         }
     }
     
@@ -571,7 +571,7 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
                 }
                 catch (Exception ex)
                 {
-                    Logger.LogWarning(ex, "[{applicationId}] Failed to clear Penumbra mods for {name}", applicationId, name);
+                    Logger.LogWarning(ex, "[{applicationId}] Failed to clear Penumbra mods for {user}", applicationId, Pair.UserData.UID);
                 }
             }
             var kinds = new HashSet<ObjectKind>(_customizeIds.Keys);
@@ -590,7 +590,7 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
             }
             if (string.IsNullOrEmpty(characterName))
             {
-                Logger.LogWarning("[{applicationId}] Failed to determine character name for {handler}, using fallback", applicationId, name);
+                Logger.LogWarning("[{applicationId}] Failed to determine character name for {user}, using fallback", applicationId, Pair.UserData.UID);
                 characterName = name ?? Pair.UserData.UID;
             }
 
@@ -606,23 +606,23 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
                 }
                 catch (OperationCanceledException)
                 {
-                    Logger.LogWarning("[{applicationId}] Revert operation timed out for {kind} on {name}", applicationId, kind, characterName);
+                    Logger.LogWarning("[{applicationId}] Revert operation timed out for {kind} on {user}", applicationId, kind, Pair.UserData.UID);
                     break;
                 }
                 catch (Exception ex)
                 {
-                    Logger.LogWarning(ex, "[{applicationId}] Failed to revert {kind} for {name}", applicationId, kind, characterName);
+                    Logger.LogWarning(ex, "[{applicationId}] Failed to revert {kind} for {user}", applicationId, kind, Pair.UserData.UID);
                 }
             }
 
             _cachedData = null;
             Mediator.Publish(new PairDataAppliedMessage(Pair.UserData.UID, null));
 
-            Logger.LogInformation("[{applicationId}] Revert to restored state complete for {name}", applicationId, characterName);
+            Logger.LogInformation("[{applicationId}] Revert to restored state complete for {user}", applicationId, Pair.UserData.UID);
         }
         catch (Exception ex)
         {
-            Logger.LogWarning(ex, "[{applicationId}] Failed to revert handler {name} during pause", applicationId, name);
+            Logger.LogWarning(ex, "[{applicationId}] Failed to revert handler {user} during pause", applicationId, Pair.UserData.UID);
         }
     }
     
@@ -651,7 +651,7 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
                 }
                 catch (Exception ex)
                 {
-                    Logger.LogError(ex, "Failed applying queued data for {name} ({user})", PlayerName, Pair.UserData.UID);
+                    Logger.LogError(ex, "Failed applying queued data for {user}", Pair.UserData.UID);
                 }
             });
         }
@@ -680,8 +680,7 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
 
                 if (IsVisible) return;
 
-                Logger.LogInformation("Visibility grace period expired for {name} ({user}), scheduling for deletion",
-                    PlayerName, Pair.UserData.UID);
+                Logger.LogInformation("Visibility grace period expired for {user}, scheduling for deletion", Pair.UserData.UID);
                 ScheduledForDeletion = true;
 
                 // Clean up Penumbra collection when the grace period expires
@@ -729,7 +728,7 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
     {
         try
         {
-            Logger.LogInformation("Pausing handler for {name} ({user})", PlayerName, Pair.UserData.UID);
+            Logger.LogInformation("Pausing handler for {user}", Pair.UserData.UID);
             DisableSync();
             if (_charaHandler is not null && _charaHandler.Address != nint.Zero)
             {
@@ -738,11 +737,11 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
             }
             Mediator.Publish(new PlayerVisibilityMessage(Pair.Ident, IsVisible: false, Invalidate: true));
 
-            Logger.LogInformation("Pause complete for {name} ({user})", PlayerName, Pair.UserData.UID);
+            Logger.LogInformation("Pause complete for {user}", Pair.UserData.UID);
         }
         catch (Exception ex)
         {
-            Logger.LogWarning(ex, "Failed to pause handler for {name} ({user})", PlayerName, Pair.UserData.UID);
+            Logger.LogWarning(ex, "Failed to pause handler for {user}", Pair.UserData.UID);
         }
     }
     
@@ -750,7 +749,7 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
     {
         try
         {
-            Logger.LogInformation("Resuming handler for {name} ({user})", PlayerName, Pair.UserData.UID);
+            Logger.LogInformation("Resuming handler for {user}", Pair.UserData.UID);
 
             if (_charaHandler is null || _charaHandler.Address == nint.Zero)
             {
@@ -769,11 +768,11 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
             Logger.LogDebug("Applying last received data for {name} ({user})", PlayerName, Pair.UserData.UID);
             Pair.ApplyLastReceivedData(forced: true);
 
-            Logger.LogInformation("Resume complete for {name} ({user})", PlayerName, Pair.UserData.UID);
+            Logger.LogInformation("Resume complete for {user}", Pair.UserData.UID);
         }
         catch (Exception ex)
         {
-            Logger.LogWarning(ex, "Failed to resume handler for {name} ({user})", PlayerName, Pair.UserData.UID);
+            Logger.LogWarning(ex, "Failed to resume handler for {user}", Pair.UserData.UID);
         }
     }
     

@@ -373,6 +373,12 @@ public partial class IntroUi : WindowMediatorSubscriberBase
         ImGui.Separator();
         ImGuiHelpers.ScaledDummy(4f);
 
+        if (_rgpdDataService.IsRgpdConsentOutdated)
+        {
+            UiSharedService.ColorTextWrapped(Loc.Get("Rgpd.Consent.Outdated"), ImGuiColors.DalamudYellow);
+            ImGuiHelpers.ScaledDummy(4f);
+        }
+
         UiSharedService.TextWrapped(Loc.Get("Rgpd.Consent.Intro"));
         ImGuiHelpers.ScaledDummy(2f);
         UiSharedService.ColorTextWrapped(Loc.Get("Rgpd.Consent.Reassurance"), ImGuiColors.HealerGreen);
@@ -380,6 +386,8 @@ public partial class IntroUi : WindowMediatorSubscriberBase
 
         _uiShared.BigText(Loc.Get("Rgpd.Consent.DataCollected.Header"));
         UiSharedService.TextWrapped(Loc.Get("Rgpd.Consent.DataCollected.Details"));
+        ImGuiHelpers.ScaledDummy(4f);
+        UiSharedService.ColorTextWrapped(Loc.Get("Rgpd.Consent.ConnectNotice"), ImGuiColors.DalamudGrey3);
         ImGuiHelpers.ScaledDummy(4f);
 
         // Mandatory consents
@@ -399,6 +407,10 @@ public partial class IntroUi : WindowMediatorSubscriberBase
         // Rights summary
         _uiShared.BigText(Loc.Get("Rgpd.Consent.Rights"));
         UiSharedService.TextWrapped(Loc.Get("Rgpd.Consent.Rights.Summary"));
+        ImGuiHelpers.ScaledDummy(4f);
+        UiSharedService.ColorTextWrapped(Loc.Get("Rgpd.Consent.Retention"), ImGuiColors.DalamudGrey3);
+        ImGuiHelpers.ScaledDummy(2f);
+        UiSharedService.ColorTextWrapped(Loc.Get("Rgpd.Consent.Controller"), ImGuiColors.DalamudGrey3);
         ImGuiHelpers.ScaledDummy(4f);
 
         // Accept button (requires mandatory consents)

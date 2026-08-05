@@ -141,7 +141,7 @@ public class MareConfig : IMareConfiguration
     public bool UmbraAPI { get; set; } = true;
     public bool EnableSlotNotifications { get; set; } = true;
     public float DefaultSlotRadius { get; set; } = 10f;
-    public const int ExpectedRgpdVersion = 1;
+    public const int ExpectedRgpdVersion = 2;
     public bool RgpdConsentGiven { get; set; }
     public DateTime? RgpdConsentDate { get; set; }
     public int AcceptedRgpdVersion { get; set; }

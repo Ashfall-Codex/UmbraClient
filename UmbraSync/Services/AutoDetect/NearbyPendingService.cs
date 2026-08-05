@@ -144,7 +144,7 @@ public sealed class NearbyPendingService : IMediatorSubscriber
         }
 
         _pending[uid] = new PendingEntry(displayName, DateTime.UtcNow);
-        _logger.LogInformation("NearbyPending: received request from {uid} ({name})", uid, displayName);
+        _logger.LogInformation("NearbyPending: received request from {uid}", uid);
         _notificationTracker.Upsert(NotificationEntry.AutoDetect(uid, displayName));
 
         if (!_configService.Current.UseInteractivePairRequestPopup)

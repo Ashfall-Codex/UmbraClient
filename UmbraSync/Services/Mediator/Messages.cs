@@ -165,7 +165,7 @@ public record QuestSessionEventTriggeredMessage(UserData Sender, QuestEventTrigg
 public record QuestSessionBranchingChoiceMessage(UserData Sender, QuestBranchingChoiceDto Choice) : MessageBase;
 public record RgpdConsentUpdatedMessage(bool ConsentGiven) : MessageBase;
 public record RgpdDataExportRequestMessage : MessageBase;
-public record RgpdDataExportReadyMessage(string ExportPath) : MessageBase;
+public record RgpdDataExportReadyMessage(string? ExportPath) : MessageBase;
 public record RgpdLocalDataDeletionRequestMessage : MessageBase;
 public record RgpdLocalDataDeletionCompleteMessage : MessageBase;
 public record SwitchToRgpdConsentUiMessage : MessageBase;
