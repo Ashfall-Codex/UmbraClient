@@ -346,6 +346,9 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
             {
                 new("Nouveauté : Un bandeau de progression s'affiche pendant la mise en place d'une scène PNJ."),
                 new("Correction : Crash du jeu en logement avec les PNJ. Quand le jeu libérait les PNJ d'une scène, UmbraSync continuait de les suivre et le jeu se fermait brutalement."),
+                new("Correction : Le premier PNJ d'une scène apparaissait sans ses mods, avec une apparence de base ou celle d'un personnage croisé ailleurs. Le jeu commençait à l'afficher avant que Penumbra ait fini de préparer ses mods ; il attend désormais que tout soit en place."),
+                new("Correction : Les PNJ ne réapparaissaient pas quand on ressortait d'un logement puis qu'on y rentrait à nouveau."),
+                new("Correction : SyncSlot. En entrant dans l'établissement de quelqu'un d'autre, vous restiez indéfiniment membre de la syncshell du précédent : le départ automatique ne se déclenchait jamais."),
                 new("Amélioration : Les deux boutons d'import de PNJ deviennent « Importer SANS mods » et « Importer AVEC mods »."),
                 new("Autre : Les scènes PNJ indiquent dans les logs le mode d'import utilisé et le nombre de mods réellement transmis, pour diagnostiquer plus vite une apparence incomplète."),
             }),
