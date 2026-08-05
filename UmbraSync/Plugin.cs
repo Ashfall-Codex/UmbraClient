@@ -254,6 +254,7 @@ public sealed class Plugin : IDalamudPlugin
             collection.AddScoped<WindowMediatorSubscriberBase, CharaDataHubUi>();
             collection.AddScoped<WindowMediatorSubscriberBase>(sp => sp.GetRequiredService<EditProfileUi>());
             collection.AddScoped<WindowMediatorSubscriberBase, TypingIndicatorOverlay>();
+            collection.AddScoped<WindowMediatorSubscriberBase, HousingNpcApplyOverlayUi>();
             collection.AddScoped<EstablishmentDirectoryUi>();
             collection.AddScoped<WindowMediatorSubscriberBase>(sp => sp.GetRequiredService<EstablishmentDirectoryUi>());
             collection.AddScoped<EstablishmentDetailUi>();

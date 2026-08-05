@@ -6379,7 +6379,7 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
     <value>Scene name</value>
   </data>
   <data name="HousingNpc.Editor.CaptureSelf" xml:space="preserve">
-    <value>Import from my character</value>
+    <value>Import WITHOUT mods</value>
   </data>
   <data name="HousingNpc.Editor.CaptureSelfTip" xml:space="preserve">
     <value>Adds an NPC with your current appearance WITHOUT mods, at your position. The Glamourer design is kept, only Penumbra mods are dropped.</value>
@@ -6462,6 +6462,12 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
   <data name="HousingNpc.Notif.Title" xml:space="preserve">
     <value>NPC scene</value>
   </data>
+  <data name="HousingNpc.ApplyOverlay.Title" xml:space="preserve">
+    <value>Placing NPCs</value>
+  </data>
+  <data name="HousingNpc.ApplyOverlay.Progress" xml:space="preserve">
+    <value>{0} / {1} character(s) placed</value>
+  </data>
   <data name="HousingNpc.Notif.NeedHousing" xml:space="preserve">
     <value>You must be in a house.</value>
   </data>
@@ -6508,7 +6514,7 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
     <value>Expand all</value>
   </data>
   <data name="HousingNpc.Editor.CaptureSelfLive" xml:space="preserve">
-    <value>Import from my modded character</value>
+    <value>Import WITH mods</value>
   </data>
   <data name="HousingNpc.Editor.CaptureSelfLiveTip" xml:space="preserve">
     <value>Adds an NPC with your FULL Umbra appearance (Penumbra mods + Glamourer + Customize+), not just the base look. Requires Penumbra and Glamourer.</value>

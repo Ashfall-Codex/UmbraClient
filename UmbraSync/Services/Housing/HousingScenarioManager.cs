@@ -485,6 +485,27 @@ public sealed class HousingScenarioManager : IDisposable
         _mediator.Publish(new HousingScenarioRemovedMessage());
     }
 
+    /// <summary>
+    /// Invalide l'état « appliqué » sans tenter de despawn : au changement de zone, le jeu a déjà
+    /// détruit les acteurs natifs et le service PNJ a lâché les siens.
+    /// </summary>
+    /// <remarks>
+    /// Sans ça, un retour dans les 15 secondes annulait le nettoyage différé alors que les PNJ
+    /// avaient bel et bien disparu : le scénario était vu comme toujours en place et n'était jamais
+    /// respawné (« déjà appliqué, skip »).
+    /// </remarks>
+    public void InvalidateAppliedAfterZoneSwitch()
+    {
+        if (!IsApplied) return;
+
+        _logger.LogInformation("Changement de zone : scénario {ShareId} invalidé, il sera réappliqué au retour", AppliedShareId);
+        CancelDelayedCleanup();
+        IsApplied = false;
+        AppliedShareId = null;
+        AppliedShareOwnerUid = null;
+        _mediator.Publish(new HousingScenarioRemovedMessage());
+    }
+
     public Task RefreshAsync()
     {
         return RunOperation(InternalRefreshAsync);

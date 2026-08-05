@@ -206,6 +206,18 @@ public sealed unsafe class NativeNpcSpawner
         return false;
     }
 
+    public int GetObjectTableIndex(nint address)
+    {
+        if (address == nint.Zero) return -1;
+        return _objectTable.CreateObjectReference(address)?.ObjectIndex ?? -1;
+    }
+    
+    public nint ResolveIfAlive(int objectTableIndex, nint expectedAddress)
+    {
+        if (objectTableIndex < 0 || expectedAddress == nint.Zero) return nint.Zero;
+        return _objectTable.GetObjectAddress(objectTableIndex) == expectedAddress ? expectedAddress : nint.Zero;
+    }
+
     public static bool HasDrawObject(nint address)
     {
         if (address == nint.Zero) return false;
