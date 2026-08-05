@@ -41,6 +41,7 @@ internal class EstablishmentDetailUi : WindowMediatorSubscriberBase
     private int? _editManagerRpProfileId;
     private bool _editShowManagerOnProfile = true;
     private int _editHousingType; // 0=Maison, 1=Appartement
+    private bool _editLocationDirty;
     private int _editDistrictIndex;
     private int _editWard = 1;
     private int _editPlot = 1;
@@ -473,21 +474,25 @@ internal class EstablishmentDetailUi : WindowMediatorSubscriberBase
 
         ImGui.TextColored(ImGuiColors.DalamudGrey, Loc.Get("Establishment.Location.District"));
         ImGui.SetNextItemWidth(220);
-        ImGui.Combo("##editDistrict", ref _editDistrictIndex, DistrictNames, DistrictNames.Length);
+        if (ImGui.Combo("##editDistrict", ref _editDistrictIndex, DistrictNames, DistrictNames.Length))
+            _editLocationDirty = true;
 
         ImGui.SetNextItemWidth(220);
-        ImGui.Combo("##editHousingType", ref _editHousingType, HousingTypeNames, HousingTypeNames.Length);
+        if (ImGui.Combo("##editHousingType", ref _editHousingType, HousingTypeNames, HousingTypeNames.Length))
+            _editLocationDirty = true;
 
         ImGui.TextColored(ImGuiColors.DalamudGrey, Loc.Get("Establishment.Location.Ward"));
         ImGui.SetNextItemWidth(220);
-        ImGui.InputInt("##editWard", ref _editWard, 1, 1);
+        if (ImGui.InputInt("##editWard", ref _editWard, 1, 1))
+            _editLocationDirty = true;
         _editWard = Math.Clamp(_editWard, 1, 30);
 
         if (_editHousingType == 0)
         {
             ImGui.TextColored(ImGuiColors.DalamudGrey, Loc.Get("Establishment.Location.Plot"));
             ImGui.SetNextItemWidth(220);
-            ImGui.InputInt("##editPlot", ref _editPlot, 1, 1);
+            if (ImGui.InputInt("##editPlot", ref _editPlot, 1, 1))
+                _editLocationDirty = true;
             _editPlot = Math.Clamp(_editPlot, 1, 60);
             _editIsSubdivision = _editPlot > 30;
             ImGui.TextColored(ImGuiColors.DalamudGrey,
@@ -497,7 +502,8 @@ internal class EstablishmentDetailUi : WindowMediatorSubscriberBase
         {
             ImGui.TextColored(ImGuiColors.DalamudGrey, Loc.Get("Establishment.Location.RoomNumber"));
             ImGui.SetNextItemWidth(220);
-            ImGui.InputInt("##editRoom", ref _editRoomNumber, 1, 1);
+            if (ImGui.InputInt("##editRoom", ref _editRoomNumber, 1, 1))
+                _editLocationDirty = true;
             _editRoomNumber = Math.Max(_editRoomNumber, 1);
         }
 
@@ -1162,6 +1168,7 @@ internal class EstablishmentDetailUi : WindowMediatorSubscriberBase
         _editShowManagerOnProfile = _establishment.ShowManagerOnProfile;
 
         var loc = _establishment.Location;
+        _editLocationDirty = false;
         _editServerId = loc?.ServerId;
         _editDistrictIndex = loc != null ? ResolveDistrictIndex(loc.TerritoryId) : 0;
         _editHousingType = (loc?.IsApartment ?? false) ? 1 : 0;
@@ -1208,7 +1215,7 @@ internal class EstablishmentDetailUi : WindowMediatorSubscriberBase
                 BannerImageBase64 = _establishment.BannerImageBase64,
                 ManagerRpProfileId = _editManagerRpProfileId,
                 ShowManagerOnProfile = _editShowManagerOnProfile,
-                Location = BuildEditedLocation()
+                Location = _editLocationDirty ? BuildEditedLocation() : _establishment.Location
             };
 
             var success = await _apiController.EstablishmentUpdate(request).ConfigureAwait(false);

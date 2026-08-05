@@ -10,8 +10,8 @@ public sealed class CompressedAlternateManager
 {
     private readonly record struct Entry(string? AlternateHash, DateTimeOffset NextCheck);
     private const double PendingRecheckMinutes = 2;
-
-    private readonly ConcurrentDictionary<string, Entry> _entries = new(StringComparer.Ordinal);
+    
+    private readonly ConcurrentDictionary<string, Entry> _entries = new(StringComparer.OrdinalIgnoreCase);
 
     public void SetCompressedAlternate(string sourceHash, string? alternateHash, bool neverWillHaveAlternate)
     {

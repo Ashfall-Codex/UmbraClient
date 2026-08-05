@@ -296,6 +296,7 @@ public class SlotService : MediatorSubscriberBase, IDisposable
             _lastNotifiedSlot = null;
         }
         _detectedSlotByDistance = null;
+        _consecutiveSlotMisses = 0;
     }
     
     public void NotifySlotZoneLeft()

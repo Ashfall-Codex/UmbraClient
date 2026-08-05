@@ -55,9 +55,6 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
     private Guid _deferred = Guid.Empty;
     private Guid _penumbraCollection = Guid.Empty;
     private bool _redrawOnNextApplication = false;
-    // Décisions de redraw (soft/hard) par ObjectKind pour l'application en cours, calculées avec le
-    // même diff que les PlayerChanges. Null quand EnableSoftRedraw est OFF (-> HardRedraw partout).
-    private Dictionary<ObjectKind, PairRedrawDecision>? _pendingRedrawDecisions;
     private readonly Lock _pauseLock = new();
     private Task _pauseTransitionTask = Task.CompletedTask;
     private bool _pauseRequested = false;
@@ -355,10 +352,12 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
             _forceApplyMods = false;
         }
 
+        bool redrawForcedExternally = false;
         if (_redrawOnNextApplication && charaDataToUpdate.TryGetValue(ObjectKind.Player, out var player))
         {
             player.Add(PlayerChanges.ForcedRedraw);
             _redrawOnNextApplication = false;
+            redrawForcedExternally = true;
         }
 
         if (charaDataToUpdate.TryGetValue(ObjectKind.Player, out var playerChanges))
@@ -371,11 +370,19 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
 
         // Décision de redraw (soft/hard) calculée à partir du même diff que les PlayerChanges,
         // uniquement si la feature est activée. OFF -> null -> HardRedraw (comportement actuel).
-        _pendingRedrawDecisions = _configService.Current.EnableSoftRedraw
+        // Elle voyage avec l'application : un second push pour la même paire ne doit pas réécrire
+        // la décision d'une application encore en vol (elle s'appliquerait à un diff différent).
+        var redrawDecisions = _configService.Current.EnableSoftRedraw
             ? characterData.ComputeRedrawDecisions(_cachedData, charaDataToUpdate)
             : null;
 
-        DownloadAndApplyCharacter(applicationBase, characterData.DeepClone(), charaDataToUpdate);
+        // Un redraw imposé de l'extérieur (changement de job) ne se déduit pas du diff de fichiers :
+        // sans ça, un changement de job simultané à un diff texture seule tombait en soft reapply
+        // et la paire restait affichée avec l'équipement du job précédent.
+        if (redrawForcedExternally && redrawDecisions != null)
+            redrawDecisions[ObjectKind.Player] = PairRedrawDecision.HardRedraw;
+
+        DownloadAndApplyCharacter(applicationBase, characterData.DeepClone(), charaDataToUpdate, redrawDecisions);
     }
 
     public override string ToString()
@@ -795,7 +802,8 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
         }
     }
 
-    private async Task ApplyCustomizationDataAsync(Guid applicationId, KeyValuePair<ObjectKind, HashSet<PlayerChanges>> changes, CharacterData charaData, CancellationToken token)
+    private async Task ApplyCustomizationDataAsync(Guid applicationId, KeyValuePair<ObjectKind, HashSet<PlayerChanges>> changes, CharacterData charaData,
+        IReadOnlyDictionary<ObjectKind, PairRedrawDecision>? redrawDecisions, CancellationToken token)
     {
         if (PlayerCharacter == nint.Zero) return;
         var ptr = PlayerCharacter;
@@ -825,13 +833,13 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
                 var orderedChanges = changes.Value.OrderBy(p => (int)p).ToList();
                 var serialChangeList = orderedChanges.Where(p => p <= PlayerChanges.ForcedRedraw).ToList();
                 var asyncChangeList = orderedChanges.Where(p => p > PlayerChanges.ForcedRedraw).ToList();
-                await _dalamudUtil.RunOnFrameworkThread(async () => await ProcessCustomizationChangesAsync(handler, applicationId, changes.Key, serialChangeList, charaData, token).ConfigureAwait(false)).ConfigureAwait(false);
-                await Task.Run(async () => await ProcessCustomizationChangesAsync(handler, applicationId, changes.Key, asyncChangeList, charaData, token).ConfigureAwait(false), CancellationToken.None).ConfigureAwait(false);
+                await _dalamudUtil.RunOnFrameworkThread(async () => await ProcessCustomizationChangesAsync(handler, applicationId, changes.Key, serialChangeList, charaData, redrawDecisions, token).ConfigureAwait(false)).ConfigureAwait(false);
+                await Task.Run(async () => await ProcessCustomizationChangesAsync(handler, applicationId, changes.Key, asyncChangeList, charaData, redrawDecisions, token).ConfigureAwait(false), CancellationToken.None).ConfigureAwait(false);
             }
             else
             {
                 var orderedChanges = changes.Value.OrderBy(p => (int)p).ToList();
-                await ProcessCustomizationChangesAsync(handler, applicationId, changes.Key, orderedChanges, charaData, token).ConfigureAwait(false);
+                await ProcessCustomizationChangesAsync(handler, applicationId, changes.Key, orderedChanges, charaData, redrawDecisions, token).ConfigureAwait(false);
             }
         }
         finally
@@ -841,7 +849,8 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
     }
 
     private async Task ProcessCustomizationChangesAsync(GameObjectHandler handler, Guid applicationId, ObjectKind objectKind,
-        IEnumerable<PlayerChanges> changeList, CharacterData charaData, CancellationToken token)
+        IEnumerable<PlayerChanges> changeList, CharacterData charaData,
+        IReadOnlyDictionary<ObjectKind, PairRedrawDecision>? redrawDecisions, CancellationToken token)
     {
         foreach (var change in changeList)
         {
@@ -887,8 +896,8 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
                     // Décision soft/hard quand la feature est active et qu'une décision existe pour ce
                     // kind, sinon HardRedraw (comportement historique, redraw Penumbra complet)
                     var redrawDecision = (_configService.Current.EnableSoftRedraw
-                            && _pendingRedrawDecisions != null
-                            && _pendingRedrawDecisions.TryGetValue(objectKind, out var d))
+                            && redrawDecisions != null
+                            && redrawDecisions.TryGetValue(objectKind, out var d))
                         ? d
                         : PairRedrawDecision.HardRedraw;
                     await _pairRedrawCoordinator.ExecuteDecisionAsync(redrawDecision, Logger, handler, applicationId, token).ConfigureAwait(false);
@@ -900,7 +909,8 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
         }
     }
 
-    private void DownloadAndApplyCharacter(Guid applicationBase, CharacterData charaData, Dictionary<ObjectKind, HashSet<PlayerChanges>> updatedData)
+    private void DownloadAndApplyCharacter(Guid applicationBase, CharacterData charaData, Dictionary<ObjectKind, HashSet<PlayerChanges>> updatedData,
+        IReadOnlyDictionary<ObjectKind, PairRedrawDecision>? redrawDecisions)
     {
         if (updatedData.Count == 0)
         {
@@ -933,13 +943,13 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
             if ((updateModdedPaths || updateManip) && !hasOtherChanges && !_forceApplyMods)
             {
                 Logger.LogDebug("[BASE-{appBase}] Applying mod changes only - skipping full redraw", applicationBase);
-                await ApplyModChangesOnlyAsync(applicationBase, charaData, updatedData, updateModdedPaths, updateManip, downloadToken).ConfigureAwait(false);
+                await ApplyModChangesOnlyAsync(applicationBase, charaData, updatedData, updateModdedPaths, updateManip, redrawDecisions, downloadToken).ConfigureAwait(false);
                 return;
             }
 
             try
             {
-                await DownloadAndApplyCharacterAsync(applicationBase, charaData, updatedData, updateModdedPaths, updateManip, downloadToken).ConfigureAwait(false);
+                await DownloadAndApplyCharacterAsync(applicationBase, charaData, updatedData, updateModdedPaths, updateManip, redrawDecisions, downloadToken).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
@@ -956,7 +966,8 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
     }
     
     private async Task ApplyModChangesOnlyAsync(Guid applicationBase, CharacterData charaData,
-        Dictionary<ObjectKind, HashSet<PlayerChanges>> updatedData, bool updateModdedPaths, bool updateManip, CancellationToken token)
+        Dictionary<ObjectKind, HashSet<PlayerChanges>> updatedData, bool updateModdedPaths, bool updateManip,
+        IReadOnlyDictionary<ObjectKind, PairRedrawDecision>? redrawDecisions, CancellationToken token)
     {
         Logger.LogDebug("[BASE-{applicationBase}] Applying mod changes only", applicationBase);
 
@@ -994,21 +1005,21 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
             }
 
             Logger.LogDebug("[BASE-{applicationBase}] Applying mod changes using simplified mechanism", applicationBase);
-            await DownloadAndApplyCharacterAsync(applicationBase, charaData, modOnlyUpdatedData, updateModdedPaths, updateManip, token).ConfigureAwait(false);
+            await DownloadAndApplyCharacterAsync(applicationBase, charaData, modOnlyUpdatedData, updateModdedPaths, updateManip, redrawDecisions, token).ConfigureAwait(false);
 
             Logger.LogDebug("[BASE-{applicationBase}] Mod changes applied without forced redraw", applicationBase);
         }
         catch (Exception ex)
         {
             Logger.LogWarning(ex, "[BASE-{applicationBase}] Failed to apply mod changes only, falling back to full apply", applicationBase);
-            await DownloadAndApplyCharacterAsync(applicationBase, charaData, updatedData, updateModdedPaths, updateManip, token).ConfigureAwait(false);
+            await DownloadAndApplyCharacterAsync(applicationBase, charaData, updatedData, updateModdedPaths, updateManip, redrawDecisions, token).ConfigureAwait(false);
         }
     }
 
     private Task? _pairDownloadTask;
 
     private async Task DownloadAndApplyCharacterAsync(Guid applicationBase, CharacterData charaData, Dictionary<ObjectKind, HashSet<PlayerChanges>> updatedData,
-        bool updateModdedPaths, bool updateManip, CancellationToken downloadToken)
+        bool updateModdedPaths, bool updateManip, IReadOnlyDictionary<ObjectKind, PairRedrawDecision>? redrawDecisions, CancellationToken downloadToken)
     {
         Logger.LogTrace("[BASE-{appBase}] DownloadAndApplyCharacterAsync", applicationBase);
         Dictionary<(string GamePath, string? Hash), string> moddedPaths = [];
@@ -1188,7 +1199,7 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
             .ConfigureAwait(false);
 #pragma warning restore MA0004
 
-        _applicationTask = ApplyCharacterDataAsync(applicationBase, charaData, updatedData, updateModdedPaths, updateManip, moddedPaths, token);
+        _applicationTask = ApplyCharacterDataAsync(applicationBase, charaData, updatedData, updateModdedPaths, updateManip, moddedPaths, redrawDecisions, token);
         await _applicationTask.ConfigureAwait(false);
         if (hadMissingFiles && !_pendingModReapply)
         {
@@ -1198,7 +1209,7 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
     }
 
     private async Task ApplyCharacterDataAsync(Guid applicationBase, CharacterData charaData, Dictionary<ObjectKind, HashSet<PlayerChanges>> updatedData, bool updateModdedPaths, bool updateManip,
-        Dictionary<(string GamePath, string? Hash), string> moddedPaths, CancellationToken token)
+        Dictionary<(string GamePath, string? Hash), string> moddedPaths, IReadOnlyDictionary<ObjectKind, PairRedrawDecision>? redrawDecisions, CancellationToken token)
     {
         ushort objIndex = ushort.MaxValue;
         try
@@ -1249,7 +1260,7 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
 
             foreach (var kind in updatedData)
             {
-                await ApplyCustomizationDataAsync(_applicationId, kind, charaData, token).ConfigureAwait(false);
+                await ApplyCustomizationDataAsync(_applicationId, kind, charaData, redrawDecisions, token).ConfigureAwait(false);
                 token.ThrowIfCancellationRequested();
             }
 

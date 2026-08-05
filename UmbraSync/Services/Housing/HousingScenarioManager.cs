@@ -34,7 +34,7 @@ public sealed class HousingScenarioManager : IDisposable
     private readonly FileDownloadManagerFactory _fileDownloadManagerFactory;
     private FileDownloadManager? _fileDownloadManager;
     private readonly SemaphoreSlim _operationSemaphore = new(1, 1);
-    private readonly List<HousingScenarioEntryDto> _ownShares = new();
+    private volatile IReadOnlyList<HousingScenarioEntryDto> _ownShares = Array.Empty<HousingScenarioEntryDto>();
     private Task? _currentTask;
     private CancellationTokenSource? _cleanupDelayCts;
     private Guid? _lastOwnerReminderShareId;
@@ -175,7 +175,7 @@ public sealed class HousingScenarioManager : IDisposable
                 return;
             }
 
-            _ownShares.RemoveAll(s => s.Id == shareId);
+            _ownShares = _ownShares.Where(s => s.Id != shareId).ToList();
             LastSuccess = Localization.Loc.Get("HousingScenario.Success.Republished");
             _logger.LogInformation("Partage {ShareId} republié sur S{Server}:W{Ward}:H{House}",
                 shareId, newLocation.ServerId, newLocation.WardId, newLocation.HouseId);
@@ -493,8 +493,7 @@ public sealed class HousingScenarioManager : IDisposable
     private async Task InternalRefreshAsync()
     {
         var shares = await _apiController.HousingScenarioGetOwn().ConfigureAwait(false);
-        _ownShares.Clear();
-        _ownShares.AddRange(shares);
+        _ownShares = shares?.ToList() ?? (IReadOnlyList<HousingScenarioEntryDto>)Array.Empty<HousingScenarioEntryDto>();
     }
 
     public Task UpdateVisibilityAsync(Guid shareId, string description, List<string> allowedIndividuals, List<string> allowedSyncshells)
@@ -516,8 +515,7 @@ public sealed class HousingScenarioManager : IDisposable
                 return;
             }
 
-            int idx = _ownShares.FindIndex(s => s.Id == shareId);
-            if (idx >= 0) _ownShares[idx] = updated;
+            _ownShares = _ownShares.Select(s => s.Id == shareId ? updated : s).ToList();
             LastSuccess = "Scénario mis à jour.";
         });
     }
@@ -532,7 +530,7 @@ public sealed class HousingScenarioManager : IDisposable
                 LastError = "Suppression scénario refusée.";
                 return;
             }
-            _ownShares.RemoveAll(s => s.Id == shareId);
+            _ownShares = _ownShares.Where(s => s.Id != shareId).ToList();
             LastSuccess = "Scénario supprimé.";
         });
     }

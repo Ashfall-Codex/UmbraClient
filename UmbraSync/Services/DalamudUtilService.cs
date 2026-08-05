@@ -28,8 +28,6 @@ using GameObject = FFXIVClientStructs.FFXIV.Client.Game.Object.GameObject;
 
 namespace UmbraSync.Services;
 
-[System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Auto)]
-
 public class DalamudUtilService : IHostedService, IMediatorSubscriber
 {
     public struct PlayerCharacter

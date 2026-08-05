@@ -112,10 +112,16 @@ public sealed unsafe class NativeNpcSpawner
         if (app.VisorToggled) chara->DrawData.IsVisorToggled = true;
         if (app.WeaponDrawn) chara->Timeline.IsWeaponDrawn = true;
     }
-
-    public IGameObject? Spawn(string name, Vector3 position, float rotation, NpcAppearance appearance, ushort emote = 0)
+    
+    public IGameObject? Spawn(string name, Vector3 position, float rotation, NpcAppearance appearance, ushort emote = 0, bool deferDraw = false)
     {
         var objectManager = ClientObjectManager.Instance();
+        if (objectManager == null)
+        {
+            _logger.LogWarning("ClientObjectManager indisponible (transition de zone ?), spawn annulé");
+            return null;
+        }
+
         var objectIndex = objectManager->CreateBattleCharacter();
         if (objectIndex == 0xFFFFFFFF)
         {
@@ -158,9 +164,32 @@ public sealed unsafe class NativeNpcSpawner
             return null;
         }
 
-        DrawWhenReady(bc, appearance, emote);
-        _logger.LogInformation("Acteur natif spawné à l'index {Index} (adresse {Addr:X})", objectIndex, (nint)bc);
+        if (!deferDraw)
+            DrawWhenReady((ushort)objectIndex, bc, appearance, emote);
+
+        _logger.LogInformation("Acteur natif spawné à l'index {Index} (adresse {Addr:X}, draw différé : {Deferred})",
+            objectIndex, (nint)bc, deferDraw);
         return handle;
+    }
+
+    public void BeginDraw(nint address, NpcAppearance appearance, ushort emote = 0)
+    {
+        if (address == nint.Zero) return;
+        var objectManager = ClientObjectManager.Instance();
+        if (objectManager == null)
+        {
+            _logger.LogWarning("ClientObjectManager indisponible, activation du draw de {Addr:X} ignorée", address);
+            return;
+        }
+
+        var index = objectManager->GetIndexByObject((GameObject*)address);
+        if (index == 0xFFFFFFFF)
+        {
+            _logger.LogWarning("Acteur à {Addr:X} introuvable, activation du draw ignorée", address);
+            return;
+        }
+
+        DrawWhenReady((ushort)index, (BattleChara*)address, appearance, emote);
     }
     
     public bool IsAlive(nint address)
@@ -185,6 +214,12 @@ public sealed unsafe class NativeNpcSpawner
         if (address == nint.Zero) return;
         var go = (GameObject*)address;
         var objectManager = ClientObjectManager.Instance();
+        if (objectManager == null)
+        {
+            _logger.LogWarning("ClientObjectManager indisponible, despawn de {Addr:X} ignoré", address);
+            return;
+        }
+
         var index = objectManager->GetIndexByObject(go);
         if (index != 0xFFFFFFFF)
         {
@@ -222,21 +257,52 @@ public sealed unsafe class NativeNpcSpawner
         }, delayTicks: delayTicks);
     }
 
-    private void DrawWhenReady(BattleChara* bc, NpcAppearance appearance, ushort emote)
+    // ~10 s à 60 img/s : au-delà l'acteur ne sera jamais prêt, on abandonne plutôt que de boucler à vie
+    private const int MaxDrawReadyTicks = 600;
+
+    // L'acteur peut avoir été détruit (Despawn, changement de zone, npcwipe) entre deux ticks : le slot
+    // est alors libéré ou réattribué. On ne touche au pointeur que s'il occupe toujours son index.
+    private static bool IsStillOurActor(ushort objectIndex, BattleChara* bc)
+    {
+        var objectManager = ClientObjectManager.Instance();
+        if (objectManager == null) return false;
+        return objectManager->GetObjectByIndex(objectIndex) == (GameObject*)bc;
+    }
+
+    private void RunOnTickIfAlive(ushort objectIndex, BattleChara* bc, Action action, int delayTicks = 0)
     {
         RunOnTickSafe(() =>
         {
+            if (!IsStillOurActor(objectIndex, bc)) return;
+            action();
+        }, delayTicks);
+    }
+
+    private void DrawWhenReady(ushort objectIndex, BattleChara* bc, NpcAppearance appearance, ushort emote, int attempt = 0)
+    {
+        RunOnTickSafe(() =>
+        {
+            if (!IsStillOurActor(objectIndex, bc))
+            {
+                _logger.LogDebug("Acteur natif de l'index {Index} détruit avant d'être prêt à dessiner, abandon", objectIndex);
+                return;
+            }
+
             if (bc->Character.GameObject.IsReadyToDraw())
             {
                 bc->Character.GameObject.EnableDraw();
                 ApplyDisplayFlags(bc, appearance);
-                RunOnTickSafe(() => ApplyDisplayFlags(bc, appearance), delayTicks: 2);
+                RunOnTickIfAlive(objectIndex, bc, () => ApplyDisplayFlags(bc, appearance), delayTicks: 2);
                 if (emote != 0)
-                    RunOnTickSafe(() => PlayEmote(bc, emote), delayTicks: 30);
+                    RunOnTickIfAlive(objectIndex, bc, () => PlayEmote(bc, emote), delayTicks: 30);
+            }
+            else if (attempt >= MaxDrawReadyTicks)
+            {
+                _logger.LogWarning("Acteur natif de l'index {Index} toujours pas prêt après {Ticks} ticks, abandon du draw", objectIndex, MaxDrawReadyTicks);
             }
             else
             {
-                DrawWhenReady(bc, appearance, emote);
+                DrawWhenReady(objectIndex, bc, appearance, emote, attempt + 1);
             }
         });
     }

@@ -21,23 +21,29 @@ public sealed class AshfallConnectAutoSyncService : DisposableMediatorSubscriber
         _scopeFactory = scopeFactory;
 
         Mediator.Subscribe<ConnectedMessage>(this, _ => ScheduleSync());
-        Mediator.Subscribe<DisconnectedMessage>(this, _ =>
-        {
-            _debounceCts?.Cancel();
-            _debounceCts?.Dispose();
-            _debounceCts = null;
-        });
+        Mediator.Subscribe<DisconnectedMessage>(this, _ => CancelPending());
+    }
+    private void CancelPending()
+    {
+        var previous = Interlocked.Exchange(ref _debounceCts, null);
+        if (previous == null) return;
+        try { previous.Cancel(); }
+        catch (ObjectDisposedException) { /* déjà disposé par un handler concurrent */ }
+        previous.Dispose();
     }
 
     private void ScheduleSync()
     {
-        // Annule le précédent debounce avant d'en démarrer un nouveau (anti-leak CTS).
-        var previous = _debounceCts;
-        _debounceCts = new CancellationTokenSource();
-        previous?.Cancel();
-        previous?.Dispose();
+        var next = new CancellationTokenSource();
+        var token = next.Token; // capturé avant publication : le CTS peut être annulé dès l'échange
+        var previous = Interlocked.Exchange(ref _debounceCts, next);
+        if (previous != null)
+        {
+            try { previous.Cancel(); }
+            catch (ObjectDisposedException) { /* déjà disposé par un handler concurrent */ }
+            previous.Dispose();
+        }
 
-        var token = _debounceCts.Token;
         _ = Task.Run(async () =>
         {
             try
@@ -63,12 +69,7 @@ public sealed class AshfallConnectAutoSyncService : DisposableMediatorSubscriber
 
     protected override void Dispose(bool disposing)
     {
-        if (disposing)
-        {
-            _debounceCts?.Cancel();
-            _debounceCts?.Dispose();
-            _debounceCts = null;
-        }
+        if (disposing) CancelPending();
         base.Dispose(disposing);
     }
 

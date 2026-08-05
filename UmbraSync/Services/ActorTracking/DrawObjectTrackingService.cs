@@ -25,8 +25,7 @@ public sealed unsafe class DrawObjectTrackingService : DisposableMediatorSubscri
     private Hook<GameObject.Delegates.EnableDraw>? _enableDrawHook;
     private Hook<CharacterBase.Delegates.Create>? _createCharacterBaseHook;
     private Hook<CharacterBase.Delegates.Destroy>? _destroyCharacterBaseHook;
-
-    private readonly ThreadLocal<Stack<nint>> _lastGameObject = new(() => new Stack<nint>());
+    private readonly ThreadLocal<Stack<nint>> _lastGameObject = new(() => new Stack<nint>(), trackAllValues: true);
     private readonly ConcurrentDictionary<nint, nint> _drawObjectToGameObject = new();
     private readonly ConcurrentDictionary<nint, nint> _gameObjectToDrawObject = new();
 
@@ -122,7 +121,15 @@ public sealed unsafe class DrawObjectTrackingService : DisposableMediatorSubscri
     {
         _drawObjectToGameObject.Clear();
         _gameObjectToDrawObject.Clear();
-        if (_lastGameObject.IsValueCreated) _lastGameObject.Value!.Clear();
+        try
+        {
+            foreach (var stack in _lastGameObject.Values) stack.Clear();
+        }
+        catch (Exception)
+        {
+            // Vider les piles est du confort : jamais au prix d'un Dispose qui lève, ce qui
+            // empêcherait Dalamud de décharger le plugin.
+        }
     }
 
     private Stack<nint> GameObjectStack => _lastGameObject.Value!;
@@ -236,6 +243,10 @@ public sealed unsafe class DrawObjectTrackingService : DisposableMediatorSubscri
         {
             DisposeHooks();
             ClearMappings();
+            // _lastGameObject n'est volontairement PAS disposé : le service est disposé deux fois
+            // (Dalamud + arrêt du IHost) et le second passage levait alors sur un ThreadLocal mort,
+            // ce qui faisait échouer le déchargement du plugin. La fuite résiduelle (une pile vide
+            // par thread ayant exécuté le detour) est sans commune mesure avec un unload cassé.
         }
         base.Dispose(disposing);
     }

@@ -91,7 +91,7 @@ public sealed class NpcLiveAppearanceService : DisposableMediatorSubscriberBase
         return await _fileHandler.CreatePlayerData().ConfigureAwait(false);
     }
     
-    public async Task<NpcLiveHandle?> ApplyAsync(nint address, CharacterData data, CancellationToken token)
+    public async Task<NpcLiveHandle?> PrepareCollectionAsync(nint address, CharacterData data)
     {
         if (!_ipc.Initialized || address == nint.Zero) return null;
 
@@ -103,8 +103,6 @@ public sealed class NpcLiveAppearanceService : DisposableMediatorSubscriberBase
             if (idx < 0) { handler.Dispose(); return null; }
 
             var modPaths = BuildModPaths(data);
-            data.GlamourerData.TryGetValue(ObjectKind.Player, out var glamourer);
-            data.CustomizePlusData.TryGetValue(ObjectKind.Player, out var customizePlus);
 
             // Un écart entre replacements et modPaths signale des fichiers de mods absents du cache
             // local (apparence incomplète) — c'est le symptôme qui avait révélé la capture amputée.
@@ -116,39 +114,57 @@ public sealed class NpcLiveAppearanceService : DisposableMediatorSubscriberBase
             }
 
             var collection = await _ipc.Penumbra.CreateTemporaryCollectionAsync(Logger, "UmbraNpc-" + appId.ToString("N")).ConfigureAwait(false);
-            await _ipc.Penumbra.AssignTemporaryCollectionAsync(Logger, collection, idx).ConfigureAwait(false);
+            var assignResult = await _ipc.Penumbra.AssignTemporaryCollectionAsync(Logger, collection, idx).ConfigureAwait(false);
+            Logger.LogInformation("Live PNJ : collection {Collection} assignée à l'index {Index} → {Result}", collection, idx, assignResult);
             await _ipc.Penumbra.SetTemporaryModsAsync(Logger, appId, collection, modPaths).ConfigureAwait(false);
             await _ipc.Penumbra.SetManipulationDataAsync(Logger, appId, collection, data.ManipulationData ?? string.Empty).ConfigureAwait(false);
 
-            await _ipc.Glamourer.ApplyAllAsync(Logger, handler, glamourer, appId, token).ConfigureAwait(false);
-            await _ipc.Penumbra.RedrawAsync(Logger, handler, appId, token).ConfigureAwait(false);
-            await _dalamudUtil.WaitWhileCharacterIsDrawing(Logger, handler, appId, 30000, token).ConfigureAwait(false);
-
-            Guid? customizeProfile = null;
-            if (!string.IsNullOrEmpty(customizePlus))
-                customizeProfile = await _ipc.CustomizePlus.SetBodyScaleAsync(handler.Address, customizePlus).ConfigureAwait(false);
-            if (!string.IsNullOrEmpty(data.HeelsData))
-                await _ipc.Heels.SetOffsetForPlayerAsync(handler.Address, data.HeelsData).ConfigureAwait(false);
-            if (!string.IsNullOrEmpty(data.MoodlesData))
-                await _ipc.Moodles.SetStatusAsync(handler.Address, data.MoodlesData).ConfigureAwait(false);
-            if (!string.IsNullOrEmpty(data.PetNamesData))
-                await _ipc.PetNames.SetPlayerData(handler.Address, data.PetNamesData).ConfigureAwait(false);
-
-            Logger.LogInformation("Live data appliqué au PNJ (index {Index}, {Mods} fichier(s) mod)", idx, modPaths.Count);
             return new NpcLiveHandle
             {
                 ApplicationId = appId,
                 Collection = collection,
                 ObjectIndex = idx,
-                CustomizeProfile = customizeProfile,
                 Handler = handler,
             };
         }
         catch (Exception ex)
         {
-            Logger.LogWarning(ex, "Application du live data au PNJ échouée");
+            Logger.LogWarning(ex, "Préparation de la collection PNJ échouée");
             handler.Dispose();
             return null;
+        }
+    }
+
+    /// <summary>
+    /// Deuxième temps, une fois l'acteur dessiné : état Glamourer, redraw et plugins d'apparence.
+    /// </summary>
+    public async Task FinalizeAsync(NpcLiveHandle handle, CharacterData data, CancellationToken token)
+    {
+        try
+        {
+            data.GlamourerData.TryGetValue(ObjectKind.Player, out var glamourer);
+            data.CustomizePlusData.TryGetValue(ObjectKind.Player, out var customizePlus);
+
+            await _ipc.Glamourer.ApplyAllAsync(Logger, handle.Handler, glamourer, handle.ApplicationId, token).ConfigureAwait(false);
+            await _ipc.Penumbra.RedrawAsync(Logger, handle.Handler, handle.ApplicationId, token).ConfigureAwait(false);
+            await _dalamudUtil.WaitWhileCharacterIsDrawing(Logger, handle.Handler, handle.ApplicationId, 30000, token).ConfigureAwait(false);
+
+            if (!string.IsNullOrEmpty(customizePlus))
+                handle.CustomizeProfile = await _ipc.CustomizePlus.SetBodyScaleAsync(handle.Handler.Address, customizePlus).ConfigureAwait(false);
+            if (!string.IsNullOrEmpty(data.HeelsData))
+                await _ipc.Heels.SetOffsetForPlayerAsync(handle.Handler.Address, data.HeelsData).ConfigureAwait(false);
+            if (!string.IsNullOrEmpty(data.MoodlesData))
+                await _ipc.Moodles.SetStatusAsync(handle.Handler.Address, data.MoodlesData).ConfigureAwait(false);
+            if (!string.IsNullOrEmpty(data.PetNamesData))
+                await _ipc.PetNames.SetPlayerData(handle.Handler.Address, data.PetNamesData).ConfigureAwait(false);
+
+            var effective = await _ipc.Penumbra.GetCollectionForObjectAsync(handle.ObjectIndex).ConfigureAwait(false);
+            Logger.LogInformation("Live PNJ : index {Index} → ObjectValid={Valid}, collection effective {EffId}, attendue {Expected}",
+                handle.ObjectIndex, effective.ObjectValid, effective.CollectionId, handle.Collection);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Finalisation du live data PNJ échouée");
         }
     }
 

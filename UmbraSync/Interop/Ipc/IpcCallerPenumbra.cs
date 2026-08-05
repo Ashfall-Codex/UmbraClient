@@ -73,8 +73,11 @@ public sealed class IpcCallerPenumbra : DisposableMediatorSubscriberBase, IIpcCa
 
     public void RedrawAll() => _redraw.RedrawAll();
     
-    public Task AssignTemporaryCollectionAsync(ILogger logger, Guid collName, int idx)
+    public Task<global::Penumbra.Api.Enums.PenumbraApiEc> AssignTemporaryCollectionAsync(ILogger logger, Guid collName, int idx)
         => _collections.AssignTemporaryCollectionAsync(logger, collName, idx);
+
+    public Task<(bool ObjectValid, bool IndividualSet, Guid CollectionId, string CollectionName)> GetCollectionForObjectAsync(int idx)
+        => _collections.GetCollectionForObjectAsync(idx);
 
     public Task<Guid> CreateTemporaryCollectionAsync(ILogger logger, string uid)
         => _collections.CreateTemporaryCollectionAsync(logger, uid);

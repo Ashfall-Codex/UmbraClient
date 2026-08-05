@@ -90,6 +90,10 @@ public sealed class PairRedrawCoordinator : DisposableMediatorSubscriberBase
         }
         else
         {
+            // Le stamp doit être posé même sans le verrou : sinon le waiter suivant compare son
+            // elapsed à un timestamp périmé, se croit en droit de partir tout de suite, et
+            // l'espacement disparaît exactement quand il sert (parcelle bondée, applications simultanées).
+            _lastRedrawAtUtc = DateTime.UtcNow;
             callerLogger.LogTrace("[{applicationId}] Redraw gate occupé > {timeout}s, espacement ignoré", applicationId, GateWaitTimeout.TotalSeconds);
         }
         

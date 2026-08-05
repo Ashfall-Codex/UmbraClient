@@ -20,6 +20,7 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
     private readonly DalamudUtilService _dalamudUtil;
 
     private readonly SemaphoreSlim _gate = new(1, 1);
+    private readonly Lock _stateLock = new();
     private readonly List<SpawnedNpc> _spawned = new();
     private LocationInfo? _currentLocation;
     private uint _currentInteriorTerritoryId;
@@ -99,7 +100,19 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
     }
 
     public Task StartAsync(CancellationToken cancellationToken) => Task.CompletedTask;
-    public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+    public async Task StopAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeout.CancelAfter(TimeSpan.FromSeconds(5));
+            await DespawnAllInternalAsync().WaitAsync(timeout.Token).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Despawn des PNJ à l'arrêt incomplet");
+        }
+    }
     public LocationInfo? CurrentLocation => _currentLocation;
 
     /// <summary>Plan intérieur du logement courant (0 si inconnu / hors housing).</summary>
@@ -107,7 +120,10 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
 
     public string SelectedEntryId { get; set; } = string.Empty;
     public nint TryGetSpawnedAddress(string entryId)
-        => _spawned.Find(s => string.Equals(s.EntryId, entryId, StringComparison.Ordinal))?.Address ?? nint.Zero;
+    {
+        lock (_stateLock)
+            return _spawned.Find(s => string.Equals(s.EntryId, entryId, StringComparison.Ordinal))?.Address ?? nint.Zero;
+    }
     
     public void SetEntryTransformLive(string sceneId, string entryId, System.Numerics.Vector3 position, float rotation)
     {
@@ -125,7 +141,10 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
     // Déplace un acteur ET mémorise sa position voulue, pour la ré-imposer chaque frame (anti-gravité).
     private void Move(nint addr, System.Numerics.Vector3 position, float rotation)
     {
-        if (_anchors.TryGetValue(addr, out var a)) { a.Pos = position; a.Rot = rotation; }
+        lock (_stateLock)
+        {
+            if (_anchors.TryGetValue(addr, out var a)) { a.Pos = position; a.Rot = rotation; }
+        }
         NativeNpcSpawner.SetTransform(addr, position, rotation);
     }
 
@@ -391,15 +410,23 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
 
     private async Task DespawnSharedInternalAsync()
     {
-        var shared = _spawned.Where(s => s.Shared).ToList();
-        if (shared.Count == 0) return;
-        _spawned.RemoveAll(s => s.Shared);
+        List<SpawnedNpc> shared;
+        lock (_stateLock)
+        {
+            shared = _spawned.Where(s => s.Shared).ToList();
+            if (shared.Count == 0) return;
+            _spawned.RemoveAll(s => s.Shared);
+            foreach (var npc in shared)
+            {
+                _runtimes.Remove(npc.Address);
+                _anchors.Remove(npc.Address);
+            }
+        }
+
         foreach (var npc in shared)
         {
             try
             {
-                _runtimes.Remove(npc.Address);
-                _anchors.Remove(npc.Address);
                 if (npc.Live != null) await _liveAppearance.RevertAsync(npc.Live).ConfigureAwait(false);
                 await _dalamudUtil.RunOnFrameworkThread(() => _spawner.Despawn(npc.Address)).ConfigureAwait(false);
             }
@@ -411,25 +438,39 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
     {
         var name = MakeNpcName(_nameSeq++);
         var pos = new System.Numerics.Vector3(entry.X, entry.Y, entry.Z);
+        bool hasLive = entry.LiveData != null;
+
+        // Avec du live data, le draw est différé : la collection Penumbra doit être en place avant
+        // que le jeu ne charge le moindre modèle, sinon les pièces chargées entre-temps restent en
+        // vanilla (de façon aléatoire — c'était le bug de la coupe de cheveux qui manquait).
         var actor = await _dalamudUtil.RunOnFrameworkThread(
-            () => _spawner.Spawn(name, pos, entry.Rotation, entry.Appearance, 0)).ConfigureAwait(false);
+            () => _spawner.Spawn(name, pos, entry.Rotation, entry.Appearance, 0, deferDraw: hasLive)).ConfigureAwait(false);
         if (actor == null) return;
 
         NpcLiveHandle? live = null;
-        if (entry.LiveData != null)
+        if (hasLive)
         {
-            // Attendre que l'acteur soit réellement rendu : Spawn() rend la main avant que le draw
-            // soit actif (activé sur les ticks suivants). Assigner la collection + redraw trop tôt
-            // laisse le PNJ en apparence brute — visible surtout en zone instanciée (appartement).
+            live = await _liveAppearance.PrepareCollectionAsync(actor.Address, entry.LiveData!).ConfigureAwait(false);
+
+            // Le draw ne démarre qu'ici, collection déjà assignée. Si la préparation a échoué, on
+            // dessine quand même : mieux vaut un PNJ en apparence brute qu'un acteur invisible.
+            await _dalamudUtil.RunOnFrameworkThread(
+                () => _spawner.BeginDraw(actor.Address, entry.Appearance)).ConfigureAwait(false);
+
             await WaitUntilRenderedAsync(actor.Address).ConfigureAwait(false);
-            live = await _liveAppearance.ApplyAsync(actor.Address, entry.LiveData, CancellationToken.None).ConfigureAwait(false);
-            
+
+            if (live != null)
+                await _liveAppearance.FinalizeAsync(live, entry.LiveData!, CancellationToken.None).ConfigureAwait(false);
+
             await _dalamudUtil.RunOnFrameworkThread(
                 () => NativeNpcSpawner.ApplyDisplayFlags(actor.Address, entry.Appearance)).ConfigureAwait(false);
         }
 
-        _spawned.Add(new SpawnedNpc(actor.Address, live, shared, entry.Id));
-        _anchors[actor.Address] = new Anchor { Pos = pos, Rot = entry.Rotation };
+        lock (_stateLock)
+        {
+            _spawned.Add(new SpawnedNpc(actor.Address, live, shared, entry.Id));
+            _anchors[actor.Address] = new Anchor { Pos = pos, Rot = entry.Rotation };
+        }
 
         if (entry.FacePlayer)
         {
@@ -442,7 +483,7 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
 
         if (entry.Actions.Count > 0)
         {
-            _runtimes[actor.Address] = new ActionRuntime
+            var runtime = new ActionRuntime
             {
                 Actions = entry.Actions.ToArray(),
                 GroupId = groupId,
@@ -450,6 +491,7 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
                 LoopDelay = entry.LoopDelay,
                 WaitLeft = 1f,
             };
+            lock (_stateLock) _runtimes[actor.Address] = runtime;
         }
     }
     
@@ -469,11 +511,16 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
     private async Task DespawnAllInternalAsync()
     {
         _lookAt.Clear();
-        _runtimes.Clear();
-        _anchors.Clear();
-        if (_spawned.Count == 0) return;
-        var spawned = _spawned.ToList();
-        _spawned.Clear();
+        List<SpawnedNpc> spawned;
+        lock (_stateLock)
+        {
+            _runtimes.Clear();
+            _anchors.Clear();
+            if (_spawned.Count == 0) return;
+            spawned = _spawned.ToList();
+            _spawned.Clear();
+        }
+
         foreach (var npc in spawned)
         {
             try
@@ -488,13 +535,31 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
     private void ForgetSpawned()
     {
         _lookAt.Clear();
-        _runtimes.Clear();
-        _anchors.Clear();
-        foreach (var npc in _spawned)
-            if (npc.Live != null) _ = _liveAppearance.RevertAsync(npc.Live);
-        _spawned.Clear();
+        List<SpawnedNpc> spawned;
+        lock (_stateLock)
+        {
+            _runtimes.Clear();
+            _anchors.Clear();
+            spawned = _spawned.ToList();
+            _spawned.Clear();
+        }
+
+        foreach (var npc in spawned)
+            if (npc.Live != null) RevertLiveSafe(npc.Live);
     }
-    
+
+    // Le revert n'est pas attendu (appelé depuis le framework thread), mais ne doit pas
+    // remonter une exception non observée.
+    private void RevertLiveSafe(NpcLiveHandle live)
+    {
+        _ = Task.Run(async () =>
+        {
+            try { await _liveAppearance.RevertAsync(live).ConfigureAwait(false); }
+            catch (Exception ex) { Logger.LogWarning(ex, "Revert de l'apparence live échoué"); }
+        });
+    }
+
+    // Appelé sous _stateLock depuis OnFrameworkUpdate.
     private void PruneDeadActors()
     {
         for (int i = _spawned.Count - 1; i >= 0; i--)
@@ -505,7 +570,7 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
             _runtimes.Remove(npc.Address);
             _anchors.Remove(npc.Address);
             _spawned.RemoveAt(i);
-            if (npc.Live != null) _ = _liveAppearance.RevertAsync(npc.Live);
+            if (npc.Live != null) RevertLiveSafe(npc.Live);
             Logger.LogWarning("PNJ {Addr:X} disparu (acteur libéré par le jeu), état nettoyé", npc.Address);
         }
     }
@@ -516,31 +581,46 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
     {
         float dt = (float)_moveClock.Elapsed.TotalSeconds;
         _moveClock.Restart();
-        if (_spawned.Count == 0) return;
 
-
-        PruneDeadActors();
-        if (_spawned.Count == 0) return;
-        if (_runtimes.Count > 0 && dt > 0f && dt <= 0.5f)
+        // Snapshots sous verrou : un spawn/despawn concurrent (thread pool) muterait les collections
+        // en pleine itération. Le travail lui-même se fait hors verrou.
+        KeyValuePair<nint, ActionRuntime>[] runtimes;
+        lock (_stateLock)
         {
-            foreach (var kv in _runtimes.ToArray())
+            if (_spawned.Count == 0) return;
+            PruneDeadActors();
+            if (_spawned.Count == 0) return;
+            runtimes = _runtimes.ToArray();
+        }
+
+        if (runtimes.Length > 0 && dt > 0f && dt <= 0.5f)
+        {
+            foreach (var kv in runtimes)
             {
                 try { AdvanceActions(kv.Key, kv.Value, dt); }
                 catch (Exception ex) { Logger.LogWarning(ex, "Avance de séquence PNJ échouée"); }
             }
-            ReleaseSyncBarriers();
+            ReleaseSyncBarriers(runtimes);
         }
 
-        foreach (var npc in _spawned)
+        // Snapshot pris APRÈS l'avance : les actions viennent de mettre les ancres à jour, les
+        // ré-imposer depuis un état antérieur annulerait le déplacement de la frame.
+        (nint Address, System.Numerics.Vector3 Pos, float Rot)[] anchors;
+        lock (_stateLock)
         {
-            if (_anchors.TryGetValue(npc.Address, out var a))
-                NativeNpcSpawner.SetTransform(npc.Address, a.Pos, a.Rot);
+            anchors = _spawned
+                .Where(n => _anchors.ContainsKey(n.Address))
+                .Select(n => (n.Address, _anchors[n.Address].Pos, _anchors[n.Address].Rot))
+                .ToArray();
         }
+
+        foreach (var (address, pos, rot) in anchors)
+            NativeNpcSpawner.SetTransform(address, pos, rot);
     }
 
-    private void ReleaseSyncBarriers()
+    private static void ReleaseSyncBarriers(KeyValuePair<nint, ActionRuntime>[] runtimes)
     {
-        foreach (var group in _runtimes.Values.GroupBy(r => r.GroupId, StringComparer.Ordinal))
+        foreach (var group in runtimes.Select(kv => kv.Value).GroupBy(r => r.GroupId, StringComparer.Ordinal))
         {
             var active = group.Where(r => !r.Finished).ToList();
             if (active.Count == 0 || !active.TrueForAll(r => r.AtSync)) continue;
@@ -950,9 +1030,18 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
 
     protected override void Dispose(bool disposing)
     {
+        // Le despawn a lieu dans StopAsync ; ici on ne fait que relâcher l'état résiduel si le
+        // service a été disposé sans passer par l'arrêt du host.
         if (disposing)
         {
-            _ = DespawnAllInternalAsync();
+            lock (_stateLock)
+            {
+                _spawned.Clear();
+                _runtimes.Clear();
+                _anchors.Clear();
+            }
+            // _gate n'est volontairement pas disposé : le service est disposé deux fois (Dalamud +
+            // arrêt du IHost) et une opération encore en vol ferait un WaitAsync sur un sémaphore mort.
         }
         base.Dispose(disposing);
     }
