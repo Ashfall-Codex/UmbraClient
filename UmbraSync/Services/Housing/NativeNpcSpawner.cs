@@ -132,7 +132,10 @@ public sealed unsafe class NativeNpcSpawner
         var gameObject = objectManager->GetObjectByIndex((ushort)objectIndex);
         if (gameObject == null)
         {
+            // Le slot vient d'être réservé par CreateBattleCharacter : sans cette libération, chaque
+            // échec en fuit un définitivement, jusqu'à épuisement du pool (plus aucun PNJ spawnable).
             _logger.LogWarning("GetObjectByIndex a renvoyé null pour l'index {Index}", objectIndex);
+            objectManager->DeleteObjectByIndex((ushort)objectIndex, 0);
             return null;
         }
 
@@ -161,6 +164,7 @@ public sealed unsafe class NativeNpcSpawner
         if (handle == null)
         {
             _logger.LogWarning("CreateObjectReference a renvoyé null");
+            objectManager->DeleteObjectByIndex((ushort)objectIndex, 0);
             return null;
         }
 

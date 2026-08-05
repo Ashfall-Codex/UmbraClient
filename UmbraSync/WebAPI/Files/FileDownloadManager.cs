@@ -1667,8 +1667,8 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
                             }
 
                             string calculatedHash = BitConverter.ToString(tmpFileStream.Finish()).Replace("-", "", StringComparison.Ordinal);
-
-                            if (!calculatedHash.Equals(capturedHash, StringComparison.Ordinal))
+                            
+                            if (!calculatedHash.Equals(capturedHash, StringComparison.OrdinalIgnoreCase))
                             {
                                 Logger.LogError("Hash mismatch after extracting, got {hash}, expected {expectedHash}, deleting file", calculatedHash, capturedHash);
                                 return;

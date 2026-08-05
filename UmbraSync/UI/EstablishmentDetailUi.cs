@@ -494,9 +494,12 @@ internal class EstablishmentDetailUi : WindowMediatorSubscriberBase
             if (ImGui.InputInt("##editPlot", ref _editPlot, 1, 1))
                 _editLocationDirty = true;
             _editPlot = Math.Clamp(_editPlot, 1, 60);
-            _editIsSubdivision = _editPlot > 30;
-            ImGui.TextColored(ImGuiColors.DalamudGrey,
-                _editIsSubdivision ? Loc.Get("Establishment.Location.Subdivision") : Loc.Get("Establishment.Location.Main"));
+            if (_editPlot > 30) _editIsSubdivision = true;
+
+            ImGui.TextColored(ImGuiColors.DalamudGrey, Loc.Get("Establishment.Location.Annex"));
+            if (ImGui.Checkbox("##editAnnexe", ref _editIsSubdivision))
+                _editLocationDirty = true;
+            UiSharedService.AttachToolTip(Loc.Get("Establishment.Location.AnnexTooltip"));
         }
         else
         {

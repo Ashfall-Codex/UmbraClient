@@ -451,19 +451,37 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
         if (hasLive)
         {
             live = await _liveAppearance.PrepareCollectionAsync(actor.Address, entry.LiveData!).ConfigureAwait(false);
+            
+            try
+            {
+                // Le draw ne démarre qu'ici, collection déjà assignée. Si la préparation a échoué, on
+                // dessine quand même : mieux vaut un PNJ en apparence brute qu'un acteur invisible.
+                await _dalamudUtil.RunOnFrameworkThread(
+                    () => _spawner.BeginDraw(actor.Address, entry.Appearance)).ConfigureAwait(false);
 
-            // Le draw ne démarre qu'ici, collection déjà assignée. Si la préparation a échoué, on
-            // dessine quand même : mieux vaut un PNJ en apparence brute qu'un acteur invisible.
-            await _dalamudUtil.RunOnFrameworkThread(
-                () => _spawner.BeginDraw(actor.Address, entry.Appearance)).ConfigureAwait(false);
+                await WaitUntilRenderedAsync(actor.Address).ConfigureAwait(false);
 
-            await WaitUntilRenderedAsync(actor.Address).ConfigureAwait(false);
+                if (live != null)
+                    await _liveAppearance.FinalizeAsync(live, entry.LiveData!, CancellationToken.None).ConfigureAwait(false);
 
-            if (live != null)
-                await _liveAppearance.FinalizeAsync(live, entry.LiveData!, CancellationToken.None).ConfigureAwait(false);
-
-            await _dalamudUtil.RunOnFrameworkThread(
-                () => NativeNpcSpawner.ApplyDisplayFlags(actor.Address, entry.Appearance)).ConfigureAwait(false);
+                await _dalamudUtil.RunOnFrameworkThread(
+                    () => NativeNpcSpawner.ApplyDisplayFlags(actor.Address, entry.Appearance)).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "Spawn du PNJ interrompu, nettoyage de l'acteur et de sa collection");
+                try
+                {
+                    if (live != null) await _liveAppearance.RevertAsync(live).ConfigureAwait(false);
+                    await _dalamudUtil.RunOnFrameworkThread(() => _spawner.Despawn(actor.Address)).ConfigureAwait(false);
+                }
+                catch (Exception cleanupEx)
+                {
+                    Logger.LogWarning(cleanupEx, "Nettoyage après spawn interrompu incomplet");
+                }
+                // On abandonne ce PNJ sans propager : les autres entrées de la scène doivent aboutir.
+                return;
+            }
         }
 
         lock (_stateLock)
