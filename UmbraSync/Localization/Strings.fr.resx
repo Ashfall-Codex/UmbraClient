@@ -6618,9 +6618,6 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
   <data name="HousingScenario.Error.NoShareHere" xml:space="preserve">
     <value>Aucune scène partagée pour cette pièce. Publiez-en une d'abord.</value>
   </data>
-  <data name="HousingScenario.HairNotSupported" xml:space="preserve">
-    <value>Les mods de tenue sont bien partagés. Les coiffures moddées ne s'affichent pas encore sur les PNJ : ils garderont la coiffure de base. Le reste de l'apparence est fidèle.</value>
-  </data>
   <data name="HousingNpc.Editor.GizmoRotate" xml:space="preserve">
     <value>Tourner</value>
   </data>

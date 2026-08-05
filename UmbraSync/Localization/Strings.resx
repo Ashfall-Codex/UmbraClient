@@ -6708,9 +6708,6 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
   <data name="HousingScenario.Error.NoShareHere" xml:space="preserve">
     <value>No shared scene for this room. Publish one first.</value>
   </data>
-  <data name="HousingScenario.HairNotSupported" xml:space="preserve">
-    <value>Outfit mods are shared correctly. Modded hairstyles do not show on NPCs yet: they will keep the base hairstyle. The rest of the appearance is faithful.</value>
-  </data>
   <data name="HousingNpc.Editor.GizmoRotate" xml:space="preserve">
     <value>Rotate</value>
   </data>
