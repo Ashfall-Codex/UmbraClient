@@ -90,6 +90,13 @@ public sealed class HonorificEditor
         {
             ImGui.SameLine();
             ImGui.ColorEdit3("##honorificColor", ref _color, ImGuiColorEditFlags.NoInputs);
+            ImGui.SameLine();
+            if (ImGui.SmallButton(Loc.Get("EditProfile.Honorific.ClearColor")))
+            {
+                _hasColor = false;
+                _ = ClearColorAsync();
+            }
+            UiSharedService.AttachToolTip(Loc.Get("EditProfile.Honorific.ClearColorTip"));
         }
         ImGui.SameLine();
         ImGuiHelpers.ScaledDummy(12f, 0);
@@ -168,6 +175,23 @@ public sealed class HonorificEditor
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Error parsing Honorific data");
+        }
+    }
+
+    /// <summary>
+    /// Retire la couleur et pousse le titre à Honorific sans attendre l'enregistrement du profil.
+    /// Ne touche qu'au titre : les autres champs du profil gardent leur état non enregistré.
+    /// </summary>
+    private async Task ClearColorAsync()
+    {
+        try
+        {
+            await ApplyAsync().ConfigureAwait(false);
+            SnapshotSaved();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error clearing Honorific colour");
         }
     }
 

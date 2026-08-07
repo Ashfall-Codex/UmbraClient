@@ -6156,6 +6156,12 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
   <data name="EditProfile.Honorific.CustomColorTip" xml:space="preserve">
     <value>Unchecked, the title keeps the game's own title look.&#x0A;Checked, it uses the flat colour you pick.</value>
   </data>
+  <data name="EditProfile.Honorific.ClearColor" xml:space="preserve">
+    <value>Remove</value>
+  </data>
+  <data name="EditProfile.Honorific.ClearColorTip" xml:space="preserve">
+    <value>Restores the game's own title look, right away.&#x0A;No need to save the profile: only the title is applied.</value>
+  </data>
   <data name="EditProfile.Honorific.Color" xml:space="preserve">
     <value>Text color</value>
   </data>
