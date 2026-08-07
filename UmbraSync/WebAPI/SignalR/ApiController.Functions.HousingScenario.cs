@@ -7,14 +7,14 @@ namespace UmbraSync.WebAPI.SignalR;
 
 public sealed partial class ApiController
 {
-    public async Task HousingScenarioUpload(HousingScenarioUploadRequestDto dto)
+    public async Task<HousingScenarioUploadResultDto?> HousingScenarioUpload(HousingScenarioUploadRequestDto dto)
     {
-        if (!IsConnected) return;
+        if (!IsConnected) return null;
         try
         {
             using var timeoutCts = new CancellationTokenSource(TimeSpan.FromMinutes(30));
             using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(timeoutCts.Token, _connectionCancellationTokenSource.Token);
-            await _mareHub!.InvokeAsync(nameof(HousingScenarioUpload), dto, linkedCts.Token).ConfigureAwait(false);
+            return await _mareHub!.InvokeAsync<HousingScenarioUploadResultDto>(nameof(HousingScenarioUpload), dto, linkedCts.Token).ConfigureAwait(false);
         }
         catch (Exception ex)
         {

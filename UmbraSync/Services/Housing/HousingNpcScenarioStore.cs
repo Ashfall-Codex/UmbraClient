@@ -72,6 +72,10 @@ public sealed class HousingNpcScenario
     /// vers un autre logement. 0 = inconnu (scènes antérieures à ce champ).
     /// </summary>
     public uint InteriorTerritoryId { get; set; }
+    
+    public string LinkedShareId { get; set; } = string.Empty;
+    public int? LinkedShareRevision { get; set; }
+    public bool LinkedShareIsDelegated { get; set; }
 
     public List<HousingNpcEntry> Entries { get; set; } = new();
 }
@@ -178,6 +182,39 @@ public sealed class HousingNpcScenarioStore
                 RoomId = loc.RoomId,
                 InteriorTerritoryId = interiorTerritoryId,
             };
+            _scenes.Add(scene);
+            Save();
+            return scene;
+        }
+    }
+
+    /// <summary>
+    /// Installe une scène reçue d'un partage comme copie de travail locale, rattachée au logement
+    /// courant. Une copie existante du même partage est remplacée : on veut une seule copie de
+    /// travail par partage, sinon on republierait à partir d'une version périmée.
+    /// </summary>
+    public HousingNpcScenario AdoptSharedScene(HousingNpcScenario scene, Guid shareId, LocationInfo loc, uint interiorTerritoryId,
+        string title, int sourceRevision)
+    {
+        lock (_lock)
+        {
+            var linked = shareId.ToString("N");
+            _scenes.RemoveAll(s => string.Equals(s.LinkedShareId, linked, StringComparison.Ordinal));
+
+            scene.Id = Guid.NewGuid().ToString("N");
+            scene.LinkedShareId = linked;
+            scene.LinkedShareRevision = sourceRevision;
+            scene.LinkedShareIsDelegated = true;
+            scene.Title = string.IsNullOrWhiteSpace(title) ? scene.Title : title;
+            scene.ServerId = loc.ServerId;
+            scene.TerritoryId = loc.TerritoryId;
+            scene.WardId = loc.WardId;
+            scene.HouseId = loc.HouseId;
+            scene.DivisionId = loc.DivisionId;
+            scene.RoomId = loc.RoomId;
+            scene.InteriorTerritoryId = interiorTerritoryId;
+            scene.Enabled = false;
+
             _scenes.Add(scene);
             Save();
             return scene;

@@ -903,6 +903,15 @@ Please keep a copy of your secret key in case you need to reset your plugins, or
   <data name="DrawUserPair.Menu.DisableHousing" xml:space="preserve">
     <value>Disable housing sync</value>
   </data>
+  <data name="DrawUserPair.Menu.EnableHousingScenarios" xml:space="preserve">
+    <value>Show their NPC scenarios</value>
+  </data>
+  <data name="DrawUserPair.Menu.DisableHousingScenarios" xml:space="preserve">
+    <value>Hide their NPC scenarios</value>
+  </data>
+  <data name="DrawUserPair.Menu.HousingScenariosTooltip" xml:space="preserve">
+    <value>Shows or hides the NPCs {0} placed in their house.&amp;#x0A;This setting stays on your client: {0} is not notified.</value>
+  </data>
   <data name="DrawUserPair.Menu.Unpair" xml:space="preserve">
     <value>Unpair Permanently</value>
   </data>
@@ -1092,6 +1101,12 @@ Click to change.</value>
   </data>
   <data name="CompactUi.SyncDefaults.HousingSubject" xml:space="preserve">
     <value>housing sync</value>
+  </data>
+  <data name="CompactUi.SyncDefaults.ScenarioLabel" xml:space="preserve">
+    <value>NPCs</value>
+  </data>
+  <data name="CompactUi.SyncDefaults.ScenarioSubject" xml:space="preserve">
+    <value>NPC scenario</value>
   </data>
   <data name="CompactUi.Uid.CopyTooltip" xml:space="preserve">
     <value>Copy your UID to clipboard</value>
@@ -6372,6 +6387,33 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
   <data name="HousingNpc.Editor.SceneToggleTip" xml:space="preserve">
     <value>Enable/disable this scene (spawn or not).</value>
   </data>
+  <data name="HousingNpc.Editor.NoneSpawned" xml:space="preserve">
+    <value>UmbraSync is not showing any NPC in this room.</value>
+  </data>
+  <data name="HousingNpc.Editor.NoneSpawnedTip" xml:space="preserve">
+    <value>If you still see NPCs here, another plugin placed them&amp;#x0A;(A Realm Repopulated, Brio…): they can only be removed from that plugin.</value>
+  </data>
+  <data name="HousingNpc.Editor.SpawnedSummary" xml:space="preserve">
+    <value>{0} NPC(s) shown here by UmbraSync.</value>
+  </data>
+  <data name="HousingNpc.Editor.SpawnedSummaryWithShared" xml:space="preserve">
+    <value>{0} NPC(s) shown here by UmbraSync, {1} of them from a shared scene.</value>
+  </data>
+  <data name="HousingNpc.Editor.SpawnedSummaryTip" xml:space="preserve">
+    <value>Your enabled scenes place their NPCs again every time you enter the house,&amp;#x0A;whether the scenario is shared or not. Turning sharing off does not remove them from your own place.</value>
+  </data>
+  <data name="HousingNpc.Editor.DespawnVisible" xml:space="preserve">
+    <value>Remove displayed NPCs</value>
+  </data>
+  <data name="HousingNpc.Editor.DespawnVisibleTip" xml:space="preserve">
+    <value>Makes the NPCs disappear now, without deleting anything.&amp;#x0A;They will come back next time you enter the house if their scene stays enabled.</value>
+  </data>
+  <data name="HousingNpc.Editor.DisableAllScenes" xml:space="preserve">
+    <value>Disable every scene</value>
+  </data>
+  <data name="HousingNpc.Editor.DisableAllScenesTip" xml:space="preserve">
+    <value>Disables the {0} scene(s) in this room: their NPCs disappear and will not come back.&amp;#x0A;Nothing is deleted, just re-enable them to get everything back.</value>
+  </data>
   <data name="HousingNpc.Editor.DeleteSceneTip" xml:space="preserve">
     <value>Ctrl+click to delete the scene.</value>
   </data>
@@ -6614,6 +6656,66 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
   </data>
   <data name="HousingScenario.Error.EmptyScene" xml:space="preserve">
     <value>The scene is empty: add at least one NPC before sharing it.</value>
+  </data>
+  <data name="HousingScenario.Error.NotLinked" xml:space="preserve">
+    <value>This scene is not linked to a share: nothing to send back.</value>
+  </data>
+  <data name="HousingScenario.Success.ImportedForEditing" xml:space="preserve">
+    <value>Scene pulled for editing. You will find it in the scene editor.</value>
+  </data>
+  <data name="HousingNpc.Editor.DelegatedSceneTitle" xml:space="preserve">
+    <value>Delegated scene</value>
+  </data>
+  <data name="HousingNpc.Editor.DelegatedHeader" xml:space="preserve">
+    <value>Scenes other players let you edit</value>
+  </data>
+  <data name="HousingNpc.Editor.DelegatedImport" xml:space="preserve">
+    <value>Pull for editing</value>
+  </data>
+  <data name="HousingNpc.Editor.DelegatedImportTip" xml:space="preserve">
+    <value>Copies {0}'s scene into your editor.&#x0A;Your changes are only sent when you click « Send back to owner ».</value>
+  </data>
+  <data name="HousingNpc.Editor.DelegatedRepublish" xml:space="preserve">
+    <value>Send back to owner</value>
+  </data>
+  <data name="HousingNpc.Editor.DelegatedRepublishTip" xml:space="preserve">
+    <value>Sends your version of the scene: every visitor will see it.&#x0A;Location and permissions stay the owner's.</value>
+  </data>
+  <data name="HousingNpc.Editor.DelegatedBadge" xml:space="preserve">
+    <value>delegated</value>
+  </data>
+  <data name="HousingNpc.Editor.DelegatedBadgeTip" xml:space="preserve">
+    <value>Working copy of a scene shared by someone else.&#x0A;It does not spawn NPCs at your place: the NPCs you see come from the share itself.</value>
+  </data>
+  <data name="HousingScenario.Editors.Header" xml:space="preserve">
+    <value>Delegated editing</value>
+  </data>
+  <data name="HousingScenario.Editors.Help" xml:space="preserve">
+    <value>These players can change the scene's content and republish it. They cannot delete it, move it, or change who sees it.</value>
+  </data>
+  <data name="HousingScenario.Editors.Hint" xml:space="preserve">
+    <value>Player UID</value>
+  </data>
+  <data name="HousingScenario.Editors.Add" xml:space="preserve">
+    <value>Allow to edit</value>
+  </data>
+  <data name="HousingScenario.Editors.Remove" xml:space="preserve">
+    <value>Revoke</value>
+  </data>
+  <data name="HousingScenario.Editors.None" xml:space="preserve">
+    <value>Nobody else can edit this scene.</value>
+  </data>
+  <data name="HousingScenario.Error.Conflict" xml:space="preserve">
+    <value>Someone else changed this scene while you were working on it. Your changes were not sent: pull the latest version, then redo them.</value>
+  </data>
+  <data name="HousingScenario.Error.Forbidden" xml:space="preserve">
+    <value>The server refused the upload: you are not (or no longer) allowed to edit this scene.</value>
+  </data>
+  <data name="HousingNpc.Editor.OwnRepublish" xml:space="preserve">
+    <value>Update the share</value>
+  </data>
+  <data name="HousingNpc.Editor.OwnRepublishTip" xml:space="preserve">
+    <value>Sends this version to the players who can access your shared scene.&#x0A;The share keeps its address, its permissions and its editors.</value>
   </data>
   <data name="HousingScenario.Error.Unavailable" xml:space="preserve">
     <value>Scene unavailable (permissions?).</value>

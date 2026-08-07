@@ -106,7 +106,7 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
         {
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             timeout.CancelAfter(TimeSpan.FromSeconds(5));
-            await DespawnAllInternalAsync().WaitAsync(timeout.Token).ConfigureAwait(false);
+            await DespawnAllInternalAsync(notifySharedPurged: false).WaitAsync(timeout.Token).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -171,6 +171,52 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
 
     public List<HousingNpcScenario> ScenesForCurrentRoom()
         => _currentLocation is { } loc ? _store.ScenesForLocation(loc) : new();
+    
+    public (int Total, int Shared) SpawnedCounts
+    {
+        get
+        {
+            lock (_stateLock)
+                return (_spawned.Count, _spawned.Count(s => s.Shared));
+        }
+    }
+    public async Task DespawnVisibleAsync()
+    {
+        await _gate.WaitAsync().ConfigureAwait(false);
+        try { await DespawnAllInternalAsync().ConfigureAwait(false); }
+        finally { _gate.Release(); }
+    }
+    
+    public HousingNpcScenario? AdoptSharedSceneForEditing(HousingNpcScenario scene, Guid shareId, string description, int sourceRevision)
+    {
+        if (_currentLocation is not { } loc) return null;
+
+        var title = string.IsNullOrWhiteSpace(description)
+            ? Loc.Get("HousingNpc.Editor.DelegatedSceneTitle")
+            : description;
+
+        var adopted = _store.AdoptSharedScene(scene, shareId, loc, _currentInteriorTerritoryId, title, sourceRevision);
+        Logger.LogInformation("Scène déléguée {ShareId} adoptée localement pour édition ({Count} PNJ)", shareId, adopted.Entries.Count);
+        return adopted;
+    }
+    
+    public async Task SetAllScenesEnabledAsync(bool enabled)
+    {
+        if (_currentLocation is not { } loc) return;
+
+        var scenes = _store.ScenesForLocation(loc);
+        bool changed = false;
+        foreach (var scene in scenes.Where(s => s.Enabled != enabled))
+        {
+            scene.Enabled = enabled;
+            changed = true;
+        }
+
+        if (!changed) return;
+
+        _store.SaveChanges();
+        await RefreshAsync().ConfigureAwait(false);
+    }
 
     /// <summary>
     /// Scènes rattachées à un autre logement. Un déménagement ne détruit rien : les scènes restent
@@ -251,6 +297,8 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
         _store.SaveChanges();
         await RefreshAsync().ConfigureAwait(false);
     }
+
+    public void PersistScenes() => _store.SaveChanges();
     
     private static CharacterData WithoutMods(CharacterData data) => new()
     {
@@ -459,6 +507,8 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
             }
             catch (Exception ex) { Logger.LogWarning(ex, "Despawn PNJ partagé échoué ({Addr:X})", npc.Address); }
         }
+
+        await ReleaseGPoseSlotIfIdleAsync().ConfigureAwait(false);
     }
 
     private async Task SpawnEntryInternalAsync(HousingNpcEntry entry, string groupId, bool shared = false)
@@ -552,8 +602,8 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
         }
         Logger.LogWarning("PNJ {Addr:X} non rendu après {Timeout}ms — apparence appliquée malgré tout", address, timeoutMs);
     }
-
-    private async Task DespawnAllInternalAsync()
+    
+    private async Task DespawnAllInternalAsync(bool notifySharedPurged = true)
     {
         _lookAt.Clear();
         List<SpawnedNpc> spawned;
@@ -561,10 +611,12 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
         {
             _runtimes.Clear();
             _anchors.Clear();
-            if (_spawned.Count == 0) return;
             spawned = _spawned.ToList();
             _spawned.Clear();
         }
+
+        if (notifySharedPurged && spawned.Exists(s => s.Shared))
+            Mediator.Publish(new HousingNpcSharedScenePurgedMessage());
 
         foreach (var npc in spawned)
         {
@@ -575,11 +627,27 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
             }
             catch (Exception ex) { Logger.LogWarning(ex, "Despawn PNJ échoué ({Addr:X})", npc.Address); }
         }
+
+        await ReleaseGPoseSlotIfIdleAsync().ConfigureAwait(false);
+    }
+    private async Task ReleaseGPoseSlotIfIdleAsync()
+    {
+        lock (_stateLock)
+        {
+            if (_spawned.Count != 0) return;
+        }
+
+        try
+        {
+            await _dalamudUtil.RunOnFrameworkThread(_spawner.ReleaseGPoseSlot).ConfigureAwait(false);
+        }
+        catch (Exception ex) { Logger.LogWarning(ex, "Libération du slot d'objet neutralisé échouée"); }
     }
 
     private void ForgetSpawned()
     {
         _lookAt.Clear();
+        _spawner.ForgetGPoseSlot();
         List<SpawnedNpc> spawned;
         lock (_stateLock)
         {

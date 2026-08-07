@@ -7,6 +7,7 @@ using Dalamud.Interface.Utility.Raii;
 using Dalamud.Interface.Windowing;
 using Dalamud.Plugin.Services;
 using Microsoft.Extensions.Logging;
+using System.Globalization;
 using System.Numerics;
 using UmbraSync.Services;
 using UmbraSync.Services.Housing;
@@ -18,6 +19,7 @@ namespace UmbraSync.UI;
 public sealed class HousingNpcSceneEditorUi : WindowMediatorSubscriberBase
 {
     private readonly HousingNpcScenarioService _service;
+    private readonly HousingScenarioManager _scenarioManager;
     private readonly UiSharedService _uiShared;
     private readonly IDataManager _dataManager;
     private readonly ITextureProvider _textureProvider;
@@ -33,11 +35,12 @@ public sealed class HousingNpcSceneEditorUi : WindowMediatorSubscriberBase
     private bool _loadingDesigns;
 
     public HousingNpcSceneEditorUi(ILogger<HousingNpcSceneEditorUi> logger, MareMediator mediator,
-        HousingNpcScenarioService service, UiSharedService uiShared, IDataManager dataManager,
-        ITextureProvider textureProvider, PerformanceCollectorService performanceCollectorService)
+        HousingNpcScenarioService service, HousingScenarioManager scenarioManager, UiSharedService uiShared,
+        IDataManager dataManager, ITextureProvider textureProvider, PerformanceCollectorService performanceCollectorService)
         : base(logger, mediator, Loc.Get("HousingNpc.Editor.Title") + "###HousingNpcSceneEditor", performanceCollectorService)
     {
         _service = service;
+        _scenarioManager = scenarioManager;
         _uiShared = uiShared;
         _dataManager = dataManager;
         _textureProvider = textureProvider;
@@ -63,6 +66,8 @@ public sealed class HousingNpcSceneEditorUi : WindowMediatorSubscriberBase
         ImGui.Separator();
 
         var scenes = _service.ScenesForCurrentRoom();
+
+        DrawSpawnedSummary(scenes);
 
         if (_uiShared.IconTextButton(FontAwesomeIcon.Plus, Loc.Get("HousingNpc.Editor.NewScene")))
             _ = _service.CreateSceneAsync(Loc.Get("HousingNpc.Editor.NewScene"));
@@ -98,10 +103,16 @@ public sealed class HousingNpcSceneEditorUi : WindowMediatorSubscriberBase
             UiSharedService.AttachToolTip(Loc.Get("HousingNpc.Editor.SceneToggleTip"));
             ImGui.SameLine();
 
+            bool delegated = scene.LinkedShareIsDelegated;
+            var label = delegated
+                ? $"{scene.Title} ({scene.Entries.Count})  •  {Loc.Get("HousingNpc.Editor.DelegatedBadge")}"
+                : $"{scene.Title} ({scene.Entries.Count})";
+
             bool selected = string.Equals(scene.Id, _selectedSceneId, StringComparison.Ordinal);
-            if (ImGui.Selectable($"{scene.Title} ({scene.Entries.Count})##sel", selected,
+            if (ImGui.Selectable($"{label}##sel", selected,
                     ImGuiSelectableFlags.None, new Vector2(ImGui.GetContentRegionAvail().X - 30 * ImGuiHelpers.GlobalScale, 0)))
                 _selectedSceneId = scene.Id;
+            if (delegated) UiSharedService.AttachToolTip(Loc.Get("HousingNpc.Editor.DelegatedBadgeTip"));
 
             ImGui.SameLine();
             using (ImRaii.PushColor(ImGuiCol.Button, ImGuiColors.DalamudRed))
@@ -267,13 +278,105 @@ public sealed class HousingNpcSceneEditorUi : WindowMediatorSubscriberBase
             ImGui.TextColored(ImGuiColors.DalamudYellow, Loc.Get("HousingNpc.Editor.Unsaved"));
         }
 
+        if (!string.IsNullOrEmpty(current.LinkedShareId))
+        {
+            var republishLabel = current.LinkedShareIsDelegated
+                ? Loc.Get("HousingNpc.Editor.DelegatedRepublish")
+                : Loc.Get("HousingNpc.Editor.OwnRepublish");
+
+            ImGui.SameLine();
+            using (ImRaii.Disabled(_scenarioManager.IsBusy))
+            {
+                if (_uiShared.IconTextButton(FontAwesomeIcon.PaperPlane, republishLabel))
+                {
+                    _service.PersistScenes();
+                    _ = _scenarioManager.RepublishEditedSceneAsync(current);
+                }
+            }
+            UiSharedService.AttachToolTip(Loc.Get(current.LinkedShareIsDelegated
+                ? "HousingNpc.Editor.DelegatedRepublishTip"
+                : "HousingNpc.Editor.OwnRepublishTip"));
+
+            // Un refus (conflit d'édition, droit retiré) doit se voir ici : c'est le seul endroit où
+            // l'on republie, et le hub housing n'est pas forcément ouvert.
+            if (!string.IsNullOrEmpty(_scenarioManager.LastError))
+                UiSharedService.ColorTextWrapped(_scenarioManager.LastError, ImGuiColors.DalamudRed);
+            else if (!string.IsNullOrEmpty(_scenarioManager.LastSuccess))
+                UiSharedService.ColorTextWrapped(_scenarioManager.LastSuccess, ImGuiColors.HealerGreen);
+        }
+
+        DrawDelegatedShares();
         DrawOrphanScenes();
     }
 
     /// <summary>
-    /// Scènes rattachées à un autre logement (typiquement après un déménagement) : elles restent
-    /// stockées mais ne correspondent plus à la localisation courante, donc invisibles ailleurs.
+    /// Scènes appartenant à d'autres joueurs, dont ils nous ont confié la modification. Les
+    /// récupérer crée une copie de travail locale, éditable comme n'importe quelle scène.
     /// </summary>
+    private void DrawDelegatedShares()
+    {
+        var editable = _scenarioManager.EditableSharesHere;
+        if (editable.Count == 0) return;
+
+        ImGuiHelpers.ScaledDummy(6f);
+        ImGui.Separator();
+        if (!ImGui.CollapsingHeader(Loc.Get("HousingNpc.Editor.DelegatedHeader")))
+            return;
+
+        foreach (var share in editable)
+        {
+            using var id = ImRaii.PushId("delegated-" + share.Id);
+
+            var owner = string.IsNullOrEmpty(share.OwnerAlias) ? share.OwnerUid : share.OwnerAlias;
+            using (ImRaii.Disabled(_scenarioManager.IsBusy))
+            {
+                if (_uiShared.IconTextButton(FontAwesomeIcon.Download, Loc.Get("HousingNpc.Editor.DelegatedImport")))
+                    _ = _scenarioManager.ImportSharedSceneForEditingAsync(share.Id);
+            }
+            UiSharedService.AttachToolTip(string.Format(CultureInfo.CurrentCulture, Loc.Get("HousingNpc.Editor.DelegatedImportTip"), owner));
+
+            ImGui.SameLine();
+            ImGui.TextUnformatted(string.IsNullOrWhiteSpace(share.Description) ? owner : $"{share.Description} — {owner}");
+        }
+    }
+    
+    private void DrawSpawnedSummary(List<HousingNpcScenario> scenes)
+    {
+        var (total, shared) = _service.SpawnedCounts;
+        int enabledScenes = scenes.Count(s => s.Enabled);
+
+        if (total == 0 && enabledScenes == 0)
+        {
+            ImGui.TextColored(ImGuiColors.DalamudGrey, Loc.Get("HousingNpc.Editor.NoneSpawned"));
+            UiSharedService.AttachToolTip(Loc.Get("HousingNpc.Editor.NoneSpawnedTip"));
+            ImGuiHelpers.ScaledDummy(4f);
+            return;
+        }
+
+        var summary = shared > 0
+            ? string.Format(Loc.Get("HousingNpc.Editor.SpawnedSummaryWithShared"), total, shared)
+            : string.Format(Loc.Get("HousingNpc.Editor.SpawnedSummary"), total);
+        ImGui.TextColored(total > 0 ? ImGuiColors.DalamudYellow : ImGuiColors.DalamudGrey, summary);
+        UiSharedService.AttachToolTip(Loc.Get("HousingNpc.Editor.SpawnedSummaryTip"));
+
+        using (ImRaii.Disabled(total == 0))
+        {
+            if (_uiShared.IconTextButton(FontAwesomeIcon.EyeSlash, Loc.Get("HousingNpc.Editor.DespawnVisible")))
+                _ = _service.DespawnVisibleAsync();
+        }
+        UiSharedService.AttachToolTip(Loc.Get("HousingNpc.Editor.DespawnVisibleTip"));
+
+        if (enabledScenes > 0)
+        {
+            ImGui.SameLine();
+            if (_uiShared.IconTextButton(FontAwesomeIcon.PowerOff, Loc.Get("HousingNpc.Editor.DisableAllScenes")))
+                _ = _service.SetAllScenesEnabledAsync(false);
+            UiSharedService.AttachToolTip(string.Format(Loc.Get("HousingNpc.Editor.DisableAllScenesTip"), enabledScenes));
+        }
+
+        ImGuiHelpers.ScaledDummy(4f);
+    }
+
     private void DrawOrphanScenes()
     {
         var orphans = _service.OrphanScenes();

@@ -342,6 +342,13 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
     {
         return new List<ChangelogEntry>
         {
+            new(new Version(3, 0, 1, 8007), "3.0.1.8007", new List<ChangelogLine>
+            {
+                new("Nouveauté : Vous pouvez refuser les scénarios PNJ des autres joueurs, d'un coup avec le bouton « PNJ » de la fenêtre principale, ou joueur par joueur via le clic droit sur une paire (« Masquer ses scénarios PNJ »). L'effet est immédiat, sans avoir à ressortir du logement, et le choix reste sur votre client : la personne concernée n'en est pas informée."),
+                new("Correction : Le premier PNJ d'une scène apparaissait avec votre apparence de base au lieu de la sienne, et le supprimer faisait retomber le PNJ suivant dans le même état. Le jeu réserve un emplacement d'acteur au mode photo, et le PNJ qui l'occupait y était confondu avec votre personnage : cet emplacement est désormais mis de côté. Le PNJ « sacrificiel » caché dans le décor n'a plus lieu d'être. Et si une apparence ne prenait quand même pas, elle est réappliquée automatiquement."),
+                new("Amélioration : L'éditeur de scènes indique combien de PNJ UmbraSync affiche réellement dans la pièce, et propose de les retirer sur-le-champ ou de désactiver toutes les scènes du logement — sans rien supprimer dans les deux cas. Un compteur à zéro alors que des PNJ sont visibles signifie qu'ils viennent d'un autre plugin. Rappel utile : vos scènes activées replacent leurs PNJ à chaque entrée chez vous, couper le partage ne les enlève pas de votre propre logement."),
+                new("Correction : Les PNJ d'une scène partagée disparaissaient définitivement dès qu'une manipulation dans l'éditeur relançait le placement des vôtres. Ils ne revenaient qu'après un changement de zone."),
+            }),
             new(new Version(3, 0, 0, 8006), "3.0.0.8006", new List<ChangelogLine>
             {
                 new("Nouveauté : Un bandeau de progression s'affiche pendant la mise en place d'une scène PNJ."),

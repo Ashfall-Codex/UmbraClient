@@ -35,6 +35,7 @@ public sealed class HousingScenarioManager : IDisposable
     private FileDownloadManager? _fileDownloadManager;
     private readonly SemaphoreSlim _operationSemaphore = new(1, 1);
     private volatile IReadOnlyList<HousingScenarioEntryDto> _ownShares = Array.Empty<HousingScenarioEntryDto>();
+    private volatile IReadOnlyList<HousingScenarioEntryDto> _editableSharesHere = Array.Empty<HousingScenarioEntryDto>();
     private Task? _currentTask;
     private CancellationTokenSource? _cleanupDelayCts;
     private Guid? _lastOwnerReminderShareId;
@@ -67,13 +68,28 @@ public sealed class HousingScenarioManager : IDisposable
     public Guid? AppliedShareId { get; private set; }
     public string? AppliedShareOwnerUid { get; private set; }
     public Task PublishAsync(LocationInfo location, HousingNpcScenario scene, string description,
-        List<string> allowedIndividuals, List<string> allowedSyncshells)
+        List<string> allowedIndividuals, List<string> allowedSyncshells, List<string>? allowedEditors = null)
     {
-        return RunOperation(() => PublishInternalAsync(location, scene, description, allowedIndividuals, allowedSyncshells));
+        return RunOperation(async () =>
+        {
+            Guid? existingShareId = null;
+            int? baseRevision = null;
+
+            if (Guid.TryParseExact(scene.LinkedShareId, "N", out var linked)
+                && (_ownShares.Any(s => s.Id == linked) || _editableSharesHere.Any(s => s.Id == linked)))
+            {
+                existingShareId = linked;
+                baseRevision = scene.LinkedShareRevision;
+            }
+
+            await PublishInternalAsync(location, scene, description, allowedIndividuals, allowedSyncshells,
+                allowedEditors, existingShareId, baseRevision, scene).ConfigureAwait(false);
+        });
     }
 
     private async Task PublishInternalAsync(LocationInfo location, HousingNpcScenario scene, string description,
-        List<string> allowedIndividuals, List<string> allowedSyncshells)
+        List<string> allowedIndividuals, List<string> allowedSyncshells, List<string>? allowedEditors = null,
+        Guid? existingShareId = null, int? baseContentRevision = null, HousingNpcScenario? workingCopy = null)
     {
         if (scene.Entries.Count == 0)
         {
@@ -106,8 +122,9 @@ public sealed class HousingScenarioManager : IDisposable
         dataBytes[0] = PayloadVersionV2;
         Buffer.BlockCopy(mapBytes, 0, dataBytes, 1, mapBytes.Length);
 
-        // Chiffrement AES-GCM
-        var shareId = Guid.NewGuid();
+        // Chiffrement AES-GCM. Une republication réutilise l'identifiant du partage : la clé en
+        // dérive, et c'est lui qui désigne la scène à mettre à jour côté serveur.
+        var shareId = existingShareId ?? Guid.NewGuid();
         byte[] salt = RandomNumberGenerator.GetBytes(16);
         byte[] nonce = RandomNumberGenerator.GetBytes(12);
         byte[] key = ShareCryptoHelper.DeriveKey(shareId, salt);
@@ -130,9 +147,34 @@ public sealed class HousingScenarioManager : IDisposable
             Tag = tag,
             AllowedIndividuals = allowedIndividuals,
             AllowedSyncshells = allowedSyncshells,
+            AllowedEditors = allowedEditors ?? new List<string>(),
+            BaseContentRevision = baseContentRevision,
         };
 
-        await _apiController.HousingScenarioUpload(uploadDto).ConfigureAwait(false);
+        var result = await _apiController.HousingScenarioUpload(uploadDto).ConfigureAwait(false);
+
+        if (result?.Status == HousingScenarioUploadStatus.Conflict)
+        {
+            LastError = Localization.Loc.Get("HousingScenario.Error.Conflict");
+            _logger.LogWarning("Republication du scénario {ShareId} refusée : la scène a changé entre-temps", shareId);
+            return;
+        }
+
+        if (result?.Status == HousingScenarioUploadStatus.Forbidden)
+        {
+            LastError = Localization.Loc.Get("HousingScenario.Error.Forbidden");
+            _logger.LogWarning("Publication du scénario {ShareId} refusée par le serveur", shareId);
+            return;
+        }
+        
+        if (workingCopy != null && result != null)
+        {
+
+            workingCopy.LinkedShareId = shareId.ToString("N");
+            workingCopy.LinkedShareRevision = result.ContentRevision;
+            _npcService.PersistScenes();
+        }
+
         await InternalRefreshAsync().ConfigureAwait(false);
 
         LastSuccess = Localization.Loc.Get("HousingScenario.Success.Published");
@@ -162,7 +204,8 @@ public sealed class HousingScenarioManager : IDisposable
             if (scene == null) return; // LastError déjà posé
 
             await PublishInternalAsync(newLocation, scene, source.Description,
-                new List<string>(source.AllowedIndividuals), new List<string>(source.AllowedSyncshells)).ConfigureAwait(false);
+                new List<string>(source.AllowedIndividuals), new List<string>(source.AllowedSyncshells),
+                new List<string>(source.AllowedEditors)).ConfigureAwait(false);
 
             // La republication a échoué (payload vide, upload en erreur) : on garde l'ancien partage.
             if (LastError != null) return;
@@ -191,10 +234,11 @@ public sealed class HousingScenarioManager : IDisposable
 
         return RunOperation(async () =>
         {
-            // Désactivation globale : l'utilisateur ne veut aucun scénario partagé.
             if (_configService.Current.DefaultDisableHousingScenarios)
             {
                 _logger.LogDebug("Scénarios housing désactivés globalement, apply skip");
+                if (IsApplied)
+                    await RemoveAppliedInternalAsync().ConfigureAwait(false);
                 return;
             }
 
@@ -202,9 +246,7 @@ public sealed class HousingScenarioManager : IDisposable
 
             shares.RemoveAll(s => !LocationMatches(s.Location, location));
 
-            // Jamais d'auto-application : l'owner possède déjà le scénario original en local,
-            // re-déposer la copie partagée dans ARR créerait un doublon (deux scénarios listés).
-            // On lui rappelle néanmoins qu'un de ses scénarios est publié ici (une fois par visite).
+            _editableSharesHere = shares.Where(s => s.CanEdit && !s.IsOwner).ToList();
             var ownShare = shares.Find(s => s.IsOwner);
             if (ownShare != null && _lastOwnerReminderShareId != ownShare.Id)
             {
@@ -486,19 +528,19 @@ public sealed class HousingScenarioManager : IDisposable
     }
 
     /// <summary>
-    /// Invalide l'état « appliqué » sans tenter de despawn : au changement de zone, le jeu a déjà
-    /// détruit les acteurs natifs et le service PNJ a lâché les siens.
+    /// Invalide l'état « appliqué » sans tenter de despawn, quand les acteurs ont déjà disparu par
+    /// ailleurs : changement de zone (le jeu les a détruits) ou despawn global côté service PNJ.
     /// </summary>
     /// <remarks>
     /// Sans ça, un retour dans les 15 secondes annulait le nettoyage différé alors que les PNJ
     /// avaient bel et bien disparu : le scénario était vu comme toujours en place et n'était jamais
     /// respawné (« déjà appliqué, skip »).
     /// </remarks>
-    public void InvalidateAppliedAfterZoneSwitch()
+    public void InvalidateApplied(string reason)
     {
         if (!IsApplied) return;
 
-        _logger.LogInformation("Changement de zone : scénario {ShareId} invalidé, il sera réappliqué au retour", AppliedShareId);
+        _logger.LogInformation("Scénario {ShareId} invalidé ({Reason}), il sera réappliqué à la prochaine occasion", AppliedShareId, reason);
         CancelDelayedCleanup();
         IsApplied = false;
         AppliedShareId = null;
@@ -517,7 +559,8 @@ public sealed class HousingScenarioManager : IDisposable
         _ownShares = shares?.ToList() ?? (IReadOnlyList<HousingScenarioEntryDto>)Array.Empty<HousingScenarioEntryDto>();
     }
 
-    public Task UpdateVisibilityAsync(Guid shareId, string description, List<string> allowedIndividuals, List<string> allowedSyncshells)
+    public Task UpdateVisibilityAsync(Guid shareId, string description, List<string> allowedIndividuals,
+        List<string> allowedSyncshells, List<string>? allowedEditors = null)
     {
         return RunOperation(async () =>
         {
@@ -527,6 +570,7 @@ public sealed class HousingScenarioManager : IDisposable
                 Description = description,
                 AllowedIndividuals = allowedIndividuals,
                 AllowedSyncshells = allowedSyncshells,
+                AllowedEditors = allowedEditors ?? new List<string>(),
             };
 
             var updated = await _apiController.HousingScenarioUpdate(dto).ConfigureAwait(false);
@@ -538,6 +582,60 @@ public sealed class HousingScenarioManager : IDisposable
 
             _ownShares = _ownShares.Select(s => s.Id == shareId ? updated : s).ToList();
             LastSuccess = "Scénario mis à jour.";
+        });
+    }
+    
+    public IReadOnlyList<HousingScenarioEntryDto> EditableSharesHere => _editableSharesHere;
+    public Task ImportSharedSceneForEditingAsync(Guid shareId)
+    {
+        return RunOperation(async () =>
+        {
+            var entry = _editableSharesHere.FirstOrDefault(s => s.Id == shareId);
+            if (entry == null)
+            {
+                LastError = Localization.Loc.Get("HousingScenario.Error.Unavailable");
+                return;
+            }
+
+            var scene = await DownloadAndDecryptSceneAsync(shareId).ConfigureAwait(false);
+            if (scene == null) return; // LastError déjà posé
+
+            var adopted = _npcService.AdoptSharedSceneForEditing(scene, shareId, entry.Description, entry.ContentRevision);
+            if (adopted == null)
+            {
+                LastError = Localization.Loc.Get("HousingScenario.Error.NotInHousing");
+                return;
+            }
+
+            LastSuccess = Localization.Loc.Get("HousingScenario.Success.ImportedForEditing");
+            _logger.LogInformation("Scénario {ShareId} récupéré pour édition déléguée", shareId);
+        });
+    }
+    
+    public Task RepublishEditedSceneAsync(HousingNpcScenario scene)
+    {
+        return RunOperation(async () =>
+        {
+            if (!Guid.TryParseExact(scene.LinkedShareId, "N", out var shareId))
+            {
+                LastError = Localization.Loc.Get("HousingScenario.Error.NotLinked");
+                return;
+            }
+
+            var entry = _editableSharesHere.FirstOrDefault(s => s.Id == shareId);
+            var location = entry?.Location ?? new LocationInfo
+            {
+                ServerId = scene.ServerId,
+                TerritoryId = scene.TerritoryId,
+                WardId = scene.WardId,
+                HouseId = scene.HouseId,
+                DivisionId = scene.DivisionId,
+                RoomId = scene.RoomId,
+            };
+            
+            await PublishInternalAsync(location, scene, entry?.Description ?? string.Empty,
+                new List<string>(), new List<string>(), null, shareId,
+                scene.LinkedShareRevision, scene).ConfigureAwait(false);
         });
     }
 

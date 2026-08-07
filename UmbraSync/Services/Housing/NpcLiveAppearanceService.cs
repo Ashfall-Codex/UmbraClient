@@ -18,6 +18,7 @@ public sealed class NpcLiveAppearanceService : DisposableMediatorSubscriberBase
     private readonly DalamudUtilService _dalamudUtil;
     private readonly CharaDataFileHandler _fileHandler;
     private readonly NativeNpcSpawner _spawner;
+    private const int GPosePlayerIndex = 200;
 
     private volatile CharacterData? _lastSelfData;
 
@@ -99,6 +100,10 @@ public sealed class NpcLiveAppearanceService : DisposableMediatorSubscriberBase
 
         int idx = await _dalamudUtil.RunOnFrameworkThread(() => _spawner.GetObjectTableIndex(address)).ConfigureAwait(false);
         if (idx < 0) return null;
+        if (idx == GPosePlayerIndex)
+        {
+            Logger.LogWarning("Live PNJ : acteur sur le slot {Index} (joueur GPose), l'apparence risque de ne pas s'appliquer", GPosePlayerIndex);
+        }
         var handler = await _gameObjectHandlerFactory.Create(
             ObjectKind.Player, () => _spawner.ResolveIfAlive(idx, address), isWatched: false).ConfigureAwait(false);
         try
@@ -172,14 +177,21 @@ public sealed class NpcLiveAppearanceService : DisposableMediatorSubscriberBase
             data.GlamourerData.TryGetValue(ObjectKind.Player, out var glamourer);
             data.CustomizePlusData.TryGetValue(ObjectKind.Player, out var customizePlus);
 
-            await _ipc.Glamourer.ApplyAllAsync(Logger, handle.Handler, glamourer, handle.ApplicationId, token).ConfigureAwait(false);
-            await _ipc.Penumbra.RedrawAsync(Logger, handle.Handler, handle.ApplicationId, token).ConfigureAwait(false);
-            await _dalamudUtil.WaitWhileCharacterIsDrawing(Logger, handle.Handler, handle.ApplicationId, 30000, token).ConfigureAwait(false);
+            // Relevé de l'état avant application : sert de témoin pour savoir si Glamourer a
+            // réellement touché CET acteur (cf. ApplyGlamourerWithRetryAsync).
+            var stateBefore = string.IsNullOrEmpty(glamourer)
+                ? string.Empty
+                : await _ipc.Glamourer.GetCharacterCustomizationAsync(handle.Handler.Address).ConfigureAwait(false);
+
+            await ApplyGlamourerAsync(handle, glamourer, token).ConfigureAwait(false);
             if (handle.Handler.Address == nint.Zero)
             {
                 Logger.LogWarning("Live PNJ : acteur de l'index {Index} disparu pendant le redraw, finalisation abandonnée", handle.ObjectIndex);
                 return;
             }
+
+            await VerifyGlamourerAppliedAsync(handle, glamourer, stateBefore, token).ConfigureAwait(false);
+            if (handle.Handler.Address == nint.Zero) return;
 
             if (!string.IsNullOrEmpty(customizePlus))
                 handle.CustomizeProfile = await _ipc.CustomizePlus.SetBodyScaleAsync(handle.Handler.Address, customizePlus).ConfigureAwait(false);
@@ -197,6 +209,39 @@ public sealed class NpcLiveAppearanceService : DisposableMediatorSubscriberBase
         catch (Exception ex)
         {
             Logger.LogWarning(ex, "Finalisation du live data PNJ échouée");
+        }
+    }
+
+    private async Task ApplyGlamourerAsync(NpcLiveHandle handle, string? glamourer, CancellationToken token)
+    {
+        await _ipc.Glamourer.ApplyAllAsync(Logger, handle.Handler, glamourer, handle.ApplicationId, token).ConfigureAwait(false);
+        await _ipc.Penumbra.RedrawAsync(Logger, handle.Handler, handle.ApplicationId, token).ConfigureAwait(false);
+        await _dalamudUtil.WaitWhileCharacterIsDrawing(Logger, handle.Handler, handle.ApplicationId, 30000, token).ConfigureAwait(false);
+    }
+    
+    private async Task VerifyGlamourerAppliedAsync(NpcLiveHandle handle, string? glamourer, string stateBefore, CancellationToken token)
+    {
+        if (string.IsNullOrEmpty(glamourer) || string.IsNullOrEmpty(stateBefore)) return;
+
+        var stateAfter = await _ipc.Glamourer.GetCharacterCustomizationAsync(handle.Handler.Address).ConfigureAwait(false);
+        if (string.IsNullOrEmpty(stateAfter) || !string.Equals(stateAfter, stateBefore, StringComparison.Ordinal)) return;
+
+        Logger.LogWarning("Live PNJ : l'état Glamourer de l'index {Index} n'a pas bougé après application, nouvelle tentative", handle.ObjectIndex);
+        await ApplyGlamourerAsync(handle, glamourer, token).ConfigureAwait(false);
+        if (handle.Handler.Address == nint.Zero)
+        {
+            Logger.LogWarning("Live PNJ : acteur de l'index {Index} disparu pendant la seconde tentative", handle.ObjectIndex);
+            return;
+        }
+
+        var stateRetried = await _ipc.Glamourer.GetCharacterCustomizationAsync(handle.Handler.Address).ConfigureAwait(false);
+        if (string.Equals(stateRetried, stateBefore, StringComparison.Ordinal))
+        {
+            Logger.LogWarning("Live PNJ : l'index {Index} refuse toujours l'apparence Glamourer, il restera en apparence brute", handle.ObjectIndex);
+        }
+        else
+        {
+            Logger.LogInformation("Live PNJ : apparence Glamourer appliquée à l'index {Index} à la seconde tentative", handle.ObjectIndex);
         }
     }
 

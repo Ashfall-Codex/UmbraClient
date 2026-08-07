@@ -30,6 +30,8 @@ public sealed partial class CharaDataHubUi
     private string _housingScenarioEditDescription = string.Empty;
     private bool _housingScenarioEditToAll;
     private readonly List<string> _housingScenarioEditAllowedIndividuals = new();
+    private readonly List<string> _housingScenarioEditAllowedEditors = new();
+    private string _housingScenarioEditEditorInput = string.Empty;
     private readonly List<string> _housingScenarioEditAllowedSyncshells = new();
     private string _housingScenarioEditIndividualDropdownSelection = string.Empty;
     private string _housingScenarioEditIndividualInput = string.Empty;
@@ -997,6 +999,9 @@ public sealed partial class CharaDataHubUi
                         _housingScenarioEditDescription = entry.Description;
                         _housingScenarioEditAllowedIndividuals.Clear();
                         _housingScenarioEditAllowedIndividuals.AddRange(entry.AllowedIndividuals);
+                        _housingScenarioEditAllowedEditors.Clear();
+                        _housingScenarioEditAllowedEditors.AddRange(entry.AllowedEditors);
+                        _housingScenarioEditEditorInput = string.Empty;
                         _housingScenarioEditAllowedSyncshells.Clear();
                         _housingScenarioEditAllowedSyncshells.AddRange(entry.AllowedSyncshells);
 
@@ -1125,6 +1130,45 @@ public sealed partial class CharaDataHubUi
         }
 
         ImGuiHelpers.ScaledDummy(3);
+        ImGui.Separator();
+        ImGui.TextUnformatted(Loc.Get("HousingScenario.Editors.Header"));
+        UiSharedService.ColorTextWrapped(Loc.Get("HousingScenario.Editors.Help"), ImGuiColors.DalamudGrey2);
+
+        ImGui.SetNextItemWidth(220f);
+        ImGui.InputTextWithHint("##scenarioEditorInput", Loc.Get("HousingScenario.Editors.Hint"), ref _housingScenarioEditEditorInput, 32);
+        ImGui.SameLine();
+        var normalizedEditor = NormalizeUidCandidate(_housingScenarioEditEditorInput);
+        using (ImRaii.Disabled(string.IsNullOrEmpty(normalizedEditor)
+            || _housingScenarioEditAllowedEditors.Any(p => string.Equals(p, normalizedEditor, StringComparison.OrdinalIgnoreCase))))
+        {
+            if (ImGui.SmallButton(Loc.Get("HousingScenario.Editors.Add") + "##scenarioEditor"))
+            {
+                _housingScenarioEditAllowedEditors.Add(normalizedEditor);
+                _housingScenarioEditEditorInput = string.Empty;
+            }
+        }
+
+        if (_housingScenarioEditAllowedEditors.Count == 0)
+        {
+            UiSharedService.ColorTextWrapped(Loc.Get("HousingScenario.Editors.None"), ImGuiColors.DalamudGrey2);
+        }
+        else
+        {
+            foreach (var uid in _housingScenarioEditAllowedEditors.ToArray())
+            {
+                using (ImRaii.PushId("scenarioEditor" + uid))
+                {
+                    ImGui.BulletText(FormatPairLabel(uid));
+                    ImGui.SameLine();
+                    if (ImGui.SmallButton(Loc.Get("HousingScenario.Editors.Remove")))
+                    {
+                        _housingScenarioEditAllowedEditors.Remove(uid);
+                    }
+                }
+            }
+        }
+
+        ImGuiHelpers.ScaledDummy(3);
         using (ImRaii.Disabled(scenarioManager.IsBusy))
         {
             if (_uiSharedService.IconTextButton(FontAwesomeIcon.Save, Loc.Get("HousingScenario.Save")))
@@ -1135,7 +1179,8 @@ public sealed partial class CharaDataHubUi
                 var editSyncshells = _housingScenarioEditToAll
                     ? _pairManager.Groups.Values.Select(g => g.GID).ToList()
                     : new List<string>(_housingScenarioEditAllowedSyncshells);
-                _ = scenarioManager.UpdateVisibilityAsync(entry.Id, _housingScenarioEditDescription, editIndividuals, editSyncshells);
+                _ = scenarioManager.UpdateVisibilityAsync(entry.Id, _housingScenarioEditDescription, editIndividuals, editSyncshells,
+                    new List<string>(_housingScenarioEditAllowedEditors));
                 _housingScenarioEditingId = null;
             }
         }
