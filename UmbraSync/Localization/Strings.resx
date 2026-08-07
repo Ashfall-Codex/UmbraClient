@@ -6150,6 +6150,12 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
   <data name="EditProfile.Honorific.IsPrefix" xml:space="preserve">
     <value>Prefix (before name)</value>
   </data>
+  <data name="EditProfile.Honorific.CustomColor" xml:space="preserve">
+    <value>Custom colour</value>
+  </data>
+  <data name="EditProfile.Honorific.CustomColorTip" xml:space="preserve">
+    <value>Unchecked, the title keeps the game's own title look.&#x0A;Checked, it uses the flat colour you pick.</value>
+  </data>
   <data name="EditProfile.Honorific.Color" xml:space="preserve">
     <value>Text color</value>
   </data>
