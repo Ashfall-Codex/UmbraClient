@@ -66,6 +66,8 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
         public float EmoteGrace;    // délai min avant de tester IsEmoting
         public ushort CurrentEmote; // emote en cours (pour rejeu si boucle)
         public bool EmoteLoopThis;  // rejouer l'emote courante en boucle
+        public bool EmoteStay;      // pose tenue : jouée une fois, jamais relancée
+        public ushort HeldEmote;    // pose actuellement tenue (0 = aucune), pour ne pas la rejouer
         public float EmoteDuration; // durée forcée (0 = jusqu'à la fin une fois)
         public float EmoteElapsed;
     }
@@ -781,7 +783,15 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
             rt.EmoteGrace -= dt;
             rt.EmoteElapsed += dt;
             if (rt.EmoteGrace > 0f) return;
-            if (rt.EmoteDuration > 0f)
+            if (rt.EmoteStay)
+            {
+                // Pose tenue : l'émote a été jouée, on n'y retouche plus et on n'attend pas qu'elle
+                // « finisse » — une pose assise ou couchée ne se termine jamais d'elle-même. La
+                // relancer relèverait le PNJ pour le rasseoir aussitôt : c'est le va-et-vient
+                // observé sur les PNJ assis. Une durée explicite reste respectée.
+                if (rt.EmoteDuration > 0f && rt.EmoteElapsed < rt.EmoteDuration) return;
+            }
+            else if (rt.EmoteDuration > 0f)
             {
                 if (rt.EmoteLoopThis && !NativeNpcSpawner.IsEmoting(addr)) NativeNpcSpawner.PlayEmote(addr, rt.CurrentEmote);
                 if (rt.EmoteElapsed < rt.EmoteDuration) return;
@@ -816,13 +826,13 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
         switch (action)
         {
             case NpcEmoteAction e: StepEmote(addr, rt, e); break;
-            case NpcMovementAction m: StepMove(addr, rt, m.X, m.Y, m.Z, SpeedOf(m.Speed, m.CustomSpeed), AnimOf(m.Speed), dt); break;
-            case NpcPathAction p: StepPath(addr, rt, p, dt); break;
+            case NpcMovementAction m: rt.HeldEmote = 0; StepMove(addr, rt, m.X, m.Y, m.Z, SpeedOf(m.Speed, m.CustomSpeed), AnimOf(m.Speed), dt); break;
+            case NpcPathAction p: rt.HeldEmote = 0; StepPath(addr, rt, p, dt); break;
             case NpcRotationAction r: StepRotation(addr, rt, r.TargetRotation, dt); break;
             case NpcWaitAction w: rt.WaitLeft = w.Duration; NativeNpcSpawner.SetMovementAnim(addr, NativeNpcSpawner.MoveAnim.Idle); Advance(rt); break;
             case NpcIdleAction: NativeNpcSpawner.SetMovementAnim(addr, NativeNpcSpawner.MoveAnim.Idle); Advance(rt); break;
             case NpcVisibilityAction v: NativeNpcSpawner.SetVisible(addr, v.Visible); Advance(rt); break;
-            case NpcTimelineAction t: StepTimeline(addr, rt, t); break;
+            case NpcTimelineAction t: rt.HeldEmote = 0; StepTimeline(addr, rt, t); break;
             case NpcSyncAction:
                 NativeNpcSpawner.SetMovementAnim(addr, NativeNpcSpawner.MoveAnim.Idle);
                 rt.AtSync = true;
@@ -843,13 +853,28 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
     private static void StepEmote(nint addr, ActionRuntime rt, NpcEmoteAction e)
     {
         if (e.Emote == 0) { Advance(rt); return; }
+
+        // Le PNJ tient déjà cette pose : la rejouer le relèverait pour le remettre dedans. C'est ce
+        // qui faisait « resetter » un personnage assis à chaque tour de séquence, puisqu'une scène
+        // boucle par défaut et qu'une pose tenue rend la main aussitôt.
+        if (e.StayInPose && rt.HeldEmote == e.Emote)
+        {
+            rt.WaitLeft = MathF.Max(PostEmotePause, rt.LoopDelay);
+            Advance(rt);
+            return;
+        }
+
         NativeNpcSpawner.SetMovementAnim(addr, NativeNpcSpawner.MoveAnim.Idle);
         NativeNpcSpawner.PlayEmote(addr, e.Emote);
+        rt.HeldEmote = e.StayInPose ? e.Emote : (ushort)0;
         rt.AwaitingEmote = true;
         rt.EmoteGrace = 0.5f;
         rt.EmoteElapsed = 0f;
         rt.CurrentEmote = e.Emote;
-        rt.EmoteLoopThis = e.Loop;
+        // « Garder la pose » l'emporte sur « boucler » : les deux sont contradictoires, et c'est
+        // le plus précis des deux qui dit ce que l'auteur de la scène veut vraiment.
+        rt.EmoteStay = e.StayInPose;
+        rt.EmoteLoopThis = e.Loop && !e.StayInPose;
         rt.EmoteDuration = e.Duration;
     }
     

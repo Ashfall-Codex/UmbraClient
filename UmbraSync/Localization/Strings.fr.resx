@@ -6412,7 +6412,7 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
     <value>Répéter</value>
   </data>
   <data name="HousingNpc.Editor.LoopTip" xml:space="preserve">
-    <value>Rejouer l'emote en boucle (utile pour les danses / animations qui se terminent).</value>
+    <value>Rejoue l'émote sans fin : à réserver aux animations qui se terminent (danses, salutations).&#x0A;Sur une pose (assis, accoudé), elle relèverait le PNJ pour le rasseoir en boucle : utilisez « Garder la pose ».</value>
   </data>
   <data name="HousingNpc.Editor.FacePlayer" xml:space="preserve">
     <value>Regarder le joueur</value>
@@ -6574,7 +6574,7 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
     <value>Garder la pose</value>
   </data>
   <data name="HousingNpc.Editor.StayPoseTip" xml:space="preserve">
-    <value>Reste dans la pose de l'emote et enchaîne (assis, accoudé…).</value>
+    <value>Joue l'émote une seule fois et laisse le PNJ dedans, sans jamais la relancer.&#x0A;C'est l'option des poses qui ne se terminent pas d'elles-mêmes : assis, accoudé, allongé.&#x0A;Prioritaire sur « Répéter » si les deux sont cochées.</value>
   </data>
   <data name="HousingNpc.Editor.SpeedWalk" xml:space="preserve">
     <value>Marche</value>
