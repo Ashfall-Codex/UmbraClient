@@ -342,7 +342,7 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
     {
         return new List<ChangelogEntry>
         {
-            new(new Version(3, 0, 1, 8007), "3.0.1.8007", new List<ChangelogLine>
+            new(new Version(3, 0, 1, 0), "3.0.1.0", new List<ChangelogLine>
             {
                 new("Nouveauté : L'apparence d'un PNJ peut être changée après coup, sans le refaire. Dépliez-le dans l'éditeur de scènes : vous pouvez le rhabiller depuis un design Glamourer, depuis votre apparence du moment (avec ou sans vos mods) ou depuis un fichier .chara. Sa position, son orientation et sa séquence d'actions sont conservées."),
                 new("Nouveauté : Vous pouvez confier la modification d'une de vos scènes PNJ publiées à d'autres joueurs. Ils peuvent la récupérer, la remanier et vous la renvoyer mais ils ne peuvent ni la supprimer, ni la déplacer, ni changer qui la voit."),
