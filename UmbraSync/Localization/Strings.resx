@@ -6393,6 +6393,36 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
   <data name="HousingNpc.Editor.NewScene" xml:space="preserve">
     <value>New scene</value>
   </data>
+  <data name="HousingNpc.Editor.ReplaceAppearance" xml:space="preserve">
+    <value>Change this NPC's appearance:</value>
+  </data>
+  <data name="HousingNpc.Editor.ReplaceFromDesign" xml:space="preserve">
+    <value>Glamourer design</value>
+  </data>
+  <data name="HousingNpc.Editor.ReplaceFromDesignTip" xml:space="preserve">
+    <value>Dresses this NPC with one of your Glamourer designs.&#x0A;Its position, facing and actions are kept.</value>
+  </data>
+  <data name="HousingNpc.Editor.ReplaceFromSelfLive" xml:space="preserve">
+    <value>Like me (with mods)</value>
+  </data>
+  <data name="HousingNpc.Editor.ReplaceFromSelfLiveTip" xml:space="preserve">
+    <value>Takes your current look, mods included.&#x0A;Its position, facing and actions are kept.</value>
+  </data>
+  <data name="HousingNpc.Editor.ReplaceFromSelf" xml:space="preserve">
+    <value>Like me (no mods)</value>
+  </data>
+  <data name="HousingNpc.Editor.ReplaceFromSelfTip" xml:space="preserve">
+    <value>Takes your current look without mods.&#x0A;Its position, facing and actions are kept.</value>
+  </data>
+  <data name="HousingNpc.Notif.AppearanceReplaced" xml:space="preserve">
+    <value>NPC appearance updated.</value>
+  </data>
+  <data name="HousingNpc.Editor.ReplaceFromChara" xml:space="preserve">
+    <value>.chara file</value>
+  </data>
+  <data name="HousingNpc.Editor.ReplaceFromCharaTip" xml:space="preserve">
+    <value>Dresses this NPC from an Anamnesis file.&#x0A;Careful: that format carries no mods, so the NPC's are removed.&#x0A;Its position, facing and actions are kept.</value>
+  </data>
   <data name="HousingNpc.Editor.NoScenes" xml:space="preserve">
     <value>No scene in this room. Create one to start.</value>
   </data>
@@ -6728,6 +6758,15 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
   </data>
   <data name="HousingNpc.Editor.OwnRepublishTip" xml:space="preserve">
     <value>Sends this version to the players who can access your shared scene.&#x0A;The share keeps its address, its permissions and its editors.</value>
+  </data>
+  <data name="HousingScenario.Editors.Search" xml:space="preserve">
+    <value>Search (UID, alias, note, name)</value>
+  </data>
+  <data name="HousingScenario.Editors.NoMatch" xml:space="preserve">
+    <value>No pair matches.</value>
+  </data>
+  <data name="HousingScenario.Editors.AlreadyAllowed" xml:space="preserve">
+    <value>already allowed</value>
   </data>
   <data name="HousingScenario.Error.Unavailable" xml:space="preserve">
     <value>Scene unavailable (permissions?).</value>

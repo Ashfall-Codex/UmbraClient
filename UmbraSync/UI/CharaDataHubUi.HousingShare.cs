@@ -32,6 +32,7 @@ public sealed partial class CharaDataHubUi
     private readonly List<string> _housingScenarioEditAllowedIndividuals = new();
     private readonly List<string> _housingScenarioEditAllowedEditors = new();
     private string _housingScenarioEditEditorInput = string.Empty;
+    private readonly Dictionary<string, string> _pairPickerSearch = new(StringComparer.Ordinal);
     private readonly List<string> _housingScenarioEditAllowedSyncshells = new();
     private string _housingScenarioEditIndividualDropdownSelection = string.Empty;
     private string _housingScenarioEditIndividualInput = string.Empty;
@@ -1134,6 +1135,9 @@ public sealed partial class CharaDataHubUi
         ImGui.TextUnformatted(Loc.Get("HousingScenario.Editors.Header"));
         UiSharedService.ColorTextWrapped(Loc.Get("HousingScenario.Editors.Help"), ImGuiColors.DalamudGrey2);
 
+        DrawPairPicker("scenarioEditorDropdown", _housingScenarioEditEditorInput, _housingScenarioEditAllowedEditors,
+            uid => _housingScenarioEditEditorInput = uid);
+        ImGui.SameLine();
         ImGui.SetNextItemWidth(220f);
         ImGui.InputTextWithHint("##scenarioEditorInput", Loc.Get("HousingScenario.Editors.Hint"), ref _housingScenarioEditEditorInput, 32);
         ImGui.SameLine();
@@ -1191,31 +1195,86 @@ public sealed partial class CharaDataHubUi
         }
     }
 
-    private void DrawHousingScenarioIndividualDropdown()
+    /// <summary>
+    /// Sélecteur de paire commun aux listes de cet écran : visibilité et délégation. Filtre sur tout
+    /// ce par quoi on désigne quelqu'un, parce qu'on délègue à un surnom, pas à un UID qu'on retient.
+    /// </summary>
+    /// <param name="id">Identifiant ImGui du sélecteur, qui porte aussi son état de recherche.</param>
+    /// <param name="currentValue">Valeur retenue, affichée en aperçu.</param>
+    /// <param name="alreadyChosen">Paires déjà dans la liste : montrées, mais non sélectionnables.</param>
+    /// <param name="onPick">Appelé avec l'UID choisi.</param>
+    private void DrawPairPicker(string id, string currentValue, IReadOnlyCollection<string> alreadyChosen, Action<string> onPick)
     {
         ImGui.SetNextItemWidth(220f);
-        var previewSource = string.IsNullOrEmpty(_housingScenarioIndividualDropdownSelection)
-            ? _housingScenarioIndividualInput
-            : _housingScenarioIndividualDropdownSelection;
-        var previewLabel = string.IsNullOrEmpty(previewSource)
+        var previewLabel = string.IsNullOrEmpty(currentValue)
             ? Loc.Get("HousingScenario.SelectPair")
-            : FormatPairLabel(previewSource);
+            : FormatPairLabel(currentValue);
 
-        using var combo = ImRaii.Combo("##scenarioUidDropdown", previewLabel, ImGuiComboFlags.None);
+        using var combo = ImRaii.Combo("##" + id, previewLabel, ImGuiComboFlags.HeightLarge);
         if (!combo) return;
 
-        foreach (var pair in _pairManager.DirectPairs
-            .OrderBy(p => p.GetNoteOrName() ?? p.UserData.AliasOrUID, StringComparer.OrdinalIgnoreCase))
+        var search = _pairPickerSearch.TryGetValue(id, out var stored) ? stored : string.Empty;
+        ImGui.SetNextItemWidth(-1f);
+        if (ImGui.InputTextWithHint("##" + id + "Search", Loc.Get("HousingScenario.Editors.Search"), ref search, 64))
+            _pairPickerSearch[id] = search;
+        ImGui.Separator();
+
+        var matches = _pairManager.DirectPairs
+            .Where(p => MatchesPairSearch(p, search))
+            .OrderBy(p => p.GetNoteOrName() ?? p.UserData.AliasOrUID, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (matches.Count == 0)
         {
-            var normalized = pair.UserData.UID;
-            var display = FormatPairLabel(normalized);
-            bool selected = string.Equals(normalized, _housingScenarioIndividualDropdownSelection, StringComparison.OrdinalIgnoreCase);
-            if (ImGui.Selectable(display, selected))
+            ImGui.TextColored(ImGuiColors.DalamudGrey, Loc.Get("HousingScenario.Editors.NoMatch"));
+            return;
+        }
+
+        foreach (var pair in matches)
+        {
+            var uid = pair.UserData.UID;
+            bool already = alreadyChosen.Any(e => string.Equals(e, uid, StringComparison.OrdinalIgnoreCase));
+
+            using (ImRaii.Disabled(already))
             {
-                _housingScenarioIndividualDropdownSelection = normalized;
-                _housingScenarioIndividualInput = normalized;
+                var label = already
+                    ? $"{FormatPairLabel(uid)}  ({Loc.Get("HousingScenario.Editors.AlreadyAllowed")})"
+                    : FormatPairLabel(uid);
+                if (ImGui.Selectable(label + "##" + id + uid, string.Equals(uid, currentValue, StringComparison.OrdinalIgnoreCase)))
+                {
+                    onPick(uid);
+                    _pairPickerSearch[id] = string.Empty;
+                }
             }
         }
+    }
+
+    /// <summary>Recherche sur tout ce par quoi on désigne une paire : UID, alias, note, nom en jeu.</summary>
+    private static bool MatchesPairSearch(PlayerData.Pairs.Pair pair, string search)
+    {
+        if (string.IsNullOrWhiteSpace(search)) return true;
+
+        var needle = search.Trim();
+        bool Contains(string? value) =>
+            !string.IsNullOrEmpty(value) && value.Contains(needle, StringComparison.OrdinalIgnoreCase);
+
+        return Contains(pair.UserData.UID)
+            || Contains(pair.UserData.Alias)
+            || Contains(pair.GetNote())
+            || Contains(pair.PlayerName);
+    }
+
+    private void DrawHousingScenarioIndividualDropdown()
+    {
+        var current = string.IsNullOrEmpty(_housingScenarioIndividualDropdownSelection)
+            ? _housingScenarioIndividualInput
+            : _housingScenarioIndividualDropdownSelection;
+
+        DrawPairPicker("scenarioUidDropdown", current, _housingScenarioAllowedIndividuals, uid =>
+        {
+            _housingScenarioIndividualDropdownSelection = uid;
+            _housingScenarioIndividualInput = uid;
+        });
     }
 
     private void DrawHousingScenarioSyncshellDropdown()
@@ -1247,29 +1306,15 @@ public sealed partial class CharaDataHubUi
 
     private void DrawHousingScenarioEditIndividualDropdown()
     {
-        ImGui.SetNextItemWidth(220f);
-        var previewSource = string.IsNullOrEmpty(_housingScenarioEditIndividualDropdownSelection)
+        var current = string.IsNullOrEmpty(_housingScenarioEditIndividualDropdownSelection)
             ? _housingScenarioEditIndividualInput
             : _housingScenarioEditIndividualDropdownSelection;
-        var previewLabel = string.IsNullOrEmpty(previewSource)
-            ? Loc.Get("HousingScenario.SelectPair")
-            : FormatPairLabel(previewSource);
 
-        using var combo = ImRaii.Combo("##scenarioEditUidDropdown", previewLabel, ImGuiComboFlags.None);
-        if (!combo) return;
-
-        foreach (var pair in _pairManager.DirectPairs
-            .OrderBy(p => p.GetNoteOrName() ?? p.UserData.AliasOrUID, StringComparer.OrdinalIgnoreCase))
+        DrawPairPicker("scenarioEditUidDropdown", current, _housingScenarioEditAllowedIndividuals, uid =>
         {
-            var normalized = pair.UserData.UID;
-            var display = FormatPairLabel(normalized);
-            bool selected = string.Equals(normalized, _housingScenarioEditIndividualDropdownSelection, StringComparison.OrdinalIgnoreCase);
-            if (ImGui.Selectable(display, selected))
-            {
-                _housingScenarioEditIndividualDropdownSelection = normalized;
-                _housingScenarioEditIndividualInput = normalized;
-            }
-        }
+            _housingScenarioEditIndividualDropdownSelection = uid;
+            _housingScenarioEditIndividualInput = uid;
+        });
     }
 
     private void DrawHousingScenarioEditSyncshellDropdown()

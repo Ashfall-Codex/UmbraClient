@@ -146,6 +146,7 @@ public record HousingScenarioAppliedMessage(Guid ShareId, LocationInfo Location,
 public record HousingScenarioRemovedMessage : MessageBase;
 public record HousingScenarioSyncPreferenceChangedMessage : MessageBase;
 public record HousingNpcSharedScenePurgedMessage : MessageBase;
+public record ForcePlayerCacheRecreationMessage : MessageBase;
 public record HousingScenarioPublishedMessage(Guid ShareId, LocationInfo Location) : MessageBase;
 public record HousingScanCompleteMessage(LocationInfo Location, int FileCount) : MessageBase;
 public record ManualPairInviteMessage(string SourceUid, string SourceAlias, string TargetUid, string? DisplayName, string InviteId) : MessageBase;

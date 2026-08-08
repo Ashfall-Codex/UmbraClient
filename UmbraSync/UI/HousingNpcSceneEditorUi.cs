@@ -33,6 +33,8 @@ public sealed class HousingNpcSceneEditorUi : WindowMediatorSubscriberBase
     private List<(Guid Id, string Name)>? _glamourerDesigns;
     private string _glamourerFilter = string.Empty;
     private bool _loadingDesigns;
+    private string _replaceAppearanceEntryId = string.Empty;
+    private bool _designPopupRequested;
 
     public HousingNpcSceneEditorUi(ILogger<HousingNpcSceneEditorUi> logger, MareMediator mediator,
         HousingNpcScenarioService service, HousingScenarioManager scenarioManager, UiSharedService uiShared,
@@ -152,6 +154,7 @@ public sealed class HousingNpcSceneEditorUi : WindowMediatorSubscriberBase
         ImGui.SameLine();
         if (_uiShared.IconTextButton(FontAwesomeIcon.Vest, Loc.Get("HousingNpc.Editor.CaptureGlamourer")))
         {
+            _replaceAppearanceEntryId = string.Empty;
             _glamourerFilter = string.Empty;
             _loadingDesigns = true;
             _glamourerDesigns = null;
@@ -159,6 +162,11 @@ public sealed class HousingNpcSceneEditorUi : WindowMediatorSubscriberBase
             ImGui.OpenPopup("##glamourerDesigns");
         }
         UiSharedService.AttachToolTip(Loc.Get("HousingNpc.Editor.CaptureGlamourerTip"));
+        if (_designPopupRequested)
+        {
+            _designPopupRequested = false;
+            ImGui.OpenPopup("##glamourerDesigns");
+        }
         DrawGlamourerDesignPopup(current.Id);
         if (_uiShared.IconTextButton(FontAwesomeIcon.FileImport, Loc.Get("HousingNpc.Editor.ImportChara")))
         {
@@ -252,6 +260,41 @@ public sealed class HousingNpcSceneEditorUi : WindowMediatorSubscriberBase
                 UiSharedService.AttachToolTip(Loc.Get("HousingNpc.Editor.HideWeaponTip"));
 
                 if (DrawActions(current.Id, entry)) dirty = true;
+
+                ImGui.Separator();
+                ImGui.TextColored(ImGuiColors.DalamudGrey, Loc.Get("HousingNpc.Editor.ReplaceAppearance"));
+                if (_uiShared.IconTextButton(FontAwesomeIcon.Vest, Loc.Get("HousingNpc.Editor.ReplaceFromDesign")))
+                {
+                    _replaceAppearanceEntryId = entry.Id;
+                    _glamourerFilter = string.Empty;
+                    _loadingDesigns = true;
+                    _glamourerDesigns = null;
+                    _ = LoadGlamourerDesignsAsync();
+                    _designPopupRequested = true;
+                }
+                UiSharedService.AttachToolTip(Loc.Get("HousingNpc.Editor.ReplaceFromDesignTip"));
+                ImGui.SameLine();
+                if (_uiShared.IconTextButton(FontAwesomeIcon.Magic, Loc.Get("HousingNpc.Editor.ReplaceFromSelfLive")))
+                    _ = _service.ReplaceEntryAppearanceFromSelfAsync(current.Id, entry.Id, includeLive: true);
+                UiSharedService.AttachToolTip(Loc.Get("HousingNpc.Editor.ReplaceFromSelfLiveTip"));
+                ImGui.SameLine();
+                if (_uiShared.IconTextButton(FontAwesomeIcon.User, Loc.Get("HousingNpc.Editor.ReplaceFromSelf")))
+                    _ = _service.ReplaceEntryAppearanceFromSelfAsync(current.Id, entry.Id, includeLive: false);
+                UiSharedService.AttachToolTip(Loc.Get("HousingNpc.Editor.ReplaceFromSelfTip"));
+                ImGui.SameLine();
+                if (_uiShared.IconTextButton(FontAwesomeIcon.FileImport, Loc.Get("HousingNpc.Editor.ReplaceFromChara")))
+                {
+                    // Capturés maintenant : le callback survit à la disparition de la ligne d'UI.
+                    var sceneId = current.Id;
+                    var targetEntryId = entry.Id;
+                    _uiShared.FileDialogManager.OpenFileDialog(Loc.Get("HousingNpc.Editor.ImportPickFile"), ".chara", (success, paths) =>
+                    {
+                        if (!success) return;
+                        if (paths.FirstOrDefault() is not { } path) return;
+                        _ = _service.ReplaceEntryAppearanceFromCharaFileAsync(sceneId, targetEntryId, path);
+                    }, 1);
+                }
+                UiSharedService.AttachToolTip(Loc.Get("HousingNpc.Editor.ReplaceFromCharaTip"));
 
                 ImGui.Separator();
                 if (_uiShared.IconTextButton(FontAwesomeIcon.Crosshairs, Loc.Get("HousingNpc.Editor.PlaceHere")))
@@ -511,7 +554,15 @@ public sealed class HousingNpcSceneEditorUi : WindowMediatorSubscriberBase
 
             if (ImGui.Selectable(name + "##" + id))
             {
-                _ = _service.AddFromGlamourerDesignAsync(sceneId, id, name);
+                if (string.IsNullOrEmpty(_replaceAppearanceEntryId))
+                {
+                    _ = _service.AddFromGlamourerDesignAsync(sceneId, id, name);
+                }
+                else
+                {
+                    _ = _service.ReplaceEntryAppearanceFromDesignAsync(sceneId, _replaceAppearanceEntryId, id, name);
+                    _replaceAppearanceEntryId = string.Empty;
+                }
                 ImGui.CloseCurrentPopup();
             }
         }

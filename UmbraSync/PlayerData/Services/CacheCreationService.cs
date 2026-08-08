@@ -39,6 +39,12 @@ public sealed class CacheCreationService : DisposableMediatorSubscriberBase
             _ = QueueCacheCreation(msg.ObjectToCreateFor.ObjectKind, msg.ObjectToCreateFor);
         });
 
+        Mediator.Subscribe<ForcePlayerCacheRecreationMessage>(this, (msg) =>
+        {
+            Logger.LogDebug("Reconstruction complète du cache joueur demandée");
+            _ = QueueCacheCreation(ObjectKind.Player);
+        });
+
         Mediator.Subscribe<ZoneSwitchStartMessage>(this, (msg) => _isZoning = true);
         Mediator.Subscribe<ZoneSwitchEndMessage>(this, (msg) => _isZoning = false);
 

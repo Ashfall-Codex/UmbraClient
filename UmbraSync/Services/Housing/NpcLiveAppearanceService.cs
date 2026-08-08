@@ -46,11 +46,14 @@ public sealed class NpcLiveAppearanceService : DisposableMediatorSubscriberBase
         int index = player.ObjectIndex;
         var playerAddr = player.Address;
         var savedState = await _ipc.Glamourer.GetCharacterCustomizationAsync(playerAddr).ConfigureAwait(false);
-        var before = _lastSelfData;
         try
         {
             await _ipc.Glamourer.ApplyDesignToSelfAsync(designId, index).ConfigureAwait(false);
-            const int maxWaitMs = 8000, stepMs = 150, settleMs = 700;
+            await Task.Delay(600).ConfigureAwait(false);
+            var beforeRebuild = _lastSelfData;
+            Mediator.Publish(new ForcePlayerCacheRecreationMessage());
+
+            const int maxWaitMs = 15000, stepMs = 150, settleMs = 700;
             CharacterData? captured = null;
             int waited = 0, sinceChange = 0;
             while (waited < maxWaitMs)
@@ -58,7 +61,7 @@ public sealed class NpcLiveAppearanceService : DisposableMediatorSubscriberBase
                 await Task.Delay(stepMs).ConfigureAwait(false);
                 waited += stepMs;
                 var current = _lastSelfData;
-                if (current == null || ReferenceEquals(current, before)) continue;
+                if (current == null || ReferenceEquals(current, beforeRebuild)) continue;
 
                 if (!ReferenceEquals(current, captured)) { captured = current; sinceChange = 0; }
                 else if ((sinceChange += stepMs) >= settleMs) break;
@@ -66,6 +69,9 @@ public sealed class NpcLiveAppearanceService : DisposableMediatorSubscriberBase
 
             if (captured == null)
                 Logger.LogWarning("Capture depuis design : aucun recalcul détecté après {Timeout}ms, repli sur le dernier cache", maxWaitMs);
+
+            var replacementCount = captured?.FileReplacements.TryGetValue(ObjectKind.Player, out var caps) == true ? caps.Count : 0;
+            Logger.LogInformation("Capture depuis design : {Count} remplacement(s) de fichier retenus", replacementCount);
 
             var appearance = await _dalamudUtil.RunOnFrameworkThread(
                 () => NativeNpcSpawner.ReadAppearance(playerAddr)).ConfigureAwait(false);

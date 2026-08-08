@@ -6303,6 +6303,36 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
   <data name="HousingNpc.Editor.NewScene" xml:space="preserve">
     <value>Nouvelle scène</value>
   </data>
+  <data name="HousingNpc.Editor.ReplaceAppearance" xml:space="preserve">
+    <value>Changer l'apparence de ce PNJ :</value>
+  </data>
+  <data name="HousingNpc.Editor.ReplaceFromDesign" xml:space="preserve">
+    <value>Design Glamourer</value>
+  </data>
+  <data name="HousingNpc.Editor.ReplaceFromDesignTip" xml:space="preserve">
+    <value>Rhabille ce PNJ avec un de vos designs Glamourer.&#x0A;Sa position, son orientation et ses actions sont conservées.</value>
+  </data>
+  <data name="HousingNpc.Editor.ReplaceFromSelfLive" xml:space="preserve">
+    <value>Comme moi (avec mods)</value>
+  </data>
+  <data name="HousingNpc.Editor.ReplaceFromSelfLiveTip" xml:space="preserve">
+    <value>Reprend votre apparence actuelle, mods compris.&#x0A;Sa position, son orientation et ses actions sont conservées.</value>
+  </data>
+  <data name="HousingNpc.Editor.ReplaceFromSelf" xml:space="preserve">
+    <value>Comme moi (sans mods)</value>
+  </data>
+  <data name="HousingNpc.Editor.ReplaceFromSelfTip" xml:space="preserve">
+    <value>Reprend votre apparence actuelle sans les mods.&#x0A;Sa position, son orientation et ses actions sont conservées.</value>
+  </data>
+  <data name="HousingNpc.Notif.AppearanceReplaced" xml:space="preserve">
+    <value>Apparence du PNJ mise à jour.</value>
+  </data>
+  <data name="HousingNpc.Editor.ReplaceFromChara" xml:space="preserve">
+    <value>Fichier .chara</value>
+  </data>
+  <data name="HousingNpc.Editor.ReplaceFromCharaTip" xml:space="preserve">
+    <value>Rhabille ce PNJ depuis un fichier Anamnesis.&#x0A;Attention : ce format ne contient pas de mods, ceux du PNJ sont donc retirés.&#x0A;Sa position, son orientation et ses actions sont conservées.</value>
+  </data>
   <data name="HousingNpc.Editor.NoScenes" xml:space="preserve">
     <value>Aucune scène dans cette pièce. Créez-en une pour commencer.</value>
   </data>
@@ -6638,6 +6668,15 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
   </data>
   <data name="HousingNpc.Editor.OwnRepublishTip" xml:space="preserve">
     <value>Envoie cette version aux joueurs qui ont accès à votre scène partagée.&#x0A;Le partage garde son adresse, ses autorisations et ses éditeurs.</value>
+  </data>
+  <data name="HousingScenario.Editors.Search" xml:space="preserve">
+    <value>Rechercher (UID, alias, note, nom)</value>
+  </data>
+  <data name="HousingScenario.Editors.NoMatch" xml:space="preserve">
+    <value>Aucune paire ne correspond.</value>
+  </data>
+  <data name="HousingScenario.Editors.AlreadyAllowed" xml:space="preserve">
+    <value>déjà autorisé</value>
   </data>
   <data name="HousingScenario.Error.Unavailable" xml:space="preserve">
     <value>Scène indisponible (permissions ?).</value>

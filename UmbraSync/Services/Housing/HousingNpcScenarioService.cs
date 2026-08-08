@@ -1030,6 +1030,127 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
     }
 
     // Commande debug /usync npcadd : crée/réutilise une scène par défaut et y capture le joueur.
+    private async Task<(NpcAppearance Appearance, CharacterData? LiveData)?> CaptureAppearanceAsync(
+        nint sourceAddr, bool includeLive, (Guid Id, string Name)? glamourerDesign)
+    {
+        var appearance = await _dalamudUtil.RunOnFrameworkThread(() => NativeNpcSpawner.ReadAppearance(sourceAddr)).ConfigureAwait(false);
+
+        if (glamourerDesign.HasValue)
+        {
+            var (designData, designAppearance) = await _liveAppearance.CaptureDesignOnSelfAsync(glamourerDesign.Value.Id).ConfigureAwait(false);
+            if (designData == null)
+            {
+                Mediator.Publish(new NotificationMessage(Loc.Get("HousingNpc.Notif.Title"), Loc.Get("HousingNpc.Notif.DesignFailed"), NotificationType.Error));
+                return null;
+            }
+            if (designAppearance != null) appearance = designAppearance;
+            return (appearance, designData);
+        }
+
+        var live = await _liveAppearance.CaptureSelfAsync().ConfigureAwait(false);
+        if (live == null)
+        {
+            Logger.LogWarning("Capture du live data échouée, apparence brute seule conservée");
+            return (appearance, null);
+        }
+
+        Logger.LogInformation("Capture PNJ : {Mode}", includeLive ? "AVEC les mods" : "SANS les mods");
+        return (appearance, includeLive ? live : WithoutMods(live));
+    }
+    
+    public async Task ReplaceEntryAppearanceFromCharaFileAsync(string sceneId, string entryId, string path)
+    {
+        try
+        {
+            var entry = FindEntry(sceneId, entryId);
+            if (entry == null) return;
+
+            var (appearance, _) = AnamnesisCharaImporter.Parse(path);
+            entry.Appearance = appearance;
+            entry.LiveData = null;
+            _store.SaveChanges();
+
+            await _gate.WaitAsync().ConfigureAwait(false);
+            try { await RespawnEntryInternalAsync(entry, sceneId).ConfigureAwait(false); }
+            finally { _gate.Release(); }
+
+            Mediator.Publish(new NotificationMessage(Loc.Get("HousingNpc.Notif.Title"), Loc.Get("HousingNpc.Notif.AppearanceReplaced"), NotificationType.Info));
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Remplacement de l'apparence depuis un .chara échoué");
+            Mediator.Publish(new NotificationMessage(Loc.Get("HousingNpc.Notif.Title"), Loc.Get("HousingNpc.Notif.ImportFailed"), NotificationType.Error));
+        }
+    }
+
+    public Task ReplaceEntryAppearanceFromSelfAsync(string sceneId, string entryId, bool includeLive)
+        => ReplaceEntryAppearanceAsync(sceneId, entryId, includeLive, null);
+
+    public Task ReplaceEntryAppearanceFromDesignAsync(string sceneId, string entryId, Guid designId, string designName)
+        => ReplaceEntryAppearanceAsync(sceneId, entryId, true, (designId, designName));
+    
+    private async Task ReplaceEntryAppearanceAsync(string sceneId, string entryId, bool includeLive,
+        (Guid Id, string Name)? glamourerDesign)
+    {
+        try
+        {
+            var entry = FindEntry(sceneId, entryId);
+            if (entry == null) return;
+
+            var sourceAddr = await _dalamudUtil.RunOnFrameworkThread(_dalamudUtil.GetPlayerPointer).ConfigureAwait(false);
+            if (sourceAddr == nint.Zero)
+            {
+                Mediator.Publish(new NotificationMessage(Loc.Get("HousingNpc.Notif.Title"), Loc.Get("HousingNpc.Notif.NoPlayer"), NotificationType.Error));
+                return;
+            }
+
+            var captured = await CaptureAppearanceAsync(sourceAddr, includeLive, glamourerDesign).ConfigureAwait(false);
+            if (captured == null) return;
+
+            entry.Appearance = captured.Value.Appearance;
+            entry.LiveData = captured.Value.LiveData;
+            _store.SaveChanges();
+
+            await _gate.WaitAsync().ConfigureAwait(false);
+            try { await RespawnEntryInternalAsync(entry, sceneId).ConfigureAwait(false); }
+            finally { _gate.Release(); }
+
+            Mediator.Publish(new NotificationMessage(Loc.Get("HousingNpc.Notif.Title"), Loc.Get("HousingNpc.Notif.AppearanceReplaced"), NotificationType.Info));
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Remplacement de l'apparence du PNJ échoué");
+            Mediator.Publish(new NotificationMessage(Loc.Get("HousingNpc.Notif.Title"), Loc.Get("HousingNpc.Notif.AddFailed"), NotificationType.Error));
+        }
+    }
+
+    private async Task RespawnEntryInternalAsync(HousingNpcEntry entry, string sceneId)
+    {
+        SpawnedNpc? existing;
+        lock (_stateLock)
+        {
+            existing = _spawned.Find(s => string.Equals(s.EntryId, entry.Id, StringComparison.Ordinal));
+            if (existing != null)
+            {
+                _spawned.Remove(existing);
+                _runtimes.Remove(existing.Address);
+                _anchors.Remove(existing.Address);
+            }
+        }
+
+        if (existing != null)
+        {
+            try
+            {
+                if (existing.Live != null) await _liveAppearance.RevertAsync(existing.Live).ConfigureAwait(false);
+                await _dalamudUtil.RunOnFrameworkThread(() => _spawner.Despawn(existing.Address)).ConfigureAwait(false);
+            }
+            catch (Exception ex) { Logger.LogWarning(ex, "Despawn du PNJ à rhabiller échoué ({Addr:X})", existing.Address); }
+        }
+
+        await SpawnEntryInternalAsync(entry, sceneId, shared: existing?.Shared ?? false).ConfigureAwait(false);
+    }
+
     private async Task DebugAddFromSelfAsync()
     {
         var loc = await _dalamudUtil.GetMapDataAsync().ConfigureAwait(false);
@@ -1077,36 +1198,10 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
                 return;
             }
 
-            // Apparence brute = base du modèle (race, corps). Le design Glamourer est réappliqué
-            // par-dessus via le CharacterData : DrawData contient l'équipement RÉEL, pas ce que
-            // Glamourer affiche, donc l'apparence brute seule ne suffit pas.
-            var appearance = await _dalamudUtil.RunOnFrameworkThread(() => NativeNpcSpawner.ReadAppearance(sourceAddr)).ConfigureAwait(false);
+            var captured = await CaptureAppearanceAsync(sourceAddr, includeLive, glamourerDesign).ConfigureAwait(false);
+            if (captured == null) return; // notification déjà publiée
 
-            CharacterData? liveData;
-            if (glamourerDesign.HasValue)
-            {
-                var (designData, designAppearance) = await _liveAppearance.CaptureDesignOnSelfAsync(glamourerDesign.Value.Id).ConfigureAwait(false);
-                liveData = designData;
-                if (liveData == null)
-                {
-                    Mediator.Publish(new NotificationMessage(Loc.Get("HousingNpc.Notif.Title"), Loc.Get("HousingNpc.Notif.DesignFailed"), NotificationType.Error));
-                    return;
-                }
-                // Le design fait autorité sur les états d'affichage : sans ça, un design qui masque
-                // l'arme se voyait rendu avec l'arme du personnage au moment de la capture.
-                if (designAppearance != null) appearance = designAppearance;
-            }
-            else
-            {
-                liveData = null;
-                var live = await _liveAppearance.CaptureSelfAsync().ConfigureAwait(false);
-                if (live == null)
-                    Logger.LogWarning("Capture du live data échouée, apparence brute seule conservée");
-                else
-                    liveData = includeLive ? live : WithoutMods(live);
-                Logger.LogInformation("Ajout PNJ : capture {Mode}", includeLive ? "AVEC les mods" : "SANS les mods");
-            }
-
+            var (appearance, liveData) = captured.Value;
             var defaultName = glamourerDesign?.Name ?? player.Name.TextValue;
             var entry = new HousingNpcEntry
             {
