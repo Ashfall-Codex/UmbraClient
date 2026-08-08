@@ -86,14 +86,17 @@ public sealed class IpcCallerGlamourer : DisposableMediatorSubscriberBase, IIpcC
         });
     }
 
+  
+    private const int IpcInitialDelayMs = 5000;
+    private const int IpcCheckRetries = 10;
+    private const int IpcDelayBetweenRetriesMs = 2500;
+
     private async Task CheckAPIWithRetryAsync()
     {
-        const int maxRetries = 5;
-        const int delayBetweenRetries = 2000;
+        await Task.Delay(IpcInitialDelayMs).ConfigureAwait(false);
 
-        for (int attempt = 1; attempt <= maxRetries; attempt++)
+        for (int attempt = 1; attempt <= IpcCheckRetries; attempt++)
         {
-            await Task.Delay(delayBetweenRetries).ConfigureAwait(false);
             CheckAPI();
 
             if (APIAvailable)
@@ -102,10 +105,11 @@ public sealed class IpcCallerGlamourer : DisposableMediatorSubscriberBase, IIpcC
                 return;
             }
 
-            _logger.LogDebug("Glamourer API not available, attempt {attempt}/{maxRetries}", attempt, maxRetries);
+            _logger.LogDebug("Glamourer API not available, attempt {attempt}/{maxRetries}", attempt, IpcCheckRetries);
+            await Task.Delay(IpcDelayBetweenRetriesMs).ConfigureAwait(false);
         }
 
-        _logger.LogWarning("Glamourer API still not available after {maxRetries} attempts", maxRetries);
+        _logger.LogWarning("Glamourer API still not available after {maxRetries} attempts", IpcCheckRetries);
         if (!APIAvailable && !_shownGlamourerUnavailable)
         {
             _shownGlamourerUnavailable = true;
@@ -148,6 +152,14 @@ public sealed class IpcCallerGlamourer : DisposableMediatorSubscriberBase, IIpcC
             _shownGlamourerUnavailable = _shownGlamourerUnavailable && !apiAvailable;
 
             APIAvailable = apiAvailable;
+
+            // Alerte posée pendant que Glamourer démarrait : elle n'a plus lieu d'être une fois
+            // qu'il répond. Sans ce retrait elle restait dans le centre de notifications pour de bon.
+            if (apiAvailable)
+            {
+                var stale = NotificationEntry.GlamourerInactive();
+                _notificationTracker.Remove(stale.Category, stale.Id);
+            }
         }
         catch
         {
