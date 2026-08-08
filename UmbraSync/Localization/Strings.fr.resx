@@ -6333,6 +6333,12 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
   <data name="HousingNpc.Editor.ReplaceFromCharaTip" xml:space="preserve">
     <value>Rhabille ce PNJ depuis un fichier Anamnesis.&#x0A;Attention : ce format ne contient pas de mods, ceux du PNJ sont donc retirés.&#x0A;Sa position, son orientation et ses actions sont conservées.</value>
   </data>
+  <data name="HousingNpc.Editor.EmoteSec" xml:space="preserve">
+    <value>Durée (s)</value>
+  </data>
+  <data name="HousingNpc.Editor.EmoteSecTip" xml:space="preserve">
+    <value>Temps passé sur cette émote avant de continuer.&#x0A;0 : on attend qu'elle se termine d'elle-même — utile pour les émotes courtes.&#x0A;Indispensable pour les émotes qui ne finissent jamais (attendre les ordres, expliquer son plan, s'asseoir) :&#x0A;sans durée, la séquence passe tout de même à la suite au bout de 20 secondes.</value>
+  </data>
   <data name="HousingNpc.Editor.NoScenes" xml:space="preserve">
     <value>Aucune scène dans cette pièce. Créez-en une pour commencer.</value>
   </data>

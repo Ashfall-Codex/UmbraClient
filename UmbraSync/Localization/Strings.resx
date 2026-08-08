@@ -6423,6 +6423,12 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
   <data name="HousingNpc.Editor.ReplaceFromCharaTip" xml:space="preserve">
     <value>Dresses this NPC from an Anamnesis file.&#x0A;Careful: that format carries no mods, so the NPC's are removed.&#x0A;Its position, facing and actions are kept.</value>
   </data>
+  <data name="HousingNpc.Editor.EmoteSec" xml:space="preserve">
+    <value>Duration (s)</value>
+  </data>
+  <data name="HousingNpc.Editor.EmoteSecTip" xml:space="preserve">
+    <value>How long the NPC stays on this emote before moving on.&#x0A;0: wait for it to end by itself — fine for short emotes.&#x0A;Needed for emotes that never end (wait for orders, explain plan, sitting down):&#x0A;without a duration, the sequence still moves on after 20 seconds.</value>
+  </data>
   <data name="HousingNpc.Editor.NoScenes" xml:space="preserve">
     <value>No scene in this room. Create one to start.</value>
   </data>

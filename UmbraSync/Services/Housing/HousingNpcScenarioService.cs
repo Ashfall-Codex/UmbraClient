@@ -44,6 +44,7 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
     private const float PostEmotePause = 1f;        // délai par défaut après la fin d'une emote
     private const float DefaultTimelineDuration = 3f; // durée par défaut d'une action Timeline
     private const float SyncTimeoutSeconds = 30f;    // garde-fou de la barrière Sync
+    private const float MaxEmoteWaitSeconds = 20f; // garde-fou des émotes sans durée.
 
     private sealed record SpawnedNpc(nint Address, NpcLiveHandle? Live, bool Shared, string EntryId);
 
@@ -785,10 +786,22 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
                 if (rt.EmoteLoopThis && !NativeNpcSpawner.IsEmoting(addr)) NativeNpcSpawner.PlayEmote(addr, rt.CurrentEmote);
                 if (rt.EmoteElapsed < rt.EmoteDuration) return;
             }
+            else if (rt.EmoteElapsed < MaxEmoteWaitSeconds)
+            {
+                // Sans durée choisie, on attend la fin de l'émote — mais jamais au-delà du garde-fou.
+                if (rt.EmoteLoopThis)
+                {
+                    if (!NativeNpcSpawner.IsEmoting(addr))
+                        NativeNpcSpawner.PlayEmote(addr, rt.CurrentEmote);
+                    return;
+                }
+
+                if (NativeNpcSpawner.IsEmoting(addr)) return;
+            }
             else
             {
-                if (NativeNpcSpawner.IsEmoting(addr)) return;
-                if (rt.EmoteLoopThis) { NativeNpcSpawner.PlayEmote(addr, rt.CurrentEmote); return; }
+                Logger.LogDebug("Émote {Emote} sans durée toujours en cours après {Timeout}s, la séquence continue",
+                    rt.CurrentEmote, MaxEmoteWaitSeconds);
             }
 
             rt.AwaitingEmote = false;

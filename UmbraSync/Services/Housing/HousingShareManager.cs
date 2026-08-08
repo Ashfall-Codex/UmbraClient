@@ -565,6 +565,14 @@ public sealed class HousingShareManager : IDisposable
                 NotificationType.Success,
                 TimeSpan.FromSeconds(6)));
             
+            var pathRoots = modPaths.Keys
+                .Select(p => string.Join('/', p.Split('/').Take(3)))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(p => p, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            _logger.LogInformation("Housing share appliqué : {Count} racine(s) de chemins → {Roots}",
+                pathRoots.Count, string.Join(", ", pathRoots));
+
             if (modPaths.Keys.Any(p => p.StartsWith("bg/", StringComparison.OrdinalIgnoreCase)))
             {
                 _logger.LogInformation("Le share contient du décor de zone : rechargement de la maison nécessaire côté visiteur");

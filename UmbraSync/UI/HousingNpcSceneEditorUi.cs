@@ -650,6 +650,11 @@ public sealed class HousingNpcSceneEditorUi : WindowMediatorSubscriberBase
                 var stay = e.StayInPose;
                 if (ImGui.Checkbox(Loc.Get("HousingNpc.Editor.StayPose"), ref stay)) { e.StayInPose = stay; changed = true; }
                 UiSharedService.AttachToolTip(Loc.Get("HousingNpc.Editor.StayPoseTip"));
+                ImGui.SameLine();
+                var ed = e.Duration;
+                ImGui.SetNextItemWidth(70f);
+                if (ImGui.InputFloat(Loc.Get("HousingNpc.Editor.EmoteSec"), ref ed, 0f, 0f, "%.1f")) { e.Duration = MathF.Max(0f, ed); changed = true; }
+                UiSharedService.AttachToolTip(Loc.Get("HousingNpc.Editor.EmoteSecTip"));
                 break;
             }
             case NpcMovementAction m:
