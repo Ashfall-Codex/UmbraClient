@@ -6420,6 +6420,12 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
   <data name="HousingNpc.Editor.LoopTip" xml:space="preserve">
     <value>Rejoue l'émote sans fin : à réserver aux animations qui se terminent (danses, salutations).&#x0A;Sur une pose (assis, accoudé), elle relèverait le PNJ pour le rasseoir en boucle : utilisez « Garder la pose ».</value>
   </data>
+  <data name="HousingNpc.Editor.BasePose" xml:space="preserve">
+    <value>Pose</value>
+  </data>
+  <data name="HousingNpc.Editor.BasePoseTip" xml:space="preserve">
+    <value>Pose que le PNJ tient quand il n'a rien d'autre à faire : assis, allongé, adossé. Elle est prise avant le reste de la séquence et reprise après chaque action. Laissez sur « Aucune » pour un PNJ debout.</value>
+  </data>
   <data name="HousingNpc.Editor.FacePlayer" xml:space="preserve">
     <value>Regarder le joueur</value>
   </data>

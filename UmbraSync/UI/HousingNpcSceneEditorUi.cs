@@ -259,6 +259,8 @@ public sealed class HousingNpcSceneEditorUi : WindowMediatorSubscriberBase
                 if (ImGui.Checkbox(Loc.Get("HousingNpc.Editor.HideWeapon"), ref hideWeapon)) { entry.Appearance.HideWeapon = hideWeapon; dirty = true; }
                 UiSharedService.AttachToolTip(Loc.Get("HousingNpc.Editor.HideWeaponTip"));
 
+                if (DrawBasePose(entry)) dirty = true;
+
                 if (DrawActions(current.Id, entry)) dirty = true;
 
                 ImGui.Separator();
@@ -568,6 +570,31 @@ public sealed class HousingNpcSceneEditorUi : WindowMediatorSubscriberBase
         }
     }
 
+    private bool DrawBasePose(HousingNpcEntry entry)
+    {
+        var pose = entry.Actions.OfType<NpcEmoteAction>().FirstOrDefault(a => a.StayInPose);
+        var picked = DrawEmoteCombo("basepose" + entry.Id, pose?.Emote ?? 0, out var changed,
+            Loc.Get("HousingNpc.Editor.BasePose"));
+        UiSharedService.AttachToolTip(Loc.Get("HousingNpc.Editor.BasePoseTip"));
+        if (!changed) return false;
+
+        if (picked == 0)
+        {
+            if (pose == null) return false;
+            entry.Actions.Remove(pose);
+        }
+        else if (pose == null)
+        {
+            // En tête de séquence : la pose est prise avant tout le reste.
+            entry.Actions.Insert(0, new NpcEmoteAction { Emote = picked, StayInPose = true });
+        }
+        else
+        {
+            pose.Emote = picked;
+        }
+        return true;
+    }
+
     private bool DrawActions(string sceneId, HousingNpcEntry entry)
     {
         bool changed = false;
@@ -860,12 +887,12 @@ public sealed class HousingNpcSceneEditorUi : WindowMediatorSubscriberBase
         return $"Emote {id}";
     }
 
-    private ushort DrawEmoteCombo(string id, ushort current, out bool changed)
+    private ushort DrawEmoteCombo(string id, ushort current, out bool changed, string? label = null)
     {
         changed = false;
         ushort result = current;
         ImGui.SetNextItemWidth(220 * ImGuiHelpers.GlobalScale);
-        using var combo = ImRaii.Combo(Loc.Get("HousingNpc.Editor.Emote") + "##" + id, EmoteName(current));
+        using var combo = ImRaii.Combo((label ?? Loc.Get("HousingNpc.Editor.Emote")) + "##" + id, EmoteName(current));
         if (combo)
         {
             ImGui.SetNextItemWidth(-1);

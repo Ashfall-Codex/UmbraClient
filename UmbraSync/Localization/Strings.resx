@@ -6510,6 +6510,12 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
   <data name="HousingNpc.Editor.LoopTip" xml:space="preserve">
     <value>Plays the emote endlessly: keep it for animations that do end (dances, greetings).&#x0A;On a pose (sitting, leaning), it would stand the NPC up and sit it down again on a loop: use « Keep the pose ».</value>
   </data>
+  <data name="HousingNpc.Editor.BasePose" xml:space="preserve">
+    <value>Pose</value>
+  </data>
+  <data name="HousingNpc.Editor.BasePoseTip" xml:space="preserve">
+    <value>Pose the NPC holds when it has nothing else to do: sitting, lying down, leaning. It is taken before the rest of the sequence and resumed after each action. Leave on "None" for a standing NPC.</value>
+  </data>
   <data name="HousingNpc.Editor.FacePlayer" xml:space="preserve">
     <value>Look at player</value>
   </data>

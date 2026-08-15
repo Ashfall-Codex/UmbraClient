@@ -762,13 +762,19 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
             }
         }
     }
+    
+    private static void RestIdle(nint addr)
+    {
+        if (NativeNpcSpawner.IsHoldingPose(addr)) return;
+        NativeNpcSpawner.SetMovementAnim(addr, NativeNpcSpawner.MoveAnim.Idle);
+    }
 
     private void AdvanceActions(nint addr, ActionRuntime rt, float dt)
     {
         if (rt.Actions.Length == 0 || rt.Finished) return;
         if (rt.Index >= rt.Actions.Length)
         {
-            if (!rt.Looping) { rt.Finished = true; NativeNpcSpawner.SetMovementAnim(addr, NativeNpcSpawner.MoveAnim.Idle); return; }
+            if (!rt.Looping) { rt.Finished = true; RestIdle(addr); return; }
             rt.Index = 0;
             rt.WaitLeft = rt.LoopDelay;
             return;
@@ -837,12 +843,13 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
             case NpcMovementAction m: rt.HeldEmote = 0; StepMove(addr, rt, m.X, m.Y, m.Z, SpeedOf(m.Speed, m.CustomSpeed), AnimOf(m.Speed), dt); break;
             case NpcPathAction p: rt.HeldEmote = 0; StepPath(addr, rt, p, dt); break;
             case NpcRotationAction r: StepRotation(addr, rt, r.TargetRotation, dt); break;
-            case NpcWaitAction w: rt.WaitLeft = w.Duration; NativeNpcSpawner.SetMovementAnim(addr, NativeNpcSpawner.MoveAnim.Idle); Advance(rt); break;
-            case NpcIdleAction: NativeNpcSpawner.SetMovementAnim(addr, NativeNpcSpawner.MoveAnim.Idle); Advance(rt); break;
+            case NpcWaitAction w: rt.WaitLeft = w.Duration; RestIdle(addr); Advance(rt); break;
+            // « Immobile » est une demande explicite de retour au repos : elle rompt la pose tenue.
+            case NpcIdleAction: rt.HeldEmote = 0; NativeNpcSpawner.SetMovementAnim(addr, NativeNpcSpawner.MoveAnim.Idle); Advance(rt); break;
             case NpcVisibilityAction v: NativeNpcSpawner.SetVisible(addr, v.Visible); Advance(rt); break;
             case NpcTimelineAction t: rt.HeldEmote = 0; StepTimeline(addr, rt, t); break;
             case NpcSyncAction:
-                NativeNpcSpawner.SetMovementAnim(addr, NativeNpcSpawner.MoveAnim.Idle);
+                RestIdle(addr);
                 rt.AtSync = true;
                 rt.SyncTimeout = SyncTimeoutSeconds;
                 break;
@@ -865,7 +872,10 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
         // Le PNJ tient déjà cette pose : la rejouer le relèverait pour le remettre dedans. C'est ce
         // qui faisait « resetter » un personnage assis à chaque tour de séquence, puisqu'une scène
         // boucle par défaut et qu'une pose tenue rend la main aussitôt.
-        if (e.StayInPose && rt.HeldEmote == e.Emote)
+        // On ne la rejoue que si le PNJ en est réellement sorti. C'est le jeu qui tranche : une émote
+        // assise le ramène à sa pose, une émote debout l'en fait sortir — inutile de tenir une liste
+        // des émotes compatibles avec la position assise, il suffit de regarder où il en est.
+        if (e.StayInPose && rt.HeldEmote == e.Emote && NativeNpcSpawner.IsHoldingPose(addr))
         {
             rt.WaitLeft = MathF.Max(PostEmotePause, rt.LoopDelay);
             Advance(rt);
@@ -883,9 +893,12 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
             return;
         }
 
-        NativeNpcSpawner.SetMovementAnim(addr, NativeNpcSpawner.MoveAnim.Idle);
+        RestIdle(addr);
         NativeNpcSpawner.PlayEmote(addr, e.Emote);
-        rt.HeldEmote = e.StayInPose ? e.Emote : (ushort)0;
+        // La pose retenue survit à une émote intercalée : un PNJ assis qui salue reste assis, et
+        // c'est IsHoldingPose qui dira au prochain tour s'il faut la rétablir ou non. L'effacer ici
+        // faisait rejouer la pose à chaque tour — le PNJ se relevait pour se rasseoir aussitôt.
+        if (e.StayInPose) rt.HeldEmote = e.Emote;
         rt.AwaitingEmote = true;
         rt.EmoteGrace = 0.5f;
         rt.EmoteElapsed = 0f;

@@ -342,15 +342,20 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
     {
         return new List<ChangelogEntry>
         {
-            new(new Version(3, 0, 1, 0), "3.0.1.0", new List<ChangelogLine>
+            new(new Version(3, 0, 1, 1), "3.0.1.1", new List<ChangelogLine>
             {
-                new("Nouveauté : L'apparence d'un PNJ peut être changée après coup, sans le refaire. Dépliez-le dans l'éditeur de scènes : vous pouvez le rhabiller depuis un design Glamourer, depuis votre apparence du moment (avec ou sans vos mods) ou depuis un fichier .chara. Sa position, son orientation et sa séquence d'actions sont conservées."),
-                new("Nouveauté : Vous pouvez confier la modification d'une de vos scènes PNJ publiées à d'autres joueurs. Ils peuvent la récupérer, la remanier et vous la renvoyer mais ils ne peuvent ni la supprimer, ni la déplacer, ni changer qui la voit."),
-                new("Nouveauté : Vous pouvez refuser les scénarios PNJ des autres joueurs, d'un coup avec le bouton « PNJ » de la fenêtre principale, ou joueur par joueur via le clic droit sur une paire (« Masquer ses scénarios PNJ »)."),
+                new("Nouveauté : L'apparence d'un PNJ peut être changée après coup, sans le refaire. Sa position, son orientation et sa séquence d'actions sont conservées."),
+                new("Nouveauté : Vous pouvez confier la modification d'une de vos scènes PNJ publiées à d'autres joueurs. Ils ne peuvent ni la supprimer, ni la déplacer, ni changer qui la voit."),
+                new("Nouveauté : Vous pouvez refuser les scénarios PNJ des autres joueurs."),
+                new("Nouveauté : Un champ « Pose » sur la fiche de chaque PNJ. Choisissez-y une pose assise, allongée ou adossée et le PNJ la tient."),
+                new("Amélioration : Un PNJ assis peut enfin jouer des émotes sans se relever. Il reprend sa pose de lui-même après chaque émote compatible, et ne se relève que si l'émote demandée l'exige vraiment."),
                 new("Amélioration : Votre titre personnalisé peut désormais garder l'apparence des titres du jeu. Décochez « Couleur personnalisée » dans l'éditeur de profil."),
-                new("Correction : Le premier PNJ d'une scène apparaissait avec votre apparence de base au lieu de celle choisi, et le supprimer faisait retomber le PNJ suivant dans le même état. Le jeu réserve un emplacement d'acteur au mode photo, et le PNJ qui l'occupait y était confondu avec votre personnage : cet emplacement est désormais mis de côté. Le PNJ « sacrificiel » caché dans le décor n'a plus lieu d'être."),
+                new("Correction : Le premier PNJ d'une scène apparaissait avec votre apparence de base au lieu de celle choisi, et le supprimer faisait retomber le PNJ suivant dans le même état."),
                 new("Correction : Les PNJ d'une scène partagée disparaissaient définitivement dès qu'une manipulation dans l'éditeur relançait le placement des vôtres. Ils ne revenaient qu'après un changement de zone."),
-                new("Correction : Un PNJ capturé depuis un design Glamourer arrivait avec les vêtements en version de base, alors que sa coiffure moddée, elle, était bien là. L'apparence était relevée avant que les mods du nouvel équipement n'aient été recalculés : ils correspondaient encore à la tenue portée juste avant. Vos PNJ déjà créés de cette façon gardent leurs vêtements incomplets — l'information manquante n'a jamais été enregistrée : réappliquez-leur simplement le même design une fois, ils repartiront complets."),
+                new("Correction : Un joueur qui arrivait pendant que son apparence changeait encore s'affichait amputé et le restait une quinzaine de secondes avant de se corriger seul."),
+                new("Correction : Quand Penumbra refusait d'appliquer les mods d'une paire, son apparence était quand même posée par-dessus. Le refus est maintenant détecté et l'application abandonnée au lieu d'être menée à moitié."),
+                new("Correction : Un PNJ pouvait apparaître avec l'apparence d'un autre personnage sur les machines lentes ou en mode économie d'énergie."),
+                new("Correction : Un PNJ dont l'émote est réglée sur « Boucler » sans durée repartait du début toutes les vingt secondes au lieu de continuer."),
             }),
             new(new Version(3, 0, 0, 8006), "3.0.0.8006", new List<ChangelogLine>
             {

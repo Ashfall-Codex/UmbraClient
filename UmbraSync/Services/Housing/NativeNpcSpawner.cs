@@ -399,6 +399,13 @@ public sealed unsafe class NativeNpcSpawner
         return ((BattleChara*)address)->EmoteController.IsEmoting();
     }
 
+    public static bool IsHoldingPose(nint address)
+    {
+        if (address == nint.Zero) return false;
+        var mode = ((Character*)address)->Mode;
+        return mode is CharacterModes.EmoteLoop or CharacterModes.InPositionLoop;
+    }
+
 
     public static void SetVisible(nint address, bool visible)
     {
