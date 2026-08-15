@@ -342,7 +342,7 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
     {
         return new List<ChangelogEntry>
         {
-            new(new Version(3, 0, 1, 1), "3.0.1.1", new List<ChangelogLine>
+            new(new Version(3, 0, 1, 8015), "3.0.1.8015", new List<ChangelogLine>
             {
                 new("Nouveauté : L'apparence d'un PNJ peut être changée après coup, sans le refaire. Sa position, son orientation et sa séquence d'actions sont conservées."),
                 new("Nouveauté : Vous pouvez confier la modification d'une de vos scènes PNJ publiées à d'autres joueurs. Ils ne peuvent ni la supprimer, ni la déplacer, ni changer qui la voit."),
