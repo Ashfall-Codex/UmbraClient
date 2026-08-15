@@ -26,6 +26,8 @@ public sealed class HousingNpcSceneEditorUi : WindowMediatorSubscriberBase
     private string _selectedSceneId = string.Empty;
     private string _emoteFilter = string.Empty;
     private List<(ushort Id, string Name, uint Icon)>? _emotes;
+    private List<(ushort Id, string Key)>? _timelines;
+    private string _timelineFilter = string.Empty;
     private readonly HashSet<uint> _badIcons = new();
     private readonly HashSet<string> _collapsed = new(StringComparer.Ordinal); 
     private readonly Dictionary<string, int> _addActionKind = new(StringComparer.Ordinal);
@@ -576,23 +578,32 @@ public sealed class HousingNpcSceneEditorUi : WindowMediatorSubscriberBase
         var picked = DrawEmoteCombo("basepose" + entry.Id, pose?.Emote ?? 0, out var changed,
             Loc.Get("HousingNpc.Editor.BasePose"));
         UiSharedService.AttachToolTip(Loc.Get("HousingNpc.Editor.BasePoseTip"));
-        if (!changed) return false;
 
-        if (picked == 0)
+        bool dirty = false;
+        if (changed)
         {
-            if (pose == null) return false;
-            entry.Actions.Remove(pose);
+            if (picked == 0)
+            {
+                if (pose != null) { entry.Actions.Remove(pose); dirty = true; }
+            }
+            else if (pose == null)
+            {
+                // En tête de séquence : la pose est prise avant tout le reste.
+                entry.Actions.Insert(0, new NpcEmoteAction { Emote = picked, StayInPose = true });
+                dirty = true;
+            }
+            else
+            {
+                pose.Emote = picked;
+                dirty = true;
+            }
         }
-        else if (pose == null)
-        {
-            // En tête de séquence : la pose est prise avant tout le reste.
-            entry.Actions.Insert(0, new NpcEmoteAction { Emote = picked, StayInPose = true });
-        }
-        else
-        {
-            pose.Emote = picked;
-        }
-        return true;
+
+        // Pas de réglage de variante de posture ici : écrire EmoteController.CPoseState ne suffit pas
+        // à la changer, même sur un acteur neuf et après le redraw — vérifié en jeu. Les variantes
+        // passent par l'override d'animation (action « Timeline »), qui est le mécanisme qu'emploie
+        // Brio et que NativeNpcSpawner.PlayTimeline implémente déjà.
+        return dirty;
     }
 
     private bool DrawActions(string sceneId, HousingNpcEntry entry)
@@ -760,6 +771,11 @@ public sealed class HousingNpcSceneEditorUi : WindowMediatorSubscriberBase
                     changed = true;
                 }
                 UiSharedService.AttachToolTip(Loc.Get("HousingNpc.Editor.TimelineIdsTip"));
+
+                ImGui.SameLine();
+                var addTimeline = DrawTimelinePicker("tl" + index + entry.Id);
+                if (addTimeline != 0) { t.TimelineIds.Add(addTimeline); changed = true; }
+
                 ImGui.SameLine();
                 var td = t.Duration;
                 ImGui.SetNextItemWidth(80 * scale);
@@ -858,8 +874,88 @@ public sealed class HousingNpcSceneEditorUi : WindowMediatorSubscriberBase
             }
         }
         catch (Exception ex) { _logger.LogWarning(ex, "Chargement de la feuille Emote échoué"); }
+
+        DisambiguateEmoteNames(list);
         _emotes = list;
         return _emotes;
+    }
+
+    private void DisambiguateEmoteNames(List<(ushort Id, string Name, uint Icon)> list)
+    {
+        var seen = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (var (_, name, _) in list)
+            seen[name] = seen.GetValueOrDefault(name) + 1;
+
+        for (int i = 0; i < list.Count; i++)
+        {
+            var (id, name, icon) = list[i];
+            if (id == 0 || seen.GetValueOrDefault(name) <= 1) continue;
+            list[i] = (id, $"{name} ({EmoteCommandOrId(id)})", icon);
+        }
+    }
+
+    private string EmoteCommandOrId(ushort emoteId)
+    {
+        try
+        {
+            var command = _dataManager.GetExcelSheet<Lumina.Excel.Sheets.Emote>()
+                .GetRowOrDefault(emoteId)?.TextCommand.ValueNullable?.Command.ExtractText();
+            if (!string.IsNullOrWhiteSpace(command)) return command;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Commande de texte introuvable pour l'émote {Emote}", emoteId);
+        }
+        return emoteId.ToString(CultureInfo.InvariantCulture);
+    }
+
+    private List<(ushort Id, string Key)> Timelines()
+    {
+        if (_timelines != null) return _timelines;
+        var list = new List<(ushort, string)>();
+        try
+        {
+            foreach (var t in _dataManager.GetExcelSheet<Lumina.Excel.Sheets.ActionTimeline>())
+            {
+                if (t.RowId == 0 || t.RowId > ushort.MaxValue) continue;
+                var key = t.Key.ExtractText();
+                if (string.IsNullOrWhiteSpace(key)) continue;
+                list.Add(((ushort)t.RowId, key));
+            }
+        }
+        catch (Exception ex) { _logger.LogWarning(ex, "Chargement de la feuille ActionTimeline échoué"); }
+        _timelines = list;
+        return _timelines;
+    }
+
+    private const int MaxTimelineResults = 200;
+    private ushort DrawTimelinePicker(string id)
+    {
+        ushort result = 0;
+        ImGui.SetNextItemWidth(150 * ImGuiHelpers.GlobalScale);
+        using var combo = ImRaii.Combo(Loc.Get("HousingNpc.Editor.TimelineFind") + "##tlp" + id, string.Empty);
+        if (!combo) return 0;
+
+        ImGui.SetNextItemWidth(-1);
+        ImGui.InputTextWithHint("##tls" + id, Loc.Get("HousingNpc.Editor.Search"), ref _timelineFilter, 50);
+        if (string.IsNullOrWhiteSpace(_timelineFilter))
+        {
+            ImGui.TextColored(ImGuiColors.DalamudGrey, Loc.Get("HousingNpc.Editor.TimelineFindHint"));
+            return 0;
+        }
+
+        int shown = 0;
+        foreach (var (tid, key) in Timelines())
+        {
+            if (!key.Contains(_timelineFilter, StringComparison.OrdinalIgnoreCase)) continue;
+            if (++shown > MaxTimelineResults)
+            {
+                ImGui.TextColored(ImGuiColors.DalamudGrey, Loc.Get("HousingNpc.Editor.TimelineTooMany"));
+                break;
+            }
+            if (ImGui.Selectable($"{key}  ({tid})##tl{id}_{tid}")) result = tid;
+        }
+        return result;
     }
 
     private void DrawEmoteIcon(uint iconId, float size)
@@ -903,7 +999,13 @@ public sealed class HousingNpcSceneEditorUi : WindowMediatorSubscriberBase
                 if (!string.IsNullOrEmpty(_emoteFilter) && !ename.Contains(_emoteFilter, StringComparison.OrdinalIgnoreCase)) continue;
                 DrawEmoteIcon(eicon, iconSize);
                 ImGui.SameLine();
-                if (ImGui.Selectable(ename + "##" + id, eid == current)) { result = eid; changed = true; }
+                // L'identifiant ImGui d'un Selectable dérive de son libellé : deux émotes homonymes
+                // partageaient le même, et seule la première répondait au clic. On y ajoute l'id.
+                if (ImGui.Selectable(ename + "##" + id + "_" + eid.ToString(CultureInfo.InvariantCulture), eid == current))
+                {
+                    result = eid;
+                    changed = true;
+                }
             }
         }
         return result;

@@ -6873,6 +6873,15 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
   <data name="HousingNpc.Editor.TimelineIdsHint" xml:space="preserve">
     <value>ID(s)</value>
   </data>
+  <data name="HousingNpc.Editor.TimelineFind" xml:space="preserve">
+    <value>Search</value>
+  </data>
+  <data name="HousingNpc.Editor.TimelineFindHint" xml:space="preserve">
+    <value>Type to search for an animation. The game only gives technical names: try "pose", "sit", "idle", "stand". The animation you pick is added to the list.</value>
+  </data>
+  <data name="HousingNpc.Editor.TimelineTooMany" xml:space="preserve">
+    <value>Too many results — narrow the search.</value>
+  </data>
   <data name="HousingNpc.Editor.TimelineIdsTip" xml:space="preserve">
     <value>Game animation ids (ActionTimeline), comma-separated. Allows animations other than emotes.</value>
   </data>
