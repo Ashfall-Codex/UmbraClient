@@ -3,6 +3,7 @@ using UmbraSync.API.Data;
 using UmbraSync.API.Data.Enum;
 using UmbraSync.FileCache;
 using UmbraSync.Interop.Ipc;
+using UmbraSync.Interop.Ipc.Penumbra;
 using UmbraSync.PlayerData.Factories;
 using UmbraSync.PlayerData.Handlers;
 using UmbraSync.Services.CharaData;
@@ -18,6 +19,7 @@ public sealed class NpcLiveAppearanceService : DisposableMediatorSubscriberBase
     private readonly DalamudUtilService _dalamudUtil;
     private readonly CharaDataFileHandler _fileHandler;
     private readonly NativeNpcSpawner _spawner;
+    private readonly PenumbraCollectionBinder _collectionBinder;
     private const int GPosePlayerIndex = 200;
 
     private volatile CharacterData? _lastSelfData;
@@ -28,6 +30,7 @@ public sealed class NpcLiveAppearanceService : DisposableMediatorSubscriberBase
         : base(logger, mediator)
     {
         _spawner = spawner;
+        _collectionBinder = new PenumbraCollectionBinder(ipc);
         // Snapshot live complet de notre perso : c'est CELUI envoyé aux pairs.
         Mediator.Subscribe<CharacterDataCreatedMessage>(this, msg => _lastSelfData = msg.CharacterData);
         _ipc = ipc;
@@ -126,25 +129,29 @@ public sealed class NpcLiveAppearanceService : DisposableMediatorSubscriberBase
                     totalReplacements - modPaths.Count, totalReplacements, modPaths.Count);
             }
 
-            var collection = await _ipc.Penumbra.CreateTemporaryCollectionAsync(Logger, "UmbraNpc-" + appId.ToString("N")).ConfigureAwait(false);
-            var assignResult = await _ipc.Penumbra.AssignTemporaryCollectionAsync(Logger, collection, idx).ConfigureAwait(false);
-            Logger.LogInformation("Live PNJ : collection {Collection} assignée à l'index {Index} → {Result}", collection, idx, assignResult);
-            var stateApplied = await _ipc.Penumbra.ApplyTemporaryStateAsync(Logger, appId, collection,
+            // Même chemin que les pairs : création, assignation et pose de l'état passent par le
+            // binder, qui vérifie chaque réponse de Penumbra. Ici l'acteur est encore en deferDraw,
+            // donc la collection est bien en place avant qu'il ne charge la moindre ressource.
+            var binding = new PenumbraCollectionBinding();
+            var result = await _collectionBinder.BindAndApplyAsync(Logger, appId, binding,
+                "UmbraNpc-" + appId.ToString("N"), () => Task.FromResult((ushort)idx),
                 modPaths, data.ManipulationData ?? string.Empty).ConfigureAwait(false);
-            if (!stateApplied)
+
+            if (!result.Success)
             {
-                Logger.LogWarning("Live PNJ : pose de l'état Penumbra refusée sur la collection {Collection}, abandon", collection);
-                await _ipc.Penumbra.RemoveTemporaryCollectionAsync(Logger, appId, collection).ConfigureAwait(false);
+                Logger.LogWarning("Live PNJ : {Reason} ({Failure}), abandon", result.Reason, result.Failure);
+                await _collectionBinder.RemoveAsync(Logger, appId, binding).ConfigureAwait(false);
                 handler.Dispose();
                 return null;
             }
 
-            await WaitForCollectionReadyAsync(idx, collection).ConfigureAwait(false);
+            Logger.LogInformation("Live PNJ : collection {Collection} liée à l'index {Index}", binding.Collection, idx);
+            await WaitForCollectionReadyAsync(idx, binding.Collection).ConfigureAwait(false);
 
             return new NpcLiveHandle
             {
                 ApplicationId = appId,
-                Collection = collection,
+                Collection = binding.Collection,
                 ObjectIndex = idx,
                 Handler = handler,
             };

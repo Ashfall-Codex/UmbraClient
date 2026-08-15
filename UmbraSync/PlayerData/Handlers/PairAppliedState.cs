@@ -1,4 +1,5 @@
 using UmbraSync.API.Data;
+using UmbraSync.Interop.Ipc.Penumbra;
 using ObjectKind = UmbraSync.API.Data.Enum.ObjectKind;
 
 namespace UmbraSync.PlayerData.Handlers;
@@ -13,8 +14,8 @@ public sealed class PairAppliedState
     public CharacterData? CachedData { get; set; }
     public CharacterData? LastAppliedData { get; set; }
     public Dictionary<ObjectKind, Guid?> CustomizeIds { get; } = [];
-    public Guid PenumbraCollection { get; set; } = Guid.Empty;
-    public int PenumbraAssignedObjectIndex { get; set; } = -1;
+    /// <summary>Collection Penumbra du pair et index auquel elle est liée.</summary>
+    public PenumbraCollectionBinding Penumbra { get; } = new();
     public bool ForceApplyMods { get; set; }
     public bool PendingModReapply { get; set; }
     public Guid Deferred { get; set; } = Guid.Empty;

@@ -5193,6 +5193,12 @@ Note : Les armes ne s'afficheront pas correctement sauf si vous utilisez le m&#x
   <data name="Settings.Advanced.Debug.NetworkDiag.CurrentFile" xml:space="preserve">
     <value>Fichier en cours : {0}</value>
   </data>
+  <data name="Settings.Advanced.Debug.LogPlayerNames" xml:space="preserve">
+    <value>Journaliser les noms de personnages</value>
+  </data>
+  <data name="Settings.Advanced.Debug.LogPlayerNames.Help" xml:space="preserve">
+    <value>Désactivé par défaut : un log partagé pour un rapport de bug ne doit pas révéler qui se trouvait à côté de vous. À n'activer que le temps d'une investigation, et privilégiez l'envoi d'un log anonymisé.</value>
+  </data>
   <data name="Settings.Advanced.Debug.LogPerf" xml:space="preserve">
     <value>Journaliser les compteurs de performance</value>
   </data>

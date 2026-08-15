@@ -18,6 +18,7 @@ public sealed class PairCharacterReverter
 {
     public sealed record Context(
         Func<string?> GetPlayerName,
+        Func<string> DescribeForLog,
         Func<bool> IsVisible,
         Func<GameObjectHandler?> GetCharaHandler,
         Action CancelInFlightWork);
@@ -50,7 +51,7 @@ public sealed class PairCharacterReverter
     public async Task UndoApplicationAsync(Guid applicationId = default)
     {
         var name = _context.GetPlayerName();
-        _logger.LogDebug("Undoing application of {pair} (Name: {name})", _pair.UserData.UID, name);
+        _logger.LogDebug("Undoing application of {pair}", _context.DescribeForLog());
         _state.LastAppliedData = null;
         _state.PendingModReapply = false;
         try
@@ -59,15 +60,15 @@ public sealed class PairCharacterReverter
                 applicationId = Guid.NewGuid();
             _context.CancelInFlightWork();
 
-            _logger.LogDebug("[{applicationId}] Removing Temp Collection for {name} ({user})", applicationId, name, _pair.UserData.UID);
-            if (_state.PenumbraCollection != Guid.Empty)
+            _logger.LogDebug("[{applicationId}] Removing Temp Collection for {pair}", applicationId, _context.DescribeForLog());
+            if (_state.Penumbra.Collection != Guid.Empty)
             {
-                var col = _state.PenumbraCollection;
+                var col = _state.Penumbra.Collection;
                 try
                 {
                     await _ipcManager.Penumbra.RemoveTemporaryCollectionAsync(_logger, applicationId, col).ConfigureAwait(false);
-                    _state.PenumbraCollection = Guid.Empty;
-                    _state.PenumbraAssignedObjectIndex = -1;
+                    _state.Penumbra.Collection = Guid.Empty;
+                    _state.Penumbra.AssignedObjectIndex = -1;
                 }
                 catch (Exception ex)
                 {
@@ -77,10 +78,10 @@ public sealed class PairCharacterReverter
 
             if (!string.IsNullOrEmpty(name))
             {
-                _logger.LogTrace("[{applicationId}] Restoring state for {name} ({OnlineUser})", applicationId, name, _pair.UserData.UID);
+                _logger.LogTrace("[{applicationId}] Restoring state for {pair}", applicationId, _context.DescribeForLog());
                 if (!_context.IsVisible())
                 {
-                    _logger.LogDebug("[{applicationId}] Restoring Glamourer for {name} ({user})", applicationId, name, _pair.UserData.UID);
+                    _logger.LogDebug("[{applicationId}] Restoring Glamourer for {pair}", applicationId, _context.DescribeForLog());
                     await _ipcManager.Glamourer.RevertByNameAsync(_logger, name, applicationId).ConfigureAwait(false);
                 }
                 else
@@ -107,7 +108,7 @@ public sealed class PairCharacterReverter
                     }
                     else
                     {
-                        _logger.LogDebug("[{applicationId}] Restoring Glamourer (fallback) for {name} ({user})", applicationId, name, _pair.UserData.UID);
+                        _logger.LogDebug("[{applicationId}] Restoring Glamourer (fallback) for {pair}", applicationId, _context.DescribeForLog());
                         await _ipcManager.Glamourer.RevertByNameAsync(_logger, name, applicationId).ConfigureAwait(false);
                     }
                 }
@@ -130,7 +131,7 @@ public sealed class PairCharacterReverter
     public async Task RevertToRestoredAsync(Guid applicationId)
     {
         var name = _context.GetPlayerName();
-        _logger.LogDebug("[{applicationId}] Reverting to restored state for {name} ({user})", applicationId, name, _pair.UserData.UID);
+        _logger.LogDebug("[{applicationId}] Reverting to restored state for {pair}", applicationId, _context.DescribeForLog());
 
         var charaHandler = _context.GetCharaHandler();
         if (charaHandler is null || charaHandler.Address == nint.Zero)
@@ -147,16 +148,16 @@ public sealed class PairCharacterReverter
                 _logger.LogDebug("[{applicationId}] Game object is not a character, skipping revert", applicationId);
                 return;
             }
-            if (_ipcManager.Penumbra.APIAvailable && _state.PenumbraCollection != Guid.Empty)
+            if (_ipcManager.Penumbra.APIAvailable && _state.Penumbra.Collection != Guid.Empty)
             {
-                _logger.LogDebug("[{applicationId}] Clearing Penumbra mods for {name}", applicationId, name);
+                _logger.LogDebug("[{applicationId}] Clearing Penumbra mods for {pair}", applicationId, _context.DescribeForLog());
                 try
                 {
-                    var assign = await _ipcManager.Penumbra.AssignTemporaryCollectionAsync(_logger, _state.PenumbraCollection, character.ObjectIndex).ConfigureAwait(false);
+                    var assign = await _ipcManager.Penumbra.AssignTemporaryCollectionAsync(_logger, _state.Penumbra.Collection, character.ObjectIndex).ConfigureAwait(false);
                     if (assign == global::Penumbra.Api.Enums.PenumbraApiEc.Success)
-                        _state.PenumbraAssignedObjectIndex = character.ObjectIndex;
+                        _state.Penumbra.AssignedObjectIndex = character.ObjectIndex;
                     
-                    await _ipcManager.Penumbra.ApplyTemporaryStateAsync(_logger, applicationId, _state.PenumbraCollection,
+                    await _ipcManager.Penumbra.ApplyTemporaryStateAsync(_logger, applicationId, _state.Penumbra.Collection,
                         new Dictionary<string, string>(StringComparer.Ordinal), string.Empty).ConfigureAwait(false);
                 }
                 catch (Exception ex)
@@ -187,7 +188,7 @@ public sealed class PairCharacterReverter
             using var cts = new CancellationTokenSource();
             cts.CancelAfter(TimeSpan.FromSeconds(60));
 
-            _logger.LogDebug("[{applicationId}] Reverting {count} ObjectKinds for {name}", applicationId, kinds.Count, characterName);
+            _logger.LogDebug("[{applicationId}] Reverting {count} ObjectKinds for {pair}", applicationId, kinds.Count, _context.DescribeForLog());
             foreach (var kind in kinds)
             {
                 try
@@ -221,7 +222,7 @@ public sealed class PairCharacterReverter
         nint address = _dalamudUtil.GetPlayerCharacterFromCachedTableByIdent(_pair.Ident);
         if (address == nint.Zero) return;
 
-        _logger.LogDebug("[{applicationId}] Reverting all Customization for {alias}/{name} {objectKind}", applicationId, _pair.UserData.AliasOrUID, name, objectKind);
+        _logger.LogDebug("[{applicationId}] Reverting all Customization for {alias} {objectKind}", applicationId, _pair.UserData.AliasOrUID, objectKind);
 
         if (_state.CustomizeIds.TryGetValue(objectKind, out var customizeId))
         {
@@ -232,20 +233,20 @@ public sealed class PairCharacterReverter
         {
             using GameObjectHandler tempHandler = await _gameObjectHandlerFactory.Create(ObjectKind.Player, () => address, isWatched: false).ConfigureAwait(false);
             tempHandler.CompareNameAndThrow(name);
-            _logger.LogDebug("[{applicationId}] Restoring Customization and Equipment for {alias}/{name}", applicationId, _pair.UserData.AliasOrUID, name);
+            _logger.LogDebug("[{applicationId}] Restoring Customization and Equipment for {alias}", applicationId, _pair.UserData.AliasOrUID);
             await _ipcManager.Glamourer.RevertAsync(_logger, tempHandler, applicationId, cancelToken).ConfigureAwait(false);
             tempHandler.CompareNameAndThrow(name);
-            _logger.LogDebug("[{applicationId}] Restoring Heels for {alias}/{name}", applicationId, _pair.UserData.AliasOrUID, name);
+            _logger.LogDebug("[{applicationId}] Restoring Heels for {alias}", applicationId, _pair.UserData.AliasOrUID);
             await _ipcManager.Heels.RestoreOffsetForPlayerAsync(address).ConfigureAwait(false);
             tempHandler.CompareNameAndThrow(name);
-            _logger.LogDebug("[{applicationId}] Restoring C+ for {alias}/{name}", applicationId, _pair.UserData.AliasOrUID, name);
+            _logger.LogDebug("[{applicationId}] Restoring C+ for {alias}", applicationId, _pair.UserData.AliasOrUID);
             await _ipcManager.CustomizePlus.RevertByIdAsync(customizeId).ConfigureAwait(false);
             tempHandler.CompareNameAndThrow(name);
-            _logger.LogDebug("[{applicationId}] Restoring Honorific for {alias}/{name}", applicationId, _pair.UserData.AliasOrUID, name);
+            _logger.LogDebug("[{applicationId}] Restoring Honorific for {alias}", applicationId, _pair.UserData.AliasOrUID);
             await _ipcManager.Honorific.ClearTitleAsync(address).ConfigureAwait(false);
-            _logger.LogDebug("[{applicationId}] Restoring Pet Nicknames for {alias}/{name}", applicationId, _pair.UserData.AliasOrUID, name);
+            _logger.LogDebug("[{applicationId}] Restoring Pet Nicknames for {alias}", applicationId, _pair.UserData.AliasOrUID);
             await _ipcManager.PetNames.ClearPlayerData(address).ConfigureAwait(false);
-            _logger.LogDebug("[{applicationId}] Restoring Moodles for {alias}/{name}", applicationId, _pair.UserData.AliasOrUID, name);
+            _logger.LogDebug("[{applicationId}] Restoring Moodles for {alias}", applicationId, _pair.UserData.AliasOrUID);
             await _ipcManager.Moodles.RevertStatusAsync(address).ConfigureAwait(false);
         }
         else if (objectKind == ObjectKind.MinionOrMount)

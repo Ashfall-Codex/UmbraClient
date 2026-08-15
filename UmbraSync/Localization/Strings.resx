@@ -5283,6 +5283,12 @@ Note: Weapons will not be displayed correctly unless using the same job as the s
   <data name="Settings.Advanced.Debug.NetworkDiag.CurrentFile" xml:space="preserve">
     <value>Current file: {0}</value>
   </data>
+  <data name="Settings.Advanced.Debug.LogPlayerNames" xml:space="preserve">
+    <value>Log character names</value>
+  </data>
+  <data name="Settings.Advanced.Debug.LogPlayerNames.Help" xml:space="preserve">
+    <value>Off by default: a log file shared for a bug report should not reveal who was standing next to you. Turn this on only while investigating a problem, and prefer sending an anonymised log.</value>
+  </data>
   <data name="Settings.Advanced.Debug.LogPerf" xml:space="preserve">
     <value>Log Performance Counters</value>
   </data>

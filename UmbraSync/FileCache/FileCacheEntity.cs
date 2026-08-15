@@ -1,8 +1,10 @@
 ﻿#nullable disable
 
+using UmbraSync.Core.Abstractions;
+
 namespace UmbraSync.FileCache;
 
-public class FileCacheEntity
+public class FileCacheEntity : ICachedFile
 {
     public FileCacheEntity(string hash, string path, string lastModifiedDateTicks, long? size = null, long? compressedSize = null)
     {

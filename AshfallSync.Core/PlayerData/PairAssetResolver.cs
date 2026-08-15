@@ -2,38 +2,43 @@ using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using UmbraSync.API.Data;
+using UmbraSync.Core.Abstractions;
 using UmbraSync.FileCache;
-using UmbraSync.MareConfiguration;
 using UmbraSync.MareConfiguration.Models;
-using UmbraSync.Services;
-using UmbraSync.WebAPI.Files;
 
 namespace UmbraSync.PlayerData.Handlers;
 
 /// <summary>
-/// Traduit les remplacements de fichiers annoncés par un pair en redirections Penumbra exploitables et signale ce qui manque encore en local.
+/// Traduit les remplacements de fichiers annoncés par un pair en redirections Penumbra exploitables,
+/// et signale ce qui manque encore en local. Ne touche ni au jeu ni aux IPC.
 /// </summary>
 public sealed class PairAssetResolver
 {
     private readonly ILogger _logger;
     private readonly UserData _userData;
-    private readonly FileCacheManager _fileDbManager;
+    private readonly IFileCacheLookup _fileCache;
     private readonly CompressedAlternateManager _compressedAlternateManager;
-    private readonly FileDownloadManager _downloadManager;
-    private readonly PlayerPerformanceConfigService _playerPerformanceConfigService;
+    private readonly IForbiddenTransferRegistry _forbiddenTransfers;
+    private readonly ITextureCompressionSettings _compressionSettings;
 
-    public PairAssetResolver(ILogger logger, UserData userData, FileCacheManager fileDbManager,
-        CompressedAlternateManager compressedAlternateManager, FileDownloadManager downloadManager,
-        PlayerPerformanceConfigService playerPerformanceConfigService)
+    public PairAssetResolver(ILogger logger, UserData userData, IFileCacheLookup fileCache,
+        CompressedAlternateManager compressedAlternateManager, IForbiddenTransferRegistry forbiddenTransfers,
+        ITextureCompressionSettings compressionSettings)
     {
         _logger = logger;
         _userData = userData;
-        _fileDbManager = fileDbManager;
+        _fileCache = fileCache;
         _compressedAlternateManager = compressedAlternateManager;
-        _downloadManager = downloadManager;
-        _playerPerformanceConfigService = playerPerformanceConfigService;
+        _forbiddenTransfers = forbiddenTransfers;
+        _compressionSettings = compressionSettings;
     }
-    
+
+    /// <param name="MissingFiles">Remplacements dont le fichier n'est pas (encore) en cache local.</param>
+    /// <param name="LocallyPresentFiles">
+    /// Hashes déjà présents en local envoyés au download uniquement pour découvrir un alternate
+    /// (mode AlwaysCompressed) : si aucun alt n'existe, le download ne les re-téléchargera pas.
+    /// </param>
+    /// <param name="ModdedPaths">Redirections à poser dans Penumbra : (gamePath, hash source) → fichier réel.</param>
     public sealed record Resolution(
         List<FileReplacementData> MissingFiles,
         HashSet<string> LocallyPresentFiles,
@@ -42,14 +47,16 @@ public sealed class PairAssetResolver
     /// <summary>Mode de compression pour ce pair : override par UID sinon config globale.</summary>
     public TextureCompressionMode ComputeCompressedAlternateUsage()
     {
-        var cfg = _playerPerformanceConfigService.Current;
-        if (cfg.UIDsToOverride.Exists(uid =>
-                string.Equals(uid, _userData.UID, StringComparison.Ordinal)
-                || string.Equals(uid, _userData.Alias, StringComparison.Ordinal)))
+        foreach (var uid in _compressionSettings.UidsToOverride)
         {
-            return TextureCompressionMode.AlwaysSourceQuality;
+            if (string.Equals(uid, _userData.UID, StringComparison.Ordinal)
+                || string.Equals(uid, _userData.Alias, StringComparison.Ordinal))
+            {
+                return TextureCompressionMode.AlwaysSourceQuality;
+            }
         }
-        return cfg.TextureCompressionMode;
+
+        return _compressionSettings.Mode;
     }
 
     public Resolution Resolve(Guid applicationBase, CharacterData charaData, TextureCompressionMode compressedUsage, CancellationToken token)
@@ -64,7 +71,24 @@ public sealed class PairAssetResolver
 
         try
         {
-            var replacementList = charaData.FileReplacements.SelectMany(k => k.Value.Where(v => string.IsNullOrEmpty(v.FileSwapPath))).ToList();
+            // Un remplacement sans swap ET sans hash ne désigne aucun fichier : il ne sera jamais
+            // résolu ni téléchargeable. Le compter comme manquant fait boucler la boucle de download
+            // sur un hash vide et envoie des getFileSizes([""]) au serveur jusqu'à épuisement des
+            // tentatives. HasMissingFiles filtrait déjà ce cas, pas Resolve.
+            var replacementList = charaData.FileReplacements
+                .SelectMany(k => k.Value.Where(v => string.IsNullOrEmpty(v.FileSwapPath)))
+                .Where(v => !string.IsNullOrWhiteSpace(v.Hash))
+                .ToList();
+
+            var blankHashes = charaData.FileReplacements
+                .SelectMany(k => k.Value)
+                .Count(v => string.IsNullOrEmpty(v.FileSwapPath) && string.IsNullOrWhiteSpace(v.Hash));
+            if (blankHashes > 0)
+            {
+                _logger.LogWarning("[BASE-{appBase}] {count} remplacement(s) ignoré(s) : ni chemin de swap ni hash",
+                    applicationBase, blankHashes);
+            }
+
             Parallel.ForEach(replacementList, new ParallelOptions()
             {
                 CancellationToken = token,
@@ -75,7 +99,8 @@ public sealed class PairAssetResolver
                 token.ThrowIfCancellationRequested();
 
                 var replacementItem = item;
-                var fileCache = _fileDbManager.GetFileCacheByHash(item.Hash, preferSubst: true);
+                var fileCache = _fileCache.GetByHash(item.Hash, preferSubst: true);
+                // "confirmed" = on connaît le statut d'alternate de ce hash (existe ou n'existera jamais).
                 bool confirmed = _compressedAlternateManager.TryGetCachedCompressedAlternate(item.Hash, out var altHash);
 
                 if (compressedUsage == TextureCompressionMode.AlwaysSourceQuality)
@@ -88,22 +113,24 @@ public sealed class PairAssetResolver
                     if (fileCache == null && confirmed && altHash != null)
                     {
                         replacementItem = new FileReplacementData { GamePaths = item.GamePaths, Hash = altHash };
-                        fileCache = _fileDbManager.GetFileCacheByHash(altHash, preferSubst: true);
+                        fileCache = _fileCache.GetByHash(altHash, preferSubst: true);
                     }
                 }
-                else 
+                else // AlwaysCompressed
                 {
                     if (confirmed)
                     {
+                        // On sait : s'il y a un alt on l'utilise (même si la source est en local -> gain VRAM), sinon source.
                         if (altHash != null)
                         {
                             replacementItem = new FileReplacementData { GamePaths = item.GamePaths, Hash = altHash };
-                            fileCache = _fileDbManager.GetFileCacheByHash(altHash, preferSubst: true);
+                            fileCache = _fileCache.GetByHash(altHash, preferSubst: true);
                         }
                     }
                     else
                     {
-
+                        // Statut inconnu : envoyer la source au download pour découvrir un alt, mais la marquer "déjà présente"
+                        // pour ne pas la re-télécharger si aucun alt n'existe.
                         locallyPresentFileSet[item.Hash] = 0;
                         fileCache = null;
                     }
@@ -111,12 +138,13 @@ public sealed class PairAssetResolver
 
                 if (fileCache != null)
                 {
-                    if (string.IsNullOrEmpty(new FileInfo(fileCache.ResolvedFilepath).Extension))
+                    if (string.IsNullOrEmpty(Path.GetExtension(fileCache.ResolvedFilepath)))
                     {
                         hasMigrationChanges = true;
-                        fileCache = _fileDbManager.MigrateFileHashToExtension(fileCache, replacementItem.GamePaths[0].Split(".")[^1]);
+                        fileCache = _fileCache.MigrateToExtension(fileCache, replacementItem.GamePaths[0].Split(".")[^1]);
                     }
 
+                    // Clé = gamePath + hash original ; valeur = fichier réel (source ou BC7 selon substitution).
                     foreach (var gamePath in item.GamePaths)
                     {
                         outputDict[(gamePath, item.Hash)] = fileCache.ResolvedFilepath;
@@ -150,7 +178,7 @@ public sealed class PairAssetResolver
         {
             _logger.LogError(ex, "[BASE-{appBase}] Something went wrong during calculation replacements", applicationBase);
         }
-        if (hasMigrationChanges) _fileDbManager.WriteOutFullCsv();
+        if (hasMigrationChanges) _fileCache.Flush();
         st.Stop();
         _logger.LogDebug("[BASE-{appBase}] ModdedPaths calculated in {time}ms, missing files: {count}, total files: {total}", applicationBase, st.ElapsedMilliseconds, missingFiles.Count, moddedDictionary.Keys.Count);
 
@@ -158,7 +186,8 @@ public sealed class PairAssetResolver
     }
 
     /// <summary>
-    /// Vrai si au moins un fichier attendu manque en local et reste téléchargeable.
+    /// Vrai si au moins un fichier attendu manque en local et reste téléchargeable. Purge au passage
+    /// les entrées de cache dont le fichier a disparu du disque.
     /// </summary>
     public bool HasMissingFiles(CharacterData data)
     {
@@ -172,13 +201,13 @@ public sealed class PairAssetResolver
             if (string.IsNullOrWhiteSpace(hash) || !seen.Add(hash))
                 continue;
 
-            var fileCache = _fileDbManager.GetFileCacheByHash(hash);
-            if (fileCache is null || !File.Exists(fileCache.ResolvedFilepath))
+            var fileCache = _fileCache.GetByHash(hash);
+            if (fileCache is null || !_fileCache.Exists(fileCache))
             {
                 if (fileCache is not null)
-                    _fileDbManager.RemoveHashedFile(fileCache.Hash, fileCache.PrefixedFilePath);
+                    _fileCache.Remove(fileCache.Hash, fileCache.PrefixedFilePath);
 
-                if (!_downloadManager.ForbiddenTransfers.Exists(f => string.Equals(f.Hash, hash, StringComparison.Ordinal)))
+                if (!_forbiddenTransfers.IsForbidden(hash))
                     return true;
             }
         }

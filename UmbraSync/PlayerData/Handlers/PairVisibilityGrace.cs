@@ -18,7 +18,7 @@ public sealed class PairVisibilityGrace
     private readonly Pair _pair;
     private readonly PairAppliedState _state;
     private readonly IpcManager _ipcManager;
-    private readonly Func<string?> _getPlayerName;
+    private readonly Func<string> _describeForLog;
     private readonly Func<bool> _isVisible;
 
     private readonly Lock _gate = new();
@@ -27,13 +27,13 @@ public sealed class PairVisibilityGrace
     private DateTime? _evictionDueAtUtc;
 
     public PairVisibilityGrace(ILogger logger, Pair pair, PairAppliedState state, IpcManager ipcManager,
-        Func<string?> getPlayerName, Func<bool> isVisible)
+        Func<string> describeForLog, Func<bool> isVisible)
     {
         _logger = logger;
         _pair = pair;
         _state = state;
         _ipcManager = ipcManager;
-        _getPlayerName = getPlayerName;
+        _describeForLog = describeForLog;
         _isVisible = isVisible;
     }
 
@@ -52,8 +52,8 @@ public sealed class PairVisibilityGrace
             _evictionDueAtUtc = _invisibleSinceUtc.Value + EvictionGrace;
         }
 
-        _logger.LogDebug("Starting visibility grace period for {name} ({user}), eviction due at {time}",
-            _getPlayerName(), _pair.UserData.UID, _evictionDueAtUtc);
+        _logger.LogDebug("Starting visibility grace period for {pair}, eviction due at {time}",
+            _describeForLog(), _evictionDueAtUtc);
 
         _ = Task.Run(async () =>
         {
@@ -68,14 +68,14 @@ public sealed class PairVisibilityGrace
                 ScheduledForDeletion = true;
 
                 // Clean up Penumbra collection when the grace period expires
-                if (_state.PenumbraCollection != Guid.Empty)
+                if (_state.Penumbra.Collection != Guid.Empty)
                 {
                     var applicationId = Guid.NewGuid();
                     try
                     {
-                        await _ipcManager.Penumbra.RemoveTemporaryCollectionAsync(_logger, applicationId, _state.PenumbraCollection).ConfigureAwait(false);
-                        _state.PenumbraCollection = Guid.Empty;
-                        _state.PenumbraAssignedObjectIndex = -1;
+                        await _ipcManager.Penumbra.RemoveTemporaryCollectionAsync(_logger, applicationId, _state.Penumbra.Collection).ConfigureAwait(false);
+                        _state.Penumbra.Collection = Guid.Empty;
+                        _state.Penumbra.AssignedObjectIndex = -1;
                         _logger.LogDebug("[{applicationId}] Removed temporary collection after visibility grace timeout", applicationId);
                     }
                     catch (Exception ex)
@@ -98,7 +98,7 @@ public sealed class PairVisibilityGrace
         {
             if (_graceCts != null)
             {
-                _logger.LogDebug("Cancelling visibility grace period for {name} ({user})", _getPlayerName(), _pair.UserData.UID);
+                _logger.LogDebug("Cancelling visibility grace period for {pair}", _describeForLog());
                 _graceCts.Cancel();
                 _graceCts.Dispose();
                 _graceCts = null;

@@ -65,6 +65,7 @@ public class MareConfig : IMareConfiguration
     public bool InitialScanComplete { get; set; }
     public LogLevel LogLevel { get; set; } = LogLevel.Information;
     public bool LogPerformance { get; set; }
+    public bool LogPlayerNames { get; set; }
     public bool LogEvents { get; set; } = true;
     public bool HoldCombatApplication { get; set; }
     public double MaxLocalCacheInGiB { get; set; } = 100;
