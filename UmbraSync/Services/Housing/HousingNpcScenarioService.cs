@@ -530,12 +530,18 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
         NpcLiveHandle? live = null;
         if (hasLive)
         {
-            live = await _liveAppearance.PrepareCollectionAsync(actor.Address, entry.LiveData!).ConfigureAwait(false);
-            
+            var preparation = await _liveAppearance.PrepareCollectionAsync(actor.Address, entry.LiveData!).ConfigureAwait(false);
+            live = preparation.Handle;
+            if (!preparation.SafeToDraw)
+            {
+                Logger.LogWarning("Spawn du PNJ abandonné : collection non confirmée sur son index, l'acteur est retiré");
+                await _dalamudUtil.RunOnFrameworkThread(() => _spawner.Despawn(actor.Address)).ConfigureAwait(false);
+                return;
+            }
+
             try
             {
-                // Le draw ne démarre qu'ici, collection déjà assignée. Si la préparation a échoué, on
-                // dessine quand même : mieux vaut un PNJ en apparence brute qu'un acteur invisible.
+                // Le draw ne démarre qu'ici, collection assignée ET confirmée effective.
                 await _dalamudUtil.RunOnFrameworkThread(
                     () => _spawner.BeginDraw(actor.Address, entry.Appearance)).ConfigureAwait(false);
 

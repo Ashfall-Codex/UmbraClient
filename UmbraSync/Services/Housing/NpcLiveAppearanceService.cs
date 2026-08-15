@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Microsoft.Extensions.Logging;
 using UmbraSync.API.Data;
 using UmbraSync.API.Data.Enum;
@@ -103,12 +104,18 @@ public sealed class NpcLiveAppearanceService : DisposableMediatorSubscriberBase
         return await _fileHandler.CreatePlayerData().ConfigureAwait(false);
     }
     
-    public async Task<NpcLiveHandle?> PrepareCollectionAsync(nint address, CharacterData data)
+    public sealed record Preparation(NpcLiveHandle? Handle, bool SafeToDraw)
     {
-        if (!_ipc.Initialized || address == nint.Zero) return null;
+        public static Preparation VanillaIsSafe { get; } = new(null, SafeToDraw: true);
+        public static Preparation Unsafe { get; } = new(null, SafeToDraw: false);
+    }
+
+    public async Task<Preparation> PrepareCollectionAsync(nint address, CharacterData data)
+    {
+        if (!_ipc.Initialized || address == nint.Zero) return Preparation.VanillaIsSafe;
 
         int idx = await _dalamudUtil.RunOnFrameworkThread(() => _spawner.GetObjectTableIndex(address)).ConfigureAwait(false);
-        if (idx < 0) return null;
+        if (idx < 0) return Preparation.VanillaIsSafe;
         if (idx == GPosePlayerIndex)
         {
             Logger.LogWarning("Live PNJ : acteur sur le slot {Index} (joueur GPose), l'apparence risque de ne pas s'appliquer", GPosePlayerIndex);
@@ -142,49 +149,68 @@ public sealed class NpcLiveAppearanceService : DisposableMediatorSubscriberBase
                 Logger.LogWarning("Live PNJ : {Reason} ({Failure}), abandon", result.Reason, result.Failure);
                 await _collectionBinder.RemoveAsync(Logger, appId, binding).ConfigureAwait(false);
                 handler.Dispose();
-                return null;
+                return Preparation.Unsafe;
             }
 
             Logger.LogInformation("Live PNJ : collection {Collection} liée à l'index {Index}", binding.Collection, idx);
-            await WaitForCollectionReadyAsync(idx, binding.Collection).ConfigureAwait(false);
 
-            return new NpcLiveHandle
+            if (!await WaitForCollectionReadyAsync(idx, binding.Collection).ConfigureAwait(false))
+            {
+                await _collectionBinder.RemoveAsync(Logger, appId, binding).ConfigureAwait(false);
+                handler.Dispose();
+                return Preparation.Unsafe;
+            }
+
+            return new Preparation(new NpcLiveHandle
             {
                 ApplicationId = appId,
                 Collection = binding.Collection,
                 ObjectIndex = idx,
                 Handler = handler,
-            };
+            }, SafeToDraw: true);
         }
         catch (Exception ex)
         {
             Logger.LogWarning(ex, "Préparation de la collection PNJ échouée");
             handler.Dispose();
-            return null;
+            return Preparation.Unsafe;
         }
     }
-
-    private async Task WaitForCollectionReadyAsync(int objectIndex, Guid expected)
+    
+    private async Task<bool> WaitForCollectionReadyAsync(int objectIndex, Guid expected)
     {
-        const int timeoutMs = 1500;
+        const int timeoutMs = 15000;
         const int stepMs = 25;
         const int settleMs = 150;
+        const int slowWarnMs = 1500;
 
-        for (int elapsed = 0; elapsed < timeoutMs; elapsed += stepMs)
+        var sw = Stopwatch.StartNew();
+        bool warned = false;
+
+        while (sw.ElapsedMilliseconds < timeoutMs)
         {
             var effective = await _ipc.Penumbra.GetCollectionForObjectAsync(objectIndex).ConfigureAwait(false);
             if (effective.CollectionId == expected)
             {
                 Logger.LogDebug("Live PNJ : collection {Collection} effective sur l'index {Index} après {Elapsed} ms",
-                    expected, objectIndex, elapsed);
+                    expected, objectIndex, sw.ElapsedMilliseconds);
                 await Task.Delay(settleMs).ConfigureAwait(false);
-                return;
+                return true;
             }
+            
+            if (!warned && sw.ElapsedMilliseconds >= slowWarnMs)
+            {
+                warned = true;
+                Logger.LogInformation("Live PNJ : Penumbra met plus de {Slow} ms à activer la collection sur l'index {Index}, attente prolongée",
+                    slowWarnMs, objectIndex);
+            }
+
             await Task.Delay(stepMs).ConfigureAwait(false);
         }
 
-        Logger.LogWarning("Live PNJ : collection {Collection} toujours pas effective sur l'index {Index} après {Timeout} ms, draw lancé quand même",
-            expected, objectIndex, timeoutMs);
+        Logger.LogWarning("Live PNJ : collection {Collection} toujours pas effective sur l'index {Index} après {Timeout} ms, spawn abandonné "
+            + "(dessiner ici afficherait l'apparence d'un autre personnage)", expected, objectIndex, timeoutMs);
+        return false;
     }
 
     /// <summary>
