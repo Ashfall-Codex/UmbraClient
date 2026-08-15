@@ -9,8 +9,15 @@
 </p>
 
 <p align="center">
-  <code>v3.0.0</code> &middot; API <code>v4000</code> &middot; C# 13 / .NET 10 &middot; Dalamud SDK 15.0.0 (Dalamud API15)
+  <code>v3.0.1</code> &middot; API <code>v5000</code> &middot; C# 13 / .NET 10 &middot; Dalamud SDK 15.0.0 (Dalamud API15)
 </p>
+<p align="center">
+<a href="https://argus.arediss.fr"><img src="https://argus.arediss.fr/api/projects/umbraclient/badge.svg" alt="Quality gate" /></a>
+<a href="https://argus.arediss.fr"><img src="https://argus.arediss.fr/api/projects/umbraclient/badge.svg?metric=reliability" alt="Fiabilité" /></a>
+<a href="https://argus.arediss.fr"><img src="https://argus.arediss.fr/api/projects/umbraclient/badge.svg?metric=security" alt="Sécurité" /></a>
+<a href="https://argus.arediss.fr"><img src="https://argus.arediss.fr/api/projects/umbraclient/badge.svg?metric=maintainability" alt="Maintenabilité" /></a>
+<a href="https://argus.arediss.fr"><img src="https://argus.arediss.fr/api/projects/umbraclient/badge.svg?metric=vulnerabilities" alt="Vulnérabilités" /></a></p>
+
 
 ---
 

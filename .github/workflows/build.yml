@@ -9,7 +9,7 @@ on:
 
 jobs:
   build-and-analyze:
-    name: Analyse Qodana & Compilation
+    name: Compilation
     if: github.ref_type != 'tag'
     runs-on: ubuntu-latest
     permissions:
@@ -50,34 +50,6 @@ jobs:
       - name: Restauration des dépendances
         run: dotnet restore UmbraSync.sln --locked-mode
 
-      - name: Téléchargement de l'ancien report scan Qodana
-        continue-on-error: true
-        run: |
-          if [ ! -f baseline.sarif.json ]; then
-            echo "Downloading baseline from last report..."
-            curl -f -H "Authorization: Bearer ${{ secrets.QODANA_TOKEN }}" \
-              https://qodana.cloud/api/v1/projects/Jgx2y/reports/eodGma/sarif \
-              -o baseline.sarif.json || echo "No baseline found, will create one after scan"
-          else
-            echo "Baseline already exists"
-          fi
-
-      - name: Qodana Scan
-        uses: jetbrains/qodana-action@v2025.3
-        env:
-          QODANA_TOKEN: ${{ secrets.QODANA_TOKEN }}
-        with:
-          args: --baseline,baseline.sarif.json
-          upload-result: false
-          post-pr-comment: false
-          use-shell: true
-
-      - name: Rapport Qodana
-        if: always()
-        run: echo "Rapport Qodana disponible sur https://qodana.cloud"
-
-      - name: Restauration des dépendances (post-Qodana)
-        run: dotnet restore UmbraSync.sln
 
       - name: Compilation
         run: |
