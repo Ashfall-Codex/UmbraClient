@@ -814,8 +814,10 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
 
                 if (NativeNpcSpawner.IsEmoting(addr)) return;
             }
-            else
+            else if (!rt.EmoteLoopThis)
             {
+                // Une émote explicitement bouclée qui dure est le comportement demandé, pas une
+                // anomalie : seule une émote unique qui ne se termine jamais mérite d'être signalée.
                 Logger.LogDebug("Émote {Emote} sans durée toujours en cours après {Timeout}s, la séquence continue",
                     rt.CurrentEmote, MaxEmoteWaitSeconds);
             }
@@ -867,6 +869,17 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
         {
             rt.WaitLeft = MathF.Max(PostEmotePause, rt.LoopDelay);
             Advance(rt);
+            return;
+        }
+
+        if (e.Loop && !e.StayInPose && rt.CurrentEmote == e.Emote && NativeNpcSpawner.IsEmoting(addr))
+        {
+            rt.AwaitingEmote = true;
+            rt.EmoteGrace = 0.5f;
+            rt.EmoteElapsed = 0f;
+            rt.EmoteStay = false;
+            rt.EmoteLoopThis = true;
+            rt.EmoteDuration = e.Duration;
             return;
         }
 
