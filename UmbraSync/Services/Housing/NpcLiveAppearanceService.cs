@@ -129,8 +129,15 @@ public sealed class NpcLiveAppearanceService : DisposableMediatorSubscriberBase
             var collection = await _ipc.Penumbra.CreateTemporaryCollectionAsync(Logger, "UmbraNpc-" + appId.ToString("N")).ConfigureAwait(false);
             var assignResult = await _ipc.Penumbra.AssignTemporaryCollectionAsync(Logger, collection, idx).ConfigureAwait(false);
             Logger.LogInformation("Live PNJ : collection {Collection} assignée à l'index {Index} → {Result}", collection, idx, assignResult);
-            await _ipc.Penumbra.SetTemporaryModsAsync(Logger, appId, collection, modPaths).ConfigureAwait(false);
-            await _ipc.Penumbra.SetManipulationDataAsync(Logger, appId, collection, data.ManipulationData ?? string.Empty).ConfigureAwait(false);
+            var stateApplied = await _ipc.Penumbra.ApplyTemporaryStateAsync(Logger, appId, collection,
+                modPaths, data.ManipulationData ?? string.Empty).ConfigureAwait(false);
+            if (!stateApplied)
+            {
+                Logger.LogWarning("Live PNJ : pose de l'état Penumbra refusée sur la collection {Collection}, abandon", collection);
+                await _ipc.Penumbra.RemoveTemporaryCollectionAsync(Logger, appId, collection).ConfigureAwait(false);
+                handler.Dispose();
+                return null;
+            }
 
             await WaitForCollectionReadyAsync(idx, collection).ConfigureAwait(false);
 

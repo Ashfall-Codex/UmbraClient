@@ -836,8 +836,8 @@ public sealed class CharaDataManager : DisposableMediatorSubscriberBase
             penumbraCollection = await _ipcManager.Penumbra.CreateTemporaryCollectionAsync(Logger, metaInfo.Uploader.UID + metaInfo.Id).ConfigureAwait(false);
             var idx = await _dalamudUtilService.RunOnFrameworkThread(() => tempHandler.GetGameObject()?.ObjectIndex).ConfigureAwait(false) ?? 0;
             await _ipcManager.Penumbra.AssignTemporaryCollectionAsync(Logger, penumbraCollection, idx).ConfigureAwait(false);
-            await _ipcManager.Penumbra.SetTemporaryModsAsync(Logger, applicationId, penumbraCollection, modPaths).ConfigureAwait(false);
-            await _ipcManager.Penumbra.SetManipulationDataAsync(Logger, applicationId, penumbraCollection, manipData ?? string.Empty).ConfigureAwait(false);
+            await _ipcManager.Penumbra.ApplyTemporaryStateAsync(Logger, applicationId, penumbraCollection,
+                modPaths, manipData ?? string.Empty).ConfigureAwait(false);
 
             Logger.LogTrace("[{appId}] Applying Glamourer data and Redrawing", applicationId);
             DataApplicationProgress = "Applying Glamourer and redrawing Character";

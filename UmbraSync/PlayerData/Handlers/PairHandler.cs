@@ -28,7 +28,6 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
     private readonly MareConfigService _configService;
     private readonly DalamudUtilService _dalamudUtil;
     private readonly FileDownloadManager _downloadManager;
-    private readonly FileCacheManager _fileDbManager;
     private readonly GameObjectHandlerFactory _gameObjectHandlerFactory;
     private readonly IpcManager _ipcManager;
     private readonly PlayerPerformanceService _playerPerformanceService;
@@ -36,9 +35,8 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
     private readonly VisibilityService _visibilityService;
     private readonly ApplicationSemaphoreService _applicationSemaphoreService;
     private readonly ServerConfigurationManager _serverConfigurationManager;
-    private readonly CompressedAlternateManager _compressedAlternateManager;
-    private readonly PlayerPerformanceConfigService _playerPerformanceConfigService;
     private readonly PairRedrawCoordinator _pairRedrawCoordinator;
+    private readonly PairAssetResolver _assetResolver;
     private CancellationTokenSource? _applicationCancellationTokenSource = new();
     private Guid _applicationId;
     private Task? _applicationTask;
@@ -54,6 +52,7 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
     private bool _isVisible;
     private Guid _deferred = Guid.Empty;
     private Guid _penumbraCollection = Guid.Empty;
+    private int _penumbraAssignedObjectIndex = -1;
     private bool _redrawOnNextApplication = false;
     private readonly Lock _pauseLock = new();
     private Task _pauseTransitionTask = Task.CompletedTask;
@@ -61,9 +60,6 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
     private readonly Lock _visibilityGraceGate = new();
     private CancellationTokenSource? _visibilityGraceCts;
     private static readonly TimeSpan VisibilityEvictionGrace = TimeSpan.FromMinutes(5);
-    // Jitter d'étalement des applications. La détection de visibilité étant throttlée (~5Hz), un
-    // groupe de pairs devenus visibles dans la même fenêtre déclenche leurs applies au même instant.
-    // On étale les kicks (A) et on déphase la boucle de retry (C) par un offset stable par-handler.
     private const int VisibilityApplyJitterMaxMs = 600;
     private readonly TimeSpan _reapplyJitter = TimeSpan.FromMilliseconds(Random.Shared.Next(0, 5000));
     private DateTime? _invisibleSinceUtc;
@@ -107,15 +103,14 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
         _downloadManager = transferManager;
         _pluginWarningNotificationManager = pluginWarningNotificationManager;
         _dalamudUtil = dalamudUtil;
-        _fileDbManager = fileDbManager;
         _playerPerformanceService = playerPerformanceService;
         _configService = configService;
         _visibilityService = visibilityService;
         _applicationSemaphoreService = applicationSemaphoreService;
         _serverConfigurationManager = serverConfigurationManager;
         _pairRedrawCoordinator = pairRedrawCoordinator;
-        _compressedAlternateManager = compressedAlternateManager;
-        _playerPerformanceConfigService = playerPerformanceConfigService;
+        _assetResolver = new PairAssetResolver(logger, pair.UserData, fileDbManager, compressedAlternateManager,
+            transferManager, playerPerformanceConfigService);
 
         _visibilityService.StartTracking(Pair.Ident);
 
@@ -150,6 +145,7 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
         Mediator.Subscribe<PenumbraInitializedMessage>(this, (_) =>
         {
             _penumbraCollection = Guid.Empty;
+            _penumbraAssignedObjectIndex = -1;
             if (_deferred != Guid.Empty && _cachedData != null)
             {
                 ApplyCharacterData(_deferred, _cachedData, forceApplyCustomization: true);
@@ -310,7 +306,7 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
             && !_forceApplyMods
             && !_pendingModReapply)
         {
-            hasMissingFiles = HasMissingFiles(characterData);
+            hasMissingFiles = _assetResolver.HasMissingFiles(characterData);
             if (!hasMissingFiles)
                 return;
 
@@ -489,6 +485,7 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
                 {
                     await _ipcManager.Penumbra.RemoveTemporaryCollectionAsync(Logger, applicationId, col).ConfigureAwait(false);
                     _penumbraCollection = Guid.Empty;
+                    _penumbraAssignedObjectIndex = -1;
                 }
                 catch (Exception ex)
                 {
@@ -572,9 +569,14 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
                 Logger.LogDebug("[{applicationId}] Clearing Penumbra mods for {name}", applicationId, name);
                 try
                 {
-                    await _ipcManager.Penumbra.AssignTemporaryCollectionAsync(Logger, _penumbraCollection, character.ObjectIndex).ConfigureAwait(false);
-                    await _ipcManager.Penumbra.SetTemporaryModsAsync(Logger, applicationId, _penumbraCollection, new Dictionary<string, string>(StringComparer.Ordinal)).ConfigureAwait(false);
-                    await _ipcManager.Penumbra.SetManipulationDataAsync(Logger, applicationId, _penumbraCollection, string.Empty).ConfigureAwait(false);
+                    var assign = await _ipcManager.Penumbra.AssignTemporaryCollectionAsync(Logger, _penumbraCollection, character.ObjectIndex).ConfigureAwait(false);
+                    if (assign == global::Penumbra.Api.Enums.PenumbraApiEc.Success)
+                        _penumbraAssignedObjectIndex = character.ObjectIndex;
+
+                    // Vidage atomique : purger les fichiers puis les manipulations en deux temps laisse
+                    // une frame avec des métadonnées sans modèles, soit exactement l'artefact qu'on corrige.
+                    await _ipcManager.Penumbra.ApplyTemporaryStateAsync(Logger, applicationId, _penumbraCollection,
+                        new Dictionary<string, string>(StringComparer.Ordinal), string.Empty).ConfigureAwait(false);
                 }
                 catch (Exception ex)
                 {
@@ -698,6 +700,7 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
                     {
                         await _ipcManager.Penumbra.RemoveTemporaryCollectionAsync(Logger, applicationId, _penumbraCollection).ConfigureAwait(false);
                         _penumbraCollection = Guid.Empty;
+                        _penumbraAssignedObjectIndex = -1;
                         Logger.LogDebug("[{applicationId}] Removed temporary collection after visibility grace timeout", applicationId);
                     }
                     catch (Exception ex)
@@ -1028,8 +1031,12 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
         {
             Logger.LogTrace("[BASE-{appBase}] DownloadAndApplyCharacterAsync > updateModdedPaths", applicationBase);
             int attempts = 0;
-            var compressedUsage = ComputeCompressedAlternateUsage();
-            List<FileReplacementData> toDownloadReplacements = TryCalculateModdedDictionary(applicationBase, charaData, compressedUsage, out var locallyPresentFiles, out moddedPaths, downloadToken);
+            var compressedUsage = _assetResolver.ComputeCompressedAlternateUsage();
+            var resolution = _assetResolver.Resolve(applicationBase, charaData, compressedUsage, downloadToken);
+            List<FileReplacementData> toDownloadReplacements = resolution.MissingFiles;
+            var locallyPresentFiles = resolution.LocallyPresentFiles;
+            // moddedPaths n'est pas repris ici : la résolution finale, après la boucle de download,
+            // écrase de toute façon le dictionnaire avant qu'il ne soit lu.
 
             while (toDownloadReplacements.Count > 0 && attempts++ <= 10 && !downloadToken.IsCancellationRequested)
             {
@@ -1067,7 +1074,9 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
                     return;
                 }
 
-                toDownloadReplacements = TryCalculateModdedDictionary(applicationBase, charaData, compressedUsage, out locallyPresentFiles, out moddedPaths, downloadToken);
+                resolution = _assetResolver.Resolve(applicationBase, charaData, compressedUsage, downloadToken);
+                toDownloadReplacements = resolution.MissingFiles;
+                locallyPresentFiles = resolution.LocallyPresentFiles;
 
                 var forbiddenOnly = toDownloadReplacements.Where(c =>
                     _downloadManager.ForbiddenTransfers.Exists(f => string.Equals(f.Hash, c.Hash, StringComparison.Ordinal))).ToList();
@@ -1104,7 +1113,9 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
                 await Task.Delay(TimeSpan.FromSeconds(backoffSeconds), downloadToken).ConfigureAwait(false);
             }
 
-            var finalMissing = TryCalculateModdedDictionary(applicationBase, charaData, compressedUsage, out _, out moddedPaths, downloadToken);
+            var finalResolution = _assetResolver.Resolve(applicationBase, charaData, compressedUsage, downloadToken);
+            var finalMissing = finalResolution.MissingFiles;
+            moddedPaths = finalResolution.ModdedPaths;
             if (finalMissing.Count > 0)
             {
                 var retriableMissing = finalMissing.Count(c =>
@@ -1126,7 +1137,9 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
             {
                 Mediator.Publish(new HaltScanMessage(nameof(PlayerPerformanceService.ShrinkTextures)));
                 if (await _playerPerformanceService.ShrinkTextures(this, charaData, downloadToken).ConfigureAwait(false))
-                    _ = TryCalculateModdedDictionary(applicationBase, charaData, ComputeCompressedAlternateUsage(), out _, out moddedPaths, downloadToken);
+                    moddedPaths = _assetResolver
+                        .Resolve(applicationBase, charaData, _assetResolver.ComputeCompressedAlternateUsage(), downloadToken)
+                        .ModdedPaths;
             }
             finally
             {
@@ -1211,7 +1224,6 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
     private async Task ApplyCharacterDataAsync(Guid applicationBase, CharacterData charaData, Dictionary<ObjectKind, HashSet<PlayerChanges>> updatedData, bool updateModdedPaths, bool updateManip,
         Dictionary<(string GamePath, string? Hash), string> moddedPaths, IReadOnlyDictionary<ObjectKind, PairRedrawDecision>? redrawDecisions, CancellationToken token)
     {
-        ushort objIndex = ushort.MaxValue;
         try
         {
             _applicationId = Guid.NewGuid();
@@ -1219,9 +1231,23 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
 
             if (_penumbraCollection == Guid.Empty)
             {
-                objIndex = await _dalamudUtil.RunOnFrameworkThread(() => _charaHandler!.GetGameObject()!.ObjectIndex).ConfigureAwait(false);
+                var initialIndex = await TryResolveObjectIndexAsync().ConfigureAwait(false);
+                if (initialIndex == ushort.MaxValue)
+                {
+                    AbortApplication(charaData, "Index d'objet introuvable avant la pose des mods", "ObjectIndexUnavailable");
+                    return;
+                }
+
                 _penumbraCollection = await _ipcManager.Penumbra.CreateTemporaryCollectionAsync(Logger, Pair.UserData.UID).ConfigureAwait(false);
-                await _ipcManager.Penumbra.AssignTemporaryCollectionAsync(Logger, _penumbraCollection, objIndex).ConfigureAwait(false);
+                _penumbraAssignedObjectIndex = -1;
+                if (_penumbraCollection == Guid.Empty)
+                {
+                    AbortApplication(charaData, "Création de la collection temporaire refusée par Penumbra", "PenumbraCollectionUnavailable");
+                    return;
+                }
+
+                if (!await TryAssignCollectionAsync(charaData, initialIndex).ConfigureAwait(false))
+                    return;
             }
 
             Logger.LogDebug("[{applicationId}] Waiting for initial draw for for {handler}", _applicationId, _charaHandler);
@@ -1233,27 +1259,43 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
 
             token.ThrowIfCancellationRequested();
 
-            if (updateModdedPaths)
+            if (updateModdedPaths || updateManip)
             {
-                // ensure collection is set
+                // L'attente ci-dessus peut durer jusqu'à 30 s : on re-résout l'index, l'acteur a pu
+                // changer de place dans la table entre-temps.
+                var objIndex = await TryResolveObjectIndexAsync().ConfigureAwait(false);
                 if (objIndex == ushort.MaxValue)
-                    objIndex = await _dalamudUtil.RunOnFrameworkThread(() => _charaHandler!.GetGameObject()!.ObjectIndex).ConfigureAwait(false);
-                await _ipcManager.Penumbra.AssignTemporaryCollectionAsync(Logger, _penumbraCollection, objIndex).ConfigureAwait(false);
-
-                await _ipcManager.Penumbra.SetTemporaryModsAsync(Logger, _applicationId, _penumbraCollection,
-                    moddedPaths.ToDictionary(k => k.Key.GamePath, k => k.Value, StringComparer.Ordinal)).ConfigureAwait(false);
-                LastAppliedDataBytes = -1;
-                foreach (var path in moddedPaths.Values.Distinct(StringComparer.OrdinalIgnoreCase).Select(v => new FileInfo(v)).Where(p => p.Exists))
                 {
-                    if (LastAppliedDataBytes == -1) LastAppliedDataBytes = 0;
-
-                    LastAppliedDataBytes += path.Length;
+                    AbortApplication(charaData, "Index d'objet introuvable avant la pose des mods", "ObjectIndexUnavailable");
+                    return;
                 }
-            }
 
-            if (updateManip)
-            {
-                await _ipcManager.Penumbra.SetManipulationDataAsync(Logger, _applicationId, _penumbraCollection, charaData.ManipulationData).ConfigureAwait(false);
+                if (_penumbraAssignedObjectIndex != objIndex
+                    && !await TryAssignCollectionAsync(charaData, objIndex).ConfigureAwait(false))
+                {
+                    return;
+                }
+                
+                var applied = await _ipcManager.Penumbra.ApplyTemporaryStateAsync(Logger, _applicationId, _penumbraCollection,
+                    updateModdedPaths ? moddedPaths.ToDictionary(k => k.Key.GamePath, k => k.Value, StringComparer.Ordinal) : null,
+                    updateManip ? charaData.ManipulationData : null).ConfigureAwait(false);
+
+                if (!applied)
+                {
+                    AbortApplication(charaData, "Pose de l'état Penumbra refusée", "PenumbraApplyFailed");
+                    return;
+                }
+
+                if (updateModdedPaths)
+                {
+                    LastAppliedDataBytes = -1;
+                    foreach (var path in moddedPaths.Values.Distinct(StringComparer.OrdinalIgnoreCase).Select(v => new FileInfo(v)).Where(p => p.Exists))
+                    {
+                        if (LastAppliedDataBytes == -1) LastAppliedDataBytes = 0;
+
+                        LastAppliedDataBytes += path.Length;
+                    }
+                }
             }
 
             token.ThrowIfCancellationRequested();
@@ -1302,30 +1344,45 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
         }
     }
 
-    private bool HasMissingFiles(CharacterData data)
+    private async Task<ushort> TryResolveObjectIndexAsync()
     {
-        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var replacement in data.FileReplacements.SelectMany(k => k.Value))
+        try
         {
-            if (!string.IsNullOrEmpty(replacement.FileSwapPath))
-                continue;
-
-            var hash = replacement.Hash;
-            if (string.IsNullOrWhiteSpace(hash) || !seen.Add(hash))
-                continue;
-
-            var fileCache = _fileDbManager.GetFileCacheByHash(hash);
-            if (fileCache is null || !File.Exists(fileCache.ResolvedFilepath))
+            return await _dalamudUtil.RunOnFrameworkThread(() =>
             {
-                if (fileCache is not null)
-                    _fileDbManager.RemoveHashedFile(fileCache.Hash, fileCache.PrefixedFilePath);
+                var handler = _charaHandler;
+                if (handler is null || handler.Address == nint.Zero) return ushort.MaxValue;
+                return handler.GetGameObject()?.ObjectIndex ?? ushort.MaxValue;
+            }).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogDebug(ex, "[{applicationId}] Échec de la résolution de l'index d'objet pour {handler}", _applicationId, this);
+            return ushort.MaxValue;
+        }
+    }
 
-                if (!_downloadManager.ForbiddenTransfers.Exists(f => string.Equals(f.Hash, hash, StringComparison.Ordinal)))
-                    return true;
-            }
+    private async Task<bool> TryAssignCollectionAsync(CharacterData charaData, ushort objIndex)
+    {
+        var assign = await _ipcManager.Penumbra.AssignTemporaryCollectionAsync(Logger, _penumbraCollection, objIndex).ConfigureAwait(false);
+        if (assign != global::Penumbra.Api.Enums.PenumbraApiEc.Success)
+        {
+            _penumbraAssignedObjectIndex = -1;
+            AbortApplication(charaData, $"Assignation de la collection refusée par Penumbra ({assign})", "PenumbraAssignFailed");
+            return false;
         }
 
-        return false;
+        _penumbraAssignedObjectIndex = objIndex;
+        return true;
+    }
+
+    private void AbortApplication(CharacterData charaData, string reason, params string[] conditions)
+    {
+        Logger.LogWarning("[{applicationId}] Application interrompue pour {handler} : {reason}", _applicationId, this, reason);
+        _pendingModReapply = true;
+        RecordFailure(reason, conditions);
+        _cachedData = charaData;
+        Mediator.Publish(new PairDataAppliedMessage(Pair.UserData.UID, charaData));
     }
 
     private void TryReapplyPendingData()
@@ -1397,17 +1454,6 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
         {
             IsVisible = true;
             Mediator.Publish(new PairHandlerVisibleMessage(this));
-
-            // UNE SEULE application en vol. Avant, la branche _deferred ET la branche _cachedData
-            // lançaient chacune un ApplyCharacterData sur le MÊME _cachedData, en parallèle, avec des
-            // CancellationTokenSource partagés -> annulation mutuelle + course sur _cachedData, ce qui
-            // pouvait laisser le perso en apparence partielle ("les mods sautent"). On choisit donc
-            // une seule source dans l'ordre : application différée -> données en cache -> fallback.
-            // Les données sont capturées dans une locale pour éviter une NRE si _cachedData devient
-            // null (undo/dispose) entre la décision et l'exécution du Task.Run.
-            // Jitter par-handler : quand ~24 pairs deviennent visibles dans la même fenêtre de scan
-            // (~200ms à 5Hz), on évite de lancer 24 ApplyCharacterData (DeepClone + download + apply)
-            // exactement au même instant. Conforme à la règle anti-burst du projet.
             int applyJitterMs = Random.Shared.Next(0, VisibilityApplyJitterMaxMs);
 
             if (_deferred != Guid.Empty && _cachedData != null)
@@ -1570,126 +1616,4 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
         }
     }
 
-    // Détermine le mode de compression pour ce pair : override par UID sinon config globale.
-    private TextureCompressionMode ComputeCompressedAlternateUsage()
-    {
-        var cfg = _playerPerformanceConfigService.Current;
-        if (cfg.UIDsToOverride.Exists(uid =>
-                string.Equals(uid, Pair.UserData.UID, StringComparison.Ordinal)
-                || string.Equals(uid, Pair.UserData.Alias, StringComparison.Ordinal)))
-        {
-            return TextureCompressionMode.AlwaysSourceQuality;
-        }
-        return cfg.TextureCompressionMode;
-    }
-
-    private List<FileReplacementData> TryCalculateModdedDictionary(Guid applicationBase, CharacterData charaData, TextureCompressionMode compressedUsage, out HashSet<string> locallyPresentFiles, out Dictionary<(string GamePath, string? Hash), string> moddedDictionary, CancellationToken token)
-    {
-        Stopwatch st = Stopwatch.StartNew();
-        ConcurrentBag<FileReplacementData> missingFiles = [];
-        moddedDictionary = [];
-        locallyPresentFiles = new HashSet<string>(StringComparer.Ordinal);
-        ConcurrentDictionary<(string GamePath, string? Hash), string> outputDict = new();
-        // Hashes déjà en local envoyés au download uniquement pour découvrir un alternate (mode AlwaysCompressed) :
-        // si aucun alt n'existe, le download ne les re-téléchargera pas.
-        var locallyPresentFileSet = new ConcurrentDictionary<string, byte>(StringComparer.Ordinal);
-        bool hasMigrationChanges = false;
-
-        try
-        {
-            var replacementList = charaData.FileReplacements.SelectMany(k => k.Value.Where(v => string.IsNullOrEmpty(v.FileSwapPath))).ToList();
-            Parallel.ForEach(replacementList, new ParallelOptions()
-            {
-                CancellationToken = token,
-                MaxDegreeOfParallelism = 4
-            },
-            (item) =>
-            {
-                token.ThrowIfCancellationRequested();
-
-                var replacementItem = item;
-                var fileCache = _fileDbManager.GetFileCacheByHash(item.Hash, preferSubst: true);
-                // "confirmed" = on connaît le statut d'alternate de ce hash (existe ou n'existera jamais).
-                bool confirmed = _compressedAlternateManager.TryGetCachedCompressedAlternate(item.Hash, out var altHash);
-
-                if (compressedUsage == TextureCompressionMode.AlwaysSourceQuality)
-                {
-                    // Rien : on garde la source.
-                }
-                else if (compressedUsage == TextureCompressionMode.CompressedNewDownloads)
-                {
-                    // BC7 seulement si la source n'est pas déjà en local.
-                    if (fileCache == null && confirmed && altHash != null)
-                    {
-                        replacementItem = new FileReplacementData { GamePaths = item.GamePaths, Hash = altHash };
-                        fileCache = _fileDbManager.GetFileCacheByHash(altHash, preferSubst: true);
-                    }
-                }
-                else // AlwaysCompressed
-                {
-                    if (confirmed)
-                    {
-                        // On sait : s'il y a un alt on l'utilise (même si la source est en local -> gain VRAM), sinon source.
-                        if (altHash != null)
-                        {
-                            replacementItem = new FileReplacementData { GamePaths = item.GamePaths, Hash = altHash };
-                            fileCache = _fileDbManager.GetFileCacheByHash(altHash, preferSubst: true);
-                        }
-                    }
-                    else
-                    {
-                        // Statut inconnu : envoyer la source au download pour découvrir un alt, mais la marquer "déjà présente"
-                        // pour ne pas la re-télécharger si aucun alt n'existe.
-                        locallyPresentFileSet[item.Hash] = 0;
-                        fileCache = null;
-                    }
-                }
-
-                if (fileCache != null)
-                {
-                    if (string.IsNullOrEmpty(new FileInfo(fileCache.ResolvedFilepath).Extension))
-                    {
-                        hasMigrationChanges = true;
-                        fileCache = _fileDbManager.MigrateFileHashToExtension(fileCache, replacementItem.GamePaths[0].Split(".")[^1]);
-                    }
-
-                    // Clé = gamePath + hash original ; valeur = fichier réel (source ou BC7 selon substitution).
-                    foreach (var gamePath in item.GamePaths)
-                    {
-                        outputDict[(gamePath, item.Hash)] = fileCache.ResolvedFilepath;
-                    }
-                }
-                else
-                {
-                    Logger.LogTrace("Missing file: {hash}", replacementItem.Hash);
-                    missingFiles.Add(replacementItem);
-                }
-            });
-
-            locallyPresentFiles = new HashSet<string>(locallyPresentFileSet.Keys, StringComparer.Ordinal);
-
-            moddedDictionary = outputDict.ToDictionary(k => k.Key, k => k.Value);
-
-            foreach (var item in charaData.FileReplacements.SelectMany(k => k.Value.Where(v => !string.IsNullOrEmpty(v.FileSwapPath))).ToList())
-            {
-                foreach (var gamePath in item.GamePaths)
-                {
-                    Logger.LogTrace("[BASE-{appBase}] Adding file swap for {path}: {fileSwap}", applicationBase, gamePath, item.FileSwapPath);
-                    moddedDictionary[(gamePath, null)] = item.FileSwapPath;
-                }
-            }
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "[BASE-{appBase}] Something went wrong during calculation replacements", applicationBase);
-        }
-        if (hasMigrationChanges) _fileDbManager.WriteOutFullCsv();
-        st.Stop();
-        Logger.LogDebug("[BASE-{appBase}] ModdedPaths calculated in {time}ms, missing files: {count}, total files: {total}", applicationBase, st.ElapsedMilliseconds, missingFiles.Count, moddedDictionary.Keys.Count);
-        return [.. missingFiles];
-    }
 }
