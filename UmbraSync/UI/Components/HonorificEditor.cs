@@ -7,6 +7,7 @@ using UmbraSync.Interop.Ipc;
 using UmbraSync.Localization;
 using UmbraSync.MareConfiguration;
 using UmbraSync.Services;
+using UmbraSync.UI;
 
 namespace UmbraSync.UI.Components;
 
@@ -22,6 +23,7 @@ public sealed class HonorificEditor
     private Vector3 _color = Vector3.One;
     private Vector3 _glow = Vector3.One;
     private bool _hasGlow;
+    private bool _hasColor;
     private bool _loaded;
 
     private string _savedTitle = string.Empty;
@@ -29,6 +31,7 @@ public sealed class HonorificEditor
     private Vector3 _savedColor = Vector3.One;
     private Vector3 _savedGlow = Vector3.One;
     private bool _savedHasGlow;
+    private bool _savedHasColor;
 
     private bool _restoreAttempted;
     private DateTime _lastRestoreAttempt = DateTime.MinValue;
@@ -44,7 +47,8 @@ public sealed class HonorificEditor
     public bool HasUnsavedChanges =>
         !string.Equals(_title, _savedTitle, StringComparison.Ordinal)
         || _isPrefix != _savedIsPrefix
-        || _color != _savedColor
+        || _hasColor != _savedHasColor
+        || (_hasColor && _color != _savedColor)
         || _hasGlow != _savedHasGlow
         || (_hasGlow && _glow != _savedGlow);
 
@@ -55,6 +59,7 @@ public sealed class HonorificEditor
         _savedColor = _color;
         _savedGlow = _glow;
         _savedHasGlow = _hasGlow;
+        _savedHasColor = _hasColor;
     }
 
     public void ResetRestoreState()
@@ -79,9 +84,20 @@ public sealed class HonorificEditor
         ImGui.SameLine();
         ImGuiHelpers.ScaledDummy(12f, 0);
         ImGui.SameLine();
-        ImGui.TextColored(ImGuiColors.DalamudGrey, Loc.Get("EditProfile.Honorific.Color"));
-        ImGui.SameLine();
-        ImGui.ColorEdit3("##honorificColor", ref _color, ImGuiColorEditFlags.NoInputs);
+        ImGui.Checkbox(Loc.Get("EditProfile.Honorific.CustomColor"), ref _hasColor);
+        UiSharedService.AttachToolTip(Loc.Get("EditProfile.Honorific.CustomColorTip"));
+        if (_hasColor)
+        {
+            ImGui.SameLine();
+            ImGui.ColorEdit3("##honorificColor", ref _color, ImGuiColorEditFlags.NoInputs);
+            ImGui.SameLine();
+            if (ImGui.SmallButton(Loc.Get("EditProfile.Honorific.ClearColor")))
+            {
+                _hasColor = false;
+                _ = ClearColorAsync();
+            }
+            UiSharedService.AttachToolTip(Loc.Get("EditProfile.Honorific.ClearColorTip"));
+        }
         ImGui.SameLine();
         ImGuiHelpers.ScaledDummy(12f, 0);
         ImGui.SameLine();
@@ -116,6 +132,8 @@ public sealed class HonorificEditor
             _isPrefix = false;
             _color = Vector3.One;
             _glow = Vector3.One;
+            _hasGlow = false;
+            _hasColor = false;
             return;
         }
 
@@ -129,6 +147,8 @@ public sealed class HonorificEditor
             _title = root.TryGetProperty("Title", out var t) ? t.GetString() ?? string.Empty : string.Empty;
             _isPrefix = root.TryGetProperty("IsPrefix", out var p) && p.GetBoolean();
 
+            _hasColor = root.TryGetProperty("Color", out var probeColor)
+                && probeColor.ValueKind == System.Text.Json.JsonValueKind.Object;
             if (root.TryGetProperty("Color", out var c) && c.ValueKind == System.Text.Json.JsonValueKind.Object)
             {
                 _color = new Vector3(
@@ -158,6 +178,23 @@ public sealed class HonorificEditor
         }
     }
 
+    /// <summary>
+    /// Retire la couleur et pousse le titre à Honorific sans attendre l'enregistrement du profil.
+    /// Ne touche qu'au titre : les autres champs du profil gardent leur état non enregistré.
+    /// </summary>
+    private async Task ClearColorAsync()
+    {
+        try
+        {
+            await ApplyAsync().ConfigureAwait(false);
+            SnapshotSaved();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error clearing Honorific colour");
+        }
+    }
+
     public async Task ApplyAsync()
     {
         if (!_ipcManager.Honorific.APIAvailable) return;
@@ -170,7 +207,9 @@ public sealed class HonorificEditor
             }
             else
             {
-                var colorObj = new { X = _color.X, Y = _color.Y, Z = _color.Z };
+                object? colorObj = _hasColor
+                    ? new { X = _color.X, Y = _color.Y, Z = _color.Z }
+                    : null;
                 object? glowObj = _hasGlow
                     ? new { X = _glow.X, Y = _glow.Y, Z = _glow.Z }
                     : null;

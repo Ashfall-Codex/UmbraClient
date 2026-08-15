@@ -193,6 +193,20 @@ public sealed class SyncDefaultsService : DisposableMediatorSubscriberBase
             }
         }
 
+        bool scenariosChanged = false;
+        if (message.DisableHousingScenarios.HasValue)
+        {
+            var val = message.DisableHousingScenarios.Value;
+            var defaultVal = _configService.Current.DefaultDisableHousingScenarios;
+            var newValue = val == defaultVal ? (bool?)null : val;
+            if (entry.DisableHousingScenarios != newValue)
+            {
+                entry.DisableHousingScenarios = newValue;
+                changed = true;
+                scenariosChanged = true;
+            }
+        }
+
         if (!changed) return;
 
         if (entry.IsEmpty)
@@ -201,6 +215,9 @@ public sealed class SyncDefaultsService : DisposableMediatorSubscriberBase
             overrides[message.Uid] = entry;
 
         _configService.Save();
+        
+        if (scenariosChanged)
+            Mediator.Publish(new HousingScenarioSyncPreferenceChangedMessage());
     }
 
     private void OnGroupOverrideChanged(GroupSyncOverrideChanged message)

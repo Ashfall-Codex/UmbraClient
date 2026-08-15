@@ -1,8 +1,12 @@
 using Microsoft.Extensions.Logging;
+using PenumbraEnum = global::Penumbra.Api.Enums;
 using PenumbraIpc = global::Penumbra.Api.IpcSubscribers;
 namespace UmbraSync.Interop.Ipc.Penumbra;
 public sealed class PenumbraTemporaryMods
 {
+    public const string FilesTag = "MareChara_Files";
+    public const string MetaTag = "MareChara_Meta";
+
     private readonly PenumbraCore _core;
     private readonly PenumbraIpc.AddTemporaryMod _penumbraAddTemporaryMod;
     private readonly PenumbraIpc.RemoveTemporaryMod _penumbraRemoveTemporaryMod;
@@ -19,7 +23,49 @@ public sealed class PenumbraTemporaryMods
         _penumbraAddTemporaryModAll = new PenumbraIpc.AddTemporaryModAll(_core.PluginInterface);
         _penumbraRemoveTemporaryModAll = new PenumbraIpc.RemoveTemporaryModAll(_core.PluginInterface);
     }
-    
+
+    public async Task<bool> ApplyTemporaryStateAsync(ILogger logger, Guid applicationId, Guid collId,
+        Dictionary<string, string>? modPaths, string? manipulationData)
+    {
+        if (!_core.APIAvailable || collId == Guid.Empty) return false;
+        if (modPaths is null && manipulationData is null) return true;
+
+        return await _core.DalamudUtil.RunOnFrameworkThread(() =>
+        {
+            if (modPaths is not null)
+            {
+                foreach (var mod in modPaths)
+                {
+                    logger.LogTrace("[{applicationId}] Change: {from} => {to}", applicationId, mod.Key, mod.Value);
+                }
+
+                var retRemove = _penumbraRemoveTemporaryMod.Invoke(FilesTag, collId, 0);
+                logger.LogTrace("[{applicationId}] Removing temp files mod for {collId}, Success: {ret}", applicationId, collId, retRemove);
+                var retAdd = _penumbraAddTemporaryMod.Invoke(FilesTag, collId, modPaths, string.Empty, 0);
+                logger.LogTrace("[{applicationId}] Setting temp files mod for {collId}, Success: {ret}", applicationId, collId, retAdd);
+                if (retAdd != PenumbraEnum.PenumbraApiEc.Success)
+                {
+                    logger.LogWarning("[{applicationId}] Pose des redirections refusée par Penumbra pour {collId} : {ret}", applicationId, collId, retAdd);
+                    return false;
+                }
+            }
+
+            if (manipulationData is not null)
+            {
+                logger.LogTrace("[{applicationId}] Manip: {data}", applicationId, manipulationData);
+                var retMeta = _penumbraAddTemporaryMod.Invoke(MetaTag, collId, [], manipulationData, 0);
+                logger.LogTrace("[{applicationId}] Setting temp meta mod for {collId}, Success: {ret}", applicationId, collId, retMeta);
+                if (retMeta != PenumbraEnum.PenumbraApiEc.Success)
+                {
+                    logger.LogWarning("[{applicationId}] Pose des manipulations refusée par Penumbra pour {collId} : {ret}", applicationId, collId, retMeta);
+                    return false;
+                }
+            }
+
+            return true;
+        }).ConfigureAwait(false);
+    }
+
     public async Task SetManipulationDataAsync(ILogger logger, Guid applicationId, Guid collId, string manipulationData)
     {
         if (!_core.APIAvailable || collId == Guid.Empty) return;
@@ -27,7 +73,7 @@ public sealed class PenumbraTemporaryMods
         await _core.DalamudUtil.RunOnFrameworkThread(() =>
         {
             logger.LogTrace("[{applicationId}] Manip: {data}", applicationId, manipulationData);
-            var retAdd = _penumbraAddTemporaryMod.Invoke("MareChara_Meta", collId, [], manipulationData, 0);
+            var retAdd = _penumbraAddTemporaryMod.Invoke(MetaTag, collId, [], manipulationData, 0);
             logger.LogTrace("[{applicationId}] Setting temp meta mod for {collId}, Success: {ret}", applicationId, collId, retAdd);
         }).ConfigureAwait(false);
     }
@@ -41,9 +87,9 @@ public sealed class PenumbraTemporaryMods
             {
                 logger.LogTrace("[{applicationId}] Change: {from} => {to}", applicationId, mod.Key, mod.Value);
             }
-            var retRemove = _penumbraRemoveTemporaryMod.Invoke("MareChara_Files", collId, 0);
+            var retRemove = _penumbraRemoveTemporaryMod.Invoke(FilesTag, collId, 0);
             logger.LogTrace("[{applicationId}] Removing temp files mod for {collId}, Success: {ret}", applicationId, collId, retRemove);
-            var retAdd = _penumbraAddTemporaryMod.Invoke("MareChara_Files", collId, modPaths, string.Empty, 0);
+            var retAdd = _penumbraAddTemporaryMod.Invoke(FilesTag, collId, modPaths, string.Empty, 0);
             logger.LogTrace("[{applicationId}] Setting temp files mod for {collId}, Success: {ret}", applicationId, collId, retAdd);
         }).ConfigureAwait(false);
     }

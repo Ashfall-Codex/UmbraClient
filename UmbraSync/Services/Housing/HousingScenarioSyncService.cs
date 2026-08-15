@@ -39,9 +39,11 @@ public sealed class HousingScenarioSyncService : IHostedService, IMediatorSubscr
         // Le changement de zone détruit les acteurs natifs des PNJ : l'état « appliqué » du manager
         // ne correspond plus à rien et doit être invalidé, sinon un retour rapide dans le logement
         // annule le nettoyage différé et le scénario n'est jamais respawné.
-        _mediator.Subscribe<ZoneSwitchStartMessage>(this, _ => _manager.InvalidateAppliedAfterZoneSwitch());
+        _mediator.Subscribe<ZoneSwitchStartMessage>(this, _ => _manager.InvalidateApplied("changement de zone"));
+        _mediator.Subscribe<HousingNpcSharedScenePurgedMessage>(this, _ => OnSharedScenePurged());
         _mediator.Subscribe<ConnectedMessage>(this, _ => OnConnected());
         _mediator.Subscribe<HousingNpcShareTestMessage>(this, _ => OnShareTest());
+        _mediator.Subscribe<HousingScenarioSyncPreferenceChangedMessage>(this, _ => OnPreferenceChanged());
 
         return Task.CompletedTask;
     }
@@ -67,6 +69,20 @@ public sealed class HousingScenarioSyncService : IHostedService, IMediatorSubscr
         _logger.LogDebug("Scenario sync : left housing plot");
         _currentPlotLocation = null;
         _manager.ScheduleDelayedCleanup();
+    }
+    
+    private void OnPreferenceChanged()
+    {
+        var location = _currentPlotLocation;
+        if (location == null) return;
+
+        _ = TryApplyScenarioAsync(location.Value);
+    }
+
+    private void OnSharedScenePurged()
+    {
+        _manager.InvalidateApplied("PNJ partagés retirés de l'écran");
+        
     }
 
     private void OnShareTest()

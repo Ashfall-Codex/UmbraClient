@@ -398,6 +398,19 @@ public class DrawUserPair : DrawPairBase
             _mediator.Publish(new PairSyncOverrideChanged(entry.UserData.UID, null, null, null, permissions.IsDisableHousing()));
             _ = _apiController.UserSetPairPermissions(new UserPermissionsDto(entry.UserData, permissions));
         }
+
+        var scenarioOverride = _mareConfig.Current.PairSyncOverrides.TryGetValue(entry.UserData.UID, out var scenarioEntry)
+            ? scenarioEntry.DisableHousingScenarios
+            : null;
+        var isDisableScenarios = scenarioOverride ?? _mareConfig.Current.DefaultDisableHousingScenarios;
+        string disableScenariosText = Loc.Get(isDisableScenarios ? "DrawUserPair.Menu.EnableHousingScenarios" : "DrawUserPair.Menu.DisableHousingScenarios");
+        var disableScenariosIcon = isDisableScenarios ? FontAwesomeIcon.UserSlash : FontAwesomeIcon.UserFriends;
+        if (_uiSharedService.IconTextButton(disableScenariosIcon, disableScenariosText))
+        {
+            _mediator.Publish(new PairSyncOverrideChanged(entry.UserData.UID, null, null, null, null, !isDisableScenarios));
+        }
+        UiSharedService.AttachToolTip(string.Format(CultureInfo.CurrentCulture, Loc.Get("DrawUserPair.Menu.HousingScenariosTooltip"), entryUID));
+
         DrawTargetSoundOverrideCombo(entry.UserData.UID);
 
         if (_uiSharedService.IconTextButton(FontAwesomeIcon.Trash, Loc.Get("DrawUserPair.Menu.Unpair")) && UiSharedService.CtrlPressed())

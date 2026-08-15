@@ -103,6 +103,10 @@ public sealed class IpcCallerPenumbra : DisposableMediatorSubscriberBase, IIpcCa
     public Task ConvertTextureFiles(ILogger logger, Dictionary<string, string[]> textures, IProgress<(string, int)> progress, CancellationToken token)
         => _textures.ConvertTextureFiles(logger, textures, progress, token);
     
+    public Task<bool> ApplyTemporaryStateAsync(ILogger logger, Guid applicationId, Guid collId,
+        Dictionary<string, string>? modPaths, string? manipulationData)
+        => _temporaryMods.ApplyTemporaryStateAsync(logger, applicationId, collId, modPaths, manipulationData);
+
     public Task SetManipulationDataAsync(ILogger logger, Guid applicationId, Guid collId, string manipulationData)
         => _temporaryMods.SetManipulationDataAsync(logger, applicationId, collId, manipulationData);
 

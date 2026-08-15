@@ -93,15 +93,17 @@ public sealed class PenumbraCore : DisposableMediatorSubscriberBase, IPenumbraCo
         _shownPenumbraUnavailable = false;
         _ = Task.Run(CheckAPIWithRetryAsync);
     }
+    
+    private const int IpcInitialDelayMs = 5000;
+    private const int IpcCheckRetries = 10;
+    private const int IpcDelayBetweenRetriesMs = 2500;
 
     private async Task CheckAPIWithRetryAsync()
     {
-        const int maxRetries = 5;
-        const int delayBetweenRetries = 2000;
+        await Task.Delay(IpcInitialDelayMs).ConfigureAwait(false);
 
-        for (int attempt = 1; attempt <= maxRetries; attempt++)
+        for (int attempt = 1; attempt <= IpcCheckRetries; attempt++)
         {
-            await Task.Delay(delayBetweenRetries).ConfigureAwait(false);
             CheckAPI();
 
             if (APIAvailable)
@@ -110,10 +112,11 @@ public sealed class PenumbraCore : DisposableMediatorSubscriberBase, IPenumbraCo
                 return;
             }
 
-            Logger.LogDebug("Penumbra API not available, attempt {attempt}/{maxRetries}", attempt, maxRetries);
+            Logger.LogDebug("Penumbra API not available, attempt {attempt}/{maxRetries}", attempt, IpcCheckRetries);
+            await Task.Delay(IpcDelayBetweenRetriesMs).ConfigureAwait(false);
         }
 
-        Logger.LogWarning("Penumbra API still not available after {maxRetries} attempts", maxRetries);
+        Logger.LogWarning("Penumbra API still not available after {maxRetries} attempts", IpcCheckRetries);
         if (!APIAvailable && !_shownPenumbraUnavailable)
         {
             _shownPenumbraUnavailable = true;
@@ -152,6 +155,13 @@ public sealed class PenumbraCore : DisposableMediatorSubscriberBase, IPenumbraCo
         {
             Logger.LogDebug("Penumbra API devenue disponible — publication de PenumbraInitializedMessage");
             Mediator.Publish(new PenumbraInitializedMessage());
+        }
+
+        // Même raison que côté Glamourer : une alerte de démarrage ne doit pas survivre au démarrage.
+        if (APIAvailable)
+        {
+            var stale = NotificationEntry.PenumbraInactive();
+            NotificationTracker.Remove(stale.Category, stale.Id);
         }
     }
     

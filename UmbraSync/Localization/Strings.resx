@@ -903,6 +903,15 @@ Please keep a copy of your secret key in case you need to reset your plugins, or
   <data name="DrawUserPair.Menu.DisableHousing" xml:space="preserve">
     <value>Disable housing sync</value>
   </data>
+  <data name="DrawUserPair.Menu.EnableHousingScenarios" xml:space="preserve">
+    <value>Show their NPC scenarios</value>
+  </data>
+  <data name="DrawUserPair.Menu.DisableHousingScenarios" xml:space="preserve">
+    <value>Hide their NPC scenarios</value>
+  </data>
+  <data name="DrawUserPair.Menu.HousingScenariosTooltip" xml:space="preserve">
+    <value>Shows or hides the NPCs {0} placed in their house.&amp;#x0A;This setting stays on your client: {0} is not notified.</value>
+  </data>
   <data name="DrawUserPair.Menu.Unpair" xml:space="preserve">
     <value>Unpair Permanently</value>
   </data>
@@ -1092,6 +1101,12 @@ Click to change.</value>
   </data>
   <data name="CompactUi.SyncDefaults.HousingSubject" xml:space="preserve">
     <value>housing sync</value>
+  </data>
+  <data name="CompactUi.SyncDefaults.ScenarioLabel" xml:space="preserve">
+    <value>NPCs</value>
+  </data>
+  <data name="CompactUi.SyncDefaults.ScenarioSubject" xml:space="preserve">
+    <value>NPC scenario</value>
   </data>
   <data name="CompactUi.Uid.CopyTooltip" xml:space="preserve">
     <value>Copy your UID to clipboard</value>
@@ -5268,6 +5283,12 @@ Note: Weapons will not be displayed correctly unless using the same job as the s
   <data name="Settings.Advanced.Debug.NetworkDiag.CurrentFile" xml:space="preserve">
     <value>Current file: {0}</value>
   </data>
+  <data name="Settings.Advanced.Debug.LogPlayerNames" xml:space="preserve">
+    <value>Log character names</value>
+  </data>
+  <data name="Settings.Advanced.Debug.LogPlayerNames.Help" xml:space="preserve">
+    <value>Off by default: a log file shared for a bug report should not reveal who was standing next to you. Turn this on only while investigating a problem, and prefer sending an anonymised log.</value>
+  </data>
   <data name="Settings.Advanced.Debug.LogPerf" xml:space="preserve">
     <value>Log Performance Counters</value>
   </data>
@@ -6135,6 +6156,18 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
   <data name="EditProfile.Honorific.IsPrefix" xml:space="preserve">
     <value>Prefix (before name)</value>
   </data>
+  <data name="EditProfile.Honorific.CustomColor" xml:space="preserve">
+    <value>Custom colour</value>
+  </data>
+  <data name="EditProfile.Honorific.CustomColorTip" xml:space="preserve">
+    <value>Unchecked, the title keeps the game's own title look.&#x0A;Checked, it uses the flat colour you pick.</value>
+  </data>
+  <data name="EditProfile.Honorific.ClearColor" xml:space="preserve">
+    <value>Remove</value>
+  </data>
+  <data name="EditProfile.Honorific.ClearColorTip" xml:space="preserve">
+    <value>Restores the game's own title look, right away.&#x0A;No need to save the profile: only the title is applied.</value>
+  </data>
   <data name="EditProfile.Honorific.Color" xml:space="preserve">
     <value>Text color</value>
   </data>
@@ -6297,6 +6330,36 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
   <data name="HousingScenario.ColLocation" xml:space="preserve">
     <value>Location</value>
   </data>
+  <data name="HousingScenario.ColOwner" xml:space="preserve">
+    <value>Owner</value>
+  </data>
+  <data name="HousingScenario.ColUpdated" xml:space="preserve">
+    <value>Updated</value>
+  </data>
+  <data name="HousingScenario.DelegatedTitle" xml:space="preserve">
+    <value>Shared with me</value>
+  </data>
+  <data name="HousingScenario.DelegatedHelp" xml:space="preserve">
+    <value>Scenes owned by other players who have granted you edit rights. To edit one, travel to the listed plot and open "Create / edit NPC scenes": NPCs are placed in a specific room, so they cannot be edited remotely.</value>
+  </data>
+  <data name="HousingScenario.NoDelegated" xml:space="preserve">
+    <value>Nobody has granted you edit rights on a scene yet.</value>
+  </data>
+  <data name="HousingScenario.DelegatedGoThereTip" xml:space="preserve">
+    <value>Travel to this plot to fetch and edit the scene.</value>
+  </data>
+  <data name="HousingScenario.Delegated.NotifTitle" xml:space="preserve">
+    <value>NPC scenario entrusted to you</value>
+  </data>
+  <data name="HousingScenario.Delegated.NotifBody" xml:space="preserve">
+    <value>{0} lets you edit their scene "{1}". Find it under Data Creation &gt; Housing &gt; NPC, in the "Shared with me" section.</value>
+  </data>
+  <data name="HousingScenario.Delegated.Untitled" xml:space="preserve">
+    <value>untitled</value>
+  </data>
+  <data name="HousingScenario.DelegateHere" xml:space="preserve">
+    <value>The owner has entrusted you with editing their scene here. Open the editor to fetch it.</value>
+  </data>
   <data name="HousingScenario.ColCreated" xml:space="preserve">
     <value>Created</value>
   </data>
@@ -6366,11 +6429,74 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
   <data name="HousingNpc.Editor.NewScene" xml:space="preserve">
     <value>New scene</value>
   </data>
+  <data name="HousingNpc.Editor.ReplaceAppearance" xml:space="preserve">
+    <value>Change this NPC's appearance:</value>
+  </data>
+  <data name="HousingNpc.Editor.ReplaceFromDesign" xml:space="preserve">
+    <value>Glamourer design</value>
+  </data>
+  <data name="HousingNpc.Editor.ReplaceFromDesignTip" xml:space="preserve">
+    <value>Dresses this NPC with one of your Glamourer designs.&#x0A;Its position, facing and actions are kept.</value>
+  </data>
+  <data name="HousingNpc.Editor.ReplaceFromSelfLive" xml:space="preserve">
+    <value>Like me (with mods)</value>
+  </data>
+  <data name="HousingNpc.Editor.ReplaceFromSelfLiveTip" xml:space="preserve">
+    <value>Takes your current look, mods included.&#x0A;Its position, facing and actions are kept.</value>
+  </data>
+  <data name="HousingNpc.Editor.ReplaceFromSelf" xml:space="preserve">
+    <value>Like me (no mods)</value>
+  </data>
+  <data name="HousingNpc.Editor.ReplaceFromSelfTip" xml:space="preserve">
+    <value>Takes your current look without mods.&#x0A;Its position, facing and actions are kept.</value>
+  </data>
+  <data name="HousingNpc.Notif.AppearanceReplaced" xml:space="preserve">
+    <value>NPC appearance updated.</value>
+  </data>
+  <data name="HousingNpc.Editor.ReplaceFromChara" xml:space="preserve">
+    <value>.chara file</value>
+  </data>
+  <data name="HousingNpc.Editor.ReplaceFromCharaTip" xml:space="preserve">
+    <value>Dresses this NPC from an Anamnesis file.&#x0A;Careful: that format carries no mods, so the NPC's are removed.&#x0A;Its position, facing and actions are kept.</value>
+  </data>
+  <data name="HousingNpc.Editor.EmoteSec" xml:space="preserve">
+    <value>Duration (s)</value>
+  </data>
+  <data name="HousingNpc.Editor.EmoteSecTip" xml:space="preserve">
+    <value>How long the NPC stays on this emote before moving on.&#x0A;0: wait for it to end by itself — fine for short emotes.&#x0A;Needed for emotes that never end (wait for orders, explain plan, sitting down):&#x0A;without a duration, the sequence still moves on after 20 seconds.</value>
+  </data>
   <data name="HousingNpc.Editor.NoScenes" xml:space="preserve">
     <value>No scene in this room. Create one to start.</value>
   </data>
   <data name="HousingNpc.Editor.SceneToggleTip" xml:space="preserve">
     <value>Enable/disable this scene (spawn or not).</value>
+  </data>
+  <data name="HousingNpc.Editor.NoneSpawned" xml:space="preserve">
+    <value>UmbraSync is not showing any NPC in this room.</value>
+  </data>
+  <data name="HousingNpc.Editor.NoneSpawnedTip" xml:space="preserve">
+    <value>If you still see NPCs here, another plugin placed them&amp;#x0A;(A Realm Repopulated, Brio…): they can only be removed from that plugin.</value>
+  </data>
+  <data name="HousingNpc.Editor.SpawnedSummary" xml:space="preserve">
+    <value>{0} NPC(s) shown here by UmbraSync.</value>
+  </data>
+  <data name="HousingNpc.Editor.SpawnedSummaryWithShared" xml:space="preserve">
+    <value>{0} NPC(s) shown here by UmbraSync, {1} of them from a shared scene.</value>
+  </data>
+  <data name="HousingNpc.Editor.SpawnedSummaryTip" xml:space="preserve">
+    <value>Your enabled scenes place their NPCs again every time you enter the house,&amp;#x0A;whether the scenario is shared or not. Turning sharing off does not remove them from your own place.</value>
+  </data>
+  <data name="HousingNpc.Editor.DespawnVisible" xml:space="preserve">
+    <value>Remove displayed NPCs</value>
+  </data>
+  <data name="HousingNpc.Editor.DespawnVisibleTip" xml:space="preserve">
+    <value>Makes the NPCs disappear now, without deleting anything.&amp;#x0A;They will come back next time you enter the house if their scene stays enabled.</value>
+  </data>
+  <data name="HousingNpc.Editor.DisableAllScenes" xml:space="preserve">
+    <value>Disable every scene</value>
+  </data>
+  <data name="HousingNpc.Editor.DisableAllScenesTip" xml:space="preserve">
+    <value>Disables the {0} scene(s) in this room: their NPCs disappear and will not come back.&amp;#x0A;Nothing is deleted, just re-enable them to get everything back.</value>
   </data>
   <data name="HousingNpc.Editor.DeleteSceneTip" xml:space="preserve">
     <value>Ctrl+click to delete the scene.</value>
@@ -6412,7 +6538,13 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
     <value>Loop</value>
   </data>
   <data name="HousingNpc.Editor.LoopTip" xml:space="preserve">
-    <value>Replay the emote in a loop (useful for dances / animations that end).</value>
+    <value>Plays the emote endlessly: keep it for animations that do end (dances, greetings).&#x0A;On a pose (sitting, leaning), it would stand the NPC up and sit it down again on a loop: use « Keep the pose ».</value>
+  </data>
+  <data name="HousingNpc.Editor.BasePose" xml:space="preserve">
+    <value>Pose</value>
+  </data>
+  <data name="HousingNpc.Editor.BasePoseTip" xml:space="preserve">
+    <value>Pose the NPC holds when it has nothing else to do: sitting, lying down, leaning. It is taken before the rest of the sequence and resumed after each action. Leave on "None" for a standing NPC.</value>
   </data>
   <data name="HousingNpc.Editor.FacePlayer" xml:space="preserve">
     <value>Look at player</value>
@@ -6574,7 +6706,7 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
     <value>Hold pose</value>
   </data>
   <data name="HousingNpc.Editor.StayPoseTip" xml:space="preserve">
-    <value>Stays in the emote pose and carries on (sitting, leaning…).</value>
+    <value>Plays the emote once and leaves the NPC in it, never replaying it.&#x0A;This is the option for poses that never end by themselves: sitting, leaning, lying down.&#x0A;Takes precedence over « Repeat » when both are ticked.</value>
   </data>
   <data name="HousingNpc.Editor.SpeedWalk" xml:space="preserve">
     <value>Walk</value>
@@ -6614,6 +6746,75 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
   </data>
   <data name="HousingScenario.Error.EmptyScene" xml:space="preserve">
     <value>The scene is empty: add at least one NPC before sharing it.</value>
+  </data>
+  <data name="HousingScenario.Error.NotLinked" xml:space="preserve">
+    <value>This scene is not linked to a share: nothing to send back.</value>
+  </data>
+  <data name="HousingScenario.Success.ImportedForEditing" xml:space="preserve">
+    <value>Scene pulled for editing. You will find it in the scene editor.</value>
+  </data>
+  <data name="HousingNpc.Editor.DelegatedSceneTitle" xml:space="preserve">
+    <value>Delegated scene</value>
+  </data>
+  <data name="HousingNpc.Editor.DelegatedHeader" xml:space="preserve">
+    <value>Scenes other players let you edit</value>
+  </data>
+  <data name="HousingNpc.Editor.DelegatedImport" xml:space="preserve">
+    <value>Pull for editing</value>
+  </data>
+  <data name="HousingNpc.Editor.DelegatedImportTip" xml:space="preserve">
+    <value>Copies {0}'s scene into your editor.&#x0A;Your changes are only sent when you click « Send back to owner ».</value>
+  </data>
+  <data name="HousingNpc.Editor.DelegatedRepublish" xml:space="preserve">
+    <value>Send back to owner</value>
+  </data>
+  <data name="HousingNpc.Editor.DelegatedRepublishTip" xml:space="preserve">
+    <value>Sends your version of the scene: every visitor will see it.&#x0A;Location and permissions stay the owner's.</value>
+  </data>
+  <data name="HousingNpc.Editor.DelegatedBadge" xml:space="preserve">
+    <value>delegated</value>
+  </data>
+  <data name="HousingNpc.Editor.DelegatedBadgeTip" xml:space="preserve">
+    <value>Working copy of a scene shared by someone else.&#x0A;It does not spawn NPCs at your place: the NPCs you see come from the share itself.</value>
+  </data>
+  <data name="HousingScenario.Editors.Header" xml:space="preserve">
+    <value>Delegated editing</value>
+  </data>
+  <data name="HousingScenario.Editors.Help" xml:space="preserve">
+    <value>These players can change the scene's content and republish it. They cannot delete it, move it, or change who sees it.</value>
+  </data>
+  <data name="HousingScenario.Editors.Hint" xml:space="preserve">
+    <value>Player UID</value>
+  </data>
+  <data name="HousingScenario.Editors.Add" xml:space="preserve">
+    <value>Allow to edit</value>
+  </data>
+  <data name="HousingScenario.Editors.Remove" xml:space="preserve">
+    <value>Revoke</value>
+  </data>
+  <data name="HousingScenario.Editors.None" xml:space="preserve">
+    <value>Nobody else can edit this scene.</value>
+  </data>
+  <data name="HousingScenario.Error.Conflict" xml:space="preserve">
+    <value>Someone else changed this scene while you were working on it. Your changes were not sent: pull the latest version, then redo them.</value>
+  </data>
+  <data name="HousingScenario.Error.Forbidden" xml:space="preserve">
+    <value>The server refused the upload: you are not (or no longer) allowed to edit this scene.</value>
+  </data>
+  <data name="HousingNpc.Editor.OwnRepublish" xml:space="preserve">
+    <value>Update the share</value>
+  </data>
+  <data name="HousingNpc.Editor.OwnRepublishTip" xml:space="preserve">
+    <value>Sends this version to the players who can access your shared scene.&#x0A;The share keeps its address, its permissions and its editors.</value>
+  </data>
+  <data name="HousingScenario.Editors.Search" xml:space="preserve">
+    <value>Search (UID, alias, note, name)</value>
+  </data>
+  <data name="HousingScenario.Editors.NoMatch" xml:space="preserve">
+    <value>No pair matches.</value>
+  </data>
+  <data name="HousingScenario.Editors.AlreadyAllowed" xml:space="preserve">
+    <value>already allowed</value>
   </data>
   <data name="HousingScenario.Error.Unavailable" xml:space="preserve">
     <value>Scene unavailable (permissions?).</value>
@@ -6701,6 +6902,15 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
   </data>
   <data name="HousingNpc.Editor.TimelineIdsHint" xml:space="preserve">
     <value>ID(s)</value>
+  </data>
+  <data name="HousingNpc.Editor.TimelineFind" xml:space="preserve">
+    <value>Search</value>
+  </data>
+  <data name="HousingNpc.Editor.TimelineFindHint" xml:space="preserve">
+    <value>Type to search for an animation. The game only gives technical names: try "pose", "sit", "idle", "stand". The animation you pick is added to the list.</value>
+  </data>
+  <data name="HousingNpc.Editor.TimelineTooMany" xml:space="preserve">
+    <value>Too many results — narrow the search.</value>
   </data>
   <data name="HousingNpc.Editor.TimelineIdsTip" xml:space="preserve">
     <value>Game animation ids (ActionTimeline), comma-separated. Allows animations other than emotes.</value>

@@ -44,6 +44,7 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
     private const float PostEmotePause = 1f;        // délai par défaut après la fin d'une emote
     private const float DefaultTimelineDuration = 3f; // durée par défaut d'une action Timeline
     private const float SyncTimeoutSeconds = 30f;    // garde-fou de la barrière Sync
+    private const float MaxEmoteWaitSeconds = 20f; // garde-fou des émotes sans durée.
 
     private sealed record SpawnedNpc(nint Address, NpcLiveHandle? Live, bool Shared, string EntryId);
 
@@ -65,6 +66,8 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
         public float EmoteGrace;    // délai min avant de tester IsEmoting
         public ushort CurrentEmote; // emote en cours (pour rejeu si boucle)
         public bool EmoteLoopThis;  // rejouer l'emote courante en boucle
+        public bool EmoteStay;      // pose tenue : jouée une fois, jamais relancée
+        public ushort HeldEmote;    // pose actuellement tenue (0 = aucune), pour ne pas la rejouer
         public float EmoteDuration; // durée forcée (0 = jusqu'à la fin une fois)
         public float EmoteElapsed;
     }
@@ -106,7 +109,7 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
         {
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             timeout.CancelAfter(TimeSpan.FromSeconds(5));
-            await DespawnAllInternalAsync().WaitAsync(timeout.Token).ConfigureAwait(false);
+            await DespawnAllInternalAsync(notifySharedPurged: false).WaitAsync(timeout.Token).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -171,6 +174,52 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
 
     public List<HousingNpcScenario> ScenesForCurrentRoom()
         => _currentLocation is { } loc ? _store.ScenesForLocation(loc) : new();
+    
+    public (int Total, int Shared) SpawnedCounts
+    {
+        get
+        {
+            lock (_stateLock)
+                return (_spawned.Count, _spawned.Count(s => s.Shared));
+        }
+    }
+    public async Task DespawnVisibleAsync()
+    {
+        await _gate.WaitAsync().ConfigureAwait(false);
+        try { await DespawnAllInternalAsync().ConfigureAwait(false); }
+        finally { _gate.Release(); }
+    }
+    
+    public HousingNpcScenario? AdoptSharedSceneForEditing(HousingNpcScenario scene, Guid shareId, string description, int sourceRevision)
+    {
+        if (_currentLocation is not { } loc) return null;
+
+        var title = string.IsNullOrWhiteSpace(description)
+            ? Loc.Get("HousingNpc.Editor.DelegatedSceneTitle")
+            : description;
+
+        var adopted = _store.AdoptSharedScene(scene, shareId, loc, _currentInteriorTerritoryId, title, sourceRevision);
+        Logger.LogInformation("Scène déléguée {ShareId} adoptée localement pour édition ({Count} PNJ)", shareId, adopted.Entries.Count);
+        return adopted;
+    }
+    
+    public async Task SetAllScenesEnabledAsync(bool enabled)
+    {
+        if (_currentLocation is not { } loc) return;
+
+        var scenes = _store.ScenesForLocation(loc);
+        bool changed = false;
+        foreach (var scene in scenes.Where(s => s.Enabled != enabled))
+        {
+            scene.Enabled = enabled;
+            changed = true;
+        }
+
+        if (!changed) return;
+
+        _store.SaveChanges();
+        await RefreshAsync().ConfigureAwait(false);
+    }
 
     /// <summary>
     /// Scènes rattachées à un autre logement. Un déménagement ne détruit rien : les scènes restent
@@ -251,6 +300,8 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
         _store.SaveChanges();
         await RefreshAsync().ConfigureAwait(false);
     }
+
+    public void PersistScenes() => _store.SaveChanges();
     
     private static CharacterData WithoutMods(CharacterData data) => new()
     {
@@ -459,6 +510,8 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
             }
             catch (Exception ex) { Logger.LogWarning(ex, "Despawn PNJ partagé échoué ({Addr:X})", npc.Address); }
         }
+
+        await ReleaseGPoseSlotIfIdleAsync().ConfigureAwait(false);
     }
 
     private async Task SpawnEntryInternalAsync(HousingNpcEntry entry, string groupId, bool shared = false)
@@ -477,12 +530,18 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
         NpcLiveHandle? live = null;
         if (hasLive)
         {
-            live = await _liveAppearance.PrepareCollectionAsync(actor.Address, entry.LiveData!).ConfigureAwait(false);
-            
+            var preparation = await _liveAppearance.PrepareCollectionAsync(actor.Address, entry.LiveData!).ConfigureAwait(false);
+            live = preparation.Handle;
+            if (!preparation.SafeToDraw)
+            {
+                Logger.LogWarning("Spawn du PNJ abandonné : collection non confirmée sur son index, l'acteur est retiré");
+                await _dalamudUtil.RunOnFrameworkThread(() => _spawner.Despawn(actor.Address)).ConfigureAwait(false);
+                return;
+            }
+
             try
             {
-                // Le draw ne démarre qu'ici, collection déjà assignée. Si la préparation a échoué, on
-                // dessine quand même : mieux vaut un PNJ en apparence brute qu'un acteur invisible.
+                // Le draw ne démarre qu'ici, collection assignée ET confirmée effective.
                 await _dalamudUtil.RunOnFrameworkThread(
                     () => _spawner.BeginDraw(actor.Address, entry.Appearance)).ConfigureAwait(false);
 
@@ -552,8 +611,8 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
         }
         Logger.LogWarning("PNJ {Addr:X} non rendu après {Timeout}ms — apparence appliquée malgré tout", address, timeoutMs);
     }
-
-    private async Task DespawnAllInternalAsync()
+    
+    private async Task DespawnAllInternalAsync(bool notifySharedPurged = true)
     {
         _lookAt.Clear();
         List<SpawnedNpc> spawned;
@@ -561,10 +620,12 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
         {
             _runtimes.Clear();
             _anchors.Clear();
-            if (_spawned.Count == 0) return;
             spawned = _spawned.ToList();
             _spawned.Clear();
         }
+
+        if (notifySharedPurged && spawned.Exists(s => s.Shared))
+            Mediator.Publish(new HousingNpcSharedScenePurgedMessage());
 
         foreach (var npc in spawned)
         {
@@ -575,11 +636,27 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
             }
             catch (Exception ex) { Logger.LogWarning(ex, "Despawn PNJ échoué ({Addr:X})", npc.Address); }
         }
+
+        await ReleaseGPoseSlotIfIdleAsync().ConfigureAwait(false);
+    }
+    private async Task ReleaseGPoseSlotIfIdleAsync()
+    {
+        lock (_stateLock)
+        {
+            if (_spawned.Count != 0) return;
+        }
+
+        try
+        {
+            await _dalamudUtil.RunOnFrameworkThread(_spawner.ReleaseGPoseSlot).ConfigureAwait(false);
+        }
+        catch (Exception ex) { Logger.LogWarning(ex, "Libération du slot d'objet neutralisé échouée"); }
     }
 
     private void ForgetSpawned()
     {
         _lookAt.Clear();
+        _spawner.ForgetGPoseSlot();
         List<SpawnedNpc> spawned;
         lock (_stateLock)
         {
@@ -685,13 +762,19 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
             }
         }
     }
+    
+    private static void RestIdle(nint addr)
+    {
+        if (NativeNpcSpawner.IsHoldingPose(addr)) return;
+        NativeNpcSpawner.SetMovementAnim(addr, NativeNpcSpawner.MoveAnim.Idle);
+    }
 
     private void AdvanceActions(nint addr, ActionRuntime rt, float dt)
     {
         if (rt.Actions.Length == 0 || rt.Finished) return;
         if (rt.Index >= rt.Actions.Length)
         {
-            if (!rt.Looping) { rt.Finished = true; NativeNpcSpawner.SetMovementAnim(addr, NativeNpcSpawner.MoveAnim.Idle); return; }
+            if (!rt.Looping) { rt.Finished = true; RestIdle(addr); return; }
             rt.Index = 0;
             rt.WaitLeft = rt.LoopDelay;
             return;
@@ -712,15 +795,37 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
             rt.EmoteGrace -= dt;
             rt.EmoteElapsed += dt;
             if (rt.EmoteGrace > 0f) return;
-            if (rt.EmoteDuration > 0f)
+            if (rt.EmoteStay)
+            {
+                // Pose tenue : l'émote a été jouée, on n'y retouche plus et on n'attend pas qu'elle
+                // « finisse » — une pose assise ou couchée ne se termine jamais d'elle-même. La
+                // relancer relèverait le PNJ pour le rasseoir aussitôt : c'est le va-et-vient
+                // observé sur les PNJ assis. Une durée explicite reste respectée.
+                if (rt.EmoteDuration > 0f && rt.EmoteElapsed < rt.EmoteDuration) return;
+            }
+            else if (rt.EmoteDuration > 0f)
             {
                 if (rt.EmoteLoopThis && !NativeNpcSpawner.IsEmoting(addr)) NativeNpcSpawner.PlayEmote(addr, rt.CurrentEmote);
                 if (rt.EmoteElapsed < rt.EmoteDuration) return;
             }
-            else
+            else if (rt.EmoteElapsed < MaxEmoteWaitSeconds)
             {
+                // Sans durée choisie, on attend la fin de l'émote — mais jamais au-delà du garde-fou.
+                if (rt.EmoteLoopThis)
+                {
+                    if (!NativeNpcSpawner.IsEmoting(addr))
+                        NativeNpcSpawner.PlayEmote(addr, rt.CurrentEmote);
+                    return;
+                }
+
                 if (NativeNpcSpawner.IsEmoting(addr)) return;
-                if (rt.EmoteLoopThis) { NativeNpcSpawner.PlayEmote(addr, rt.CurrentEmote); return; }
+            }
+            else if (!rt.EmoteLoopThis)
+            {
+                // Une émote explicitement bouclée qui dure est le comportement demandé, pas une
+                // anomalie : seule une émote unique qui ne se termine jamais mérite d'être signalée.
+                Logger.LogDebug("Émote {Emote} sans durée toujours en cours après {Timeout}s, la séquence continue",
+                    rt.CurrentEmote, MaxEmoteWaitSeconds);
             }
 
             rt.AwaitingEmote = false;
@@ -735,15 +840,16 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
         switch (action)
         {
             case NpcEmoteAction e: StepEmote(addr, rt, e); break;
-            case NpcMovementAction m: StepMove(addr, rt, m.X, m.Y, m.Z, SpeedOf(m.Speed, m.CustomSpeed), AnimOf(m.Speed), dt); break;
-            case NpcPathAction p: StepPath(addr, rt, p, dt); break;
+            case NpcMovementAction m: rt.HeldEmote = 0; StepMove(addr, rt, m.X, m.Y, m.Z, SpeedOf(m.Speed, m.CustomSpeed), AnimOf(m.Speed), dt); break;
+            case NpcPathAction p: rt.HeldEmote = 0; StepPath(addr, rt, p, dt); break;
             case NpcRotationAction r: StepRotation(addr, rt, r.TargetRotation, dt); break;
-            case NpcWaitAction w: rt.WaitLeft = w.Duration; NativeNpcSpawner.SetMovementAnim(addr, NativeNpcSpawner.MoveAnim.Idle); Advance(rt); break;
-            case NpcIdleAction: NativeNpcSpawner.SetMovementAnim(addr, NativeNpcSpawner.MoveAnim.Idle); Advance(rt); break;
+            case NpcWaitAction w: rt.WaitLeft = w.Duration; RestIdle(addr); Advance(rt); break;
+            // « Immobile » est une demande explicite de retour au repos : elle rompt la pose tenue.
+            case NpcIdleAction: rt.HeldEmote = 0; NativeNpcSpawner.SetMovementAnim(addr, NativeNpcSpawner.MoveAnim.Idle); Advance(rt); break;
             case NpcVisibilityAction v: NativeNpcSpawner.SetVisible(addr, v.Visible); Advance(rt); break;
-            case NpcTimelineAction t: StepTimeline(addr, rt, t); break;
+            case NpcTimelineAction t: rt.HeldEmote = 0; StepTimeline(addr, rt, t); break;
             case NpcSyncAction:
-                NativeNpcSpawner.SetMovementAnim(addr, NativeNpcSpawner.MoveAnim.Idle);
+                RestIdle(addr);
                 rt.AtSync = true;
                 rt.SyncTimeout = SyncTimeoutSeconds;
                 break;
@@ -762,13 +868,45 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
     private static void StepEmote(nint addr, ActionRuntime rt, NpcEmoteAction e)
     {
         if (e.Emote == 0) { Advance(rt); return; }
-        NativeNpcSpawner.SetMovementAnim(addr, NativeNpcSpawner.MoveAnim.Idle);
+
+        // Le PNJ tient déjà cette pose : la rejouer le relèverait pour le remettre dedans. C'est ce
+        // qui faisait « resetter » un personnage assis à chaque tour de séquence, puisqu'une scène
+        // boucle par défaut et qu'une pose tenue rend la main aussitôt.
+        // On ne la rejoue que si le PNJ en est réellement sorti. C'est le jeu qui tranche : une émote
+        // assise le ramène à sa pose, une émote debout l'en fait sortir — inutile de tenir une liste
+        // des émotes compatibles avec la position assise, il suffit de regarder où il en est.
+        if (e.StayInPose && rt.HeldEmote == e.Emote && NativeNpcSpawner.IsHoldingPose(addr))
+        {
+            rt.WaitLeft = MathF.Max(PostEmotePause, rt.LoopDelay);
+            Advance(rt);
+            return;
+        }
+
+        if (e.Loop && !e.StayInPose && rt.CurrentEmote == e.Emote && NativeNpcSpawner.IsEmoting(addr))
+        {
+            rt.AwaitingEmote = true;
+            rt.EmoteGrace = 0.5f;
+            rt.EmoteElapsed = 0f;
+            rt.EmoteStay = false;
+            rt.EmoteLoopThis = true;
+            rt.EmoteDuration = e.Duration;
+            return;
+        }
+
+        RestIdle(addr);
         NativeNpcSpawner.PlayEmote(addr, e.Emote);
+        // La pose retenue survit à une émote intercalée : un PNJ assis qui salue reste assis, et
+        // c'est IsHoldingPose qui dira au prochain tour s'il faut la rétablir ou non. L'effacer ici
+        // faisait rejouer la pose à chaque tour — le PNJ se relevait pour se rasseoir aussitôt.
+        if (e.StayInPose) rt.HeldEmote = e.Emote;
         rt.AwaitingEmote = true;
         rt.EmoteGrace = 0.5f;
         rt.EmoteElapsed = 0f;
         rt.CurrentEmote = e.Emote;
-        rt.EmoteLoopThis = e.Loop;
+        // « Garder la pose » l'emporte sur « boucler » : les deux sont contradictoires, et c'est
+        // le plus précis des deux qui dit ce que l'auteur de la scène veut vraiment.
+        rt.EmoteStay = e.StayInPose;
+        rt.EmoteLoopThis = e.Loop && !e.StayInPose;
         rt.EmoteDuration = e.Duration;
     }
     
@@ -962,6 +1100,127 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
     }
 
     // Commande debug /usync npcadd : crée/réutilise une scène par défaut et y capture le joueur.
+    private async Task<(NpcAppearance Appearance, CharacterData? LiveData)?> CaptureAppearanceAsync(
+        nint sourceAddr, bool includeLive, (Guid Id, string Name)? glamourerDesign)
+    {
+        var appearance = await _dalamudUtil.RunOnFrameworkThread(() => NativeNpcSpawner.ReadAppearance(sourceAddr)).ConfigureAwait(false);
+
+        if (glamourerDesign.HasValue)
+        {
+            var (designData, designAppearance) = await _liveAppearance.CaptureDesignOnSelfAsync(glamourerDesign.Value.Id).ConfigureAwait(false);
+            if (designData == null)
+            {
+                Mediator.Publish(new NotificationMessage(Loc.Get("HousingNpc.Notif.Title"), Loc.Get("HousingNpc.Notif.DesignFailed"), NotificationType.Error));
+                return null;
+            }
+            if (designAppearance != null) appearance = designAppearance;
+            return (appearance, designData);
+        }
+
+        var live = await _liveAppearance.CaptureSelfAsync().ConfigureAwait(false);
+        if (live == null)
+        {
+            Logger.LogWarning("Capture du live data échouée, apparence brute seule conservée");
+            return (appearance, null);
+        }
+
+        Logger.LogInformation("Capture PNJ : {Mode}", includeLive ? "AVEC les mods" : "SANS les mods");
+        return (appearance, includeLive ? live : WithoutMods(live));
+    }
+    
+    public async Task ReplaceEntryAppearanceFromCharaFileAsync(string sceneId, string entryId, string path)
+    {
+        try
+        {
+            var entry = FindEntry(sceneId, entryId);
+            if (entry == null) return;
+
+            var (appearance, _) = AnamnesisCharaImporter.Parse(path);
+            entry.Appearance = appearance;
+            entry.LiveData = null;
+            _store.SaveChanges();
+
+            await _gate.WaitAsync().ConfigureAwait(false);
+            try { await RespawnEntryInternalAsync(entry, sceneId).ConfigureAwait(false); }
+            finally { _gate.Release(); }
+
+            Mediator.Publish(new NotificationMessage(Loc.Get("HousingNpc.Notif.Title"), Loc.Get("HousingNpc.Notif.AppearanceReplaced"), NotificationType.Info));
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Remplacement de l'apparence depuis un .chara échoué");
+            Mediator.Publish(new NotificationMessage(Loc.Get("HousingNpc.Notif.Title"), Loc.Get("HousingNpc.Notif.ImportFailed"), NotificationType.Error));
+        }
+    }
+
+    public Task ReplaceEntryAppearanceFromSelfAsync(string sceneId, string entryId, bool includeLive)
+        => ReplaceEntryAppearanceAsync(sceneId, entryId, includeLive, null);
+
+    public Task ReplaceEntryAppearanceFromDesignAsync(string sceneId, string entryId, Guid designId, string designName)
+        => ReplaceEntryAppearanceAsync(sceneId, entryId, true, (designId, designName));
+    
+    private async Task ReplaceEntryAppearanceAsync(string sceneId, string entryId, bool includeLive,
+        (Guid Id, string Name)? glamourerDesign)
+    {
+        try
+        {
+            var entry = FindEntry(sceneId, entryId);
+            if (entry == null) return;
+
+            var sourceAddr = await _dalamudUtil.RunOnFrameworkThread(_dalamudUtil.GetPlayerPointer).ConfigureAwait(false);
+            if (sourceAddr == nint.Zero)
+            {
+                Mediator.Publish(new NotificationMessage(Loc.Get("HousingNpc.Notif.Title"), Loc.Get("HousingNpc.Notif.NoPlayer"), NotificationType.Error));
+                return;
+            }
+
+            var captured = await CaptureAppearanceAsync(sourceAddr, includeLive, glamourerDesign).ConfigureAwait(false);
+            if (captured == null) return;
+
+            entry.Appearance = captured.Value.Appearance;
+            entry.LiveData = captured.Value.LiveData;
+            _store.SaveChanges();
+
+            await _gate.WaitAsync().ConfigureAwait(false);
+            try { await RespawnEntryInternalAsync(entry, sceneId).ConfigureAwait(false); }
+            finally { _gate.Release(); }
+
+            Mediator.Publish(new NotificationMessage(Loc.Get("HousingNpc.Notif.Title"), Loc.Get("HousingNpc.Notif.AppearanceReplaced"), NotificationType.Info));
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Remplacement de l'apparence du PNJ échoué");
+            Mediator.Publish(new NotificationMessage(Loc.Get("HousingNpc.Notif.Title"), Loc.Get("HousingNpc.Notif.AddFailed"), NotificationType.Error));
+        }
+    }
+
+    private async Task RespawnEntryInternalAsync(HousingNpcEntry entry, string sceneId)
+    {
+        SpawnedNpc? existing;
+        lock (_stateLock)
+        {
+            existing = _spawned.Find(s => string.Equals(s.EntryId, entry.Id, StringComparison.Ordinal));
+            if (existing != null)
+            {
+                _spawned.Remove(existing);
+                _runtimes.Remove(existing.Address);
+                _anchors.Remove(existing.Address);
+            }
+        }
+
+        if (existing != null)
+        {
+            try
+            {
+                if (existing.Live != null) await _liveAppearance.RevertAsync(existing.Live).ConfigureAwait(false);
+                await _dalamudUtil.RunOnFrameworkThread(() => _spawner.Despawn(existing.Address)).ConfigureAwait(false);
+            }
+            catch (Exception ex) { Logger.LogWarning(ex, "Despawn du PNJ à rhabiller échoué ({Addr:X})", existing.Address); }
+        }
+
+        await SpawnEntryInternalAsync(entry, sceneId, shared: existing?.Shared ?? false).ConfigureAwait(false);
+    }
+
     private async Task DebugAddFromSelfAsync()
     {
         var loc = await _dalamudUtil.GetMapDataAsync().ConfigureAwait(false);
@@ -1009,36 +1268,10 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
                 return;
             }
 
-            // Apparence brute = base du modèle (race, corps). Le design Glamourer est réappliqué
-            // par-dessus via le CharacterData : DrawData contient l'équipement RÉEL, pas ce que
-            // Glamourer affiche, donc l'apparence brute seule ne suffit pas.
-            var appearance = await _dalamudUtil.RunOnFrameworkThread(() => NativeNpcSpawner.ReadAppearance(sourceAddr)).ConfigureAwait(false);
+            var captured = await CaptureAppearanceAsync(sourceAddr, includeLive, glamourerDesign).ConfigureAwait(false);
+            if (captured == null) return; // notification déjà publiée
 
-            CharacterData? liveData;
-            if (glamourerDesign.HasValue)
-            {
-                var (designData, designAppearance) = await _liveAppearance.CaptureDesignOnSelfAsync(glamourerDesign.Value.Id).ConfigureAwait(false);
-                liveData = designData;
-                if (liveData == null)
-                {
-                    Mediator.Publish(new NotificationMessage(Loc.Get("HousingNpc.Notif.Title"), Loc.Get("HousingNpc.Notif.DesignFailed"), NotificationType.Error));
-                    return;
-                }
-                // Le design fait autorité sur les états d'affichage : sans ça, un design qui masque
-                // l'arme se voyait rendu avec l'arme du personnage au moment de la capture.
-                if (designAppearance != null) appearance = designAppearance;
-            }
-            else
-            {
-                liveData = null;
-                var live = await _liveAppearance.CaptureSelfAsync().ConfigureAwait(false);
-                if (live == null)
-                    Logger.LogWarning("Capture du live data échouée, apparence brute seule conservée");
-                else
-                    liveData = includeLive ? live : WithoutMods(live);
-                Logger.LogInformation("Ajout PNJ : capture {Mode}", includeLive ? "AVEC les mods" : "SANS les mods");
-            }
-
+            var (appearance, liveData) = captured.Value;
             var defaultName = glamourerDesign?.Name ?? player.Name.TextValue;
             var entry = new HousingNpcEntry
             {

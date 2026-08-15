@@ -144,6 +144,9 @@ public record HousingModsAppliedMessage(LocationInfo Location) : MessageBase;
 public record HousingModsRemovedMessage : MessageBase;
 public record HousingScenarioAppliedMessage(Guid ShareId, LocationInfo Location, string OwnerUid) : MessageBase;
 public record HousingScenarioRemovedMessage : MessageBase;
+public record HousingScenarioSyncPreferenceChangedMessage : MessageBase;
+public record HousingNpcSharedScenePurgedMessage : MessageBase;
+public record ForcePlayerCacheRecreationMessage : MessageBase;
 public record HousingScenarioPublishedMessage(Guid ShareId, LocationInfo Location) : MessageBase;
 public record HousingScanCompleteMessage(LocationInfo Location, int FileCount) : MessageBase;
 public record ManualPairInviteMessage(string SourceUid, string SourceAlias, string TargetUid, string? DisplayName, string InviteId) : MessageBase;
@@ -151,7 +154,7 @@ public record ApplyDefaultPairPermissionsMessage(UserPairDto Pair) : MessageBase
 public record DefaultPermissionsUpdatedMessage(DefaultPermissionsDto Permissions) : MessageBase;
 public record ApplyDefaultGroupPermissionsMessage(GroupPairFullInfoDto GroupPair) : MessageBase;
 public record ApplyDefaultsToAllSyncsMessage(string? Context = null, bool? Disabled = null) : MessageBase;
-public record PairSyncOverrideChanged(string Uid, bool? DisableSounds, bool? DisableAnimations, bool? DisableVfx, bool? DisableHousingMods = null) : MessageBase;
+public record PairSyncOverrideChanged(string Uid, bool? DisableSounds, bool? DisableAnimations, bool? DisableVfx, bool? DisableHousingMods = null, bool? DisableHousingScenarios = null) : MessageBase;
 public record GroupSyncOverrideChanged(string Gid, bool? DisableSounds, bool? DisableAnimations, bool? DisableVfx, bool? DisableHousingMods = null) : MessageBase;
 public record NotificationStateChanged(int TotalCount) : MessageBase;
 public record PairOnlineMessage(UserData User) : MessageBase;

@@ -5,6 +5,7 @@ using System.Diagnostics;
 using UmbraSync.API.Data;
 using UmbraSync.FileCache;
 using UmbraSync.Interop.Ipc;
+using UmbraSync.Interop.Ipc.Penumbra;
 using UmbraSync.PlayerData.Factories;
 using UmbraSync.PlayerData.Pairs;
 using UmbraSync.PlayerData.Redraw;
@@ -21,14 +22,13 @@ using PlayerChanges = UmbraSync.PlayerData.Data.PlayerChanges;
 
 namespace UmbraSync.PlayerData.Handlers;
 
-public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandlerAdapter
+public sealed partial class PairHandler : DisposableMediatorSubscriberBase, IPairHandlerAdapter
 {
     private sealed record CombatData(Guid ApplicationId, CharacterData CharacterData, bool Forced);
 
     private readonly MareConfigService _configService;
     private readonly DalamudUtilService _dalamudUtil;
     private readonly FileDownloadManager _downloadManager;
-    private readonly FileCacheManager _fileDbManager;
     private readonly GameObjectHandlerFactory _gameObjectHandlerFactory;
     private readonly IpcManager _ipcManager;
     private readonly PlayerPerformanceService _playerPerformanceService;
@@ -36,57 +36,44 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
     private readonly VisibilityService _visibilityService;
     private readonly ApplicationSemaphoreService _applicationSemaphoreService;
     private readonly ServerConfigurationManager _serverConfigurationManager;
-    private readonly CompressedAlternateManager _compressedAlternateManager;
-    private readonly PlayerPerformanceConfigService _playerPerformanceConfigService;
     private readonly PairRedrawCoordinator _pairRedrawCoordinator;
+    private readonly PairAssetResolver _assetResolver;
+    private readonly PairAppliedState _state = new();
+    private readonly Lock _applyGate = new();
+    private readonly PenumbraCollectionBinder _collectionBinder;
+    private readonly PairCharacterReverter _reverter;
     private CancellationTokenSource? _applicationCancellationTokenSource = new();
     private Guid _applicationId;
     private Task? _applicationTask;
-    private CharacterData? _cachedData = null;
-    private CharacterData? _lastAppliedData = null;
-    private bool _pendingModReapply;
     private GameObjectHandler? _charaHandler;
-    private readonly Dictionary<ObjectKind, Guid?> _customizeIds = [];
     private CombatData? _dataReceivedInDowntime;
     private CancellationTokenSource? _downloadCancellationTokenSource = new();
     private Task? _downloadTask;
-    private bool _forceApplyMods = false;
     private bool _isVisible;
-    private Guid _deferred = Guid.Empty;
-    private Guid _penumbraCollection = Guid.Empty;
-    private bool _redrawOnNextApplication = false;
     private readonly Lock _pauseLock = new();
     private Task _pauseTransitionTask = Task.CompletedTask;
     private bool _pauseRequested = false;
-    private readonly Lock _visibilityGraceGate = new();
-    private CancellationTokenSource? _visibilityGraceCts;
-    private static readonly TimeSpan VisibilityEvictionGrace = TimeSpan.FromMinutes(5);
-    // Jitter d'étalement des applications. La détection de visibilité étant throttlée (~5Hz), un
-    // groupe de pairs devenus visibles dans la même fenêtre déclenche leurs applies au même instant.
-    // On étale les kicks (A) et on déphase la boucle de retry (C) par un offset stable par-handler.
     private const int VisibilityApplyJitterMaxMs = 600;
     private readonly TimeSpan _reapplyJitter = TimeSpan.FromMilliseconds(Random.Shared.Next(0, 5000));
-    private DateTime? _invisibleSinceUtc;
-    private DateTime? _visibilityEvictionDueAtUtc;
-    private DateTime? _lastDataReceivedAt;
-    private DateTime? _lastApplyAttemptAt;
-    private DateTime? _lastSuccessfulApplyAt;
-    private string? _lastFailureReason;
-    private IReadOnlyList<string> _lastBlockingConditions = Array.Empty<string>();
-    public bool ScheduledForDeletion { get; set; }
-    public DateTime? InvisibleSinceUtc => _invisibleSinceUtc;
-    public DateTime? VisibilityEvictionDueAtUtc => _visibilityEvictionDueAtUtc;
-    public DateTime? LastDataReceivedAt => _lastDataReceivedAt;
-    public DateTime? LastApplyAttemptAt => _lastApplyAttemptAt;
-    public DateTime? LastSuccessfulApplyAt => _lastSuccessfulApplyAt;
-    public string? LastFailureReason => _lastFailureReason;
-    public IReadOnlyList<string> LastBlockingConditions => _lastBlockingConditions;
+    private readonly PairVisibilityGrace _visibilityGrace;
+    public bool ScheduledForDeletion
+    {
+        get => _visibilityGrace.ScheduledForDeletion;
+        set => _visibilityGrace.ScheduledForDeletion = value;
+    }
+    public DateTime? InvisibleSinceUtc => _visibilityGrace.InvisibleSinceUtc;
+    public DateTime? VisibilityEvictionDueAtUtc => _visibilityGrace.EvictionDueAtUtc;
+    public DateTime? LastDataReceivedAt => _state.LastDataReceivedAt;
+    public DateTime? LastApplyAttemptAt => _state.LastApplyAttemptAt;
+    public DateTime? LastSuccessfulApplyAt => _state.LastSuccessfulApplyAt;
+    public string? LastFailureReason => _state.LastFailureReason;
+    public IReadOnlyList<string> LastBlockingConditions => _state.LastBlockingConditions;
     public string Ident => Pair.Ident;
     public bool Initialized => _charaHandler != null;
     public bool IsApplyingOrDownloading =>
         (_applicationTask != null && !_applicationTask.IsCompleted) ||
         (_downloadTask != null && !_downloadTask.IsCompleted);
-    public CharacterData? LastReceivedCharacterData => _cachedData;
+    public CharacterData? LastReceivedCharacterData => _state.CachedData;
 
     public PairHandler(ILogger<PairHandler> logger, Pair pair, PairAnalyzer pairAnalyzer,
         GameObjectHandlerFactory gameObjectHandlerFactory,
@@ -107,15 +94,30 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
         _downloadManager = transferManager;
         _pluginWarningNotificationManager = pluginWarningNotificationManager;
         _dalamudUtil = dalamudUtil;
-        _fileDbManager = fileDbManager;
         _playerPerformanceService = playerPerformanceService;
         _configService = configService;
         _visibilityService = visibilityService;
         _applicationSemaphoreService = applicationSemaphoreService;
         _serverConfigurationManager = serverConfigurationManager;
         _pairRedrawCoordinator = pairRedrawCoordinator;
-        _compressedAlternateManager = compressedAlternateManager;
-        _playerPerformanceConfigService = playerPerformanceConfigService;
+        _assetResolver = new PairAssetResolver(logger, pair.UserData, new FileCacheLookupAdapter(fileDbManager),
+            compressedAlternateManager, new ForbiddenTransferRegistryAdapter(transferManager),
+            new TextureCompressionSettingsAdapter(playerPerformanceConfigService));
+        _collectionBinder = new PenumbraCollectionBinder(ipcManager);
+        _visibilityGrace = new PairVisibilityGrace(logger, pair, _state, ipcManager,
+            describeForLog: ToString, isVisible: () => IsVisible);
+        _reverter = new PairCharacterReverter(logger, pair, _state, ipcManager, dalamudUtil,
+            gameObjectHandlerFactory, pairRedrawCoordinator, mediator,
+            new PairCharacterReverter.Context(
+                GetPlayerName: () => PlayerName,
+                DescribeForLog: ToString,
+                IsVisible: () => IsVisible,
+                GetCharaHandler: () => _charaHandler,
+                CancelInFlightWork: () =>
+                {
+                    _applicationCancellationTokenSource = _applicationCancellationTokenSource?.CancelRecreate();
+                    _downloadCancellationTokenSource = _downloadCancellationTokenSource?.CancelRecreate();
+                }));
 
         _visibilityService.StartTracking(Pair.Ident);
 
@@ -130,18 +132,18 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
         Mediator.Subscribe<CutsceneStartMessage>(this, _ => DisableSync());
         Mediator.Subscribe<CutsceneEndMessage>(this, _ =>
         {
-            if (_deferred != Guid.Empty && _cachedData != null)
+            if (_state.Deferred != Guid.Empty && _state.CachedData != null)
             {
-                ApplyCharacterData(_deferred, _cachedData, forceApplyCustomization: true);
+                ApplyCharacterData(_state.Deferred, _state.CachedData, forceApplyCustomization: true);
             }
             EnableSync();
         });
         Mediator.Subscribe<GposeStartMessage>(this, _ => DisableSync());
         Mediator.Subscribe<GposeEndMessage>(this, _ =>
         {
-            if (_deferred != Guid.Empty && _cachedData != null)
+            if (_state.Deferred != Guid.Empty && _state.CachedData != null)
             {
-                ApplyCharacterData(_deferred, _cachedData, forceApplyCustomization: true);
+                ApplyCharacterData(_state.Deferred, _state.CachedData, forceApplyCustomization: true);
             }
             EnableSync();
         });
@@ -149,10 +151,11 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
         Mediator.Subscribe<InstanceOrDutyEndMessage>(this, _ => EnableSync());
         Mediator.Subscribe<PenumbraInitializedMessage>(this, (_) =>
         {
-            _penumbraCollection = Guid.Empty;
-            if (_deferred != Guid.Empty && _cachedData != null)
+            _state.Penumbra.Collection = Guid.Empty;
+            _state.Penumbra.AssignedObjectIndex = -1;
+            if (_state.Deferred != Guid.Empty && _state.CachedData != null)
             {
-                ApplyCharacterData(_deferred, _cachedData, forceApplyCustomization: true);
+                ApplyCharacterData(_state.Deferred, _state.CachedData, forceApplyCustomization: true);
             }
 
             if (!IsVisible && _charaHandler != null)
@@ -166,7 +169,7 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
         {
             if (msg.GameObjectHandler == _charaHandler)
             {
-                _redrawOnNextApplication = true;
+                _state.RedrawOnNextApplication = true;
             }
         });
         Mediator.Subscribe<CombatOrPerformanceEndMessage>(this, _ => EnableSync());
@@ -203,11 +206,11 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
 
                 if (_isVisible)
                 {
-                    CancelVisibilityGraceTask();
+                    _visibilityGrace.Cancel();
                 }
                 else
                 {
-                    StartVisibilityGraceTask();
+                    _visibilityGrace.Start();
                 }
             }
         }
@@ -227,167 +230,30 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
     // Enregistre un échec d'application avec sa raison et les conditions bloquantes.
     private void RecordFailure(string reason, params string[] conditions)
     {
-        _lastFailureReason = reason;
-        _lastBlockingConditions = conditions.Length == 0 ? Array.Empty<string>() : conditions.ToArray();
+        _state.LastFailureReason = reason;
+        _state.LastBlockingConditions = conditions.Length == 0 ? Array.Empty<string>() : conditions.ToArray();
     }
     // Efface l'état d'échec précédent.
-    private void ClearFailureState()
-    {
-        _lastFailureReason = null;
-        _lastBlockingConditions = Array.Empty<string>();
-    }
+    private void ClearFailureState() => _state.ClearFailure();
     
     // Appeles des données reçues pour ce handler.
     public void OnDataReceived()
     {
-        _lastDataReceivedAt = DateTime.UtcNow;
+        _state.LastDataReceivedAt = DateTime.UtcNow;
     }
     
     public void ResetDownloadFailures() => _downloadManager.ResetFailureState();
-    public void ApplyCharacterData(Guid applicationBase, CharacterData characterData, bool forceApplyCustomization = false)
-    {
-        _lastApplyAttemptAt = DateTime.UtcNow;
-        ClearFailureState();
-
-        if (_configService.Current.HoldCombatApplication && _dalamudUtil.IsInCombatOrPerforming)
-        {
-            RecordFailure("En combat ou en train de jouer de la musique", "Combat", "Performing");
-            Mediator.Publish(new EventMessage(new Event(PlayerName, Pair.UserData, nameof(PairHandler), EventSeverity.Warning,
-                "Cannot apply character data: you are in combat or performing music, deferring application")));
-            Logger.LogDebug("[BASE-{appBase}] Received data but player is in combat or performing", applicationBase);
-            _dataReceivedInDowntime = new(applicationBase, characterData, forceApplyCustomization);
-            SetUploading(isUploading: false);
-            return;
-        }
-
-        if (_charaHandler == null || (PlayerCharacter == IntPtr.Zero))
-        {
-            RecordFailure("Joueur dans un état invalide", "CharaHandlerNull", "PlayerPointerNull");
-            Mediator.Publish(new EventMessage(new Event(PlayerName, Pair.UserData, nameof(PairHandler), EventSeverity.Warning,
-                "Cannot apply character data: Receiving Player is in an invalid state, deferring application")));
-            Logger.LogDebug("[BASE-{appBase}] Received data but player was in invalid state, charaHandlerIsNull: {charaIsNull}, playerPointerIsNull: {ptrIsNull}",
-                applicationBase, _charaHandler == null, PlayerCharacter == IntPtr.Zero);
-            var hasDiffMods = characterData.CheckUpdatedData(applicationBase, _cachedData, Logger,
-                this, forceApplyCustomization, forceApplyMods: false)
-                .Any(p => p.Value.Contains(PlayerChanges.ModManip) || p.Value.Contains(PlayerChanges.ModFiles));
-            _forceApplyMods = hasDiffMods || _forceApplyMods || (PlayerCharacter == IntPtr.Zero && _cachedData == null);
-            _cachedData = characterData;
-            Mediator.Publish(new PairDataAppliedMessage(Pair.UserData.UID, characterData));
-            Logger.LogDebug("[BASE-{appBase}] Setting data: {hash}, forceApplyMods: {force}", applicationBase, _cachedData.DataHash.Value, _forceApplyMods);
-            _isVisible = false;
-            _deferred = applicationBase;
-            return;
-        }
-
-        _deferred = Guid.Empty;
-
-        SetUploading(isUploading: false);
-
-        if (Pair.IsDownloadBlocked)
-        {
-            var reasons = string.Join(", ", Pair.HoldDownloadReasons);
-            RecordFailure($"Téléchargement bloqué: {reasons}", Pair.HoldDownloadReasons.ToArray());
-            Mediator.Publish(new EventMessage(new Event(PlayerName, Pair.UserData, nameof(PairHandler), EventSeverity.Warning,
-                $"Not applying character data: {reasons}")));
-            Logger.LogDebug("[BASE-{appBase}] Not applying due to hold: {reasons}", applicationBase, reasons);
-            var hasDiffMods = characterData.CheckUpdatedData(applicationBase, _cachedData, Logger,
-                this, forceApplyCustomization, forceApplyMods: false)
-                .Any(p => p.Value.Contains(PlayerChanges.ModManip) || p.Value.Contains(PlayerChanges.ModFiles));
-            _forceApplyMods = hasDiffMods || _forceApplyMods || (PlayerCharacter == IntPtr.Zero && _cachedData == null);
-            _cachedData = characterData;
-            Mediator.Publish(new PairDataAppliedMessage(Pair.UserData.UID, characterData));
-            Logger.LogDebug("[BASE-{appBase}] Setting data: {hash}, forceApplyMods: {force}", applicationBase, _cachedData.DataHash.Value, _forceApplyMods);
-            return;
-        }
-
-        if (Logger.IsEnabled(LogLevel.Debug))
-            Logger.LogDebug("[BASE-{appbase}] Applying data for {player}, forceApplyCustomization: {forced}, forceApplyMods: {forceMods}", applicationBase, this, forceApplyCustomization, _forceApplyMods);
-        Logger.LogDebug("[BASE-{appbase}] Hash for data is {newHash}, current cache hash is {oldHash}", applicationBase, characterData.DataHash.Value, _cachedData?.DataHash.Value ?? "NODATA");
-
-        var hasMissingFiles = false;
-        if (string.Equals(characterData.DataHash.Value, _cachedData?.DataHash.Value ?? string.Empty, StringComparison.Ordinal)
-            && !forceApplyCustomization
-            && !_forceApplyMods
-            && !_pendingModReapply)
-        {
-            hasMissingFiles = HasMissingFiles(characterData);
-            if (!hasMissingFiles)
-                return;
-
-            Logger.LogDebug("[BASE-{appbase}] Same hash {hash} but missing files detected, forcing reapply", applicationBase, characterData.DataHash.Value);
-        }
-
-        if (_dalamudUtil.IsInCutscene || _dalamudUtil.IsInGpose || !_ipcManager.Penumbra.APIAvailable || !_ipcManager.Glamourer.APIAvailable)
-        {
-            var conditions = new List<string>();
-            if (_dalamudUtil.IsInCutscene) conditions.Add("Cutscene");
-            if (_dalamudUtil.IsInGpose) conditions.Add("GPose");
-            if (!_ipcManager.Penumbra.APIAvailable) conditions.Add("PenumbraUnavailable");
-            if (!_ipcManager.Glamourer.APIAvailable) conditions.Add("GlamourerUnavailable");
-            RecordFailure("GPose, Cutscene ou Penumbra/Glamourer indisponible", conditions.ToArray());
-
-            Mediator.Publish(new EventMessage(new Event(PlayerName, Pair.UserData, nameof(PairHandler), EventSeverity.Warning,
-                "Cannot apply character data: you are in GPose, a Cutscene or Penumbra/Glamourer is not available. Deferring application.")));
-            if (Logger.IsEnabled(LogLevel.Information))
-                Logger.LogInformation("[BASE-{appbase}] Application of data for {player} while in cutscene/gpose or Penumbra/Glamourer unavailable, deferring", applicationBase, this);
-            _forceApplyMods = characterData.CheckUpdatedData(applicationBase, _cachedData, Logger,
-                this, forceApplyCustomization, forceApplyMods: false)
-                .Any(p => p.Value.Contains(PlayerChanges.ModManip) || p.Value.Contains(PlayerChanges.ModFiles));
-            _forceApplyMods = _forceApplyMods || (PlayerCharacter == IntPtr.Zero && _cachedData == null);
-            _cachedData = characterData;
-            _deferred = applicationBase;
-            _isVisible = false;
-            return;
-        }
-
-        Mediator.Publish(new EventMessage(new Event(PlayerName, Pair.UserData, nameof(PairHandler), EventSeverity.Informational,
-            "Applying Character Data")));
-
-        _forceApplyMods |= forceApplyCustomization || hasMissingFiles;
-
-        var charaDataToUpdate = characterData.CheckUpdatedData(applicationBase, _cachedData?.DeepClone() ?? new(), Logger, this, forceApplyCustomization, _forceApplyMods);
-
-        if (_charaHandler != null && _forceApplyMods)
-        {
-            _forceApplyMods = false;
-        }
-
-        bool redrawForcedExternally = false;
-        if (_redrawOnNextApplication && charaDataToUpdate.TryGetValue(ObjectKind.Player, out var player))
-        {
-            player.Add(PlayerChanges.ForcedRedraw);
-            _redrawOnNextApplication = false;
-            redrawForcedExternally = true;
-        }
-
-        if (charaDataToUpdate.TryGetValue(ObjectKind.Player, out var playerChanges))
-        {
-            _pluginWarningNotificationManager.NotifyForMissingPlugins(Pair.UserData, PlayerName!, playerChanges);
-        }
-
-        if (Logger.IsEnabled(LogLevel.Debug))
-            Logger.LogDebug("[BASE-{appbase}] Downloading and applying character for {name}", applicationBase, this);
-
-        // Décision de redraw (soft/hard) calculée à partir du même diff que les PlayerChanges,
-        // uniquement si la feature est activée. OFF -> null -> HardRedraw (comportement actuel).
-        // Elle voyage avec l'application : un second push pour la même paire ne doit pas réécrire
-        // la décision d'une application encore en vol (elle s'appliquerait à un diff différent).
-        var redrawDecisions = _configService.Current.EnableSoftRedraw
-            ? characterData.ComputeRedrawDecisions(_cachedData, charaDataToUpdate)
-            : null;
-
-        // Un redraw imposé de l'extérieur (changement de job) ne se déduit pas du diff de fichiers :
-        // sans ça, un changement de job simultané à un diff texture seule tombait en soft reapply
-        // et la paire restait affichée avec l'équipement du job précédent.
-        if (redrawForcedExternally && redrawDecisions != null)
-            redrawDecisions[ObjectKind.Player] = PairRedrawDecision.HardRedraw;
-
-        DownloadAndApplyCharacter(applicationBase, characterData.DeepClone(), charaDataToUpdate, redrawDecisions);
-    }
-
+    /// <summary>
+    /// Identité du handler telle qu'elle apparaît dans les logs. Point de passage unique : les 22
+    /// appels qui journalisent <c>{this}</c> ou <c>{handler}</c> passent tous par ici, donc c'est le
+    /// seul endroit à garder pour que le nom du personnage ne fuite pas dans un log partagé.
+    /// </summary>
     public override string ToString()
     {
-        return Pair.UserData.AliasOrUID + ":" + PlayerName + ":" + (PlayerCharacter != nint.Zero ? "HasChar" : "NoChar");
+        var presence = PlayerCharacter != nint.Zero ? "HasChar" : "NoChar";
+        return _configService.Current.LogPlayerNames
+            ? Pair.UserData.AliasOrUID + ":" + PlayerName + ":" + presence
+            : Pair.UserData.AliasOrUID + ":" + presence;
     }
 
     public void SetUploading(bool isUploading)
@@ -405,8 +271,8 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
     {
         Logger.LogDebug("Invalidating handler for {uid}", Pair.UserData.UID);
         _charaHandler?.Invalidate();
-        _forceApplyMods = true;
-        _pendingModReapply = true;
+        _state.ForceApplyMods = true;
+        _state.PendingModReapply = true;
     }
 
     protected override void Dispose(bool disposing)
@@ -420,7 +286,7 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
         SetUploading(isUploading: false);
         var name = PlayerName;
         if (Logger.IsEnabled(LogLevel.Debug))
-            Logger.LogDebug("Disposing {name} ({user})", name, Pair.UserData.AliasOrUID);
+            Logger.LogDebug("Disposing {pair}", Pair.UserData.AliasOrUID);
         try
         {
             Guid applicationId = Guid.NewGuid();
@@ -430,19 +296,14 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
                 Mediator.Publish(new EventMessage(new Event(name, Pair.UserData, nameof(PairHandler), EventSeverity.Informational, "Disposing User")));
             }
 
-            UndoApplicationAsync(applicationId).GetAwaiter().GetResult();
+            _reverter.UndoApplicationAsync(applicationId).GetAwaiter().GetResult();
 
             PlayerName = null;
             _applicationCancellationTokenSource?.Dispose();
             _applicationCancellationTokenSource = null;
             _downloadCancellationTokenSource?.Dispose();
             _downloadCancellationTokenSource = null;
-            lock (_visibilityGraceGate)
-            {
-                _visibilityGraceCts?.Cancel();
-                _visibilityGraceCts?.Dispose();
-                _visibilityGraceCts = null;
-            }
+            _visibilityGrace.Cancel();
             _charaHandler?.Dispose();
             _charaHandler = null;
         }
@@ -452,11 +313,11 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
         }
         finally
         {
-            _cachedData = null;
-            _lastAppliedData = null;
-            _pendingModReapply = false;
+            _state.CachedData = null;
+            _state.LastAppliedData = null;
+            _state.PendingModReapply = false;
             Mediator.Publish(new PairDataAppliedMessage(Pair.UserData.UID, null));
-            Logger.LogDebug("Disposing {name} complete", name);
+            Logger.LogDebug("Disposing {pair} complete", Pair.UserData.AliasOrUID);
         }
     }
 
@@ -464,191 +325,26 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
     {
         _ = Task.Run(async () =>
         {
-            await UndoApplicationAsync(applicationId).ConfigureAwait(false);
+            await _reverter.UndoApplicationAsync(applicationId).ConfigureAwait(false);
         });
     }
 
-    private async Task UndoApplicationAsync(Guid applicationId = default)
-    {
-        var name = PlayerName;
-        Logger.LogDebug("Undoing application of {pair} (Name: {name})", Pair.UserData.UID, name);
-        _lastAppliedData = null;
-        _pendingModReapply = false;
-        try
-        {
-            if (applicationId == Guid.Empty)
-                applicationId = Guid.NewGuid();
-            _applicationCancellationTokenSource = _applicationCancellationTokenSource?.CancelRecreate();
-            _downloadCancellationTokenSource = _downloadCancellationTokenSource?.CancelRecreate();
-
-            Logger.LogDebug("[{applicationId}] Removing Temp Collection for {name} ({user})", applicationId, name, Pair.UserData.UID);
-            if (_penumbraCollection != Guid.Empty)
-            {
-                var col = _penumbraCollection;
-                try
-                {
-                    await _ipcManager.Penumbra.RemoveTemporaryCollectionAsync(Logger, applicationId, col).ConfigureAwait(false);
-                    _penumbraCollection = Guid.Empty;
-                }
-                catch (Exception ex)
-                {
-                    Logger.LogDebug(ex, "Failed to remove temporary collection {col}, likely already removed", col);
-                }
-            }
-
-            if (!string.IsNullOrEmpty(name))
-            {
-                Logger.LogTrace("[{applicationId}] Restoring state for {name} ({OnlineUser})", applicationId, name, Pair.UserData.UID);
-                if (!IsVisible)
-                {
-                    Logger.LogDebug("[{applicationId}] Restoring Glamourer for {name} ({user})", applicationId, name, Pair.UserData.UID);
-                    await _ipcManager.Glamourer.RevertByNameAsync(Logger, name, applicationId).ConfigureAwait(false);
-                }
-                else
-                {
-                    using var cts = new CancellationTokenSource();
-                    cts.CancelAfter(TimeSpan.FromSeconds(60));
-
-                    Logger.LogInformation("[{applicationId}] CachedData is null {isNull}, contains things: {contains}", applicationId, _cachedData == null, (_cachedData?.FileReplacements.Values.Count ?? 0) > 0);
-
-                    if (_cachedData != null && _cachedData.FileReplacements.Values.Count > 0)
-                    {
-                        foreach (KeyValuePair<ObjectKind, List<FileReplacementData>> item in _cachedData.FileReplacements)
-                        {
-                            try
-                            {
-                                await RevertCustomizationDataAsync(item.Key, name, applicationId, cts.Token).ConfigureAwait(false);
-                            }
-                            catch (InvalidOperationException ex)
-                            {
-                                Logger.LogWarning(ex, "Failed disposing player (not present anymore?)");
-                                break;
-                            }
-                        }
-                    }
-                    else
-                    {
-                        Logger.LogDebug("[{applicationId}] Restoring Glamourer (fallback) for {name} ({user})", applicationId, name, Pair.UserData.UID);
-                        await _ipcManager.Glamourer.RevertByNameAsync(Logger, name, applicationId).ConfigureAwait(false);
-                    }
-                }
-            }
-            else
-            {
-                Logger.LogTrace("[{applicationId}] Not restoring state, PlayerName is null or empty", applicationId);
-            }
-
-            _cachedData = null;
-            Mediator.Publish(new PairDataAppliedMessage(Pair.UserData.UID, null));
-            Logger.LogDebug("Undo Application [{applicationId}] complete", applicationId);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogWarning(ex, "Error on undoing application of {user}", Pair.UserData.UID);
-        }
-    }
-    
-    private async Task RevertToRestoredAsync(Guid applicationId)
-    {
-        var name = PlayerName;
-        Logger.LogDebug("[{applicationId}] Reverting to restored state for {name} ({user})", applicationId, name, Pair.UserData.UID);
-
-        if (_charaHandler is null || _charaHandler.Address == nint.Zero)
-        {
-            Logger.LogDebug("[{applicationId}] Character handler is null or invalid, skipping revert", applicationId);
-            return;
-        }
-
-        try
-        {
-            var gameObject = await _dalamudUtil.RunOnFrameworkThread(() => _charaHandler.GetGameObject()).ConfigureAwait(false);
-            if (gameObject is not Dalamud.Game.ClientState.Objects.Types.ICharacter character)
-            {
-                Logger.LogDebug("[{applicationId}] Game object is not a character, skipping revert", applicationId);
-                return;
-            }
-            if (_ipcManager.Penumbra.APIAvailable && _penumbraCollection != Guid.Empty)
-            {
-                Logger.LogDebug("[{applicationId}] Clearing Penumbra mods for {name}", applicationId, name);
-                try
-                {
-                    await _ipcManager.Penumbra.AssignTemporaryCollectionAsync(Logger, _penumbraCollection, character.ObjectIndex).ConfigureAwait(false);
-                    await _ipcManager.Penumbra.SetTemporaryModsAsync(Logger, applicationId, _penumbraCollection, new Dictionary<string, string>(StringComparer.Ordinal)).ConfigureAwait(false);
-                    await _ipcManager.Penumbra.SetManipulationDataAsync(Logger, applicationId, _penumbraCollection, string.Empty).ConfigureAwait(false);
-                }
-                catch (Exception ex)
-                {
-                    Logger.LogWarning(ex, "[{applicationId}] Failed to clear Penumbra mods for {user}", applicationId, Pair.UserData.UID);
-                }
-            }
-            var kinds = new HashSet<ObjectKind>(_customizeIds.Keys);
-            if (_cachedData is not null)
-            {
-                foreach (var kind in _cachedData.FileReplacements.Keys)
-                {
-                    kinds.Add(kind);
-                }
-            }
-            kinds.Add(ObjectKind.Player);
-            var characterName = character.Name.TextValue;
-            if (string.IsNullOrEmpty(characterName))
-            {
-                characterName = character.Name.ToString();
-            }
-            if (string.IsNullOrEmpty(characterName))
-            {
-                Logger.LogWarning("[{applicationId}] Failed to determine character name for {user}, using fallback", applicationId, Pair.UserData.UID);
-                characterName = name ?? Pair.UserData.UID;
-            }
-
-            using var cts = new CancellationTokenSource();
-            cts.CancelAfter(TimeSpan.FromSeconds(60));
-
-            Logger.LogDebug("[{applicationId}] Reverting {count} ObjectKinds for {name}", applicationId, kinds.Count, characterName);
-            foreach (var kind in kinds)
-            {
-                try
-                {
-                    await RevertCustomizationDataAsync(kind, characterName, applicationId, cts.Token).ConfigureAwait(false);
-                }
-                catch (OperationCanceledException)
-                {
-                    Logger.LogWarning("[{applicationId}] Revert operation timed out for {kind} on {user}", applicationId, kind, Pair.UserData.UID);
-                    break;
-                }
-                catch (Exception ex)
-                {
-                    Logger.LogWarning(ex, "[{applicationId}] Failed to revert {kind} for {user}", applicationId, kind, Pair.UserData.UID);
-                }
-            }
-
-            _cachedData = null;
-            Mediator.Publish(new PairDataAppliedMessage(Pair.UserData.UID, null));
-
-            Logger.LogInformation("[{applicationId}] Revert to restored state complete for {user}", applicationId, Pair.UserData.UID);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogWarning(ex, "[{applicationId}] Failed to revert handler {user} during pause", applicationId, Pair.UserData.UID);
-        }
-    }
-    
     private void DisableSync()
     {
-        Logger.LogDebug("Disabling sync for {name} ({user})", PlayerName, Pair.UserData.UID);
+        Logger.LogDebug("Disabling sync for {pair}", ToString());
         _downloadCancellationTokenSource = _downloadCancellationTokenSource?.CancelRecreate();
         _applicationCancellationTokenSource = _applicationCancellationTokenSource?.CancelRecreate();
     }
     
     private void EnableSync()
     {
-        Logger.LogDebug("Enabling sync for {name} ({user})", PlayerName, Pair.UserData.UID);
+        Logger.LogDebug("Enabling sync for {pair}", ToString());
         if (_dataReceivedInDowntime is not null && IsVisible)
         {
             var pending = _dataReceivedInDowntime;
             _dataReceivedInDowntime = null;
 
-            Logger.LogDebug("Applying queued data for {name} ({user})", PlayerName, Pair.UserData.UID);
+            Logger.LogDebug("Applying queued data for {pair}", ToString());
             _ = Task.Run(() =>
             {
                 try
@@ -664,73 +360,6 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
         }
     }
 
-    private void StartVisibilityGraceTask()
-    {
-        CancellationToken token;
-        lock (_visibilityGraceGate)
-        {
-            _visibilityGraceCts = _visibilityGraceCts?.CancelRecreate() ?? new CancellationTokenSource();
-            token = _visibilityGraceCts.Token;
-            _invisibleSinceUtc = DateTime.UtcNow;
-            _visibilityEvictionDueAtUtc = _invisibleSinceUtc.Value + VisibilityEvictionGrace;
-        }
-
-        Logger.LogDebug("Starting visibility grace period for {name} ({user}), eviction due at {time}",
-            PlayerName, Pair.UserData.UID, _visibilityEvictionDueAtUtc);
-
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                await Task.Delay(VisibilityEvictionGrace, token).ConfigureAwait(false);
-                token.ThrowIfCancellationRequested();
-
-                if (IsVisible) return;
-
-                Logger.LogInformation("Visibility grace period expired for {user}, scheduling for deletion", Pair.UserData.UID);
-                ScheduledForDeletion = true;
-
-                // Clean up Penumbra collection when the grace period expires
-                if (_penumbraCollection != Guid.Empty)
-                {
-                    var applicationId = Guid.NewGuid();
-                    try
-                    {
-                        await _ipcManager.Penumbra.RemoveTemporaryCollectionAsync(Logger, applicationId, _penumbraCollection).ConfigureAwait(false);
-                        _penumbraCollection = Guid.Empty;
-                        Logger.LogDebug("[{applicationId}] Removed temporary collection after visibility grace timeout", applicationId);
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.LogDebug(ex, "[{applicationId}] Failed to remove temporary collection after visibility grace timeout", applicationId);
-                    }
-                }
-            }
-            catch (OperationCanceledException)
-            {
-                // Grace period was cancelled (player became visible again)
-            }
-        }, CancellationToken.None);
-    }
-
-    private void CancelVisibilityGraceTask()
-    {
-        lock (_visibilityGraceGate)
-        {
-            if (_visibilityGraceCts != null)
-            {
-                Logger.LogDebug("Cancelling visibility grace period for {name} ({user})", PlayerName, Pair.UserData.UID);
-                _visibilityGraceCts.Cancel();
-                _visibilityGraceCts.Dispose();
-                _visibilityGraceCts = null;
-            }
-
-            _invisibleSinceUtc = null;
-            _visibilityEvictionDueAtUtc = null;
-            ScheduledForDeletion = false;
-        }
-    }
-
     private async Task PauseInternalAsync()
     {
         try
@@ -740,7 +369,7 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
             if (_charaHandler is not null && _charaHandler.Address != nint.Zero)
             {
                 var applicationId = Guid.NewGuid();
-                await RevertToRestoredAsync(applicationId).ConfigureAwait(false);
+                await _reverter.RevertToRestoredAsync(applicationId).ConfigureAwait(false);
             }
             Mediator.Publish(new PlayerVisibilityMessage(Pair.Ident, IsVisible: false, Invalidate: true));
 
@@ -772,7 +401,7 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
             EnableSync();
 
             // Toujours appeler ApplyLastReceivedData - les données sont dans Pair.LastReceivedCharacterData ou le cache
-            Logger.LogDebug("Applying last received data for {name} ({user})", PlayerName, Pair.UserData.UID);
+            Logger.LogDebug("Applying last received data for {pair}", ToString());
             Pair.ApplyLastReceivedData(forced: true);
 
             Logger.LogInformation("Resume complete for {user}", Pair.UserData.UID);
@@ -789,575 +418,17 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
         {
             if (_pauseRequested == paused)
             {
-                Logger.LogTrace("Pause state already {state} for {name} ({user}), skipping", paused ? "paused" : "unpaused", PlayerName, Pair.UserData.UID);
+                Logger.LogTrace("Pause state already {state} for {pair}, skipping", paused ? "paused" : "unpaused", ToString());
                 return;
             }
 
             _pauseRequested = paused;
-            Logger.LogDebug("Queueing pause transition to {state} for {name} ({user})", paused ? "paused" : "unpaused", PlayerName, Pair.UserData.UID);
+            Logger.LogDebug("Queueing pause transition to {state} for {pair}", paused ? "paused" : "unpaused", ToString());
 
             _pauseTransitionTask = _pauseTransitionTask
                 .ContinueWith(_ => paused ? PauseInternalAsync() : ResumeInternalAsync(), TaskScheduler.Default)
                 .Unwrap();
         }
-    }
-
-    private async Task ApplyCustomizationDataAsync(Guid applicationId, KeyValuePair<ObjectKind, HashSet<PlayerChanges>> changes, CharacterData charaData,
-        IReadOnlyDictionary<ObjectKind, PairRedrawDecision>? redrawDecisions, CancellationToken token)
-    {
-        if (PlayerCharacter == nint.Zero) return;
-        var ptr = PlayerCharacter;
-
-        var handler = changes.Key switch
-        {
-            ObjectKind.Player => _charaHandler!,
-            ObjectKind.Companion => await _gameObjectHandlerFactory.Create(changes.Key, () => _dalamudUtil.GetCompanion(ptr), isWatched: false).ConfigureAwait(false),
-            ObjectKind.MinionOrMount => await _gameObjectHandlerFactory.Create(changes.Key, () => _dalamudUtil.GetMinionOrMount(ptr), isWatched: false).ConfigureAwait(false),
-            ObjectKind.Pet => await _gameObjectHandlerFactory.Create(changes.Key, () => _dalamudUtil.GetPet(ptr), isWatched: false).ConfigureAwait(false),
-            _ => throw new NotSupportedException("ObjectKind not supported: " + changes.Key)
-        };
-        var handlerToDispose = handler == _charaHandler ? null : handler;
-
-        try
-        {
-            if (handler.Address == nint.Zero)
-            {
-                return;
-            }
-
-            Logger.LogDebug("[{applicationId}] Applying Customization Data for {handler}", applicationId, handler);
-            await _dalamudUtil.WaitWhileCharacterIsDrawing(Logger, handler, applicationId, 30000, token).ConfigureAwait(false);
-            token.ThrowIfCancellationRequested();
-            if (_configService.Current.SerialApplication)
-            {
-                var orderedChanges = changes.Value.OrderBy(p => (int)p).ToList();
-                var serialChangeList = orderedChanges.Where(p => p <= PlayerChanges.ForcedRedraw).ToList();
-                var asyncChangeList = orderedChanges.Where(p => p > PlayerChanges.ForcedRedraw).ToList();
-                await _dalamudUtil.RunOnFrameworkThread(async () => await ProcessCustomizationChangesAsync(handler, applicationId, changes.Key, serialChangeList, charaData, redrawDecisions, token).ConfigureAwait(false)).ConfigureAwait(false);
-                await Task.Run(async () => await ProcessCustomizationChangesAsync(handler, applicationId, changes.Key, asyncChangeList, charaData, redrawDecisions, token).ConfigureAwait(false), CancellationToken.None).ConfigureAwait(false);
-            }
-            else
-            {
-                var orderedChanges = changes.Value.OrderBy(p => (int)p).ToList();
-                await ProcessCustomizationChangesAsync(handler, applicationId, changes.Key, orderedChanges, charaData, redrawDecisions, token).ConfigureAwait(false);
-            }
-        }
-        finally
-        {
-            handlerToDispose?.Dispose();
-        }
-    }
-
-    private async Task ProcessCustomizationChangesAsync(GameObjectHandler handler, Guid applicationId, ObjectKind objectKind,
-        IEnumerable<PlayerChanges> changeList, CharacterData charaData,
-        IReadOnlyDictionary<ObjectKind, PairRedrawDecision>? redrawDecisions, CancellationToken token)
-    {
-        foreach (var change in changeList)
-        {
-            Logger.LogDebug("[{applicationId}{ft}] Processing {change} for {handler}", applicationId, _dalamudUtil.IsOnFrameworkThread ? "*" : string.Empty, change, handler);
-            switch (change)
-            {
-                case PlayerChanges.Customize:
-                    if (charaData.CustomizePlusData.TryGetValue(objectKind, out var customizePlusData))
-                    {
-                        _customizeIds[objectKind] = await _ipcManager.CustomizePlus.SetBodyScaleAsync(handler.Address, customizePlusData).ConfigureAwait(false);
-                    }
-                    else if (_customizeIds.TryGetValue(objectKind, out var customizeId))
-                    {
-                        await _ipcManager.CustomizePlus.RevertByIdAsync(customizeId).ConfigureAwait(false);
-                        _customizeIds.Remove(objectKind);
-                    }
-                    break;
-
-                case PlayerChanges.Heels:
-                    await _ipcManager.Heels.SetOffsetForPlayerAsync(handler.Address, charaData.HeelsData).ConfigureAwait(false);
-                    break;
-
-                case PlayerChanges.Honorific:
-                    await _ipcManager.Honorific.SetTitleAsync(handler.Address, charaData.HonorificData).ConfigureAwait(false);
-                    break;
-
-                case PlayerChanges.Glamourer:
-                    if (charaData.GlamourerData.TryGetValue(objectKind, out var glamourerData))
-                    {
-                        await _ipcManager.Glamourer.ApplyAllAsync(Logger, handler, glamourerData, applicationId, token, allowImmediate: true).ConfigureAwait(false);
-                    }
-                    break;
-
-                case PlayerChanges.PetNames:
-                    await _ipcManager.PetNames.SetPlayerData(handler.Address, charaData.PetNamesData).ConfigureAwait(false);
-                    break;
-
-                case PlayerChanges.Moodles:
-                    await _ipcManager.Moodles.SetStatusAsync(handler.Address, charaData.MoodlesData).ConfigureAwait(false);
-                    break;
-
-                case PlayerChanges.ForcedRedraw:
-                    // Décision soft/hard quand la feature est active et qu'une décision existe pour ce
-                    // kind, sinon HardRedraw (comportement historique, redraw Penumbra complet)
-                    var redrawDecision = (_configService.Current.EnableSoftRedraw
-                            && redrawDecisions != null
-                            && redrawDecisions.TryGetValue(objectKind, out var d))
-                        ? d
-                        : PairRedrawDecision.HardRedraw;
-                    await _pairRedrawCoordinator.ExecuteDecisionAsync(redrawDecision, Logger, handler, applicationId, token).ConfigureAwait(false);
-                    break;
-
-            }
-
-            token.ThrowIfCancellationRequested();
-        }
-    }
-
-    private void DownloadAndApplyCharacter(Guid applicationBase, CharacterData charaData, Dictionary<ObjectKind, HashSet<PlayerChanges>> updatedData,
-        IReadOnlyDictionary<ObjectKind, PairRedrawDecision>? redrawDecisions)
-    {
-        if (updatedData.Count == 0)
-        {
-            Logger.LogDebug("[BASE-{appBase}] Nothing to update for {obj}", applicationBase, this);
-            return;
-        }
-
-        if (string.Equals(charaData.DataHash.Value, _lastAppliedData?.DataHash.Value ?? string.Empty, StringComparison.Ordinal)
-            && !updatedData.Values.Any(v => v.Contains(PlayerChanges.ForcedRedraw))
-            && !_pendingModReapply)
-        {
-            Logger.LogDebug("[BASE-{appBase}] Already applied hash {hash} and no pending reapply, ignoring", applicationBase, charaData.DataHash.Value);
-            return;
-        }
-
-        _pendingModReapply = false;
-
-        var updateModdedPaths = updatedData.Values.Any(v => v.Any(p => p == PlayerChanges.ModFiles));
-        var updateManip = updatedData.Values.Any(v => v.Any(p => p == PlayerChanges.ModManip));
-        var hasOtherChanges = updatedData.Values.Any(v => v.Any(p => p != PlayerChanges.ModFiles && p != PlayerChanges.ModManip && p != PlayerChanges.ForcedRedraw));
-
-        _downloadCancellationTokenSource = _downloadCancellationTokenSource?.CancelRecreate() ?? new CancellationTokenSource();
-        var downloadToken = _downloadCancellationTokenSource.Token;
-
-        _downloadTask = Task.Run(async () =>
-        {
-            // Note: the global GPU-heavy semaphore is acquired later, just before the
-            // Penumbra apply stage — not here — so file downloads (network/CPU bound)
-            // can run in parallel without holding GPU slots. See DownloadAndApplyCharacterAsync.
-            if ((updateModdedPaths || updateManip) && !hasOtherChanges && !_forceApplyMods)
-            {
-                Logger.LogDebug("[BASE-{appBase}] Applying mod changes only - skipping full redraw", applicationBase);
-                await ApplyModChangesOnlyAsync(applicationBase, charaData, updatedData, updateModdedPaths, updateManip, redrawDecisions, downloadToken).ConfigureAwait(false);
-                return;
-            }
-
-            try
-            {
-                await DownloadAndApplyCharacterAsync(applicationBase, charaData, updatedData, updateModdedPaths, updateManip, redrawDecisions, downloadToken).ConfigureAwait(false);
-            }
-            catch (OperationCanceledException)
-            {
-                _pendingModReapply = true;
-                RecordFailure("Téléchargement annulé", "Cancellation");
-            }
-            catch (Exception ex)
-            {
-                _pendingModReapply = true;
-                RecordFailure($"Échec de l'application: {ex.Message}", "Exception");
-                Logger.LogWarning(ex, "[BASE-{appBase}] DownloadAndApplyCharacterAsync failed, marking for reapply", applicationBase);
-            }
-        }, downloadToken);
-    }
-    
-    private async Task ApplyModChangesOnlyAsync(Guid applicationBase, CharacterData charaData,
-        Dictionary<ObjectKind, HashSet<PlayerChanges>> updatedData, bool updateModdedPaths, bool updateManip,
-        IReadOnlyDictionary<ObjectKind, PairRedrawDecision>? redrawDecisions, CancellationToken token)
-    {
-        Logger.LogDebug("[BASE-{applicationBase}] Applying mod changes only", applicationBase);
-
-        try
-        {
-            var modOnlyUpdatedData = new Dictionary<ObjectKind, HashSet<PlayerChanges>>();
-
-            foreach (var kvp in updatedData)
-            {
-                var modChanges = new HashSet<PlayerChanges>();
-                if (updateModdedPaths && kvp.Value.Contains(PlayerChanges.ModFiles))
-                {
-                    modChanges.Add(PlayerChanges.ModFiles);
-                }
-                if (updateManip && kvp.Value.Contains(PlayerChanges.ModManip))
-                {
-                    modChanges.Add(PlayerChanges.ModManip);
-                }
-
-                if (modChanges.Count > 0)
-                {
-                    modOnlyUpdatedData[kvp.Key] = modChanges;
-                }
-            }
-
-            if (modOnlyUpdatedData.Count == 0)
-            {
-                Logger.LogDebug("[BASE-{applicationBase}] No mod changes to apply", applicationBase);
-                return;
-            }
-            
-            foreach (var changes in modOnlyUpdatedData.Values)
-            {
-                changes.Remove(PlayerChanges.ForcedRedraw);
-            }
-
-            Logger.LogDebug("[BASE-{applicationBase}] Applying mod changes using simplified mechanism", applicationBase);
-            await DownloadAndApplyCharacterAsync(applicationBase, charaData, modOnlyUpdatedData, updateModdedPaths, updateManip, redrawDecisions, token).ConfigureAwait(false);
-
-            Logger.LogDebug("[BASE-{applicationBase}] Mod changes applied without forced redraw", applicationBase);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogWarning(ex, "[BASE-{applicationBase}] Failed to apply mod changes only, falling back to full apply", applicationBase);
-            await DownloadAndApplyCharacterAsync(applicationBase, charaData, updatedData, updateModdedPaths, updateManip, redrawDecisions, token).ConfigureAwait(false);
-        }
-    }
-
-    private Task? _pairDownloadTask;
-
-    private async Task DownloadAndApplyCharacterAsync(Guid applicationBase, CharacterData charaData, Dictionary<ObjectKind, HashSet<PlayerChanges>> updatedData,
-        bool updateModdedPaths, bool updateManip, IReadOnlyDictionary<ObjectKind, PairRedrawDecision>? redrawDecisions, CancellationToken downloadToken)
-    {
-        Logger.LogTrace("[BASE-{appBase}] DownloadAndApplyCharacterAsync", applicationBase);
-        Dictionary<(string GamePath, string? Hash), string> moddedPaths = [];
-
-        if (updateModdedPaths)
-        {
-            Logger.LogTrace("[BASE-{appBase}] DownloadAndApplyCharacterAsync > updateModdedPaths", applicationBase);
-            int attempts = 0;
-            var compressedUsage = ComputeCompressedAlternateUsage();
-            List<FileReplacementData> toDownloadReplacements = TryCalculateModdedDictionary(applicationBase, charaData, compressedUsage, out var locallyPresentFiles, out moddedPaths, downloadToken);
-
-            while (toDownloadReplacements.Count > 0 && attempts++ <= 10 && !downloadToken.IsCancellationRequested)
-            {
-                if (_pairDownloadTask != null && !_pairDownloadTask.IsCompleted)
-                {
-                    Logger.LogDebug("[BASE-{appBase}] Finishing prior running download task for player {name}, {kind}", applicationBase, PlayerName, updatedData);
-                    await _pairDownloadTask.ConfigureAwait(false);
-                }
-
-                Logger.LogDebug("[BASE-{appBase}] Downloading missing files for player {name}, {kind}", applicationBase, PlayerName, updatedData);
-
-                Mediator.Publish(new EventMessage(new Event(PlayerName, Pair.UserData, nameof(PairHandler), EventSeverity.Informational,
-                    $"Starting download for {toDownloadReplacements.Count} files")));
-                var toDownloadFiles = await _downloadManager.InitiateDownloadList(_charaHandler!, toDownloadReplacements, compressedUsage, locallyPresentFiles, downloadToken).ConfigureAwait(false);
-
-                if (!_playerPerformanceService.ComputeAndAutoPauseOnVRAMUsageThresholds(this, charaData, toDownloadFiles))
-                {
-                    Pair.HoldApplication("IndividualPerformanceThreshold", maxValue: 1);
-                    _downloadManager.ClearDownload();
-                    _pendingModReapply = true;
-                    RecordFailure("Seuil VRAM dépassé", "VRAMThreshold");
-                    return;
-                }
-
-                var downloadBatch = toDownloadReplacements.ToList();
-                _pairDownloadTask = Task.Run(async () => await _downloadManager.DownloadFiles(_charaHandler!, downloadBatch, downloadToken).ConfigureAwait(false), downloadToken);
-
-                await _pairDownloadTask.ConfigureAwait(false);
-
-                if (downloadToken.IsCancellationRequested)
-                {
-                    Logger.LogTrace("[BASE-{appBase}] Detected cancellation", applicationBase);
-                    _pendingModReapply = true;
-                    RecordFailure("Téléchargement annulé", "Cancellation");
-                    return;
-                }
-
-                toDownloadReplacements = TryCalculateModdedDictionary(applicationBase, charaData, compressedUsage, out locallyPresentFiles, out moddedPaths, downloadToken);
-
-                var forbiddenOnly = toDownloadReplacements.Where(c =>
-                    _downloadManager.ForbiddenTransfers.Exists(f => string.Equals(f.Hash, c.Hash, StringComparison.Ordinal))).ToList();
-                var missingOnServerOnly = toDownloadReplacements.Where(c =>
-                    !_downloadManager.ForbiddenTransfers.Exists(f => string.Equals(f.Hash, c.Hash, StringComparison.Ordinal))
-                    && _downloadManager.IsHashMissingOnServer(c.Hash)).ToList();
-                var onCooldownOnly = toDownloadReplacements.Where(c =>
-                    !_downloadManager.ForbiddenTransfers.Exists(f => string.Equals(f.Hash, c.Hash, StringComparison.Ordinal))
-                    && !_downloadManager.IsHashMissingOnServer(c.Hash)
-                    && _downloadManager.IsHashOnCooldown(c.Hash)).ToList();
-                var retriableNow = toDownloadReplacements.Count - forbiddenOnly.Count - missingOnServerOnly.Count - onCooldownOnly.Count;
-
-                if (retriableNow == 0)
-                {
-                    if (onCooldownOnly.Count > 0)
-                    {
-                        Logger.LogWarning("[BASE-{appBase}] {cooldown} fichiers en cooldown, {missing} absents du serveur et {forbidden} non accessible sur {total}. Reapply.",
-                            applicationBase, onCooldownOnly.Count, missingOnServerOnly.Count, forbiddenOnly.Count, toDownloadReplacements.Count);
-                        _pendingModReapply = true;
-                    }
-                    else if (missingOnServerOnly.Count > 0)
-                    {
-                        Logger.LogWarning("[BASE-{appBase}] {missing} fichiers absents du serveur sur {total} : application partielle sans reapply (le pair doit repousser ses données)",
-                            applicationBase, missingOnServerOnly.Count, toDownloadReplacements.Count);
-                    }
-                    else
-                    {
-                        Logger.LogDebug("[BASE-{appBase}] All {count} remaining files are permanently forbidden, stopping download loop", applicationBase, forbiddenOnly.Count);
-                    }
-                    break;
-                }
-
-                var backoffSeconds = Math.Min(2 * Math.Pow(2, attempts - 1), 30);
-                await Task.Delay(TimeSpan.FromSeconds(backoffSeconds), downloadToken).ConfigureAwait(false);
-            }
-
-            var finalMissing = TryCalculateModdedDictionary(applicationBase, charaData, compressedUsage, out _, out moddedPaths, downloadToken);
-            if (finalMissing.Count > 0)
-            {
-                var retriableMissing = finalMissing.Count(c =>
-                    !_downloadManager.ForbiddenTransfers.Exists(f => string.Equals(f.Hash, c.Hash, StringComparison.Ordinal))
-                    && !_downloadManager.IsHashMissingOnServer(c.Hash));
-                if (retriableMissing > 0)
-                {
-                    Logger.LogWarning("[BASE-{appBase}] Applying with {missing} missing files ({retriable} retriable) — reapply scheduled",
-                        applicationBase, finalMissing.Count, retriableMissing);
-                    _pendingModReapply = true;
-                }
-                else
-                {
-                    Logger.LogDebug("[BASE-{appBase}] {count} missing files are all forbidden or absent server-side, no reapply", applicationBase, finalMissing.Count);
-                }
-            }
-
-            try
-            {
-                Mediator.Publish(new HaltScanMessage(nameof(PlayerPerformanceService.ShrinkTextures)));
-                if (await _playerPerformanceService.ShrinkTextures(this, charaData, downloadToken).ConfigureAwait(false))
-                    _ = TryCalculateModdedDictionary(applicationBase, charaData, ComputeCompressedAlternateUsage(), out _, out moddedPaths, downloadToken);
-            }
-            finally
-            {
-                Mediator.Publish(new ResumeScanMessage(nameof(PlayerPerformanceService.ShrinkTextures)));
-            }
-
-            bool exceedsThreshold = !await _playerPerformanceService.CheckBothThresholds(this, charaData).ConfigureAwait(false);
-
-            if (exceedsThreshold)
-                Pair.HoldApplication("IndividualPerformanceThreshold", maxValue: 1);
-            else
-                Pair.UnholdApplication("IndividualPerformanceThreshold");
-
-            if (exceedsThreshold)
-            {
-                Logger.LogTrace("[BASE-{appBase}] Not applying due to performance thresholds", applicationBase);
-                _pendingModReapply = true;
-                RecordFailure("Seuils de performance dépassés", "PerformanceThreshold");
-                return;
-            }
-        }
-
-        if (Pair.IsApplicationBlocked)
-        {
-            var reasons = string.Join(", ", Pair.HoldApplicationReasons);
-            Mediator.Publish(new EventMessage(new Event(PlayerName, Pair.UserData, nameof(PairHandler), EventSeverity.Warning,
-                $"Not applying character data: {reasons}")));
-            Logger.LogTrace("[BASE-{appBase}] Not applying due to hold: {reasons}", applicationBase, reasons);
-            _pendingModReapply = true;
-            RecordFailure($"Application bloquée: {reasons}", Pair.HoldApplicationReasons.ToArray());
-            return;
-        }
-
-        downloadToken.ThrowIfCancellationRequested();
-
-        if (_applicationTask != null && !_applicationTask.IsCompleted)
-        {
-            Logger.LogDebug("[BASE-{appBase}] Cancelling current data application (Id: {id}) for player ({handler})", applicationBase, _applicationId, PlayerName);
-            _applicationCancellationTokenSource = _applicationCancellationTokenSource?.CancelRecreate() ?? new CancellationTokenSource();
-
-            using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-            using var combinedCts = CancellationTokenSource.CreateLinkedTokenSource(downloadToken, timeoutCts.Token);
-            try
-            {
-                await _applicationTask.WaitAsync(combinedCts.Token).ConfigureAwait(false);
-            }
-            catch (OperationCanceledException)
-            {
-                Logger.LogWarning("[BASE-{appBase}] Timeout waiting for application task {id} to complete, proceeding anyway", applicationBase, _applicationId);
-            }
-        }
-        else
-        {
-            _applicationCancellationTokenSource = _applicationCancellationTokenSource?.CancelRecreate() ?? new CancellationTokenSource();
-        }
-
-        if (downloadToken.IsCancellationRequested)
-        {
-            _pendingModReapply = true;
-            RecordFailure("Application annulée", "Cancellation");
-            return;
-        }
-
-        var token = _applicationCancellationTokenSource.Token;
-        var hadMissingFiles = _pendingModReapply;
-        
-#pragma warning disable MA0004 // ConfigureAwait on await using
-        await using var applyLease = await _applicationSemaphoreService
-            .AcquireAsync(token, highPriority: IsVisible, gpuHeavy: updateModdedPaths || updateManip)
-            .ConfigureAwait(false);
-#pragma warning restore MA0004
-
-        _applicationTask = ApplyCharacterDataAsync(applicationBase, charaData, updatedData, updateModdedPaths, updateManip, moddedPaths, redrawDecisions, token);
-        await _applicationTask.ConfigureAwait(false);
-        if (hadMissingFiles && !_pendingModReapply)
-        {
-            Logger.LogDebug("[BASE-{appBase}] Restoring pendingModReapply: applied with missing files", applicationBase);
-            _pendingModReapply = true;
-        }
-    }
-
-    private async Task ApplyCharacterDataAsync(Guid applicationBase, CharacterData charaData, Dictionary<ObjectKind, HashSet<PlayerChanges>> updatedData, bool updateModdedPaths, bool updateManip,
-        Dictionary<(string GamePath, string? Hash), string> moddedPaths, IReadOnlyDictionary<ObjectKind, PairRedrawDecision>? redrawDecisions, CancellationToken token)
-    {
-        ushort objIndex = ushort.MaxValue;
-        try
-        {
-            _applicationId = Guid.NewGuid();
-            Logger.LogDebug("[BASE-{applicationId}] Starting application task for {this}: {appId}", applicationBase, this, _applicationId);
-
-            if (_penumbraCollection == Guid.Empty)
-            {
-                objIndex = await _dalamudUtil.RunOnFrameworkThread(() => _charaHandler!.GetGameObject()!.ObjectIndex).ConfigureAwait(false);
-                _penumbraCollection = await _ipcManager.Penumbra.CreateTemporaryCollectionAsync(Logger, Pair.UserData.UID).ConfigureAwait(false);
-                await _ipcManager.Penumbra.AssignTemporaryCollectionAsync(Logger, _penumbraCollection, objIndex).ConfigureAwait(false);
-            }
-
-            Logger.LogDebug("[{applicationId}] Waiting for initial draw for for {handler}", _applicationId, _charaHandler);
-            await _dalamudUtil.WaitWhileCharacterIsDrawing(Logger, _charaHandler!, _applicationId, 30000, token).ConfigureAwait(false);
-            if (_charaHandler!.Address != nint.Zero)
-            {
-                await _dalamudUtil.WaitForFullyLoadedAsync(_charaHandler!, token).ConfigureAwait(false);
-            }
-
-            token.ThrowIfCancellationRequested();
-
-            if (updateModdedPaths)
-            {
-                // ensure collection is set
-                if (objIndex == ushort.MaxValue)
-                    objIndex = await _dalamudUtil.RunOnFrameworkThread(() => _charaHandler!.GetGameObject()!.ObjectIndex).ConfigureAwait(false);
-                await _ipcManager.Penumbra.AssignTemporaryCollectionAsync(Logger, _penumbraCollection, objIndex).ConfigureAwait(false);
-
-                await _ipcManager.Penumbra.SetTemporaryModsAsync(Logger, _applicationId, _penumbraCollection,
-                    moddedPaths.ToDictionary(k => k.Key.GamePath, k => k.Value, StringComparer.Ordinal)).ConfigureAwait(false);
-                LastAppliedDataBytes = -1;
-                foreach (var path in moddedPaths.Values.Distinct(StringComparer.OrdinalIgnoreCase).Select(v => new FileInfo(v)).Where(p => p.Exists))
-                {
-                    if (LastAppliedDataBytes == -1) LastAppliedDataBytes = 0;
-
-                    LastAppliedDataBytes += path.Length;
-                }
-            }
-
-            if (updateManip)
-            {
-                await _ipcManager.Penumbra.SetManipulationDataAsync(Logger, _applicationId, _penumbraCollection, charaData.ManipulationData).ConfigureAwait(false);
-            }
-
-            token.ThrowIfCancellationRequested();
-
-            foreach (var kind in updatedData)
-            {
-                await ApplyCustomizationDataAsync(_applicationId, kind, charaData, redrawDecisions, token).ConfigureAwait(false);
-                token.ThrowIfCancellationRequested();
-            }
-
-            _cachedData = charaData;
-            _lastAppliedData = charaData;
-            _pendingModReapply = false;
-            Mediator.Publish(new PairDataAppliedMessage(Pair.UserData.UID, charaData));
-
-            Logger.LogDebug("[{applicationId}] Application finished", _applicationId);
-            _lastSuccessfulApplyAt = DateTime.UtcNow;
-            ClearFailureState();
-            IsVisible = true;
-        }
-        catch (OperationCanceledException)
-        {
-            Logger.LogDebug("[{applicationId}] Application cancelled for {handler}", _applicationId, this);
-            _pendingModReapply = true;
-            RecordFailure("Application annulée", "Cancellation");
-            _cachedData = charaData;
-            Mediator.Publish(new PairDataAppliedMessage(Pair.UserData.UID, charaData));
-        }
-        catch (Exception ex)
-        {
-            _pendingModReapply = true;
-            if (ex is AggregateException aggr && aggr.InnerExceptions.Any(e => e is ArgumentNullException))
-            {
-                IsVisible = false;
-                _forceApplyMods = true;
-                _cachedData = charaData;
-                Mediator.Publish(new PairDataAppliedMessage(Pair.UserData.UID, charaData));
-                RecordFailure("Joueur devenu null pendant l'application", "PlayerNull");
-                Logger.LogDebug("[{applicationId}] Cancelled, player turned null during application", _applicationId);
-            }
-            else
-            {
-                RecordFailure($"Échec de l'application: {ex.Message}", "Exception");
-                Logger.LogWarning(ex, "[{applicationId}] Application failed", _applicationId);
-            }
-        }
-    }
-
-    private bool HasMissingFiles(CharacterData data)
-    {
-        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var replacement in data.FileReplacements.SelectMany(k => k.Value))
-        {
-            if (!string.IsNullOrEmpty(replacement.FileSwapPath))
-                continue;
-
-            var hash = replacement.Hash;
-            if (string.IsNullOrWhiteSpace(hash) || !seen.Add(hash))
-                continue;
-
-            var fileCache = _fileDbManager.GetFileCacheByHash(hash);
-            if (fileCache is null || !File.Exists(fileCache.ResolvedFilepath))
-            {
-                if (fileCache is not null)
-                    _fileDbManager.RemoveHashedFile(fileCache.Hash, fileCache.PrefixedFilePath);
-
-                if (!_downloadManager.ForbiddenTransfers.Exists(f => string.Equals(f.Hash, hash, StringComparison.Ordinal)))
-                    return true;
-            }
-        }
-
-        return false;
-    }
-
-    private void TryReapplyPendingData()
-    {
-        if (!_pendingModReapply || !IsVisible
-            || (_applicationTask != null && !_applicationTask.IsCompleted)
-            || (_downloadTask != null && !_downloadTask.IsCompleted))
-            return;
-
-        var now = DateTime.UtcNow;
-        // Intervalle déphasé par-handler (5s + offset stable 0-5s) : sans ça, tous les pairs ayant
-        // posé _pendingModReapply au même moment (cache froid à 24 pairs) relancent un apply complet
-        // au MÊME tick toutes les 5s, en lockstep -> burst périodique. Le déphasage les étale.
-        if (_lastApplyAttemptAt.HasValue && now - _lastApplyAttemptAt.Value < TimeSpan.FromSeconds(5) + _reapplyJitter)
-            return;
-
-        var dataToApply = _cachedData ?? Pair.LastReceivedCharacterData;
-        if (dataToApply == null)
-            return;
-
-        Logger.LogDebug("Auto-retry: reapplying pending data for {handler} (pendingModReapply=true)", this);
-        _ = Task.Run(() =>
-        {
-            try
-            {
-                ApplyCharacterData(Guid.NewGuid(), dataToApply, forceApplyCustomization: true);
-            }
-            catch (Exception ex)
-            {
-                Logger.LogError(ex, "Failed to reapply pending data for {handler}", this);
-            }
-        });
     }
 
     private void UpdateVisibility(bool nowVisible, bool invalidate = false)
@@ -1397,34 +468,23 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
         {
             IsVisible = true;
             Mediator.Publish(new PairHandlerVisibleMessage(this));
-
-            // UNE SEULE application en vol. Avant, la branche _deferred ET la branche _cachedData
-            // lançaient chacune un ApplyCharacterData sur le MÊME _cachedData, en parallèle, avec des
-            // CancellationTokenSource partagés -> annulation mutuelle + course sur _cachedData, ce qui
-            // pouvait laisser le perso en apparence partielle ("les mods sautent"). On choisit donc
-            // une seule source dans l'ordre : application différée -> données en cache -> fallback.
-            // Les données sont capturées dans une locale pour éviter une NRE si _cachedData devient
-            // null (undo/dispose) entre la décision et l'exécution du Task.Run.
-            // Jitter par-handler : quand ~24 pairs deviennent visibles dans la même fenêtre de scan
-            // (~200ms à 5Hz), on évite de lancer 24 ApplyCharacterData (DeepClone + download + apply)
-            // exactement au même instant. Conforme à la règle anti-burst du projet.
             int applyJitterMs = Random.Shared.Next(0, VisibilityApplyJitterMaxMs);
 
-            if (_deferred != Guid.Empty && _cachedData != null)
+            if (_state.Deferred != Guid.Empty && _state.CachedData != null)
             {
                 // application différée : pas de log (déjà tracé à la réception)
-                Guid deferredId = _deferred;
-                CharacterData deferredData = _cachedData;
+                Guid deferredId = _state.Deferred;
+                CharacterData deferredData = _state.CachedData;
                 _ = Task.Run(async () =>
                 {
                     await Task.Delay(applyJitterMs).ConfigureAwait(false);
                     ApplyCharacterData(deferredId, deferredData, forceApplyCustomization: true);
                 });
             }
-            else if (_cachedData != null)
+            else if (_state.CachedData != null)
             {
                 Guid appData = Guid.NewGuid();
-                CharacterData cached = _cachedData;
+                CharacterData cached = _state.CachedData;
                 if (Logger.IsEnabled(LogLevel.Trace))
                     Logger.LogTrace("[BASE-{appBase}] {pairHandler} visibility changed, now: {visi}, cached data exists", appData, this, IsVisible);
 
@@ -1483,213 +543,24 @@ public sealed class PairHandler : DisposableMediatorSubscriberBase, IPairHandler
 
         Mediator.Subscribe<HonorificReadyMessage>(this, msg =>
         {
-            if (string.IsNullOrEmpty(_cachedData?.HonorificData)) return;
+            if (string.IsNullOrEmpty(_state.CachedData?.HonorificData)) return;
             Logger.LogTrace("Reapplying Honorific data for {this}", this);
-            _ = Task.Run(async () => await _ipcManager.Honorific.SetTitleAsync(PlayerCharacter, _cachedData.HonorificData).ConfigureAwait(false), CancellationToken.None);
+            _ = Task.Run(async () => await _ipcManager.Honorific.SetTitleAsync(PlayerCharacter, _state.CachedData.HonorificData).ConfigureAwait(false), CancellationToken.None);
         });
 
         Mediator.Subscribe<PetNamesReadyMessage>(this, msg =>
         {
-            if (string.IsNullOrEmpty(_cachedData?.PetNamesData)) return;
+            if (string.IsNullOrEmpty(_state.CachedData?.PetNamesData)) return;
             Logger.LogTrace("Reapplying Pet Names data for {this}", this);
-            _ = Task.Run(async () => await _ipcManager.PetNames.SetPlayerData(PlayerCharacter, _cachedData.PetNamesData).ConfigureAwait(false), CancellationToken.None);
+            _ = Task.Run(async () => await _ipcManager.PetNames.SetPlayerData(PlayerCharacter, _state.CachedData.PetNamesData).ConfigureAwait(false), CancellationToken.None);
         });
 
         Mediator.Subscribe<MoodlesReadyMessage>(this, msg =>
         {
-            if (string.IsNullOrEmpty(_cachedData?.MoodlesData)) return;
+            if (string.IsNullOrEmpty(_state.CachedData?.MoodlesData)) return;
             Logger.LogTrace("Reapplying Moodles data for {this}", this);
-            _ = Task.Run(async () => await _ipcManager.Moodles.SetStatusAsync(PlayerCharacter, _cachedData.MoodlesData).ConfigureAwait(false), CancellationToken.None);
+            _ = Task.Run(async () => await _ipcManager.Moodles.SetStatusAsync(PlayerCharacter, _state.CachedData.MoodlesData).ConfigureAwait(false), CancellationToken.None);
         });
     }
 
-    private async Task RevertCustomizationDataAsync(ObjectKind objectKind, string name, Guid applicationId, CancellationToken cancelToken)
-    {
-        nint address = _dalamudUtil.GetPlayerCharacterFromCachedTableByIdent(Pair.Ident);
-        if (address == nint.Zero) return;
-
-        Logger.LogDebug("[{applicationId}] Reverting all Customization for {alias}/{name} {objectKind}", applicationId, Pair.UserData.AliasOrUID, name, objectKind);
-
-        if (_customizeIds.TryGetValue(objectKind, out var customizeId))
-        {
-            _customizeIds.Remove(objectKind);
-        }
-
-        if (objectKind == ObjectKind.Player)
-        {
-            using GameObjectHandler tempHandler = await _gameObjectHandlerFactory.Create(ObjectKind.Player, () => address, isWatched: false).ConfigureAwait(false);
-            tempHandler.CompareNameAndThrow(name);
-            Logger.LogDebug("[{applicationId}] Restoring Customization and Equipment for {alias}/{name}", applicationId, Pair.UserData.AliasOrUID, name);
-            await _ipcManager.Glamourer.RevertAsync(Logger, tempHandler, applicationId, cancelToken).ConfigureAwait(false);
-            tempHandler.CompareNameAndThrow(name);
-            Logger.LogDebug("[{applicationId}] Restoring Heels for {alias}/{name}", applicationId, Pair.UserData.AliasOrUID, name);
-            await _ipcManager.Heels.RestoreOffsetForPlayerAsync(address).ConfigureAwait(false);
-            tempHandler.CompareNameAndThrow(name);
-            Logger.LogDebug("[{applicationId}] Restoring C+ for {alias}/{name}", applicationId, Pair.UserData.AliasOrUID, name);
-            await _ipcManager.CustomizePlus.RevertByIdAsync(customizeId).ConfigureAwait(false);
-            tempHandler.CompareNameAndThrow(name);
-            Logger.LogDebug("[{applicationId}] Restoring Honorific for {alias}/{name}", applicationId, Pair.UserData.AliasOrUID, name);
-            await _ipcManager.Honorific.ClearTitleAsync(address).ConfigureAwait(false);
-            Logger.LogDebug("[{applicationId}] Restoring Pet Nicknames for {alias}/{name}", applicationId, Pair.UserData.AliasOrUID, name);
-            await _ipcManager.PetNames.ClearPlayerData(address).ConfigureAwait(false);
-            Logger.LogDebug("[{applicationId}] Restoring Moodles for {alias}/{name}", applicationId, Pair.UserData.AliasOrUID, name);
-            await _ipcManager.Moodles.RevertStatusAsync(address).ConfigureAwait(false);
-        }
-        else if (objectKind == ObjectKind.MinionOrMount)
-        {
-            var minionOrMount = await _dalamudUtil.GetMinionOrMountAsync(address).ConfigureAwait(false);
-            if (minionOrMount != nint.Zero)
-            {
-                await _ipcManager.CustomizePlus.RevertByIdAsync(customizeId).ConfigureAwait(false);
-                using GameObjectHandler tempHandler = await _gameObjectHandlerFactory.Create(ObjectKind.MinionOrMount, () => minionOrMount, isWatched: false).ConfigureAwait(false);
-                await _ipcManager.Glamourer.RevertAsync(Logger, tempHandler, applicationId, cancelToken).ConfigureAwait(false);
-                await _pairRedrawCoordinator.RedrawAsync(Logger, tempHandler, applicationId, cancelToken).ConfigureAwait(false);
-            }
-        }
-        else if (objectKind == ObjectKind.Pet)
-        {
-            var pet = await _dalamudUtil.GetPetAsync(address).ConfigureAwait(false);
-            if (pet != nint.Zero)
-            {
-                await _ipcManager.CustomizePlus.RevertByIdAsync(customizeId).ConfigureAwait(false);
-                using GameObjectHandler tempHandler = await _gameObjectHandlerFactory.Create(ObjectKind.Pet, () => pet, isWatched: false).ConfigureAwait(false);
-                await _ipcManager.Glamourer.RevertAsync(Logger, tempHandler, applicationId, cancelToken).ConfigureAwait(false);
-                await _pairRedrawCoordinator.RedrawAsync(Logger, tempHandler, applicationId, cancelToken).ConfigureAwait(false);
-            }
-        }
-        else if (objectKind == ObjectKind.Companion)
-        {
-            var companion = await _dalamudUtil.GetCompanionAsync(address).ConfigureAwait(false);
-            if (companion != nint.Zero)
-            {
-                await _ipcManager.CustomizePlus.RevertByIdAsync(customizeId).ConfigureAwait(false);
-                using GameObjectHandler tempHandler = await _gameObjectHandlerFactory.Create(ObjectKind.Pet, () => companion, isWatched: false).ConfigureAwait(false);
-                await _ipcManager.Glamourer.RevertAsync(Logger, tempHandler, applicationId, cancelToken).ConfigureAwait(false);
-                await _pairRedrawCoordinator.RedrawAsync(Logger, tempHandler, applicationId, cancelToken).ConfigureAwait(false);
-            }
-        }
-    }
-
-    // Détermine le mode de compression pour ce pair : override par UID sinon config globale.
-    private TextureCompressionMode ComputeCompressedAlternateUsage()
-    {
-        var cfg = _playerPerformanceConfigService.Current;
-        if (cfg.UIDsToOverride.Exists(uid =>
-                string.Equals(uid, Pair.UserData.UID, StringComparison.Ordinal)
-                || string.Equals(uid, Pair.UserData.Alias, StringComparison.Ordinal)))
-        {
-            return TextureCompressionMode.AlwaysSourceQuality;
-        }
-        return cfg.TextureCompressionMode;
-    }
-
-    private List<FileReplacementData> TryCalculateModdedDictionary(Guid applicationBase, CharacterData charaData, TextureCompressionMode compressedUsage, out HashSet<string> locallyPresentFiles, out Dictionary<(string GamePath, string? Hash), string> moddedDictionary, CancellationToken token)
-    {
-        Stopwatch st = Stopwatch.StartNew();
-        ConcurrentBag<FileReplacementData> missingFiles = [];
-        moddedDictionary = [];
-        locallyPresentFiles = new HashSet<string>(StringComparer.Ordinal);
-        ConcurrentDictionary<(string GamePath, string? Hash), string> outputDict = new();
-        // Hashes déjà en local envoyés au download uniquement pour découvrir un alternate (mode AlwaysCompressed) :
-        // si aucun alt n'existe, le download ne les re-téléchargera pas.
-        var locallyPresentFileSet = new ConcurrentDictionary<string, byte>(StringComparer.Ordinal);
-        bool hasMigrationChanges = false;
-
-        try
-        {
-            var replacementList = charaData.FileReplacements.SelectMany(k => k.Value.Where(v => string.IsNullOrEmpty(v.FileSwapPath))).ToList();
-            Parallel.ForEach(replacementList, new ParallelOptions()
-            {
-                CancellationToken = token,
-                MaxDegreeOfParallelism = 4
-            },
-            (item) =>
-            {
-                token.ThrowIfCancellationRequested();
-
-                var replacementItem = item;
-                var fileCache = _fileDbManager.GetFileCacheByHash(item.Hash, preferSubst: true);
-                // "confirmed" = on connaît le statut d'alternate de ce hash (existe ou n'existera jamais).
-                bool confirmed = _compressedAlternateManager.TryGetCachedCompressedAlternate(item.Hash, out var altHash);
-
-                if (compressedUsage == TextureCompressionMode.AlwaysSourceQuality)
-                {
-                    // Rien : on garde la source.
-                }
-                else if (compressedUsage == TextureCompressionMode.CompressedNewDownloads)
-                {
-                    // BC7 seulement si la source n'est pas déjà en local.
-                    if (fileCache == null && confirmed && altHash != null)
-                    {
-                        replacementItem = new FileReplacementData { GamePaths = item.GamePaths, Hash = altHash };
-                        fileCache = _fileDbManager.GetFileCacheByHash(altHash, preferSubst: true);
-                    }
-                }
-                else // AlwaysCompressed
-                {
-                    if (confirmed)
-                    {
-                        // On sait : s'il y a un alt on l'utilise (même si la source est en local -> gain VRAM), sinon source.
-                        if (altHash != null)
-                        {
-                            replacementItem = new FileReplacementData { GamePaths = item.GamePaths, Hash = altHash };
-                            fileCache = _fileDbManager.GetFileCacheByHash(altHash, preferSubst: true);
-                        }
-                    }
-                    else
-                    {
-                        // Statut inconnu : envoyer la source au download pour découvrir un alt, mais la marquer "déjà présente"
-                        // pour ne pas la re-télécharger si aucun alt n'existe.
-                        locallyPresentFileSet[item.Hash] = 0;
-                        fileCache = null;
-                    }
-                }
-
-                if (fileCache != null)
-                {
-                    if (string.IsNullOrEmpty(new FileInfo(fileCache.ResolvedFilepath).Extension))
-                    {
-                        hasMigrationChanges = true;
-                        fileCache = _fileDbManager.MigrateFileHashToExtension(fileCache, replacementItem.GamePaths[0].Split(".")[^1]);
-                    }
-
-                    // Clé = gamePath + hash original ; valeur = fichier réel (source ou BC7 selon substitution).
-                    foreach (var gamePath in item.GamePaths)
-                    {
-                        outputDict[(gamePath, item.Hash)] = fileCache.ResolvedFilepath;
-                    }
-                }
-                else
-                {
-                    Logger.LogTrace("Missing file: {hash}", replacementItem.Hash);
-                    missingFiles.Add(replacementItem);
-                }
-            });
-
-            locallyPresentFiles = new HashSet<string>(locallyPresentFileSet.Keys, StringComparer.Ordinal);
-
-            moddedDictionary = outputDict.ToDictionary(k => k.Key, k => k.Value);
-
-            foreach (var item in charaData.FileReplacements.SelectMany(k => k.Value.Where(v => !string.IsNullOrEmpty(v.FileSwapPath))).ToList())
-            {
-                foreach (var gamePath in item.GamePaths)
-                {
-                    Logger.LogTrace("[BASE-{appBase}] Adding file swap for {path}: {fileSwap}", applicationBase, gamePath, item.FileSwapPath);
-                    moddedDictionary[(gamePath, null)] = item.FileSwapPath;
-                }
-            }
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "[BASE-{appBase}] Something went wrong during calculation replacements", applicationBase);
-        }
-        if (hasMigrationChanges) _fileDbManager.WriteOutFullCsv();
-        st.Stop();
-        Logger.LogDebug("[BASE-{appBase}] ModdedPaths calculated in {time}ms, missing files: {count}, total files: {total}", applicationBase, st.ElapsedMilliseconds, missingFiles.Count, moddedDictionary.Keys.Count);
-        return [.. missingFiles];
-    }
 }

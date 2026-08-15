@@ -7,14 +7,14 @@ namespace UmbraSync.WebAPI.SignalR;
 
 public sealed partial class ApiController
 {
-    public async Task HousingScenarioUpload(HousingScenarioUploadRequestDto dto)
+    public async Task<HousingScenarioUploadResultDto?> HousingScenarioUpload(HousingScenarioUploadRequestDto dto)
     {
-        if (!IsConnected) return;
+        if (!IsConnected) return null;
         try
         {
             using var timeoutCts = new CancellationTokenSource(TimeSpan.FromMinutes(30));
             using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(timeoutCts.Token, _connectionCancellationTokenSource.Token);
-            await _mareHub!.InvokeAsync(nameof(HousingScenarioUpload), dto, linkedCts.Token).ConfigureAwait(false);
+            return await _mareHub!.InvokeAsync<HousingScenarioUploadResultDto>(nameof(HousingScenarioUpload), dto, linkedCts.Token).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -50,6 +50,20 @@ public sealed partial class ApiController
         {
             Logger.LogWarning(ex, "Error during {method}", nameof(HousingScenarioGetOwn));
             return [];
+        }
+    }
+
+    public async Task<List<HousingScenarioEntryDto>?> HousingScenarioGetDelegatedToMe()
+    {
+        if (!IsConnected) return null;
+        try
+        {
+            return await _mareHub!.InvokeAsync<List<HousingScenarioEntryDto>>(nameof(HousingScenarioGetDelegatedToMe)).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogDebug(ex, "{method} indisponible sur ce serveur", nameof(HousingScenarioGetDelegatedToMe));
+            return null;
         }
     }
 

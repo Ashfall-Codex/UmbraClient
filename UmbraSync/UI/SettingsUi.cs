@@ -1870,6 +1870,16 @@ public class SettingsUi : WindowMediatorSubscriberBase
             }
             _uiShared.DrawHelpText(Loc.Get("Settings.Advanced.Debug.LogPerf.Help"));
 
+            ImGuiHelpers.ScaledDummy(2f);
+
+            bool logPlayerNames = _configService.Current.LogPlayerNames;
+            if (ImGui.Checkbox(Loc.Get("Settings.Advanced.Debug.LogPlayerNames"), ref logPlayerNames))
+            {
+                _configService.Current.LogPlayerNames = logPlayerNames;
+                _configService.Save();
+            }
+            _uiShared.DrawHelpText(Loc.Get("Settings.Advanced.Debug.LogPlayerNames.Help"));
+
             using (ImRaii.Disabled(!logPerformance))
             {
                 if (_uiShared.IconTextButton(FontAwesomeIcon.StickyNote, Loc.Get("Settings.Advanced.Debug.PrintPerf")))

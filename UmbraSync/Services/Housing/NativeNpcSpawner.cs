@@ -113,6 +113,8 @@ public sealed unsafe class NativeNpcSpawner
         if (app.WeaponDrawn) chara->Timeline.IsWeaponDrawn = true;
     }
     
+    private const int GPosePlayerIndex = 200;
+    private nint _gposeSlotBlocker;
     public IGameObject? Spawn(string name, Vector3 position, float rotation, NpcAppearance appearance, ushort emote = 0, bool deferDraw = false)
     {
         var objectManager = ClientObjectManager.Instance();
@@ -121,6 +123,8 @@ public sealed unsafe class NativeNpcSpawner
             _logger.LogWarning("ClientObjectManager indisponible (transition de zone ?), spawn annulé");
             return null;
         }
+
+        BlockGPoseSlot(objectManager);
 
         var objectIndex = objectManager->CreateBattleCharacter();
         if (objectIndex == 0xFFFFFFFF)
@@ -171,10 +175,63 @@ public sealed unsafe class NativeNpcSpawner
         if (!deferDraw)
             DrawWhenReady((ushort)objectIndex, bc, appearance, emote);
 
-        _logger.LogInformation("Acteur natif spawné à l'index {Index} (adresse {Addr:X}, draw différé : {Deferred})",
-            objectIndex, (nint)bc, deferDraw);
+        _logger.LogInformation("Acteur natif spawné à l'index {Index} / table {TableIndex} (adresse {Addr:X}, draw différé : {Deferred})",
+            objectIndex, handle.ObjectIndex, (nint)bc, deferDraw);
         return handle;
     }
+
+    private void BlockGPoseSlot(ClientObjectManager* objectManager)
+    {
+        if (_gposeSlotBlocker != nint.Zero) return;
+
+        var index = objectManager->CreateBattleCharacter();
+        if (index == 0xFFFFFFFF)
+        {
+            _logger.LogWarning("Neutralisation du slot {Index} impossible (plus de slot d'objet libre)", GPosePlayerIndex);
+            return;
+        }
+
+        var gameObject = objectManager->GetObjectByIndex((ushort)index);
+        if (gameObject == null)
+        {
+            objectManager->DeleteObjectByIndex((ushort)index, 0);
+            return;
+        }
+
+        var tableIndex = _objectTable.CreateObjectReference((nint)gameObject)?.ObjectIndex ?? -1;
+        if (tableIndex != GPosePlayerIndex)
+        {
+            // Le slot est déjà occupé par autre chose : rien à neutraliser, on rend celui-ci.
+            objectManager->DeleteObjectByIndex((ushort)index, 0);
+            _logger.LogDebug("Slot {Index} déjà occupé, aucune neutralisation nécessaire", GPosePlayerIndex);
+            return;
+        }
+        
+        var blocker = (BattleChara*)gameObject;
+        blocker->Character.CharacterSetup.SetupBNpc(0);
+        blocker->Character.GameObject.TargetableStatus &= ~ObjectTargetableFlags.IsTargetable;
+
+        _gposeSlotBlocker = (nint)gameObject;
+        _logger.LogDebug("Slot d'objet {Index} neutralisé (réservé au joueur GPose)", GPosePlayerIndex);
+    }
+
+    public void ReleaseGPoseSlot()
+    {
+        var blocker = _gposeSlotBlocker;
+        if (blocker == nint.Zero) return;
+        _gposeSlotBlocker = nint.Zero;
+
+        var objectManager = ClientObjectManager.Instance();
+        if (objectManager == null) return;
+
+        var index = objectManager->GetIndexByObject((GameObject*)blocker);
+        if (index == 0xFFFFFFFF) return;
+
+        objectManager->DeleteObjectByIndex((ushort)index, 0);
+        _logger.LogDebug("Slot d'objet {Index} libéré", GPosePlayerIndex);
+    }
+    
+    public void ForgetGPoseSlot() => _gposeSlotBlocker = nint.Zero;
 
     public void BeginDraw(nint address, NpcAppearance appearance, ushort emote = 0)
     {
@@ -340,6 +397,13 @@ public sealed unsafe class NativeNpcSpawner
     {
         if (address == nint.Zero) return false;
         return ((BattleChara*)address)->EmoteController.IsEmoting();
+    }
+
+    public static bool IsHoldingPose(nint address)
+    {
+        if (address == nint.Zero) return false;
+        var mode = ((Character*)address)->Mode;
+        return mode is CharacterModes.EmoteLoop or CharacterModes.InPositionLoop;
     }
 
 

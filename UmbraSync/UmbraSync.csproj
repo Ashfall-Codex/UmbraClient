@@ -5,7 +5,7 @@
         <LangVersion>13.0</LangVersion>
         <AssemblyName>UmbraSync</AssemblyName>
         <RootNamespace>UmbraSync</RootNamespace>
-        <Version>3.0.0.8006</Version>
+        <Version>3.0.1.8015</Version>
     </PropertyGroup>
 
     <ItemGroup>
@@ -62,6 +62,7 @@
 
     <ItemGroup>
         <ProjectReference Include="..\UmbraAPI\UmbraSyncAPI\UmbraSync.API.csproj" />
+        <ProjectReference Include="..\AshfallSync.Core\AshfallSync.Core.csproj" />
         <ProjectReference Include="..\ffxiv_pictomancy\Pictomancy\Pictomancy.csproj" />
         <None Include="..\.editorconfig" Link=".editorconfig" />
     </ItemGroup>

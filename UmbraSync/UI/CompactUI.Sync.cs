@@ -26,15 +26,18 @@ public partial class CompactUi
             var animLabel = Loc.Get("CompactUi.SyncDefaults.AnimationLabel");
             var vfxLabel = Loc.Get("CompactUi.SyncDefaults.VfxLabel");
             var housingLabel = Loc.Get("CompactUi.SyncDefaults.HousingLabel");
+            var scenarioLabel = Loc.Get("CompactUi.SyncDefaults.ScenarioLabel");
             var soundSubject = Loc.Get("CompactUi.SyncDefaults.AudioSubject");
             var animSubject = Loc.Get("CompactUi.SyncDefaults.AnimationSubject");
             var vfxSubject = Loc.Get("CompactUi.SyncDefaults.VfxSubject");
             var housingSubject = Loc.Get("CompactUi.SyncDefaults.HousingSubject");
+            var scenarioSubject = Loc.Get("CompactUi.SyncDefaults.ScenarioSubject");
 
             bool soundsDisabled = _configService.Current.DefaultDisableSounds;
             bool animsDisabled = _configService.Current.DefaultDisableAnimations;
             bool vfxDisabled = _configService.Current.DefaultDisableVfx;
             bool housingDisabled = _configService.Current.DefaultDisableHousingMods;
+            bool scenariosDisabled = _configService.Current.DefaultDisableHousingScenarios;
             bool showNearby = _configService.Current.EnableAutoDetectDiscovery;
             int pendingInvites = _nearbyPending.Pending.Count;
 
@@ -42,6 +45,7 @@ public partial class CompactUi
             var animIcon = animsDisabled ? FontAwesomeIcon.WindowClose : FontAwesomeIcon.Running;
             var vfxIcon = vfxDisabled ? FontAwesomeIcon.TimesCircle : FontAwesomeIcon.Sun;
             var housingIcon = housingDisabled ? FontAwesomeIcon.TimesCircle : FontAwesomeIcon.Home;
+            var scenarioIcon = scenariosDisabled ? FontAwesomeIcon.UserSlash : FontAwesomeIcon.UserFriends;
 
             var extraPadding = new Vector2(6f, 4f) * ImGuiHelpers.GlobalScale;
             var originalPadding = ImGui.GetStyle().FramePadding;
@@ -52,7 +56,8 @@ public partial class CompactUi
             float animWidth = _uiSharedService.GetIconTextButtonSize(animIcon, animLabel);
             float vfxWidth = _uiSharedService.GetIconTextButtonSize(vfxIcon, vfxLabel);
             float housingWidth = _uiSharedService.GetIconTextButtonSize(housingIcon, housingLabel);
-            float totalWidth = audioWidth + animWidth + vfxWidth + housingWidth + spacing * 3f;
+            float scenarioWidth = _uiSharedService.GetIconTextButtonSize(scenarioIcon, scenarioLabel);
+            float totalWidth = audioWidth + animWidth + vfxWidth + housingWidth + scenarioWidth + spacing * 4f;
             float available = ImGui.GetContentRegionAvail().X;
             float startCursorX = ImGui.GetCursorPosX();
             if (totalWidth < available)
@@ -95,6 +100,14 @@ public partial class CompactUi
                     Mediator.Publish(new ApplyDefaultsToAllSyncsMessage(housingSubject, state));
                 },
                 () => DisableStateTooltip(housingSubject, _configService.Current.DefaultDisableHousingMods), spacing);
+            DrawDefaultSyncButton(scenarioIcon, scenarioLabel, scenarioWidth, scenariosDisabled,
+                state =>
+                {
+                    _configService.Current.DefaultDisableHousingScenarios = state;
+                    _configService.Save();
+                    Mediator.Publish(new HousingScenarioSyncPreferenceChangedMessage());
+                },
+                () => DisableStateTooltip(scenarioSubject, _configService.Current.DefaultDisableHousingScenarios), spacing);
 
             ImGui.PopStyleVar();
 

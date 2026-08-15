@@ -342,6 +342,22 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
     {
         return new List<ChangelogEntry>
         {
+            new(new Version(3, 0, 1, 8015), "3.0.1.8015", new List<ChangelogLine>
+            {
+                new("Nouveauté : L'apparence d'un PNJ peut être changée après coup, sans le refaire. Sa position, son orientation et sa séquence d'actions sont conservées."),
+                new("Nouveauté : Vous pouvez confier la modification d'une de vos scènes PNJ publiées à d'autres joueurs. Ils ne peuvent ni la supprimer, ni la déplacer, ni changer qui la voit."),
+                new("Nouveauté : Vous pouvez refuser les scénarios PNJ des autres joueurs."),
+                new("Nouveauté : Un champ « Pose » sur la fiche de chaque PNJ. Choisissez-y une pose assise, allongée ou adossée et le PNJ la tient."),
+                new("Amélioration : L'action « Animation » se choisit désormais dans une liste cherchable au lieu d'un numéro à taper. C'est par là que passent les variantes de posture — les idles alternatifs de /cpose, les positions assises — que le sélecteur d'émotes ne peut pas atteindre. Le jeu ne fournit que des noms techniques : cherchez « pose », « sit » ou « idle » et essayez."),
+                new("Amélioration : Un PNJ assis peut enfin jouer des émotes sans se relever. Il reprend sa pose de lui-même après chaque émote compatible, et ne se relève que si l'émote demandée l'exige vraiment."),
+                new("Amélioration : Votre titre personnalisé peut désormais garder l'apparence des titres du jeu. Décochez « Couleur personnalisée » dans l'éditeur de profil."),
+                new("Correction : Le premier PNJ d'une scène apparaissait avec votre apparence de base au lieu de celle choisi, et le supprimer faisait retomber le PNJ suivant dans le même état."),
+                new("Correction : Les PNJ d'une scène partagée disparaissaient définitivement dès qu'une manipulation dans l'éditeur relançait le placement des vôtres. Ils ne revenaient qu'après un changement de zone."),
+                new("Correction : Un joueur qui arrivait pendant que son apparence changeait encore s'affichait amputé et le restait une quinzaine de secondes avant de se corriger seul."),
+                new("Correction : Quand Penumbra refusait d'appliquer les mods d'une paire, son apparence était quand même posée par-dessus. Le refus est maintenant détecté et l'application abandonnée au lieu d'être menée à moitié."),
+                new("Correction : Un PNJ pouvait apparaître avec l'apparence d'un autre personnage sur les machines lentes ou en mode économie d'énergie."),
+                new("Correction : Un PNJ dont l'émote est réglée sur « Boucler » sans durée repartait du début toutes les vingt secondes au lieu de continuer."),
+            }),
             new(new Version(3, 0, 0, 8006), "3.0.0.8006", new List<ChangelogLine>
             {
                 new("Nouveauté : Un bandeau de progression s'affiche pendant la mise en place d'une scène PNJ."),

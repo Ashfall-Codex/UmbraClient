@@ -192,7 +192,7 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
         return false;
     }
 
-    private void CompleteDownloadHash(string hash, bool success)
+    private void CompleteDownloadHash(string hash, bool success, bool cancelled = false)
     {
         // Le résultat de Complete ne concerne que le réveil des waiters : un hash téléchargé par lot
         // (fichiers sans direct download) n'est jamais claimé, et conditionner le cooldown à cette
@@ -204,6 +204,10 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
             _cdnFailedHashes.TryRemove(hash, out _);
             _hashFailureCooldowns.TryRemove(hash, out _);
         }
+        else if (cancelled)
+        {
+            // Annulation de notre fait (nouvelle donnée arrivée pendant le téléchargement)
+        }
         else
         {
             _hashFailureCooldowns.AddOrUpdate(hash,
@@ -212,11 +216,11 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
         }
     }
 
-    private void FailBatchHashes(IEnumerable<DownloadFileTransfer> fileGroup, ConcurrentDictionary<string, byte> pendingFallbackHashes)
+    private void FailBatchHashes(IEnumerable<DownloadFileTransfer> fileGroup, ConcurrentDictionary<string, byte> pendingFallbackHashes, bool cancelled = false)
     {
         foreach (var file in fileGroup)
         {
-            CompleteDownloadHash(file.Hash, false);
+            CompleteDownloadHash(file.Hash, false, cancelled);
             pendingFallbackHashes.TryRemove(file.Hash, out _);
         }
     }
@@ -1008,7 +1012,7 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
                 finally
                 {
                     if (!downloadSuccess && !goesToFallback)
-                        CompleteDownloadHash(file.Hash, false);
+                        CompleteDownloadHash(file.Hash, false, ct.IsCancellationRequested);
                 }
             }).ConfigureAwait(false);
 
@@ -1024,7 +1028,7 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
             if (!pendingFallbackHashes.IsEmpty)
             {
                 foreach (var hash in pendingFallbackHashes.Keys)
-                    CompleteDownloadHash(hash, false);
+                    CompleteDownloadHash(hash, false, ct.IsCancellationRequested);
             }
             ClearDownload();
             return;
@@ -1064,7 +1068,7 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
             var enqueueResult = await RequestBatchEnqueueAsync([.. fileGroup.Select(c => c.Hash)], firstFile.DownloadUri, token, downloadId).ConfigureAwait(false);
             if (enqueueResult == null)
             {
-                FailBatchHashes(fileGroup, pendingFallbackHashes);
+                FailBatchHashes(fileGroup, pendingFallbackHashes, token.IsCancellationRequested);
                 return;
             }
 
@@ -1264,7 +1268,7 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
         if (!pendingFallbackHashes.IsEmpty)
         {
             foreach (var hash in pendingFallbackHashes.Keys)
-                CompleteDownloadHash(hash, false);
+                CompleteDownloadHash(hash, false, ct.IsCancellationRequested);
         }
 
         ClearDownload();
@@ -1273,7 +1277,7 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
         {
             await WaitForAllTasksAsync(decompressionTasks).ConfigureAwait(false);
             foreach (var hash in pendingFallbackHashes.Keys)
-                CompleteDownloadHash(hash, false);
+                CompleteDownloadHash(hash, false, ct.IsCancellationRequested);
         }
     }
 
@@ -1447,7 +1451,7 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
                     // Complete deduplicator only if download failed (not going to decompression or fallback)
                     if (!downloadSuccess && !goesToFallback)
                     {
-                        CompleteDownloadHash(file.Hash, false);
+                        CompleteDownloadHash(file.Hash, false, ct.IsCancellationRequested);
                     }
                 }
             }).ConfigureAwait(false);
@@ -1470,7 +1474,7 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
             {
                 Logger.LogWarning("Completing {count} unprocessed fallback hashes with failure", pendingFallbackHashes.Count);
                 foreach (var hash in pendingFallbackHashes.Keys)
-                    CompleteDownloadHash(hash, false);
+                    CompleteDownloadHash(hash, false, ct.IsCancellationRequested);
             }
 
             ClearDownload();
@@ -1514,7 +1518,7 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
             {
                 // Sans ça les hashes restent claimés côté déduplicateur (30 min) et aucun cooldown
                 // n'est posé : le PairHandler reapply en boucle serrée sans jamais progresser.
-                FailBatchHashes(fileGroup, pendingFallbackHashes);
+                FailBatchHashes(fileGroup, pendingFallbackHashes, token.IsCancellationRequested);
                 return;
             }
 
@@ -1740,7 +1744,7 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
             Logger.LogWarning("Completing {count} unprocessed fallback hashes with failure", pendingFallbackHashes.Count);
             foreach (var hash in pendingFallbackHashes.Keys)
             {
-                CompleteDownloadHash(hash, false);
+                CompleteDownloadHash(hash, false, ct.IsCancellationRequested);
             }
         }
 
@@ -1753,7 +1757,7 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
 
             foreach (var hash in pendingFallbackHashes.Keys)
             {
-                CompleteDownloadHash(hash, false);
+                CompleteDownloadHash(hash, false, ct.IsCancellationRequested);
             }
         }
     }

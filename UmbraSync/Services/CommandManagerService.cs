@@ -36,7 +36,7 @@ public sealed class CommandManagerService : IDisposable
         _mareConfigService = mareConfigService;
         _commandManager.AddHandler(_commandName, new CommandInfo(OnCommand)
         {
-            HelpMessage = "Ouvre l'interface UmbraSync. Sous-commandes : toggle [on|off], gpose, rescan, perf, analyze"
+            HelpMessage = "Ouvre l'interface UmbraSync. Sous-commandes : toggle [on|off], gpose, npcedit, rescan, perf, analyze"
         });
         _commandManager.AddHandler(_commandAlias, new CommandInfo(OnCommand)
         {
