@@ -19,7 +19,7 @@ namespace UmbraSync.Services.Housing;
 /// <summary>
 /// Manager du partage de scénarios NPC custom via housing share.
 /// </summary>
-public sealed class HousingScenarioManager : IDisposable
+public sealed class HousingScenarioManager : IDisposable, IMediatorSubscriber
 {
     private const byte PayloadVersionV1 = 0x01;
     private const byte PayloadVersionV2 = 0x02;
@@ -36,6 +36,7 @@ public sealed class HousingScenarioManager : IDisposable
     private readonly SemaphoreSlim _operationSemaphore = new(1, 1);
     private volatile IReadOnlyList<HousingScenarioEntryDto> _ownShares = Array.Empty<HousingScenarioEntryDto>();
     private volatile IReadOnlyList<HousingScenarioEntryDto> _editableSharesHere = Array.Empty<HousingScenarioEntryDto>();
+    private volatile IReadOnlyList<HousingScenarioEntryDto> _delegatedToMe = Array.Empty<HousingScenarioEntryDto>();
     private Task? _currentTask;
     private CancellationTokenSource? _cleanupDelayCts;
     private Guid? _lastOwnerReminderShareId;
@@ -58,9 +59,29 @@ public sealed class HousingScenarioManager : IDisposable
         _fileCacheManager = fileCacheManager;
         _fileUploadManager = fileUploadManager;
         _fileDownloadManagerFactory = fileDownloadManagerFactory;
+
+        _mediator.Subscribe<ConnectedMessage>(this, msg => { _ = RefreshDelegationsOnConnectAsync(); });
     }
 
+
+    private async Task RefreshDelegationsOnConnectAsync()
+    {
+        try
+        {
+            await Task.Delay(Random.Shared.Next(2000, 8000)).ConfigureAwait(false);
+            await RefreshAsync().ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Rafraîchissement des scénarios à la connexion échoué");
+        }
+    }
+
+    public MareMediator Mediator => _mediator;
+
     public IReadOnlyList<HousingScenarioEntryDto> OwnShares => _ownShares;
+    public IReadOnlyList<HousingScenarioEntryDto> DelegatedToMe => _delegatedToMe;
+    public bool DelegationQuerySupported { get; private set; }
     public bool IsBusy => _currentTask is { IsCompleted: false };
     public string? LastError { get; private set; }
     public string? LastSuccess { get; private set; }
@@ -557,6 +578,35 @@ public sealed class HousingScenarioManager : IDisposable
     {
         var shares = await _apiController.HousingScenarioGetOwn().ConfigureAwait(false);
         _ownShares = shares?.ToList() ?? (IReadOnlyList<HousingScenarioEntryDto>)Array.Empty<HousingScenarioEntryDto>();
+
+        var delegated = await _apiController.HousingScenarioGetDelegatedToMe().ConfigureAwait(false);
+        DelegationQuerySupported = delegated != null;
+        if (delegated == null) return;
+        var delegatedList = delegated.ToList();
+        var known = _configService.Current.KnownDelegatedScenarios;
+        var fresh = delegatedList.Where(s => known.Add(s.Id.ToString("N", System.Globalization.CultureInfo.InvariantCulture))).ToList();
+        _delegatedToMe = delegatedList;
+
+        if (fresh.Count > 0)
+        {
+            _configService.Save();
+            foreach (var share in fresh)
+                NotifyDelegation(share);
+        }
+    }
+
+    private void NotifyDelegation(HousingScenarioEntryDto share)
+    {
+        var owner = string.IsNullOrWhiteSpace(share.OwnerAlias) ? share.OwnerUid : share.OwnerAlias;
+        var what = string.IsNullOrWhiteSpace(share.Description)
+            ? Localization.Loc.Get("HousingScenario.Delegated.Untitled")
+            : share.Description;
+
+        _mediator.Publish(new NotificationMessage(
+            Localization.Loc.Get("HousingScenario.Delegated.NotifTitle"),
+            string.Format(System.Globalization.CultureInfo.CurrentCulture,
+                Localization.Loc.Get("HousingScenario.Delegated.NotifBody"), owner, what),
+            MareConfiguration.Models.NotificationType.Info, TimeSpan.FromSeconds(10)));
     }
 
     public Task UpdateVisibilityAsync(Guid shareId, string description, List<string> allowedIndividuals,
@@ -790,6 +840,7 @@ public sealed class HousingScenarioManager : IDisposable
 
     public void Dispose()
     {
+        _mediator.UnsubscribeAll(this);
         CancelDelayedCleanup();
         _fileDownloadManager?.Dispose();
         _operationSemaphore.Dispose();

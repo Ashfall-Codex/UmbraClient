@@ -53,6 +53,20 @@ public sealed partial class ApiController
         }
     }
 
+    public async Task<List<HousingScenarioEntryDto>?> HousingScenarioGetDelegatedToMe()
+    {
+        if (!IsConnected) return null;
+        try
+        {
+            return await _mareHub!.InvokeAsync<List<HousingScenarioEntryDto>>(nameof(HousingScenarioGetDelegatedToMe)).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogDebug(ex, "{method} indisponible sur ce serveur", nameof(HousingScenarioGetDelegatedToMe));
+            return null;
+        }
+    }
+
     public async Task<List<HousingScenarioEntryDto>> HousingScenarioGetForLocation(LocationInfo location)
     {
         if (!IsConnected) return [];

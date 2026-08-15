@@ -6330,6 +6330,36 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
   <data name="HousingScenario.ColLocation" xml:space="preserve">
     <value>Location</value>
   </data>
+  <data name="HousingScenario.ColOwner" xml:space="preserve">
+    <value>Owner</value>
+  </data>
+  <data name="HousingScenario.ColUpdated" xml:space="preserve">
+    <value>Updated</value>
+  </data>
+  <data name="HousingScenario.DelegatedTitle" xml:space="preserve">
+    <value>Shared with me</value>
+  </data>
+  <data name="HousingScenario.DelegatedHelp" xml:space="preserve">
+    <value>Scenes owned by other players who have granted you edit rights. To edit one, travel to the listed plot and open "Create / edit NPC scenes": NPCs are placed in a specific room, so they cannot be edited remotely.</value>
+  </data>
+  <data name="HousingScenario.NoDelegated" xml:space="preserve">
+    <value>Nobody has granted you edit rights on a scene yet.</value>
+  </data>
+  <data name="HousingScenario.DelegatedGoThereTip" xml:space="preserve">
+    <value>Travel to this plot to fetch and edit the scene.</value>
+  </data>
+  <data name="HousingScenario.Delegated.NotifTitle" xml:space="preserve">
+    <value>NPC scenario entrusted to you</value>
+  </data>
+  <data name="HousingScenario.Delegated.NotifBody" xml:space="preserve">
+    <value>{0} lets you edit their scene "{1}". Find it under Data Creation &gt; Housing &gt; NPC, in the "Shared with me" section.</value>
+  </data>
+  <data name="HousingScenario.Delegated.Untitled" xml:space="preserve">
+    <value>untitled</value>
+  </data>
+  <data name="HousingScenario.DelegateHere" xml:space="preserve">
+    <value>The owner has entrusted you with editing their scene here. Open the editor to fetch it.</value>
+  </data>
   <data name="HousingScenario.ColCreated" xml:space="preserve">
     <value>Created</value>
   </data>

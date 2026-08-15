@@ -88,6 +88,7 @@ public sealed class HousingNpcSceneEditorUi : WindowMediatorSubscriberBase
         if (scenes.Count == 0)
         {
             ImGui.TextColored(ImGuiColors.DalamudGrey, Loc.Get("HousingNpc.Editor.NoScenes"));
+            DrawDelegatedShares();
             DrawOrphanScenes();
             return;
         }

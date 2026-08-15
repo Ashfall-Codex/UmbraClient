@@ -702,12 +702,18 @@ public sealed partial class CharaDataHubUi
                 currentLocation.ServerId, currentLocation.WardId, currentLocation.HouseId));
             ImGuiHelpers.ScaledDummy(3);
             
-            bool hasPermissions = _dalamudUtilService.OwnsCurrentHouse();
+            bool isDelegateHere = scenarioManager.EditableSharesHere.Count > 0;
+            bool hasPermissions = _dalamudUtilService.OwnsCurrentHouse() || isDelegateHere;
             if (!hasPermissions)
             {
                 ImGui.PushStyleColor(ImGuiCol.Text, new Vector4(1.0f, 0.5f, 0.2f, 1.0f));
                 ImGui.TextWrapped(Loc.Get("HousingScenario.NotOwner"));
                 ImGui.PopStyleColor();
+                ImGuiHelpers.ScaledDummy(3);
+            }
+            else if (isDelegateHere && !_dalamudUtilService.OwnsCurrentHouse())
+            {
+                ImGui.TextColored(ImGuiColors.HealerGreen, Loc.Get("HousingScenario.DelegateHere"));
                 ImGuiHelpers.ScaledDummy(3);
             }
             
@@ -749,6 +755,17 @@ public sealed partial class CharaDataHubUi
         ImGuiHelpers.ScaledDummy(3);
 
         DrawHousingScenarioOwnSharesTable(scenarioManager);
+
+        if (scenarioManager.DelegationQuerySupported)
+        {
+            ImGuiHelpers.ScaledDummy(5);
+            UiSharedService.DistanceSeparator();
+            _uiSharedService.BigText(Loc.Get("HousingScenario.DelegatedTitle"));
+            ImGui.TextWrapped(Loc.Get("HousingScenario.DelegatedHelp"));
+            ImGuiHelpers.ScaledDummy(3);
+
+            DrawHousingScenarioDelegatedTable(scenarioManager);
+        }
 
         // Edit modal
         if (_housingScenarioEditingId != null)
@@ -914,6 +931,47 @@ public sealed partial class CharaDataHubUi
                 _housingScenarioSyncshellDropdownSelection = string.Empty;
             }
         }
+    }
+
+    private void DrawHousingScenarioDelegatedTable(HousingScenarioManager scenarioManager)
+    {
+        if (scenarioManager.DelegatedToMe.Count == 0)
+        {
+            ImGui.TextDisabled(Loc.Get("HousingScenario.NoDelegated"));
+            return;
+        }
+
+        if (!ImGui.BeginTable("scenario-delegated", 4, ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.RowBg | ImGuiTableFlags.BordersOuter))
+            return;
+
+        ImGui.TableSetupColumn(Loc.Get("HousingScenario.ColDescription"));
+        ImGui.TableSetupColumn(Loc.Get("HousingScenario.ColOwner"));
+        ImGui.TableSetupColumn(Loc.Get("HousingScenario.ColLocation"));
+        ImGui.TableSetupColumn(Loc.Get("HousingScenario.ColUpdated"));
+        ImGui.TableHeadersRow();
+
+        foreach (var entry in scenarioManager.DelegatedToMe)
+        {
+            ImGui.TableNextRow();
+            ImGui.TableNextColumn();
+            ImGui.TextUnformatted(string.IsNullOrWhiteSpace(entry.Description)
+                ? entry.Id.ToString("D", CultureInfo.InvariantCulture)
+                : entry.Description);
+
+            ImGui.TableNextColumn();
+            ImGui.TextUnformatted(string.IsNullOrWhiteSpace(entry.OwnerAlias) ? entry.OwnerUid : entry.OwnerAlias);
+
+            ImGui.TableNextColumn();
+            ImGui.TextUnformatted($"S{entry.Location.ServerId} W{entry.Location.WardId} H{entry.Location.HouseId}");
+            if (ImGui.IsItemHovered())
+                ImGui.SetTooltip(Loc.Get("HousingScenario.DelegatedGoThereTip"));
+
+            ImGui.TableNextColumn();
+            var updated = entry.UpdatedUtc ?? entry.CreatedUtc;
+            ImGui.TextUnformatted(updated.ToLocalTime().ToString("g", CultureInfo.CurrentCulture));
+        }
+
+        ImGui.EndTable();
     }
 
     private void DrawHousingScenarioOwnSharesTable(HousingScenarioManager scenarioManager)

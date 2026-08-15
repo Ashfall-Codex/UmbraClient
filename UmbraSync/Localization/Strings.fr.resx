@@ -6240,6 +6240,36 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
   <data name="HousingScenario.ColLocation" xml:space="preserve">
     <value>Location</value>
   </data>
+  <data name="HousingScenario.ColOwner" xml:space="preserve">
+    <value>Propriétaire</value>
+  </data>
+  <data name="HousingScenario.ColUpdated" xml:space="preserve">
+    <value>Modifié le</value>
+  </data>
+  <data name="HousingScenario.DelegatedTitle" xml:space="preserve">
+    <value>Partagé avec moi</value>
+  </data>
+  <data name="HousingScenario.DelegatedHelp" xml:space="preserve">
+    <value>Scènes appartenant à d'autres joueurs, dont ils vous ont confié la modification. Pour les éditer, rendez-vous dans le logement indiqué et ouvrez « Créer / éditer les scènes PNJ » : les PNJ sont placés dans une pièce précise, ils ne peuvent pas se modifier à distance.</value>
+  </data>
+  <data name="HousingScenario.NoDelegated" xml:space="preserve">
+    <value>Personne ne vous a confié de scène pour l'instant.</value>
+  </data>
+  <data name="HousingScenario.DelegatedGoThereTip" xml:space="preserve">
+    <value>Rendez-vous dans ce logement pour récupérer et modifier la scène.</value>
+  </data>
+  <data name="HousingScenario.Delegated.NotifTitle" xml:space="preserve">
+    <value>Scénario PNJ confié</value>
+  </data>
+  <data name="HousingScenario.Delegated.NotifBody" xml:space="preserve">
+    <value>{0} vous autorise à modifier sa scène « {1} ». Retrouvez-la dans Création de données ▸ Housing ▸ PNJ, section « Partagé avec moi ».</value>
+  </data>
+  <data name="HousingScenario.Delegated.Untitled" xml:space="preserve">
+    <value>sans description</value>
+  </data>
+  <data name="HousingScenario.DelegateHere" xml:space="preserve">
+    <value>Le propriétaire vous a confié la modification de sa scène ici. Ouvrez l'éditeur pour la récupérer.</value>
+  </data>
   <data name="HousingScenario.ColCreated" xml:space="preserve">
     <value>Créé le</value>
   </data>
