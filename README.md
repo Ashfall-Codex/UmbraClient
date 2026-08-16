@@ -9,8 +9,13 @@
 </p>
 
 <p align="center">
-  <code>v3.0.1</code> &middot; API <code>v5000</code> &middot; C# 13 / .NET 10 &middot; Dalamud SDK 15.0.0 (Dalamud API15)
+API <code>v5000</code> &middot; C# 13 / .NET 10 &middot; Dalamud SDK 15.0
 </p>
+<p align="center">
+<a href="https://github.com/Ashfall-Codex/UmbraClient/actions/workflows/build.yml"><img src="https://github.com/Ashfall-Codex/UmbraClient/actions/workflows/build.yml/badge.svg" alt="Build Status" /></a>
+<a href="https://github.com/Ashfall-Codex/UmbraClient/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-AGPL--v3-blue.svg" alt="License: AGPL-v3" /></a>
+<a href="https://github.com/Ashfall-Codex/UmbraClient/releases"><img src="https://img.shields.io/github/v/release/Ashfall-Codex/UmbraClient?include_prereleases" alt="Latest Release" /></a></p>
+
 <p align="center">
 <a href="https://argus.arediss.fr"><img src="https://argus.arediss.fr/api/projects/umbraclient/badge.svg" alt="Quality gate" /></a>
 <a href="https://argus.arediss.fr"><img src="https://argus.arediss.fr/api/projects/umbraclient/badge.svg?metric=reliability" alt="Fiabilité" /></a>
