@@ -72,46 +72,7 @@ public class AutoDetectRequestService : IMediatorSubscriber
         }
 
         var targetKey = BuildTargetKey(uid, token, targetDisplayName);
-        if (!string.IsNullOrEmpty(targetKey))
-        {
-            var now = DateTime.UtcNow;
-            using (_syncRoot.EnterScope())
-            {
-                if (_refusalTrackers.TryGetValue(targetKey, out var tracker))
-                {
-                    if (tracker.LockUntil.HasValue && tracker.LockUntil.Value > now)
-                    {
-                        PublishLockNotification(tracker.LockUntil.Value - now);
-                        return false;
-                    }
-
-                    if (tracker.LockUntil.HasValue && tracker.LockUntil.Value <= now)
-                    {
-                        tracker.LockUntil = null;
-                        tracker.Count = 0;
-                        if (tracker.Count == 0 && tracker.LockUntil == null)
-                        {
-                            _refusalTrackers.Remove(targetKey);
-                        }
-                    }
-                }
-
-                if (_activeCooldowns.TryGetValue(targetKey, out var lastSent))
-                {
-                    var elapsed = now - lastSent;
-                    if (elapsed < RequestCooldown)
-                    {
-                        PublishCooldownNotification(RequestCooldown - elapsed);
-                        return false;
-                    }
-
-                    if (elapsed >= RequestCooldown)
-                    {
-                        _activeCooldowns.Remove(targetKey);
-                    }
-                }
-            }
-        }
+        if (!CanRequestTarget(targetKey)) return false;
         var endpoint = _configProvider.RequestEndpoint;
         if (string.IsNullOrEmpty(endpoint))
         {
@@ -240,46 +201,7 @@ public class AutoDetectRequestService : IMediatorSubscriber
         }
 
         var targetKey = BuildTargetKey(uid, null, targetDisplayName);
-        if (!string.IsNullOrEmpty(targetKey))
-        {
-            var now = DateTime.UtcNow;
-            using (_syncRoot.EnterScope())
-            {
-                if (_refusalTrackers.TryGetValue(targetKey, out var tracker))
-                {
-                    if (tracker.LockUntil.HasValue && tracker.LockUntil.Value > now)
-                    {
-                        PublishLockNotification(tracker.LockUntil.Value - now);
-                        return false;
-                    }
-
-                    if (tracker.LockUntil.HasValue && tracker.LockUntil.Value <= now)
-                    {
-                        tracker.LockUntil = null;
-                        tracker.Count = 0;
-                        if (tracker.Count == 0 && tracker.LockUntil == null)
-                        {
-                            _refusalTrackers.Remove(targetKey);
-                        }
-                    }
-                }
-
-                if (_activeCooldowns.TryGetValue(targetKey, out var lastSent))
-                {
-                    var elapsed = now - lastSent;
-                    if (elapsed < RequestCooldown)
-                    {
-                        PublishCooldownNotification(RequestCooldown - elapsed);
-                        return false;
-                    }
-
-                    if (elapsed >= RequestCooldown)
-                    {
-                        _activeCooldowns.Remove(targetKey);
-                    }
-                }
-            }
-        }
+        if (!CanRequestTarget(targetKey)) return false;
 
         try
         {
@@ -343,6 +265,41 @@ public class AutoDetectRequestService : IMediatorSubscriber
             _notificationTracker.Upsert(NotificationEntry.NearbyRequestFailed(Loc.Get("Notification.Nearby.Failed.Rejected")));
             return false;
         }
+    }
+
+    private bool CanRequestTarget(string? targetKey)
+    {
+        if (string.IsNullOrEmpty(targetKey)) return true;
+
+        var now = DateTime.UtcNow;
+        using (_syncRoot.EnterScope())
+        {
+            if (_refusalTrackers.TryGetValue(targetKey, out var tracker) && tracker.LockUntil.HasValue)
+            {
+                if (tracker.LockUntil.Value > now)
+                {
+                    PublishLockNotification(tracker.LockUntil.Value - now);
+                    return false;
+                }
+
+                // Verrou expiré : l'entrée ne sert plus à rien, le compteur de refus repart de zéro.
+                _refusalTrackers.Remove(targetKey);
+            }
+
+            if (_activeCooldowns.TryGetValue(targetKey, out var lastSent))
+            {
+                var elapsed = now - lastSent;
+                if (elapsed < RequestCooldown)
+                {
+                    PublishCooldownNotification(RequestCooldown - elapsed);
+                    return false;
+                }
+
+                _activeCooldowns.Remove(targetKey);
+            }
+        }
+
+        return true;
     }
 
     private static string? BuildTargetKey(string? uid, string? token, string? displayName)

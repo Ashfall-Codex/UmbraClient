@@ -108,47 +108,9 @@ public sealed class McdfShareManager(ILogger<McdfShareManager> logger, ApiContro
                 return;
             }
 
-            var shareId = Guid.NewGuid();
-            byte[] salt = RandomNumberGenerator.GetBytes(16);
-            byte[] nonce = RandomNumberGenerator.GetBytes(12);
-            byte[] key = DeriveKey(shareId, salt);
-
-            byte[] cipher = new byte[mcdfBytes.Length];
-            byte[] tag = new byte[16];
-
-            using (var aes = new AesGcm(key, 16))
-            {
-                aes.Encrypt(nonce, mcdfBytes, cipher, tag);
-            }
-
-            var uploadDto = new McdfShareUploadRequestDto
-            {
-                ShareId = shareId,
-                Description = description,
-                CipherData = cipher,
-                Nonce = nonce,
-                Salt = salt,
-                Tag = tag,
-                ExpiresAtUtc = expiresAtUtc,
-                AllowedIndividuals = allowedIndividuals.ToList(),
-                AllowedSyncshells = allowedSyncshells.ToList()
-            };
-
-            await _apiController.McdfShareUpload(uploadDto).ConfigureAwait(false);
-            await InternalRefreshAsync(token).ConfigureAwait(false);
-
-            bool isShared = uploadDto.AllowedIndividuals.Count > 0 || uploadDto.AllowedSyncshells.Count > 0;
-            if (isShared)
-            {
-                LastSuccess = Loc.Get("CharaDataHub.Mcdf.Share.ShareSuccess");
-                NotifyShareCreated(shareId, description, uploadDto.AllowedIndividuals.Count, uploadDto.AllowedSyncshells.Count);
-            }
-            else
-            {
-                LastSuccess = Loc.Get("CharaDataHub.Mcdf.Share.SaveSuccess");
-                NotifySaved(description);
-            }
-            _logger.LogInformation("MCDF share {ShareId} uploaded ({Individuals} UID / {Syncshells} syncshells). Description: {Description}", shareId, uploadDto.AllowedIndividuals.Count, uploadDto.AllowedSyncshells.Count, description);
+            await UploadShareAsync(mcdfBytes,
+                new ShareRequest(description, allowedIndividuals, allowedSyncshells, expiresAtUtc),
+                "capture", token).ConfigureAwait(false);
         });
     }
 
@@ -174,48 +136,60 @@ public sealed class McdfShareManager(ILogger<McdfShareManager> logger, ApiContro
                 return;
             }
 
-            var shareId = Guid.NewGuid();
-            byte[] salt = RandomNumberGenerator.GetBytes(16);
-            byte[] nonce = RandomNumberGenerator.GetBytes(12);
-            byte[] key = DeriveKey(shareId, salt);
-
-            byte[] cipher = new byte[mcdfBytes.Length];
-            byte[] tag = new byte[16];
-
-            using (var aes = new AesGcm(key, 16))
-            {
-                aes.Encrypt(nonce, mcdfBytes, cipher, tag);
-            }
-
-            var uploadDto = new McdfShareUploadRequestDto
-            {
-                ShareId = shareId,
-                Description = description,
-                CipherData = cipher,
-                Nonce = nonce,
-                Salt = salt,
-                Tag = tag,
-                ExpiresAtUtc = expiresAtUtc,
-                AllowedIndividuals = allowedIndividuals.ToList(),
-                AllowedSyncshells = allowedSyncshells.ToList()
-            };
-
-            await _apiController.McdfShareUpload(uploadDto).ConfigureAwait(false);
-            await InternalRefreshAsync(token).ConfigureAwait(false);
-
-            bool isShared = uploadDto.AllowedIndividuals.Count > 0 || uploadDto.AllowedSyncshells.Count > 0;
-            if (isShared)
-            {
-                LastSuccess = Loc.Get("CharaDataHub.Mcdf.Share.ShareSuccess");
-                NotifyShareCreated(shareId, description, uploadDto.AllowedIndividuals.Count, uploadDto.AllowedSyncshells.Count);
-            }
-            else
-            {
-                LastSuccess = Loc.Get("CharaDataHub.Mcdf.Share.SaveSuccess");
-                NotifySaved(description);
-            }
-            _logger.LogInformation("MCDF share {ShareId} uploaded from file. Description: {Description}", shareId, description);
+            await UploadShareAsync(mcdfBytes,
+                new ShareRequest(description, allowedIndividuals, allowedSyncshells, expiresAtUtc),
+                "fichier", token).ConfigureAwait(false);
         });
+    }
+
+    private sealed record ShareRequest(string Description, IReadOnlyList<string> AllowedIndividuals,
+        IReadOnlyList<string> AllowedSyncshells, DateTime? ExpiresAtUtc);
+    
+    private async Task UploadShareAsync(byte[] mcdfBytes, ShareRequest request, string origin, CancellationToken token)
+    {
+        var shareId = Guid.NewGuid();
+        byte[] salt = RandomNumberGenerator.GetBytes(16);
+        byte[] nonce = RandomNumberGenerator.GetBytes(12);
+        byte[] key = DeriveKey(shareId, salt);
+
+        byte[] cipher = new byte[mcdfBytes.Length];
+        byte[] tag = new byte[16];
+
+        using (var aes = new AesGcm(key, 16))
+        {
+            aes.Encrypt(nonce, mcdfBytes, cipher, tag);
+        }
+
+        var uploadDto = new McdfShareUploadRequestDto
+        {
+            ShareId = shareId,
+            Description = request.Description,
+            CipherData = cipher,
+            Nonce = nonce,
+            Salt = salt,
+            Tag = tag,
+            ExpiresAtUtc = request.ExpiresAtUtc,
+            AllowedIndividuals = request.AllowedIndividuals.ToList(),
+            AllowedSyncshells = request.AllowedSyncshells.ToList()
+        };
+
+        await _apiController.McdfShareUpload(uploadDto).ConfigureAwait(false);
+        await InternalRefreshAsync(token).ConfigureAwait(false);
+
+        bool isShared = uploadDto.AllowedIndividuals.Count > 0 || uploadDto.AllowedSyncshells.Count > 0;
+        if (isShared)
+        {
+            LastSuccess = Loc.Get("CharaDataHub.Mcdf.Share.ShareSuccess");
+            NotifyShareCreated(shareId, request.Description, uploadDto.AllowedIndividuals.Count, uploadDto.AllowedSyncshells.Count);
+        }
+        else
+        {
+            LastSuccess = Loc.Get("CharaDataHub.Mcdf.Share.SaveSuccess");
+            NotifySaved(request.Description);
+        }
+
+        _logger.LogInformation("MCDF share {ShareId} uploaded from {Origin} ({Individuals} UID / {Syncshells} syncshells). Description: {Description}",
+            shareId, origin, uploadDto.AllowedIndividuals.Count, uploadDto.AllowedSyncshells.Count, request.Description);
     }
 
     public Task DeleteShareAsync(Guid shareId)

@@ -1089,63 +1089,42 @@ public class EditProfileUi : WindowMediatorSubscriberBase
                 {
                     var curProfile = await _apiController.UserGetProfile(new UserDto(new UserData(_apiController.UID, _apiController.DisplayName))).ConfigureAwait(false);
                     if (isRp)
-                    {
                         _logger.LogInformation("Saving RP profile for {uid}: {first} {last}", _apiController.UID, localRpProfile.RpFirstName, localRpProfile.RpLastName);
-                        await _apiController.UserSetProfile(new UserProfileDto(new UserData(_apiController.UID, _apiController.DisplayName), curProfile.Disabled, curProfile.IsNSFW, curProfile.ProfilePictureBase64, curProfile.Description)
-                        {
-                            CharacterName = charName,
-                            WorldId = worldId,
-                            RpProfilePictureBase64 = localRpProfile.RpProfilePictureBase64,
-                            RpDescription = localRpProfile.RpDescription,
-                            IsRpNSFW = localRpProfile.IsRpNsfw,
-                            RpFirstName = localRpProfile.RpFirstName,
-                            RpLastName = localRpProfile.RpLastName,
-                            RpTitle = localRpProfile.RpTitle,
-                            RpAge = localRpProfile.RpAge,
-                            RpRace = localRpProfile.RpRace,
-                            RpEthnicity = localRpProfile.RpEthnicity,
-                            RpHeight = localRpProfile.RpHeight,
-                            RpBuild = localRpProfile.RpBuild,
-                            RpResidence = localRpProfile.RpResidence,
-                            RpOccupation = localRpProfile.RpOccupation,
-                            RpAffiliation = localRpProfile.RpAffiliation,
-                            RpAlignment = localRpProfile.RpAlignment,
-                            RpAdditionalInfo = localRpProfile.RpAdditionalInfo,
-                            RpNameColor = localRpProfile.RpNameColor,
-                            RpCustomFields = customFieldsJsonSnapshot,
-                            MoodlesData = moodlesDataSnapshot,
-                            ChatIcon = localRpProfile.ChatIcon,
-                            RpLevel = localRpProfile.RpLevel
-                        }).ConfigureAwait(false);
-                    }
                     else
-                    {
                         _logger.LogInformation("Saving HRP profile for {uid}, keeping local RP data", _apiController.UID);
-                        await _apiController.UserSetProfile(new UserProfileDto(new UserData(_apiController.UID, _apiController.DisplayName), curProfile.Disabled, _apiController.IsProfileNsfw, curProfile.ProfilePictureBase64, _descriptionText)
-                        {
-                            CharacterName = charName,
-                            WorldId = worldId,
-                            RpProfilePictureBase64 = localRpProfile.RpProfilePictureBase64,
-                            RpDescription = localRpProfile.RpDescription,
-                            IsRpNSFW = localRpProfile.IsRpNsfw,
-                            RpFirstName = localRpProfile.RpFirstName,
-                            RpLastName = localRpProfile.RpLastName,
-                            RpTitle = localRpProfile.RpTitle,
-                            RpAge = localRpProfile.RpAge,
-                            RpRace = localRpProfile.RpRace,
-                            RpEthnicity = localRpProfile.RpEthnicity,
-                            RpHeight = localRpProfile.RpHeight,
-                            RpBuild = localRpProfile.RpBuild,
-                            RpResidence = localRpProfile.RpResidence,
-                            RpOccupation = localRpProfile.RpOccupation,
-                            RpAffiliation = localRpProfile.RpAffiliation,
-                            RpAlignment = localRpProfile.RpAlignment,
-                            RpAdditionalInfo = localRpProfile.RpAdditionalInfo,
-                            RpNameColor = localRpProfile.RpNameColor,
-                            RpCustomFields = customFieldsJsonSnapshot,
-                            MoodlesData = moodlesDataSnapshot
-                        }).ConfigureAwait(false);
-                    }
+
+                    await _apiController.UserSetProfile(new UserProfileDto(
+                        new UserData(_apiController.UID, _apiController.DisplayName),
+                        curProfile.Disabled,
+                        isRp ? curProfile.IsNSFW : _apiController.IsProfileNsfw,
+                        curProfile.ProfilePictureBase64,
+                        isRp ? curProfile.Description : _descriptionText)
+                    {
+                        CharacterName = charName,
+                        WorldId = worldId,
+                        RpProfilePictureBase64 = localRpProfile.RpProfilePictureBase64,
+                        RpDescription = localRpProfile.RpDescription,
+                        IsRpNSFW = localRpProfile.IsRpNsfw,
+                        RpFirstName = localRpProfile.RpFirstName,
+                        RpLastName = localRpProfile.RpLastName,
+                        RpTitle = localRpProfile.RpTitle,
+                        RpAge = localRpProfile.RpAge,
+                        RpRace = localRpProfile.RpRace,
+                        RpEthnicity = localRpProfile.RpEthnicity,
+                        RpHeight = localRpProfile.RpHeight,
+                        RpBuild = localRpProfile.RpBuild,
+                        RpResidence = localRpProfile.RpResidence,
+                        RpOccupation = localRpProfile.RpOccupation,
+                        RpAffiliation = localRpProfile.RpAffiliation,
+                        RpAlignment = localRpProfile.RpAlignment,
+                        RpAdditionalInfo = localRpProfile.RpAdditionalInfo,
+                        RpNameColor = localRpProfile.RpNameColor,
+                        RpCustomFields = customFieldsJsonSnapshot,
+                        MoodlesData = moodlesDataSnapshot,
+                        ChatIcon = isRp ? localRpProfile.ChatIcon : null,
+                        RpLevel = isRp ? localRpProfile.RpLevel : null
+                    }).ConfigureAwait(false);
+
                     Mediator.Publish(new ClearProfileDataMessage(new UserData(_apiController.UID), charName, worldId));
                     Mediator.Publish(new NotificationMessage(Loc.Get("EditProfile.SaveSuccessTitle"), Loc.Get("EditProfile.SaveSuccessBody"), NotificationType.Success));
                     SnapshotSavedState(isRp, customFieldsJsonSnapshot);

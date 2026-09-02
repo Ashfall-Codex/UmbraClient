@@ -72,6 +72,32 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
 
         IsOpen = true;
     }
+    
+    private static void DrawPortrait(ImDrawListPtr drawList, IDalamudTextureWrap? texture, float portraitSize)
+    {
+        var portraitStart = ImGui.GetCursorScreenPos();
+        var rounding = 10f * ImGuiHelpers.GlobalScale;
+
+        if (texture == null)
+        {
+            drawList.AddRectFilled(portraitStart,
+                new Vector2(portraitStart.X + portraitSize, portraitStart.Y + portraitSize),
+                ImGui.GetColorU32(new Vector4(0.15f, 0.15f, 0.15f, 1f)), rounding);
+            return;
+        }
+
+        bool tallerThanWide = texture.Height >= texture.Width;
+        var stretchFactor = tallerThanWide ? portraitSize / texture.Height : portraitSize / texture.Width;
+        var newWidth = texture.Width * stretchFactor;
+        var newHeight = texture.Height * stretchFactor;
+
+        var pMin = new Vector2(portraitStart.X + (portraitSize - newWidth) / 2f,
+            portraitStart.Y + (portraitSize - newHeight) / 2f);
+        var pMax = new Vector2(pMin.X + newWidth, pMin.Y + newHeight);
+
+        drawList.AddImageRounded(texture.Handle, pMin, pMax,
+            Vector2.Zero, Vector2.One, ImGui.GetColorU32(new Vector4(1, 1, 1, 1)), rounding);
+    }
 
     private async Task RefreshLocalMoodlesAsync()
     {
@@ -646,31 +672,7 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
             var portraitSize = 120f * ImGuiHelpers.GlobalScale;
             var drawList = ImGui.GetWindowDrawList();
 
-            // Portrait
-            var portraitStart = ImGui.GetCursorScreenPos();
-            if (texture != null)
-            {
-                bool tallerThanWide = texture.Height >= texture.Width;
-                var stretchFactor = tallerThanWide ? portraitSize / texture.Height : portraitSize / texture.Width;
-                var newWidth = texture.Width * stretchFactor;
-                var newHeight = texture.Height * stretchFactor;
-                var offsetX = (portraitSize - newWidth) / 2f;
-                var offsetY = (portraitSize - newHeight) / 2f;
-
-                var pMin = new Vector2(portraitStart.X + offsetX, portraitStart.Y + offsetY);
-                var pMax = new Vector2(pMin.X + newWidth, pMin.Y + newHeight);
-                var rounding = 10f * ImGuiHelpers.GlobalScale;
-
-                drawList.AddImageRounded(texture.Handle, pMin, pMax,
-                    Vector2.Zero, Vector2.One, ImGui.GetColorU32(new Vector4(1, 1, 1, 1)), rounding);
-            }
-            else
-            {
-                var rounding = 10f * ImGuiHelpers.GlobalScale;
-                drawList.AddRectFilled(portraitStart,
-                    new Vector2(portraitStart.X + portraitSize, portraitStart.Y + portraitSize),
-                    ImGui.GetColorU32(new Vector4(0.15f, 0.15f, 0.15f, 1f)), rounding);
-            }
+            DrawPortrait(drawList, texture, portraitSize);
 
             // Reserve space for portrait
             ImGui.Dummy(new Vector2(portraitSize, portraitSize));
@@ -838,31 +840,7 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
             var drawList = ImGui.GetWindowDrawList();
             var wrapWidth = ImGui.GetContentRegionAvail().X;
 
-            // Portrait
-            var portraitStart = ImGui.GetCursorScreenPos();
-            if (texture != null)
-            {
-                bool tallerThanWide = texture.Height >= texture.Width;
-                var stretchFactor = tallerThanWide ? portraitSize / texture.Height : portraitSize / texture.Width;
-                var newWidth = texture.Width * stretchFactor;
-                var newHeight = texture.Height * stretchFactor;
-                var offsetX = (portraitSize - newWidth) / 2f;
-                var offsetY = (portraitSize - newHeight) / 2f;
-
-                var pMin = new Vector2(portraitStart.X + offsetX, portraitStart.Y + offsetY);
-                var pMax = new Vector2(pMin.X + newWidth, pMin.Y + newHeight);
-                var rounding = 10f * ImGuiHelpers.GlobalScale;
-
-                drawList.AddImageRounded(texture.Handle, pMin, pMax,
-                    Vector2.Zero, Vector2.One, ImGui.GetColorU32(new Vector4(1, 1, 1, 1)), rounding);
-            }
-            else
-            {
-                var rounding = 10f * ImGuiHelpers.GlobalScale;
-                drawList.AddRectFilled(portraitStart,
-                    new Vector2(portraitStart.X + portraitSize, portraitStart.Y + portraitSize),
-                    ImGui.GetColorU32(new Vector4(0.15f, 0.15f, 0.15f, 1f)), rounding);
-            }
+            DrawPortrait(drawList, texture, portraitSize);
 
             ImGui.Dummy(new Vector2(portraitSize, portraitSize));
             ImGui.SameLine();
