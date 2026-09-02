@@ -296,7 +296,7 @@ public sealed class FileUploadManager : DisposableMediatorSubscriberBase
         Logger.LogDebug("Verifying {count} files", unverifiedUploadHashes.Count);
         var filesToUpload = await FilesSend([.. unverifiedUploadHashes], visiblePlayers.Select(p => p.UID).ToList(), uploadToken).ConfigureAwait(false);
 
-        foreach (var file in filesToUpload.Where(f => !f.IsForbidden).DistinctBy(f => f.Hash))
+        foreach (var file in filesToUpload.Where(f => !f.IsForbidden).DistinctBy(f => f.Hash, StringComparer.Ordinal))
         {
             try
             {

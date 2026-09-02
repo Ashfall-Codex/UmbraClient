@@ -6546,6 +6546,36 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
   <data name="HousingNpc.Editor.BasePoseTip" xml:space="preserve">
     <value>Pose the NPC holds when it has nothing else to do: sitting, lying down, leaning. It is taken before the rest of the sequence and resumed after each action. Leave on "None" for a standing NPC.</value>
   </data>
+  <data name="HousingNpc.Editor.PoseVariant" xml:space="preserve">
+    <value>Variant</value>
+  </data>
+  <data name="HousingNpc.Editor.PoseVariantTip" xml:space="preserve">
+    <value>Posture variant held at rest — the poses /changepose cycles through. It replaces the base pose above and is resumed after every action. Apply to take effect.</value>
+  </data>
+  <data name="HousingNpc.Editor.PoseVariantDefault" xml:space="preserve">
+    <value>Default pose</value>
+  </data>
+  <data name="HousingNpc.Editor.PoseVariantItem" xml:space="preserve">
+    <value>Pose {0}</value>
+  </data>
+  <data name="HousingNpc.Editor.PoseVariantEmpty" xml:space="preserve">
+    <value>No variant found in the game data.</value>
+  </data>
+  <data name="HousingNpc.Editor.PoseCatStanding" xml:space="preserve">
+    <value>Standing</value>
+  </data>
+  <data name="HousingNpc.Editor.PoseCatWeaponDrawn" xml:space="preserve">
+    <value>Weapon drawn</value>
+  </data>
+  <data name="HousingNpc.Editor.PoseCatChair" xml:space="preserve">
+    <value>Sitting (chair)</value>
+  </data>
+  <data name="HousingNpc.Editor.PoseCatGroundSit" xml:space="preserve">
+    <value>Sitting (ground)</value>
+  </data>
+  <data name="HousingNpc.Editor.PoseCatLying" xml:space="preserve">
+    <value>Lying down</value>
+  </data>
   <data name="HousingNpc.Editor.FacePlayer" xml:space="preserve">
     <value>Look at player</value>
   </data>

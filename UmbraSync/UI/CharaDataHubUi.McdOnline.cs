@@ -206,7 +206,7 @@ public sealed partial class CharaDataHubUi
             var pos = ImGui.GetCursorPosX();
             ImGui.NewLine();
             ImGui.SameLine(pos);
-            ImGui.TextUnformatted(string.Format(CultureInfo.CurrentCulture, Loc.Get("CharaDataHub.Edit.FileHashCount"), dataDto.FileGamePaths.DistinctBy(k => k.HashOrFileSwap).Count(), dataDto.OriginalFiles.DistinctBy(k => k.HashOrFileSwap).Count()));
+            ImGui.TextUnformatted(string.Format(CultureInfo.CurrentCulture, Loc.Get("CharaDataHub.Edit.FileHashCount"), dataDto.FileGamePaths.DistinctBy(k => k.HashOrFileSwap, StringComparer.Ordinal).Count(), dataDto.OriginalFiles.DistinctBy(k => k.HashOrFileSwap, StringComparer.Ordinal).Count()));
             ImGui.NewLine();
             ImGui.SameLine(pos);
             ImGui.TextUnformatted(string.Format(CultureInfo.CurrentCulture, Loc.Get("CharaDataHub.Edit.GamePaths"), dataDto.FileGamePaths.Count));
@@ -221,7 +221,7 @@ public sealed partial class CharaDataHubUi
             }
             else
             {
-                UiSharedService.ColorTextWrapped(string.Format(CultureInfo.CurrentCulture, Loc.Get("CharaDataHub.Edit.FilesMissing"), dataDto.MissingFiles.DistinctBy(k => k.HashOrFileSwap).Count()), UiSharedService.AccentColor);
+                UiSharedService.ColorTextWrapped(string.Format(CultureInfo.CurrentCulture, Loc.Get("CharaDataHub.Edit.FilesMissing"), dataDto.MissingFiles.DistinctBy(k => k.HashOrFileSwap, StringComparer.Ordinal).Count()), UiSharedService.AccentColor);
                 ImGui.NewLine();
                 ImGui.SameLine(pos);
                 if (_uiSharedService.IconTextButton(FontAwesomeIcon.ArrowCircleUp, Loc.Get("CharaDataHub.Edit.UploadMissing")))

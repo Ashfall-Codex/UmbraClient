@@ -17,6 +17,14 @@ public sealed class HousingNpcEntry
     public float Z { get; set; }
     public float Rotation { get; set; }
     public bool FacePlayer { get; set; }
+
+    /// <summary>
+    /// Clé ActionTimeline de la variante de posture tenue au repos (voir <see cref="NpcPoseCatalog"/>).
+    /// Vide = la pose par défaut du jeu. On stocke la clé plutôt que la ligne : elle survit aux
+    /// renumérotations de la feuille d'un patch à l'autre.
+    /// </summary>
+    public string PoseKey { get; set; } = string.Empty;
+
     public List<NpcAction> Actions { get; set; } = new();
     public bool Looping { get; set; } = true;
     public float LoopDelay { get; set; }

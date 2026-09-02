@@ -179,6 +179,7 @@ public sealed class Plugin : IDalamudPlugin
             collection.AddSingleton<LookAtService>();
             collection.AddSingleton<NpcLiveAppearanceService>();
             collection.AddSingleton<HousingNpcScenarioStore>();
+            collection.AddSingleton<NpcPoseCatalog>();
             collection.AddSingleton<HousingNpcScenarioService>();
             collection.AddSingleton<HousingOwnershipService>();
             collection.AddSingleton<RgpdDataService>();

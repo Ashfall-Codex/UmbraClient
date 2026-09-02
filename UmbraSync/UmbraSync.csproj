@@ -20,13 +20,13 @@
         <PackageReference Include="Downloader" Version="5.1.0" />
         <PackageReference Include="K4os.Compression.LZ4.Legacy" Version="1.3.8" />
         <PackageReference Include="K4os.Compression.LZ4.Streams" Version="1.3.8" />
-        <PackageReference Include="Meziantou.Analyzer" Version="3.0.25">
+        <PackageReference Include="Meziantou.Analyzer" Version="3.0.200">
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
         <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.6" />
-        <PackageReference Include="Microsoft.AspNetCore.SignalR.Protocols.MessagePack" Version="10.0.6" />
-        <PackageReference Include="MessagePack" Version="2.5.187" />
+        <PackageReference Include="Microsoft.AspNetCore.SignalR.Protocols.MessagePack" Version="10.0.11" />
+        <PackageReference Include="MessagePack" Version="3.1.8" />
         <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.6" />
         <PackageReference Include="SonarAnalyzer.CSharp" Version="10.21.0.135717">
             <PrivateAssets>all</PrivateAssets>
@@ -42,7 +42,7 @@
     </ItemGroup>
 
     <ItemGroup Condition="!Exists('.\Penumbra.Api\Penumbra.Api.csproj')">
-        <PackageReference Include="Penumbra.Api" Version="5.13.1" />
+        <PackageReference Include="Penumbra.Api" Version="5.15.1" />
     </ItemGroup>
 
     <ItemGroup Condition="Exists('.\Glamourer.Api\Glamourer.Api.csproj')">
@@ -50,7 +50,7 @@
     </ItemGroup>
 
     <ItemGroup Condition="!Exists('.\Glamourer.Api\Glamourer.Api.csproj')">
-        <PackageReference Include="Glamourer.Api" Version="2.8.0" />
+        <PackageReference Include="Glamourer.Api" Version="2.8.2" />
     </ItemGroup>
 
     <PropertyGroup>

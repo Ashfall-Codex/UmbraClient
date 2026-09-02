@@ -18,6 +18,7 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
     private readonly NpcLiveAppearanceService _liveAppearance;
     private readonly ArrScenarioFileService _arrScenarioFiles;
     private readonly DalamudUtilService _dalamudUtil;
+    private readonly NpcPoseCatalog _poseCatalog;
 
     private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly Lock _stateLock = new();
@@ -29,7 +30,10 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
 
     private readonly Dictionary<nint, ActionRuntime> _runtimes = new();
     private readonly Dictionary<nint, Anchor> _anchors = new();
+    // Variante de posture tenue au repos par acteur (0 = pose par défaut du jeu).
+    private readonly Dictionary<nint, ushort> _poses = new();
     private readonly System.Diagnostics.Stopwatch _moveClock = System.Diagnostics.Stopwatch.StartNew();
+    private float _poseHoldLeft;
 
     private sealed class Anchor
     {
@@ -45,6 +49,7 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
     private const float DefaultTimelineDuration = 3f; // durée par défaut d'une action Timeline
     private const float SyncTimeoutSeconds = 30f;    // garde-fou de la barrière Sync
     private const float MaxEmoteWaitSeconds = 20f; // garde-fou des émotes sans durée.
+    private const float PoseHoldInterval = 0.5f;   // fréquence de reprise des variantes de posture
 
     private sealed record SpawnedNpc(nint Address, NpcLiveHandle? Live, bool Shared, string EntryId);
 
@@ -70,6 +75,7 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
         public ushort HeldEmote;    // pose actuellement tenue (0 = aucune), pour ne pas la rejouer
         public float EmoteDuration; // durée forcée (0 = jusqu'à la fin une fois)
         public float EmoteElapsed;
+        public float PoseSuspended; // le temps d'une action Timeline, la variante de pose ne reprend pas la main
     }
 
     // Génère un nom d'acteur valide et unique à partir d'un compteur.
@@ -84,7 +90,7 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
     public HousingNpcScenarioService(ILogger<HousingNpcScenarioService> logger, MareMediator mediator,
         HousingNpcScenarioStore store, NativeNpcSpawner spawner, LookAtService lookAt,
         NpcLiveAppearanceService liveAppearance, ArrScenarioFileService arrScenarioFiles,
-        DalamudUtilService dalamudUtil)
+        DalamudUtilService dalamudUtil, NpcPoseCatalog poseCatalog)
         : base(logger, mediator)
     {
         _store = store;
@@ -93,6 +99,7 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
         _liveAppearance = liveAppearance;
         _arrScenarioFiles = arrScenarioFiles;
         _dalamudUtil = dalamudUtil;
+        _poseCatalog = poseCatalog;
 
         Mediator.Subscribe<HousingPlotEnteredMessage>(this, msg => { _ = OnEnteredAsync(msg.LocationInfo); });
         Mediator.Subscribe<HousingPlotLeftMessage>(this, m => { _ = OnLeftAsync(); });
@@ -498,6 +505,7 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
             {
                 _runtimes.Remove(npc.Address);
                 _anchors.Remove(npc.Address);
+                _poses.Remove(npc.Address);
             }
         }
 
@@ -570,10 +578,21 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
             }
         }
 
+        var poseTimeline = _poseCatalog.Resolve(entry.PoseKey);
+        if (poseTimeline == 0 && !string.IsNullOrEmpty(entry.PoseKey))
+            Logger.LogWarning("Variante de pose « {Key} » inconnue de ce client, le PNJ garde la pose par défaut", entry.PoseKey);
+
         lock (_stateLock)
         {
             _spawned.Add(new SpawnedNpc(actor.Address, live, shared, entry.Id));
             _anchors[actor.Address] = new Anchor { Pos = pos, Rot = entry.Rotation };
+            if (poseTimeline != 0) _poses[actor.Address] = poseTimeline;
+        }
+
+        if (poseTimeline != 0)
+        {
+            await _dalamudUtil.RunOnFrameworkThread(
+                () => NativeNpcSpawner.PlayTimeline(actor.Address, poseTimeline)).ConfigureAwait(false);
         }
 
         if (entry.FacePlayer)
@@ -620,6 +639,7 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
         {
             _runtimes.Clear();
             _anchors.Clear();
+            _poses.Clear();
             spawned = _spawned.ToList();
             _spawned.Clear();
         }
@@ -662,6 +682,7 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
         {
             _runtimes.Clear();
             _anchors.Clear();
+            _poses.Clear();
             spawned = _spawned.ToList();
             _spawned.Clear();
         }
@@ -695,6 +716,7 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
 
             _runtimes.Remove(npc.Address);
             _anchors.Remove(npc.Address);
+            _poses.Remove(npc.Address);
             _spawned.RemoveAt(i);
             if (npc.Live != null)
             {
@@ -733,6 +755,13 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
             ReleaseSyncBarriers(runtimes);
         }
 
+        _poseHoldLeft -= dt;
+        if (_poseHoldLeft <= 0f)
+        {
+            _poseHoldLeft = PoseHoldInterval;
+            HoldPoses(runtimes);
+        }
+
         // Snapshot pris APRÈS l'avance : les actions viennent de mettre les ancres à jour, les
         // ré-imposer depuis un état antérieur annulerait le déplacement de la frame.
         (nint Address, System.Numerics.Vector3 Pos, float Rot)[] anchors;
@@ -763,14 +792,69 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
         }
     }
     
-    private static void RestIdle(nint addr)
+    /// <summary>
+    /// Repose les variantes de posture que le jeu ou la séquence ont écrasées. Un PNJ sans séquence
+    /// n'a personne d'autre pour le faire, et une séquence qui boucle repasse par des animations de
+    /// déplacement : sans ce rattrapage, la pose ne tiendrait que jusqu'à la première action.
+    /// </summary>
+    private void HoldPoses(KeyValuePair<nint, ActionRuntime>[] runtimes)
     {
+        nint[] addresses;
+        lock (_stateLock)
+        {
+            if (_poses.Count == 0) return;
+            addresses = _poses.Keys.ToArray();
+        }
+
+        foreach (var addr in addresses)
+        {
+            var runtime = Array.Find(runtimes, kv => kv.Key == addr).Value;
+            if (runtime != null && ActionOwnsAnimation(runtime)) continue;
+            if (!_spawner.IsAlive(addr)) continue;
+
+            try { TryHoldPose(addr); }
+            catch (Exception ex) { Logger.LogWarning(ex, "Reprise de la variante de pose échouée ({Addr:X})", addr); }
+        }
+    }
+
+    private void RestIdle(nint addr)
+    {
+        if (TryHoldPose(addr)) return;
         if (NativeNpcSpawner.IsHoldingPose(addr)) return;
         NativeNpcSpawner.SetMovementAnim(addr, NativeNpcSpawner.MoveAnim.Idle);
     }
 
+    /// <summary>Repose la variante de posture si l'acteur en a une et qu'il l'a perdue.</summary>
+    private bool TryHoldPose(nint addr)
+    {
+        ushort timeline;
+        lock (_stateLock)
+        {
+            if (!_poses.TryGetValue(addr, out timeline) || timeline == 0) return false;
+        }
+
+        if (NativeNpcSpawner.GetBaseOverride(addr) != timeline)
+            NativeNpcSpawner.PlayTimeline(addr, timeline);
+        return true;
+    }
+
+    private bool HasPoseVariant(nint addr)
+    {
+        lock (_stateLock) return _poses.TryGetValue(addr, out var t) && t != 0;
+    }
+
+    // La variante est reprise dès que le PNJ n'a rien de plus précis à jouer : une action de
+    // déplacement, une émote en cours ou une action Timeline explicite gardent la main.
+    private static bool ActionOwnsAnimation(ActionRuntime rt)
+    {
+        if (rt.PoseSuspended > 0f || rt.AwaitingEmote) return true;
+        if (rt.Finished || rt.Index >= rt.Actions.Length) return false;
+        return rt.Actions[rt.Index] is NpcMovementAction or NpcPathAction or NpcRotationAction or NpcTimelineAction;
+    }
+
     private void AdvanceActions(nint addr, ActionRuntime rt, float dt)
     {
+        if (rt.PoseSuspended > 0f) rt.PoseSuspended -= dt;
         if (rt.Actions.Length == 0 || rt.Finished) return;
         if (rt.Index >= rt.Actions.Length)
         {
@@ -844,8 +928,9 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
             case NpcPathAction p: rt.HeldEmote = 0; StepPath(addr, rt, p, dt); break;
             case NpcRotationAction r: StepRotation(addr, rt, r.TargetRotation, dt); break;
             case NpcWaitAction w: rt.WaitLeft = w.Duration; RestIdle(addr); Advance(rt); break;
-            // « Immobile » est une demande explicite de retour au repos : elle rompt la pose tenue.
-            case NpcIdleAction: rt.HeldEmote = 0; NativeNpcSpawner.SetMovementAnim(addr, NativeNpcSpawner.MoveAnim.Idle); Advance(rt); break;
+            // « Immobile » est une demande explicite de retour au repos : elle rompt la pose tenue par
+            // une émote, mais laisse revenir la variante de posture, qui est justement ce repos-là.
+            case NpcIdleAction: rt.HeldEmote = 0; RestIdle(addr); Advance(rt); break;
             case NpcVisibilityAction v: NativeNpcSpawner.SetVisible(addr, v.Visible); Advance(rt); break;
             case NpcTimelineAction t: rt.HeldEmote = 0; StepTimeline(addr, rt, t); break;
             case NpcSyncAction:
@@ -862,12 +947,23 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
         if (t.TimelineIds.Count == 0) { Advance(rt); return; }
         foreach (var id in t.TimelineIds) NativeNpcSpawner.PlayTimeline(addr, id);
         rt.WaitLeft = t.Duration > 0f ? t.Duration : DefaultTimelineDuration;
+        rt.PoseSuspended = rt.WaitLeft;
         Advance(rt);
     }
 
-    private static void StepEmote(nint addr, ActionRuntime rt, NpcEmoteAction e)
+    private void StepEmote(nint addr, ActionRuntime rt, NpcEmoteAction e)
     {
         if (e.Emote == 0) { Advance(rt); return; }
+
+        // Une variante de posture est plus précise que la pose de base : jouer l'émote la ferait
+        // sauter à chaque tour de séquence, pour la voir revenir aussitôt.
+        if (e.StayInPose && HasPoseVariant(addr))
+        {
+            RestIdle(addr);
+            rt.WaitLeft = MathF.Max(PostEmotePause, rt.LoopDelay);
+            Advance(rt);
+            return;
+        }
 
         // Le PNJ tient déjà cette pose : la rejouer le relèverait pour le remettre dedans. C'est ce
         // qui faisait « resetter » un personnage assis à chaque tour de séquence, puisqu'une scène
@@ -1205,6 +1301,7 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
                 _spawned.Remove(existing);
                 _runtimes.Remove(existing.Address);
                 _anchors.Remove(existing.Address);
+                _poses.Remove(existing.Address);
             }
         }
 
@@ -1326,6 +1423,7 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
                 _spawned.Clear();
                 _runtimes.Clear();
                 _anchors.Clear();
+                _poses.Clear();
             }
             // _gate n'est volontairement pas disposé : le service est disposé deux fois (Dalamud +
             // arrêt du IHost) et une opération encore en vol ferait un WaitAsync sur un sémaphore mort.

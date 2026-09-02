@@ -421,6 +421,9 @@ public sealed unsafe class NativeNpcSpawner
         }
     }
 
+    public static ushort GetBaseOverride(nint address)
+        => address == nint.Zero ? (ushort)0 : ((Character*)address)->Timeline.BaseOverride;
+
     public static void PlayTimeline(nint address, ushort timelineId)
     {
         if (address == nint.Zero || timelineId == 0) return;

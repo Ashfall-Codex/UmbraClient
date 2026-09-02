@@ -2015,21 +2015,23 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
         var cachedProfiles = _umbraProfileManager.GetCachedProfiles();
 
         var currentUid = _umbraProfileManager.CurrentUid;
-        var searchLower = _profileBrowserSearch.ToLowerInvariant();
+        var search = _profileBrowserSearch;
         var filtered = cachedProfiles.Where(p =>
         {
             if (currentUid != null && string.Equals(p.Key.User.UID, currentUid, StringComparison.Ordinal))
                 return false;
             if (string.IsNullOrWhiteSpace(p.Profile.RpFirstName) && string.IsNullOrWhiteSpace(p.Profile.RpLastName))
                 return false;
-            if (string.IsNullOrEmpty(searchLower)) return true;
-            var uid = p.Key.User.AliasOrUID.ToLowerInvariant();
-            var charName = (p.Key.CharName ?? string.Empty).ToLowerInvariant();
-            var rpFirst = (p.Profile.RpFirstName ?? string.Empty).ToLowerInvariant();
-            var rpLast = (p.Profile.RpLastName ?? string.Empty).ToLowerInvariant();
-            var note = (_serverConfigurationManager.GetNoteForUid(p.Key.User.UID) ?? string.Empty).ToLowerInvariant();
-            return uid.Contains(searchLower) || charName.Contains(searchLower) ||
-                   rpFirst.Contains(searchLower) || rpLast.Contains(searchLower) || note.Contains(searchLower);
+            if (string.IsNullOrEmpty(search)) return true;
+
+            // Comparaison insensible à la casse plutôt qu'une mise en minuscules : le filtre est
+            // évalué à chaque frame pour chaque profil en cache, une chaîne allouée par champ.
+            return Matches(p.Key.User.AliasOrUID) || Matches(p.Key.CharName)
+                   || Matches(p.Profile.RpFirstName) || Matches(p.Profile.RpLastName)
+                   || Matches(_serverConfigurationManager.GetNoteForUid(p.Key.User.UID));
+
+            bool Matches(string? value)
+                => value != null && value.Contains(search, StringComparison.OrdinalIgnoreCase);
         }).ToList();
 
         ImGui.TextColored(ImGuiColors.DalamudGrey,

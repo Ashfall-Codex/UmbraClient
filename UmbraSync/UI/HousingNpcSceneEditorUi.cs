@@ -23,6 +23,7 @@ public sealed class HousingNpcSceneEditorUi : WindowMediatorSubscriberBase
     private readonly UiSharedService _uiShared;
     private readonly IDataManager _dataManager;
     private readonly ITextureProvider _textureProvider;
+    private readonly NpcPoseCatalog _poseCatalog;
     private string _selectedSceneId = string.Empty;
     private string _emoteFilter = string.Empty;
     private List<(ushort Id, string Name, uint Icon)>? _emotes;
@@ -40,7 +41,8 @@ public sealed class HousingNpcSceneEditorUi : WindowMediatorSubscriberBase
 
     public HousingNpcSceneEditorUi(ILogger<HousingNpcSceneEditorUi> logger, MareMediator mediator,
         HousingNpcScenarioService service, HousingScenarioManager scenarioManager, UiSharedService uiShared,
-        IDataManager dataManager, ITextureProvider textureProvider, PerformanceCollectorService performanceCollectorService)
+        IDataManager dataManager, ITextureProvider textureProvider, NpcPoseCatalog poseCatalog,
+        PerformanceCollectorService performanceCollectorService)
         : base(logger, mediator, Loc.Get("HousingNpc.Editor.Title") + "###HousingNpcSceneEditor", performanceCollectorService)
     {
         _service = service;
@@ -48,6 +50,7 @@ public sealed class HousingNpcSceneEditorUi : WindowMediatorSubscriberBase
         _uiShared = uiShared;
         _dataManager = dataManager;
         _textureProvider = textureProvider;
+        _poseCatalog = poseCatalog;
         SizeConstraints = new WindowSizeConstraints
         {
             MinimumSize = new Vector2(460, 360),
@@ -600,12 +603,76 @@ public sealed class HousingNpcSceneEditorUi : WindowMediatorSubscriberBase
             }
         }
 
-        // Pas de réglage de variante de posture ici : écrire EmoteController.CPoseState ne suffit pas
-        // à la changer, même sur un acteur neuf et après le redraw — vérifié en jeu. Les variantes
-        // passent par l'override d'animation (action « Timeline »), qui est le mécanisme qu'emploie
-        // Brio et que NativeNpcSpawner.PlayTimeline implémente déjà.
+        ImGui.SameLine();
+        if (DrawPoseVariantCombo(entry)) dirty = true;
+
         return dirty;
     }
+
+    /// <summary>
+    /// Choix de la variante de posture (les poses que /changepose fait défiler). Écrire
+    /// <c>EmoteController.CPoseState</c> sur un acteur qu'on a créé ne la change pas — vérifié en
+    /// jeu : on passe par l'override d'animation, que <see cref="NpcPoseCatalog"/> résout.
+    /// </summary>
+    private bool DrawPoseVariantCombo(HousingNpcEntry entry)
+    {
+        var options = _poseCatalog.Options;
+        var current = _poseCatalog.Find(entry.PoseKey);
+        var label = current == null
+            ? Loc.Get("HousingNpc.Editor.PoseVariantDefault")
+            : PoseVariantLabel(current);
+
+        ImGui.SetNextItemWidth(220 * ImGuiHelpers.GlobalScale);
+        using var combo = ImRaii.Combo(Loc.Get("HousingNpc.Editor.PoseVariant") + "##posevar" + entry.Id, label);
+        UiSharedService.AttachToolTip(Loc.Get("HousingNpc.Editor.PoseVariantTip"));
+        if (!combo) return false;
+
+        bool changed = false;
+        if (ImGui.Selectable(Loc.Get("HousingNpc.Editor.PoseVariantDefault"), current == null) && current != null)
+        {
+            entry.PoseKey = string.Empty;
+            changed = true;
+        }
+
+        NpcPoseCatalog.PoseCategory? section = null;
+        foreach (var option in options)
+        {
+            if (section != option.Category)
+            {
+                ImGui.Separator();
+                ImGui.TextColored(ImGuiColors.DalamudGrey, PoseCategoryLabel(option.Category));
+                section = option.Category;
+            }
+
+            bool selected = string.Equals(entry.PoseKey, option.Key, StringComparison.Ordinal);
+            if (ImGui.Selectable(PoseNumberLabel(option) + "##" + option.Key, selected) && !selected)
+            {
+                entry.PoseKey = option.Key;
+                changed = true;
+            }
+        }
+
+        if (options.Count == 0)
+            ImGui.TextColored(ImGuiColors.DalamudGrey, Loc.Get("HousingNpc.Editor.PoseVariantEmpty"));
+
+        return changed;
+    }
+
+    private static string PoseNumberLabel(NpcPoseCatalog.PoseOption option)
+        => string.Format(CultureInfo.CurrentCulture, Loc.Get("HousingNpc.Editor.PoseVariantItem"), option.Number);
+
+    private static string PoseVariantLabel(NpcPoseCatalog.PoseOption option)
+        => PoseCategoryLabel(option.Category) + " — " + PoseNumberLabel(option);
+
+    private static string PoseCategoryLabel(NpcPoseCatalog.PoseCategory category) => category switch
+    {
+        NpcPoseCatalog.PoseCategory.Standing => Loc.Get("HousingNpc.Editor.PoseCatStanding"),
+        NpcPoseCatalog.PoseCategory.WeaponDrawn => Loc.Get("HousingNpc.Editor.PoseCatWeaponDrawn"),
+        NpcPoseCatalog.PoseCategory.Chair => Loc.Get("HousingNpc.Editor.PoseCatChair"),
+        NpcPoseCatalog.PoseCategory.GroundSit => Loc.Get("HousingNpc.Editor.PoseCatGroundSit"),
+        NpcPoseCatalog.PoseCategory.Lying => Loc.Get("HousingNpc.Editor.PoseCatLying"),
+        _ => "?",
+    };
 
     private bool DrawActions(string sceneId, HousingNpcEntry entry)
     {

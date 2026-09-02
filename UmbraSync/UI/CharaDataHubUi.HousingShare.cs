@@ -933,7 +933,7 @@ public sealed partial class CharaDataHubUi
         }
     }
 
-    private void DrawHousingScenarioDelegatedTable(HousingScenarioManager scenarioManager)
+    private static void DrawHousingScenarioDelegatedTable(HousingScenarioManager scenarioManager)
     {
         if (scenarioManager.DelegatedToMe.Count == 0)
         {

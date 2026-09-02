@@ -773,6 +773,7 @@ public sealed class HousingScenarioManager : IDisposable, IMediatorSubscriber
                 Z = entry.Z,
                 Rotation = entry.Rotation,
                 FacePlayer = entry.FacePlayer,
+                PoseKey = entry.PoseKey,
                 Actions = entry.Actions,
                 Looping = entry.Looping,
                 LoopDelay = entry.LoopDelay,
