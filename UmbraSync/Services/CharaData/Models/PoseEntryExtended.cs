@@ -42,32 +42,7 @@ public sealed record PoseEntryExtended : PoseEntry
                 .ConfigureAwait(false);
             newPose.Map = dalamudUtilService.MapData.Value[worldData.LocationInfo.MapId].Map;
 
-            StringBuilder sb = new();
-            sb.AppendLine("Server: " + dalamudUtilService.WorldData.Value[(ushort)worldData.LocationInfo.ServerId]);
-            sb.AppendLine("Territory: " + dalamudUtilService.TerritoryData.Value[worldData.LocationInfo.TerritoryId]);
-            sb.AppendLine("Map: " + dalamudUtilService.MapData.Value[worldData.LocationInfo.MapId].MapName);
-
-            if (worldData.LocationInfo.WardId != 0)
-                sb.AppendLine("Ward #: " + worldData.LocationInfo.WardId);
-            if (worldData.LocationInfo.DivisionId != 0)
-            {
-                sb.AppendLine("Subdivision: " + worldData.LocationInfo.DivisionId switch
-                {
-                    1 => "No",
-                    2 => "Yes",
-                    _ => "-"
-                });
-            }
-            if (worldData.LocationInfo.HouseId != 0)
-            {
-                sb.AppendLine("House #: " + (worldData.LocationInfo.HouseId == 100 ? "Apartments" : worldData.LocationInfo.HouseId.ToString()));
-            }
-            if (worldData.LocationInfo.RoomId != 0)
-            {
-                sb.AppendLine("Apartment #: " + worldData.LocationInfo.RoomId);
-            }
-            sb.AppendLine("Coordinates: X: " + newPose.MapCoordinates.X.ToString("0.0", CultureInfo.InvariantCulture) + ", Y: " + newPose.MapCoordinates.Y.ToString("0.0", CultureInfo.InvariantCulture));
-            newPose.WorldDataDescriptor = sb.ToString();
+            newPose.WorldDataDescriptor = WorldLocationDescription.Build(worldData, newPose.MapCoordinates, dalamudUtilService);
         }
 
         return newPose;

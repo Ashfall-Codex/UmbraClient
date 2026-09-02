@@ -151,8 +151,8 @@ public class ChatProximityBlendService : DisposableMediatorSubscriberBase
 
         // Find sender in object table to calculate distance.
         // Use PlayerPayload (survives ChatNameReplacementService RP name swap)
-        var senderName = ExtractPlayerName(chatMessage.Sender);
-        var senderObj = FindPlayerByName(senderName);
+        var senderName = ChatSenderLookup.ExtractPlayerName(chatMessage.Sender);
+        var senderObj = ChatSenderLookup.FindPlayerByName(_objectTable, senderName);
         if (senderObj == null)
             return;
 
@@ -208,34 +208,6 @@ public class ChatProximityBlendService : DisposableMediatorSubscriberBase
 
         if (modified)
             chatMessage.Message = new SeString(newPayloads);
-    }
-
-    private static string ExtractPlayerName(SeString sender)
-    {
-
-        foreach (var payload in sender.Payloads)
-        {
-            if (payload is PlayerPayload playerPayload && !string.IsNullOrEmpty(playerPayload.PlayerName))
-                return playerPayload.PlayerName;
-        }
-        foreach (var payload in sender.Payloads)
-        {
-            if (payload is TextPayload textPayload && !string.IsNullOrWhiteSpace(textPayload.Text))
-                return textPayload.Text.Trim();
-        }
-
-        return sender.TextValue;
-    }
-
-    private Dalamud.Game.ClientState.Objects.Types.IGameObject? FindPlayerByName(string name)
-    {
-        foreach (var obj in _objectTable)
-        {
-            if (obj.ObjectKind == ObjectKind.Pc
-                && string.Equals(obj.Name.TextValue, name, StringComparison.OrdinalIgnoreCase))
-                return obj;
-        }
-        return null;
     }
 
     private float GetChannelRange(XivChatType type)

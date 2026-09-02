@@ -254,27 +254,7 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
 
             ImGui.Image(handle, size);
 
-            if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
-            {
-                ImGui.BeginTooltip();
-                ImGui.PushTextWrapPos(ImGui.GetFontSize() * 20f);
-                var title = moodle.CleanTitle;
-                if (!string.IsNullOrEmpty(title))
-                {
-                    var typeColor = moodle.Type switch
-                    {
-                        0 => new Vector4(0.4f, 0.9f, 0.4f, 1f),
-                        1 => new Vector4(0.9f, 0.4f, 0.4f, 1f),
-                        _ => new Vector4(0.5f, 0.6f, 1f, 1f),
-                    };
-                    ImGui.TextColored(typeColor, title);
-                }
-                var desc = moodle.CleanDescription;
-                if (!string.IsNullOrEmpty(desc))
-                    ImGui.TextUnformatted(desc);
-                ImGui.PopTextWrapPos();
-                ImGui.EndTooltip();
-            }
+            DrawMoodleTooltip(moodle);
         }
     }
 
@@ -421,6 +401,33 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
         if (span.Length != 6 || !uint.TryParse(span, System.Globalization.NumberStyles.HexNumber, null, out var rgb))
             return 0;
         return rgb;
+    }
+
+    public static void DrawMoodleTooltip(Models.MoodleStatusInfo moodle)
+    {
+        if (!ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled)) return;
+
+        ImGui.BeginTooltip();
+        ImGui.PushTextWrapPos(ImGui.GetFontSize() * 20f);
+
+        var title = moodle.CleanTitle;
+        if (!string.IsNullOrEmpty(title))
+        {
+            var typeColor = moodle.Type switch
+            {
+                0 => new Vector4(0.4f, 0.9f, 0.4f, 1f),
+                1 => new Vector4(0.9f, 0.4f, 0.4f, 1f),
+                _ => new Vector4(0.5f, 0.6f, 1f, 1f),
+            };
+            ImGui.TextColored(typeColor, title);
+        }
+
+        var desc = moodle.CleanDescription;
+        if (!string.IsNullOrEmpty(desc))
+            ImGui.TextUnformatted(desc);
+
+        ImGui.PopTextWrapPos();
+        ImGui.EndTooltip();
     }
 
     public static bool CtrlPressed() => (GetKeyState(0xA2) & 0x8000) != 0 || (GetKeyState(0xA3) & 0x8000) != 0;

@@ -358,27 +358,7 @@ public sealed partial class MoodlesEditor
             if (i < items.Count - 1)
                 ImGui.SetCursorPos(new Vector2(groupPos.X + size.X + spacing, groupPos.Y));
 
-            if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
-            {
-                ImGui.BeginTooltip();
-                ImGui.PushTextWrapPos(ImGui.GetFontSize() * 20f);
-                var title = moodle.CleanTitle;
-                if (!string.IsNullOrEmpty(title))
-                {
-                    var typeColor = moodle.Type switch
-                    {
-                        0 => new Vector4(0.4f, 0.9f, 0.4f, 1f),
-                        1 => new Vector4(0.9f, 0.4f, 0.4f, 1f),
-                        _ => new Vector4(0.5f, 0.6f, 1f, 1f),
-                    };
-                    ImGui.TextColored(typeColor, title);
-                }
-                var desc = moodle.CleanDescription;
-                if (!string.IsNullOrEmpty(desc))
-                    ImGui.TextUnformatted(desc);
-                ImGui.PopTextWrapPos();
-                ImGui.EndTooltip();
-            }
+            UiSharedService.DrawMoodleTooltip(moodle);
         }
     }
 

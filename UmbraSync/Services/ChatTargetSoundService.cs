@@ -68,7 +68,7 @@ public class ChatTargetSoundService : DisposableMediatorSubscriberBase
         if (localPlayer == null)
             return;
 
-        var senderName = ExtractPlayerName(chatMessage.Sender);
+        var senderName = ChatSenderLookup.ExtractPlayerName(chatMessage.Sender);
         if (string.IsNullOrEmpty(senderName))
             return;
 
@@ -76,7 +76,7 @@ public class ChatTargetSoundService : DisposableMediatorSubscriberBase
         if (string.Equals(senderName, localPlayer.Name.TextValue, StringComparison.OrdinalIgnoreCase))
             return;
 
-        var senderObj = FindPlayerByName(senderName);
+        var senderObj = ChatSenderLookup.FindPlayerByName(_objectTable, senderName);
         if (senderObj == null)
             return;
 
@@ -144,32 +144,6 @@ public class ChatTargetSoundService : DisposableMediatorSubscriberBase
         {
             if (pair.PlayerCharacterId == entityId)
                 return pair;
-        }
-        return null;
-    }
-
-    private static string ExtractPlayerName(SeString sender)
-    {
-        foreach (var payload in sender.Payloads)
-        {
-            if (payload is PlayerPayload playerPayload && !string.IsNullOrEmpty(playerPayload.PlayerName))
-                return playerPayload.PlayerName;
-        }
-        foreach (var payload in sender.Payloads)
-        {
-            if (payload is TextPayload textPayload && !string.IsNullOrWhiteSpace(textPayload.Text))
-                return textPayload.Text.Trim();
-        }
-        return sender.TextValue;
-    }
-
-    private Dalamud.Game.ClientState.Objects.Types.IGameObject? FindPlayerByName(string name)
-    {
-        foreach (var obj in _objectTable)
-        {
-            if (obj.ObjectKind == ObjectKind.Pc
-                && string.Equals(obj.Name.TextValue, name, StringComparison.OrdinalIgnoreCase))
-                return obj;
         }
         return null;
     }
