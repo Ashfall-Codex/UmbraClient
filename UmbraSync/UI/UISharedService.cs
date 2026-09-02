@@ -476,6 +476,27 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
         ImGui.EndCombo();
     }
 
+    public static void DrawProgressBarLabels(ImDrawListPtr drawList, Vector2 barStart, Vector2 barEnd,
+        float barCenterY, string statusText, float percent)
+    {
+        var statusPos = new Vector2(barStart.X + 10f, barCenterY);
+        drawList.AddText(statusPos with { X = statusPos.X + 1, Y = statusPos.Y + 1 }, Color(0, 0, 0, 200), statusText);
+        drawList.AddText(statusPos, Color(255, 255, 255, 220), statusText);
+
+        var percentText = $"{(int)(percent * 100)}%";
+        var percentSize = ImGui.CalcTextSize(percentText);
+        var percentPos = new Vector2(barEnd.X - percentSize.X - 10f, barCenterY);
+        drawList.AddText(percentPos with { X = percentPos.X + 1, Y = percentPos.Y + 1 }, Color(0, 0, 0, 200), percentText);
+        drawList.AddText(percentPos, Color(255, 255, 255, 200), percentText);
+
+        if (percent < 1.0f - float.Epsilon) return;
+
+        var pulse = MathF.Sin((float)ImGui.GetTime() * 6.0f) * 0.5f + 0.5f;
+        var center = new Vector2((barStart.X + barEnd.X) / 2f, (barStart.Y + barEnd.Y) / 2f);
+        drawList.AddCircleFilled(center, 3f + pulse, Color(255, 245, 220, 170));
+        drawList.AddCircle(center, 5f + pulse * 2f, Color(200, 160, 255, 75), 48, 2f);
+    }
+
     public static bool CtrlPressed() => (GetKeyState(0xA2) & 0x8000) != 0 || (GetKeyState(0xA3) & 0x8000) != 0;
 
     public static bool TryConsumeUiTask<T>(ref Task<T>? task, ILogger? logger, out T? result)

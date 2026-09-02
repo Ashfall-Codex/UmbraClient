@@ -353,28 +353,7 @@ public class DownloadUi : WindowMediatorSubscriberBase
         var statusSize = ImGui.CalcTextSize(statusText);
         var barCenterY = barStart.Y + (barHeight - statusSize.Y) / 2f;
 
-        var statusPos = new Vector2(barStart.X + 10f, barCenterY);
-        drawList.AddText(statusPos with { X = statusPos.X + 1, Y = statusPos.Y + 1 },
-            UiSharedService.Color(0, 0, 0, 200), statusText);
-        drawList.AddText(statusPos,
-            UiSharedService.Color(255, 255, 255, 220), statusText);
-
-        var percentText = $"{(int)(percent * 100)}%";
-        var percentSize = ImGui.CalcTextSize(percentText);
-        var percentPos = new Vector2(barEnd.X - percentSize.X - 10f, barCenterY);
-        drawList.AddText(percentPos with { X = percentPos.X + 1, Y = percentPos.Y + 1 },
-            UiSharedService.Color(0, 0, 0, 200), percentText);
-        drawList.AddText(percentPos,
-            UiSharedService.Color(255, 255, 255, 200), percentText);
-
-        if (percent >= 1.0f - float.Epsilon)
-        {
-            var time = (float)ImGui.GetTime();
-            var center = new Vector2((barStart.X + barEnd.X) / 2f, (barStart.Y + barEnd.Y) / 2f);
-            var pulse = MathF.Sin(time * 6.0f) * 0.5f + 0.5f;
-            drawList.AddCircleFilled(center, 3f + pulse, UiSharedService.Color(255, 245, 220, 170));
-            drawList.AddCircle(center, 5f + pulse * 2f, UiSharedService.Color(200, 160, 255, 75), 48, 2f);
-        }
+        UiSharedService.DrawProgressBarLabels(drawList, barStart, barEnd, barCenterY, statusText, percent);
     }
 
     public override bool DrawConditions()

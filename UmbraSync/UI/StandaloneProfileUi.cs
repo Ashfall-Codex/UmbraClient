@@ -72,7 +72,24 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
 
         IsOpen = true;
     }
-    
+
+    private (string Text, Vector4 Color, bool IsOnline, bool IsSelf) ResolvePresence()
+    {
+        bool isSelf = string.Equals(Pair.UserData.UID, _apiController.UID, StringComparison.Ordinal);
+
+        bool isOnline = isSelf ? _apiController.IsConnected : Pair.IsVisible || Pair.IsOnline;
+        var color = isOnline ? ImGuiColors.HealerGreen : ImGuiColors.DalamudGrey;
+
+        if (isSelf)
+            return (isOnline ? Loc.Get("StandaloneProfile.Status.Online") : Loc.Get("StandaloneProfile.Status.Offline"), color, isOnline, true);
+
+        var text = Pair.IsVisible
+            ? Loc.Get("StandaloneProfile.Status.Visible")
+            : Pair.IsOnline ? Loc.Get("StandaloneProfile.Status.Online") : Loc.Get("StandaloneProfile.Status.Offline");
+
+        return (text, color, isOnline, false);
+    }
+
     private static void DrawPortrait(ImDrawListPtr drawList, IDalamudTextureWrap? texture, float portraitSize)
     {
         var portraitStart = ImGui.GetCursorScreenPos();
@@ -715,25 +732,7 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
 
             // Status
             ImGuiHelpers.ScaledDummy(2f);
-            bool isSelf = string.Equals(Pair.UserData.UID, _apiController.UID, StringComparison.Ordinal);
-            string statusText;
-            Vector4 statusColor;
-            bool isOnline;
-
-            if (isSelf)
-            {
-                isOnline = _apiController.IsConnected;
-                statusText = isOnline ? Loc.Get("StandaloneProfile.Status.Online") : Loc.Get("StandaloneProfile.Status.Offline");
-                statusColor = isOnline ? ImGuiColors.HealerGreen : ImGuiColors.DalamudGrey;
-            }
-            else
-            {
-                isOnline = Pair.IsVisible || Pair.IsOnline;
-                statusText = Pair.IsVisible
-                    ? Loc.Get("StandaloneProfile.Status.Visible")
-                    : (Pair.IsOnline ? Loc.Get("StandaloneProfile.Status.Online") : Loc.Get("StandaloneProfile.Status.Offline"));
-                statusColor = isOnline ? ImGuiColors.HealerGreen : ImGuiColors.DalamudGrey;
-            }
+            var (statusText, statusColor, isOnline, isSelf) = ResolvePresence();
 
             // Status pill (online / offline / visible) + RP level pill on the same row
             var statusIcon = !isOnline ? FontAwesomeIcon.CircleNotch
@@ -853,25 +852,7 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
             using (_uiSharedService.UidFont.Push())
                 UiSharedService.ColorText(Pair.UserData.AliasOrUID, accent);
 
-            bool isSelf = string.Equals(Pair.UserData.UID, _apiController.UID, StringComparison.Ordinal);
-            string statusText;
-            Vector4 statusColor;
-            bool isOnline;
-
-            if (isSelf)
-            {
-                isOnline = _apiController.IsConnected;
-                statusText = isOnline ? Loc.Get("StandaloneProfile.Status.Online") : Loc.Get("StandaloneProfile.Status.Offline");
-                statusColor = isOnline ? ImGuiColors.HealerGreen : ImGuiColors.DalamudGrey;
-            }
-            else
-            {
-                isOnline = Pair.IsVisible || Pair.IsOnline;
-                statusText = Pair.IsVisible
-                    ? Loc.Get("StandaloneProfile.Status.Visible")
-                    : (Pair.IsOnline ? Loc.Get("StandaloneProfile.Status.Online") : Loc.Get("StandaloneProfile.Status.Offline"));
-                statusColor = isOnline ? ImGuiColors.HealerGreen : ImGuiColors.DalamudGrey;
-            }
+            var (statusText, statusColor, isOnline, isSelf) = ResolvePresence();
 
             ImGuiHelpers.ScaledDummy(2f);
             var statusIconAlt = !isOnline ? FontAwesomeIcon.CircleNotch

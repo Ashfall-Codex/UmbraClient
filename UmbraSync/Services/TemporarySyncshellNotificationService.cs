@@ -46,24 +46,9 @@ public sealed class TemporarySyncshellNotificationService : MediatorSubscriberBa
             return;
         }
 
-        try
-        {
-            await _loopCts.CancelAsync().ConfigureAwait(false);
-            if (_loopTask != null)
-            {
-                await _loopTask.ConfigureAwait(false);
-            }
-        }
-        catch (OperationCanceledException)
-        {
-            // loop already cancelled
-        }
-        finally
-        {
-            _loopTask = null;
-            _loopCts.Dispose();
-            _loopCts = null;
-        }
+        await BackgroundLoop.StopAsync(_loopCts, _loopTask).ConfigureAwait(false);
+        _loopTask = null;
+        _loopCts = null;
     }
 
     private async Task MonitorLoopAsync(CancellationToken ct)

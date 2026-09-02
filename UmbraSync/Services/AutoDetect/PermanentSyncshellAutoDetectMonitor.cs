@@ -41,24 +41,9 @@ public sealed class PermanentSyncshellAutoDetectMonitor : MediatorSubscriberBase
     {
         Mediator.UnsubscribeAll(this);
         if (_loopCts == null) return;
-        try
-        {
-            await _loopCts.CancelAsync().ConfigureAwait(false);
-            if (_loopTask != null)
-            {
-                await _loopTask.ConfigureAwait(false);
-            }
-        }
-        catch (OperationCanceledException)
-        {
-            // ignore
-        }
-        finally
-        {
-            _loopTask = null;
-            _loopCts.Dispose();
-            _loopCts = null;
-        }
+        await BackgroundLoop.StopAsync(_loopCts, _loopTask).ConfigureAwait(false);
+        _loopTask = null;
+        _loopCts = null;
     }
 
     private async Task MonitorLoopAsync(CancellationToken ct)

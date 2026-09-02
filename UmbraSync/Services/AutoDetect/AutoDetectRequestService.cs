@@ -101,22 +101,7 @@ public class AutoDetectRequestService : IMediatorSubscriber
         var ok = await _client.SendRequestAsync(endpoint, requestToken, requestUid, displayName, ct).ConfigureAwait(false);
         if (ok)
         {
-            if (!string.IsNullOrEmpty(targetKey))
-            {
-                using (_syncRoot.EnterScope())
-                {
-                    _activeCooldowns[targetKey] = DateTime.UtcNow;
-                    if (_refusalTrackers.TryGetValue(targetKey, out var tracker))
-                    {
-                        tracker.Count = 0;
-                        tracker.LockUntil = null;
-                        if (tracker.Count == 0 && tracker.LockUntil == null)
-                        {
-                            _refusalTrackers.Remove(targetKey);
-                        }
-                    }
-                }
-            }
+            RecordRequestSent(targetKey);
             _mediator.Publish(new NotificationMessage(Loc.Get("Notification.Nearby.Sent.Title"), Loc.Get("Notification.Nearby.Sent.Body"), NotificationType.Info));
             var pendingKey = EnsureTargetKey(targetKey);
             var label = !string.IsNullOrWhiteSpace(targetDisplayName)
@@ -184,22 +169,7 @@ public class AutoDetectRequestService : IMediatorSubscriber
         {
             await _apiController.Value.UserAddPair(new UserDto(new UserData(uid))).ConfigureAwait(false);
 
-            if (!string.IsNullOrEmpty(targetKey))
-            {
-                using (_syncRoot.EnterScope())
-                {
-                    _activeCooldowns[targetKey] = DateTime.UtcNow;
-                    if (_refusalTrackers.TryGetValue(targetKey, out var tracker))
-                    {
-                        tracker.Count = 0;
-                        tracker.LockUntil = null;
-                        if (tracker.Count == 0 && tracker.LockUntil == null)
-                        {
-                            _refusalTrackers.Remove(targetKey);
-                        }
-                    }
-                }
-            }
+            RecordRequestSent(targetKey);
 
             _mediator.Publish(new NotificationMessage(Loc.Get("Notification.Nearby.Sent.Title"), Loc.Get("Notification.Nearby.Sent.Body"), NotificationType.Info));
             var pendingKey = EnsureTargetKey(targetKey);
@@ -223,6 +193,21 @@ public class AutoDetectRequestService : IMediatorSubscriber
     /// Comptabilise un refus pour cette cible et pose le verrou au troisième d'affilée. Un verrou
     /// arrivé à échéance remet le compteur à zéro : la série doit être récente pour compter.
     /// </summary>
+    /// <summary>
+    /// Marque une requête comme partie : le délai d'attente repart, et la série de refus accumulés
+    /// est oubliée puisque la cible vient d'accepter d'être resollicitée.
+    /// </summary>
+    private void RecordRequestSent(string? targetKey)
+    {
+        if (string.IsNullOrEmpty(targetKey)) return;
+
+        using (_syncRoot.EnterScope())
+        {
+            _activeCooldowns[targetKey] = DateTime.UtcNow;
+            _refusalTrackers.Remove(targetKey);
+        }
+    }
+
     private void RecordRefusal(string? targetKey)
     {
         if (string.IsNullOrEmpty(targetKey)) return;
