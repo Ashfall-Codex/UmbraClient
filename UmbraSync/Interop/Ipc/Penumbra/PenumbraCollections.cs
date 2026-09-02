@@ -77,9 +77,8 @@ public sealed class PenumbraCollections : IDisposable
         var (collectionId, collectionName) = await _core.DalamudUtil.RunOnFrameworkThread(() =>
         {
             Guid collId;
-            var random = new Random();
-            var collName = "UmbraSync_" + uid + "_" + random.Next().ToString();
-            PenumbraEnum.PenumbraApiEc penEC = _penumbraCreateNamedTemporaryCollection.Invoke(uid + random.Next().ToString(), collName, out collId);
+            var collName = "UmbraSync_" + uid + "_" + Random.Shared.Next().ToString();
+            PenumbraEnum.PenumbraApiEc penEC = _penumbraCreateNamedTemporaryCollection.Invoke(uid + Random.Shared.Next().ToString(), collName, out collId);
             logger.LogTrace("Creating Temp Collection {collName}, GUID: {collId}", collName, collId);
             if (penEC != PenumbraEnum.PenumbraApiEc.Success)
             {

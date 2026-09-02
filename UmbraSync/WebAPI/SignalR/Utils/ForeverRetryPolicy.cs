@@ -19,7 +19,7 @@ public class ForeverRetryPolicy : IRetryPolicy
 
     public TimeSpan? NextRetryDelay(RetryContext retryContext)
     {
-        TimeSpan timeToWait = TimeSpan.FromSeconds(new Random().Next(10, 20));
+        TimeSpan timeToWait = TimeSpan.FromSeconds(Random.Shared.Next(10, 20));
         if (retryContext.PreviousRetryCount == 0)
         {
             _sentDisconnected = false;

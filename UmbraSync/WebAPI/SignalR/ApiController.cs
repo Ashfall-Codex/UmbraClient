@@ -265,7 +265,7 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
 
                 ServerState = ServerState.Reconnecting;
                 Logger.LogInformation("Failed to establish connection, retrying");
-                await Task.Delay(TimeSpan.FromSeconds(new Random().Next(5, 20)), token).ConfigureAwait(false);
+                await Task.Delay(TimeSpan.FromSeconds(Random.Shared.Next(5, 20)), token).ConfigureAwait(false);
             }
             catch (InvalidOperationException ex)
             {
@@ -278,7 +278,7 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
                 Logger.LogWarning(ex, "Exception on Connection");
 
                 Logger.LogInformation("Failed to establish connection, retrying");
-                await Task.Delay(TimeSpan.FromSeconds(new Random().Next(5, 20)), token).ConfigureAwait(false);
+                await Task.Delay(TimeSpan.FromSeconds(Random.Shared.Next(5, 20)), token).ConfigureAwait(false);
             }
         }
     }
