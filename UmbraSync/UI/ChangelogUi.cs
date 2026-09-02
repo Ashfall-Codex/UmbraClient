@@ -342,6 +342,20 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
     {
         return new List<ChangelogEntry>
         {
+            new(new Version(3, 0, 2, 9002), "3.0.2.9002", new List<ChangelogLine>
+            {
+                new("Nouveauté : Un menu « Variante » à côté de la pose de chaque PNJ. Les postures y sont rangées par catégorie : debout, arme dégainée, chaise, assis au sol, allongé. La numérotation suit celle de /changepose."),
+                new("Amélioration : La variante de pose est reprise après chaque action et transmise avec les scènes partagées : vos invités voient la même chose que vous."),
+                new("Correction : Republier une scène pouvait être refusé indéfiniment, avec un message indiquant que quelqu'un d'autre y travaillait. Si personne d'autre n'a le droit de modifier la scène, la republication se recale seule ; sinon un bouton « Publier quand même » permet de trancher."),
+                new("Correction : Republier votre propre scénario depuis l'éditeur retirait tous vos invités, toutes vos syncshells autorisées et tous vos éditeurs délégués, et vidait la description du partage. Pensez à vérifier les listes d'invités de vos scènes publiées."),
+                new("Correction : Quand le propriétaire vous retirait l'accès à une scène qu'il vous avait confiée, votre copie de travail restait dans votre éditeur. Elle est maintenant supprimée, avec une notification."),
+                new("Correction : Rompre définitivement une paire faisait planter l'affichage de la liste jusqu'au rechargement du plugin."),
+                new("Correction : Douze boutons de l'administration de syncshell bloquaient tout le jeu le temps de la réponse du serveur : invitations, liste des bannis, création, adhésion, mot de passe, alias, capacité."),
+                new("Correction : Le bouton « Vider le stockage local » ne réagissait qu'avec CTRL maintenu, ce qui n'était indiqué nulle part, ne donnait aucun retour, laissait le sous-dossier subst derrière lui et s'interrompait sans prévenir sur un fichier verrouillé par le jeu."),
+                new("Autre : Réduction de la duplication de code sur l'ensemble du plugin, sans changement de comportement."),
+                new("Mise à jour : APIs Penumbra (5.15.1) et Glamourer (2.8.2), pour rester compatible avec les dernières versions de ces plugins."),
+                new("Mise à jour : Dépendances internes du plugin : MessagePack 3.1.8, protocole SignalR 10.0.11 et analyseurs de code."),
+            }),
             new(new Version(3, 0, 1, 8015), "3.0.1.8015", new List<ChangelogLine>
             {
                 new("Nouveauté : L'apparence d'un PNJ peut être changée après coup, sans le refaire. Sa position, son orientation et sa séquence d'actions sont conservées."),

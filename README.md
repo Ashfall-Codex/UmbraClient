@@ -36,7 +36,7 @@ API <code>v5000</code> &middot; C# 13 / .NET 10 &middot; Dalamud SDK 15.0
 - **Transfert intelligent** : envoi et réception rapides des mods, reprise automatique en cas de coupure, évite les doublons et vérifie l'intégrité des fichiers
 - **Distribution CDN** : téléchargement prioritaire depuis le CDN avec bascule automatique vers le serveur principal en cas d'indisponibilité
 - **Compression BC7** : les textures synchronisées sont converties côté serveur en BC7 et distribuées sous forme d'alternates, ce qui réduit la mémoire vidéo et le volume téléchargé. Trois modes au choix : qualité source, compression des nouveaux téléchargements, ou tout compressé
-- **Cache local** : gestion automatique du cache de mods avec compaction, nettoyage et monitoring de taille
+- **Cache local** : gestion automatique du cache de mods avec compaction, nettoyage et monitoring de taille. Vidage manuel possible depuis les paramètres, avec compte rendu du nombre de fichiers supprimés et de l'espace libéré
 
 ### AutoDetect
 
@@ -82,6 +82,9 @@ API <code>v5000</code> &middot; C# 13 / .NET 10 &middot; Dalamud SDK 15.0
 - **Scénarios PNJ** : partagez les PNJ personnalisés de votre logement avec vos paires. Ils apparaissent automatiquement quand un visiteur autorisé entre, et disparaissent à la sortie. Permissions par paire / syncshell et gestion des conflits avec vos scénarios locaux
 - **Spawn natif** : les PNJ sont créés directement par le plugin, sans dépendance à un plugin tiers. Apparence issue d'un MCDF ou d'un design Glamourer, avec masquage optionnel des armes, du casque et de la visière
 - **Éditeur de scènes** : placement et rotation des PNJ en temps réel via un gizmo 3D, positions persistantes et regard orientable
+- **Poses de PNJ** : choix de la variante de posture par PNJ (debout, arme dégainée, chaise, assis au sol, allongé), résolue depuis la feuille `ActionTimeline` du jeu et réappliquée après chaque action. `/changepose` n'agissant que sur votre propre personnage, c'est ce sélecteur qui en tient lieu
+- **Édition déléguée** : délégation de la modification d'une scène publiée à d'autres joueurs, sans leur donner le droit de la supprimer, de la déplacer ni d'en changer les accès. Le retrait d'une délégation supprime la copie de travail chez l'éditeur concerné
+- **Republication** : contrôle de concurrence par révision de contenu, recalage automatique quand vous êtes seul éditeur, et publication forcée assumée en cas de conflit réel avec un éditeur délégué
 - **Détection de propriété** : `HousingOwnershipService` mémorise les logements dont vous êtes réellement propriétaire pour la session, ce qui conditionne les actions de partage
 - **Mod housing isolé** : le mod est construit à part puis installé d'un bloc, avec nettoyage des résidus et réutilisation des fichiers déjà téléchargés
 - **Chiffrement** : données protégées par AES-GCM en transit
@@ -110,7 +113,7 @@ API <code>v5000</code> &middot; C# 13 / .NET 10 &middot; Dalamud SDK 15.0
 - **Data Analysis** : analyse détaillée des fichiers de votre personnage (taille, triangles, résolution, type)
 - **Player Analysis** : analyse par paire de la latence de synchronisation et des fichiers de mods
 - **Event Viewer** : journal en temps réel des événements du plugin avec filtrage
-- **Syncshell Admin** : interface d'administration dédiée aux propriétaires et modérateurs de groupes
+- **Syncshell Admin** : interface d'administration dédiée aux propriétaires et modérateurs de groupes. Les actions serveur (invitations, bannissements, mot de passe, alias, capacité) s'exécutent sans bloquer la boucle de rendu du jeu
 - **Widget de téléchargement** : suivi en temps réel des transferts upload/download
 - **Widget Server Bar** : indicateur de statut dans la barre de serveur FFXIV avec styles personnalisables
 - **Overlay d'écriture** : indicateur visuel sur les nameplates des joueurs en train d'écrire
@@ -223,8 +226,8 @@ La commande principale est `/usync`. Un alias `/umbrasync` est également enregi
 | Package | Version |
 |---|---|
 | `Microsoft.AspNetCore.SignalR.Client` | 10.0.6 |
-| `Microsoft.AspNetCore.SignalR.Protocols.MessagePack` | 10.0.6 |
-| `MessagePack` | 2.5.187 |
+| `Microsoft.AspNetCore.SignalR.Protocols.MessagePack` | 10.0.11 |
+| `MessagePack` | 3.1.8 |
 | `Microsoft.Extensions.Hosting` | 10.0.6 |
 | `System.IdentityModel.Tokens.Jwt` | 8.16.0 |
 | `K4os.Compression.LZ4.Streams` | 1.3.8 |
@@ -232,12 +235,14 @@ La commande principale est `/usync`. Un alias `/umbrasync` est également enregi
 | `Downloader` | 5.1.0 |
 | `Chaos.NaCl.Standard` | 1.0.0 |
 | `Brio.API` | 3.0.1 |
-| `Penumbra.Api` | 5.13.1 |
-| `Glamourer.Api` | 2.8.0 |
+| `Penumbra.Api` | 5.15.1 |
+| `Glamourer.Api` | 2.8.2 |
 | `Dalamud.NET.Sdk` | 15.0.0 |
 | `DalamudPackager` | 15.0.0 |
 
-Analyseurs statiques appliqués à la compilation : `Meziantou.Analyzer` 3.0.25 et `SonarAnalyzer.CSharp` 10.21.0.
+Analyseurs statiques appliqués à la compilation : `Meziantou.Analyzer` 3.0.200 et `SonarAnalyzer.CSharp` 10.21.0.
+
+> Les versions de `MessagePack` et des paquets SignalR doivent rester identiques côté serveur (UmbraServer). Un désalignement provoque des erreurs de désérialisation à l'exécution.
 
 ### Submodules git
 
@@ -272,7 +277,7 @@ UmbraSync/
 │   ├── GameModel/          # Interop modèles de jeu
 │   └── ChatTwo/            # Compatibilité ChatTwo
 ├── Localization/           # Fichiers .resx (EN neutre / FR)
-├── MareConfiguration/      # 14 fichiers de configuration versionnés + migrations
+├── MareConfiguration/      # 15 fichiers de configuration versionnés + migrations
 ├── Models/                 # Modèles de données (MoodleStatusInfo, etc.)
 ├── PlayerData/             # Gestion des paires et données de synchronisation
 │   ├── Pairs/              # PairManager, Pair, PairAnalyzer
@@ -292,7 +297,7 @@ UmbraSync/
 │   ├── Notification/       # Système de notifications
 │   ├── Rendering/          # PictomancyService
 │   └── ServerConfiguration/ # Configuration serveur
-├── UI/                     # 38 fenêtres et vues ImGui
+├── UI/                     # 39 fenêtres et vues ImGui
 │   ├── Components/         # Composants réutilisables (DrawPairBase, GroupPanel, BbCodeRenderer/Toolbar, HonorificEditor, MoodlesEditor, ChatIconPicker)
 │   │   └── Popup/          # Handlers de popups (ban, report, slot)
 │   ├── Handlers/           # Handlers UI (TagHandler, UidDisplayHandler)
@@ -310,7 +315,7 @@ UmbraSync/
 UmbraAPI/
 └── UmbraSyncAPI/
     ├── SignalR/            # IMareHub (121 méthodes), IMareHubClient
-    ├── Dto/                # 84 DTOs (User, Group, CharaData, Files, Housing, Establishment, WildRp, Rgpd, etc.)
+    ├── Dto/                # 85 DTOs (User, Group, CharaData, Files, Housing, Establishment, WildRp, Rgpd, etc.)
     ├── Data/               # Enums et modèles de données
     └── Routes/             # Définitions de routes API
 ```
