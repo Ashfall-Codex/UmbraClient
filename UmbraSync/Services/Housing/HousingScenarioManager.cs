@@ -84,12 +84,14 @@ public sealed class HousingScenarioManager : IDisposable, IMediatorSubscriber
     public bool DelegationQuerySupported { get; private set; }
     public bool IsBusy => _currentTask is { IsCompleted: false };
     public string? LastError { get; private set; }
+    public Guid? ConflictShareId { get; private set; }
     public string? LastSuccess { get; private set; }
     public bool IsApplied { get; private set; }
     public Guid? AppliedShareId { get; private set; }
     public string? AppliedShareOwnerUid { get; private set; }
     public Task PublishAsync(LocationInfo location, HousingNpcScenario scene, string description,
-        List<string> allowedIndividuals, List<string> allowedSyncshells, List<string>? allowedEditors = null)
+        List<string> allowedIndividuals, List<string> allowedSyncshells, List<string>? allowedEditors = null,
+        bool overwriteRemote = false)
     {
         return RunOperation(async () =>
         {
@@ -100,7 +102,8 @@ public sealed class HousingScenarioManager : IDisposable, IMediatorSubscriber
                 && (_ownShares.Any(s => s.Id == linked) || _editableSharesHere.Any(s => s.Id == linked)))
             {
                 existingShareId = linked;
-                baseRevision = scene.LinkedShareRevision;
+                // Sans révision de référence, le serveur ne vérifie rien : c'est l'écrasement assumé.
+                baseRevision = overwriteRemote ? null : scene.LinkedShareRevision;
             }
 
             await PublishInternalAsync(location, scene, description, allowedIndividuals, allowedSyncshells,
@@ -110,7 +113,8 @@ public sealed class HousingScenarioManager : IDisposable, IMediatorSubscriber
 
     private async Task PublishInternalAsync(LocationInfo location, HousingNpcScenario scene, string description,
         List<string> allowedIndividuals, List<string> allowedSyncshells, List<string>? allowedEditors = null,
-        Guid? existingShareId = null, int? baseContentRevision = null, HousingNpcScenario? workingCopy = null)
+        Guid? existingShareId = null, int? baseContentRevision = null, HousingNpcScenario? workingCopy = null,
+        bool allowRevisionRecovery = true)
     {
         if (scene.Entries.Count == 0)
         {
@@ -176,8 +180,28 @@ public sealed class HousingScenarioManager : IDisposable, IMediatorSubscriber
 
         if (result?.Status == HousingScenarioUploadStatus.Conflict)
         {
+            _logger.LogWarning("Republication du scénario {ShareId} refusée : révision locale {Local}, révision serveur {Remote}",
+                shareId, baseContentRevision, result.ContentRevision);
+            
+            await InternalRefreshAsync().ConfigureAwait(false);
+
+            if (allowRevisionRecovery && workingCopy != null && IsSoleEditorOf(shareId))
+            {
+
+                _logger.LogInformation("Aucun éditeur tiers sur {ShareId}, recalage sur la révision {Remote} et nouvelle tentative",
+                    shareId, result.ContentRevision);
+
+                workingCopy.LinkedShareRevision = result.ContentRevision;
+                _npcService.PersistScenes();
+
+                await PublishInternalAsync(location, scene, description, allowedIndividuals, allowedSyncshells,
+                    allowedEditors, shareId, result.ContentRevision, workingCopy,
+                    allowRevisionRecovery: false).ConfigureAwait(false);
+                return;
+            }
+
             LastError = Localization.Loc.Get("HousingScenario.Error.Conflict");
-            _logger.LogWarning("Republication du scénario {ShareId} refusée : la scène a changé entre-temps", shareId);
+            ConflictShareId = shareId;
             return;
         }
 
@@ -630,6 +654,16 @@ public sealed class HousingScenarioManager : IDisposable, IMediatorSubscriber
         if (knownChanged) _configService.Save();
     }
 
+    /// <summary>
+    /// Vrai quand l'appelant est le seul à pouvoir publier ce partage : il en est propriétaire et
+    /// n'a délégué l'édition à personne. Un conflit de version n'a alors aucun tiers pour cause.
+    /// </summary>
+    private bool IsSoleEditorOf(Guid shareId)
+    {
+        var share = _ownShares.FirstOrDefault(s => s.Id == shareId);
+        return share is { IsOwner: true } && share.AllowedEditors.Count == 0;
+    }
+
     private void NotifyRevoked(string title)
     {
         var what = string.IsNullOrWhiteSpace(title)
@@ -710,7 +744,7 @@ public sealed class HousingScenarioManager : IDisposable, IMediatorSubscriber
         });
     }
     
-    public Task RepublishEditedSceneAsync(HousingNpcScenario scene)
+    public Task RepublishEditedSceneAsync(HousingNpcScenario scene, bool overwriteRemote = false)
     {
         return RunOperation(async () =>
         {
@@ -730,10 +764,25 @@ public sealed class HousingScenarioManager : IDisposable, IMediatorSubscriber
                 DivisionId = scene.DivisionId,
                 RoomId = scene.RoomId,
             };
-            
-            await PublishInternalAsync(location, scene, entry?.Description ?? string.Empty,
-                new List<string>(), new List<string>(), null, shareId,
-                scene.LinkedShareRevision, scene).ConfigureAwait(false);
+
+            // Le serveur remplace les autorisations à chaque publication du propriétaire. Les
+            // réémettre telles qu'il les connaît : republier depuis l'éditeur retirait sinon tous
+            // les invités et tous les éditeurs délégués du partage, silencieusement.
+            var owned = _ownShares.FirstOrDefault(s => s.Id == shareId);
+            if (owned == null && entry == null)
+            {
+                await InternalRefreshAsync().ConfigureAwait(false);
+                owned = _ownShares.FirstOrDefault(s => s.Id == shareId);
+            }
+
+            var description = entry?.Description ?? owned?.Description ?? string.Empty;
+            var individuals = owned?.AllowedIndividuals.ToList() ?? new List<string>();
+            var syncshells = owned?.AllowedSyncshells.ToList() ?? new List<string>();
+            var editors = owned?.AllowedEditors.ToList();
+
+            await PublishInternalAsync(location, scene, description,
+                individuals, syncshells, editors, shareId,
+                overwriteRemote ? null : scene.LinkedShareRevision, scene).ConfigureAwait(false);
         });
     }
 
@@ -760,6 +809,7 @@ public sealed class HousingScenarioManager : IDisposable, IMediatorSubscriber
         {
             LastError = null;
             LastSuccess = null;
+            ConflictShareId = null;
             _currentTask = action();
             await _currentTask.ConfigureAwait(false);
         }

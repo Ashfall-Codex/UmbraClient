@@ -6492,6 +6492,12 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
   <data name="HousingNpc.Editor.PoseCatLying" xml:space="preserve">
     <value>Allongé</value>
   </data>
+  <data name="HousingNpc.Editor.ForceRepublish" xml:space="preserve">
+    <value>Publier quand même</value>
+  </data>
+  <data name="HousingNpc.Editor.ForceRepublishTip" xml:space="preserve">
+    <value>Écrase la version en ligne par la vôtre, en abandonnant ce que l'autre éditeur a publié. Maintenez CTRL pour confirmer.</value>
+  </data>
   <data name="HousingNpc.Editor.FacePlayer" xml:space="preserve">
     <value>Regarder le joueur</value>
   </data>
@@ -6742,7 +6748,7 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
     <value>Personne d'autre ne peut modifier cette scène.</value>
   </data>
   <data name="HousingScenario.Error.Conflict" xml:space="preserve">
-    <value>Quelqu'un d'autre a modifié cette scène pendant que vous travailliez dessus. Vos changements n'ont pas été envoyés : récupérez la dernière version, puis refaites-les.</value>
+    <value>Quelqu'un d'autre a modifié cette scène pendant que vous travailliez dessus. Vos changements n'ont pas été envoyés : récupérez la dernière version pour repartir de là, ou publiez quand même pour imposer la vôtre.</value>
   </data>
   <data name="HousingScenario.Error.Forbidden" xml:space="preserve">
     <value>Le serveur a refusé la publication : vous n'avez pas (ou plus) le droit de modifier cette scène.</value>

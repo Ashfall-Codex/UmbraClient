@@ -351,13 +351,34 @@ public sealed class HousingNpcSceneEditorUi : WindowMediatorSubscriberBase
             // Un refus (conflit d'édition, droit retiré) doit se voir ici : c'est le seul endroit où
             // l'on republie, et le hub housing n'est pas forcément ouvert.
             if (!string.IsNullOrEmpty(_scenarioManager.LastError))
+            {
                 UiSharedService.ColorTextWrapped(_scenarioManager.LastError, ImGuiColors.DalamudRed);
+                DrawForceRepublish(current);
+            }
             else if (!string.IsNullOrEmpty(_scenarioManager.LastSuccess))
                 UiSharedService.ColorTextWrapped(_scenarioManager.LastSuccess, ImGuiColors.HealerGreen);
         }
 
         DrawDelegatedShares();
         DrawOrphanScenes();
+    }
+    
+    private void DrawForceRepublish(HousingNpcScenario current)
+    {
+        if (_scenarioManager.ConflictShareId is not { } conflict) return;
+        if (!Guid.TryParseExact(current.LinkedShareId, "N", out var linked) || linked != conflict) return;
+
+        using (ImRaii.Disabled(_scenarioManager.IsBusy))
+        using (ImRaii.PushColor(ImGuiCol.Button, ImGuiColors.DalamudOrange))
+        {
+            if (_uiShared.IconTextButton(FontAwesomeIcon.ExclamationTriangle, Loc.Get("HousingNpc.Editor.ForceRepublish"))
+                && UiSharedService.CtrlPressed())
+            {
+                _service.PersistScenes();
+                _ = _scenarioManager.RepublishEditedSceneAsync(current, overwriteRemote: true);
+            }
+        }
+        UiSharedService.AttachToolTip(Loc.Get("HousingNpc.Editor.ForceRepublishTip"));
     }
 
     /// <summary>

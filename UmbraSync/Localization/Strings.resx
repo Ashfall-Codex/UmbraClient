@@ -6582,6 +6582,12 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
   <data name="HousingNpc.Editor.PoseCatLying" xml:space="preserve">
     <value>Lying down</value>
   </data>
+  <data name="HousingNpc.Editor.ForceRepublish" xml:space="preserve">
+    <value>Publish anyway</value>
+  </data>
+  <data name="HousingNpc.Editor.ForceRepublishTip" xml:space="preserve">
+    <value>Overwrites the online version with yours, discarding what the other editor published. Hold CTRL to confirm.</value>
+  </data>
   <data name="HousingNpc.Editor.FacePlayer" xml:space="preserve">
     <value>Look at player</value>
   </data>
@@ -6832,7 +6838,7 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
     <value>Nobody else can edit this scene.</value>
   </data>
   <data name="HousingScenario.Error.Conflict" xml:space="preserve">
-    <value>Someone else changed this scene while you were working on it. Your changes were not sent: pull the latest version, then redo them.</value>
+    <value>Someone else changed this scene while you were working on it. Your changes were not sent: pull the latest version to start from it, or publish anyway to impose yours.</value>
   </data>
   <data name="HousingScenario.Error.Forbidden" xml:space="preserve">
     <value>The server refused the upload: you are not (or no longer) allowed to edit this scene.</value>
