@@ -75,7 +75,7 @@ public class ChatNameReplacementService : DisposableMediatorSubscriberBase
             return;
 
         var sender = chatMessage.Sender;
-        var senderText = ExtractSenderName(sender);
+        var senderText = ChatSenderLookup.ExtractPlayerName(sender, string.Empty);
         if (string.IsNullOrEmpty(senderText))
             return;
 
@@ -138,23 +138,6 @@ public class ChatNameReplacementService : DisposableMediatorSubscriberBase
             if (targetRpName != null)
                 ReplaceNameInSeString(ref message, targetVanillaName, targetRpName, null);
         }
-    }
-
-    private static string ExtractSenderName(SeString sender)
-    {
-        // Prioriser PlayerPayload qui contient le nom propre du joueur,
-        // sans les icônes de groupe d'amis/linkshell (★, etc.) qui préfixent le TextPayload
-        foreach (var payload in sender.Payloads)
-        {
-            if (payload is PlayerPayload playerPayload && !string.IsNullOrEmpty(playerPayload.PlayerName))
-                return playerPayload.PlayerName;
-        }
-        foreach (var payload in sender.Payloads)
-        {
-            if (payload is TextPayload textPayload && !string.IsNullOrWhiteSpace(textPayload.Text))
-                return textPayload.Text.Trim();
-        }
-        return string.Empty;
     }
 
     private (string? rpName, string? nameColor, ushort chatIcon, bool isSelf) ResolveRpName(string senderName)

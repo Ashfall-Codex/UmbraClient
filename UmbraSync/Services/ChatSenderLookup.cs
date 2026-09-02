@@ -1,13 +1,13 @@
-using Dalamud.Game.Text.SeStringHandling;
-using Dalamud.Game.Text.SeStringHandling.Payloads;
 using Dalamud.Game.ClientState.Objects.Enums;
 using Dalamud.Game.ClientState.Objects.Types;
+using Dalamud.Game.Text.SeStringHandling;
+using Dalamud.Game.Text.SeStringHandling.Payloads;
 using Dalamud.Plugin.Services;
 
 namespace UmbraSync.Services;
 internal static class ChatSenderLookup
 {
-    public static string ExtractPlayerName(SeString sender)
+    public static string ExtractPlayerName(SeString sender, string? fallback = null)
     {
         foreach (var payload in sender.Payloads)
         {
@@ -21,7 +21,7 @@ internal static class ChatSenderLookup
                 return textPayload.Text.Trim();
         }
 
-        return sender.TextValue;
+        return fallback ?? sender.TextValue;
     }
 
     public static IGameObject? FindPlayerByName(IObjectTable objectTable, string name)
