@@ -345,11 +345,11 @@ public sealed partial class PairHandler : DisposableMediatorSubscriberBase, IPai
             _dataReceivedInDowntime = null;
 
             Logger.LogDebug("Applying queued data for {pair}", ToString());
-            _ = Task.Run(() =>
+            _ = Task.Run(async () =>
             {
                 try
                 {
-                    Task.Delay(100).Wait(); // Small delay to ensure state is ready
+                    await Task.Delay(100).ConfigureAwait(false); // Small delay to ensure state is ready
                     ApplyCharacterData(pending.ApplicationId, pending.CharacterData, pending.Forced);
                 }
                 catch (Exception ex)

@@ -425,6 +425,24 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
 
     public static bool CtrlPressed() => (GetKeyState(0xA2) & 0x8000) != 0 || (GetKeyState(0xA3) & 0x8000) != 0;
 
+    public static bool TryConsumeUiTask<T>(ref Task<T>? task, ILogger? logger, out T? result)
+    {
+        result = default;
+        if (task is not { IsCompleted: true }) return false;
+
+        var finished = task;
+        task = null;
+
+        if (finished.IsCompletedSuccessfully)
+        {
+            result = finished.Result;
+            return true;
+        }
+
+        logger?.LogWarning(finished.Exception, "Appel serveur lancé depuis l'interface en échec");
+        return true;
+    }
+
     public static IDisposable PushFontScale(float scale)
     {
         var previous = _currentWindowFontScale;

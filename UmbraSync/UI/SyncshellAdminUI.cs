@@ -39,6 +39,13 @@ public class SyncshellAdminUI : WindowMediatorSubscriberBase
     private bool _pwChangeSuccess;
     private string _newAlias;
     private bool _aliasChangeSuccess;
+    private string _pendingAlias = string.Empty;
+    private Task<List<string>>? _singleInviteTask;
+    private Task<List<string>>? _multiInviteTask;
+    private Task<List<BannedGroupUserDto>>? _bannedUsersTask;
+    private Task<bool>? _capacityTask;
+    private Task<bool>? _aliasChangeTask;
+    private Task<bool>? _passwordChangeTask;
     private Task<int>? _pruneTestTask;
     private Task<int>? _pruneTask;
     private int _pruneDays = 14;
@@ -148,6 +155,46 @@ public class SyncshellAdminUI : WindowMediatorSubscriberBase
 
     public GroupFullInfoDto GroupFullInfo { get; private set; }
 
+    /// <summary>
+    /// Récupère les réponses des appels serveur lancés depuis les boutons. Tout passe par ici plutôt
+    /// que par un <c>.Result</c> au fil du dessin : un appel au hub peut prendre plusieurs secondes,
+    /// et le jeu entier se fige pendant ce temps.
+    /// </summary>
+    private void ConsumePendingCalls()
+    {
+        if (UiSharedService.TryConsumeUiTask(ref _singleInviteTask, _logger, out var singleInvite))
+            ImGui.SetClipboardText(singleInvite?.FirstOrDefault() ?? string.Empty);
+
+        if (UiSharedService.TryConsumeUiTask(ref _multiInviteTask, _logger, out var multiInvites) && multiInvites != null)
+            _oneTimeInvites.AddRange(multiInvites);
+
+        if (UiSharedService.TryConsumeUiTask(ref _bannedUsersTask, _logger, out var bans) && bans != null)
+            _bannedUsers = bans;
+
+        if (UiSharedService.TryConsumeUiTask(ref _capacityTask, _logger, out var capacityOk))
+        {
+            _capacityMessage = capacityOk
+                ? Loc.Get("SyncshellAdmin.Capacity.Changed")
+                : Loc.Get("SyncshellAdmin.Capacity.ChangeFailed");
+            _capacityApplyInFlight = false;
+        }
+
+        if (UiSharedService.TryConsumeUiTask(ref _aliasChangeTask, _logger, out var aliasOk))
+        {
+            _aliasChangeSuccess = aliasOk;
+            if (aliasOk)
+            {
+                Mediator.Publish(new NotificationMessage(
+                    Loc.Get("SyncshellAdmin.Owner.RenameSuccessTitle"),
+                    string.Format(CultureInfo.CurrentCulture, Loc.Get("SyncshellAdmin.Owner.RenameSuccessMessage"), _pendingAlias),
+                    NotificationType.Success, TimeSpan.FromSeconds(5)));
+            }
+        }
+
+        if (UiSharedService.TryConsumeUiTask(ref _passwordChangeTask, _logger, out var pwOk))
+            _pwChangeSuccess = pwOk;
+    }
+
     protected override void DrawInternal()
     {
         if (!_isModerator && !_isOwner) return;
@@ -158,6 +205,8 @@ public class SyncshellAdminUI : WindowMediatorSubscriberBase
             _autoDetectVisible = GroupFullInfo.AutoDetectVisible;
             _autoDetectPasswordDisabled = GroupFullInfo.PasswordTemporarilyDisabled;
         }
+
+        ConsumePendingCalls();
 
         using var id = ImRaii.PushId("syncshell_admin_" + GroupFullInfo.GID);
 
@@ -189,18 +238,21 @@ public class SyncshellAdminUI : WindowMediatorSubscriberBase
                 ImGuiHelpers.ScaledDummy(2f);
 
                 UiSharedService.TextWrapped(Loc.Get("SyncshellAdmin.Invites.Description"));
-                if (_uiSharedService.IconTextButton(FontAwesomeIcon.Envelope, Loc.Get("SyncshellAdmin.Invites.Single")))
+                using (ImRaii.Disabled(_singleInviteTask != null))
                 {
-                    ImGui.SetClipboardText(_apiController.GroupCreateTempInvite(new(GroupFullInfo.Group), 1).Result.FirstOrDefault() ?? string.Empty);
+                    if (_uiSharedService.IconTextButton(FontAwesomeIcon.Envelope, Loc.Get("SyncshellAdmin.Invites.Single")))
+                    {
+                        _singleInviteTask = _apiController.GroupCreateTempInvite(new(GroupFullInfo.Group), 1);
+                    }
                 }
                 UiSharedService.AttachToolTip(Loc.Get("SyncshellAdmin.Invites.SingleTooltip"));
                 ImGui.InputInt("##amountofinvites", ref _multiInvites);
                 ImGui.SameLine();
-                using (ImRaii.Disabled(_multiInvites <= 1 || _multiInvites > 100))
+                using (ImRaii.Disabled(_multiInvites <= 1 || _multiInvites > 100 || _multiInviteTask != null))
                 {
                     if (_uiSharedService.IconTextButton(FontAwesomeIcon.Envelope, string.Format(CultureInfo.CurrentCulture, Loc.Get("SyncshellAdmin.Invites.Multi"), _multiInvites)))
                     {
-                        _oneTimeInvites.AddRange(_apiController.GroupCreateTempInvite(new(GroupFullInfo.Group), _multiInvites).Result);
+                        _multiInviteTask = _apiController.GroupCreateTempInvite(new(GroupFullInfo.Group), _multiInvites);
                     }
                 }
 
@@ -419,9 +471,12 @@ public class SyncshellAdminUI : WindowMediatorSubscriberBase
                 var banNode = ImRaii.TreeNode(Loc.Get("SyncshellAdmin.Bans.Tree"));
                 if (banNode)
                 {
-                    if (_uiSharedService.IconTextButton(FontAwesomeIcon.Retweet, Loc.Get("SyncshellAdmin.Bans.Refresh")))
+                    using (ImRaii.Disabled(_bannedUsersTask != null))
                     {
-                        _bannedUsers = _apiController.GroupGetBannedUsers(new GroupDto(GroupFullInfo.Group)).Result;
+                        if (_uiSharedService.IconTextButton(FontAwesomeIcon.Retweet, Loc.Get("SyncshellAdmin.Bans.Refresh")))
+                        {
+                            _bannedUsersTask = _apiController.GroupGetBannedUsers(new GroupDto(GroupFullInfo.Group));
+                        }
                     }
 
                     if (ImGui.BeginTable("bannedusertable" + GroupFullInfo.GID, 6, ImGuiTableFlags.RowBg | ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.ScrollY))
@@ -549,22 +604,14 @@ public class SyncshellAdminUI : WindowMediatorSubscriberBase
                 {
                     if (_uiSharedService.IconTextButton(FontAwesomeIcon.Save, Loc.Get("SyncshellAdmin.Capacity.Apply")))
                     {
-                        _capacityApplyInFlight = true;
-                        try
+                        if (_desiredCapacity < currentMembers)
                         {
-                            if (_desiredCapacity < currentMembers)
-                            {
-                                _capacityMessage = string.Format(CultureInfo.CurrentCulture, Loc.Get("SyncshellAdmin.Capacity.BlockLowerThanMembers"), currentMembers);
-                            }
-                            else
-                            {
-                                var ok = _apiController.GroupSetMaxUserCount(new(GroupFullInfo.Group), _desiredCapacity).Result;
-                                _capacityMessage = ok ? Loc.Get("SyncshellAdmin.Capacity.Changed") : Loc.Get("SyncshellAdmin.Capacity.ChangeFailed");
-                            }
+                            _capacityMessage = string.Format(CultureInfo.CurrentCulture, Loc.Get("SyncshellAdmin.Capacity.BlockLowerThanMembers"), currentMembers);
                         }
-                        finally
+                        else
                         {
-                            _capacityApplyInFlight = false;
+                            _capacityApplyInFlight = true;
+                            _capacityTask = _apiController.GroupSetMaxUserCount(new(GroupFullInfo.Group), _desiredCapacity);
                         }
                     }
                 }
@@ -611,18 +658,15 @@ public class SyncshellAdminUI : WindowMediatorSubscriberBase
                     ImGui.SameLine();
                     var trimmedAlias = _newAlias.Trim();
                     using (ImRaii.Disabled(string.IsNullOrWhiteSpace(trimmedAlias)
-                        || string.Equals(trimmedAlias, GroupFullInfo.GroupAlias, StringComparison.Ordinal)))
+                        || string.Equals(trimmedAlias, GroupFullInfo.GroupAlias, StringComparison.Ordinal)
+                        || _aliasChangeTask != null))
                     {
                         if (_uiSharedService.IconTextButton(FontAwesomeIcon.Pen, Loc.Get("SyncshellAdmin.Owner.Rename")))
                         {
-                            _aliasChangeSuccess = _apiController.GroupChangeAlias(new GroupAliasDto(GroupFullInfo.Group, trimmedAlias)).Result;
-                            if (_aliasChangeSuccess)
-                            {
-                                Mediator.Publish(new NotificationMessage(
-                                    Loc.Get("SyncshellAdmin.Owner.RenameSuccessTitle"),
-                                    string.Format(CultureInfo.CurrentCulture, Loc.Get("SyncshellAdmin.Owner.RenameSuccessMessage"), trimmedAlias),
-                                    NotificationType.Success, TimeSpan.FromSeconds(5)));
-                            }
+                            // Le libellé demandé est capturé maintenant : la notification part quand
+                            // le serveur répond, et le champ de saisie aura pu changer d'ici là.
+                            _pendingAlias = trimmedAlias;
+                            _aliasChangeTask = _apiController.GroupChangeAlias(new GroupAliasDto(GroupFullInfo.Group, trimmedAlias));
                         }
                     }
                     UiSharedService.AttachToolTip(Loc.Get("SyncshellAdmin.Owner.RenameTooltip"));
@@ -645,11 +689,11 @@ public class SyncshellAdminUI : WindowMediatorSubscriberBase
                     ImGui.SetNextItemWidth(availableWidth - buttonSize - textSize - spacing * 2);
                     ImGui.InputTextWithHint("##changepw", Loc.Get("SyncshellAdmin.Owner.PasswordPlaceholder"), ref _newPassword, 50);
                     ImGui.SameLine();
-                    using (ImRaii.Disabled(_newPassword.Length < 10))
+                    using (ImRaii.Disabled(_newPassword.Length < 10 || _passwordChangeTask != null))
                     {
                         if (_uiSharedService.IconTextButton(FontAwesomeIcon.Passport, Loc.Get("SyncshellAdmin.Owner.ChangePassword")))
                         {
-                            _pwChangeSuccess = _apiController.GroupChangePassword(new GroupPasswordDto(GroupFullInfo.Group, _newPassword)).Result;
+                            _passwordChangeTask = _apiController.GroupChangePassword(new GroupPasswordDto(GroupFullInfo.Group, _newPassword));
                             _newPassword = string.Empty;
                         }
                     }

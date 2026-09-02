@@ -3,6 +3,7 @@ using Dalamud.Interface;
 using Dalamud.Interface.Colors;
 using Dalamud.Interface.Utility;
 using Dalamud.Interface.Utility.Raii;
+using Microsoft.Extensions.Logging;
 using System.Globalization;
 using System.Numerics;
 using Dalamud.Interface.Textures.TextureWraps;
@@ -34,6 +35,13 @@ internal sealed class GroupPanel
     private readonly Dictionary<string, bool> _showGidForEntry = new(StringComparer.Ordinal);
     private readonly UidDisplayHandler _uidDisplayHandler;
     private readonly UiSharedService _uiShared;
+    private readonly ILogger _logger;
+    private Task<bool>? _joinTask;
+    private Task<GroupPasswordDto>? _createTask;
+    private bool _createTaskWasNamed;
+    private Task<List<BannedGroupUserDto>>? _bannedUsersTask;
+    private Task<bool>? _passwordChangeTask;
+    private Task<List<string>>? _bulkInvitesTask;
     private List<BannedGroupUserDto> _bannedUsers = new();
     private int _bulkInviteCount = 10;
     private List<string> _bulkOneTimeInvites = new();
@@ -87,11 +95,12 @@ internal sealed class GroupPanel
     private IDalamudTextureWrap? _profileTexture = null;
     private IDalamudTextureWrap? _bannerTexture = null;
 
-    public GroupPanel(CompactUi mainUi, UiSharedService uiShared, PairManager pairManager,
+    public GroupPanel(ILogger logger, CompactUi mainUi, UiSharedService uiShared, PairManager pairManager,
         UidDisplayHandler uidDisplayHandler, ServerConfigurationManager serverConfigurationManager,
         CharaDataManager charaDataManager, AutoDetectRequestService autoDetectRequestService,
         MareConfigService mareConfig, SyncshellConfigService syncshellConfig, SlotService slotService)
     {
+        _logger = logger;
         _mainUi = mainUi;
         _uiShared = uiShared;
         _pairManager = pairManager;
@@ -113,8 +122,64 @@ internal sealed class GroupPanel
         _sortedPairsLastUpdate.Clear();
     }
 
+    /// <summary>
+    /// Récupère les réponses des appels serveur déclenchés par les boutons. Les lire avec
+    /// <c>.Result</c> en plein dessin figeait le jeu le temps de l'aller-retour avec le hub.
+    /// </summary>
+    private void ConsumePendingCalls()
+    {
+        if (UiSharedService.TryConsumeUiTask(ref _joinTask, _logger, out var joined))
+        {
+            _errorGroupJoin = !joined;
+            if (joined)
+            {
+                _syncShellToJoin = string.Empty;
+                _showModalEnterPassword = false;
+            }
+        }
+
+        if (_createTask is { IsCompleted: true })
+        {
+            var finished = _createTask;
+            _createTask = null;
+
+            if (finished.IsCompletedSuccessfully)
+            {
+                _lastCreatedGroup = finished.Result;
+                if (_lastCreatedGroup != null && _createTaskWasNamed) _newSyncShellAlias = string.Empty;
+            }
+            else
+            {
+                _lastCreatedGroup = null;
+                _errorGroupCreate = true;
+
+                // Le message utile est celui de l'exception d'origine : l'agrégat qui l'enveloppe
+                // n'annonce que « One or more errors occurred ».
+                var cause = finished.Exception?.InnerException ?? finished.Exception;
+                _logger.LogWarning(cause, "Création de syncshell en échec");
+                _errorGroupCreateMessage = cause?.Message.Contains("name is already in use", StringComparison.OrdinalIgnoreCase) == true
+                    ? Loc.Get("Syncshell.Create.NameInUse")
+                    : cause?.Message ?? string.Empty;
+            }
+        }
+
+        if (UiSharedService.TryConsumeUiTask(ref _bannedUsersTask, _logger, out var bans) && bans != null)
+            _bannedUsers = bans;
+
+        if (UiSharedService.TryConsumeUiTask(ref _passwordChangeTask, _logger, out var pwOk))
+        {
+            _isPasswordValid = pwOk;
+            if (pwOk) _showModalChangePassword = false;
+        }
+
+        if (UiSharedService.TryConsumeUiTask(ref _bulkInvitesTask, _logger, out var bulkInvites) && bulkInvites != null)
+            _bulkOneTimeInvites = bulkInvites;
+    }
+
     public void DrawSyncshells(Action? drawAfterAdd = null)
     {
+        ConsumePendingCalls();
+
         using var fontScale = UiSharedService.PushFontScale(UiSharedService.ContentFontScale);
         using (ImRaii.PushId("addsyncshell")) DrawAddSyncshell();
         drawAfterAdd?.Invoke();
@@ -196,18 +261,11 @@ internal sealed class GroupPanel
                         ApiController.ServerInfo.MaxGroupUserCount),
                     new Vector4(1, 0, 0, 1));
             }
-            bool canJoin = !string.IsNullOrWhiteSpace(trimmedInput);
+            bool canJoin = !string.IsNullOrWhiteSpace(trimmedInput) && _joinTask == null;
             if (!canJoin) ImGui.BeginDisabled();
             if (ImGui.Button(Loc.Get("Syncshell.Button.Join"), new Vector2(-1, 0)))
             {
-                var shell = trimmedInput;
-                var pw = _syncShellPassword;
-                _errorGroupJoin = !ApiController.GroupJoin(new(new GroupData(shell), pw)).Result;
-                if (!_errorGroupJoin)
-                {
-                    _syncShellToJoin = string.Empty;
-                    _showModalEnterPassword = false;
-                }
+                _joinTask = ApiController.GroupJoin(new(new GroupData(trimmedInput), _syncShellPassword));
                 _syncShellPassword = string.Empty;
             }
             if (!canJoin) ImGui.EndDisabled();
@@ -281,37 +339,14 @@ internal sealed class GroupPanel
             var createButtonWidth = ImGui.CalcTextSize(createLabel).X + ImGui.GetStyle().FramePadding.X * 2f;
             var cursorX = ImGui.GetCursorPosX() + (ImGui.GetContentRegionAvail().X - createButtonWidth) * 0.5f;
             if (cursorX > ImGui.GetCursorPosX()) ImGui.SetCursorPosX(cursorX);
-            if (ImGui.Button(createLabel, new Vector2(createButtonWidth, createButtonHeight)))
+            using (ImRaii.Disabled(_createTask != null))
             {
-                try
+                if (ImGui.Button(createLabel, new Vector2(createButtonWidth, createButtonHeight)))
                 {
-                    if (_createIsTemporary)
-                    {
-                        var expiresAtUtc = DateTime.UtcNow.AddHours(_tempSyncshellDurationHours);
-                        _lastCreatedGroup = ApiController.GroupCreateTemporary(expiresAtUtc).Result;
-                    }
-                    else
-                    {
-                        var aliasInput = string.IsNullOrWhiteSpace(_newSyncShellAlias) ? null : _newSyncShellAlias.Trim();
-                        _lastCreatedGroup = ApiController.GroupCreate(aliasInput).Result;
-                        if (_lastCreatedGroup != null)
-                        {
-                            _newSyncShellAlias = string.Empty;
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _lastCreatedGroup = null;
-                    _errorGroupCreate = true;
-                    if (ex.Message.Contains("name is already in use", StringComparison.OrdinalIgnoreCase))
-                    {
-                        _errorGroupCreateMessage = Loc.Get("Syncshell.Create.NameInUse");
-                    }
-                    else
-                    {
-                        _errorGroupCreateMessage = ex.Message;
-                    }
+                    _createTaskWasNamed = !_createIsTemporary;
+                    _createTask = _createIsTemporary
+                        ? ApiController.GroupCreateTemporary(DateTime.UtcNow.AddHours(_tempSyncshellDurationHours))
+                        : ApiController.GroupCreate(string.IsNullOrWhiteSpace(_newSyncShellAlias) ? null : _newSyncShellAlias.Trim());
                 }
             }
 
@@ -487,9 +522,12 @@ internal sealed class GroupPanel
 
             if (ImGui.BeginPopupModal(string.Format(CultureInfo.CurrentCulture, Loc.Get("Syncshell.Banlist.ModalTitle"), groupDto.GID), ref _showModalBanList, UiSharedService.PopupWindowFlags))
             {
-                if (_uiShared.IconTextButton(FontAwesomeIcon.Retweet, Loc.Get("Syncshell.Banlist.Refresh")))
+                using (ImRaii.Disabled(_bannedUsersTask != null))
                 {
-                    _bannedUsers = ApiController.GroupGetBannedUsers(groupDto).Result;
+                    if (_uiShared.IconTextButton(FontAwesomeIcon.Retweet, Loc.Get("Syncshell.Banlist.Refresh")))
+                    {
+                        _bannedUsersTask = ApiController.GroupGetBannedUsers(groupDto);
+                    }
                 }
 
                 if (ImGui.BeginTable("bannedusertable" + groupDto.GID, 6, ImGuiTableFlags.RowBg | ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.ScrollY))
@@ -543,12 +581,13 @@ internal sealed class GroupPanel
                 UiSharedService.TextWrapped("This action is irreversible");
                 ImGui.SetNextItemWidth(-1);
                 ImGui.InputTextWithHint("##changepw", "New password for " + name, ref _newSyncShellPassword, 255);
-                if (ImGui.Button("Change password"))
+                using (ImRaii.Disabled(_passwordChangeTask != null))
                 {
-                    var pw = _newSyncShellPassword;
-                    _isPasswordValid = ApiController.GroupChangePassword(new(groupDto.Group, pw)).Result;
-                    _newSyncShellPassword = string.Empty;
-                    if (_isPasswordValid) _showModalChangePassword = false;
+                    if (ImGui.Button("Change password"))
+                    {
+                        _passwordChangeTask = ApiController.GroupChangePassword(new(groupDto.Group, _newSyncShellPassword));
+                        _newSyncShellPassword = string.Empty;
+                    }
                 }
 
                 if (!_isPasswordValid)
@@ -577,9 +616,12 @@ internal sealed class GroupPanel
                 {
                     ImGui.SetNextItemWidth(-1);
                     ImGui.SliderInt("Amount##bulkinvites", ref _bulkInviteCount, 1, 100);
-                    if (_uiShared.IconTextButton(FontAwesomeIcon.MailBulk, "Create invites"))
+                    using (ImRaii.Disabled(_bulkInvitesTask != null))
                     {
-                        _bulkOneTimeInvites = ApiController.GroupCreateTempInvite(groupDto, _bulkInviteCount).Result;
+                        if (_uiShared.IconTextButton(FontAwesomeIcon.MailBulk, "Create invites"))
+                        {
+                            _bulkInvitesTask = ApiController.GroupCreateTempInvite(groupDto, _bulkInviteCount);
+                        }
                     }
                 }
                 else
