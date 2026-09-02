@@ -246,6 +246,15 @@ public class SettingsUi : WindowMediatorSubscriberBase
                 }
             }
 
+            try
+            {
+                _cacheMonitor.ClearSubstStorage();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Subst storage could not be cleared, skipped");
+            }
+
             _logger.LogInformation("Local storage cleared: {count} file(s), {size} freed", deleted, UiSharedService.ByteToString(freedBytes));
 
             Mediator.Publish(new NotificationMessage(
@@ -2188,7 +2197,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
             ImGui.BeginDisabled();
         using (ImRaii.Disabled(_clearingCache))
         {
-            if (_uiShared.IconTextButton(FontAwesomeIcon.Trash, Loc.Get("Settings.Storage.ClearButton")) && UiSharedService.CtrlPressed() && _readClearCache)
+            if (_uiShared.IconTextButton(FontAwesomeIcon.Trash, Loc.Get("Settings.Storage.ClearButton")) && _readClearCache)
             {
                 _clearingCache = true;
                 _ = Task.Run(ClearLocalStorage);

@@ -5278,7 +5278,7 @@ Note: Weapons will not be displayed correctly unless using the same job as the s
     <value>Clear local storage</value>
   </data>
   <data name="Settings.Storage.ClearTooltip" xml:space="preserve">
-    <value>You normally have no reason to do this, and certainly not to try to fix synchronisation.&#xD;&#xA;It removes all downloaded data from other players; everything will be downloaded again as you meet them.&#xD;&#xA;Umbra's storage cleans itself and stays within the limit you have set.&#xD;&#xA;If you still want to go ahead, hold CTRL while clicking the button.</value>
+    <value>Deletes every file received from other players. They will be downloaded again as you meet them.&#xD;&#xA;Useful when an appearance stays incomplete or corrupted while everything else works: a file that went bad on your disk is removed in the process.&#xD;&#xA;Expect a few minutes of re-downloading and some load on your connection.</value>
   </data>
   <data name="Settings.Storage.ClearedTitle" xml:space="preserve">
     <value>Local storage</value>

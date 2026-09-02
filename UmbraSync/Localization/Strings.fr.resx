@@ -5188,7 +5188,7 @@ Note : Les armes ne s'afficheront pas correctement sauf si vous utilisez le m&#x
     <value>Vider le stockage local</value>
   </data>
   <data name="Settings.Storage.ClearTooltip" xml:space="preserve">
-    <value>Vous n'avez normalement aucune raison de faire ceci, et surtout pas pour tenter de réparer une synchronisation.&#xD;&#xA;Cette action supprime toutes les données téléchargées des autres joueurs ; tout sera retéléchargé au fil des rencontres.&#xD;&#xA;Le stockage d'Umbra se nettoie de lui-même et respecte la limite que vous avez fixée.&#xD;&#xA;Si vous maintenez votre choix, maintenez CTRL en cliquant sur le bouton.</value>
+    <value>Supprime tous les fichiers reçus des autres joueurs. Ils seront retéléchargés au fil de vos rencontres.&#xD;&#xA;Utile si une apparence reste incomplète ou déformée alors que le reste fonctionne : un fichier abîmé sur votre disque est retiré au passage.&#xD;&#xA;Comptez quelques minutes de rechargement, et un peu de charge sur votre connexion.</value>
   </data>
   <data name="Settings.Storage.ClearedTitle" xml:space="preserve">
     <value>Stockage local</value>
