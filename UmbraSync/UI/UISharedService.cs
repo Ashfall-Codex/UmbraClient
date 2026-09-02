@@ -11,6 +11,7 @@ using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
 using Dalamud.Utility;
 using Microsoft.Extensions.Logging;
+using System.Globalization;
 using System.Numerics;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -428,6 +429,51 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
 
         ImGui.PopTextWrapPos();
         ImGui.EndTooltip();
+    }
+
+    /// <summary>
+    /// Choix du son joué quand ce pair vous cible : réglage global par défaut, silence, ou l'un des
+    /// seize effets. Les lignes de paire directe et de membre de syncshell l'affichent à l'identique.
+    /// </summary>
+    public static void DrawTargetSoundOverrideCombo(MareConfigService mareConfig, string uid, string idPrefix)
+    {
+        var overrides = mareConfig.Current.PairTargetSoundOverrides;
+        overrides.TryGetValue(uid, out var currentValue); // 0 si absent : pas de surcharge, on affiche « Par défaut »
+        var hasOverride = overrides.ContainsKey(uid);
+
+        var previewLabel = !hasOverride
+            ? Loc.Get("Settings.ChatTargetSound.Override.Default")
+            : currentValue == 0
+                ? Loc.Get("Settings.ChatTargetSound.Override.Disabled")
+                : string.Format(CultureInfo.CurrentCulture, Loc.Get("Settings.ChatTargetSound.SoundItem"), currentValue);
+
+        ImGui.SetNextItemWidth(200 * ImGuiHelpers.GlobalScale);
+        if (!ImGui.BeginCombo(Loc.Get("Settings.ChatTargetSound.Override.Label") + idPrefix + uid, previewLabel))
+            return;
+
+        if (ImGui.Selectable(Loc.Get("Settings.ChatTargetSound.Override.Default"), !hasOverride))
+        {
+            overrides.Remove(uid);
+            mareConfig.Save();
+        }
+
+        if (ImGui.Selectable(Loc.Get("Settings.ChatTargetSound.Override.Disabled"), hasOverride && currentValue == 0))
+        {
+            overrides[uid] = 0;
+            mareConfig.Save();
+        }
+
+        for (var i = 1; i <= 16; i++)
+        {
+            var label = string.Format(CultureInfo.CurrentCulture, Loc.Get("Settings.ChatTargetSound.SoundItem"), i);
+            if (ImGui.Selectable(label, hasOverride && currentValue == i))
+            {
+                overrides[uid] = i;
+                mareConfig.Save();
+            }
+        }
+
+        ImGui.EndCombo();
     }
 
     public static bool CtrlPressed() => (GetKeyState(0xA2) & 0x8000) != 0 || (GetKeyState(0xA3) & 0x8000) != 0;

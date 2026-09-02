@@ -2,6 +2,9 @@
 using Dalamud.Interface;
 using Dalamud.Interface.Utility;
 using System.Numerics;
+using System.Globalization;
+using UmbraSync.Localization;
+using UmbraSync.MareConfiguration;
 using UmbraSync.PlayerData.Pairs;
 using UmbraSync.UI.Handlers;
 

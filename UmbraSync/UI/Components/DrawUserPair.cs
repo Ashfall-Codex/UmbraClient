@@ -411,55 +411,13 @@ public class DrawUserPair : DrawPairBase
         }
         UiSharedService.AttachToolTip(string.Format(CultureInfo.CurrentCulture, Loc.Get("DrawUserPair.Menu.HousingScenariosTooltip"), entryUID));
 
-        DrawTargetSoundOverrideCombo(entry.UserData.UID);
+        UiSharedService.DrawTargetSoundOverrideCombo(_mareConfig, entry.UserData.UID, "##pair_sound_");
 
         if (_uiSharedService.IconTextButton(FontAwesomeIcon.Trash, Loc.Get("DrawUserPair.Menu.Unpair")) && UiSharedService.CtrlPressed())
         {
             _ = _apiController.UserRemovePair(new(entry.UserData));
         }
         UiSharedService.AttachToolTip(AppendSeenInfo(string.Format(CultureInfo.CurrentCulture, Loc.Get("DrawUserPair.Menu.UnpairTooltip"), entryUID)));
-    }
-
-    private void DrawTargetSoundOverrideCombo(string uid)
-    {
-        var overrides = _mareConfig.Current.PairTargetSoundOverrides;
-        overrides.TryGetValue(uid, out var currentValue); // 0 si absent (= pas de surcharge, on affiche "Par défaut")
-        var hasOverride = overrides.ContainsKey(uid);
-
-        // Construire le label de prévisualisation
-        var previewLabel = !hasOverride
-            ? Loc.Get("Settings.ChatTargetSound.Override.Default")
-            : currentValue == 0
-                ? Loc.Get("Settings.ChatTargetSound.Override.Disabled")
-                : string.Format(CultureInfo.CurrentCulture, Loc.Get("Settings.ChatTargetSound.SoundItem"), currentValue);
-
-        ImGui.SetNextItemWidth(200 * ImGuiHelpers.GlobalScale);
-        if (ImGui.BeginCombo(Loc.Get("Settings.ChatTargetSound.Override.Label") + "##pair_sound_" + uid, previewLabel))
-        {
-            // Option "Par défaut (global)"
-            if (ImGui.Selectable(Loc.Get("Settings.ChatTargetSound.Override.Default"), !hasOverride))
-            {
-                overrides.Remove(uid);
-                _mareConfig.Save();
-            }
-            // Option "Désactivé"
-            if (ImGui.Selectable(Loc.Get("Settings.ChatTargetSound.Override.Disabled"), hasOverride && currentValue == 0))
-            {
-                overrides[uid] = 0;
-                _mareConfig.Save();
-            }
-            // Options "Effet sonore 1-16"
-            for (var i = 1; i <= 16; i++)
-            {
-                var label = string.Format(CultureInfo.CurrentCulture, Loc.Get("Settings.ChatTargetSound.SoundItem"), i);
-                if (ImGui.Selectable(label, hasOverride && currentValue == i))
-                {
-                    overrides[uid] = i;
-                    _mareConfig.Save();
-                }
-            }
-            ImGui.EndCombo();
-        }
     }
 
     private string AppendSeenInfo(string tooltip)

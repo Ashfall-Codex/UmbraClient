@@ -179,42 +179,5 @@ public class PermissionWindowUI : WindowMediatorSubscriberBase
     }
 
     private void DrawPairTargetSoundCombo()
-    {
-        var mareConfig = _uiSharedService.ConfigService;
-        var overrides = mareConfig.Current.PairTargetSoundOverrides;
-        var uid = Pair.UserData.UID;
-        overrides.TryGetValue(uid, out var currentValue);
-        var hasOverride = overrides.ContainsKey(uid);
-
-        var previewLabel = !hasOverride
-            ? Loc.Get("Settings.ChatTargetSound.Override.Default")
-            : currentValue == 0
-                ? Loc.Get("Settings.ChatTargetSound.Override.Disabled")
-                : string.Format(CultureInfo.CurrentCulture, Loc.Get("Settings.ChatTargetSound.SoundItem"), currentValue);
-
-        ImGui.SetNextItemWidth(200 * ImGuiHelpers.GlobalScale);
-        if (ImGui.BeginCombo(Loc.Get("Settings.ChatTargetSound.Override.Label") + "##perm_sound_" + uid, previewLabel))
-        {
-            if (ImGui.Selectable(Loc.Get("Settings.ChatTargetSound.Override.Default"), !hasOverride))
-            {
-                overrides.Remove(uid);
-                mareConfig.Save();
-            }
-            if (ImGui.Selectable(Loc.Get("Settings.ChatTargetSound.Override.Disabled"), hasOverride && currentValue == 0))
-            {
-                overrides[uid] = 0;
-                mareConfig.Save();
-            }
-            for (var i = 1; i <= 16; i++)
-            {
-                var label = string.Format(CultureInfo.CurrentCulture, Loc.Get("Settings.ChatTargetSound.SoundItem"), i);
-                if (ImGui.Selectable(label, hasOverride && currentValue == i))
-                {
-                    overrides[uid] = i;
-                    mareConfig.Save();
-                }
-            }
-            ImGui.EndCombo();
-        }
-    }
+        => UiSharedService.DrawTargetSoundOverrideCombo(_uiSharedService.ConfigService, Pair.UserData.UID, "##perm_sound_");
 }
