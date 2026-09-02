@@ -105,8 +105,12 @@ public partial class CompactUi
 
         if (userCount == 0) return;
 
-        var pausedUsers = users.Where(u => u.UserPair!.OwnPermissions.IsPaused() && u.UserPair.OtherPermissions.IsPaired()).ToList();
-        var resumedUsers = users.Where(u => !u.UserPair!.OwnPermissions.IsPaused() && u.UserPair.OtherPermissions.IsPaired()).ToList();
+        // UserPair peut être null le temps d'une frame : DirectPairs est un Lazy recréé de façon
+        // débouncée, et une rupture de paire vide UserPair avant ce rafraîchissement. La liste tenue
+        // par l'interface contient alors encore l'entrée, sans ses permissions.
+        var pairedUsers = users.Where(u => u.UserPair != null).ToList();
+        var pausedUsers = pairedUsers.Where(u => u.UserPair!.OwnPermissions.IsPaused() && u.UserPair.OtherPermissions.IsPaired()).ToList();
+        var resumedUsers = pairedUsers.Where(u => !u.UserPair!.OwnPermissions.IsPaused() && u.UserPair.OtherPermissions.IsPaired()).ToList();
 
         if (pausedUsers.Count == 0 && resumedUsers.Count == 0) return;
         ImGui.SameLine();
@@ -144,7 +148,8 @@ public partial class CompactUi
             {
                 foreach (var entry in users)
                 {
-                    var perm = entry.UserPair!.OwnPermissions;
+                    if (entry.UserPair is not { } userPair) continue;
+                    var perm = userPair.OwnPermissions;
                     perm.SetPaused(!perm.IsPaused());
                     _ = _apiController.UserSetPairPermissions(new UserPermissionsDto(entry.UserData, perm));
                 }
@@ -222,7 +227,11 @@ public partial class CompactUi
             return drawPair;
         }).ToList();
 
-        var onlineUsers = nonVisibleUsers.Where(u => u.UserPair!.OtherPermissions.IsPaired() && (u.IsOnline || u.UserPair!.OwnPermissions.IsPaused()))
+        // Même raison qu'au-dessus : une paire rompue reste dans la liste jusqu'au prochain
+        // rafraîchissement, mais n'a plus de permissions à interroger.
+        var pairedNonVisible = nonVisibleUsers.Where(u => u.UserPair != null).ToList();
+
+        var onlineUsers = pairedNonVisible.Where(u => u.UserPair!.OtherPermissions.IsPaired() && (u.IsOnline || u.UserPair!.OwnPermissions.IsPaused()))
             .Select(c =>
             {
                 var cacheKey = "Online" + c.UserData.UID;
@@ -238,7 +247,7 @@ public partial class CompactUi
                 return drawPair;
             }).ToList();
 
-        var offlineUsers = nonVisibleUsers.Where(u => !u.UserPair!.OtherPermissions.IsPaired() || (!u.IsOnline && !u.UserPair!.OwnPermissions.IsPaused()))
+        var offlineUsers = pairedNonVisible.Where(u => !u.UserPair!.OtherPermissions.IsPaired() || (!u.IsOnline && !u.UserPair!.OwnPermissions.IsPaused()))
             .Select(c =>
             {
                 var cacheKey = "Offline" + c.UserData.UID;

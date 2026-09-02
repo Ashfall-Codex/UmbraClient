@@ -154,8 +154,15 @@ public record ApplyDefaultPairPermissionsMessage(UserPairDto Pair) : MessageBase
 public record DefaultPermissionsUpdatedMessage(DefaultPermissionsDto Permissions) : MessageBase;
 public record ApplyDefaultGroupPermissionsMessage(GroupPairFullInfoDto GroupPair) : MessageBase;
 public record ApplyDefaultsToAllSyncsMessage(string? Context = null, bool? Disabled = null) : MessageBase;
-public record PairSyncOverrideChanged(string Uid, bool? DisableSounds, bool? DisableAnimations, bool? DisableVfx, bool? DisableHousingMods = null, bool? DisableHousingScenarios = null) : MessageBase;
-public record GroupSyncOverrideChanged(string Gid, bool? DisableSounds, bool? DisableAnimations, bool? DisableVfx, bool? DisableHousingMods = null) : MessageBase;
+public interface ISyncOverrideChange
+{
+    bool? DisableSounds { get; }
+    bool? DisableAnimations { get; }
+    bool? DisableVfx { get; }
+    bool? DisableHousingMods { get; }
+}
+public record PairSyncOverrideChanged(string Uid, bool? DisableSounds, bool? DisableAnimations, bool? DisableVfx, bool? DisableHousingMods = null, bool? DisableHousingScenarios = null) : MessageBase, ISyncOverrideChange;
+public record GroupSyncOverrideChanged(string Gid, bool? DisableSounds, bool? DisableAnimations, bool? DisableVfx, bool? DisableHousingMods = null) : MessageBase, ISyncOverrideChange;
 public record NotificationStateChanged(int TotalCount) : MessageBase;
 public record PairOnlineMessage(UserData User) : MessageBase;
 public record PairOfflineMessage(UserData User) : MessageBase;

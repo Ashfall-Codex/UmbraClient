@@ -1569,91 +1569,13 @@ internal sealed class GroupPanel
     }
 
     private void DrawMembersListByStatus(List<DrawGroupPair> drawPairs, string gid, string prefix)
-    {
-        var visibleUsers = new List<DrawGroupPair>();
-        var onlineUsers = new List<DrawGroupPair>();
-        var offlineUsers = new List<DrawGroupPair>();
+        => DrawMembersSections(drawPairs, gid, prefix, (users, _) => UidDisplayHandler.RenderPairList(users));
 
-        foreach (var dp in drawPairs)
-        {
-            if (dp.Pair.IsVisible)
-                visibleUsers.Add(dp);
-            else if (dp.Pair.IsOnline)
-                onlineUsers.Add(dp);
-            else
-                offlineUsers.Add(dp);
-        }
-
-        bool needsSpacer = false;
-
-        if (visibleUsers.Count > 0)
-        {
-            var visKey = gid + $"-{prefix}-visible";
-            if (!_favoriteMembersExpanded.ContainsKey(visKey)) _favoriteMembersExpanded[visKey] = true;
-            var visExpanded = _favoriteMembersExpanded[visKey];
-            DrawMembersSectionHeader(
-                string.Format(CultureInfo.CurrentCulture, Loc.Get("Syncshell.Members.VisibleSection"), visibleUsers.Count),
-                new Vector4(0.4f, 0.75f, 1f, 1f),
-                ref visExpanded,
-                $"##{prefix}-visible-{gid}");
-            _favoriteMembersExpanded[visKey] = visExpanded;
-
-            if (visExpanded)
-            {
-                UidDisplayHandler.RenderPairList(visibleUsers);
-            }
-            needsSpacer = true;
-        }
-
-        if (onlineUsers.Count > 0)
-        {
-            if (needsSpacer) ImGuiHelpers.ScaledDummy(8f);
-            var onKey = gid + $"-{prefix}-online";
-            if (!_favoriteMembersExpanded.ContainsKey(onKey)) _favoriteMembersExpanded[onKey] = true;
-            var onExpanded = _favoriteMembersExpanded[onKey];
-            DrawMembersSectionHeader(
-                string.Format(CultureInfo.CurrentCulture, Loc.Get("Syncshell.Members.OnlineSection"), onlineUsers.Count),
-                new Vector4(0.4f, 0.9f, 0.4f, 1f),
-                ref onExpanded,
-                $"##{prefix}-online-{gid}");
-            _favoriteMembersExpanded[onKey] = onExpanded;
-
-            if (onExpanded)
-            {
-                UidDisplayHandler.RenderPairList(onlineUsers);
-            }
-            needsSpacer = true;
-        }
-
-        if (offlineUsers.Count > 0)
-        {
-            if (needsSpacer) ImGuiHelpers.ScaledDummy(8f);
-            var offKey = gid + $"-{prefix}-offline";
-            if (!_favoriteMembersExpanded.ContainsKey(offKey)) _favoriteMembersExpanded[offKey] = false;
-            var offExpanded = _favoriteMembersExpanded[offKey];
-            DrawMembersSectionHeader(
-                string.Format(CultureInfo.CurrentCulture, Loc.Get("Syncshell.Members.OfflineSection"), offlineUsers.Count),
-                ImGuiColors.DalamudGrey,
-                ref offExpanded,
-                $"##{prefix}-offline-{gid}");
-            _favoriteMembersExpanded[offKey] = offExpanded;
-
-            if (offExpanded)
-            {
-                bool hideOffline = offlineUsers.Count > 1000;
-                if (hideOffline)
-                {
-                    UiSharedService.ColorText($"    {offlineUsers.Count} offline users omitted from display.", ImGuiColors.DalamudGrey);
-                }
-                else
-                {
-                    UidDisplayHandler.RenderPairList(offlineUsers);
-                }
-            }
-        }
-    }
-    
     private void DrawMembersListByType(List<DrawGroupPair> drawPairs, string gid, string prefix)
+        => DrawMembersSections(drawPairs, gid, prefix, (users, sectionPrefix) => DrawTypeSubSections(users, gid, sectionPrefix));
+    
+    private void DrawMembersSections(List<DrawGroupPair> drawPairs, string gid, string prefix,
+        Action<List<DrawGroupPair>, string> renderSection)
     {
         var visibleUsers = new List<DrawGroupPair>();
         var onlineUsers = new List<DrawGroupPair>();
@@ -1673,71 +1595,56 @@ internal sealed class GroupPanel
 
         if (visibleUsers.Count > 0)
         {
-            var visKey = gid + $"-{prefix}-visible";
-            if (!_favoriteMembersExpanded.ContainsKey(visKey)) _favoriteMembersExpanded[visKey] = true;
-            var visExpanded = _favoriteMembersExpanded[visKey];
-            DrawMembersSectionHeader(
-                string.Format(CultureInfo.CurrentCulture, Loc.Get("Syncshell.Members.VisibleSection"), visibleUsers.Count),
-                new Vector4(0.4f, 0.75f, 1f, 1f),
-                ref visExpanded,
-                $"##{prefix}-visible-{gid}");
-            _favoriteMembersExpanded[visKey] = visExpanded;
-
-            if (visExpanded)
+            if (DrawMemberSection(gid, $"{prefix}-visible", defaultExpanded: true,
+                    string.Format(CultureInfo.CurrentCulture, Loc.Get("Syncshell.Members.VisibleSection"), visibleUsers.Count),
+                    new Vector4(0.4f, 0.75f, 1f, 1f), needsSpacer))
             {
-                DrawTypeSubSections(visibleUsers, gid, $"{prefix}-visible");
+                renderSection(visibleUsers, $"{prefix}-visible");
             }
             needsSpacer = true;
         }
 
         if (onlineUsers.Count > 0)
         {
-            if (needsSpacer) ImGuiHelpers.ScaledDummy(8f);
-            var onKey = gid + $"-{prefix}-online";
-            if (!_favoriteMembersExpanded.ContainsKey(onKey)) _favoriteMembersExpanded[onKey] = true;
-            var onExpanded = _favoriteMembersExpanded[onKey];
-            DrawMembersSectionHeader(
-                string.Format(CultureInfo.CurrentCulture, Loc.Get("Syncshell.Members.OnlineSection"), onlineUsers.Count),
-                new Vector4(0.4f, 0.9f, 0.4f, 1f),
-                ref onExpanded,
-                $"##{prefix}-online-{gid}");
-            _favoriteMembersExpanded[onKey] = onExpanded;
-
-            if (onExpanded)
+            if (DrawMemberSection(gid, $"{prefix}-online", defaultExpanded: true,
+                    string.Format(CultureInfo.CurrentCulture, Loc.Get("Syncshell.Members.OnlineSection"), onlineUsers.Count),
+                    new Vector4(0.4f, 0.9f, 0.4f, 1f), needsSpacer))
             {
-                DrawTypeSubSections(onlineUsers, gid, $"{prefix}-online");
+                renderSection(onlineUsers, $"{prefix}-online");
             }
             needsSpacer = true;
         }
 
         if (offlineUsers.Count > 0)
         {
-            if (needsSpacer) ImGuiHelpers.ScaledDummy(8f);
-            var offKey = gid + $"-{prefix}-offline";
-            if (!_favoriteMembersExpanded.ContainsKey(offKey)) _favoriteMembersExpanded[offKey] = false;
-            var offExpanded = _favoriteMembersExpanded[offKey];
-            DrawMembersSectionHeader(
+            bool offlineExpanded = DrawMemberSection(gid, $"{prefix}-offline", defaultExpanded: false,
                 string.Format(CultureInfo.CurrentCulture, Loc.Get("Syncshell.Members.OfflineSection"), offlineUsers.Count),
-                ImGuiColors.DalamudGrey,
-                ref offExpanded,
-                $"##{prefix}-offline-{gid}");
-            _favoriteMembersExpanded[offKey] = offExpanded;
+                ImGuiColors.DalamudGrey, needsSpacer);
 
-            if (offExpanded)
-            {
-                bool hideOffline = offlineUsers.Count > 1000;
-                if (hideOffline)
-                {
-                    UiSharedService.ColorText($"    {offlineUsers.Count} offline users omitted from display.", ImGuiColors.DalamudGrey);
-                }
-                else
-                {
-                    DrawTypeSubSections(offlineUsers, gid, $"{prefix}-offline");
-                }
-            }
+            // Au-delà du millier, la liste coûte plus cher à dessiner qu'elle n'apporte.
+            if (offlineExpanded && offlineUsers.Count > 1000)
+                UiSharedService.ColorText($"    {offlineUsers.Count} offline users omitted from display.", ImGuiColors.DalamudGrey);
+            else if (offlineExpanded)
+                renderSection(offlineUsers, $"{prefix}-offline");
         }
     }
-    
+
+    /// <summary>En-tête repliable d'une section de membres. Renvoie vrai si le contenu doit être dessiné.</summary>
+    private bool DrawMemberSection(string gid, string sectionPrefix, bool defaultExpanded,
+        string label, Vector4 color, bool needsSpacer)
+    {
+        if (needsSpacer) ImGuiHelpers.ScaledDummy(8f);
+
+        var key = gid + "-" + sectionPrefix;
+        if (!_favoriteMembersExpanded.ContainsKey(key)) _favoriteMembersExpanded[key] = defaultExpanded;
+
+        var expanded = _favoriteMembersExpanded[key];
+        DrawMembersSectionHeader(label, color, ref expanded, $"##{sectionPrefix}-{gid}");
+        _favoriteMembersExpanded[key] = expanded;
+
+        return expanded;
+    }
+
     private void DrawTypeSubSections(List<DrawGroupPair> pairs, string gid, string subPrefix)
     {
         var directPairs = new List<DrawGroupPair>();

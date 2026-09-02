@@ -141,145 +141,88 @@ public sealed class SyncDefaultsService : DisposableMediatorSubscriberBase
 
     private void OnPairOverrideChanged(PairSyncOverrideChanged message)
     {
-        var overrides = _configService.Current.PairSyncOverrides;
+        var config = _configService.Current;
+        var overrides = config.PairSyncOverrides;
         var entry = overrides.TryGetValue(message.Uid, out var existing) ? existing : new SyncOverrideEntry();
-        bool changed = false;
 
-        if (message.DisableSounds.HasValue)
-        {
-            var val = message.DisableSounds.Value;
-            var defaultVal = _configService.Current.DefaultDisableSounds;
-            var newValue = val == defaultVal ? (bool?)null : val;
-            if (entry.DisableSounds != newValue)
-            {
-                entry.DisableSounds = newValue;
-                changed = true;
-            }
-        }
+        bool changed = ApplyRequestedOverrides(entry, config, message);
 
-        if (message.DisableAnimations.HasValue)
+        bool scenariosChanged = ResolveOverride(message.DisableHousingScenarios, config.DefaultDisableHousingScenarios,
+            entry.DisableHousingScenarios, out var scenarios);
+        if (scenariosChanged)
         {
-            var val = message.DisableAnimations.Value;
-            var defaultVal = _configService.Current.DefaultDisableAnimations;
-            var newValue = val == defaultVal ? (bool?)null : val;
-            if (entry.DisableAnimations != newValue)
-            {
-                entry.DisableAnimations = newValue;
-                changed = true;
-            }
-        }
-
-        if (message.DisableVfx.HasValue)
-        {
-            var val = message.DisableVfx.Value;
-            var defaultVal = _configService.Current.DefaultDisableVfx;
-            var newValue = val == defaultVal ? (bool?)null : val;
-            if (entry.DisableVfx != newValue)
-            {
-                entry.DisableVfx = newValue;
-                changed = true;
-            }
-        }
-
-        if (message.DisableHousingMods.HasValue)
-        {
-            var val = message.DisableHousingMods.Value;
-            var defaultVal = _configService.Current.DefaultDisableHousingMods;
-            var newValue = val == defaultVal ? (bool?)null : val;
-            if (entry.DisableHousingMods != newValue)
-            {
-                entry.DisableHousingMods = newValue;
-                changed = true;
-            }
-        }
-
-        bool scenariosChanged = false;
-        if (message.DisableHousingScenarios.HasValue)
-        {
-            var val = message.DisableHousingScenarios.Value;
-            var defaultVal = _configService.Current.DefaultDisableHousingScenarios;
-            var newValue = val == defaultVal ? (bool?)null : val;
-            if (entry.DisableHousingScenarios != newValue)
-            {
-                entry.DisableHousingScenarios = newValue;
-                changed = true;
-                scenariosChanged = true;
-            }
+            entry.DisableHousingScenarios = scenarios;
+            changed = true;
         }
 
         if (!changed) return;
 
-        if (entry.IsEmpty)
-            overrides.Remove(message.Uid);
-        else
-            overrides[message.Uid] = entry;
+        StoreOverride(overrides, message.Uid, entry);
 
-        _configService.Save();
-        
         if (scenariosChanged)
             Mediator.Publish(new HousingScenarioSyncPreferenceChangedMessage());
     }
 
     private void OnGroupOverrideChanged(GroupSyncOverrideChanged message)
     {
-        var overrides = _configService.Current.GroupSyncOverrides;
+        var config = _configService.Current;
+        var overrides = config.GroupSyncOverrides;
         var entry = overrides.TryGetValue(message.Gid, out var existing) ? existing : new SyncOverrideEntry();
+
+        if (!ApplyRequestedOverrides(entry, config, message)) return;
+
+        StoreOverride(overrides, message.Gid, entry);
+    }
+    
+    private static bool ApplyRequestedOverrides(SyncOverrideEntry entry, MareConfig config, ISyncOverrideChange requested)
+    {
         bool changed = false;
 
-        if (message.DisableSounds.HasValue)
+        if (ResolveOverride(requested.DisableSounds, config.DefaultDisableSounds, entry.DisableSounds, out var sounds))
         {
-            var val = message.DisableSounds.Value;
-            var defaultVal = _configService.Current.DefaultDisableSounds;
-            var newValue = val == defaultVal ? (bool?)null : val;
-            if (entry.DisableSounds != newValue)
-            {
-                entry.DisableSounds = newValue;
-                changed = true;
-            }
+            entry.DisableSounds = sounds;
+            changed = true;
         }
 
-        if (message.DisableAnimations.HasValue)
+        if (ResolveOverride(requested.DisableAnimations, config.DefaultDisableAnimations, entry.DisableAnimations, out var animations))
         {
-            var val = message.DisableAnimations.Value;
-            var defaultVal = _configService.Current.DefaultDisableAnimations;
-            var newValue = val == defaultVal ? (bool?)null : val;
-            if (entry.DisableAnimations != newValue)
-            {
-                entry.DisableAnimations = newValue;
-                changed = true;
-            }
+            entry.DisableAnimations = animations;
+            changed = true;
         }
 
-        if (message.DisableVfx.HasValue)
+        if (ResolveOverride(requested.DisableVfx, config.DefaultDisableVfx, entry.DisableVfx, out var vfx))
         {
-            var val = message.DisableVfx.Value;
-            var defaultVal = _configService.Current.DefaultDisableVfx;
-            var newValue = val == defaultVal ? (bool?)null : val;
-            if (entry.DisableVfx != newValue)
-            {
-                entry.DisableVfx = newValue;
-                changed = true;
-            }
+            entry.DisableVfx = vfx;
+            changed = true;
         }
 
-        if (message.DisableHousingMods.HasValue)
+        if (ResolveOverride(requested.DisableHousingMods, config.DefaultDisableHousingMods, entry.DisableHousingMods, out var housingMods))
         {
-            var val = message.DisableHousingMods.Value;
-            var defaultVal = _configService.Current.DefaultDisableHousingMods;
-            var newValue = val == defaultVal ? (bool?)null : val;
-            if (entry.DisableHousingMods != newValue)
-            {
-                entry.DisableHousingMods = newValue;
-                changed = true;
-            }
+            entry.DisableHousingMods = housingMods;
+            changed = true;
         }
 
-        if (!changed) return;
+        return changed;
+    }
+    
+    private static bool ResolveOverride(bool? requested, bool defaultValue, bool? current, out bool? resolved)
+    {
+        resolved = current;
+        if (!requested.HasValue) return false;
 
+        var value = requested.Value == defaultValue ? (bool?)null : requested.Value;
+        if (current == value) return false;
+
+        resolved = value;
+        return true;
+    }
+
+    private void StoreOverride(Dictionary<string, SyncOverrideEntry> overrides, string key, SyncOverrideEntry entry)
+    {
         if (entry.IsEmpty)
-            overrides.Remove(message.Gid);
+            overrides.Remove(key);
         else
-            overrides[message.Gid] = entry;
+            overrides[key] = entry;
 
         _configService.Save();
     }
@@ -296,126 +239,34 @@ public sealed class SyncDefaultsService : DisposableMediatorSubscriberBase
         return overrides.TryGetValue(gid, out var entry) ? entry : null;
     }
 
+    private static (bool Sounds, bool Animations, bool Vfx, bool Housing) TargetPermissions(MareConfig config, SyncOverrideEntry? overrides)
+        => (overrides?.DisableSounds ?? config.DefaultDisableSounds,
+            overrides?.DisableAnimations ?? config.DefaultDisableAnimations,
+            overrides?.DisableVfx ?? config.DefaultDisableVfx,
+            overrides?.DisableHousingMods ?? config.DefaultDisableHousingMods);
+
     private static bool ApplyDefaults(ref UserPermissions permissions, MareConfig config, SyncOverrideEntry? overrides)
     {
+        var target = TargetPermissions(config, overrides);
         bool changed = false;
-        if (overrides?.DisableSounds is { } overrideSounds)
-        {
-            if (permissions.IsDisableSounds() != overrideSounds)
-            {
-                permissions.SetDisableSounds(overrideSounds);
-                changed = true;
-            }
-        }
-        else if (permissions.IsDisableSounds() != config.DefaultDisableSounds)
-        {
-            permissions.SetDisableSounds(config.DefaultDisableSounds);
-            changed = true;
-        }
 
-        if (overrides?.DisableAnimations is { } overrideAnims)
-        {
-            if (permissions.IsDisableAnimations() != overrideAnims)
-            {
-                permissions.SetDisableAnimations(overrideAnims);
-                changed = true;
-            }
-        }
-        else if (permissions.IsDisableAnimations() != config.DefaultDisableAnimations)
-        {
-            permissions.SetDisableAnimations(config.DefaultDisableAnimations);
-            changed = true;
-        }
-
-        if (overrides?.DisableVfx is { } overrideVfx)
-        {
-            if (permissions.IsDisableVFX() != overrideVfx)
-            {
-                permissions.SetDisableVFX(overrideVfx);
-                changed = true;
-            }
-        }
-        else if (permissions.IsDisableVFX() != config.DefaultDisableVfx)
-        {
-            permissions.SetDisableVFX(config.DefaultDisableVfx);
-            changed = true;
-        }
-
-        if (overrides?.DisableHousingMods is { } overrideHousing)
-        {
-            if (permissions.IsDisableHousing() != overrideHousing)
-            {
-                permissions.SetDisableHousing(overrideHousing);
-                changed = true;
-            }
-        }
-        else if (permissions.IsDisableHousing() != config.DefaultDisableHousingMods)
-        {
-            permissions.SetDisableHousing(config.DefaultDisableHousingMods);
-            changed = true;
-        }
+        if (permissions.IsDisableSounds() != target.Sounds) { permissions.SetDisableSounds(target.Sounds); changed = true; }
+        if (permissions.IsDisableAnimations() != target.Animations) { permissions.SetDisableAnimations(target.Animations); changed = true; }
+        if (permissions.IsDisableVFX() != target.Vfx) { permissions.SetDisableVFX(target.Vfx); changed = true; }
+        if (permissions.IsDisableHousing() != target.Housing) { permissions.SetDisableHousing(target.Housing); changed = true; }
 
         return changed;
     }
 
     private static bool ApplyDefaults(ref GroupUserPermissions permissions, MareConfig config, SyncOverrideEntry? overrides)
     {
+        var target = TargetPermissions(config, overrides);
         bool changed = false;
-        if (overrides?.DisableSounds is { } overrideSounds)
-        {
-            if (permissions.IsDisableSounds() != overrideSounds)
-            {
-                permissions.SetDisableSounds(overrideSounds);
-                changed = true;
-            }
-        }
-        else if (permissions.IsDisableSounds() != config.DefaultDisableSounds)
-        {
-            permissions.SetDisableSounds(config.DefaultDisableSounds);
-            changed = true;
-        }
 
-        if (overrides?.DisableAnimations is { } overrideAnims)
-        {
-            if (permissions.IsDisableAnimations() != overrideAnims)
-            {
-                permissions.SetDisableAnimations(overrideAnims);
-                changed = true;
-            }
-        }
-        else if (permissions.IsDisableAnimations() != config.DefaultDisableAnimations)
-        {
-            permissions.SetDisableAnimations(config.DefaultDisableAnimations);
-            changed = true;
-        }
-
-        if (overrides?.DisableVfx is { } overrideVfx)
-        {
-            if (permissions.IsDisableVFX() != overrideVfx)
-            {
-                permissions.SetDisableVFX(overrideVfx);
-                changed = true;
-            }
-        }
-        else if (permissions.IsDisableVFX() != config.DefaultDisableVfx)
-        {
-            permissions.SetDisableVFX(config.DefaultDisableVfx);
-            changed = true;
-        }
-
-        if (overrides?.DisableHousingMods is { } overrideHousing)
-        {
-            if (permissions.IsDisableHousing() != overrideHousing)
-            {
-                permissions.SetDisableHousing(overrideHousing);
-                changed = true;
-            }
-        }
-        else if (permissions.IsDisableHousing() != config.DefaultDisableHousingMods)
-        {
-            permissions.SetDisableHousing(config.DefaultDisableHousingMods);
-            changed = true;
-        }
+        if (permissions.IsDisableSounds() != target.Sounds) { permissions.SetDisableSounds(target.Sounds); changed = true; }
+        if (permissions.IsDisableAnimations() != target.Animations) { permissions.SetDisableAnimations(target.Animations); changed = true; }
+        if (permissions.IsDisableVFX() != target.Vfx) { permissions.SetDisableVFX(target.Vfx); changed = true; }
+        if (permissions.IsDisableHousing() != target.Housing) { permissions.SetDisableHousing(target.Housing); changed = true; }
 
         return changed;
     }
