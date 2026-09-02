@@ -233,6 +233,12 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
     /// dans le fichier, seule la clé de localisation ne correspond plus. Elles sont récupérables via
     /// <see cref="ReassignSceneToCurrentAsync"/>.
     /// </summary>
+    /// <summary>Copies de travail issues d'une délégation, tous logements confondus.</summary>
+    public List<HousingNpcScenario> DelegatedWorkingCopies()
+        => _store.AllScenes()
+            .Where(s => s.LinkedShareIsDelegated && !string.IsNullOrEmpty(s.LinkedShareId))
+            .ToList();
+
     public List<HousingNpcScenario> OrphanScenes()
         => _currentLocation is { } loc ? _store.ScenesNotAtLocation(loc) : _store.AllScenes();
 

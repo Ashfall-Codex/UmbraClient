@@ -593,6 +593,54 @@ public sealed class HousingScenarioManager : IDisposable, IMediatorSubscriber
             foreach (var share in fresh)
                 NotifyDelegation(share);
         }
+
+        await PurgeRevokedDelegationsAsync(delegatedList).ConfigureAwait(false);
+    }
+    
+    private async Task PurgeRevokedDelegationsAsync(List<HousingScenarioEntryDto> delegated)
+    {
+        var stillGranted = delegated
+            .Select(d => d.Id.ToString("N", System.Globalization.CultureInfo.InvariantCulture))
+            .ToHashSet(StringComparer.Ordinal);
+
+        var revoked = _npcService.DelegatedWorkingCopies()
+            .Where(s => !stillGranted.Contains(s.LinkedShareId))
+            .ToList();
+        if (revoked.Count == 0) return;
+
+        var known = _configService.Current.KnownDelegatedScenarios;
+        bool knownChanged = false;
+
+        foreach (var scene in revoked)
+        {
+            _logger.LogInformation("Délégation retirée sur le partage {ShareId}, la copie de travail locale est supprimée", scene.LinkedShareId);
+            knownChanged |= known.Remove(scene.LinkedShareId);
+
+            if (IsApplied && AppliedShareId is { } applied
+                && string.Equals(applied.ToString("N", System.Globalization.CultureInfo.InvariantCulture),
+                    scene.LinkedShareId, StringComparison.Ordinal))
+            {
+                await RemoveAppliedInternalAsync().ConfigureAwait(false);
+            }
+
+            await _npcService.RemoveSceneAsync(scene.Id).ConfigureAwait(false);
+            NotifyRevoked(scene.Title);
+        }
+
+        if (knownChanged) _configService.Save();
+    }
+
+    private void NotifyRevoked(string title)
+    {
+        var what = string.IsNullOrWhiteSpace(title)
+            ? Localization.Loc.Get("HousingScenario.Delegated.Untitled")
+            : title;
+
+        _mediator.Publish(new NotificationMessage(
+            Localization.Loc.Get("HousingScenario.Delegated.RevokedTitle"),
+            string.Format(System.Globalization.CultureInfo.CurrentCulture,
+                Localization.Loc.Get("HousingScenario.Delegated.RevokedBody"), what),
+            MareConfiguration.Models.NotificationType.Warning, TimeSpan.FromSeconds(10)));
     }
 
     private void NotifyDelegation(HousingScenarioEntryDto share)

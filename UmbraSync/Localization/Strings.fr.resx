@@ -6264,6 +6264,12 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
   <data name="HousingScenario.Delegated.NotifBody" xml:space="preserve">
     <value>{0} vous autorise à modifier sa scène « {1} ». Retrouvez-la dans Création de données ▸ Housing ▸ PNJ, section « Partagé avec moi ».</value>
   </data>
+  <data name="HousingScenario.Delegated.RevokedTitle" xml:space="preserve">
+    <value>Accès retiré</value>
+  </data>
+  <data name="HousingScenario.Delegated.RevokedBody" xml:space="preserve">
+    <value>Le propriétaire vous a retiré l'accès à « {0} ». La copie de travail locale a été supprimée.</value>
+  </data>
   <data name="HousingScenario.Delegated.Untitled" xml:space="preserve">
     <value>sans description</value>
   </data>

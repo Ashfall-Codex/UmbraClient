@@ -6354,6 +6354,12 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
   <data name="HousingScenario.Delegated.NotifBody" xml:space="preserve">
     <value>{0} lets you edit their scene "{1}". Find it under Data Creation &gt; Housing &gt; NPC, in the "Shared with me" section.</value>
   </data>
+  <data name="HousingScenario.Delegated.RevokedTitle" xml:space="preserve">
+    <value>Access revoked</value>
+  </data>
+  <data name="HousingScenario.Delegated.RevokedBody" xml:space="preserve">
+    <value>The owner revoked your access to "{0}". The local working copy has been removed.</value>
+  </data>
   <data name="HousingScenario.Delegated.Untitled" xml:space="preserve">
     <value>untitled</value>
   </data>
