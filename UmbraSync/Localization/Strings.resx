@@ -5268,6 +5268,27 @@ Note: Weapons will not be displayed correctly unless using the same job as the s
   <data name="Settings.Advanced.Debug.NetworkDiag.Enable.Help" xml:space="preserve">
     <value>Records every SignalR message (sent/received), Hub lifecycle events and low-level .NET socket events to a dedicated file. Useful to diagnose disconnection issues. A reconnect is required for the message-level logging to take effect (the file is created immediately for hub events).</value>
   </data>
+  <data name="Settings.Storage.ClearIntro" xml:space="preserve">
+    <value>To clear the local storage, accept the following disclaimer</value>
+  </data>
+  <data name="Settings.Storage.ClearDisclaimer" xml:space="preserve">
+    <value>I understand that:&#xD;&#xA;- Clearing the storage forces every appearance already received to be downloaded again, which puts load on the CDN and on my own connection.&#xD;&#xA;- This only helps when a file went bad on my own disk (a crash or power loss while writing). A stuck or incomplete appearance far more often comes from elsewhere: permissions, a pause, or a problem on the other person's side.&#xD;&#xA;- The storage cleans itself and never exceeds the limit set above, so clearing it by hand is almost never needed.&#xD;&#xA;- While everything downloads again, people around me will take longer to appear correctly.</value>
+  </data>
+  <data name="Settings.Storage.ClearButton" xml:space="preserve">
+    <value>Clear local storage</value>
+  </data>
+  <data name="Settings.Storage.ClearTooltip" xml:space="preserve">
+    <value>You normally have no reason to do this, and certainly not to try to fix synchronisation.&#xD;&#xA;It removes all downloaded data from other players; everything will be downloaded again as you meet them.&#xD;&#xA;Umbra's storage cleans itself and stays within the limit you have set.&#xD;&#xA;If you still want to go ahead, hold CTRL while clicking the button.</value>
+  </data>
+  <data name="Settings.Storage.ClearedTitle" xml:space="preserve">
+    <value>Local storage</value>
+  </data>
+  <data name="Settings.Storage.ClearedBody" xml:space="preserve">
+    <value>Local storage cleared: {0} file(s) deleted, {1} freed.</value>
+  </data>
+  <data name="Settings.Storage.ClearFailed" xml:space="preserve">
+    <value>Local storage could not be cleared. See the log for details.</value>
+  </data>
   <data name="Settings.Advanced.Debug.NetworkDiag.RestartTitle" xml:space="preserve">
     <value>Network diagnostic log toggled</value>
   </data>

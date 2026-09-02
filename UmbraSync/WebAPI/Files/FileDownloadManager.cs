@@ -748,10 +748,8 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
     // --- Main download orchestration ---
 
     /// Surcharge sans GameObjectHandler pour le housing (pas de personnage associé).
-    public async Task<List<DownloadFileTransfer>> InitiateDownloadList(string downloadId, List<FileReplacementData> fileReplacement, CancellationToken ct)
+    private async Task<List<DownloadFileDto>?> RequestDownloadSizesAsync(List<FileReplacementData> fileReplacement, CancellationToken ct)
     {
-        Logger.LogDebug("Download start: {id}", downloadId);
-
         var allHashes = fileReplacement.Select(f => f.Hash).Distinct(StringComparer.Ordinal).ToList();
         var hashesToRequest = allHashes.Where(h => !IsHashOnCooldown(h)).ToList();
         var skippedCount = allHashes.Count - hashesToRequest.Count;
@@ -762,7 +760,7 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
         {
             Logger.LogDebug("All {count} hashes are on download cooldown, skipping", allHashes.Count);
             CurrentDownloads = [];
-            return CurrentDownloads;
+            return null;
         }
 
         List<DownloadFileDto> downloadFileInfoFromService =
@@ -781,6 +779,16 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
                 _orchestrator.ForbiddenTransfers.Add(new DownloadFileTransfer(dto));
             }
         }
+
+        return downloadFileInfoFromService;
+    }
+
+    public async Task<List<DownloadFileTransfer>> InitiateDownloadList(string downloadId, List<FileReplacementData> fileReplacement, CancellationToken ct)
+    {
+        Logger.LogDebug("Download start: {id}", downloadId);
+
+        var downloadFileInfoFromService = await RequestDownloadSizesAsync(fileReplacement, ct).ConfigureAwait(false);
+        if (downloadFileInfoFromService == null) return CurrentDownloads;
 
         CurrentDownloads = downloadFileInfoFromService.Distinct().Select(d => new DownloadFileTransfer(d))
             .Where(d => d.CanBeTransferred).ToList();
@@ -792,35 +800,8 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
     {
         Logger.LogDebug("Download start: {id}", gameObjectHandler.Name);
 
-        var allHashes = fileReplacement.Select(f => f.Hash).Distinct(StringComparer.Ordinal).ToList();
-        var hashesToRequest = allHashes.Where(h => !IsHashOnCooldown(h)).ToList();
-        var skippedCount = allHashes.Count - hashesToRequest.Count;
-        if (skippedCount > 0)
-            Logger.LogDebug("Skipping {count}/{total} hashes on download cooldown", skippedCount, allHashes.Count);
-
-        if (hashesToRequest.Count == 0)
-        {
-            Logger.LogDebug("All {count} hashes are on download cooldown, skipping", allHashes.Count);
-            CurrentDownloads = [];
-            return CurrentDownloads;
-        }
-
-        List<DownloadFileDto> downloadFileInfoFromService =
-        [
-            .. await FilesGetSizes(hashesToRequest, ct).ConfigureAwait(false),
-        ];
-
-        Logger.LogDebug("Files with size 0 or less: {files}", string.Join(", ", downloadFileInfoFromService.Where(f => f.Size <= 0).Select(f => f.Hash)));
-
-        TrackHashesMissingOnServer(downloadFileInfoFromService);
-
-        foreach (var dto in downloadFileInfoFromService.Where(c => c.IsForbidden))
-        {
-            if (!_orchestrator.ForbiddenTransfers.Exists(f => string.Equals(f.Hash, dto.Hash, StringComparison.Ordinal)))
-            {
-                _orchestrator.ForbiddenTransfers.Add(new DownloadFileTransfer(dto));
-            }
-        }
+        var downloadFileInfoFromService = await RequestDownloadSizesAsync(fileReplacement, ct).ConfigureAwait(false);
+        if (downloadFileInfoFromService == null) return CurrentDownloads;
 
         // BC7 : mémoriser les alternates, et si le mode est compressé, télécharger le BC7 à la place de l'original.
         // La liste est reconstruite plutôt que mutée en cours d'itération, ce qui préserve l'ordre d'origine.

@@ -5178,6 +5178,27 @@ Note : Les armes ne s'afficheront pas correctement sauf si vous utilisez le m&#x
   <data name="Settings.Advanced.Debug.NetworkDiag.Enable.Help" xml:space="preserve">
     <value>Enregistre chaque message SignalR (envoyé/reçu), les événements de cycle de vie du Hub et les événements bas niveau de la pile réseau .NET dans un fichier dédié. Utile pour diagnostiquer les problèmes de déconnexion. Une reconnexion est requise pour que le logging au niveau message prenne effet (le fichier est créé immédiatement pour les événements Hub).</value>
   </data>
+  <data name="Settings.Storage.ClearIntro" xml:space="preserve">
+    <value>Pour vider le stockage local, acceptez l'avertissement suivant</value>
+  </data>
+  <data name="Settings.Storage.ClearDisclaimer" xml:space="preserve">
+    <value>Je comprends que :&#xD;&#xA;- Vider le stockage oblige à retélécharger l'intégralité des apparences déjà reçues, ce qui sollicite le CDN et ma propre connexion.&#xD;&#xA;- Cela ne débloque qu'un fichier abîmé sur mon disque (coupure ou crash pendant l'écriture). Une apparence figée ou incomplète vient bien plus souvent d'ailleurs : permissions, mise en pause, ou un souci chez la personne concernée.&#xD;&#xA;- Le stockage se nettoie tout seul et ne dépasse jamais la limite définie plus haut : le vider à la main n'est presque jamais nécessaire.&#xD;&#xA;- Pendant le rechargement, les personnes autour de moi mettront plus longtemps à s'afficher correctement.</value>
+  </data>
+  <data name="Settings.Storage.ClearButton" xml:space="preserve">
+    <value>Vider le stockage local</value>
+  </data>
+  <data name="Settings.Storage.ClearTooltip" xml:space="preserve">
+    <value>Vous n'avez normalement aucune raison de faire ceci, et surtout pas pour tenter de réparer une synchronisation.&#xD;&#xA;Cette action supprime toutes les données téléchargées des autres joueurs ; tout sera retéléchargé au fil des rencontres.&#xD;&#xA;Le stockage d'Umbra se nettoie de lui-même et respecte la limite que vous avez fixée.&#xD;&#xA;Si vous maintenez votre choix, maintenez CTRL en cliquant sur le bouton.</value>
+  </data>
+  <data name="Settings.Storage.ClearedTitle" xml:space="preserve">
+    <value>Stockage local</value>
+  </data>
+  <data name="Settings.Storage.ClearedBody" xml:space="preserve">
+    <value>Stockage local vidé : {0} fichier(s) supprimé(s), {1} libéré(s).</value>
+  </data>
+  <data name="Settings.Storage.ClearFailed" xml:space="preserve">
+    <value>Le stockage local n'a pas pu être vidé. Consultez le journal pour le détail.</value>
+  </data>
   <data name="Settings.Advanced.Debug.NetworkDiag.RestartTitle" xml:space="preserve">
     <value>Journal de diagnostic réseau modifié</value>
   </data>

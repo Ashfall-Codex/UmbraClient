@@ -82,6 +82,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
     private bool? _notesSuccessfullyApplied = null;
     private bool _overwriteExistingLabels = false;
     private bool _readClearCache = false;
+    private bool _clearingCache;
     private CancellationTokenSource? _validationCts;
     private Task<List<FileCacheEntity>>? _validationTask;
     private bool _wasOpen = false;
@@ -216,6 +217,58 @@ public class SettingsUi : WindowMediatorSubscriberBase
         _uiShared.EditTrackerPosition = false;
 
         base.OnClose();
+    }
+
+    /// <summary>
+    /// Vide le cache disque et rend compte du résultat : sans retour visible, l'utilisateur ne
+    /// pouvait pas distinguer un vidage réussi d'un bouton qui n'avait rien fait. Un fichier
+    /// verrouillé par le jeu est ignoré plutôt que d'interrompre le reste.
+    /// </summary>
+    private void ClearLocalStorage()
+    {
+        int deleted = 0;
+        long freedBytes = 0;
+
+        try
+        {
+            foreach (var file in Directory.GetFiles(_configService.Current.CacheFolder))
+            {
+                try
+                {
+                    var size = new FileInfo(file).Length;
+                    File.Delete(file);
+                    deleted++;
+                    freedBytes += size;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug(ex, "Cache file could not be deleted, skipped");
+                }
+            }
+
+            _logger.LogInformation("Local storage cleared: {count} file(s), {size} freed", deleted, UiSharedService.ByteToString(freedBytes));
+
+            Mediator.Publish(new NotificationMessage(
+                Loc.Get("Settings.Storage.ClearedTitle"),
+                string.Format(CultureInfo.CurrentCulture, Loc.Get("Settings.Storage.ClearedBody"),
+                    deleted, UiSharedService.ByteToString(freedBytes)),
+                UmbraSync.MareConfiguration.Models.NotificationType.Success,
+                TimeSpan.FromSeconds(8)));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Clearing local storage failed");
+
+            Mediator.Publish(new NotificationMessage(
+                Loc.Get("Settings.Storage.ClearedTitle"),
+                Loc.Get("Settings.Storage.ClearFailed"),
+                UmbraSync.MareConfiguration.Models.NotificationType.Error,
+                TimeSpan.FromSeconds(8)));
+        }
+        finally
+        {
+            _clearingCache = false;
+        }
     }
 
     private void DrawCollectionOverrides()
@@ -2126,29 +2179,22 @@ public class SettingsUi : WindowMediatorSubscriberBase
         ImGui.Separator();
 
         ImGuiHelpers.ScaledDummy(new Vector2(10, 10));
-        ImGui.TextUnformatted("To clear the local storage accept the following disclaimer");
+        ImGui.TextUnformatted(Loc.Get("Settings.Storage.ClearIntro"));
         ImGui.Indent();
         ImGui.Checkbox("##readClearCache", ref _readClearCache);
         ImGui.SameLine();
-        UiSharedService.TextWrapped("I understand that: " + Environment.NewLine + "- By clearing the local storage I put the file servers of my connected service under extra strain by having to redownload all data."
-            + Environment.NewLine + "- This is not a step to try to fix sync issues."
-            + Environment.NewLine + "- This can make the situation of not getting other players data worse in situations of heavy file server load.");
+        UiSharedService.TextWrapped(Loc.Get("Settings.Storage.ClearDisclaimer"));
         if (!_readClearCache)
             ImGui.BeginDisabled();
-        if (_uiShared.IconTextButton(FontAwesomeIcon.Trash, "Clear local storage") && UiSharedService.CtrlPressed() && _readClearCache)
+        using (ImRaii.Disabled(_clearingCache))
         {
-            _ = Task.Run(() =>
+            if (_uiShared.IconTextButton(FontAwesomeIcon.Trash, Loc.Get("Settings.Storage.ClearButton")) && UiSharedService.CtrlPressed() && _readClearCache)
             {
-                foreach (var file in Directory.GetFiles(_configService.Current.CacheFolder))
-                {
-                    File.Delete(file);
-                }
-            });
+                _clearingCache = true;
+                _ = Task.Run(ClearLocalStorage);
+            }
         }
-        UiSharedService.AttachToolTip("You normally do not need to do this. THIS IS NOT SOMETHING YOU SHOULD BE DOING TO TRY TO FIX SYNC ISSUES." + Environment.NewLine
-            + "This will solely remove all downloaded data from all players and will require you to re-download everything again." + Environment.NewLine
-            + "Umbra's storage is self-clearing and will not surpass the limit you have set it to." + Environment.NewLine
-            + "If you still think you need to do this hold CTRL while pressing the button.");
+        UiSharedService.AttachToolTip(Loc.Get("Settings.Storage.ClearTooltip"));
         if (!_readClearCache)
             ImGui.EndDisabled();
         ImGui.Unindent();
