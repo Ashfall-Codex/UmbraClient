@@ -27,6 +27,8 @@ public class AutoDetectRequestService : IMediatorSubscriber
     private readonly Dictionary<string, DateTime> _activeCooldowns = new(StringComparer.Ordinal);
     private readonly Dictionary<string, RefusalTracker> _refusalTrackers = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, PendingRequestInfo> _pendingRequests = new(StringComparer.Ordinal);
+    private const int RefusalsBeforeLock = 3;
+
     private static readonly TimeSpan RequestCooldown = TimeSpan.FromMinutes(5);
     private static readonly TimeSpan RefusalLockDuration = TimeSpan.FromMinutes(15);
     private readonly Lazy<ApiController> _apiController;
@@ -124,32 +126,7 @@ public class AutoDetectRequestService : IMediatorSubscriber
         }
         else
         {
-            if (!string.IsNullOrEmpty(targetKey))
-            {
-                var now = DateTime.UtcNow;
-                using (_syncRoot.EnterScope())
-                {
-                    _activeCooldowns.Remove(targetKey);
-                    if (!_refusalTrackers.TryGetValue(targetKey, out var tracker))
-                    {
-                        tracker = new RefusalTracker();
-                        _refusalTrackers[targetKey] = tracker;
-                    }
-
-                    if (tracker.LockUntil.HasValue && tracker.LockUntil.Value <= now)
-                    {
-                        tracker.LockUntil = null;
-                        tracker.Count = 0;
-                    }
-
-                    tracker.Count++;
-                    if (tracker.Count >= 3)
-                    {
-                        tracker.LockUntil = now.Add(RefusalLockDuration);
-                    }
-                }
-                _pendingRequests.TryRemove(targetKey, out _);
-            }
+            RecordRefusal(targetKey);
             _mediator.Publish(new NotificationMessage(Loc.Get("Notification.Nearby.Failed.Title"), Loc.Get("Notification.Nearby.Failed.Rejected"), NotificationType.Warning));
             _notificationTracker.Upsert(NotificationEntry.NearbyRequestFailed(Loc.Get("Notification.Nearby.Failed.Rejected")));
         }
@@ -234,37 +211,46 @@ public class AutoDetectRequestService : IMediatorSubscriber
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Direct pair request failed for {uid}", uid);
-            if (!string.IsNullOrEmpty(targetKey))
-            {
-                var now = DateTime.UtcNow;
-                using (_syncRoot.EnterScope())
-                {
-                    _activeCooldowns.Remove(targetKey);
-                    if (!_refusalTrackers.TryGetValue(targetKey, out var tracker))
-                    {
-                        tracker = new RefusalTracker();
-                        _refusalTrackers[targetKey] = tracker;
-                    }
-
-                    if (tracker.LockUntil.HasValue && tracker.LockUntil.Value <= now)
-                    {
-                        tracker.LockUntil = null;
-                        tracker.Count = 0;
-                    }
-
-                    tracker.Count++;
-                    if (tracker.Count >= 3)
-                    {
-                        tracker.LockUntil = now.Add(RefusalLockDuration);
-                    }
-                }
-                _pendingRequests.TryRemove(targetKey, out _);
-            }
+            RecordRefusal(targetKey);
 
             _mediator.Publish(new NotificationMessage(Loc.Get("Notification.Nearby.Failed.Title"), Loc.Get("Notification.Nearby.Failed.Rejected"), NotificationType.Warning));
             _notificationTracker.Upsert(NotificationEntry.NearbyRequestFailed(Loc.Get("Notification.Nearby.Failed.Rejected")));
             return false;
         }
+    }
+
+    /// <summary>
+    /// Comptabilise un refus pour cette cible et pose le verrou au troisième d'affilée. Un verrou
+    /// arrivé à échéance remet le compteur à zéro : la série doit être récente pour compter.
+    /// </summary>
+    private void RecordRefusal(string? targetKey)
+    {
+        if (string.IsNullOrEmpty(targetKey)) return;
+
+        var now = DateTime.UtcNow;
+        using (_syncRoot.EnterScope())
+        {
+            _activeCooldowns.Remove(targetKey);
+            if (!_refusalTrackers.TryGetValue(targetKey, out var tracker))
+            {
+                tracker = new RefusalTracker();
+                _refusalTrackers[targetKey] = tracker;
+            }
+
+            if (tracker.LockUntil.HasValue && tracker.LockUntil.Value <= now)
+            {
+                tracker.LockUntil = null;
+                tracker.Count = 0;
+            }
+
+            tracker.Count++;
+            if (tracker.Count >= RefusalsBeforeLock)
+            {
+                tracker.LockUntil = now.Add(RefusalLockDuration);
+            }
+        }
+
+        _pendingRequests.TryRemove(targetKey, out _);
     }
 
     private bool CanRequestTarget(string? targetKey)

@@ -661,31 +661,7 @@ internal sealed class GroupPanel
 
                 foreach (var pair in sortedPairs)
                 {
-                    var cacheKey = groupDto.GID + pair.UserData.UID;
-                    var groupPairFullInfoDto = pair.GroupPair.FirstOrDefault(
-                            g => string.Equals(g.Key.Group.GID, groupDto.GID, StringComparison.Ordinal)
-                        ).Value;
-
-                    if (groupPairFullInfoDto == null) continue;
-
-                    if (!_drawGroupPairCache.TryGetValue(cacheKey, out var drawPair))
-                    {
-                        drawPair = new DrawGroupPair(
-                            cacheKey, pair,
-                            ApiController, _mainUi.Mediator, groupDto,
-                            groupPairFullInfoDto,
-                            _uidDisplayHandler,
-                            _uiShared,
-                            _charaDataManager,
-                            _autoDetectRequestService,
-                            _serverConfigurationManager,
-                            _mareConfig);
-                        _drawGroupPairCache[cacheKey] = drawPair;
-                    }
-                    else
-                    {
-                        drawPair.UpdateData(groupDto, groupPairFullInfoDto);
-                    }
+                    if (GetOrCreateDrawPair(groupDto, pair) is not { } drawPair) continue;
 
                     if (pair.IsVisible)
                         visibleUsers.Add(drawPair);
@@ -1523,35 +1499,45 @@ internal sealed class GroupPanel
         var result = new List<DrawGroupPair>();
         foreach (var pair in sortedPairs)
         {
-            var cacheKey = groupDto.GID + pair.UserData.UID;
-            var groupPairFullInfoDto = pair.GroupPair.FirstOrDefault(
-                g => string.Equals(g.Key.Group.GID, groupDto.GID, StringComparison.Ordinal)
-            ).Value;
-
-            if (groupPairFullInfoDto == null) continue;
-
-            if (!_drawGroupPairCache.TryGetValue(cacheKey, out var drawPair))
-            {
-                drawPair = new DrawGroupPair(
-                    cacheKey, pair,
-                    ApiController, _mainUi.Mediator, groupDto,
-                    groupPairFullInfoDto,
-                    _uidDisplayHandler,
-                    _uiShared,
-                    _charaDataManager,
-                    _autoDetectRequestService,
-                    _serverConfigurationManager,
-                    _mareConfig);
-                _drawGroupPairCache[cacheKey] = drawPair;
-            }
-            else
-            {
-                drawPair.UpdateData(groupDto, groupPairFullInfoDto);
-            }
-
-            result.Add(drawPair);
+            if (GetOrCreateDrawPair(groupDto, pair) is { } drawPair) result.Add(drawPair);
         }
         return result;
+    }
+
+    /// <summary>
+    /// Ligne d'affichage d'un membre, prise au cache ou construite. Le cache évite de reconstruire
+    /// un <see cref="DrawGroupPair"/> à chaque frame. Renvoie null quand le membre n'appartient
+    /// finalement pas à cette syncshell.
+    /// </summary>
+    private DrawGroupPair? GetOrCreateDrawPair(GroupFullInfoDto groupDto, Pair pair)
+    {
+        var cacheKey = groupDto.GID + pair.UserData.UID;
+        var groupPairFullInfoDto = pair.GroupPair.FirstOrDefault(
+            g => string.Equals(g.Key.Group.GID, groupDto.GID, StringComparison.Ordinal)
+        ).Value;
+
+        if (groupPairFullInfoDto == null) return null;
+
+        if (!_drawGroupPairCache.TryGetValue(cacheKey, out var drawPair))
+        {
+            drawPair = new DrawGroupPair(
+                cacheKey, pair,
+                ApiController, _mainUi.Mediator, groupDto,
+                groupPairFullInfoDto,
+                _uidDisplayHandler,
+                _uiShared,
+                _charaDataManager,
+                _autoDetectRequestService,
+                _serverConfigurationManager,
+                _mareConfig);
+            _drawGroupPairCache[cacheKey] = drawPair;
+        }
+        else
+        {
+            drawPair.UpdateData(groupDto, groupPairFullInfoDto);
+        }
+
+        return drawPair;
     }
 
     private void DrawMembersList(GroupFullInfoDto groupDto, List<Pair> pairsInGroup)
