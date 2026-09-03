@@ -6939,4 +6939,22 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
   <data name="Settings.Performance.Bc7.DeleteUid" xml:space="preserve">
     <value>Supprimer l'UID sélectionné</value>
   </data>
+  <data name="Settings.General.Appearance" xml:space="preserve">
+    <value>Apparence</value>
+  </data>
+  <data name="Settings.General.ReduceTransparency" xml:space="preserve">
+    <value>Interface opaque</value>
+  </data>
+  <data name="Settings.General.ReduceTransparency.Help" xml:space="preserve">
+    <value>Supprime toute transparence des fenêtres. À activer si l'interface devient difficile à lire par-dessus certaines zones du jeu.</value>
+  </data>
+  <data name="Settings.General.UiOpacity" xml:space="preserve">
+    <value>Opacité de l'interface</value>
+  </data>
+  <data name="Settings.General.UiOpacity.Help" xml:space="preserve">
+    <value>Opacité du châssis des fenêtres et de la barre latérale. Plus la valeur est basse, plus la scène du jeu transparaît.</value>
+  </data>
+  <data name="Settings.General.UiOpacity.Note" xml:space="preserve">
+    <value>Les listes, tableaux et champs de saisie restent toujours opaques, quel que soit ce réglage.</value>
+  </data>
 </root>

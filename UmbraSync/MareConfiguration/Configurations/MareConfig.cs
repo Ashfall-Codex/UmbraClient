@@ -99,6 +99,8 @@ public class MareConfig : IMareConfiguration
     public bool ShowUploadingBigText { get; set; } = true;
     public bool ShowVisibleUsersSeparately { get; set; } = true;
     public string UiLanguage { get; set; } = "fr";
+    public float UiOpacity { get; set; } = 0.88f;
+    public bool UiReduceTransparency { get; set; }
     public string LastChangelogVersionSeen { get; set; } = string.Empty;
     public string LastTestBuildWarningVersionSeen { get; set; } = string.Empty;
     public Dictionary<string, string> LastSeenExternalPluginVersions { get; set; } = new(StringComparer.Ordinal);

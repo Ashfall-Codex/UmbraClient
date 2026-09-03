@@ -2,6 +2,7 @@
 using Dalamud.Interface.Windowing;
 using Microsoft.Extensions.Logging;
 using UmbraSync.UI;
+using GlassLevel = UmbraSync.UI.UiSharedService.GlassLevel;
 
 namespace UmbraSync.Services.Mediator;
 
@@ -37,9 +38,10 @@ public abstract class WindowMediatorSubscriberBase : Window, IMediatorSubscriber
 
     public override void PreDraw()
     {
-        ImGui.PushStyleVar(ImGuiStyleVar.WindowBorderSize, 2f);
-        ImGui.PushStyleVar(ImGuiStyleVar.WindowRounding, 4f);
-        ImGui.PushStyleColor(ImGuiCol.WindowBg, UiSharedService.ThemeWindowBg);
+        ImGui.PushStyleVar(ImGuiStyleVar.WindowBorderSize, 1f);
+        ImGui.PushStyleVar(ImGuiStyleVar.WindowRounding, UiSharedService.RadiusWindow);
+        ImGui.PushStyleColor(ImGuiCol.WindowBg,
+            UiSharedService.WithAlpha(UiSharedService.ThemeWindowBg, UiSharedService.GlassAlpha(WindowGlassLevel)));
         ImGui.PushStyleColor(ImGuiCol.ChildBg, UiSharedService.ThemeChildBg);
         ImGui.PushStyleColor(ImGuiCol.Border, UiSharedService.ThemeBorder);
         ImGui.PushStyleColor(ImGuiCol.Separator, UiSharedService.ThemeSeparator);
@@ -70,9 +72,29 @@ public abstract class WindowMediatorSubscriberBase : Window, IMediatorSubscriber
         ImGui.PopStyleVar(UiSharedService.ThemeStyleVarCount);
     }
 
+    protected virtual GlassLevel WindowGlassLevel => GlassLevel.Regular;
+
     public override void Draw()
     {
+        DrawWindowSheen();
         _performanceCollectorService.LogPerformance(this, $"Draw", DrawInternal);
+    }
+
+    private void DrawWindowSheen()
+    {
+        if (WindowGlassLevel == GlassLevel.Opaque) return;
+        if (Flags.HasFlag(ImGuiWindowFlags.NoBackground)) return;
+
+        float alpha = UiSharedService.GlassAlpha(WindowGlassLevel);
+        if (alpha >= 1f) return;
+
+        var pos = ImGui.GetWindowPos();
+        UiSharedService.DrawGlassSheen(
+            ImGui.GetWindowDrawList(),
+            pos,
+            pos + ImGui.GetWindowSize(),
+            UiSharedService.RadiusWindow,
+            alpha);
     }
 
     protected abstract void DrawInternal();

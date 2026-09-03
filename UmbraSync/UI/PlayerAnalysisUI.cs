@@ -59,6 +59,9 @@ public class PlayerAnalysisUI : WindowMediatorSubscriberBase
         Mediator.Publish(new RemoveWindowMessage(this));
     }
 
+    protected override UiSharedService.GlassLevel WindowGlassLevel
+        => UiSharedService.GlassLevel.Opaque;
+
     protected override void DrawInternal()
     {
         if (PairAnalyzer == null) return;

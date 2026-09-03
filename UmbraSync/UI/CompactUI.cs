@@ -182,9 +182,10 @@ public partial class CompactUi : WindowMediatorSubscriberBase
 
     protected override void DrawInternal()
     {
-        DrawTitleAccent();
-
         var sidebarWidth = ImGuiHelpers.ScaledVector2(SidebarWidth, 0).X;
+        DrawContentBackdrop(sidebarWidth);
+
+        DrawTitleAccent();
 
         using var fontScale = UiSharedService.PushFontScale(ContentFontScale);
         ImGui.PushStyleVar(ImGuiStyleVar.FramePadding, ImGui.GetStyle().FramePadding * ContentFontScale);
@@ -195,15 +196,17 @@ public partial class CompactUi : WindowMediatorSubscriberBase
 
         ImGui.SameLine();
 
-        float separatorHeight = ImGui.GetWindowHeight() - ImGui.GetStyle().WindowPadding.Y * 2f;
         float separatorX = ImGui.GetCursorPosX();
         float separatorY = ImGui.GetCursorPosY();
         var drawList = ImGui.GetWindowDrawList();
         var start = ImGui.GetCursorScreenPos();
-        var end = new Vector2(start.X, start.Y + separatorHeight);
+        (float separatorTop, float separatorBottom) = GetChromeVerticalBounds();
+        start = new Vector2(start.X, separatorTop);
+        var end = new Vector2(start.X, separatorBottom);
         var separatorColor = UiSharedService.AccentColor with { W = 0.6f };
         drawList.AddLine(start, end, ImGui.GetColorU32(separatorColor), 1f * ImGuiHelpers.GlobalScale);
         ImGui.SetCursorPos(new Vector2(separatorX + 6f * ImGuiHelpers.GlobalScale, separatorY));
+        using var contentBg = ImRaii.PushColor(ImGuiCol.ChildBg, UiSharedService.ThemeWindowBg);
 
         ImGui.BeginChild("compact-content", Vector2.Zero, false);
         WindowContentWidth = UiSharedService.GetWindowContentRegionWidth();
@@ -239,6 +242,33 @@ public partial class CompactUi : WindowMediatorSubscriberBase
         }
 
         ImGui.PopStyleVar();
+    }
+    
+    private static (float Top, float Bottom) GetChromeVerticalBounds()
+    {
+        var style = ImGui.GetStyle();
+        float winTop = ImGui.GetWindowPos().Y;
+        return (winTop + ImGui.GetCursorStartPos().Y - style.WindowPadding.Y,
+                winTop + ImGui.GetWindowHeight() - style.WindowBorderSize);
+    }
+
+    private static void DrawContentBackdrop(float sidebarWidth)
+    {
+        var style = ImGui.GetStyle();
+        var winPos = ImGui.GetWindowPos();
+        var winSize = ImGui.GetWindowSize();
+        (float top, float bottom) = GetChromeVerticalBounds();
+        float left = winPos.X + style.WindowPadding.X + sidebarWidth + style.ItemSpacing.X;
+        float right = winPos.X + winSize.X - style.WindowBorderSize;
+
+        if (right <= left || bottom <= top) return;
+
+        ImGui.GetWindowDrawList().AddRectFilled(
+            new Vector2(left, top),
+            new Vector2(right, bottom),
+            ImGui.GetColorU32(UiSharedService.ThemeWindowBg),
+            UiSharedService.RadiusWindow,
+            ImDrawFlags.RoundCornersBottomRight);
     }
 
     public override void OnClose()

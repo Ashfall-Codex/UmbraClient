@@ -69,6 +69,68 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
     public const int ThemeColorCount = 23;
     public const int ThemeStyleVarCount = 2;
 
+    public const float RadiusWindow = 10f;
+    public const float RadiusCard = 6f;
+    public const float RadiusControl = 4f;
+
+    public enum GlassLevel
+    {
+        Regular,
+        Clear,
+        Opaque
+    }
+
+    private static MareConfigService? _glassConfig;
+    private static void AttachGlassConfig(MareConfigService configService) => _glassConfig = configService;
+    private static void DetachGlassConfig() => _glassConfig = null;
+    public static float GlassOpacity
+    {
+        get
+        {
+            MareConfigService? cfg = _glassConfig;
+            if (cfg is null || cfg.Current.UiReduceTransparency) return 1f;
+            return Math.Clamp(cfg.Current.UiOpacity, 0.60f, 1f);
+        }
+    }
+
+    public static Vector4 WithAlpha(Vector4 color, float alpha) => color with { W = alpha };
+
+    public static float GlassAlpha(GlassLevel level)
+    {
+        float baseAlpha = level switch
+        {
+            GlassLevel.Clear => 0.55f,
+            GlassLevel.Opaque => 1f,
+            _ => 1f,
+        };
+
+        if (level == GlassLevel.Opaque) return 1f;
+        return Math.Clamp(baseAlpha * GlassOpacity, 0.35f, 1f);
+    }
+    
+    public static void DrawGlassSheen(ImDrawListPtr drawList, Vector2 min, Vector2 max, float rounding, float alpha)
+    {
+        if (alpha <= 0f) return;
+
+        float height = max.Y - min.Y;
+        if (height <= 2f || max.X - min.X <= 2f) return;
+
+        var mid = new Vector2(max.X, min.Y + height * 0.42f);
+        uint lit = Color(new Vector4(1f, 1f, 1f, 0.05f * alpha));
+        uint off = Color(new Vector4(1f, 1f, 1f, 0f));
+
+        drawList.PushClipRect(min, max, true);
+        drawList.AddRectFilledMultiColor(min, mid, lit, lit, off, off);
+        drawList.PopClipRect();
+
+        float inset = Math.Min(rounding, (max.X - min.X) / 2f);
+        drawList.AddLine(
+            new Vector2(min.X + inset, min.Y + 0.5f),
+            new Vector2(max.X - inset, min.Y + 0.5f),
+            Color(new Vector4(1f, 1f, 1f, 0.14f * alpha)),
+            1f);
+    }
+
     public readonly FileDialogManager FileDialogManager;
 
     private const string _notesEnd = "##MARE_SYNCHRONOS_USER_NOTES_END##";
@@ -133,6 +195,7 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
         _cacheMonitor = cacheMonitor;
         FileDialogManager = fileDialogManager;
         _configService = configService;
+        AttachGlassConfig(configService);
         _dalamudUtil = dalamudUtil;
         _textureProvider = textureProvider;
         _serverConfigurationManager = serverManager;
@@ -579,9 +642,9 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
         var pad = padding ?? new Vector2(
             padBase.X + 4f * ImGuiHelpers.GlobalScale,
             padBase.Y + 3f * ImGuiHelpers.GlobalScale);
-        var cardBg = background ?? new Vector4(0x1C / 255f, 0x1C / 255f, 0x1C / 255f, 1f);
-        var cardBorder = border ?? new Vector4(0x4A / 255f, 0x36 / 255f, 0x68 / 255f, 0.70f);
-        float cardRounding = rounding ?? Math.Max(style.FrameRounding, 8f * ImGuiHelpers.GlobalScale);
+        var cardBg = background ?? ThemeHeaderBg;
+        var cardBorder = border ?? WithAlpha(ThemeButtonActive, 0.70f);
+        float cardRounding = rounding ?? RadiusCard * ImGuiHelpers.GlobalScale;
         float borderThickness = Math.Max(1f, Math.Max(style.FrameBorderSize, 1f) * ImGuiHelpers.GlobalScale);
         float borderInset = borderThickness;
 
@@ -1624,6 +1687,8 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
         if (!disposing) return;
 
         base.Dispose(disposing);
+
+        DetachGlassConfig();
 
         UidFont.Dispose();
         GameFont.Dispose();
