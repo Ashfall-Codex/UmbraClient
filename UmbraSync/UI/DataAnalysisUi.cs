@@ -68,8 +68,6 @@ public class DataAnalysisUi : WindowMediatorSubscriberBase
         _conversionProgress.ProgressChanged += ConversionProgress_ProgressChanged;
     }
 
-    protected override UiSharedService.GlassLevel WindowGlassLevel
-        => UiSharedService.GlassLevel.Opaque;
 
     protected override void DrawInternal()
     {

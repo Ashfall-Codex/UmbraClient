@@ -51,6 +51,8 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
     private bool _filterWorldOnly = false;
     private string _gposeTarget = string.Empty;
     private bool _hasValidGposeTarget;
+    private readonly PolledUiValue<(bool CanApply, string TargetName)> _gposeTargetPoll;
+    private readonly PolledUiValue<nint> _gposeTargetAddressPoll;
     private bool _isHandlingSelf = false;
     private DateTime _lastFavoriteUpdateTime = DateTime.UtcNow;
     private PoseEntryExtended? _nearbyHovered;
@@ -152,6 +154,21 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
         _uiSharedService = uiSharedService;
         _serverConfigurationManager = serverConfigurationManager;
         _dalamudUtilService = dalamudUtilService;
+
+        // La cible GPose était relue en bloquant le thread de rendu à chaque frame.
+        _gposeTargetPoll = new PolledUiValue<(bool, string)>(
+            () => _charaDataManager.CanApplyInGpose(),
+            TimeSpan.FromMilliseconds(200),
+            (false, string.Empty));
+        // Celui-ci était relu une fois par acteur GPose et par frame.
+        _gposeTargetAddressPoll = new PolledUiValue<nint>(
+            async () => (await _dalamudUtilService.GetGposeTargetGameObjectAsync().ConfigureAwait(false))?.Address ?? nint.Zero,
+            TimeSpan.FromMilliseconds(200),
+            nint.Zero);
+        _housingLocationPoll = new PolledUiValue<LocationInfo>(
+            () => _dalamudUtilService.GetMapDataAsync(),
+            TimeSpan.FromMilliseconds(500),
+            default);
         _fileDialogManager = fileDialogManager;
         _pairManager = pairManager;
         _charaDataGposeTogetherManager = charaDataGposeTogetherManager;
@@ -262,7 +279,7 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
             UpdateFilteredFavorites();
         }
 
-        (_hasValidGposeTarget, _gposeTarget) = _charaDataManager.CanApplyInGpose().GetAwaiter().GetResult();
+        (_hasValidGposeTarget, _gposeTarget) = _gposeTargetPoll.Poll(_logger);
 
         if (!_charaDataManager.BrioAvailable)
         {
@@ -568,7 +585,7 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
                 UiSharedService.AttachToolTip(string.Format(CultureInfo.CurrentCulture, Loc.Get("CharaDataHub.Apply.GposeActors.TargetTooltip"), CharaName(actor.Name.TextValue)));
                 ImGui.AlignTextToFramePadding();
                 var pos = ImGui.GetCursorPosX();
-                using (ImRaii.PushColor(ImGuiCol.Text, ImGuiColors.HealerGreen, actor.Address == (_dalamudUtilService.GetGposeTargetGameObjectAsync().GetAwaiter().GetResult()?.Address ?? nint.Zero)))
+                using (ImRaii.PushColor(ImGuiCol.Text, ImGuiColors.HealerGreen, actor.Address == _gposeTargetAddressPoll.Poll(_logger)))
                 {
                     ImGui.TextUnformatted(CharaName(actor.Name.TextValue));
                 }
@@ -615,7 +632,7 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
         {
             ImGui.TextUnformatted(Loc.Get("CharaDataHub.Apply.TargetLabel"));
             ImGui.SameLine(200);
-            UiSharedService.ColorText(CharaName(_gposeTarget), UiSharedService.GetBoolColor(_hasValidGposeTarget));
+            UiSharedService.ColorText(CharaName(_gposeTarget), UiSharedService.GetSuccessColor(_hasValidGposeTarget));
         }
 
         if (!_hasValidGposeTarget)
@@ -1881,7 +1898,7 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
             ImGui.SameLine();
             var favPos = ImGui.GetCursorPosX();
             ImGui.AlignTextToFramePadding();
-            UiSharedService.ColorText(data.FullId, UiSharedService.GetBoolColor(data.CanBeDownloaded));
+            UiSharedService.ColorText(data.FullId, UiSharedService.GetSuccessColor(data.CanBeDownloaded));
             if (!data.CanBeDownloaded)
             {
                 UiSharedService.AttachToolTip(Loc.Get("CharaDataHub.Apply.Meta.Incomplete"));

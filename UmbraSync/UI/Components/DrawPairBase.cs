@@ -71,7 +71,7 @@ public abstract class DrawPairBase
         }
 
         var drawList = ImGui.GetWindowDrawList();
-        var backgroundColor = new Vector4(0x1C / 255f, 0x1C / 255f, 0x1C / 255f, 1f);
+        var backgroundColor = UiSharedService.ThemeHeaderBg;
         var borderColor = new Vector4(0f, 0f, 0f, 0f);
         float rounding = Math.Max(style.FrameRounding, 7f * ImGuiHelpers.GlobalScale);
 

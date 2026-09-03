@@ -193,8 +193,6 @@ public class EditProfileUi : WindowMediatorSubscriberBase
         }
     }
 
-    protected override UiSharedService.GlassLevel WindowGlassLevel
-        => UiSharedService.GlassLevel.Opaque;
 
     protected override void DrawInternal()
     {

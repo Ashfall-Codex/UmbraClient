@@ -2316,7 +2316,6 @@ public class SettingsUi : WindowMediatorSubscriberBase
         ImGuiHelpers.ScaledDummy(3f);
 
         _uiShared.BigText(Loc.Get("Settings.General.Appearance"));
-
         var reduceTransparency = _configService.Current.UiReduceTransparency;
         if (ImGui.Checkbox(Loc.Get("Settings.General.ReduceTransparency"), ref reduceTransparency))
         {
@@ -3728,9 +3727,9 @@ public class SettingsUi : WindowMediatorSubscriberBase
         float btnWidth = (usableWidth - btnSpacing * 2f) / 3f;
 
         ImGui.SetCursorPosX(margin);
-        using (ImRaii.PushColor(ImGuiCol.Button, new Vector4(0x2A / 255f, 0x1F / 255f, 0x3D / 255f, 1f)))
-        using (ImRaii.PushColor(ImGuiCol.ButtonHovered, new Vector4(0x38 / 255f, 0x29 / 255f, 0x52 / 255f, 1f)))
-        using (ImRaii.PushColor(ImGuiCol.ButtonActive, new Vector4(0x4A / 255f, 0x36 / 255f, 0x68 / 255f, 1f)))
+        using (ImRaii.PushColor(ImGuiCol.Button, UiSharedService.ThemeButtonBg))
+        using (ImRaii.PushColor(ImGuiCol.ButtonHovered, UiSharedService.ThemeButtonHovered))
+        using (ImRaii.PushColor(ImGuiCol.ButtonActive, UiSharedService.ThemeButtonActive))
         {
             if (DrawAboutLinkButton(FontAwesomeIcon.Globe, "Discord", btnWidth))
                 Dalamud.Utility.Util.OpenLink(Constants.DiscordUrl);
@@ -4029,7 +4028,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
         // Background: only draw on hover (indicator handles active state)
         if (hovered && !isActive)
         {
-            var hoverColor = new Vector4(0x30 / 255f, 0x19 / 255f, 0x46 / 255f, 1f);
+            var hoverColor = UiSharedService.ThemeRailHovered;
             var dl = ImGui.GetWindowDrawList();
             float rounding = 6f * ImGuiHelpers.GlobalScale;
             float padding = 2f * ImGuiHelpers.GlobalScale;

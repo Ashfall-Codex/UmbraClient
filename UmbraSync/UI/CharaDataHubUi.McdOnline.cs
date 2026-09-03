@@ -82,14 +82,14 @@ public sealed partial class CharaDataHubUi
                         }
                         else if (_charaDataManager.UploadTask?.IsCompleted ?? false)
                         {
-                            var color = UiSharedService.GetBoolColor(_charaDataManager.UploadTask.Result.Success);
+                            var color = UiSharedService.GetSuccessColor(_charaDataManager.UploadTask.Result.Success);
                             UiSharedService.ColorTextWrapped(_charaDataManager.UploadTask.Result.Output, color);
                         }
                     });
                 }
                 else if (_charaDataManager.UploadTask?.IsCompleted ?? false)
                 {
-                    var color = UiSharedService.GetBoolColor(_charaDataManager.UploadTask.Result.Success);
+                    var color = UiSharedService.GetSuccessColor(_charaDataManager.UploadTask.Result.Success);
                     UiSharedService.ColorTextWrapped(_charaDataManager.UploadTask.Result.Output, color);
                 }
             });

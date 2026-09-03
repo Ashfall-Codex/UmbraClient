@@ -1078,16 +1078,16 @@ internal sealed class GroupPanel
                 windowPos.X + startX + col * (cardSize + cardSpacing),
                 windowPos.Y + startY + row * (cardSize + cardSpacing) - scrollY);
             var cardMax = new Vector2(cardMin.X + cardSize, cardMin.Y + cardSize);
-            var bgColor = new Vector4(0x1C / 255f, 0x1C / 255f, 0x1C / 255f, 1f);
+            var bgColor = UiSharedService.ThemeHeaderBg;
             var pausedColor = ImGuiColors.DalamudOrange;
             var slotActiveColor = new Vector4(0.3f, 0.85f, 0.3f, 0.9f);
             var slotLeavingColor = new Vector4(0.9f, 0.25f, 0.25f, 0.9f);
-            var cardBorderColor = new Vector4(0x4A / 255f, 0x36 / 255f, 0x68 / 255f, 0.70f);
+            var cardBorderColor = UiSharedService.ThemeCardBorder;
             var borderColor = isSlotLeaving ? slotLeavingColor
                 : isActiveSlot ? slotActiveColor
                 : isPaused ? pausedColor with { W = 0.8f }
                 : cardBorderColor;
-            var nameColor = isPaused ? pausedColor : new Vector4(0x9B / 255f, 0x82 / 255f, 0xC0 / 255f, 1f);
+            var nameColor = isPaused ? pausedColor : UiSharedService.ThemeTextAccent;
 
             drawList.AddRectFilled(cardMin, cardMax, ImGui.ColorConvertFloat4ToU32(bgColor), rounding);
             drawList.AddRect(cardMin, cardMax, ImGui.ColorConvertFloat4ToU32(borderColor), rounding, ImDrawFlags.None, borderThickness);
@@ -1425,7 +1425,7 @@ internal sealed class GroupPanel
         ImGuiHelpers.ScaledDummy(8f);
 
         // Separator violet between cards and favorite members
-        var separatorColor = new Vector4(0x4A / 255f, 0x36 / 255f, 0x68 / 255f, 0.70f);
+        var separatorColor = UiSharedService.ThemeCardBorder;
         var cursorScreenPos = ImGui.GetCursorScreenPos();
         var availWidth = ImGui.GetContentRegionAvail().X;
         ImGui.GetWindowDrawList().AddLine(
@@ -1459,7 +1459,7 @@ internal sealed class GroupPanel
                 _favoriteMembersExpanded[groupDto.GID] = headerExpanded;
             }
             ImGui.SameLine(0f, 6f * ImGuiHelpers.GlobalScale);
-            UiSharedService.ColorText(headerLabel, new Vector4(0x9B / 255f, 0x82 / 255f, 0xC0 / 255f, 1f));
+            UiSharedService.ColorText(headerLabel, UiSharedService.ThemeTextAccent);
 
             // Bouton de tri par type sur la ligne du header
             var favSortIcon = _membersSortByType ? FontAwesomeIcon.UserFriends : FontAwesomeIcon.Signal;

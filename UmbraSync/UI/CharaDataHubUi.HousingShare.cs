@@ -5,6 +5,7 @@ using Dalamud.Interface.Utility;
 using Dalamud.Interface.Utility.Raii;
 using System.Globalization;
 using System.Numerics;
+using UmbraSync.API.Dto.CharaData;
 using UmbraSync.API.Dto.HousingScenario;
 using UmbraSync.Localization;
 using UmbraSync.Services.Housing;
@@ -14,6 +15,7 @@ namespace UmbraSync.UI;
 
 public sealed partial class CharaDataHubUi
 {
+    private readonly PolledUiValue<LocationInfo> _housingLocationPoll;
     private int _housingSubTab;
     private bool _housingScenarioInitialized;
     private List<HousingNpcScenario> _localScenes = new();
@@ -118,7 +120,7 @@ public sealed partial class CharaDataHubUi
 
         ImGuiHelpers.ScaledDummy(5);
 
-        var currentLocation = _dalamudUtilService.GetMapDataAsync().GetAwaiter().GetResult();
+        var currentLocation = _housingLocationPoll.Poll(_logger);
         bool isInsideHouse = currentLocation.HouseId != 0;
         bool isInHousingEditMode = _dalamudUtilService.IsInHousingMode;
 
@@ -688,7 +690,7 @@ public sealed partial class CharaDataHubUi
 
         ImGuiHelpers.ScaledDummy(5);
 
-        var currentLocation = _dalamudUtilService.GetMapDataAsync().GetAwaiter().GetResult();
+        var currentLocation = _housingLocationPoll.Poll(_logger);
         bool isInsideHouse = currentLocation.HouseId != 0;
 
         if (!isInsideHouse)

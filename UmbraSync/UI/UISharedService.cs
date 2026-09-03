@@ -40,32 +40,36 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
 
     public const float ContentFontScale = 0.92f;
 
-    public static Vector4 AccentColor { get; set; } = new Vector4(0x96 / 255f, 0x45 / 255f, 0xE6 / 255f, 1f);
-    public static Vector4 AccentHoverColor { get; set; } = new Vector4(0x38 / 255f, 0x29 / 255f, 0x52 / 255f, 1f);
-    public static Vector4 AccentActiveColor { get; set; } = AccentHoverColor;
+    public static readonly Vector4 AccentColor = new(0x96 / 255f, 0x45 / 255f, 0xE6 / 255f, 1f);
+    public static Vector4 AccentHoverColor => ThemeButtonHovered;
+    public static Vector4 AccentActiveColor => AccentHoverColor;
 
     // --- Thème UmbraSync "Royal Smoke" — #6A0DAD accent, #1C1C1C fond, chrome désaturé ---
-    public static readonly Vector4 ThemeWindowBg      = new(0.11f, 0.11f, 0.11f, 1f);
-    public static readonly Vector4 ThemeChildBg        = new(0f, 0f, 0f, 0f);
-    public static readonly Vector4 ThemeBorder         = new(0x38 / 255f, 0x29 / 255f, 0x52 / 255f, 1f);
-    public static readonly Vector4 ThemeTitleBar       = new(0x2A / 255f, 0x1F / 255f, 0x3D / 255f, 1f);
-    public static readonly Vector4 ThemeSeparator      = new(0x38 / 255f, 0x29 / 255f, 0x52 / 255f, 0.60f);
-    public static readonly Vector4 ThemeFrameBg        = new(0.16f, 0.15f, 0.18f, 1f);
+    public static readonly Vector4 ThemeWindowBg = new(0.11f, 0.11f, 0.11f, 1f);
+    public static readonly Vector4 ThemeChildBg = new(0f, 0f, 0f, 0f);
+    public static readonly Vector4 ThemeBorder = new(0x38 / 255f, 0x29 / 255f, 0x52 / 255f, 1f);
+    public static readonly Vector4 ThemeTitleBar = new(0x2A / 255f, 0x1F / 255f, 0x3D / 255f, 1f);
+    public static readonly Vector4 ThemeSeparator = new(0x38 / 255f, 0x29 / 255f, 0x52 / 255f, 0.60f);
+    public static readonly Vector4 ThemeFrameBg = new(0.16f, 0.15f, 0.18f, 1f);
     public static readonly Vector4 ThemeFrameBgHovered = new(0x38 / 255f, 0x29 / 255f, 0x52 / 255f, 0.7f);
-    public static readonly Vector4 ThemeFrameBgActive  = new(0x4A / 255f, 0x36 / 255f, 0x68 / 255f, 1f);
-    public static readonly Vector4 ThemeButtonBg       = new(0x2A / 255f, 0x1F / 255f, 0x3D / 255f, 1f);
-    public static readonly Vector4 ThemeButtonHovered   = new(0x38 / 255f, 0x29 / 255f, 0x52 / 255f, 1f);
-    public static readonly Vector4 ThemeButtonActive    = new(0x4A / 255f, 0x36 / 255f, 0x68 / 255f, 1f);
-    public static readonly Vector4 ThemeHeaderBg       = new(0x1C / 255f, 0x1C / 255f, 0x1C / 255f, 1f);
-    public static readonly Vector4 ThemeHeaderHovered   = new(0x38 / 255f, 0x29 / 255f, 0x52 / 255f, 0.7f);
-    public static readonly Vector4 ThemeHeaderActive    = new(0x4A / 255f, 0x36 / 255f, 0x68 / 255f, 1f);
-    public static readonly Vector4 ThemeScrollbarBg    = new(0.08f, 0.08f, 0.08f, 0.50f);
-    public static readonly Vector4 ThemeScrollbarGrab  = new(0x38 / 255f, 0x29 / 255f, 0x52 / 255f, 1f);
+    public static readonly Vector4 ThemeFrameBgActive = new(0x4A / 255f, 0x36 / 255f, 0x68 / 255f, 1f);
+    public static readonly Vector4 ThemeButtonBg = new(0x2A / 255f, 0x1F / 255f, 0x3D / 255f, 1f);
+    public static readonly Vector4 ThemeButtonHovered = new(0x38 / 255f, 0x29 / 255f, 0x52 / 255f, 1f);
+    public static readonly Vector4 ThemeButtonActive = new(0x4A / 255f, 0x36 / 255f, 0x68 / 255f, 1f);
+    public static readonly Vector4 ThemeHeaderBg = new(0x1C / 255f, 0x1C / 255f, 0x1C / 255f, 1f);
+    public static readonly Vector4 ThemeHeaderHovered = new(0x38 / 255f, 0x29 / 255f, 0x52 / 255f, 0.7f);
+    public static readonly Vector4 ThemeHeaderActive = new(0x4A / 255f, 0x36 / 255f, 0x68 / 255f, 1f);
+    public static readonly Vector4 ThemeScrollbarBg = new(0.08f, 0.08f, 0.08f, 0.50f);
+    public static readonly Vector4 ThemeScrollbarGrab = new(0x38 / 255f, 0x29 / 255f, 0x52 / 255f, 1f);
     public static readonly Vector4 ThemeScrollbarHover = new(0x4A / 255f, 0x36 / 255f, 0x68 / 255f, 1f);
     public static readonly Vector4 ThemeScrollbarActive = new(0x5E / 255f, 0x45 / 255f, 0x80 / 255f, 1f);
-    public static readonly Vector4 ThemeTabNormal      = new(0x1C / 255f, 0x1C / 255f, 0x1C / 255f, 0.90f);
-    public static readonly Vector4 ThemeTabHovered     = new(0x38 / 255f, 0x29 / 255f, 0x52 / 255f, 1f);
-    public static readonly Vector4 ThemeTabActive      = new(0x4A / 255f, 0x36 / 255f, 0x68 / 255f, 1f);
+    public static readonly Vector4 ThemeTabNormal = new(0x1C / 255f, 0x1C / 255f, 0x1C / 255f, 0.90f);
+    public static readonly Vector4 ThemeTabHovered = new(0x38 / 255f, 0x29 / 255f, 0x52 / 255f, 1f);
+    public static readonly Vector4 ThemeTabActive = new(0x4A / 255f, 0x36 / 255f, 0x68 / 255f, 1f);
+    public static readonly Vector4 ThemeTextAccent = new(0x9B / 255f, 0x82 / 255f, 0xC0 / 255f, 1f);
+    public static readonly Vector4 ThemeRailHovered = new(0x30 / 255f, 0x19 / 255f, 0x46 / 255f, 1f);
+    public static readonly Vector4 ThemeRailActive = new(0x50 / 255f, 0x17 / 255f, 0x83 / 255f, 1f);
+    public static Vector4 ThemeCardBorder => WithAlpha(ThemeButtonActive, 0.70f);
     public const int ThemeColorCount = 23;
     public const int ThemeStyleVarCount = 2;
 
@@ -443,7 +447,7 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
     {
         if (string.IsNullOrEmpty(hex)) return AccentColor;
         var span = hex.AsSpan();
-        if (span.Length > 0 && span[0] == '#') span = span[1..];
+        if (span[0] == '#') span = span[1..];
         if (span.Length != 6 || !uint.TryParse(span, System.Globalization.NumberStyles.HexNumber, null, out var rgb))
             return AccentColor;
         return new Vector4(((rgb >> 16) & 0xFF) / 255f, ((rgb >> 8) & 0xFF) / 255f, (rgb & 0xFF) / 255f, 1f);
@@ -643,7 +647,7 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
             padBase.X + 4f * ImGuiHelpers.GlobalScale,
             padBase.Y + 3f * ImGuiHelpers.GlobalScale);
         var cardBg = background ?? ThemeHeaderBg;
-        var cardBorder = border ?? WithAlpha(ThemeButtonActive, 0.70f);
+        var cardBorder = border ?? ThemeCardBorder;
         float cardRounding = rounding ?? RadiusCard * ImGuiHelpers.GlobalScale;
         float borderThickness = Math.Max(1f, Math.Max(style.FrameBorderSize, 1f) * ImGuiHelpers.GlobalScale);
         float borderInset = borderThickness;
@@ -826,7 +830,11 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
         }
     }
 
-    public static Vector4 GetBoolColor(bool input) => input ? AccentColor : UiSharedService.AccentColor;
+    /// <summary>État neutre : présent / absent, en ligne / hors ligne. Ni l'un ni l'autre n'est un problème.</summary>
+    public static Vector4 GetBoolColor(bool input) => input ? AccentColor : ImGuiColors.DalamudGrey;
+
+    /// <summary>Réussite ou échec : le faux mérite l'attention (envoi raté, plugin manquant, action impossible).</summary>
+    public static Vector4 GetSuccessColor(bool input) => input ? AccentColor : ImGuiColors.DalamudRed;
 
     public float GetIconTextButtonSize(FontAwesomeIcon icon, string text)
     {
@@ -1516,7 +1524,7 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
     {
         ImGui.TextUnformatted(name);
         ImGui.SameLine();
-        IconText(exists ? check : cross, GetBoolColor(exists));
+        IconText(exists ? check : cross, GetSuccessColor(exists));
     }
 
     public int DrawServiceSelection(bool selectOnChange = false, bool intro = false)

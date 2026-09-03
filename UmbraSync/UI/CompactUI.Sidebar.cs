@@ -17,8 +17,8 @@ public partial class CompactUi
     private const float SidebarWidth = 53f;
     private const float SidebarIconSize = 25f;
     private static readonly Vector4 SidebarButtonColor = new(0f, 0f, 0f, 0f);
-    private static readonly Vector4 SidebarButtonHoverColor = new(0x30 / 255f, 0x19 / 255f, 0x46 / 255f, 1f);
-    private static readonly Vector4 SidebarButtonActiveColor = new(0x50 / 255f, 0x17 / 255f, 0x83 / 255f, 1f);
+    private static Vector4 SidebarButtonHoverColor => UiSharedService.ThemeRailHovered;
+    private static Vector4 SidebarButtonActiveColor => UiSharedService.ThemeRailActive;
     private const float SidebarIndicatorAnimSpeed = 18f;
     private readonly Dictionary<CompactUiSection, (Vector2 Min, Vector2 Max)> _sidebarButtonRects = new();
     private Vector2 _sidebarIndicatorPos;

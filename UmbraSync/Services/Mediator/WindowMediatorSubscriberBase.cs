@@ -71,8 +71,8 @@ public abstract class WindowMediatorSubscriberBase : Window, IMediatorSubscriber
         ImGui.PopStyleColor(UiSharedService.ThemeColorCount);
         ImGui.PopStyleVar(UiSharedService.ThemeStyleVarCount);
     }
-
-    protected virtual GlassLevel WindowGlassLevel => GlassLevel.Regular;
+    
+    protected virtual GlassLevel WindowGlassLevel => GlassLevel.Opaque;
 
     public override void Draw()
     {
