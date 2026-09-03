@@ -38,16 +38,26 @@ public abstract class WindowMediatorSubscriberBase : Window, IMediatorSubscriber
 
     public override void PreDraw()
     {
+        float glass = UiSharedService.GlassAlpha(UiSharedService.ResolveGlassLevel(WindowGlassLevel));
+
         ImGui.PushStyleVar(ImGuiStyleVar.WindowBorderSize, 1f);
+        // Rayons concentriques : le contenant est toujours plus arrondi que ce qu'il contient.
         ImGui.PushStyleVar(ImGuiStyleVar.WindowRounding, UiSharedService.RadiusWindow);
+        ImGui.PushStyleVar(ImGuiStyleVar.ChildRounding, UiSharedService.RadiusCard);
+        ImGui.PushStyleVar(ImGuiStyleVar.PopupRounding, UiSharedService.RadiusCard);
+        ImGui.PushStyleVar(ImGuiStyleVar.FrameRounding, UiSharedService.RadiusControl);
+
         ImGui.PushStyleColor(ImGuiCol.WindowBg,
-            UiSharedService.WithAlpha(UiSharedService.ThemeWindowBg, UiSharedService.GlassAlpha(WindowGlassLevel)));
+            UiSharedService.WithAlpha(UiSharedService.ThemeWindowBg, glass));
+        // Éphémères et posés au-dessus de tout : le cas d'usage idéal du matériau.
+        ImGui.PushStyleColor(ImGuiCol.PopupBg,
+            UiSharedService.WithAlpha(UiSharedService.ThemeWindowBg, glass));
         ImGui.PushStyleColor(ImGuiCol.ChildBg, UiSharedService.ThemeChildBg);
         ImGui.PushStyleColor(ImGuiCol.Border, UiSharedService.ThemeBorder);
         ImGui.PushStyleColor(ImGuiCol.Separator, UiSharedService.ThemeSeparator);
-        ImGui.PushStyleColor(ImGuiCol.TitleBg, UiSharedService.ThemeTitleBar);
-        ImGui.PushStyleColor(ImGuiCol.TitleBgActive, UiSharedService.ThemeTitleBar);
-        ImGui.PushStyleColor(ImGuiCol.TitleBgCollapsed, UiSharedService.ThemeTitleBar);
+        ImGui.PushStyleColor(ImGuiCol.TitleBg, UiSharedService.WithAlpha(UiSharedService.ThemeTitleBar, glass));
+        ImGui.PushStyleColor(ImGuiCol.TitleBgActive, UiSharedService.WithAlpha(UiSharedService.ThemeTitleBar, glass));
+        ImGui.PushStyleColor(ImGuiCol.TitleBgCollapsed, UiSharedService.WithAlpha(UiSharedService.ThemeTitleBar, glass));
         ImGui.PushStyleColor(ImGuiCol.FrameBg, UiSharedService.ThemeFrameBg);
         ImGui.PushStyleColor(ImGuiCol.FrameBgHovered, UiSharedService.ThemeFrameBgHovered);
         ImGui.PushStyleColor(ImGuiCol.FrameBgActive, UiSharedService.ThemeFrameBgActive);
@@ -85,7 +95,7 @@ public abstract class WindowMediatorSubscriberBase : Window, IMediatorSubscriber
         if (WindowGlassLevel == GlassLevel.Opaque) return;
         if (Flags.HasFlag(ImGuiWindowFlags.NoBackground)) return;
 
-        float alpha = UiSharedService.GlassAlpha(WindowGlassLevel);
+        float alpha = UiSharedService.GlassAlpha(UiSharedService.ResolveGlassLevel(WindowGlassLevel));
         if (alpha >= 1f) return;
 
         var pos = ImGui.GetWindowPos();

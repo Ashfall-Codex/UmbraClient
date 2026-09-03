@@ -186,7 +186,7 @@ public partial class CompactUi : WindowMediatorSubscriberBase
     protected override void DrawInternal()
     {
         var sidebarWidth = ImGuiHelpers.ScaledVector2(SidebarWidth, 0).X;
-        DrawContentBackdrop(sidebarWidth);
+        DrawContentBackdrop(sidebarWidth, UiSharedService.GlassAlpha(UiSharedService.ResolveGlassLevel(WindowGlassLevel)));
 
         DrawTitleAccent();
 
@@ -209,7 +209,7 @@ public partial class CompactUi : WindowMediatorSubscriberBase
         var separatorColor = UiSharedService.AccentColor with { W = 0.6f };
         drawList.AddLine(start, end, ImGui.GetColorU32(separatorColor), 1f * ImGuiHelpers.GlobalScale);
         ImGui.SetCursorPos(new Vector2(separatorX + 6f * ImGuiHelpers.GlobalScale, separatorY));
-        using var contentBg = ImRaii.PushColor(ImGuiCol.ChildBg, UiSharedService.ThemeWindowBg);
+        using var contentBg = ImRaii.PushColor(ImGuiCol.ChildBg, UiSharedService.ThemeChildBg);
 
         ImGui.BeginChild("compact-content", Vector2.Zero, false);
         WindowContentWidth = UiSharedService.GetWindowContentRegionWidth();
@@ -255,7 +255,7 @@ public partial class CompactUi : WindowMediatorSubscriberBase
                 winTop + ImGui.GetWindowHeight() - style.WindowBorderSize);
     }
 
-    private static void DrawContentBackdrop(float sidebarWidth)
+    private static void DrawContentBackdrop(float sidebarWidth, float glassAlpha)
     {
         var style = ImGui.GetStyle();
         var winPos = ImGui.GetWindowPos();
@@ -269,7 +269,7 @@ public partial class CompactUi : WindowMediatorSubscriberBase
         ImGui.GetWindowDrawList().AddRectFilled(
             new Vector2(left, top),
             new Vector2(right, bottom),
-            ImGui.GetColorU32(UiSharedService.ThemeWindowBg),
+            ImGui.GetColorU32(UiSharedService.WithAlpha(UiSharedService.ThemeWindowBg, glassAlpha)),
             UiSharedService.RadiusWindow,
             ImDrawFlags.RoundCornersBottomRight);
     }

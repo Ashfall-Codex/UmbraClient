@@ -2337,6 +2337,17 @@ public class SettingsUi : WindowMediatorSubscriberBase
             + UiSharedService.TooltipSeparator
             + Loc.Get("Settings.General.UiOpacity.Note"));
 
+        using (ImRaii.Disabled(reduceTransparency))
+        {
+            var clearInGpose = _configService.Current.UiClearGlassInGpose;
+            if (ImGui.Checkbox(Loc.Get("Settings.General.ClearGlassInGpose"), ref clearInGpose))
+            {
+                _configService.Current.UiClearGlassInGpose = clearInGpose;
+                _configService.Save();
+            }
+        }
+        _uiShared.DrawHelpText(Loc.Get("Settings.General.ClearGlassInGpose.Help"));
+
         ImGuiHelpers.ScaledDummy(3f);
 
         var showCharacterNames = _configService.Current.ShowCharacterNames;

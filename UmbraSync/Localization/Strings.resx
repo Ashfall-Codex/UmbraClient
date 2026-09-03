@@ -7047,4 +7047,10 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
   <data name="Settings.General.UiOpacity.Note" xml:space="preserve">
     <value>Lists, tables and text fields always stay opaque, whatever this setting is.</value>
   </data>
+  <data name="Settings.General.ClearGlassInGpose" xml:space="preserve">
+    <value>More transparent interface in GPose</value>
+  </data>
+  <data name="Settings.General.ClearGlassInGpose.Help" xml:space="preserve">
+    <value>Makes windows noticeably more transparent during group poses, to clear the view on the scene. No effect outside GPose, and ignored when the opaque interface is on.</value>
+  </data>
 </root>

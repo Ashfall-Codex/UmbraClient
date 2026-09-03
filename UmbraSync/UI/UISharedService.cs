@@ -70,8 +70,8 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
     public static readonly Vector4 ThemeRailHovered = new(0x30 / 255f, 0x19 / 255f, 0x46 / 255f, 1f);
     public static readonly Vector4 ThemeRailActive = new(0x50 / 255f, 0x17 / 255f, 0x83 / 255f, 1f);
     public static Vector4 ThemeCardBorder => WithAlpha(ThemeButtonActive, 0.70f);
-    public const int ThemeColorCount = 23;
-    public const int ThemeStyleVarCount = 2;
+    public const int ThemeColorCount = 24;
+    public const int ThemeStyleVarCount = 5;
 
     public const float RadiusWindow = 10f;
     public const float RadiusCard = 6f;
@@ -98,6 +98,24 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
     }
 
     public static Vector4 WithAlpha(Vector4 color, float alpha) => color with { W = alpha };
+
+    /// <summary>
+    /// En GPose et sur activation explicite, le matériau passe en Clair : c'est le seul
+    /// contexte qui réunit les trois conditions — fond volontairement visible,
+    /// assombrissement acceptable, contrôles peu nombreux.
+    /// </summary>
+    public static GlassLevel ResolveGlassLevel(GlassLevel requested)
+    {
+        if (requested != GlassLevel.Regular) return requested;
+
+        MareConfigService? cfg = _glassConfig;
+        return cfg is not null && cfg.Current.UiClearGlassInGpose && ClearGlassContextActive
+            ? GlassLevel.Clear
+            : GlassLevel.Regular;
+    }
+
+    /// <summary>Renseigné par le service d'interface : évite de dépendre de Dalamud ici.</summary>
+    public static bool ClearGlassContextActive { get; set; }
 
     public static float GlassAlpha(GlassLevel level)
     {
@@ -208,6 +226,7 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
 
         Mediator.Subscribe<DelayedFrameworkUpdateMessage>(this, (_) =>
         {
+            ClearGlassContextActive = _dalamudUtil.IsInGpose;
             _penumbraExists = _ipcManager.Penumbra.APIAvailable;
             _glamourerExists = _ipcManager.Glamourer.APIAvailable;
             _customizePlusExists = _ipcManager.CustomizePlus.APIAvailable;
@@ -646,7 +665,11 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
         var pad = padding ?? new Vector2(
             padBase.X + 4f * ImGuiHelpers.GlobalScale,
             padBase.Y + 3f * ImGuiHelpers.GlobalScale);
-        var cardBg = background ?? ThemeHeaderBg;
+        // Verre sur verre est proscrit : une carte posée sur le châssis se détache par un
+        // voile clair, qui reste lisible quelle que soit la scène derrière la fenêtre.
+        var cardBg = background ?? (GlassOpacity >= 1f
+            ? ThemeHeaderBg
+            : new Vector4(1f, 1f, 1f, 0.045f));
         var cardBorder = border ?? ThemeCardBorder;
         float cardRounding = rounding ?? RadiusCard * ImGuiHelpers.GlobalScale;
         float borderThickness = Math.Max(1f, Math.Max(style.FrameBorderSize, 1f) * ImGuiHelpers.GlobalScale);
