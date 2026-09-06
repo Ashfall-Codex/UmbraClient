@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Numerics;
 using System.Reflection;
 using Dalamud.Bindings.ImGui;
@@ -48,7 +48,7 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
     public ChangelogUi(ILogger<ChangelogUi> logger, UiSharedService uiShared, MareConfigService configService,
         MareMediator mediator, PerformanceCollectorService performanceCollectorService,
         IDalamudPluginInterface pluginInterface)
-        : base(logger, mediator, Loc.Get("ChangelogUi.WindowTitle"), performanceCollectorService)
+        : base(logger, mediator, Loc.Get("ChangelogUi.WindowTitle") + "###UmbraSyncChangelog", performanceCollectorService)
     {
         _uiShared = uiShared;
         _configService = configService;
@@ -342,6 +342,11 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
     {
         return new List<ChangelogEntry>
         {
+            new(new Version(3, 0, 2, 9006), "3.0.2.9006", new List<ChangelogLine>
+            {
+                new("Nouveauté : Un bouton pour changer l'emplacement du stockage local."),
+                new("Mise à jour : APIs Penumbra."),
+            }),
             new(new Version(3, 0, 2, 9002), "3.0.2.9002", new List<ChangelogLine>
             {
                 new("Nouveauté : Un menu « Variante » à côté de la pose de chaque PNJ. Les postures y sont rangées par catégorie : debout, arme dégainée, chaise, assis au sol, allongé. La numérotation suit celle de /changepose."),

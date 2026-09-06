@@ -1,4 +1,4 @@
-<?xml version='1.0' encoding='utf-8'?>
+﻿<?xml version='1.0' encoding='utf-8'?>
 <root xmlns:ns1="urn:schemas-microsoft-com:xml-msdata" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
   <xs:schema id="root">
     <xs:element name="root" ns1:IsDataSet="true">
@@ -484,7 +484,7 @@ Please keep a copy of your secret key in case you need to reset your plugins, or
     <value>Service Registration</value>
   </data>
   <data name="CompactUi.IntroUi.Storage.Description" xml:space="preserve">
-    <value>To not unnecessary download files already present on your computer, Umbra will have to scan your Penumbra mod directory. Additionally, a local storage folder must be set where Umbra will download other character files to. Once the storage folder is set and the scan complete, this page will automatically forward to registration at a service.</value>
+    <value>To not unnecessary download files already present on your computer, UmbraSync will have to scan your Penumbra mod directory. Additionally, a local storage folder must be set where UmbraSync will download other character files to. Once the storage folder is set and the scan complete, this page will automatically forward to registration at a service.</value>
   </data>
   <data name="CompactUi.IntroUi.Storage.InvalidPenumbraPath" xml:space="preserve">
     <value>You do not have a valid Penumbra path set. Open Penumbra and set up a valid path for the mod directory.</value>
@@ -499,13 +499,13 @@ Please keep a copy of your secret key in case you need to reset your plugins, or
     <value>File Storage Setup</value>
   </data>
   <data name="CompactUi.IntroUi.Storage.UseCompactorDescription" xml:space="preserve">
-    <value>The File Compactor can save a tremendeous amount of space on the hard disk for downloads through Umbra. It will incur a minor CPU penalty on download but can speed up loading of other characters. It is recommended to keep it enabled. You can change this setting later anytime in the Umbra settings.</value>
+    <value>The File Compactor can save a tremendeous amount of space on the hard disk for downloads through UmbraSync. It will incur a minor CPU penalty on download but can speed up loading of other characters. It is recommended to keep it enabled. You can change this setting later anytime in the UmbraSync settings.</value>
   </data>
   <data name="CompactUi.IntroUi.Storage.UseCompactorLabel" xml:space="preserve">
     <value>Use File Compactor</value>
   </data>
   <data name="CompactUi.IntroUi.Storage.WarningFileCache" xml:space="preserve">
-    <value>Warning: once past this step you should not delete the FileCache.csv of Umbra in the Plugin Configurations folder of Dalamud. Otherwise on the next launch a full re-scan of the file cache database will be initiated.</value>
+    <value>Warning: once past this step you should not delete the FileCache.csv of UmbraSync in the Plugin Configurations folder of Dalamud. Otherwise on the next launch a full re-scan of the file cache database will be initiated.</value>
   </data>
   <data name="CompactUi.IntroUi.Storage.WarningScan" xml:space="preserve">
     <value>Warning: if the scan is hanging and does nothing for a long time, chances are high your Penumbra folder is not set up properly.</value>
@@ -7028,6 +7028,267 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
   </data>
   <data name="Settings.Performance.Bc7.DeleteUid" xml:space="preserve">
     <value>Delete selected UID</value>
+  </data>
+  <data name="Settings.Storage.Folder.Issue.Missing" xml:space="preserve">
+    <value>The selected folder does not exist or is no longer reachable. Pick a valid folder.</value>
+  </data>
+  <data name="Settings.Storage.Folder.Issue.NotWritable" xml:space="preserve">
+    <value>UmbraSync cannot write into this folder. Pick a location you have write access to.</value>
+  </data>
+  <data name="Settings.Storage.Folder.Issue.Penumbra" xml:space="preserve">
+    <value>Do not point the storage directly at the Penumbra directory. Create a subfolder in it if needed.</value>
+  </data>
+  <data name="Settings.Storage.Folder.Issue.OneDrive" xml:space="preserve">
+    <value>Do not point the storage at a OneDrive folder. Cloud sync corrupts mod files.</value>
+  </data>
+  <data name="Settings.Storage.Folder.Issue.IllegalCharacters" xml:space="preserve">
+    <value>The selected path contains characters FFXIV cannot read. Restrict yourself to latin letters (A-Z), numbers, dashes (-) and underscores (_).</value>
+  </data>
+  <data name="Settings.Storage.Folder.Issue.ForeignContent" xml:space="preserve">
+    <value>This folder holds files or subfolders that are not UmbraSync related. Use an empty folder or a previous storage folder.</value>
+  </data>
+  <data name="Settings.Storage.Folder.Issue.SameAsCurrent" xml:space="preserve">
+    <value>This is already the current storage folder.</value>
+  </data>
+  <data name="Settings.Storage.Folder.Issue.Nested" xml:space="preserve">
+    <value>The selected folder sits inside the current storage folder (or the other way around). Pick an independent folder.</value>
+  </data>
+  <data name="Settings.Storage.Folder.Issue.NotEnoughSpace" xml:space="preserve">
+    <value>There is not enough free space on the target drive to hold the storage.</value>
+  </data>
+  <data name="Settings.Storage.Move.Button" xml:space="preserve">
+    <value>Move storage to another folder</value>
+  </data>
+  <data name="Settings.Storage.Move.PickFolder" xml:space="preserve">
+    <value>Pick the new storage folder</value>
+  </data>
+  <data name="Settings.Storage.Move.Tooltip" xml:space="preserve">
+    <value>Moves the storage files to the chosen folder and updates the path automatically: no manual copy-paste needed.&#xD;&#xA;The target folder must be empty or a previous UmbraSync storage folder.&#xD;&#xA;On another drive the files are copied over, which can take several minutes.&#xD;&#xA;After a move to another drive, run “Compact all files” again if the file compactor is enabled.</value>
+  </data>
+  <data name="Settings.Storage.Move.ScanRunning" xml:space="preserve">
+    <value>A storage scan is running. Wait for it to finish before moving the folder.</value>
+  </data>
+  <data name="Settings.Storage.Move.Progress" xml:space="preserve">
+    <value>Moving: {0}/{1} files ({2} of {3}) to {4}</value>
+  </data>
+  <data name="Settings.Storage.Move.DoNotClose" xml:space="preserve">
+    <value>Keep the game open until the operation completes.</value>
+  </data>
+  <data name="Settings.Storage.Move.Done" xml:space="preserve">
+    <value>Storage moved: {0} file(s), {1} to {2}.</value>
+  </data>
+  <data name="Settings.Storage.Move.Partial" xml:space="preserve">
+    <value>Move incomplete: {0} file(s) moved, {1} failed. The remaining files are still in {2}.</value>
+  </data>
+  <data name="Settings.Storage.Move.SourceLeftovers" xml:space="preserve">
+    <value>The old folder {0} still holds files: you can delete them by hand once everything checks out.</value>
+  </data>
+  <data name="Settings.Storage.Move.NotificationTitle" xml:space="preserve">
+    <value>Local storage</value>
+  </data>
+  <data name="Settings.Storage.Move.NotificationSuccess" xml:space="preserve">
+    <value>Storage moved: {0} file(s) to {1}.</value>
+  </data>
+  <data name="Settings.Storage.Move.NotificationFailed" xml:space="preserve">
+    <value>The storage move did not finish cleanly: {0} file(s) stayed in {1}. See the log for details.</value>
+  </data>
+  <data name="Settings.Section.General.Title" xml:space="preserve">
+    <value>General</value>
+  </data>
+  <data name="Settings.Section.Performance.Title" xml:space="preserve">
+    <value>Performance</value>
+  </data>
+  <data name="Settings.Section.Storage.Title" xml:space="preserve">
+    <value>Storage</value>
+  </data>
+  <data name="Settings.Section.Transfers.Title" xml:space="preserve">
+    <value>Transfers</value>
+  </data>
+  <data name="Settings.Section.AutoDetect.Title" xml:space="preserve">
+    <value>AutoDetect</value>
+  </data>
+  <data name="Settings.Section.Chat.Title" xml:space="preserve">
+    <value>Chat</value>
+  </data>
+  <data name="Settings.Section.Account.Title" xml:space="preserve">
+    <value>Account</value>
+  </data>
+  <data name="Settings.Section.Privacy.Title" xml:space="preserve">
+    <value>Privacy</value>
+  </data>
+  <data name="Settings.Section.Advanced.Title" xml:space="preserve">
+    <value>Advanced</value>
+  </data>
+  <data name="Settings.Section.About.Title" xml:space="preserve">
+    <value>About</value>
+  </data>
+  <data name="Settings.Storage.Intro" xml:space="preserve">
+    <value>UmbraSync keeps the files received from the people you are paired with, so appearances load faster and the same data is not downloaded over and over. The storage governs itself by removing the oldest files once it exceeds the size you set: just pick that size, clearing it by hand is not needed.</value>
+  </data>
+  <data name="Settings.Storage.Scanner.Title" xml:space="preserve">
+    <value>File scanner status</value>
+  </data>
+  <data name="Settings.Storage.Scanner.Running" xml:space="preserve">
+    <value>Scan is running</value>
+  </data>
+  <data name="Settings.Storage.Scanner.Progress" xml:space="preserve">
+    <value>Progress:</value>
+  </data>
+  <data name="Settings.Storage.Scanner.Collecting" xml:space="preserve">
+    <value>Collecting files</value>
+  </data>
+  <data name="Settings.Storage.Scanner.Processing" xml:space="preserve">
+    <value>Processing {0}/{1} from storage ({2} scanned in)</value>
+  </data>
+  <data name="Settings.Storage.Scanner.Processing.Tooltip" xml:space="preserve">
+    <value>Storage can hold more files than were scanned in: the scanner normally ignores some of them, but the game loads them and applies them to your character, which adds them to local storage.</value>
+  </data>
+  <data name="Settings.Storage.Scanner.Halted" xml:space="preserve">
+    <value>Halted ({0})</value>
+  </data>
+  <data name="Settings.Storage.Scanner.ResetLocks" xml:space="preserve">
+    <value>Reset halt requests</value>
+  </data>
+  <data name="Settings.Storage.Scanner.Idle" xml:space="preserve">
+    <value>Idle</value>
+  </data>
+  <data name="Settings.Storage.Scanner.ForceRescan" xml:space="preserve">
+    <value>Force rescan</value>
+  </data>
+  <data name="Settings.Storage.Monitoring.Penumbra" xml:space="preserve">
+    <value>Monitoring Penumbra folder: {0}</value>
+  </data>
+  <data name="Settings.Storage.Monitoring.Storage" xml:space="preserve">
+    <value>Monitoring UmbraSync storage folder: {0}</value>
+  </data>
+  <data name="Settings.Storage.Monitoring.None" xml:space="preserve">
+    <value>not monitoring</value>
+  </data>
+  <data name="Settings.Storage.Monitoring.Reinit" xml:space="preserve">
+    <value>Try to restart monitoring</value>
+  </data>
+  <data name="Settings.Storage.Monitoring.Resume" xml:space="preserve">
+    <value>Resume monitoring</value>
+  </data>
+  <data name="Settings.Storage.Monitoring.Resume.Tooltip" xml:space="preserve">
+    <value>Resumes monitoring for both Penumbra and the UmbraSync storage. A full scan runs right after.&#xD;&#xA;If the button is still there after clicking it, check /xllog for the error.</value>
+  </data>
+  <data name="Settings.Storage.Monitoring.Stop" xml:space="preserve">
+    <value>Stop monitoring</value>
+  </data>
+  <data name="Settings.Storage.Monitoring.Stop.Tooltip" xml:space="preserve">
+    <value>Stops monitoring for both Penumbra and the UmbraSync storage.&#xD;&#xA;Only stop it to move those folders by hand, otherwise UmbraSync will no longer see your files arrive.&#xD;&#xA;Resume it once the files are moved.</value>
+  </data>
+  <data name="Settings.Storage.Monitoring.Stop.Ctrl" xml:space="preserve">
+    <value>Hold CTRL to enable this button</value>
+  </data>
+  <data name="Settings.Storage.Folder.Note" xml:space="preserve">
+    <value>The storage folder should sit close to the root of a drive (for example C:\UmbraStorage) and start out empty. Do not point it at your game folder, nor at your Penumbra folder.</value>
+  </data>
+  <data name="Settings.Storage.Folder.Label" xml:space="preserve">
+    <value>Storage folder</value>
+  </data>
+  <data name="Settings.Storage.Folder.Pick" xml:space="preserve">
+    <value>Pick the UmbraSync storage folder</value>
+  </data>
+  <data name="Settings.Storage.Folder.MonitoringActive" xml:space="preserve">
+    <value>Stop monitoring before changing the storage folder: while it runs, the path cannot be changed.</value>
+  </data>
+  <data name="Settings.Storage.MaxSize" xml:space="preserve">
+    <value>Maximum storage size</value>
+  </data>
+  <data name="Settings.Storage.MaxSize.Help" xml:space="preserve">
+    <value>UmbraSync governs the storage on its own: once the size you set is reached, the oldest and least used files are removed. You normally never need to clear it yourself.</value>
+  </data>
+  <data name="Settings.Storage.Used" xml:space="preserve">
+    <value>Local storage used: {0} GiB</value>
+  </data>
+  <data name="Settings.Storage.Used.Calculating" xml:space="preserve">
+    <value>Local storage used: calculating…</value>
+  </data>
+  <data name="Settings.Storage.FreeSpace" xml:space="preserve">
+    <value>Free space on drive: {0} GiB</value>
+  </data>
+  <data name="Settings.Storage.Compactor.Hint" xml:space="preserve">
+    <value>Hint: enable the file compactor to cut down the space UmbraSync takes up.</value>
+  </data>
+  <data name="Settings.Storage.Compactor.Enable" xml:space="preserve">
+    <value>Use file compactor</value>
+  </data>
+  <data name="Settings.Storage.Compactor.Enable.Help" xml:space="preserve">
+    <value>The compactor greatly reduces the size of the files kept. On a slow CPU, loading them can be marginally slower.&#xD;&#xA;Leaving it enabled is recommended to save space.</value>
+  </data>
+  <data name="Settings.Storage.Compactor.CompactAll" xml:space="preserve">
+    <value>Compact all files in storage</value>
+  </data>
+  <data name="Settings.Storage.Compactor.CompactAll.Tooltip" xml:space="preserve">
+    <value>Compresses every file in the storage folder.&#xD;&#xA;No need to run this by hand if the compactor stays enabled.</value>
+  </data>
+  <data name="Settings.Storage.Compactor.DecompactAll" xml:space="preserve">
+    <value>Decompact all files in storage</value>
+  </data>
+  <data name="Settings.Storage.Compactor.DecompactAll.Tooltip" xml:space="preserve">
+    <value>Decompresses every file in the storage folder.</value>
+  </data>
+  <data name="Settings.Storage.Compactor.Running" xml:space="preserve">
+    <value>File compactor running ({0})</value>
+  </data>
+  <data name="Settings.Storage.Compactor.WindowsOnly" xml:space="preserve">
+    <value>The file compactor is only available on Windows, on an NTFS drive.</value>
+  </data>
+  <data name="Settings.Storage.Validation.Intro" xml:space="preserve">
+    <value>Validation checks that every file in the storage folder is intact. Run it before clearing the storage for no clear reason.&#xD;&#xA;Depending on how many files you keep, it can take a while and will be CPU and drive intensive.</value>
+  </data>
+  <data name="Settings.Storage.Validation.Start" xml:space="preserve">
+    <value>Start storage validation</value>
+  </data>
+  <data name="Settings.Storage.Validation.Cancel" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="Settings.Storage.Validation.Done" xml:space="preserve">
+    <value>Validation complete: {0} invalid file(s) removed from storage.</value>
+  </data>
+  <data name="Settings.Storage.Validation.Running" xml:space="preserve">
+    <value>Validation running: {0}/{1}</value>
+  </data>
+  <data name="Settings.Storage.Validation.CurrentItem" xml:space="preserve">
+    <value>Current file: {0}</value>
+  </data>
+  <data name="Syncshell.Card.CommentPlaceholder" xml:space="preserve">
+    <value>Comment on this syncshell</value>
+  </data>
+  <data name="Syncshell.Card.CommentTooltip" xml:space="preserve">
+    <value>Personal note about this syncshell. Only you can see it.</value>
+  </data>
+  <data name="Syncshell.Banlist.ModalTitle" xml:space="preserve">
+    <value>Ban list — {0}</value>
+  </data>
+  <data name="Syncshell.Banlist.Refresh" xml:space="preserve">
+    <value>Refresh list</value>
+  </data>
+  <data name="Syncshell.Banlist.Column.Uid" xml:space="preserve">
+    <value>UID</value>
+  </data>
+  <data name="Syncshell.Banlist.Column.Alias" xml:space="preserve">
+    <value>Alias</value>
+  </data>
+  <data name="Syncshell.Banlist.Column.By" xml:space="preserve">
+    <value>Banned by</value>
+  </data>
+  <data name="Syncshell.Banlist.Column.Date" xml:space="preserve">
+    <value>Date</value>
+  </data>
+  <data name="Syncshell.Banlist.Column.Reason" xml:space="preserve">
+    <value>Reason</value>
+  </data>
+  <data name="Syncshell.Banlist.Column.Actions" xml:space="preserve">
+    <value>Actions</value>
+  </data>
+  <data name="Syncshell.Banlist.Unban" xml:space="preserve">
+    <value>Unban {0}</value>
+  </data>
+  <data name="SyncshellAdmin.Slot.SaveErrorMessage" xml:space="preserve">
+    <value>The slot could not be saved. Try again in a moment.</value>
   </data>
   <data name="Settings.General.Appearance" xml:space="preserve">
     <value>Appearance</value>

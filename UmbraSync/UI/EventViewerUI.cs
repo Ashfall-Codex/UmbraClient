@@ -41,7 +41,7 @@ internal class EventViewerUI : WindowMediatorSubscriberBase
     public EventViewerUI(ILogger<EventViewerUI> logger, MareMediator mediator,
         EventAggregator eventAggregator, UiSharedService uiSharedService, MareConfigService configService,
         PerformanceCollectorService performanceCollectorService)
-        : base(logger, mediator, Loc.Get("EventViewer.WindowTitle"), performanceCollectorService)
+        : base(logger, mediator, Loc.Get("EventViewer.WindowTitle") + "###UmbraSyncEventViewer", performanceCollectorService)
     {
         _eventAggregator = eventAggregator;
         _uiSharedService = uiSharedService;

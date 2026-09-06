@@ -227,6 +227,7 @@ public sealed class Plugin : IDalamudPlugin
 
             // add scoped services
             collection.AddScoped<CacheMonitor>();
+            collection.AddScoped<StorageRelocationService>();
             collection.AddScoped<UiFactory>();
             collection.AddScoped<SettingsUi>();
             collection.AddScoped<CompactUi>();

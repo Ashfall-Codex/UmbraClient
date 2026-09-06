@@ -29,7 +29,7 @@ public class DownloadUi : WindowMediatorSubscriberBase
     public DownloadUi(ILogger<DownloadUi> logger, DalamudUtilService dalamudUtilService, MareConfigService configService,
         FileUploadManager fileTransferManager, HousingShareManager housingShareManager,
         MareMediator mediator, UiSharedService uiShared, PerformanceCollectorService performanceCollectorService)
-        : base(logger, mediator, Loc.Get("DownloadUi.WindowTitle"), performanceCollectorService)
+        : base(logger, mediator, Loc.Get("DownloadUi.WindowTitle") + "###UmbraSyncDownloads", performanceCollectorService)
     {
         _dalamudUtilService = dalamudUtilService;
         _configService = configService;

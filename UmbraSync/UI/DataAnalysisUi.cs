@@ -42,7 +42,7 @@ public class DataAnalysisUi : WindowMediatorSubscriberBase
         CharacterAnalyzer characterAnalyzer, IpcManager ipcManager,
         PerformanceCollectorService performanceCollectorService,
         UiSharedService uiSharedService)
-        : base(logger, mediator, Loc.Get("DataAnalysis.WindowTitle"), performanceCollectorService)
+        : base(logger, mediator, Loc.Get("DataAnalysis.WindowTitle") + "###UmbraSyncDataAnalysis", performanceCollectorService)
     {
         _characterAnalyzer = characterAnalyzer;
         _ipcManager = ipcManager;

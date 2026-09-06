@@ -15,7 +15,6 @@ using System.Globalization;
 using System.Numerics;
 using System.Runtime.InteropServices;
 using System.Text;
-using System.Text.RegularExpressions;
 using UmbraSync.FileCache;
 using UmbraSync.Interop.Ipc;
 using UmbraSync.MareConfiguration;
@@ -171,11 +170,10 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
     public ITextureProvider TextureProvider => _textureProvider;
     private readonly Dictionary<string, object> _selectedComboItems = new(StringComparer.Ordinal);
     private readonly ServerConfigurationManager _serverConfigurationManager;
-    private bool _cacheDirectoryHasOtherFilesThanCache;
     private static readonly Stack<float> _fontScaleStack = new();
     private static float _currentWindowFontScale = 1f;
 
-    private bool _cacheDirectoryIsValidPath = true;
+    private StorageFolderIssue _cacheDirectoryIssue = StorageFolderIssue.None;
 
     private bool _customizePlusExists;
 
@@ -188,9 +186,6 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
     private bool _heelsExists;
 
     private bool _honorificExists;
-    private bool _isDirectoryWritable;
-    private bool _isOneDrive;
-    private bool _isPenumbraDirectory;
     private bool _moodlesExists;
     private bool _penumbraExists;
     private bool _petNamesExists;
@@ -221,8 +216,6 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
         _dalamudUtil = dalamudUtil;
         _textureProvider = textureProvider;
         _serverConfigurationManager = serverManager;
-
-        _isDirectoryWritable = IsDirectoryWritable(_configService.Current.CacheFolder);
 
         Mediator.Subscribe<DelayedFrameworkUpdateMessage>(this, (_) =>
         {
@@ -1080,28 +1073,6 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
             height <= 0 ? null : height);
     }
 
-    public static bool IsDirectoryWritable(string dirPath, bool throwIfFails = false)
-    {
-        try
-        {
-            using FileStream fs = File.Create(
-                       Path.Combine(
-                           dirPath,
-                           Path.GetRandomFileName()
-                       ),
-                       1,
-                       FileOptions.DeleteOnClose);
-            return true;
-        }
-        catch
-        {
-            if (throwIfFails)
-                throw;
-
-            return false;
-        }
-    }
-
     public static void SetScaledWindowSize(float width, bool centerWindow = true)
     {
         var newLineHeight = ImGui.GetCursorPosY();
@@ -1193,50 +1164,42 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
         }
     }
 
+    public static string GetStorageFolderIssueText(StorageFolderIssue issue)
+    {
+        return issue switch
+        {
+            StorageFolderIssue.Missing => Loc.Get("Settings.Storage.Folder.Issue.Missing"),
+            StorageFolderIssue.NotWritable => Loc.Get("Settings.Storage.Folder.Issue.NotWritable"),
+            StorageFolderIssue.PenumbraDirectory => Loc.Get("Settings.Storage.Folder.Issue.Penumbra"),
+            StorageFolderIssue.OneDrive => Loc.Get("Settings.Storage.Folder.Issue.OneDrive"),
+            StorageFolderIssue.IllegalCharacters => Loc.Get("Settings.Storage.Folder.Issue.IllegalCharacters"),
+            StorageFolderIssue.ForeignContent => Loc.Get("Settings.Storage.Folder.Issue.ForeignContent"),
+            StorageFolderIssue.SameAsCurrent => Loc.Get("Settings.Storage.Folder.Issue.SameAsCurrent"),
+            StorageFolderIssue.Nested => Loc.Get("Settings.Storage.Folder.Issue.Nested"),
+            StorageFolderIssue.NotEnoughSpace => Loc.Get("Settings.Storage.Folder.Issue.NotEnoughSpace"),
+            _ => string.Empty,
+        };
+    }
+
     public void DrawCacheDirectorySetting()
     {
-        ColorTextWrapped("Note: The storage folder should be somewhere close to root (i.e. C:\\UmbraStorage) in a new empty folder. DO NOT point this to your game folder. DO NOT point this to your Penumbra folder.", ImGuiColors.DalamudYellow);
+        ColorTextWrapped(Loc.Get("Settings.Storage.Folder.Note"), ImGuiColors.DalamudYellow);
         var cacheDirectory = _configService.Current.CacheFolder;
         ImGui.SetNextItemWidth(MathF.Min(400 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X - 200 * ImGuiHelpers.GlobalScale));
-        ImGui.InputText("Storage Folder##cache", ref cacheDirectory, 255, ImGuiInputTextFlags.ReadOnly);
+        ImGui.InputText(Loc.Get("Settings.Storage.Folder.Label") + "##cache", ref cacheDirectory, 255, ImGuiInputTextFlags.ReadOnly);
 
         ImGui.SameLine();
         using (ImRaii.Disabled(_cacheMonitor.MareWatcher != null))
         {
             if (IconButton(FontAwesomeIcon.Folder))
             {
-                FileDialogManager.OpenFolderDialog("Pick Umbra Storage Folder", (success, path) =>
+                FileDialogManager.OpenFolderDialog(Loc.Get("Settings.Storage.Folder.Pick"), (success, path) =>
                 {
                     if (!success) return;
 
-                    _isOneDrive = path.Contains("onedrive", StringComparison.OrdinalIgnoreCase);
-                    _isPenumbraDirectory = string.Equals(path.ToLowerInvariant(), _ipcManager.Penumbra.ModDirectory?.ToLowerInvariant(), StringComparison.Ordinal);
-                    _isDirectoryWritable = IsDirectoryWritable(path);
-                    _cacheDirectoryHasOtherFilesThanCache = false;
-                    var cacheDirFiles = Directory.GetFiles(path, "*", SearchOption.AllDirectories);
-                    var cacheSubDirs = Directory.GetDirectories(path);
+                    _cacheDirectoryIssue = StorageFolderValidator.Validate(path, _ipcManager.Penumbra.ModDirectory);
 
-                    _cacheDirectoryHasOtherFilesThanCache = cacheDirFiles.Any(f =>
-                        Path.GetFileNameWithoutExtension(f).Length != 40
-                            && !Path.GetExtension(f).Equals("tmp", StringComparison.OrdinalIgnoreCase)
-                            && !Path.GetExtension(f).Equals("blk", StringComparison.OrdinalIgnoreCase)
-                    );
-
-                    if (!_cacheDirectoryHasOtherFilesThanCache
-                        && cacheSubDirs.Select(f => Path.GetFileName(Path.TrimEndingDirectorySeparator(f))).Any(f =>
-                            !f.Equals("subst", StringComparison.OrdinalIgnoreCase)
-                    ))
-                        _cacheDirectoryHasOtherFilesThanCache = true;
-
-                    _cacheDirectoryIsValidPath = PathRegex().IsMatch(path);
-
-                    if (!string.IsNullOrEmpty(path)
-                        && Directory.Exists(path)
-                        && _isDirectoryWritable
-                        && !_isPenumbraDirectory
-                        && !_isOneDrive
-                        && !_cacheDirectoryHasOtherFilesThanCache
-                        && _cacheDirectoryIsValidPath)
+                    if (_cacheDirectoryIssue == StorageFolderIssue.None)
                     {
                         _configService.Current.CacheFolder = path;
                         _configService.Save();
@@ -1248,39 +1211,22 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
         }
         if (_cacheMonitor.MareWatcher != null)
         {
-            AttachToolTip("Stop the Monitoring before changing the Storage folder. As long as monitoring is active, you cannot change the Storage folder location.");
+            AttachToolTip(Loc.Get("Settings.Storage.Folder.MonitoringActive"));
         }
 
-        if (_isPenumbraDirectory)
+        if (_cacheDirectoryIssue != StorageFolderIssue.None)
         {
-            ColorTextWrapped("Do not point the storage path directly to the Penumbra directory. If necessary, make a subfolder in it.", UiSharedService.AccentColor);
-        }
-        else if (_isOneDrive)
-        {
-            ColorTextWrapped("Do not point the storage path to a folder in OneDrive. Do not use OneDrive folders for any Mod related functionality.", UiSharedService.AccentColor);
-        }
-        else if (!_isDirectoryWritable)
-        {
-            ColorTextWrapped("The folder you selected does not exist or cannot be written to. Please provide a valid path.", UiSharedService.AccentColor);
-        }
-        else if (_cacheDirectoryHasOtherFilesThanCache)
-        {
-            ColorTextWrapped("Your selected directory has files or directories inside that are not Umbra related. Use an empty directory or a previous storage directory only.", UiSharedService.AccentColor);
-        }
-        else if (!_cacheDirectoryIsValidPath)
-        {
-            ColorTextWrapped("Your selected directory contains illegal characters unreadable by FFXIV. " +
-                             "Restrict yourself to latin letters (A-Z), underscores (_), dashes (-) and arabic numbers (0-9).", UiSharedService.AccentColor);
+            ColorTextWrapped(GetStorageFolderIssueText(_cacheDirectoryIssue), UiSharedService.AccentColor);
         }
 
         float maxCacheSize = (float)_configService.Current.MaxLocalCacheInGiB;
         ImGui.SetNextItemWidth(MathF.Min(400 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X - 200 * ImGuiHelpers.GlobalScale));
-        if (ImGui.SliderFloat("Maximum Storage Size", ref maxCacheSize, 1f, 200f, "%.2f GiB"))
+        if (ImGui.SliderFloat(Loc.Get("Settings.Storage.MaxSize") + "##maxStorageSize", ref maxCacheSize, 1f, 200f, "%.2f GiB"))
         {
             _configService.Current.MaxLocalCacheInGiB = maxCacheSize;
             _configService.Save();
         }
-        DrawHelpText("The storage is automatically governed by Umbra. It will clear itself automatically once it reaches the set capacity by removing the oldest unused files. You typically do not need to clear it yourself.");
+        DrawHelpText(Loc.Get("Settings.Storage.MaxSize.Help"));
     }
 
     public T? DrawCombo<T>(string comboName, IEnumerable<T> comboItems, Func<T, string> toName,
@@ -1372,40 +1318,39 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
     public void DrawFileScanState()
     {
         ImGui.AlignTextToFramePadding();
-        ImGui.TextUnformatted("File Scanner Status");
+        ImGui.TextUnformatted(Loc.Get("Settings.Storage.Scanner.Title"));
         ImGui.SameLine();
         if (_cacheMonitor.IsScanRunning)
         {
             ImGui.AlignTextToFramePadding();
 
-            ImGui.TextUnformatted("Scan is running");
-            ImGui.TextUnformatted("Current Progress:");
+            ImGui.TextUnformatted(Loc.Get("Settings.Storage.Scanner.Running"));
+            ImGui.TextUnformatted(Loc.Get("Settings.Storage.Scanner.Progress"));
             ImGui.SameLine();
             ImGui.TextUnformatted(_cacheMonitor.TotalFiles == 1
-                ? "Collecting files"
-                : $"Processing {_cacheMonitor.CurrentFileProgress}/{_cacheMonitor.TotalFilesStorage} from storage ({_cacheMonitor.TotalFiles} scanned in)");
-            AttachToolTip("Note: it is possible to have more files in storage than scanned in, " +
-                "this is due to the scanner normally ignoring those files but the game loading them in and using them on your character, so they get " +
-                "added to the local storage.");
+                ? Loc.Get("Settings.Storage.Scanner.Collecting")
+                : Loc.Get("Settings.Storage.Scanner.Processing", _cacheMonitor.CurrentFileProgress, _cacheMonitor.TotalFilesStorage, _cacheMonitor.TotalFiles));
+            AttachToolTip(Loc.Get("Settings.Storage.Scanner.Processing.Tooltip"));
         }
         else if (_cacheMonitor.HaltScanLocks.Any(f => f.Value.Value > 0))
         {
             ImGui.AlignTextToFramePadding();
 
-            ImGui.TextUnformatted("Halted (" + string.Join(", ", _cacheMonitor.HaltScanLocks.Where(f => f.Value.Value > 0).Select(locker => locker.Key + ": " + locker.Value.Value)) + ")");
+            ImGui.TextUnformatted(Loc.Get("Settings.Storage.Scanner.Halted",
+                string.Join(", ", _cacheMonitor.HaltScanLocks.Where(f => f.Value.Value > 0).Select(locker => locker.Key + ": " + locker.Value.Value))));
             ImGui.SameLine();
-            if (ImGui.Button("Reset halt requests##clearlocks"))
+            if (ImGui.Button(Loc.Get("Settings.Storage.Scanner.ResetLocks") + "##clearlocks"))
             {
                 _cacheMonitor.ResetLocks();
             }
         }
         else
         {
-            ImGui.TextUnformatted("Idle");
+            ImGui.TextUnformatted(Loc.Get("Settings.Storage.Scanner.Idle"));
             if (_configService.Current.InitialScanComplete)
             {
                 ImGui.SameLine();
-                if (IconTextButton(FontAwesomeIcon.Play, "Force rescan"))
+                if (IconTextButton(FontAwesomeIcon.Play, Loc.Get("Settings.Storage.Scanner.ForceRescan")))
                 {
                     _cacheMonitor.InvokeScan();
                 }
@@ -1695,9 +1640,6 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
         var center = ImGui.GetMainViewport().GetCenter();
         ImGui.SetWindowPos(new Vector2(center.X - width / 2, center.Y - height / 2), cond);
     }
-
-    [GeneratedRegex(@"^(?:[a-zA-Z]:\\[\w\s\-\\]+?|\/(?:[\w\s\-\/])+?)$", RegexOptions.ECMAScript, 5000)]
-    private static partial Regex PathRegex();
 
     private static void FontText(string text, IFontHandle font, Vector4? color = null)
     {

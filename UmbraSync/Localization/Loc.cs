@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Resources;
 
@@ -79,6 +79,25 @@ public static class Loc
         var fallbackCulture = LanguageCultures[FallbackLanguage];
         value = ResourceManager.GetString(key, fallbackCulture);
         return string.IsNullOrEmpty(value) ? key : value.ReplacingLineBreaks();
+    }
+
+    /// <summary>
+    /// Variante paramétrée : évite d'écrire un <c>string.Format</c> autour de chaque libellé
+    /// à trou. La culture courante est utilisée pour que les nombres suivent la langue affichée.
+    /// </summary>
+    public static string Get(string key, params object?[] args)
+    {
+        string format = Get(key);
+        if (args == null || args.Length == 0) return format;
+
+        try
+        {
+            return string.Format(CultureInfo.CurrentCulture, format, args);
+        }
+        catch (FormatException)
+        {
+            return format;
+        }
     }
 
     private static CultureInfo NormalizeLanguage(string? languageCode)

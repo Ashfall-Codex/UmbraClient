@@ -20,6 +20,12 @@ MareSynchronos/.DS_Store
 UmbraServer_extracted/
 NuGet.config
 Directory.Build.props
+Directory.Build.props.disabled
+Directory.Build.targets
+
+# Projet de tests local (hors dépôt)
+UmbraSync.Tests/
+UmbraSync.Tests.sln
 
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
@@ -72,8 +78,8 @@ project.lock.json
 project.fragment.lock.json
 artifacts/
 
-# OtterGui packages lock (external submodule)
-OtterGui/OtterGuiInternal/packages.lock.json
+# Fichiers de verrouillage NuGet
+*.lock.json
 
 # StyleCop
 StyleCopReport.xml

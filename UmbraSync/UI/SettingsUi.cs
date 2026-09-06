@@ -44,6 +44,8 @@ public class SettingsUi : WindowMediatorSubscriberBase
     private readonly FileUploadManager _fileTransferManager;
     private readonly FileTransferOrchestrator _fileTransferOrchestrator;
     private readonly FileCacheManager _fileCacheManager;
+    private readonly StorageRelocationService _storageRelocation;
+    private StorageFolderIssue _storageRelocationIssue = StorageFolderIssue.None;
     private readonly PairManager _pairManager;
     private readonly GuiHookService _guiHookService;
     private readonly AutoDetectSuppressionService _autoDetectSuppressionService;
@@ -105,7 +107,18 @@ public class SettingsUi : WindowMediatorSubscriberBase
     private bool _settingsSidebarIndicatorInit;
     private Vector2 _settingsSidebarWindowPos;
 
-    private static readonly string[] SettingsLabels = ["General", "Performance", "Storage", "Transfers", "AutoDetect", "Chat", "Compte", "Vie privée", "Avancé", "À propos"];
+    private static readonly string[] SettingsLabelKeys = [
+        "Settings.Section.General.Title",
+        "Settings.Section.Performance.Title",
+        "Settings.Section.Storage.Title",
+        "Settings.Section.Transfers.Title",
+        "Settings.Section.AutoDetect.Title",
+        "Settings.Section.Chat.Title",
+        "Settings.Section.Account.Title",
+        "Settings.Section.Privacy.Title",
+        "Settings.Section.Advanced.Title",
+        "Settings.Section.About.Title",
+    ];
     private static readonly FontAwesomeIcon[] SettingsIcons = [
         FontAwesomeIcon.Cog, FontAwesomeIcon.Bolt, FontAwesomeIcon.Database,
         FontAwesomeIcon.Retweet, FontAwesomeIcon.BroadcastTower, FontAwesomeIcon.Comment,
@@ -134,6 +147,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
         FileUploadManager fileTransferManager,
         FileTransferOrchestrator fileTransferOrchestrator,
         FileCacheManager fileCacheManager,
+        StorageRelocationService storageRelocation,
         FileCompactor fileCompactor, ApiController apiController,
         IpcManager ipcManager, IpcProvider ipcProvider, CacheMonitor cacheMonitor,
         DalamudUtilService dalamudUtilService, AccountRegistrationService registerService,
@@ -156,6 +170,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
         _fileTransferManager = fileTransferManager;
         _fileTransferOrchestrator = fileTransferOrchestrator;
         _fileCacheManager = fileCacheManager;
+        _storageRelocation = storageRelocation;
         _apiController = apiController;
         _ipcManager = ipcManager;
         _ipcProvider = ipcProvider;
@@ -2029,91 +2044,166 @@ public class SettingsUi : WindowMediatorSubscriberBase
         }
     }
 
+    /// <summary>
+    /// Déplacement du stockage vers un autre dossier. Le copier-coller manuel restait la seule
+    /// option pour changer de disque, avec le risque d'oublier de repointer le plugin ensuite.
+    /// </summary>
+    private void DrawStorageRelocation()
+    {
+        bool busy = _storageRelocation.IsRunning;
+        string currentFolder = _configService.Current.CacheFolder;
+
+        using (ImRaii.Disabled(busy || _cacheMonitor.IsScanRunning || string.IsNullOrEmpty(currentFolder)))
+        {
+            if (_uiShared.IconTextButton(FontAwesomeIcon.PeopleCarry, Loc.Get("Settings.Storage.Move.Button")))
+            {
+                _storageRelocationIssue = StorageFolderIssue.None;
+                _uiShared.FileDialogManager.OpenFolderDialog(Loc.Get("Settings.Storage.Move.PickFolder"), (success, path) =>
+                {
+                    if (!success || string.IsNullOrEmpty(path)) return;
+
+                    _storageRelocationIssue = _storageRelocation.ValidateTarget(path);
+                    if (_storageRelocationIssue != StorageFolderIssue.None) return;
+
+                    _ = _storageRelocation.RelocateAsync(path);
+                }, _dalamudUtilService.IsWine ? @"Z:\" : @"C:\");
+            }
+        }
+        UiSharedService.AttachToolTip(Loc.Get("Settings.Storage.Move.Tooltip"));
+
+        if (_cacheMonitor.IsScanRunning && !busy)
+        {
+            UiSharedService.ColorTextWrapped(Loc.Get("Settings.Storage.Move.ScanRunning"), ImGuiColors.DalamudYellow);
+        }
+
+        if (_storageRelocationIssue != StorageFolderIssue.None)
+        {
+            UiSharedService.ColorTextWrapped(UiSharedService.GetStorageFolderIssueText(_storageRelocationIssue), UiSharedService.AccentColor);
+        }
+
+        if (busy)
+        {
+            UiSharedService.ColorTextWrapped(string.Format(CultureInfo.CurrentCulture,
+                Loc.Get("Settings.Storage.Move.Progress"),
+                _storageRelocation.FilesProcessed, _storageRelocation.FilesTotal,
+                UiSharedService.ByteToString(_storageRelocation.BytesProcessed),
+                UiSharedService.ByteToString(_storageRelocation.BytesTotal),
+                _storageRelocation.TargetFolder), ImGuiColors.DalamudYellow);
+            UiSharedService.ColorTextWrapped(Loc.Get("Settings.Storage.Move.DoNotClose"), ImGuiColors.DalamudGrey);
+        }
+        else if (_storageRelocation.LastResult is { } result)
+        {
+            if (result.Issue != StorageFolderIssue.None)
+            {
+                UiSharedService.ColorTextWrapped(UiSharedService.GetStorageFolderIssueText(result.Issue), UiSharedService.AccentColor);
+            }
+            else if (result.Success)
+            {
+                UiSharedService.ColorTextWrapped(string.Format(CultureInfo.CurrentCulture,
+                    Loc.Get("Settings.Storage.Move.Done"), result.MovedFiles,
+                    UiSharedService.ByteToString(result.MovedBytes), result.TargetFolder), ImGuiColors.HealerGreen);
+            }
+            else
+            {
+                UiSharedService.ColorTextWrapped(string.Format(CultureInfo.CurrentCulture,
+                    Loc.Get("Settings.Storage.Move.Partial"), result.MovedFiles, result.FailedFiles,
+                    result.SourceFolder), UiSharedService.AccentColor);
+            }
+
+            if (result.Issue == StorageFolderIssue.None && !result.SourceEmptied)
+            {
+                UiSharedService.ColorTextWrapped(string.Format(CultureInfo.CurrentCulture,
+                    Loc.Get("Settings.Storage.Move.SourceLeftovers"), result.SourceFolder), ImGuiColors.DalamudGrey);
+            }
+        }
+
+        ImGuiHelpers.ScaledDummy(new Vector2(5, 5));
+    }
+
     private void DrawFileStorageSettings()
     {
         _lastTab = "FileCache";
         DrawSectionHeader(2);
 
-        UiSharedService.TextWrapped("Umbra stores downloaded files from paired people permanently. This is to improve loading performance and requiring less downloads. " +
-            "The storage governs itself by clearing data beyond the set storage size. Please set the storage size accordingly. It is not necessary to manually clear the storage.");
+        UiSharedService.TextWrapped(Loc.Get("Settings.Storage.Intro"));
 
         _uiShared.DrawFileScanState();
         ImGui.AlignTextToFramePadding();
-        ImGui.TextUnformatted("Monitoring Penumbra Folder: " + (_cacheMonitor.PenumbraWatcher?.Path ?? "Not monitoring"));
+        ImGui.TextUnformatted(Loc.Get("Settings.Storage.Monitoring.Penumbra",
+            _cacheMonitor.PenumbraWatcher?.Path ?? Loc.Get("Settings.Storage.Monitoring.None")));
         if (string.IsNullOrEmpty(_cacheMonitor.PenumbraWatcher?.Path))
         {
             ImGui.SameLine();
             using var id = ImRaii.PushId("penumbraMonitor");
-            if (_uiShared.IconTextButton(FontAwesomeIcon.ArrowsToCircle, "Try to reinitialize Monitor"))
+            if (_uiShared.IconTextButton(FontAwesomeIcon.ArrowsToCircle, Loc.Get("Settings.Storage.Monitoring.Reinit")))
             {
                 _cacheMonitor.StartPenumbraWatcher(_ipcManager.Penumbra.ModDirectory);
             }
         }
 
         ImGui.AlignTextToFramePadding();
-        ImGui.TextUnformatted("Monitoring Umbra Storage Folder: " + (_cacheMonitor.MareWatcher?.Path ?? "Not monitoring"));
+        ImGui.TextUnformatted(Loc.Get("Settings.Storage.Monitoring.Storage",
+            _cacheMonitor.MareWatcher?.Path ?? Loc.Get("Settings.Storage.Monitoring.None")));
         if (string.IsNullOrEmpty(_cacheMonitor.MareWatcher?.Path))
         {
             ImGui.SameLine();
             using var id = ImRaii.PushId("mareMonitor");
-            if (_uiShared.IconTextButton(FontAwesomeIcon.ArrowsToCircle, "Try to reinitialize Monitor"))
+            if (_uiShared.IconTextButton(FontAwesomeIcon.ArrowsToCircle, Loc.Get("Settings.Storage.Monitoring.Reinit")))
             {
                 _cacheMonitor.StartMareWatcher(_configService.Current.CacheFolder);
             }
         }
         if (_cacheMonitor.MareWatcher == null || _cacheMonitor.PenumbraWatcher == null)
         {
-            if (_uiShared.IconTextButton(FontAwesomeIcon.Play, "Resume Monitoring"))
+            if (_uiShared.IconTextButton(FontAwesomeIcon.Play, Loc.Get("Settings.Storage.Monitoring.Resume")))
             {
                 _cacheMonitor.StartMareWatcher(_configService.Current.CacheFolder);
                 _cacheMonitor.StartPenumbraWatcher(_ipcManager.Penumbra.ModDirectory);
                 _cacheMonitor.InvokeScan();
             }
-            UiSharedService.AttachToolTip("Attempts to resume monitoring for both Penumbra and Umbra Storage. "
-                + "Resuming the monitoring will also force a full scan to run." + Environment.NewLine
-                + "If the button remains present after clicking it, consult /xllog for errors");
+            UiSharedService.AttachToolTip(Loc.Get("Settings.Storage.Monitoring.Resume.Tooltip"));
         }
         else
         {
             using (ImRaii.Disabled(!UiSharedService.CtrlPressed()))
             {
-                if (_uiShared.IconTextButton(FontAwesomeIcon.Stop, "Stop Monitoring"))
+                if (_uiShared.IconTextButton(FontAwesomeIcon.Stop, Loc.Get("Settings.Storage.Monitoring.Stop")))
                 {
                     _cacheMonitor.StopMonitoring();
                 }
             }
-            UiSharedService.AttachToolTip("Stops the monitoring for both Penumbra and Umbra Storage. "
-                + "Do not stop the monitoring, unless you plan to move the Penumbra and Umbra Storage folders, to ensure correct functionality of Umbra." + Environment.NewLine
-                + "If you stop the monitoring to move folders around, resume it after you are finished moving the files."
-                + UiSharedService.TooltipSeparator + "Hold CTRL to enable this button");
+            UiSharedService.AttachToolTip(Loc.Get("Settings.Storage.Monitoring.Stop.Tooltip")
+                + UiSharedService.TooltipSeparator + Loc.Get("Settings.Storage.Monitoring.Stop.Ctrl"));
         }
 
         _uiShared.DrawCacheDirectorySetting();
+        DrawStorageRelocation();
         ImGui.AlignTextToFramePadding();
         if (_cacheMonitor.FileCacheSize >= 0)
-            ImGui.TextUnformatted($"Currently utilized local storage: {_cacheMonitor.FileCacheSize / 1024.0 / 1024.0 / 1024.0:0.00} GiB");
+            ImGui.TextUnformatted(Loc.Get("Settings.Storage.Used",
+                (_cacheMonitor.FileCacheSize / 1024.0 / 1024.0 / 1024.0).ToString("0.00", CultureInfo.CurrentCulture)));
         else
-            ImGui.TextUnformatted($"Currently utilized local storage: Calculating...");
+            ImGui.TextUnformatted(Loc.Get("Settings.Storage.Used.Calculating"));
         bool isLinux = _dalamudUtilService.IsWine;
         if (!isLinux)
-            ImGui.TextUnformatted($"Remaining space free on drive: {_cacheMonitor.FileCacheDriveFree / 1024.0 / 1024.0 / 1024.0:0.00} GiB");
+            ImGui.TextUnformatted(Loc.Get("Settings.Storage.FreeSpace",
+                (_cacheMonitor.FileCacheDriveFree / 1024.0 / 1024.0 / 1024.0).ToString("0.00", CultureInfo.CurrentCulture)));
         bool useFileCompactor = _configService.Current.UseCompactor;
         if (!useFileCompactor && !isLinux)
         {
-            UiSharedService.ColorTextWrapped("Hint: To free up space when using Umbra consider enabling the File Compactor", ImGuiColors.DalamudYellow);
+            UiSharedService.ColorTextWrapped(Loc.Get("Settings.Storage.Compactor.Hint"), ImGuiColors.DalamudYellow);
         }
         if (isLinux || !_cacheMonitor.StorageisNTFS) ImGui.BeginDisabled();
-        if (ImGui.Checkbox("Use file compactor", ref useFileCompactor))
+        if (ImGui.Checkbox(Loc.Get("Settings.Storage.Compactor.Enable") + "##useFileCompactor", ref useFileCompactor))
         {
             _configService.Current.UseCompactor = useFileCompactor;
             _configService.Save();
         }
-        _uiShared.DrawHelpText("The file compactor can massively reduce your saved files. It might incur a minor penalty on loading files on a slow CPU." + Environment.NewLine
-            + "It is recommended to leave it enabled to save on space.");
+        _uiShared.DrawHelpText(Loc.Get("Settings.Storage.Compactor.Enable.Help"));
 
         if (!_fileCompactor.MassCompactRunning)
         {
-            if (_uiShared.IconTextButton(FontAwesomeIcon.FileArchive, "Compact all files in storage"))
+            if (_uiShared.IconTextButton(FontAwesomeIcon.FileArchive, Loc.Get("Settings.Storage.Compactor.CompactAll")))
             {
                 _ = Task.Run(() =>
                 {
@@ -2121,10 +2211,9 @@ public class SettingsUi : WindowMediatorSubscriberBase
                     _cacheMonitor.RecalculateFileCacheSize(CancellationToken.None);
                 });
             }
-            UiSharedService.AttachToolTip("This will run compression on all files in your current storage folder." + Environment.NewLine
-                + "You do not need to run this manually if you keep the file compactor enabled.");
+            UiSharedService.AttachToolTip(Loc.Get("Settings.Storage.Compactor.CompactAll.Tooltip"));
             ImGui.SameLine();
-            if (_uiShared.IconTextButton(FontAwesomeIcon.File, "Decompact all files in storage"))
+            if (_uiShared.IconTextButton(FontAwesomeIcon.File, Loc.Get("Settings.Storage.Compactor.DecompactAll")))
             {
                 _ = Task.Run(() =>
                 {
@@ -2132,26 +2221,24 @@ public class SettingsUi : WindowMediatorSubscriberBase
                     _cacheMonitor.RecalculateFileCacheSize(CancellationToken.None);
                 });
             }
-            UiSharedService.AttachToolTip("This will run decompression on all files in your current storage folder.");
+            UiSharedService.AttachToolTip(Loc.Get("Settings.Storage.Compactor.DecompactAll.Tooltip"));
         }
         else
         {
-            UiSharedService.ColorText($"File compactor currently running ({_fileCompactor.Progress})", ImGuiColors.DalamudYellow);
+            UiSharedService.ColorText(Loc.Get("Settings.Storage.Compactor.Running", _fileCompactor.Progress), ImGuiColors.DalamudYellow);
         }
         if (isLinux || !_cacheMonitor.StorageisNTFS)
         {
             ImGui.EndDisabled();
-            ImGui.TextUnformatted("The file compactor is only available on Windows and NTFS drives.");
+            ImGui.TextUnformatted(Loc.Get("Settings.Storage.Compactor.WindowsOnly"));
         }
         ImGuiHelpers.ScaledDummy(new Vector2(10, 10));
 
         ImGui.Separator();
-        UiSharedService.TextWrapped("File Storage validation can make sure that all files in your local storage folder are valid. " +
-            "Run the validation before you clear the Storage for no reason. " + Environment.NewLine +
-            "This operation, depending on how many files you have in your storage, can take a while and will be CPU and drive intensive.");
+        UiSharedService.TextWrapped(Loc.Get("Settings.Storage.Validation.Intro"));
         using (ImRaii.Disabled(_validationTask != null && !_validationTask.IsCompleted))
         {
-            if (_uiShared.IconTextButton(FontAwesomeIcon.Check, "Start File Storage Validation"))
+            if (_uiShared.IconTextButton(FontAwesomeIcon.Check, Loc.Get("Settings.Storage.Validation.Start")))
             {
                 _validationCts?.Cancel();
                 _validationCts?.Dispose();
@@ -2163,7 +2250,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
         if (_validationTask != null && !_validationTask.IsCompleted)
         {
             ImGui.SameLine();
-            if (_uiShared.IconTextButton(FontAwesomeIcon.Times, "Cancel"))
+            if (_uiShared.IconTextButton(FontAwesomeIcon.Times, Loc.Get("Settings.Storage.Validation.Cancel")))
             {
                 _validationCts?.Cancel();
             }
@@ -2175,13 +2262,13 @@ public class SettingsUi : WindowMediatorSubscriberBase
             {
                 if (_validationTask.IsCompleted)
                 {
-                    UiSharedService.TextWrapped($"The storage validation has completed and removed {_validationTask.Result.Count} invalid files from storage.");
+                    UiSharedService.TextWrapped(Loc.Get("Settings.Storage.Validation.Done", _validationTask.Result.Count));
                 }
                 else
                 {
 
-                    UiSharedService.TextWrapped($"Storage validation is running: {_currentProgress.Item1}/{_currentProgress.Item2}");
-                    UiSharedService.TextWrapped($"Current item: {_currentProgress.Item3.ResolvedFilepath}");
+                    UiSharedService.TextWrapped(Loc.Get("Settings.Storage.Validation.Running", _currentProgress.Item1, _currentProgress.Item2));
+                    UiSharedService.TextWrapped(Loc.Get("Settings.Storage.Validation.CurrentItem", _currentProgress.Item3.ResolvedFilepath));
                 }
             }
         }
@@ -3941,7 +4028,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
     private void DrawSectionHeader(int tabIndex)
     {
         var icon = SettingsIcons[tabIndex];
-        var title = SettingsLabels[tabIndex];
+        var title = Loc.Get(SettingsLabelKeys[tabIndex]);
         var description = Loc.Get(SettingsDescriptionKeys[tabIndex]);
         var availWidth = ImGui.GetContentRegionAvail().X;
 
@@ -4007,7 +4094,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
 
         ImGuiHelpers.ScaledDummy(4f);
 
-        for (int i = 0; i < SettingsLabels.Length; i++)
+        for (int i = 0; i < SettingsLabelKeys.Length; i++)
         {
             DrawSettingsSidebarButton(i);
             ImGuiHelpers.ScaledDummy(1f);
@@ -4062,7 +4149,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
         dl2.AddText(new Vector2(startX, p.Y + (scaledBtnH - iconSz.Y) / 2f), textColorU32, iconStr);
         ImGui.PopFont();
 
-        dl2.AddText(new Vector2(startX + iconSz.X + iconTextGap * ImGuiHelpers.GlobalScale, p.Y + (scaledBtnH - iconSz.Y) / 2f), textColorU32, SettingsLabels[tabIndex]);
+        dl2.AddText(new Vector2(startX + iconSz.X + iconTextGap * ImGuiHelpers.GlobalScale, p.Y + (scaledBtnH - iconSz.Y) / 2f), textColorU32, Loc.Get(SettingsLabelKeys[tabIndex]));
 
         if (hovered) ImGui.SetMouseCursor(ImGuiMouseCursor.Hand);
         if (clicked) _activeSettingsTab = tabIndex;
