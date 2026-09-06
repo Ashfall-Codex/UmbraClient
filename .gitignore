@@ -72,8 +72,8 @@ project.lock.json
 project.fragment.lock.json
 artifacts/
 
-# OtterGui packages lock (external submodule)
-OtterGui/OtterGuiInternal/packages.lock.json
+# Fichiers de verrouillage NuGet
+*.lock.json
 
 # StyleCop
 StyleCopReport.xml
