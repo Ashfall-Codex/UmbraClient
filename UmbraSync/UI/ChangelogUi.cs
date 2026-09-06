@@ -342,6 +342,11 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
     {
         return new List<ChangelogEntry>
         {
+            new(new Version(3, 0, 2, 9006), "3.0.2.9006", new List<ChangelogLine>
+            {
+                new("Nouveauté : Un bouton pour changer l'emplacement du stockage local."),
+                new("Mise à jour : APIs Penumbra."),
+            }),
             new(new Version(3, 0, 2, 9002), "3.0.2.9002", new List<ChangelogLine>
             {
                 new("Nouveauté : Un menu « Variante » à côté de la pose de chaque PNJ. Les postures y sont rangées par catégorie : debout, arme dégainée, chaise, assis au sol, allongé. La numérotation suit celle de /changepose."),

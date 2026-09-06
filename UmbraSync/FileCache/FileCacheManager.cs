@@ -432,6 +432,22 @@ public sealed class FileCacheManager : DisposableMediatorSubscriberBase, IHosted
         return result;
     }
 
+    /// <summary>
+    /// Re-résout tous les chemins absolus à partir des préfixes. Nécessaire après un changement
+    /// de dossier de stockage : les entités déjà chargées pointeraient sinon vers l'ancien
+    /// emplacement jusqu'à leur prochaine validation.
+    /// </summary>
+    public void ResolveAllPaths()
+    {
+        lock (_fileCachesLock)
+        {
+            foreach (var entity in _fileCaches.SelectMany(f => f.Value))
+            {
+                ReplacePathPrefixes(entity);
+            }
+        }
+    }
+
     private FileCacheEntity? GetValidatedFileCache(FileCacheEntity fileCache)
     {
         var resultingFileCache = ReplacePathPrefixes(fileCache);

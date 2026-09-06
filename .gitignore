@@ -20,6 +20,8 @@ MareSynchronos/.DS_Store
 UmbraServer_extracted/
 NuGet.config
 Directory.Build.props
+Directory.Build.props.disabled
+Directory.Build.targets
 
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
