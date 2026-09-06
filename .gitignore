@@ -23,6 +23,10 @@ Directory.Build.props
 Directory.Build.props.disabled
 Directory.Build.targets
 
+# Projet de tests local (hors dépôt)
+UmbraSync.Tests/
+UmbraSync.Tests.sln
+
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
 

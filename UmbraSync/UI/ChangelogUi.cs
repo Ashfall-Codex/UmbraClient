@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Numerics;
 using System.Reflection;
 using Dalamud.Bindings.ImGui;
@@ -48,7 +48,7 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
     public ChangelogUi(ILogger<ChangelogUi> logger, UiSharedService uiShared, MareConfigService configService,
         MareMediator mediator, PerformanceCollectorService performanceCollectorService,
         IDalamudPluginInterface pluginInterface)
-        : base(logger, mediator, Loc.Get("ChangelogUi.WindowTitle"), performanceCollectorService)
+        : base(logger, mediator, Loc.Get("ChangelogUi.WindowTitle") + "###UmbraSyncChangelog", performanceCollectorService)
     {
         _uiShared = uiShared;
         _configService = configService;

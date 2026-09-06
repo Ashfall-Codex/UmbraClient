@@ -183,7 +183,9 @@ public class UmbraProfileManager : MediatorSubscriberBase
                 if (charName != null && worldId is > 0
                     && (!string.Equals(profile.CharacterName, charName, StringComparison.Ordinal) || profile.WorldId.Value != worldId.Value))
                 {
-                    Logger.LogInformation("Server corrected alt for {uid}: requested {reqChar}@{reqWorld}, got {srvChar}@{srvWorld}",
+                    // Passé en Debug : ces deux noms de personnage n'ont rien à faire dans un
+                    // journal que l'utilisateur partagera pour un tout autre problème.
+                    Logger.LogDebug("Server corrected alt for {uid}: requested {reqChar}@{reqWorld}, got {srvChar}@{srvWorld}",
                         data.UID, charName, worldId, profile.CharacterName, profile.WorldId.Value);
                     _serverConfigurationManager.RemoveEncounteredAlt(data.UID, charName, worldId.Value);
                     RemovePersistedProfile(data, charName, worldId);

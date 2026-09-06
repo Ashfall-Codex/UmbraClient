@@ -111,7 +111,7 @@ public class SyncshellAdminUI : WindowMediatorSubscriberBase
         UiSharedService uiSharedService, PairManager pairManager, SyncshellDiscoveryService syncshellDiscoveryService,
         GroupFullInfoDto groupFullInfo, PerformanceCollectorService performanceCollectorService, NotificationTracker notificationTracker,
         DalamudUtilService dalamudUtilService, FileDialogManager fileDialogManager, UmbraProfileManager profileManager)
-        : base(logger, mediator, string.Format(CultureInfo.CurrentCulture, Loc.Get("SyncshellAdmin.WindowTitle"), groupFullInfo.GroupAliasOrGID), performanceCollectorService)
+        : base(logger, mediator, string.Format(CultureInfo.CurrentCulture, Loc.Get("SyncshellAdmin.WindowTitle"), groupFullInfo.GroupAliasOrGID) + "###UmbraSyncSyncshellAdmin" + groupFullInfo.GID, performanceCollectorService)
     {
         GroupFullInfo = groupFullInfo;
         _apiController = apiController;

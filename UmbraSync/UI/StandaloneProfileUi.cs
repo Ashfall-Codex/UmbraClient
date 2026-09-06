@@ -1,4 +1,4 @@
-using Dalamud.Bindings.ImGui;
+﻿using Dalamud.Bindings.ImGui;
 using Dalamud.Interface;
 using Dalamud.Interface.Colors;
 using Dalamud.Interface.Textures;
@@ -45,7 +45,7 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
     public StandaloneProfileUi(ILogger<StandaloneProfileUi> logger, MareMediator mediator, UiSharedService uiBuilder,
         ServerConfigurationManager serverManager, MareConfigService configService, UmbraProfileManager umbraProfileManager, ApiController apiController, Pair pair,
         PerformanceCollectorService performanceCollector, IpcManager ipcManager, DalamudUtilService dalamudUtil, PairManager pairManager)
-        : base(logger, mediator, string.Format(System.Globalization.CultureInfo.CurrentCulture, Loc.Get("StandaloneProfile.WindowTitle"), pair.UserData.AliasOrUID) + "##UmbraSyncStandaloneProfileUI" + pair.UserData.AliasOrUID, performanceCollector)
+        : base(logger, mediator, string.Format(System.Globalization.CultureInfo.CurrentCulture, Loc.Get("StandaloneProfile.WindowTitle"), pair.UserData.AliasOrUID) + "###UmbraSyncStandaloneProfileUI" + pair.UserData.AliasOrUID, performanceCollector)
     {
         _uiSharedService = uiBuilder;
         _serverManager = serverManager;

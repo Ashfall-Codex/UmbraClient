@@ -1,4 +1,4 @@
-using System.Numerics;
+﻿using System.Numerics;
 using System.Reflection;
 using Dalamud.Bindings.ImGui;
 using Dalamud.Interface;
@@ -23,7 +23,7 @@ public sealed class TestBuildWarningUi : WindowMediatorSubscriberBase
     public TestBuildWarningUi(ILogger<TestBuildWarningUi> logger, MareMediator mediator,
         MareConfigService configService, UiSharedService uiShared,
         PerformanceCollectorService performanceCollectorService, IDalamudPluginInterface pluginInterface)
-        : base(logger, mediator, Loc.Get("TestBuildWarning.WindowTitle"), performanceCollectorService)
+        : base(logger, mediator, Loc.Get("TestBuildWarning.WindowTitle") + "###UmbraSyncTestBuildWarning", performanceCollectorService)
     {
         _configService = configService;
         _uiShared = uiShared;
