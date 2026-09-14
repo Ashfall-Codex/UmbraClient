@@ -17,11 +17,11 @@ API <code>v5000</code> &middot; C# 13 / .NET 10 &middot; Dalamud SDK 15.0
 <a href="https://github.com/Ashfall-Codex/UmbraClient/releases"><img src="https://img.shields.io/github/v/release/Ashfall-Codex/UmbraClient?include_prereleases" alt="Latest Release" /></a></p>
 
 <p align="center">
-<a href="https://argus.arediss.fr"><img src="https://argus.arediss.fr/api/projects/umbraclient/badge.svg" alt="Quality gate" /></a>
-<a href="https://argus.arediss.fr"><img src="https://argus.arediss.fr/api/projects/umbraclient/badge.svg?metric=reliability" alt="Fiabilité" /></a>
-<a href="https://argus.arediss.fr"><img src="https://argus.arediss.fr/api/projects/umbraclient/badge.svg?metric=security" alt="Sécurité" /></a>
-<a href="https://argus.arediss.fr"><img src="https://argus.arediss.fr/api/projects/umbraclient/badge.svg?metric=maintainability" alt="Maintenabilité" /></a>
-<a href="https://argus.arediss.fr"><img src="https://argus.arediss.fr/api/projects/umbraclient/badge.svg?metric=vulnerabilities" alt="Vulnérabilités" /></a></p>
+<a href="https://argus.arediss.fr"><img src="https://argus.arediss.fr/api/public/badges/9520e70f-478f-4744-a025-c98f6570eacc/badge.svg" alt="Contrôle qualité" /></a>
+<a href="https://argus.arediss.fr"><img src="https://argus.arediss.fr/api/public/badges/9520e70f-478f-4744-a025-c98f6570eacc/badge.svg?metric=reliability" alt="Fiabilité" /></a>
+<a href="https://argus.arediss.fr"><img src="https://argus.arediss.fr/api/public/badges/9520e70f-478f-4744-a025-c98f6570eacc/badge.svg?metric=security" alt="Sécurité" /></a>
+<a href="https://argus.arediss.fr"><img src="https://argus.arediss.fr/api/public/badges/9520e70f-478f-4744-a025-c98f6570eacc/badge.svg?metric=maintainability" alt="Maintenabilité" /></a>
+<a href="https://argus.arediss.fr"><img src="https://argus.arediss.fr/api/public/badges/9520e70f-478f-4744-a025-c98f6570eacc/badge.svg?metric=vulnerabilities" alt="Vulnérabilités" /></a></p>
 
 
 ---

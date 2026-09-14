@@ -107,6 +107,7 @@ public class Pair : DisposableMediatorSubscriberBase
 
     public bool IsVisible => CachedPlayer?.IsVisible ?? false;
     public bool IsApplyingOrDownloading => CachedPlayer?.IsApplyingOrDownloading ?? false;
+    public bool IsHandledExternally => CachedPlayer?.IsHandledExternally ?? false;
     public uint WorldId => _worldId ?? 0;
 
     public CharacterData? LastReceivedCharacterData { get; set; }

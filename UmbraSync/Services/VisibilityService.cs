@@ -71,7 +71,7 @@ public class VisibilityService : DisposableMediatorSubscriberBase
             _lastScanUtc = now;
         }
 
-        var mareHandledAddresses = _mare.GetHandledGameAddresses();
+        var mareHandledAddresses = _mare.GetExternallyOwnedAddresses();
         uint addressSum = 0;
 
         foreach (var addr in mareHandledAddresses)
@@ -115,7 +115,7 @@ public class VisibilityService : DisposableMediatorSubscriberBase
                             if (isMareHandled)
                             {
                                 if (_trackedPlayerVisibility.TryUpdate(ident, TrackedPlayerStatus.MareHandled, TrackedPlayerStatus.NotVisible))
-                                    Mediator.Publish<PlayerVisibilityMessage>(new(ident, IsVisible: true, Invalidate: true));
+                                    Mediator.Publish<ExternalSyncHandledMessage>(new(ident, IsHandled: true));
                             }
                             else
                             {
@@ -138,7 +138,7 @@ public class VisibilityService : DisposableMediatorSubscriberBase
                     else if (isMareHandled &&
                              _trackedPlayerVisibility.TryUpdate(ident, TrackedPlayerStatus.MareHandled, TrackedPlayerStatus.Visible))
                     {
-                        Mediator.Publish<PlayerVisibilityMessage>(new(ident, IsVisible: true, Invalidate: true));
+                        Mediator.Publish<ExternalSyncHandledMessage>(new(ident, IsHandled: true));
                     }
                     break;
                 case TrackedPlayerStatus.MareHandled:
@@ -150,8 +150,8 @@ public class VisibilityService : DisposableMediatorSubscriberBase
                     else if (!isMareHandled &&
                              _trackedPlayerVisibility.TryUpdate(ident, TrackedPlayerStatus.Visible, TrackedPlayerStatus.MareHandled))
                     {
-                        // Became unhandled by Mare while still present -> visible to us
-                        Mediator.Publish<PlayerVisibilityMessage>(new(ident, IsVisible: true));
+                        // L'autre plugin n'applique plus ce joueur alors qu'il est toujours là : Umbra reprend la main
+                        Mediator.Publish<ExternalSyncHandledMessage>(new(ident, IsHandled: false));
                     }
                     break;
             }

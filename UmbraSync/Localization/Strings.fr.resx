@@ -5109,6 +5109,15 @@ Note : Les armes ne s'afficheront pas correctement sauf si vous utilisez le m&#x
   <data name="Settings.Advanced.UmbraApi.Unknown" xml:space="preserve">
     <value>API Umbra inactive : raison inconnue</value>
   </data>
+  <data name="Settings.Advanced.YieldToExternalSync" xml:space="preserve">
+    <value>Laisser la main aux autres plugins de synchronisation</value>
+  </data>
+  <data name="Settings.Advanced.YieldToExternalSync.Help" xml:space="preserve">
+    <value>Quand un joueur est déjà synchronisé par un autre plugin de synchronisation compatible chargé en même temps qu'UmbraSync, il lui laisse gérer son apparence. Le plugin reprend la main dès que l'autre plugin ne l'applique plus.</value>
+  </data>
+  <data name="Pair.HandledExternally" xml:space="preserve">
+    <value>Apparence actuellement synchronisée par un autre plugin de synchronisation</value>
+  </data>
   <data name="Settings.Advanced.LogEvents" xml:space="preserve">
     <value>Journaliser les données de l'Event Viewer</value>
   </data>
