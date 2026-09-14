@@ -47,8 +47,6 @@ public sealed class PairManager : DisposableMediatorSubscriberBase
     private readonly Lock _lazyRecreateLock = new();
     private bool _lazyRecreateScheduled;
     private int _pendingLazyRecreateCount;
-    // Pendant le bootstrap, on skip RecreateLazyDebounced ; ApplyBootstrapSnapshot fait
-    // un seul RecreateLazyImmediate à la fin de l'apply pour livrer un état UI cohérent.
     private volatile bool _bootstrapInProgress;
     private static readonly TimeSpan GroupReapplyThrottleDelay = TimeSpan.FromMilliseconds(100);
     private const int MaxConcurrentGroupReapplies = 5;

@@ -20,6 +20,7 @@ public sealed class PairCharacterReverter
         Func<string?> GetPlayerName,
         Func<string> DescribeForLog,
         Func<bool> IsVisible,
+        Func<bool> IsHandledExternally,
         Func<GameObjectHandler?> GetCharaHandler,
         Action CancelInFlightWork);
 
@@ -52,6 +53,7 @@ public sealed class PairCharacterReverter
     {
         var name = _context.GetPlayerName();
         _logger.LogDebug("Undoing application of {pair}", _context.DescribeForLog());
+        var appliedData = _state.LastAppliedData;
         _state.LastAppliedData = null;
         _state.PendingModReapply = false;
         try
@@ -76,7 +78,12 @@ public sealed class PairCharacterReverter
                 }
             }
 
-            if (!string.IsNullOrEmpty(name))
+            if (_context.IsHandledExternally())
+            {
+                // L'apparence visible appartient à l'autre plugin : un revert l'effacerait
+                _logger.LogDebug("[{applicationId}] {pair} is handled by another sync plugin, not restoring state", applicationId, _context.DescribeForLog());
+            }
+            else if (!string.IsNullOrEmpty(name))
             {
                 _logger.LogTrace("[{applicationId}] Restoring state for {pair}", applicationId, _context.DescribeForLog());
                 if (!_context.IsVisible())
@@ -97,11 +104,16 @@ public sealed class PairCharacterReverter
                         {
                             try
                             {
-                                await RevertCustomizationDataAsync(item.Key, name, applicationId, cts.Token).ConfigureAwait(false);
+                                await RevertCustomizationDataAsync(item.Key, name, applicationId, appliedData, cts.Token).ConfigureAwait(false);
                             }
                             catch (InvalidOperationException ex)
                             {
                                 _logger.LogWarning(ex, "Failed disposing player (not present anymore?)");
+                                break;
+                            }
+                            catch (OperationCanceledException)
+                            {
+                                _logger.LogWarning("[{applicationId}] Revert operation timed out for {kind} on {user}", applicationId, item.Key, _pair.UserData.UID);
                                 break;
                             }
                         }
@@ -193,7 +205,7 @@ public sealed class PairCharacterReverter
             {
                 try
                 {
-                    await RevertCustomizationDataAsync(kind, characterName, applicationId, cts.Token).ConfigureAwait(false);
+                    await RevertCustomizationDataAsync(kind, characterName, applicationId, _state.LastAppliedData, cts.Token).ConfigureAwait(false);
                 }
                 catch (OperationCanceledException)
                 {
@@ -217,7 +229,44 @@ public sealed class PairCharacterReverter
         }
     }
 
-    public async Task RevertCustomizationDataAsync(ObjectKind objectKind, string name, Guid applicationId, CancellationToken cancelToken)
+    /// <summary>
+    /// Laisse le joueur à un autre plugin de synchronisation qui l'applique déjà : on retire notre
+    /// collection et notre verrou Glamourer, sans revert. La personne envoie la même apparence aux deux
+    /// plugins, et les greffons indexés par adresse (Heels, Honorific…) sont partagés : les vider
+    /// effacerait ce que l'autre plugin a posé.
+    /// </summary>
+    public async Task ReleaseToExternalSyncAsync(Guid applicationId)
+    {
+        _logger.LogDebug("[{applicationId}] Releasing {pair} to another sync plugin", applicationId, _context.DescribeForLog());
+        _context.CancelInFlightWork();
+        _state.LastAppliedData = null;
+        _state.PendingModReapply = false;
+        _state.ForceApplyMods = true;
+
+        if (_state.Penumbra.Collection != Guid.Empty)
+        {
+            var col = _state.Penumbra.Collection;
+            _state.Penumbra.Reset();
+            try
+            {
+                await _ipcManager.Penumbra.RemoveTemporaryCollectionAsync(_logger, applicationId, col).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Failed to remove temporary collection {col}, likely already removed", col);
+            }
+        }
+
+        var address = _dalamudUtil.GetPlayerCharacterFromCachedTableByIdent(_pair.Ident);
+        await _ipcManager.Glamourer.UnlockAsync(_logger, address, applicationId).ConfigureAwait(false);
+    }
+
+    // Les greffons sans clé de verrou ne sont vidés que si Umbra y a posé quelque chose
+    private bool WasOptionalDataKnown(CharacterData? appliedData, Func<CharacterData, string?> selector)
+        => (appliedData != null && !string.IsNullOrEmpty(selector(appliedData)))
+           || (_state.CachedData != null && !string.IsNullOrEmpty(selector(_state.CachedData)));
+
+    public async Task RevertCustomizationDataAsync(ObjectKind objectKind, string name, Guid applicationId, CharacterData? appliedData, CancellationToken cancelToken)
     {
         nint address = _dalamudUtil.GetPlayerCharacterFromCachedTableByIdent(_pair.Ident);
         if (address == nint.Zero) return;
@@ -236,18 +285,30 @@ public sealed class PairCharacterReverter
             _logger.LogDebug("[{applicationId}] Restoring Customization and Equipment for {alias}", applicationId, _pair.UserData.AliasOrUID);
             await _ipcManager.Glamourer.RevertAsync(_logger, tempHandler, applicationId, cancelToken).ConfigureAwait(false);
             tempHandler.CompareNameAndThrow(name);
-            _logger.LogDebug("[{applicationId}] Restoring Heels for {alias}", applicationId, _pair.UserData.AliasOrUID);
-            await _ipcManager.Heels.RestoreOffsetForPlayerAsync(address).ConfigureAwait(false);
+            if (WasOptionalDataKnown(appliedData, d => d.HeelsData))
+            {
+                _logger.LogDebug("[{applicationId}] Restoring Heels for {alias}", applicationId, _pair.UserData.AliasOrUID);
+                await _ipcManager.Heels.RestoreOffsetForPlayerAsync(address).ConfigureAwait(false);
+            }
             tempHandler.CompareNameAndThrow(name);
             _logger.LogDebug("[{applicationId}] Restoring C+ for {alias}", applicationId, _pair.UserData.AliasOrUID);
             await _ipcManager.CustomizePlus.RevertByIdAsync(customizeId).ConfigureAwait(false);
             tempHandler.CompareNameAndThrow(name);
-            _logger.LogDebug("[{applicationId}] Restoring Honorific for {alias}", applicationId, _pair.UserData.AliasOrUID);
-            await _ipcManager.Honorific.ClearTitleAsync(address).ConfigureAwait(false);
-            _logger.LogDebug("[{applicationId}] Restoring Pet Nicknames for {alias}", applicationId, _pair.UserData.AliasOrUID);
-            await _ipcManager.PetNames.ClearPlayerData(address).ConfigureAwait(false);
-            _logger.LogDebug("[{applicationId}] Restoring Moodles for {alias}", applicationId, _pair.UserData.AliasOrUID);
-            await _ipcManager.Moodles.RevertStatusAsync(address).ConfigureAwait(false);
+            if (WasOptionalDataKnown(appliedData, d => d.HonorificData))
+            {
+                _logger.LogDebug("[{applicationId}] Restoring Honorific for {alias}", applicationId, _pair.UserData.AliasOrUID);
+                await _ipcManager.Honorific.ClearTitleAsync(address).ConfigureAwait(false);
+            }
+            if (WasOptionalDataKnown(appliedData, d => d.PetNamesData))
+            {
+                _logger.LogDebug("[{applicationId}] Restoring Pet Nicknames for {alias}", applicationId, _pair.UserData.AliasOrUID);
+                await _ipcManager.PetNames.ClearPlayerData(address).ConfigureAwait(false);
+            }
+            if (WasOptionalDataKnown(appliedData, d => d.MoodlesData))
+            {
+                _logger.LogDebug("[{applicationId}] Restoring Moodles for {alias}", applicationId, _pair.UserData.AliasOrUID);
+                await _ipcManager.Moodles.RevertStatusAsync(address).ConfigureAwait(false);
+            }
         }
         else if (objectKind == ObjectKind.MinionOrMount)
         {
