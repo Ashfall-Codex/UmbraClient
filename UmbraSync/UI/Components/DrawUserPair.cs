@@ -91,6 +91,14 @@ public class DrawUserPair : DrawPairBase
         return iconsTotal + cushion;
     }
 
+    private string GetPresenceTooltip(bool online)
+    {
+        if (!online) return Loc.Get("DrawUserPair.Offline");
+        if (!_pair.IsHandledExternally) return Loc.Get("DrawUserPair.Online");
+
+        return Loc.Get("DrawUserPair.Online") + Environment.NewLine + Loc.Get("Pair.HandledExternally");
+    }
+
     protected override void DrawLeftSide(float textPosY, float originalY)
     {
         var online = _pair.IsOnline;
@@ -100,11 +108,7 @@ public class DrawUserPair : DrawPairBase
         ImGui.PushFont(UiBuilder.IconFont);
         UiSharedService.ColorText(FontAwesomeIcon.Moon.ToIconString(), online ? Violet : offlineGrey);
         ImGui.PopFont();
-        UiSharedService.AttachToolTip(!online
-            ? Loc.Get("DrawUserPair.Offline")
-            : _pair.IsHandledExternally
-                ? Loc.Get("DrawUserPair.Online") + Environment.NewLine + Loc.Get("Pair.HandledExternally")
-                : Loc.Get("DrawUserPair.Online"));
+        UiSharedService.AttachToolTip(GetPresenceTooltip(online));
         if (!(_pair.UserPair!.OwnPermissions.IsPaired() && _pair.UserPair!.OtherPermissions.IsPaired()))
         {
             ImGui.SameLine();
