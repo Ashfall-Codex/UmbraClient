@@ -70,6 +70,16 @@ public sealed class PenumbraCollections : IDisposable
         }).ConfigureAwait(false);
     }
 
+    /// <summary>Nom de la collection effective pour cet index d'objet. Doit être appelé sur le framework thread.</summary>
+    public string? GetEffectiveCollectionNameOnFramework(int idx)
+    {
+        if (!_core.APIAvailable) return null;
+
+        _core.DalamudUtil.EnsureIsOnFramework();
+        var r = _penumbraGetCollectionForObject.Invoke(idx);
+        return r.ObjectValid ? r.EffectiveCollection.Name : null;
+    }
+
     public async Task<Guid> CreateTemporaryCollectionAsync(ILogger logger, string uid)
     {
         if (!_core.APIAvailable) return Guid.Empty;

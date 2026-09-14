@@ -168,10 +168,11 @@ public sealed class IpcCallerGlamourer : DisposableMediatorSubscriberBase, IIpcC
         // Notification is deferred to CheckAPIWithRetryAsync after all retries are exhausted
     }
 
-    public async Task ApplyAllAsync(ILogger logger, GameObjectHandler handler, string? customization, Guid applicationId, CancellationToken token, bool allowImmediate = false)
+    public async Task<GlamourerApiEc?> ApplyAllAsync(ILogger logger, GameObjectHandler handler, string? customization, Guid applicationId, CancellationToken token, bool allowImmediate = false)
     {
-        if (!APIAvailable || string.IsNullOrEmpty(customization) || _dalamudUtil.IsZoning) return;
+        if (!APIAvailable || string.IsNullOrEmpty(customization) || _dalamudUtil.IsZoning) return null;
 
+        GlamourerApiEc? result = null;
         var semaphoreAcquired = false;
         try
         {
@@ -183,7 +184,9 @@ public sealed class IpcCallerGlamourer : DisposableMediatorSubscriberBase, IIpcC
                 try
                 {
                     logger.LogDebug("[{appid}] Calling on IPC: GlamourerApplyAll", applicationId);
-                    _glamourerApplyAll!.Invoke(customization, chara.ObjectIndex, LockCode);
+                    result = _glamourerApplyAll!.Invoke(customization, chara.ObjectIndex, LockCode);
+                    if (result != GlamourerApiEc.Success)
+                        logger.LogWarning("[{appid}] Glamourer a refusé l'application : {result}", applicationId, result);
                 }
                 catch (Exception ex)
                 {
@@ -198,6 +201,8 @@ public sealed class IpcCallerGlamourer : DisposableMediatorSubscriberBase, IIpcC
                 _redrawManager.RedrawSemaphore.Release();
             }
         }
+
+        return result;
     }
 
     /// <summary>
@@ -264,7 +269,11 @@ public sealed class IpcCallerGlamourer : DisposableMediatorSubscriberBase, IIpcC
                     logger.LogDebug("[{appid}] Calling On IPC: GlamourerUnlock", applicationId);
                     _glamourerUnlock.Invoke(chara.ObjectIndex, LockCode);
                     logger.LogDebug("[{appid}] Calling On IPC: GlamourerRevert", applicationId);
-                    _glamourerRevert.Invoke(chara.ObjectIndex, LockCode);
+                    var revertResult = _glamourerRevert.Invoke(chara.ObjectIndex, LockCode);
+                    if (revertResult == GlamourerApiEc.InvalidKey)
+                        logger.LogDebug("[{appid}] Revert Glamourer ignoré : état verrouillé par un autre plugin", applicationId);
+                    else if (revertResult is not (GlamourerApiEc.Success or GlamourerApiEc.NothingDone))
+                        logger.LogWarning("[{appid}] Glamourer a refusé le revert : {result}", applicationId, revertResult);
                     logger.LogDebug("[{appid}] Calling On IPC: PenumbraRedraw", applicationId);
                     _mareMediator.Publish(new PenumbraRedrawCharacterMessage(chara));
                 }
@@ -281,6 +290,29 @@ public sealed class IpcCallerGlamourer : DisposableMediatorSubscriberBase, IIpcC
                 _redrawManager.RedrawSemaphore.Release();
             }
         }
+    }
+
+    /// <summary>
+    /// Libère le verrou Umbra sans revert : l'apparence reste en place et un autre plugin peut
+    /// appliquer la sienne par-dessus.
+    /// </summary>
+    public async Task UnlockAsync(ILogger logger, nint address, Guid applicationId)
+    {
+        if (!APIAvailable || _dalamudUtil.IsZoning || address == nint.Zero) return;
+
+        await _dalamudUtil.RunOnFrameworkThread(() =>
+        {
+            if (_dalamudUtil.CreateGameObject(address) is not ICharacter chara) return;
+            try
+            {
+                var result = _glamourerUnlock.Invoke(chara.ObjectIndex, LockCode);
+                logger.LogDebug("[{appid}] Calling On IPC: GlamourerUnlock, result: {result}", applicationId, result);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "[{appid}] Error during GlamourerUnlock", applicationId);
+            }
+        }).ConfigureAwait(false);
     }
 
     public void RevertNow(ILogger logger, Guid applicationId, int objectIndex)

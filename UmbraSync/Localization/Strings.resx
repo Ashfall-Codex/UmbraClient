@@ -5199,6 +5199,15 @@ Note: Weapons will not be displayed correctly unless using the same job as the s
   <data name="Settings.Advanced.UmbraApi.Unknown" xml:space="preserve">
     <value>Umbra API inactive: Unknown reason</value>
   </data>
+  <data name="Settings.Advanced.YieldToExternalSync" xml:space="preserve">
+    <value>Yield to other sync plugins</value>
+  </data>
+  <data name="Settings.Advanced.YieldToExternalSync.Help" xml:space="preserve">
+    <value>When a player is already synced by another compatible sync plugin loaded alongside Umbra, Umbra lets that plugin handle their appearance instead of fighting over it. Umbra takes over again as soon as the other plugin stops applying it.</value>
+  </data>
+  <data name="Pair.HandledExternally" xml:space="preserve">
+    <value>Appearance currently synced by another sync plugin</value>
+  </data>
   <data name="Settings.Advanced.LogEvents" xml:space="preserve">
     <value>Log Event Viewer data to disk</value>
   </data>

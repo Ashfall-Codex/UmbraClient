@@ -11,7 +11,7 @@ namespace UmbraSync.Interop.Ipc;
 
 public class IpcProvider : IHostedService, IMediatorSubscriber
 {
-    private const string ExternalUmbraInternalName = "Umbra";
+    private const string UmbraApiLabelPrefix = "Umbra";
 
     private readonly ILogger<IpcProvider> _logger;
     private readonly IDalamudPluginInterface _pi;
@@ -54,8 +54,6 @@ public class IpcProvider : IHostedService, IMediatorSubscriber
             if (msg.OwnedObject) return;
             _activeGameObjectHandlers.Remove(msg.GameObjectHandler);
         });
-
-        Mediator.SubscribeKeyed<PluginChangeMessage>(this, ExternalUmbraInternalName, _ => HandleMareImpersonation(automatic: true));
     }
 
     public Task StartAsync(CancellationToken cancellationToken)
@@ -68,9 +66,9 @@ public class IpcProvider : IHostedService, IMediatorSubscriber
         _handledGameAddresses = _pi.GetIpcProvider<List<nint>>("UmbraSync.GetHandledAddresses");
         _handledGameAddresses.RegisterFunc(GetHandledAddresses);
 
-        _loadFileProviderMare = _pi.GetIpcProvider<string, IGameObject, bool>($"{ExternalUmbraInternalName}.LoadMcdf");
-        _loadFileAsyncProviderMare = _pi.GetIpcProvider<string, IGameObject, Task<bool>>($"{ExternalUmbraInternalName}.LoadMcdfAsync");
-        _handledGameAddressesMare = _pi.GetIpcProvider<List<nint>>($"{ExternalUmbraInternalName}.GetHandledAddresses");
+        _loadFileProviderMare = _pi.GetIpcProvider<string, IGameObject, bool>($"{UmbraApiLabelPrefix}.LoadMcdf");
+        _loadFileAsyncProviderMare = _pi.GetIpcProvider<string, IGameObject, Task<bool>>($"{UmbraApiLabelPrefix}.LoadMcdfAsync");
+        _handledGameAddressesMare = _pi.GetIpcProvider<List<nint>>($"{UmbraApiLabelPrefix}.GetHandledAddresses");
         HandleMareImpersonation(automatic: true);
 
         _logger.LogInformation("Started IpcProviderService");
@@ -179,13 +177,12 @@ public class IpcProvider : IHostedService, IMediatorSubscriber
 
     private bool IsExternalUmbraLoaded()
     {
-        var plugin = _pi.InstalledPlugins.FirstOrDefault(p => p.InternalName.Equals(ExternalUmbraInternalName, StringComparison.Ordinal) && p.IsLoaded);
-        if (plugin == null) return false;
+        if (_impersonating) return false;
 
         try
         {
             // If no handler is registered, this will throw and we treat it as not loaded.
-            _pi.GetIpcSubscriber<List<nint>>($"{ExternalUmbraInternalName}.GetHandledAddresses").InvokeFunc();
+            _pi.GetIpcSubscriber<List<nint>>($"{UmbraApiLabelPrefix}.GetHandledAddresses").InvokeFunc();
             return true;
         }
         catch
