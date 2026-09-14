@@ -342,6 +342,14 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
     {
         return new List<ChangelogEntry>
         {
+            new(new Version(3, 0, 4, 9014), "3.0.4.9014", new List<ChangelogLine>
+            {
+                new("Correction : Avec un autre plugin de synchronisation actif en même temps qu'UmbraSync, certains joueurs n'apparaissaient plus avec leur apparence, même après un redémarrage du jeu. UmbraSync laisse désormais la main à l'autre plugin sur les joueurs qu'il synchronise déjà, et la reprend dès qu'il ne les applique plus."),
+                new("Correction : Mettre un joueur en pause pouvait échouer à mi-chemin et laisser son apparence à moitié retirée."),
+                new("Correction : Retirer la synchronisation d'un joueur effaçait son titre Honorific, ses Moodles, ses talons et les noms de ses familiers, même quand ce n'était pas UmbraSync qui les avait appliqués."),
+                new("Correction : Un plugin sans rapport nommé « Umbra » pouvait désactiver l'API Umbra, qui permet à d'autres plugins de charger des MCDF."),
+                new("Nouveauté : Une option « Laisser la main aux autres plugins de synchronisation » dans Paramètres ▸ Avancé, activée par défaut. L'info-bulle d'un joueur concerné l'indique."),
+            }),
             new(new Version(3, 0, 3, 9008), "3.0.3.9008", new List<ChangelogLine>
             {
                 new("Correction : Au lancement du jeu, l'analyse de votre personnage était lancée une première fois à vide, avant que vos données ne soient prêtes, puis relancée pour de bon. Elle ne part plus qu'une fois."),
