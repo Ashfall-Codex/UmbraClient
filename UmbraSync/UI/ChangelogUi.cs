@@ -342,6 +342,12 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
     {
         return new List<ChangelogEntry>
         {
+            new(new Version(3, 0, 4, 9016), "3.0.4.9016", new List<ChangelogLine>
+            {
+                new("Correction : Avec un autre plugin de synchronisation actif en même temps qu'UmbraSync, les deux plugins ne se bloquent plus l'un l'autre sur Glamourer pour les joueurs qu'ils synchronisent tous les deux. Ces joueurs s'affichent moins souvent avec les mods d'un plugin et la tenue de l'autre."),
+                new("Correction : Mettre en pause dans UmbraSync un joueur que l'autre plugin de synchronisation applique n'efface plus l'apparence posée par cet autre plugin."),
+                new("Nouveauté : Une option expérimentale « Coexistence avec les autres plugins de synchronisation » dans Paramètres -> Avancé -> Débogage, désactivée par défaut. UmbraSync y réapplique l'apparence d'un joueur quand un autre plugin de synchronisation la remplace ou la réinitialise."),
+            }),
             new(new Version(3, 0, 4, 9015), "3.0.4.9015", new List<ChangelogLine>
             {
                 new("Correction : La gestion automatique des joueurs déjà synchronisés par un autre plugin de synchronisation, ajoutée en 3.0.4.9014, est désactivée. Elle pouvait retirer des joueurs de la liste UmbraSync, masquer leurs nameplates et leur bulle d'écriture, et bloquer l'envoi de votre apparence. UmbraSync se comporte de nouveau comme en 3.0.3 avec ces plugins."),
