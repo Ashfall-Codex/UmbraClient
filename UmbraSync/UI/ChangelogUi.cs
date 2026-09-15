@@ -342,6 +342,11 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
     {
         return new List<ChangelogEntry>
         {
+            new(new Version(3, 0, 4, 9015), "3.0.4.9015", new List<ChangelogLine>
+            {
+                new("Correction : La gestion automatique des joueurs déjà synchronisés par un autre plugin de synchronisation, ajoutée en 3.0.4.9014, est désactivée. Elle pouvait retirer des joueurs de la liste UmbraSync, masquer leurs nameplates et leur bulle d'écriture, et bloquer l'envoi de votre apparence. UmbraSync se comporte de nouveau comme en 3.0.3 avec ces plugins."),
+                new("Autre : L'option « Laisser la main aux autres plugins de synchronisation » est retirée des paramètres, le temps de revoir son fonctionnement."),
+            }),
             new(new Version(3, 0, 4, 9014), "3.0.4.9014", new List<ChangelogLine>
             {
                 new("Correction : Avec un autre plugin de synchronisation actif en même temps qu'UmbraSync, certains joueurs n'apparaissaient plus avec leur apparence, même après un redémarrage du jeu. UmbraSync laisse désormais la main à l'autre plugin sur les joueurs qu'il synchronise déjà, et la reprend dès qu'il ne les applique plus."),

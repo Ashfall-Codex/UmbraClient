@@ -41,7 +41,7 @@ public sealed class IpcCallerMare : DisposableMediatorSubscriberBase
     public bool APIAvailable { get; private set; } = false;
     public IReadOnlyCollection<nint> GetExternallyOwnedAddresses()
     {
-        if (!_configService.Current.YieldToExternalSync) return EmptyAddresses;
+        if (!_configService.Current.ExperimentalYieldToExternalSync) return EmptyAddresses;
 
         HashSet<nint>? owned = null;
         foreach (var address in GetSnowcloakAddresses())
@@ -56,7 +56,7 @@ public sealed class IpcCallerMare : DisposableMediatorSubscriberBase
     // Must be called on framework thread
     public ExternalSyncStatus GetExternalSyncStatus(nint address)
     {
-        if (address == nint.Zero || !_configService.Current.YieldToExternalSync) return ExternalSyncStatus.None;
+        if (address == nint.Zero || !_configService.Current.ExperimentalYieldToExternalSync) return ExternalSyncStatus.None;
         if (!GetSnowcloakAddresses().Contains(address)) return ExternalSyncStatus.None;
 
         return IsCollectionOwnedBySnowcloak(address) ? ExternalSyncStatus.Owned : ExternalSyncStatus.Listed;

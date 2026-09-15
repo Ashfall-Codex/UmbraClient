@@ -166,12 +166,10 @@ public class DrawGroupPair : DrawPairBase
                 ImGui.PushFont(UiBuilder.IconFont);
                 UiSharedService.ColorText(FontAwesomeIcon.Moon.ToIconString(), violet);
                 ImGui.PopFont();
-                UiSharedService.AttachToolTip(_pair.IsHandledExternally
-                    ? Loc.Get("GroupPair.IndividuallyPaired.Short") + Environment.NewLine + Loc.Get("Pair.HandledExternally")
-                    : Loc.Get("GroupPair.IndividuallyPaired.Short"));
+                UiSharedService.AttachToolTip(Loc.Get("GroupPair.IndividuallyPaired.Short"));
                 drewPrefixIcon = true;
             }
-        } 
+        }
         bool hideCloudMoon = drewPrefixIcon && !_pair.IsEffectivelyPaused && !_pair.IsVisible;
 
         if (!hideCloudMoon)
@@ -184,9 +182,7 @@ public class DrawGroupPair : DrawPairBase
             UiSharedService.ColorText(presenceIcon.ToIconString(), presenceColor);
             ImGui.PopFont();
 
-            if (_pair.IsOnline && !_pair.IsVisible) presenceText = _pair.IsHandledExternally
-                ? Loc.Get("GroupPair.OnlineSyncshellOnly") + Environment.NewLine + Loc.Get("Pair.HandledExternally")
-                : Loc.Get("GroupPair.OnlineSyncshellOnly");
+            if (_pair.IsOnline && !_pair.IsVisible) presenceText = Loc.Get("GroupPair.OnlineSyncshellOnly");
             else if (_pair.IsOnline && _pair.IsVisible) presenceText = string.Format(CultureInfo.CurrentCulture, Loc.Get("GroupPair.VisibleHeader"), entryUID, _pair.PlayerName) + Environment.NewLine + Loc.Get("GroupPair.VisibleTarget");
 
             if (_pair.IsVisible)
