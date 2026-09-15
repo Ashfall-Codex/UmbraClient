@@ -5220,6 +5220,12 @@ Note : Les armes ne s'afficheront pas correctement sauf si vous utilisez le m&#x
   <data name="Settings.Advanced.Debug.LogPlayerNames.Help" xml:space="preserve">
     <value>Désactivé par défaut : un log partagé pour un rapport de bug ne doit pas révéler qui se trouvait à côté de vous. À n'activer que le temps d'une investigation, et privilégiez l'envoi d'un log anonymisé.</value>
   </data>
+  <data name="Settings.Advanced.Debug.ExternalSyncReclaim" xml:space="preserve">
+    <value>Coexistence avec les autres plugins de synchronisation (expérimental)</value>
+  </data>
+  <data name="Settings.Advanced.Debug.ExternalSyncReclaim.Help" xml:space="preserve">
+    <value>Quand un autre plugin de synchronisation retire un joueur à Umbra ou réinitialise son apparence, Umbra la réapplique.</value>
+  </data>
   <data name="Settings.Advanced.Debug.LogPerf" xml:space="preserve">
     <value>Journaliser les compteurs de performance</value>
   </data>

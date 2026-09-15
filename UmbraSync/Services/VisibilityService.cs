@@ -1,6 +1,5 @@
 using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
-using UmbraSync.Interop.Ipc;
 using UmbraSync.MareConfiguration;
 using UmbraSync.Services.ActorTracking;
 using UmbraSync.Services.Mediator;
@@ -13,28 +12,22 @@ public class VisibilityService : DisposableMediatorSubscriberBase
     private enum TrackedPlayerStatus
     {
         NotVisible,
-        Visible,
-        MareHandled
+        Visible
     };
 
     private readonly DalamudUtilService _dalamudUtil;
     private readonly ConcurrentDictionary<string, TrackedPlayerStatus> _trackedPlayerVisibility = new(StringComparer.Ordinal);
     private readonly HashSet<string> _makeVisibleNextFrame = new(StringComparer.Ordinal);
-    private readonly IpcCallerMare _mare;
     private readonly DrawObjectTrackingService _drawTracking;
     private readonly MareConfigService _configService;
-    private readonly HashSet<nint> cachedMareAddresses = new();
-    private uint _cachedAddressSum = 0;
-    private uint _cachedAddressSumDebounce = 1;
     private static readonly TimeSpan EventModeSafetyInterval = TimeSpan.FromSeconds(2);
     private volatile bool _scanRequested;
     private DateTime _lastScanUtc = DateTime.MinValue;
 
-    public VisibilityService(ILogger<VisibilityService> logger, MareMediator mediator, IpcCallerMare mare,
+    public VisibilityService(ILogger<VisibilityService> logger, MareMediator mediator,
         DalamudUtilService dalamudUtil, DrawObjectTrackingService drawTracking, MareConfigService configService)
         : base(logger, mediator)
     {
-        _mare = mare;
         _dalamudUtil = dalamudUtil;
         _drawTracking = drawTracking;
         _configService = configService;
@@ -71,32 +64,10 @@ public class VisibilityService : DisposableMediatorSubscriberBase
             _lastScanUtc = now;
         }
 
-        var mareHandledAddresses = _mare.GetExternallyOwnedAddresses();
-        uint addressSum = 0;
-
-        foreach (var addr in mareHandledAddresses)
-            addressSum ^= (uint)addr.GetHashCode();
-
-        if (addressSum != _cachedAddressSum)
-        {
-            if (addressSum == _cachedAddressSumDebounce)
-            {
-                cachedMareAddresses.Clear();
-                foreach (var addr in mareHandledAddresses)
-                    cachedMareAddresses.Add(addr);
-                _cachedAddressSum = addressSum;
-            }
-            else
-            {
-                _cachedAddressSumDebounce = addressSum;
-            }
-        }
-
         foreach (var player in _trackedPlayerVisibility)
         {
             string ident = player.Key;
             var findResult = _dalamudUtil.FindPlayerByNameHash(ident);
-            var isMareHandled = cachedMareAddresses.Contains(findResult.Address);
             // Mode événementiel : "présent" = a un draw object lié (réellement rendu), ce qui évite
             // d'appliquer sur un acteur présent dans l'object table mais pas encore dessiné.
             // Mode polling : présence dans l'object table (comportement historique).
@@ -112,16 +83,8 @@ public class VisibilityService : DisposableMediatorSubscriberBase
                     {
                         if (_makeVisibleNextFrame.Contains(ident))
                         {
-                            if (isMareHandled)
-                            {
-                                if (_trackedPlayerVisibility.TryUpdate(ident, TrackedPlayerStatus.MareHandled, TrackedPlayerStatus.NotVisible))
-                                    Mediator.Publish<ExternalSyncHandledMessage>(new(ident, IsHandled: true));
-                            }
-                            else
-                            {
-                                if (_trackedPlayerVisibility.TryUpdate(ident, TrackedPlayerStatus.Visible, TrackedPlayerStatus.NotVisible))
-                                    Mediator.Publish<PlayerVisibilityMessage>(new(ident, IsVisible: true));
-                            }
+                            if (_trackedPlayerVisibility.TryUpdate(ident, TrackedPlayerStatus.Visible, TrackedPlayerStatus.NotVisible))
+                                Mediator.Publish<PlayerVisibilityMessage>(new(ident, IsVisible: true));
                         }
                         else
                         {
@@ -134,24 +97,6 @@ public class VisibilityService : DisposableMediatorSubscriberBase
                         _trackedPlayerVisibility.TryUpdate(ident, TrackedPlayerStatus.NotVisible, TrackedPlayerStatus.Visible))
                     {
                         Mediator.Publish<PlayerVisibilityMessage>(new(ident, IsVisible: false));
-                    }
-                    else if (isMareHandled &&
-                             _trackedPlayerVisibility.TryUpdate(ident, TrackedPlayerStatus.MareHandled, TrackedPlayerStatus.Visible))
-                    {
-                        Mediator.Publish<ExternalSyncHandledMessage>(new(ident, IsHandled: true));
-                    }
-                    break;
-                case TrackedPlayerStatus.MareHandled:
-                    if (!isPresent &&
-                        _trackedPlayerVisibility.TryUpdate(ident, TrackedPlayerStatus.NotVisible, TrackedPlayerStatus.MareHandled))
-                    {
-                        Mediator.Publish<PlayerVisibilityMessage>(new(ident, IsVisible: false));
-                    }
-                    else if (!isMareHandled &&
-                             _trackedPlayerVisibility.TryUpdate(ident, TrackedPlayerStatus.Visible, TrackedPlayerStatus.MareHandled))
-                    {
-                        // L'autre plugin n'applique plus ce joueur alors qu'il est toujours là : Umbra reprend la main
-                        Mediator.Publish<ExternalSyncHandledMessage>(new(ident, IsHandled: false));
                     }
                     break;
             }

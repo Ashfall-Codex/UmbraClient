@@ -5310,6 +5310,12 @@ Note: Weapons will not be displayed correctly unless using the same job as the s
   <data name="Settings.Advanced.Debug.LogPlayerNames.Help" xml:space="preserve">
     <value>Off by default: a log file shared for a bug report should not reveal who was standing next to you. Turn this on only while investigating a problem, and prefer sending an anonymised log.</value>
   </data>
+  <data name="Settings.Advanced.Debug.ExternalSyncReclaim" xml:space="preserve">
+    <value>Coexistence with other sync plugins (experimental)</value>
+  </data>
+  <data name="Settings.Advanced.Debug.ExternalSyncReclaim.Help" xml:space="preserve">
+    <value>For testing only. When another sync plugin takes over a player Umbra is syncing, or resets their appearance, Umbra applies it again. Leave this off unless you were asked to test it.</value>
+  </data>
   <data name="Settings.Advanced.Debug.LogPerf" xml:space="preserve">
     <value>Log Performance Counters</value>
   </data>

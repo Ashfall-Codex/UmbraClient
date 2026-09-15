@@ -1957,6 +1957,16 @@ public class SettingsUi : WindowMediatorSubscriberBase
             }
             _uiShared.DrawHelpText(Loc.Get("Settings.Advanced.Debug.LogPlayerNames.Help"));
 
+            ImGuiHelpers.ScaledDummy(2f);
+
+            bool externalSyncReclaim = _configService.Current.ExperimentalExternalSyncReclaim;
+            if (ImGui.Checkbox(Loc.Get("Settings.Advanced.Debug.ExternalSyncReclaim"), ref externalSyncReclaim))
+            {
+                _configService.Current.ExperimentalExternalSyncReclaim = externalSyncReclaim;
+                _configService.Save();
+            }
+            _uiShared.DrawHelpText(Loc.Get("Settings.Advanced.Debug.ExternalSyncReclaim.Help"));
+
             using (ImRaii.Disabled(!logPerformance))
             {
                 if (_uiShared.IconTextButton(FontAwesomeIcon.StickyNote, Loc.Get("Settings.Advanced.Debug.PrintPerf")))

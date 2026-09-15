@@ -141,9 +141,7 @@ public class MareConfig : IMareConfiguration
     public float TypingIndicatorNameplateOpacity { get; set; } = 1.0f;
     public float TypingIndicatorPartyOpacity { get; set; } = 0.9f;
     public bool UmbraAPI { get; set; } = true;
-    // Nouvelle clé en 3.0.4.9015 : l'ancienne (YieldToExternalSync, true par défaut) est ignorée, ce qui
-    // désactive la cession chez tous ceux qui l'avaient enregistrée en 3.0.4.9014
-    public bool ExperimentalYieldToExternalSync { get; set; } = false;
+    public bool ExperimentalExternalSyncReclaim { get; set; } = false;
     public bool EnableSlotNotifications { get; set; } = true;
     public float DefaultSlotRadius { get; set; } = 10f;
     public const int ExpectedRgpdVersion = 2;

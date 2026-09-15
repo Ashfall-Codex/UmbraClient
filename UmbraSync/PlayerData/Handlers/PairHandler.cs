@@ -56,10 +56,6 @@ public sealed partial class PairHandler : DisposableMediatorSubscriberBase, IPai
     private const int VisibilityApplyJitterMaxMs = 600;
     private readonly TimeSpan _reapplyJitter = TimeSpan.FromMilliseconds(Random.Shared.Next(0, 5000));
     private readonly PairVisibilityGrace _visibilityGrace;
-    private static readonly TimeSpan ExternalSyncWait = TimeSpan.FromSeconds(4);
-    private const string HandledExternallyReason = "Apparence gérée par un autre plugin de synchronisation";
-    private int _handledExternally;
-    private nint _externalSyncCheckedAddress;
     private bool _glamourerLockRefused;
     public bool ScheduledForDeletion
     {
@@ -117,7 +113,6 @@ public sealed partial class PairHandler : DisposableMediatorSubscriberBase, IPai
                 GetPlayerName: () => PlayerName,
                 DescribeForLog: ToString,
                 IsVisible: () => IsVisible,
-                IsHandledExternally: () => IsHandledExternally,
                 GetCharaHandler: () => _charaHandler,
                 CancelInFlightWork: () =>
                 {
@@ -128,7 +123,7 @@ public sealed partial class PairHandler : DisposableMediatorSubscriberBase, IPai
         _visibilityService.StartTracking(Pair.Ident);
 
         Mediator.SubscribeKeyed<PlayerVisibilityMessage>(this, Pair.Ident, (msg) => UpdateVisibility(msg.IsVisible, msg.Invalidate));
-        Mediator.SubscribeKeyed<ExternalSyncHandledMessage>(this, Pair.Ident, (msg) => UpdateExternalSyncOwnership(msg.IsHandled));
+        Mediator.Subscribe<GlamourerResetMessage>(this, (msg) => OnGlamourerReset(msg.Address));
 
         Mediator.Subscribe<ZoneSwitchStartMessage>(this, (_) =>
         {
@@ -194,7 +189,11 @@ public sealed partial class PairHandler : DisposableMediatorSubscriberBase, IPai
             Logger.LogDebug("Recalculating performance for {uid}", Pair.UserData.UID);
             pair.ApplyLastReceivedData(forced: true);
         });
-        Mediator.Subscribe<DelayedFrameworkUpdateMessage>(this, _ => TryReapplyPendingData());
+        Mediator.Subscribe<DelayedFrameworkUpdateMessage>(this, _ =>
+        {
+            TryReapplyPendingData();
+            CheckExternalSyncReclaim();
+        });
 
         LastAppliedDataBytes = -1;
     }
@@ -438,8 +437,6 @@ public sealed partial class PairHandler : DisposableMediatorSubscriberBase, IPai
         }
     }
 
-    public bool IsHandledExternally => Volatile.Read(ref _handledExternally) != 0;
-
     private bool EnsureInitialized()
     {
         if (!string.IsNullOrEmpty(PlayerName)) return true;
@@ -454,77 +451,6 @@ public sealed partial class PairHandler : DisposableMediatorSubscriberBase, IPai
         Mediator.Publish(new EventMessage(new Event(PlayerName, Pair.UserData, nameof(PairHandler), EventSeverity.Informational,
             $"Initializing User For Character {pc.Name}")));
         return true;
-    }
-
-    private void UpdateExternalSyncOwnership(bool isHandled)
-    {
-        if (!EnsureInitialized()) return;
-
-        if (isHandled)
-        {
-            if (IsVisible)
-            {
-                IsVisible = false;
-                _charaHandler?.Invalidate();
-                _downloadCancellationTokenSource?.CancelDispose();
-                _downloadCancellationTokenSource = null;
-            }
-            MarkHandledExternally();
-            return;
-        }
-
-        if (Interlocked.Exchange(ref _handledExternally, 0) == 0)
-        {
-            UpdateVisibility(nowVisible: true);
-            return;
-        }
-
-        ClearFailureState();
-        if (Logger.IsEnabled(LogLevel.Information))
-            Logger.LogInformation("{pairHandler} n'est plus géré par un autre plugin de synchronisation, Umbra reprend la main", this);
-
-        // Laisse à l'autre plugin le temps de terminer son revert avant de réappliquer
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                await Task.Delay(ExternalSyncWait).ConfigureAwait(false);
-                await _dalamudUtil.RunOnFrameworkThread(() =>
-                {
-                    if (IsHandledExternally || _charaHandler == null || _dalamudUtil.FindPlayerByNameHash(Pair.Ident).ObjectId == 0) return;
-                    // L'autre plugin vient de rendre la main : inutile de lui laisser un nouveau délai avant d'appliquer
-                    _externalSyncCheckedAddress = _charaHandler.Address;
-                    UpdateVisibility(nowVisible: true);
-                }).ConfigureAwait(false);
-            }
-            catch (Exception ex)
-            {
-                Logger.LogWarning(ex, "Failed to take back {user} from another sync plugin", Pair.UserData.UID);
-            }
-        });
-    }
-
-    private void MarkHandledExternally()
-    {
-        if (Interlocked.Exchange(ref _handledExternally, 1) != 0) return;
-
-        RecordFailure(HandledExternallyReason, "HandledExternally");
-        if (Logger.IsEnabled(LogLevel.Information))
-            Logger.LogInformation("{pairHandler} est géré par un autre plugin de synchronisation, Umbra lui laisse la main", this);
-        Mediator.Publish(new EventMessage(new Event(PlayerName, Pair.UserData, nameof(PairHandler), EventSeverity.Informational,
-            "Character is handled by another sync plugin, releasing it")));
-
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                await _reverter.ReleaseToExternalSyncAsync(Guid.NewGuid()).ConfigureAwait(false);
-            }
-            catch (Exception ex)
-            {
-                Logger.LogWarning(ex, "Failed to release {user} to another sync plugin", Pair.UserData.UID);
-            }
-        });
     }
 
     private void UpdateVisibility(bool nowVisible, bool invalidate = false)
@@ -544,16 +470,6 @@ public sealed partial class PairHandler : DisposableMediatorSubscriberBase, IPai
             if (Logger.IsEnabled(LogLevel.Debug))
                 Logger.LogDebug("Invalidating {pairHandler}", this);
             UndoApplication();
-            return;
-        }
-
-        if (!nowVisible)
-        {
-            Interlocked.Exchange(ref _handledExternally, 0);
-            _externalSyncCheckedAddress = nint.Zero;
-        }
-        else if (IsHandledExternally)
-        {
             return;
         }
 

@@ -79,8 +79,8 @@ public sealed class IpcCallerPenumbra : DisposableMediatorSubscriberBase, IIpcCa
     public Task<(bool ObjectValid, bool IndividualSet, Guid CollectionId, string CollectionName)> GetCollectionForObjectAsync(int idx)
         => _collections.GetCollectionForObjectAsync(idx);
 
-    public string? GetEffectiveCollectionNameOnFramework(int idx)
-        => _collections.GetEffectiveCollectionNameOnFramework(idx);
+    public (Guid Id, string Name)? GetEffectiveCollectionOnFramework(int idx)
+        => _collections.GetEffectiveCollectionOnFramework(idx);
 
     public Task<Guid> CreateTemporaryCollectionAsync(ILogger logger, string uid)
         => _collections.CreateTemporaryCollectionAsync(logger, uid);
