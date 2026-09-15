@@ -539,44 +539,62 @@ public sealed partial class PairHandler
 
         downloadToken.ThrowIfCancellationRequested();
 
-        if (_applicationTask != null && !_applicationTask.IsCompleted)
+        var applicationDone = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        CancellationToken token;
+        await _applicationStartGate.WaitAsync(downloadToken).ConfigureAwait(false);
+        try
         {
-            Logger.LogDebug("[BASE-{appBase}] Cancelling current data application (Id: {id}) for {pair}", applicationBase, _applicationId, ToString());
-            _applicationCancellationTokenSource = _applicationCancellationTokenSource?.CancelRecreate() ?? new CancellationTokenSource();
-
-            using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-            using var combinedCts = CancellationTokenSource.CreateLinkedTokenSource(downloadToken, timeoutCts.Token);
-            try
+            if (_applicationTask != null && !_applicationTask.IsCompleted)
             {
-                await _applicationTask.WaitAsync(combinedCts.Token).ConfigureAwait(false);
+                Logger.LogDebug("[BASE-{appBase}] Cancelling current data application (Id: {id}) for {pair}", applicationBase, _applicationId, ToString());
+                _applicationCancellationTokenSource = _applicationCancellationTokenSource?.CancelRecreate() ?? new CancellationTokenSource();
+
+                using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                using var combinedCts = CancellationTokenSource.CreateLinkedTokenSource(downloadToken, timeoutCts.Token);
+                try
+                {
+                    await _applicationTask.WaitAsync(combinedCts.Token).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    Logger.LogWarning("[BASE-{appBase}] Timeout waiting for application task {id} to complete, proceeding anyway", applicationBase, _applicationId);
+                }
             }
-            catch (OperationCanceledException)
+            else
             {
-                Logger.LogWarning("[BASE-{appBase}] Timeout waiting for application task {id} to complete, proceeding anyway", applicationBase, _applicationId);
+                _applicationCancellationTokenSource = _applicationCancellationTokenSource?.CancelRecreate() ?? new CancellationTokenSource();
             }
+
+            if (downloadToken.IsCancellationRequested)
+            {
+                _state.PendingModReapply = true;
+                RecordFailure("Application annulée", "Cancellation");
+                return;
+            }
+
+            token = _applicationCancellationTokenSource.Token;
+            _applicationTask = applicationDone.Task;
         }
-        else
+        finally
         {
-            _applicationCancellationTokenSource = _applicationCancellationTokenSource?.CancelRecreate() ?? new CancellationTokenSource();
+            _applicationStartGate.Release();
         }
 
-        if (downloadToken.IsCancellationRequested)
+        try
         {
-            _state.PendingModReapply = true;
-            RecordFailure("Application annulée", "Cancellation");
-            return;
-        }
-
-        var token = _applicationCancellationTokenSource.Token;
-
 #pragma warning disable MA0004 // ConfigureAwait on await using
-        await using var applyLease = await _applicationSemaphoreService
-            .AcquireAsync(token, highPriority: IsVisible, gpuHeavy: updateModdedPaths || updateManip)
-            .ConfigureAwait(false);
+            await using var applyLease = await _applicationSemaphoreService
+                .AcquireAsync(token, highPriority: IsVisible, gpuHeavy: updateModdedPaths || updateManip)
+                .ConfigureAwait(false);
 #pragma warning restore MA0004
 
-        _applicationTask = ApplyCharacterDataAsync(applicationBase, charaData, updatedData, updateModdedPaths, updateManip, moddedPaths, redrawDecisions, token);
-        await _applicationTask.ConfigureAwait(false);
+            await ApplyCharacterDataAsync(applicationBase, charaData, updatedData, updateModdedPaths, updateManip, moddedPaths, redrawDecisions, token).ConfigureAwait(false);
+        }
+        finally
+        {
+            applicationDone.TrySetResult();
+        }
+
         if (appliedWithRetriableMissingFiles && !_state.PendingModReapply)
         {
             Logger.LogDebug("[BASE-{appBase}] Restoring pendingModReapply: applied with missing files", applicationBase);
