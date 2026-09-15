@@ -404,6 +404,7 @@ public sealed class PairManager : DisposableMediatorSubscriberBase
             if (Logger.IsEnabled(LogLevel.Trace))
                 Logger.LogTrace("Player {uid} already has cached player, forcing reapplication of data", dto.User.UID);
             pair.ApplyLastReceivedData(forced: true);
+            Mediator.Publish(new PairOnlineMessage(dto.User));
             RecreateLazyImmediate(); // Immédiat pour la réactivité lors de la connexion
             return;
         }
