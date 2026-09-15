@@ -342,6 +342,11 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
     {
         return new List<ChangelogEntry>
         {
+            new(new Version(3, 0, 4, 9016), "3.0.4.9016", new List<ChangelogLine>
+            {
+                new("Correction : Après un rechargement d'UmbraSync (par exemple une mise à jour en jeu), les joueurs déjà à proximité pouvaient rester sans leurs mods. Ils renvoient désormais leurs données dès votre reconnexion."),
+                new("Correction : En entrant dans la portée, un joueur pouvait recevoir son apparence deux fois de suite et laisser une collection Penumbra inutilisée jusqu'au rechargement du plugin."),
+            }),
             new(new Version(3, 0, 4, 9015), "3.0.4.9015", new List<ChangelogLine>
             {
                 new("Correction : La gestion automatique des joueurs déjà synchronisés par un autre plugin de synchronisation, ajoutée en 3.0.4.9014, est retirée. Elle pouvait retirer des joueurs de la liste UmbraSync, masquer leurs nameplates et leur bulle d'écriture, et bloquer l'envoi de votre apparence."),
