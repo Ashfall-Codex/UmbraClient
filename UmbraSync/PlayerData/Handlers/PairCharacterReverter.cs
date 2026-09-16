@@ -20,7 +20,6 @@ public sealed class PairCharacterReverter
         Func<string?> GetPlayerName,
         Func<string> DescribeForLog,
         Func<bool> IsVisible,
-        Func<bool> IsHandledExternally,
         Func<GameObjectHandler?> GetCharaHandler,
         Action CancelInFlightWork);
 
@@ -62,26 +61,11 @@ public sealed class PairCharacterReverter
                 applicationId = Guid.NewGuid();
             _context.CancelInFlightWork();
 
-            _logger.LogDebug("[{applicationId}] Removing Temp Collection for {pair}", applicationId, _context.DescribeForLog());
-            if (_state.Penumbra.Collection != Guid.Empty)
-            {
-                var col = _state.Penumbra.Collection;
-                try
-                {
-                    await _ipcManager.Penumbra.RemoveTemporaryCollectionAsync(_logger, applicationId, col).ConfigureAwait(false);
-                    _state.Penumbra.Collection = Guid.Empty;
-                    _state.Penumbra.AssignedObjectIndex = -1;
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogDebug(ex, "Failed to remove temporary collection {col}, likely already removed", col);
-                }
-            }
+            await RemoveTemporaryCollectionAsync(applicationId).ConfigureAwait(false);
 
-            if (_context.IsHandledExternally())
+            if (await IsForeignSyncActiveAsync().ConfigureAwait(false))
             {
-                // L'apparence visible appartient à l'autre plugin : un revert l'effacerait
-                _logger.LogDebug("[{applicationId}] {pair} is handled by another sync plugin, not restoring state", applicationId, _context.DescribeForLog());
+                _logger.LogDebug("[{applicationId}] {pair} is still applied by another sync plugin, not restoring state", applicationId, _context.DescribeForLog());
             }
             else if (!string.IsNullOrEmpty(name))
             {
@@ -93,36 +77,7 @@ public sealed class PairCharacterReverter
                 }
                 else
                 {
-                    using var cts = new CancellationTokenSource();
-                    cts.CancelAfter(TimeSpan.FromSeconds(60));
-
-                    _logger.LogInformation("[{applicationId}] CachedData is null {isNull}, contains things: {contains}", applicationId, _state.CachedData == null, (_state.CachedData?.FileReplacements.Values.Count ?? 0) > 0);
-
-                    if (_state.CachedData != null && _state.CachedData.FileReplacements.Values.Count > 0)
-                    {
-                        foreach (KeyValuePair<ObjectKind, List<FileReplacementData>> item in _state.CachedData.FileReplacements)
-                        {
-                            try
-                            {
-                                await RevertCustomizationDataAsync(item.Key, name, applicationId, appliedData, cts.Token).ConfigureAwait(false);
-                            }
-                            catch (InvalidOperationException ex)
-                            {
-                                _logger.LogWarning(ex, "Failed disposing player (not present anymore?)");
-                                break;
-                            }
-                            catch (OperationCanceledException)
-                            {
-                                _logger.LogWarning("[{applicationId}] Revert operation timed out for {kind} on {user}", applicationId, item.Key, _pair.UserData.UID);
-                                break;
-                            }
-                        }
-                    }
-                    else
-                    {
-                        _logger.LogDebug("[{applicationId}] Restoring Glamourer (fallback) for {pair}", applicationId, _context.DescribeForLog());
-                        await _ipcManager.Glamourer.RevertByNameAsync(_logger, name, applicationId).ConfigureAwait(false);
-                    }
+                    await RestoreVisibleCharacterAsync(name, applicationId, appliedData).ConfigureAwait(false);
                 }
             }
             else
@@ -139,7 +94,89 @@ public sealed class PairCharacterReverter
             _logger.LogWarning(ex, "Error on undoing application of {user}", _pair.UserData.UID);
         }
     }
+
+    private async Task RemoveTemporaryCollectionAsync(Guid applicationId)
+    {
+        _logger.LogDebug("[{applicationId}] Removing Temp Collection for {pair}", applicationId, _context.DescribeForLog());
+        if (_state.Penumbra.Collection == Guid.Empty) return;
+
+        var col = _state.Penumbra.Collection;
+        try
+        {
+            await _ipcManager.Penumbra.RemoveTemporaryCollectionAsync(_logger, applicationId, col).ConfigureAwait(false);
+            _state.Penumbra.Collection = Guid.Empty;
+            _state.Penumbra.AssignedObjectIndex = -1;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Failed to remove temporary collection {col}, likely already removed", col);
+        }
+    }
+
+    private async Task RestoreVisibleCharacterAsync(string name, Guid applicationId, CharacterData? appliedData)
+    {
+        using var cts = new CancellationTokenSource();
+        cts.CancelAfter(TimeSpan.FromSeconds(60));
+
+        _logger.LogInformation("[{applicationId}] CachedData is null {isNull}, contains things: {contains}", applicationId, _state.CachedData == null, (_state.CachedData?.FileReplacements.Values.Count ?? 0) > 0);
+
+        if (_state.CachedData == null || _state.CachedData.FileReplacements.Values.Count == 0)
+        {
+            _logger.LogDebug("[{applicationId}] Restoring Glamourer (fallback) for {pair}", applicationId, _context.DescribeForLog());
+            await _ipcManager.Glamourer.RevertByNameAsync(_logger, name, applicationId).ConfigureAwait(false);
+            return;
+        }
+
+        foreach (KeyValuePair<ObjectKind, List<FileReplacementData>> item in _state.CachedData.FileReplacements)
+        {
+            try
+            {
+                await RevertCustomizationDataAsync(item.Key, name, applicationId, appliedData, cts.Token).ConfigureAwait(false);
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning(ex, "Failed disposing player (not present anymore?)");
+                break;
+            }
+            catch (OperationCanceledException)
+            {
+                _logger.LogWarning("[{applicationId}] Revert operation timed out for {kind} on {user}", applicationId, item.Key, _pair.UserData.UID);
+                break;
+            }
+        }
+    }
     
+    private async Task ClearPenumbraModsAsync(Guid applicationId, Dalamud.Game.ClientState.Objects.Types.ICharacter character)
+    {
+        if (!_ipcManager.Penumbra.APIAvailable || _state.Penumbra.Collection == Guid.Empty) return;
+
+        _logger.LogDebug("[{applicationId}] Clearing Penumbra mods for {pair}", applicationId, _context.DescribeForLog());
+        try
+        {
+            var assign = await _ipcManager.Penumbra.AssignTemporaryCollectionAsync(_logger, _state.Penumbra.Collection, character.ObjectIndex).ConfigureAwait(false);
+            if (assign == global::Penumbra.Api.Enums.PenumbraApiEc.Success)
+                _state.Penumbra.AssignedObjectIndex = character.ObjectIndex;
+
+            await _ipcManager.Penumbra.ApplyTemporaryStateAsync(_logger, applicationId, _state.Penumbra.Collection,
+                new Dictionary<string, string>(StringComparer.Ordinal), string.Empty).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "[{applicationId}] Failed to clear Penumbra mods for {user}", applicationId, _pair.UserData.UID);
+        }
+    }
+
+    private HashSet<ObjectKind> CollectKindsToRevert()
+    {
+        var kinds = new HashSet<ObjectKind>(_state.CustomizeIds.Keys);
+        if (_state.CachedData is not null)
+        {
+            kinds.UnionWith(_state.CachedData.FileReplacements.Keys);
+        }
+        kinds.Add(ObjectKind.Player);
+        return kinds;
+    }
+
     public async Task RevertToRestoredAsync(Guid applicationId)
     {
         var name = _context.GetPlayerName();
@@ -160,32 +197,18 @@ public sealed class PairCharacterReverter
                 _logger.LogDebug("[{applicationId}] Game object is not a character, skipping revert", applicationId);
                 return;
             }
-            if (_ipcManager.Penumbra.APIAvailable && _state.Penumbra.Collection != Guid.Empty)
+
+            if (await IsForeignSyncActiveAsync().ConfigureAwait(false))
             {
-                _logger.LogDebug("[{applicationId}] Clearing Penumbra mods for {pair}", applicationId, _context.DescribeForLog());
-                try
-                {
-                    var assign = await _ipcManager.Penumbra.AssignTemporaryCollectionAsync(_logger, _state.Penumbra.Collection, character.ObjectIndex).ConfigureAwait(false);
-                    if (assign == global::Penumbra.Api.Enums.PenumbraApiEc.Success)
-                        _state.Penumbra.AssignedObjectIndex = character.ObjectIndex;
-                    
-                    await _ipcManager.Penumbra.ApplyTemporaryStateAsync(_logger, applicationId, _state.Penumbra.Collection,
-                        new Dictionary<string, string>(StringComparer.Ordinal), string.Empty).ConfigureAwait(false);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "[{applicationId}] Failed to clear Penumbra mods for {user}", applicationId, _pair.UserData.UID);
-                }
+                _logger.LogDebug("[{applicationId}] {pair} is still applied by another sync plugin, only removing Umbra's collection", applicationId, _context.DescribeForLog());
+                await RemoveTemporaryCollectionAsync(applicationId).ConfigureAwait(false);
+                _state.CachedData = null;
+                _mediator.Publish(new PairDataAppliedMessage(_pair.UserData.UID, null));
+                return;
             }
-            var kinds = new HashSet<ObjectKind>(_state.CustomizeIds.Keys);
-            if (_state.CachedData is not null)
-            {
-                foreach (var kind in _state.CachedData.FileReplacements.Keys)
-                {
-                    kinds.Add(kind);
-                }
-            }
-            kinds.Add(ObjectKind.Player);
+
+            await ClearPenumbraModsAsync(applicationId, character).ConfigureAwait(false);
+            var kinds = CollectKindsToRevert();
             var characterName = character.Name.TextValue;
             if (string.IsNullOrEmpty(characterName))
             {
@@ -229,36 +252,14 @@ public sealed class PairCharacterReverter
         }
     }
 
-    /// <summary>
-    /// Laisse le joueur à un autre plugin de synchronisation qui l'applique déjà : on retire notre
-    /// collection et notre verrou Glamourer, sans revert. La personne envoie la même apparence aux deux
-    /// plugins, et les greffons indexés par adresse (Heels, Honorific…) sont partagés : les vider
-    /// effacerait ce que l'autre plugin a posé.
-    /// </summary>
-    public async Task ReleaseToExternalSyncAsync(Guid applicationId)
+    // Vrai si un autre plugin de synchronisation applique encore ce joueur, auquel cas un revert
+    // effacerait son apparence (clé Glamourer commune, greffons indexés par adresse)
+    private async Task<bool> IsForeignSyncActiveAsync()
     {
-        _logger.LogDebug("[{applicationId}] Releasing {pair} to another sync plugin", applicationId, _context.DescribeForLog());
-        _context.CancelInFlightWork();
-        _state.LastAppliedData = null;
-        _state.PendingModReapply = false;
-        _state.ForceApplyMods = true;
-
-        if (_state.Penumbra.Collection != Guid.Empty)
-        {
-            var col = _state.Penumbra.Collection;
-            _state.Penumbra.Reset();
-            try
-            {
-                await _ipcManager.Penumbra.RemoveTemporaryCollectionAsync(_logger, applicationId, col).ConfigureAwait(false);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogDebug(ex, "Failed to remove temporary collection {col}, likely already removed", col);
-            }
-        }
-
         var address = _dalamudUtil.GetPlayerCharacterFromCachedTableByIdent(_pair.Ident);
-        await _ipcManager.Glamourer.UnlockAsync(_logger, address, applicationId).ConfigureAwait(false);
+        if (address == nint.Zero) return false;
+
+        return await _dalamudUtil.RunOnFrameworkThread(() => _ipcManager.Mare.IsForeignSyncCollectionActive(address)).ConfigureAwait(false);
     }
 
     // Les greffons sans clé de verrou ne sont vidés que si Umbra y a posé quelque chose

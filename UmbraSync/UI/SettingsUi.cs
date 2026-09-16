@@ -1808,16 +1808,6 @@ public class SettingsUi : WindowMediatorSubscriberBase
 
             ImGuiHelpers.ScaledDummy(2f);
 
-            bool yieldToExternalSync = _configService.Current.YieldToExternalSync;
-            if (ImGui.Checkbox(Loc.Get("Settings.Advanced.YieldToExternalSync"), ref yieldToExternalSync))
-            {
-                _configService.Current.YieldToExternalSync = yieldToExternalSync;
-                _configService.Save();
-            }
-            _uiShared.DrawHelpText(Loc.Get("Settings.Advanced.YieldToExternalSync.Help"));
-
-            ImGuiHelpers.ScaledDummy(2f);
-
             // Log Events
             bool logEvents = _configService.Current.LogEvents;
             if (ImGui.Checkbox(Loc.Get("Settings.Advanced.LogEvents"), ref logEvents))
@@ -1966,6 +1956,16 @@ public class SettingsUi : WindowMediatorSubscriberBase
                 _configService.Save();
             }
             _uiShared.DrawHelpText(Loc.Get("Settings.Advanced.Debug.LogPlayerNames.Help"));
+
+            ImGuiHelpers.ScaledDummy(2f);
+
+            bool externalSyncReclaim = _configService.Current.ExperimentalExternalSyncReclaim;
+            if (ImGui.Checkbox(Loc.Get("Settings.Advanced.Debug.ExternalSyncReclaim"), ref externalSyncReclaim))
+            {
+                _configService.Current.ExperimentalExternalSyncReclaim = externalSyncReclaim;
+                _configService.Save();
+            }
+            _uiShared.DrawHelpText(Loc.Get("Settings.Advanced.Debug.ExternalSyncReclaim.Help"));
 
             using (ImRaii.Disabled(!logPerformance))
             {

@@ -144,7 +144,7 @@ public class MareConfig : IMareConfiguration
     public float TypingIndicatorNameplateOpacity { get; set; } = 1.0f;
     public float TypingIndicatorPartyOpacity { get; set; } = 0.9f;
     public bool UmbraAPI { get; set; } = true;
-    public bool YieldToExternalSync { get; set; } = true;
+    public bool ExperimentalExternalSyncReclaim { get; set; } = false;
     public bool EnableSlotNotifications { get; set; } = true;
     public float DefaultSlotRadius { get; set; } = 10f;
     public const int ExpectedRgpdVersion = 2;

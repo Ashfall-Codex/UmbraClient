@@ -342,6 +342,19 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
     {
         return new List<ChangelogEntry>
         {
+            new(new Version(3, 0, 4, 9016), "3.0.4.9016", new List<ChangelogLine>
+            {
+                new("Correction : Après un rechargement d'UmbraSync (par exemple une mise à jour en jeu), les joueurs déjà à proximité pouvaient rester sans leurs mods. Ils renvoient désormais leurs données dès votre reconnexion."),
+                new("Correction : En entrant dans la portée, un joueur pouvait recevoir son apparence deux fois de suite et laisser une collection Penumbra inutilisée jusqu'au rechargement du plugin."),
+            }),
+            new(new Version(3, 0, 4, 9015), "3.0.4.9015", new List<ChangelogLine>
+            {
+                new("Correction : La gestion automatique des joueurs déjà synchronisés par un autre plugin de synchronisation, ajoutée en 3.0.4.9014, est retirée. Elle pouvait retirer des joueurs de la liste UmbraSync, masquer leurs nameplates et leur bulle d'écriture, et bloquer l'envoi de votre apparence."),
+                new("Correction : Avec un autre plugin de synchronisation actif en même temps qu'UmbraSync, les deux plugins ne se bloquent plus l'un l'autre sur Glamourer pour les joueurs qu'ils synchronisent tous les deux. Ces joueurs s'affichent moins souvent avec les mods d'un plugin et la tenue de l'autre."),
+                new("Correction : Mettre en pause dans UmbraSync un joueur que l'autre plugin de synchronisation applique n'efface plus l'apparence posée par cet autre plugin."),
+                new("Nouveauté : Une option expérimentale « Coexistence avec les autres plugins de synchronisation » dans Paramètres -> Avancé -> Débogage, désactivée par défaut. UmbraSync y réapplique l'apparence d'un joueur quand un autre plugin de synchronisation la remplace ou la réinitialise."),
+                new("Autre : L'option « Laisser la main aux autres plugins de synchronisation » est retirée des paramètres."),
+            }),
             new(new Version(3, 0, 4, 9014), "3.0.4.9014", new List<ChangelogLine>
             {
                 new("Correction : Avec un autre plugin de synchronisation actif en même temps qu'UmbraSync, certains joueurs n'apparaissaient plus avec leur apparence, même après un redémarrage du jeu. UmbraSync laisse désormais la main à l'autre plugin sur les joueurs qu'il synchronise déjà, et la reprend dès qu'il ne les applique plus."),

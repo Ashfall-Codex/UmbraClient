@@ -100,11 +100,9 @@ public class DrawUserPair : DrawPairBase
         ImGui.PushFont(UiBuilder.IconFont);
         UiSharedService.ColorText(FontAwesomeIcon.Moon.ToIconString(), online ? Violet : offlineGrey);
         ImGui.PopFont();
-        UiSharedService.AttachToolTip(!online
-            ? Loc.Get("DrawUserPair.Offline")
-            : _pair.IsHandledExternally
-                ? Loc.Get("DrawUserPair.Online") + Environment.NewLine + Loc.Get("Pair.HandledExternally")
-                : Loc.Get("DrawUserPair.Online"));
+        UiSharedService.AttachToolTip(online
+            ? Loc.Get("DrawUserPair.Online")
+            : Loc.Get("DrawUserPair.Offline"));
         if (!(_pair.UserPair!.OwnPermissions.IsPaired() && _pair.UserPair!.OtherPermissions.IsPaired()))
         {
             ImGui.SameLine();
