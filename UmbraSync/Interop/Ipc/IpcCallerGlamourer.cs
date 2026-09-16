@@ -15,6 +15,10 @@ namespace UmbraSync.Interop.Ipc;
 
 public sealed class IpcCallerGlamourer : DisposableMediatorSubscriberBase, IIpcCaller
 {
+    // Clé commune aux plugins de synchronisation : ils s'appliquent par-dessus les uns des autres au lieu de se bloquer
+    private const uint LockCode = 0x6D617265;
+    private const uint LegacyLockCode = 0x626E7579;
+
     private readonly ILogger<IpcCallerGlamourer> _logger;
     private readonly DalamudUtilService _dalamudUtil;
     private readonly MareMediator _mareMediator;
@@ -32,12 +36,13 @@ public sealed class IpcCallerGlamourer : DisposableMediatorSubscriberBase, IIpcC
     private readonly GetDesignList _glamourerGetDesignList;
     private readonly ApplyDesign _glamourerApplyDesign;
     private readonly EventSubscriber<nint>? _glamourerStateChanged;
+    private readonly EventSubscriber<nint, StateChangeType>? _glamourerStateChangedWithType;
 
     private bool _pluginLoaded;
     private Version _pluginVersion;
 
     private bool _shownGlamourerUnavailable = false;
-    private readonly uint LockCode = 0x626E7579;
+    private int _ownRevertDepth;
 
     public IpcCallerGlamourer(ILogger<IpcCallerGlamourer> logger, IDalamudPluginInterface pi, DalamudUtilService dalamudUtil, MareMediator mareMediator,
         RedrawManager redrawManager, NotificationTracker notificationTracker) : base(logger, mareMediator)
@@ -78,6 +83,8 @@ public sealed class IpcCallerGlamourer : DisposableMediatorSubscriberBase, IIpcC
 
         _glamourerStateChanged = StateChanged.Subscriber(pi, GlamourerChanged);
         _glamourerStateChanged.Enable();
+        _glamourerStateChangedWithType = StateChangedWithType.Subscriber(pi, GlamourerChangedWithType);
+        _glamourerStateChangedWithType.Enable();
 
         Mediator.Subscribe<DalamudLoginMessage>(this, (msg) =>
         {
@@ -86,10 +93,30 @@ public sealed class IpcCallerGlamourer : DisposableMediatorSubscriberBase, IIpcC
         });
     }
 
-  
+
     private const int IpcInitialDelayMs = 5000;
     private const int IpcCheckRetries = 10;
     private const int IpcDelayBetweenRetriesMs = 2500;
+
+    // Libère un verrou encore posé avec l'ancienne clé Umbra (version précédente rechargée sans redémarrer le jeu)
+    private void UnlockLegacyLock(int objectIndex)
+        => _glamourerUnlock.Invoke(objectIndex, LegacyLockCode);
+
+    private void UnlockLegacyLock(string playerName)
+        => _glamourerUnlockByName.Invoke(playerName, LegacyLockCode);
+
+    private GlamourerApiEc InvokeOwnRevert(Func<GlamourerApiEc> revert)
+    {
+        _ownRevertDepth++;
+        try
+        {
+            return revert();
+        }
+        finally
+        {
+            _ownRevertDepth--;
+        }
+    }
 
     private async Task CheckAPIWithRetryAsync()
     {
@@ -127,6 +154,7 @@ public sealed class IpcCallerGlamourer : DisposableMediatorSubscriberBase, IIpcC
 
         _redrawManager.Cancel();
         _glamourerStateChanged?.Dispose();
+        _glamourerStateChangedWithType?.Dispose();
     }
 
     public bool APIAvailable { get; private set; }
@@ -184,6 +212,7 @@ public sealed class IpcCallerGlamourer : DisposableMediatorSubscriberBase, IIpcC
                 try
                 {
                     logger.LogDebug("[{appid}] Calling on IPC: GlamourerApplyAll", applicationId);
+                    UnlockLegacyLock(chara.ObjectIndex);
                     result = _glamourerApplyAll!.Invoke(customization, chara.ObjectIndex, LockCode);
                     if (result != GlamourerApiEc.Success)
                         logger.LogWarning("[{appid}] Glamourer a refusé l'application : {result}", applicationId, result);
@@ -222,6 +251,7 @@ public sealed class IpcCallerGlamourer : DisposableMediatorSubscriberBase, IIpcC
             try
             {
                 logger.LogDebug("[{appid}] Calling On IPC: GlamourerReapplyState (soft)", applicationId);
+                UnlockLegacyLock(c.ObjectIndex);
                 _glamourerReapply.Invoke(c.ObjectIndex, LockCode, ApplyFlag.Once);
             }
             catch (Exception ex)
@@ -267,9 +297,10 @@ public sealed class IpcCallerGlamourer : DisposableMediatorSubscriberBase, IIpcC
                 try
                 {
                     logger.LogDebug("[{appid}] Calling On IPC: GlamourerUnlock", applicationId);
+                    UnlockLegacyLock(chara.ObjectIndex);
                     _glamourerUnlock.Invoke(chara.ObjectIndex, LockCode);
                     logger.LogDebug("[{appid}] Calling On IPC: GlamourerRevert", applicationId);
-                    var revertResult = _glamourerRevert.Invoke(chara.ObjectIndex, LockCode);
+                    var revertResult = InvokeOwnRevert(() => _glamourerRevert.Invoke(chara.ObjectIndex, LockCode));
                     if (revertResult == GlamourerApiEc.InvalidKey)
                         logger.LogDebug("[{appid}] Revert Glamourer ignoré : état verrouillé par un autre plugin", applicationId);
                     else if (revertResult is not (GlamourerApiEc.Success or GlamourerApiEc.NothingDone))
@@ -305,6 +336,7 @@ public sealed class IpcCallerGlamourer : DisposableMediatorSubscriberBase, IIpcC
             if (_dalamudUtil.CreateGameObject(address) is not ICharacter chara) return;
             try
             {
+                UnlockLegacyLock(chara.ObjectIndex);
                 var result = _glamourerUnlock.Invoke(chara.ObjectIndex, LockCode);
                 logger.LogDebug("[{appid}] Calling On IPC: GlamourerUnlock, result: {result}", applicationId, result);
             }
@@ -319,14 +351,16 @@ public sealed class IpcCallerGlamourer : DisposableMediatorSubscriberBase, IIpcC
     {
         if ((!APIAvailable) || _dalamudUtil.IsZoning) return;
         logger.LogTrace("[{applicationId}] Immediately reverting object index {objId}", applicationId, objectIndex);
-        _glamourerRevert.Invoke(objectIndex, LockCode);
+        UnlockLegacyLock(objectIndex);
+        InvokeOwnRevert(() => _glamourerRevert.Invoke(objectIndex, LockCode));
     }
 
     public void RevertByNameNow(ILogger logger, Guid applicationId, string name)
     {
         if ((!APIAvailable) || _dalamudUtil.IsZoning) return;
         logger.LogTrace("[{applicationId}] Immediately reverting {name}", applicationId, name);
-        _glamourerRevertByName.Invoke(name, LockCode);
+        UnlockLegacyLock(name);
+        InvokeOwnRevert(() => _glamourerRevertByName.Invoke(name, LockCode));
     }
 
     public async Task RevertByNameAsync(ILogger logger, string name, Guid applicationId)
@@ -347,7 +381,8 @@ public sealed class IpcCallerGlamourer : DisposableMediatorSubscriberBase, IIpcC
         try
         {
             logger.LogDebug("[{appid}] Calling On IPC: GlamourerRevertByName", applicationId);
-            _glamourerRevertByName.Invoke(name, LockCode);
+            UnlockLegacyLock(name);
+            InvokeOwnRevert(() => _glamourerRevertByName.Invoke(name, LockCode));
             logger.LogDebug("[{appid}] Calling On IPC: GlamourerUnlockName", applicationId);
             _glamourerUnlockByName.Invoke(name, LockCode);
         }
@@ -377,7 +412,7 @@ public sealed class IpcCallerGlamourer : DisposableMediatorSubscriberBase, IIpcC
             return new List<(Guid, string)>();
         }
     }
-    
+
     public async Task ApplyDesignToSelfAsync(Guid designId, int objectIndex)
     {
         if (!APIAvailable) return;
@@ -407,5 +442,11 @@ public sealed class IpcCallerGlamourer : DisposableMediatorSubscriberBase, IIpcC
     private void GlamourerChanged(nint address)
     {
         _mareMediator.Publish(new GlamourerChangedMessage(address));
+    }
+
+    private void GlamourerChangedWithType(nint address, StateChangeType changeType)
+    {
+        if (changeType == StateChangeType.Reset && _ownRevertDepth == 0)
+            _mareMediator.Publish(new GlamourerResetMessage(address));
     }
 }

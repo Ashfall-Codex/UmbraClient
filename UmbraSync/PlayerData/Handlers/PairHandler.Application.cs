@@ -28,16 +28,6 @@ public sealed partial class PairHandler
         _state.LastApplyAttemptAt = DateTime.UtcNow;
         ClearFailureState();
 
-        if (IsHandledExternally)
-        {
-            RecordFailure(HandledExternallyReason, "HandledExternally");
-            Logger.LogDebug("[BASE-{appBase}] Received data while handled by another sync plugin, keeping it for later", applicationBase);
-            _state.CachedData = characterData;
-            _state.ForceApplyMods = true;
-            Mediator.Publish(new PairDataAppliedMessage(Pair.UserData.UID, characterData));
-            return;
-        }
-
         if (_configService.Current.HoldCombatApplication && _dalamudUtil.IsInCombatOrPerforming)
         {
             RecordFailure("En combat ou en train de jouer de la musique", "Combat", "Performing");
@@ -252,7 +242,9 @@ public sealed partial class PairHandler
                 case PlayerChanges.Glamourer:
                     if (charaData.GlamourerData.TryGetValue(objectKind, out var glamourerData))
                     {
+                        LastOwnGlamourerCallUtc = DateTime.UtcNow;
                         var glamourerResult = await _ipcManager.Glamourer.ApplyAllAsync(Logger, handler, glamourerData, applicationId, token, allowImmediate: true).ConfigureAwait(false);
+                        LastOwnGlamourerCallUtc = DateTime.UtcNow;
                         if (glamourerResult == GlamourerApiEc.InvalidKey)
                             _glamourerLockRefused = true;
                     }
@@ -547,52 +539,62 @@ public sealed partial class PairHandler
 
         downloadToken.ThrowIfCancellationRequested();
 
-        if (await WaitForExternalSyncOwnershipAsync(downloadToken).ConfigureAwait(false))
+        var applicationDone = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        CancellationToken token;
+        await _applicationStartGate.WaitAsync(downloadToken).ConfigureAwait(false);
+        try
         {
-            _state.CachedData = charaData;
-            Mediator.Publish(new PairDataAppliedMessage(Pair.UserData.UID, charaData));
-            MarkHandledExternally();
-            return;
-        }
-
-        if (_applicationTask != null && !_applicationTask.IsCompleted)
-        {
-            Logger.LogDebug("[BASE-{appBase}] Cancelling current data application (Id: {id}) for {pair}", applicationBase, _applicationId, ToString());
-            _applicationCancellationTokenSource = _applicationCancellationTokenSource?.CancelRecreate() ?? new CancellationTokenSource();
-
-            using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-            using var combinedCts = CancellationTokenSource.CreateLinkedTokenSource(downloadToken, timeoutCts.Token);
-            try
+            if (_applicationTask != null && !_applicationTask.IsCompleted)
             {
-                await _applicationTask.WaitAsync(combinedCts.Token).ConfigureAwait(false);
+                Logger.LogDebug("[BASE-{appBase}] Cancelling current data application (Id: {id}) for {pair}", applicationBase, _applicationId, ToString());
+                _applicationCancellationTokenSource = _applicationCancellationTokenSource?.CancelRecreate() ?? new CancellationTokenSource();
+
+                using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                using var combinedCts = CancellationTokenSource.CreateLinkedTokenSource(downloadToken, timeoutCts.Token);
+                try
+                {
+                    await _applicationTask.WaitAsync(combinedCts.Token).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    Logger.LogWarning("[BASE-{appBase}] Timeout waiting for application task {id} to complete, proceeding anyway", applicationBase, _applicationId);
+                }
             }
-            catch (OperationCanceledException)
+            else
             {
-                Logger.LogWarning("[BASE-{appBase}] Timeout waiting for application task {id} to complete, proceeding anyway", applicationBase, _applicationId);
+                _applicationCancellationTokenSource = _applicationCancellationTokenSource?.CancelRecreate() ?? new CancellationTokenSource();
             }
+
+            if (downloadToken.IsCancellationRequested)
+            {
+                _state.PendingModReapply = true;
+                RecordFailure("Application annulée", "Cancellation");
+                return;
+            }
+
+            token = _applicationCancellationTokenSource.Token;
+            _applicationTask = applicationDone.Task;
         }
-        else
+        finally
         {
-            _applicationCancellationTokenSource = _applicationCancellationTokenSource?.CancelRecreate() ?? new CancellationTokenSource();
+            _applicationStartGate.Release();
         }
 
-        if (downloadToken.IsCancellationRequested)
+        try
         {
-            _state.PendingModReapply = true;
-            RecordFailure("Application annulée", "Cancellation");
-            return;
-        }
-
-        var token = _applicationCancellationTokenSource.Token;
-
 #pragma warning disable MA0004 // ConfigureAwait on await using
-        await using var applyLease = await _applicationSemaphoreService
-            .AcquireAsync(token, highPriority: IsVisible, gpuHeavy: updateModdedPaths || updateManip)
-            .ConfigureAwait(false);
+            await using var applyLease = await _applicationSemaphoreService
+                .AcquireAsync(token, highPriority: IsVisible, gpuHeavy: updateModdedPaths || updateManip)
+                .ConfigureAwait(false);
 #pragma warning restore MA0004
 
-        _applicationTask = ApplyCharacterDataAsync(applicationBase, charaData, updatedData, updateModdedPaths, updateManip, moddedPaths, redrawDecisions, token);
-        await _applicationTask.ConfigureAwait(false);
+            await ApplyCharacterDataAsync(applicationBase, charaData, updatedData, updateModdedPaths, updateManip, moddedPaths, redrawDecisions, token).ConfigureAwait(false);
+        }
+        finally
+        {
+            applicationDone.TrySetResult();
+        }
+
         if (appliedWithRetriableMissingFiles && !_state.PendingModReapply)
         {
             Logger.LogDebug("[BASE-{appBase}] Restoring pendingModReapply: applied with missing files", applicationBase);
@@ -674,8 +676,7 @@ public sealed partial class PairHandler
             ClearFailureState();
             if (_glamourerLockRefused)
                 RecordFailure("Apparence Glamourer verrouillée par un autre plugin", "GlamourerLocked");
-            if (!IsHandledExternally)
-                IsVisible = true;
+            IsVisible = true;
         }
         catch (OperationCanceledException)
         {
@@ -702,40 +703,6 @@ public sealed partial class PairHandler
                 RecordFailure($"Échec de l'application: {ex.Message}", "Exception");
                 Logger.LogWarning(ex, "[{applicationId}] Application failed", _applicationId);
             }
-        }
-    }
-
-    // Un autre plugin de synchronisation qui liste ce joueur sans l'appliquer encore a quelques secondes
-    // pour poser sa collection : on évite ainsi de prendre le verrou Glamourer avant lui.
-    private async Task<bool> WaitForExternalSyncOwnershipAsync(CancellationToken token)
-    {
-        if (IsHandledExternally) return true;
-
-        var deadline = DateTime.UtcNow + ExternalSyncWait;
-        var waitLogged = false;
-        while (true)
-        {
-            var (address, status) = await _dalamudUtil.RunOnFrameworkThread(() =>
-            {
-                var current = _charaHandler?.Address ?? nint.Zero;
-                return (current, _ipcManager.Mare.GetExternalSyncStatus(current));
-            }).ConfigureAwait(false);
-
-            if (status == UmbraSync.Interop.Ipc.ExternalSyncStatus.Owned) return true;
-            if (status == UmbraSync.Interop.Ipc.ExternalSyncStatus.None || address == _externalSyncCheckedAddress) return false;
-            if (DateTime.UtcNow >= deadline)
-            {
-                _externalSyncCheckedAddress = address;
-                return false;
-            }
-
-            if (!waitLogged)
-            {
-                waitLogged = true;
-                Logger.LogDebug("Waiting up to {wait} for another sync plugin to apply {pairHandler}", ExternalSyncWait, this);
-            }
-
-            await Task.Delay(250, token).ConfigureAwait(false);
         }
     }
 

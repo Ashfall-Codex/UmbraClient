@@ -89,7 +89,7 @@ public record CompactUiChange(Vector2 Size, Vector2 Position) : MessageBase;
 public record ProfileOpenStandaloneMessage(Pair Pair) : MessageBase;
 public record RemoveWindowMessage(WindowMediatorSubscriberBase Window) : MessageBase;
 public record PlayerVisibilityMessage(string Ident, bool IsVisible, bool Invalidate = false) : KeyedMessage(Ident, SameThread: true);
-public record ExternalSyncHandledMessage(string Ident, bool IsHandled) : KeyedMessage(Ident, SameThread: true);
+public record GlamourerResetMessage(nint Address) : MessageBase;
 public record PairHandlerVisibleMessage(PairHandler Player) : MessageBase;
 public record OpenReportPopupMessage(Pair PairToReport) : MessageBase;
 public record OpenBanUserPopupMessage(Pair PairToBan, GroupFullInfoDto GroupFullInfoDto) : MessageBase;

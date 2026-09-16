@@ -20,7 +20,6 @@ public sealed class PairCharacterReverter
         Func<string?> GetPlayerName,
         Func<string> DescribeForLog,
         Func<bool> IsVisible,
-        Func<bool> IsHandledExternally,
         Func<GameObjectHandler?> GetCharaHandler,
         Action CancelInFlightWork);
 
@@ -64,10 +63,9 @@ public sealed class PairCharacterReverter
 
             await RemoveTemporaryCollectionAsync(applicationId).ConfigureAwait(false);
 
-            if (_context.IsHandledExternally())
+            if (await IsForeignSyncActiveAsync().ConfigureAwait(false))
             {
-                // L'apparence visible appartient à l'autre plugin : un revert l'effacerait
-                _logger.LogDebug("[{applicationId}] {pair} is handled by another sync plugin, not restoring state", applicationId, _context.DescribeForLog());
+                _logger.LogDebug("[{applicationId}] {pair} is still applied by another sync plugin, not restoring state", applicationId, _context.DescribeForLog());
             }
             else if (!string.IsNullOrEmpty(name))
             {
@@ -200,6 +198,15 @@ public sealed class PairCharacterReverter
                 return;
             }
 
+            if (await IsForeignSyncActiveAsync().ConfigureAwait(false))
+            {
+                _logger.LogDebug("[{applicationId}] {pair} is still applied by another sync plugin, only removing Umbra's collection", applicationId, _context.DescribeForLog());
+                await RemoveTemporaryCollectionAsync(applicationId).ConfigureAwait(false);
+                _state.CachedData = null;
+                _mediator.Publish(new PairDataAppliedMessage(_pair.UserData.UID, null));
+                return;
+            }
+
             await ClearPenumbraModsAsync(applicationId, character).ConfigureAwait(false);
             var kinds = CollectKindsToRevert();
             var characterName = character.Name.TextValue;
@@ -245,36 +252,14 @@ public sealed class PairCharacterReverter
         }
     }
 
-    /// <summary>
-    /// Laisse le joueur à un autre plugin de synchronisation qui l'applique déjà : on retire notre
-    /// collection et notre verrou Glamourer, sans revert. La personne envoie la même apparence aux deux
-    /// plugins, et les greffons indexés par adresse (Heels, Honorific…) sont partagés : les vider
-    /// effacerait ce que l'autre plugin a posé.
-    /// </summary>
-    public async Task ReleaseToExternalSyncAsync(Guid applicationId)
+    // Vrai si un autre plugin de synchronisation applique encore ce joueur, auquel cas un revert
+    // effacerait son apparence (clé Glamourer commune, greffons indexés par adresse)
+    private async Task<bool> IsForeignSyncActiveAsync()
     {
-        _logger.LogDebug("[{applicationId}] Releasing {pair} to another sync plugin", applicationId, _context.DescribeForLog());
-        _context.CancelInFlightWork();
-        _state.LastAppliedData = null;
-        _state.PendingModReapply = false;
-        _state.ForceApplyMods = true;
-
-        if (_state.Penumbra.Collection != Guid.Empty)
-        {
-            var col = _state.Penumbra.Collection;
-            _state.Penumbra.Reset();
-            try
-            {
-                await _ipcManager.Penumbra.RemoveTemporaryCollectionAsync(_logger, applicationId, col).ConfigureAwait(false);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogDebug(ex, "Failed to remove temporary collection {col}, likely already removed", col);
-            }
-        }
-
         var address = _dalamudUtil.GetPlayerCharacterFromCachedTableByIdent(_pair.Ident);
-        await _ipcManager.Glamourer.UnlockAsync(_logger, address, applicationId).ConfigureAwait(false);
+        if (address == nint.Zero) return false;
+
+        return await _dalamudUtil.RunOnFrameworkThread(() => _ipcManager.Mare.IsForeignSyncCollectionActive(address)).ConfigureAwait(false);
     }
 
     // Les greffons sans clé de verrou ne sont vidés que si Umbra y a posé quelque chose
