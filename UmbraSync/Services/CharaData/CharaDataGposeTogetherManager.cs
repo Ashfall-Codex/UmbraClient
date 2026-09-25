@@ -382,7 +382,8 @@ public class CharaDataGposeTogetherManager : DisposableMediatorSubscriberBase
                 }
                 if (_dalamudUtil.IsInGpose)
                 {
-                    chara = (IPlayerCharacter?)(await _dalamudUtil.GetGposeCharacterFromObjectTableByNameAsync(chara.Name.TextValue, _dalamudUtil.IsInGpose).ConfigureAwait(false));
+                    var charaName = await _dalamudUtil.RunOnFrameworkThread(() => chara.Name.TextValue).ConfigureAwait(false);
+                    chara = (IPlayerCharacter?)(await _dalamudUtil.GetGposeCharacterFromObjectTableByNameAsync(charaName, _dalamudUtil.IsInGpose).ConfigureAwait(false));
                 }
                 if (chara == null || chara.Address == nint.Zero) continue;
 
@@ -438,18 +439,22 @@ public class CharaDataGposeTogetherManager : DisposableMediatorSubscriberBase
                 WorldData worldData;
                 if (_dalamudUtil.IsInGpose)
                 {
-                    player = await _dalamudUtil.GetGposeCharacterFromObjectTableByNameAsync(player.Name.TextValue, true).ConfigureAwait(false);
+                    var playerName = await _dalamudUtil.RunOnFrameworkThread(() => player.Name.TextValue).ConfigureAwait(false);
+                    player = await _dalamudUtil.GetGposeCharacterFromObjectTableByNameAsync(playerName, true).ConfigureAwait(false);
                     if (player == null) continue;
                     worldData = (await _brio.GetTransformAsync(player.Address).ConfigureAwait(false));
                 }
                 else
                 {
-                    var rotQuaternion = Quaternion.CreateFromAxisAngle(new Vector3(0, 1, 0), player.Rotation);
+                    var transform = await _dalamudUtil.GetPlayerTransformAsync().ConfigureAwait(false);
+                    if (transform == null) continue;
+                    var (position, rotation) = transform.Value;
+                    var rotQuaternion = Quaternion.CreateFromAxisAngle(new Vector3(0, 1, 0), rotation);
                     worldData = new()
                     {
-                        PositionX = player.Position.X,
-                        PositionY = player.Position.Y,
-                        PositionZ = player.Position.Z,
+                        PositionX = position.X,
+                        PositionY = position.Y,
+                        PositionZ = position.Z,
                         RotationW = rotQuaternion.W,
                         RotationX = rotQuaternion.X,
                         RotationY = rotQuaternion.Y,

@@ -83,7 +83,7 @@ public sealed class IpcCallerBrio : IIpcCaller
         {
             var gameObject = await _dalamudUtilService.CreateGameObjectAsync(address).ConfigureAwait(false);
             if (gameObject == null) return false;
-            _logger.LogDebug("Despawning Brio Actor {actor}", gameObject.Name.TextValue);
+            _logger.LogDebug("Despawning Brio Actor {actor:X}", address);
             return await _dalamudUtilService.RunOnFrameworkThread(() => _despawnActor.Invoke(gameObject)).ConfigureAwait(false);
         }
         catch (Exception ex)
@@ -101,7 +101,7 @@ public sealed class IpcCallerBrio : IIpcCaller
         {
             var gameObject = await _dalamudUtilService.CreateGameObjectAsync(address).ConfigureAwait(false);
             if (gameObject == null) return false;
-            _logger.LogDebug("Applying Transform to Actor {actor}", gameObject.Name.TextValue);
+            _logger.LogDebug("Applying Transform to Actor {actor:X}", address);
 
             return await _dalamudUtilService.RunOnFrameworkThread(() => _setModelTransform.Invoke(gameObject,
                 new Vector3(data.PositionX, data.PositionY, data.PositionZ),
@@ -154,7 +154,7 @@ public sealed class IpcCallerBrio : IIpcCaller
         {
             var gameObject = await _dalamudUtilService.CreateGameObjectAsync(address).ConfigureAwait(false);
             if (gameObject == null) return null;
-            _logger.LogDebug("Getting Pose from Actor {actor}", gameObject.Name.TextValue);
+            _logger.LogDebug("Getting Pose from Actor {actor:X}", address);
 
             return await _dalamudUtilService.RunOnFrameworkThread(() => _getPoseAsJson.Invoke(gameObject)).ConfigureAwait(false);
         }
@@ -173,7 +173,7 @@ public sealed class IpcCallerBrio : IIpcCaller
         {
             var gameObject = await _dalamudUtilService.CreateGameObjectAsync(address).ConfigureAwait(false);
             if (gameObject == null) return false;
-            _logger.LogDebug("Setting Pose to Actor {actor}", gameObject.Name.TextValue);
+            _logger.LogDebug("Setting Pose to Actor {actor:X}", address);
 
             var applicablePose = JsonNode.Parse(pose ?? string.Empty)!;
             var currentPose = await _dalamudUtilService.RunOnFrameworkThread(() => _getPoseAsJson.Invoke(gameObject)).ConfigureAwait(false);

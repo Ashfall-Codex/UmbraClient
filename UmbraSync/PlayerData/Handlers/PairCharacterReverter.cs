@@ -146,16 +146,16 @@ public sealed class PairCharacterReverter
         }
     }
     
-    private async Task ClearPenumbraModsAsync(Guid applicationId, Dalamud.Game.ClientState.Objects.Types.ICharacter character)
+    private async Task ClearPenumbraModsAsync(Guid applicationId, ushort objectIndex)
     {
         if (!_ipcManager.Penumbra.APIAvailable || _state.Penumbra.Collection == Guid.Empty) return;
 
         _logger.LogDebug("[{applicationId}] Clearing Penumbra mods for {pair}", applicationId, _context.DescribeForLog());
         try
         {
-            var assign = await _ipcManager.Penumbra.AssignTemporaryCollectionAsync(_logger, _state.Penumbra.Collection, character.ObjectIndex).ConfigureAwait(false);
+            var assign = await _ipcManager.Penumbra.AssignTemporaryCollectionAsync(_logger, _state.Penumbra.Collection, objectIndex).ConfigureAwait(false);
             if (assign == global::Penumbra.Api.Enums.PenumbraApiEc.Success)
-                _state.Penumbra.AssignedObjectIndex = character.ObjectIndex;
+                _state.Penumbra.AssignedObjectIndex = objectIndex;
 
             await _ipcManager.Penumbra.ApplyTemporaryStateAsync(_logger, applicationId, _state.Penumbra.Collection,
                 new Dictionary<string, string>(StringComparer.Ordinal), string.Empty).ConfigureAwait(false);
@@ -191,8 +191,10 @@ public sealed class PairCharacterReverter
 
         try
         {
-            var gameObject = await _dalamudUtil.RunOnFrameworkThread(() => charaHandler.GetGameObject()).ConfigureAwait(false);
-            if (gameObject is not Dalamud.Game.ClientState.Objects.Types.ICharacter character)
+            var character = await _dalamudUtil.RunOnFrameworkThread(() => charaHandler.GetGameObject() is Dalamud.Game.ClientState.Objects.Types.ICharacter c
+                ? ((ushort ObjectIndex, string Name)?)(c.ObjectIndex, c.Name.TextValue)
+                : null).ConfigureAwait(false);
+            if (character == null)
             {
                 _logger.LogDebug("[{applicationId}] Game object is not a character, skipping revert", applicationId);
                 return;
@@ -207,13 +209,9 @@ public sealed class PairCharacterReverter
                 return;
             }
 
-            await ClearPenumbraModsAsync(applicationId, character).ConfigureAwait(false);
+            await ClearPenumbraModsAsync(applicationId, character.Value.ObjectIndex).ConfigureAwait(false);
             var kinds = CollectKindsToRevert();
-            var characterName = character.Name.TextValue;
-            if (string.IsNullOrEmpty(characterName))
-            {
-                characterName = character.Name.ToString();
-            }
+            var characterName = character.Value.Name;
             if (string.IsNullOrEmpty(characterName))
             {
                 _logger.LogWarning("[{applicationId}] Failed to determine character name for {user}, using fallback", applicationId, _pair.UserData.UID);
