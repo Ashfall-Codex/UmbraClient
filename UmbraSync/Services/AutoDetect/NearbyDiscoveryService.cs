@@ -97,11 +97,13 @@ public class NearbyDiscoveryService(ILogger<NearbyDiscoveryService> logger, Mare
             ushort meWorld = 0;
             try
             {
-                var me = await _dalamud.RunOnFrameworkThread(() => _dalamud.GetPlayerCharacter()).ConfigureAwait(false);
+                var me = await _dalamud.RunOnFrameworkThread(() => _dalamud.GetPlayerCharacter() is { } pc
+                    ? ((string Name, ushort World)?)(pc.Name.TextValue, (ushort)pc.HomeWorld.RowId)
+                    : null).ConfigureAwait(false);
                 if (me is { } mePc)
                 {
-                    displayName = mePc.Name.TextValue;
-                    meWorld = (ushort)mePc.HomeWorld.RowId;
+                    displayName = mePc.Name;
+                    meWorld = mePc.World;
                 }
             }
             catch (Exception ex)
@@ -332,11 +334,13 @@ public class NearbyDiscoveryService(ILogger<NearbyDiscoveryService> logger, Mare
                             string? selfHash = null;
                             try
                             {
-                                var me = await _dalamud.RunOnFrameworkThread(() => _dalamud.GetPlayerCharacter()).ConfigureAwait(false);
+                                var me = await _dalamud.RunOnFrameworkThread(() => _dalamud.GetPlayerCharacter() is { } pc
+                                    ? ((string Name, ushort World)?)(pc.Name.TextValue, (ushort)pc.HomeWorld.RowId)
+                                    : null).ConfigureAwait(false);
                                 if (me is { } mePc)
                                 {
-                                    displayName = mePc.Name.TextValue;
-                                    var meWorld = (ushort)mePc.HomeWorld.RowId;
+                                    displayName = mePc.Name;
+                                    var meWorld = mePc.World;
                                     _logger.LogTrace("Nearby self ident: {name} ({world})", displayName, meWorld);
                                     selfHash = (saltHex + displayName + meWorld.ToString()).GetHash256();
                                 }
@@ -481,11 +485,13 @@ public class NearbyDiscoveryService(ILogger<NearbyDiscoveryService> logger, Mare
         ushort meWorld = 0;
         try
         {
-            var me = await _dalamud.RunOnFrameworkThread(() => _dalamud.GetPlayerCharacter()).ConfigureAwait(false);
+            var me = await _dalamud.RunOnFrameworkThread(() => _dalamud.GetPlayerCharacter() is { } pc
+                ? ((string Name, ushort World)?)(pc.Name.TextValue, (ushort)pc.HomeWorld.RowId)
+                : null).ConfigureAwait(false);
             if (me is { } mePc)
             {
-                displayName = mePc.Name.TextValue;
-                meWorld = (ushort)mePc.HomeWorld.RowId;
+                displayName = mePc.Name;
+                meWorld = mePc.World;
             }
         }
         catch (Exception ex)

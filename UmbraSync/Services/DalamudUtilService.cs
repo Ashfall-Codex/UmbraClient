@@ -368,6 +368,13 @@ public class DalamudUtilService : IHostedService, IMediatorSubscriber
         return await RunOnFrameworkThread(GetPlayerCharacter).ConfigureAwait(false);
     }
 
+    public async Task<(Vector3 Position, float Rotation)?> GetPlayerTransformAsync()
+    {
+        return await RunOnFrameworkThread(() => LocalPlayer is { } player
+            ? ((Vector3 Position, float Rotation)?)(player.Position, player.Rotation)
+            : null).ConfigureAwait(false);
+    }
+
     public IPlayerCharacter? GetPlayerCharacter()
     {
         EnsureIsOnFramework();
