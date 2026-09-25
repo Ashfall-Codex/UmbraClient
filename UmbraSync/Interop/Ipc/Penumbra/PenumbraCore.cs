@@ -5,7 +5,7 @@ using UmbraSync.Localization;
 using UmbraSync.Services;
 using UmbraSync.Services.Mediator;
 using UmbraSync.Services.Notification;
-using PenumbraApi = global::Penumbra.Api.Helpers;
+using PenumbraApi = global::Luna;
 using PenumbraIpc = global::Penumbra.Api.IpcSubscribers;
 
 namespace UmbraSync.Interop.Ipc.Penumbra;

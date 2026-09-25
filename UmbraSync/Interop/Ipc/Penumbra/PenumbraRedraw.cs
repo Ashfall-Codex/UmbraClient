@@ -3,7 +3,7 @@ using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
 using UmbraSync.PlayerData.Handlers;
 using UmbraSync.Services.Mediator;
-using PenumbraApi = global::Penumbra.Api.Helpers;
+using PenumbraApi = global::Luna;
 using PenumbraEnum = global::Penumbra.Api.Enums;
 using PenumbraIpc = global::Penumbra.Api.IpcSubscribers;
 

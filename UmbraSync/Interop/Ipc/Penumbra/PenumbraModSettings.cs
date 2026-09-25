@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Logging;
 using UmbraSync.Services.Mediator;
-using PenumbraApi = global::Penumbra.Api.Helpers;
+using PenumbraApi = global::Luna;
 using PenumbraEnum = global::Penumbra.Api.Enums;
 using PenumbraIpc = global::Penumbra.Api.IpcSubscribers;
 namespace UmbraSync.Interop.Ipc.Penumbra;

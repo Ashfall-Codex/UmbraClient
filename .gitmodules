@@ -2,14 +2,6 @@
 	path = UmbraAPI
 	url = https://github.com/Ashfall-Codex/UmbraAPI.git
 	branch = main
-[submodule "Penumbra.Api"]
-	path = Penumbra.Api
-	url = https://github.com/Ottermandias/Penumbra.Api.git
-	branch = main
-[submodule "Glamourer.Api"]
-	path = Glamourer.Api
-	url = https://github.com/Ottermandias/Glamourer.Api.git
-	branch = main
 [submodule "ffxiv_pictomancy"]
 	path = ffxiv_pictomancy
 	url = https://github.com/sourpuh/ffxiv_pictomancy
