@@ -2601,6 +2601,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
         ImGui.Separator();
 
         var disableOptionalPluginWarnings = _configService.Current.DisableOptionalPluginWarnings;
+        var shareRpProfile = _configService.Current.ShareRpProfileWithPlugins;
         var onlineNotifs = _configService.Current.ShowOnlineNotifications;
         var onlineNotifsPairsOnly = _configService.Current.ShowOnlineNotificationsOnlyForIndividualPairs;
         var onlineNotifsNamedOnly = _configService.Current.ShowOnlineNotificationsOnlyForNamedPairs;
@@ -2651,6 +2652,17 @@ public class SettingsUi : WindowMediatorSubscriberBase
             _configService.Save();
         }
         _uiShared.DrawHelpText("Enabling this will not show any \"Warning\" labeled messages for missing optional plugins.");
+
+        if (ImGui.Checkbox("Share RP profile with other Ashfall plugins", ref shareRpProfile))
+        {
+            _configService.Current.ShareRpProfileWithPlugins = shareRpProfile;
+            _configService.Save();
+        }
+        _uiShared.DrawHelpText("Lets other Ashfall plugins installed on this computer read the RP profile of a visible pair, "
+                              + "and present the sheet themselves." + Environment.NewLine
+                              + "Nothing leaves this machine, and nothing is revealed that UmbraSync does not already show to that pair."
+                              + Environment.NewLine
+                              + "Turning this off also brings back the \"Open profile\" entry in the game's context menu.");
         if (ImGui.Checkbox("Enable online notifications", ref onlineNotifs))
         {
             _configService.Current.ShowOnlineNotifications = onlineNotifs;
