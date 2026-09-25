@@ -244,7 +244,8 @@ public sealed class CharaDataManager : DisposableMediatorSubscriberBase
             if (playerChar == null) return;
             if (_dalamudUtilService.IsInGpose)
             {
-                playerChar = await _dalamudUtilService.GetGposeCharacterFromObjectTableByNameAsync(playerChar.Name.TextValue, true).ConfigureAwait(false);
+                var playerName = await _dalamudUtilService.GetPlayerNameAsync().ConfigureAwait(false);
+                playerChar = await _dalamudUtilService.GetGposeCharacterFromObjectTableByNameAsync(playerName, true).ConfigureAwait(false);
             }
             if (playerChar == null) return;
             var worldData = await _ipcManager.Brio.GetTransformAsync(playerChar.Address).ConfigureAwait(false);
@@ -484,8 +485,8 @@ public sealed class CharaDataManager : DisposableMediatorSubscriberBase
             {
                 using GameObjectHandler? tempHandler = await _characterHandler.TryCreateGameObjectHandler(charaName, true).ConfigureAwait(false);
                 if (tempHandler == null) return;
-                var playerChar = await _dalamudUtilService.GetPlayerCharacterAsync().ConfigureAwait(false);
-                bool isSelf = playerChar != null && string.Equals(playerChar.Name.TextValue, tempHandler.Name, StringComparison.Ordinal);
+                var playerName = await _dalamudUtilService.RunOnFrameworkThread(() => _dalamudUtilService.GetPlayerCharacter()?.Name.TextValue).ConfigureAwait(false);
+                bool isSelf = playerName != null && string.Equals(playerName, tempHandler.Name, StringComparison.Ordinal);
 
                 long expectedExtractedSize = LoadedMcdfHeader.Result.ExpectedLength;
                 var charaFile = LoadedMcdfHeader.Result.LoadedFile;
@@ -721,7 +722,8 @@ public sealed class CharaDataManager : DisposableMediatorSubscriberBase
             if (playerChar == null) return;
             if (_dalamudUtilService.IsInGpose)
             {
-                playerChar = await _dalamudUtilService.GetGposeCharacterFromObjectTableByNameAsync(playerChar.Name.TextValue, true).ConfigureAwait(false);
+                var playerName = await _dalamudUtilService.GetPlayerNameAsync().ConfigureAwait(false);
+                playerChar = await _dalamudUtilService.GetGposeCharacterFromObjectTableByNameAsync(playerName, true).ConfigureAwait(false);
             }
             if (playerChar == null) return;
             var poseData = await _ipcManager.Brio.GetPoseAsync(playerChar.Address).ConfigureAwait(false);
@@ -937,8 +939,9 @@ public sealed class CharaDataManager : DisposableMediatorSubscriberBase
 
         var applicationId = Guid.NewGuid();
 
-        var playerChar = await _dalamudUtilService.GetPlayerCharacterAsync().ConfigureAwait(false);
-        bool isSelf = playerChar != null && string.Equals(playerChar.Name.TextValue, chara.Name.TextValue, StringComparison.Ordinal);
+        var (isSelf, charaIndex) = await _dalamudUtilService.RunOnFrameworkThread(() =>
+            (_dalamudUtilService.GetPlayerCharacter() is { } playerChar && string.Equals(playerChar.Name.TextValue, chara.Name.TextValue, StringComparison.Ordinal),
+             chara.ObjectIndex)).ConfigureAwait(false);
 
         DataApplicationProgress = "Checking local files";
 
@@ -950,7 +953,7 @@ public sealed class CharaDataManager : DisposableMediatorSubscriberBase
 
         Logger.LogTrace("[{appId}] Computing local missing files", applicationId);
 
-        using GameObjectHandler? tempHandler = await _characterHandler.TryCreateGameObjectHandler(chara.ObjectIndex).ConfigureAwait(false);
+        using GameObjectHandler? tempHandler = await _characterHandler.TryCreateGameObjectHandler(charaIndex).ConfigureAwait(false);
         if (tempHandler == null) return;
 
         if (missingFiles.Any())

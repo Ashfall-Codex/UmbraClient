@@ -87,10 +87,10 @@ public class HousingMonitorService : IHostedService, IMediatorSubscriber
                     _lastLocation = currentLocation;
                 }
 
-                var player = await _dalamudUtil.GetPlayerCharacterAsync().ConfigureAwait(false);
-                if (player != null)
+                var playerTransform = await _dalamudUtil.GetPlayerTransformAsync().ConfigureAwait(false);
+                if (playerTransform != null)
                 {
-                    _mediator.Publish(new HousingPositionUpdateMessage(currentLocation.ServerId, currentLocation.TerritoryId, currentLocation.DivisionId, currentLocation.WardId, player.Position));
+                    _mediator.Publish(new HousingPositionUpdateMessage(currentLocation.ServerId, currentLocation.TerritoryId, currentLocation.DivisionId, currentLocation.WardId, playerTransform.Value.Position));
                 }
             }
             catch (OperationCanceledException)

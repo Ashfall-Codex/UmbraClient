@@ -125,7 +125,7 @@ public class Pair : DisposableMediatorSubscriberBase
     private PairHandler? CachedPlayer { get; set; }
     public PairHandler? Handler => CachedPlayer;
 
-    public void AddContextMenu(IMenuOpenedArgs args)
+    public void AddContextMenu(IMenuOpenedArgs args, bool externalHandlesSheets = false)
     {
         // Ne pas vérifier IsPaused ici - afficher le menu même si pausé pour permettre le unpause
         if (CachedPlayer == null || (args.Target is not MenuTargetDefault target) || target.TargetObjectId != CachedPlayer.PlayerCharacterId) return;
@@ -149,7 +149,11 @@ public class Pair : DisposableMediatorSubscriberBase
         // Options disponibles uniquement si pas en pause
         if (!IsPaused)
         {
-            Add("Ouvrir le profil", _ => Mediator.Publish(new ProfileOpenStandaloneMessage(this)));
+            // Quand un autre plugin Ashfall présente déjà la fiche de ce joueur, profil RP
+            // compris, deux entrées pour la même chose encombrent le menu du jeu : on lui
+            // laisse la place. Le partage reste conditionné à l'option de l'utilisateur.
+            if (!externalHandlesSheets)
+                Add("Ouvrir le profil", _ => Mediator.Publish(new ProfileOpenStandaloneMessage(this)));
             Add("Réappliquer les dernières données", _ => ApplyLastReceivedData(forced: true));
             Add("Re-télécharger les fichiers", _ =>
             {

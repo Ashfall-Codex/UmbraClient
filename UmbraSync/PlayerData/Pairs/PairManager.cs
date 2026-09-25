@@ -1,4 +1,6 @@
 ﻿using Dalamud.Game.Gui.ContextMenu;
+using Dalamud.Plugin.Ipc;
+using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -38,6 +40,7 @@ public sealed class PairManager : DisposableMediatorSubscriberBase
     private readonly NearbyDiscoveryService _nearbyDiscoveryService;
     private readonly AutoDetectRequestService _autoDetectRequestService;
     private readonly DalamudUtilService _dalamudUtilService;
+    private readonly IServiceProvider _serviceProvider;
     private readonly PairFactory _pairFactory;
     private readonly Lazy<ApiController> _apiController;
     private Lazy<List<Pair>> _directPairsInternal;
@@ -67,6 +70,7 @@ public sealed class PairManager : DisposableMediatorSubscriberBase
         _nearbyDiscoveryService = nearbyDiscoveryService;
         _autoDetectRequestService = autoDetectRequestService;
         _dalamudUtilService = dalamudUtilService;
+        _serviceProvider = serviceProvider;
         _apiController = new Lazy<ApiController>(() => serviceProvider.GetRequiredService<ApiController>());
         Mediator.Subscribe<DisconnectedMessage>(this, (_) => ClearPairs());
         _directPairsInternal = DirectPairsLazy();
@@ -119,6 +123,40 @@ public sealed class PairManager : DisposableMediatorSubscriberBase
         {
             Mediator.Publish(new ApplyDefaultGroupPermissionsMessage(dto));
         }
+    }
+
+    /// <summary>
+    /// Vrai lorsqu'un autre plugin Ashfall présente déjà la fiche complète d'un joueur,
+    /// profil RP compris. UmbraSync lui cède alors son entrée de menu plutôt que de
+    /// proposer deux fois la même chose.
+    ///
+    /// C'est l'autre plugin qui l'annonce : UmbraSync n'a pas à connaître la liste de ceux
+    /// qui pourraient le faire.
+    /// </summary>
+    private bool ExternalPluginHandlesSheets()
+    {
+        if (!_configurationService.Current.ShareRpProfileWithPlugins) return false;
+
+        try
+        {
+            var pluginInterface = _serviceProvider.GetRequiredService<IDalamudPluginInterface>();
+            return pluginInterface
+                .GetIpcSubscriber<bool>("MasterEvent.Profile.HandlesSheets")
+                .InvokeFunc();
+        }
+        catch
+        {
+            // Plugin absent ou point d'entrée non publié : cas courant, pas une anomalie.
+            return false;
+        }
+    }
+
+    public Pair? GetVisiblePairByObjectId(uint objectId)
+    {
+        if (objectId is 0 or uint.MaxValue) return null;
+
+        return _allClientPairs.Values
+            .FirstOrDefault(p => p.IsVisible && p.GetPlayerCharacterId() == objectId);
     }
 
     public Pair? GetPairByUID(string uid)
@@ -887,9 +925,10 @@ public sealed class PairManager : DisposableMediatorSubscriberBase
 
         TryAddAutoDetectPairRequestItem(args);
 
+        var externalHandlesSheets = ExternalPluginHandlesSheets();
         foreach (var pair in _allClientPairs.Where((p => p.Value.IsVisible)))
         {
-            pair.Value.AddContextMenu(args);
+            pair.Value.AddContextMenu(args, externalHandlesSheets);
         }
     }
 

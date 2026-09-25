@@ -86,8 +86,7 @@ public class AutoDetectRequestService : IMediatorSubscriber
         string? displayName = null;
         try
         {
-            var me = await _dalamud.RunOnFrameworkThread(() => _dalamud.GetPlayerCharacter()).ConfigureAwait(false);
-            displayName = me?.Name.TextValue;
+            displayName = await _dalamud.RunOnFrameworkThread(() => _dalamud.GetPlayerCharacter()?.Name.TextValue).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -129,8 +128,7 @@ public class AutoDetectRequestService : IMediatorSubscriber
         string? displayName = null;
         try
         {
-            var me = await _dalamud.RunOnFrameworkThread(() => _dalamud.GetPlayerCharacter()).ConfigureAwait(false);
-            displayName = me?.Name.TextValue;
+            displayName = await _dalamud.RunOnFrameworkThread(() => _dalamud.GetPlayerCharacter()?.Name.TextValue).ConfigureAwait(false);
         }
         catch (Exception ex)
         {

@@ -75,14 +75,17 @@ public sealed class CharaDataFileHandler(
             return null;
         if (_dalamudUtilService.IsInGpose)
         {
-            chara = (IPlayerCharacter?)(await _dalamudUtilService.GetGposeCharacterFromObjectTableByNameAsync(chara.Name.TextValue, _dalamudUtilService.IsInGpose).ConfigureAwait(false));
+            var charaName = await _dalamudUtilService.RunOnFrameworkThread(() => chara.Name.TextValue).ConfigureAwait(false);
+            chara = (IPlayerCharacter?)(await _dalamudUtilService.GetGposeCharacterFromObjectTableByNameAsync(charaName, _dalamudUtilService.IsInGpose).ConfigureAwait(false));
         }
 
         if (chara == null)
             return null;
 
+        var charaIndex = await _dalamudUtilService.RunOnFrameworkThread(() => chara.ObjectIndex).ConfigureAwait(false);
+
         using var tempHandler = await _gameObjectHandlerFactory.Create(ObjectKind.Player,
-                        () => _dalamudUtilService.GetCharacterFromObjectTableByIndex(chara.ObjectIndex)?.Address ?? IntPtr.Zero, isWatched: false).ConfigureAwait(false);
+                        () => _dalamudUtilService.GetCharacterFromObjectTableByIndex(charaIndex)?.Address ?? IntPtr.Zero, isWatched: false).ConfigureAwait(false);
         PlayerData.Data.CharacterData newCdata = new();
         await _playerDataFactory.BuildCharacterData(newCdata, tempHandler, CancellationToken.None).ConfigureAwait(false);
         if (newCdata.FileReplacements.TryGetValue(ObjectKind.Player, out var playerData))

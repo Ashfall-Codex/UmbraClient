@@ -298,12 +298,13 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
     {
         var entry = _store.GetScene(sceneId)?.Entries.FirstOrDefault(e => string.Equals(e.Id, entryId, StringComparison.Ordinal));
         if (entry == null) return;
-        var player = await _dalamudUtil.GetPlayerCharacterAsync().ConfigureAwait(false);
-        if (player == null) return;
-        entry.X = player.Position.X;
-        entry.Y = player.Position.Y;
-        entry.Z = player.Position.Z;
-        entry.Rotation = player.Rotation;
+        var transform = await _dalamudUtil.GetPlayerTransformAsync().ConfigureAwait(false);
+        if (transform == null) return;
+        var (position, rotation) = transform.Value;
+        entry.X = position.X;
+        entry.Y = position.Y;
+        entry.Z = position.Z;
+        entry.Rotation = rotation;
         _store.SaveChanges();
         await RefreshAsync().ConfigureAwait(false);
     }
@@ -335,13 +336,14 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
     {
         var entry = FindEntry(sceneId, entryId);
         if (entry == null) return;
-        var player = await _dalamudUtil.GetPlayerCharacterAsync().ConfigureAwait(false);
-        if (player == null) return;
+        var transform = await _dalamudUtil.GetPlayerTransformAsync().ConfigureAwait(false);
+        if (transform == null) return;
+        var (position, _) = transform.Value;
         entry.Actions.Add(new NpcMovementAction
         {
-            X = player.Position.X,
-            Y = player.Position.Y,
-            Z = player.Position.Z,
+            X = position.X,
+            Y = position.Y,
+            Z = position.Z,
             Speed = run ? NpcMoveSpeed.Run : NpcMoveSpeed.Walk,
         });
         _store.SaveChanges();
@@ -353,13 +355,14 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
         var entry = FindEntry(sceneId, entryId);
         if (entry == null || actionIndex < 0 || actionIndex >= entry.Actions.Count) return;
         if (entry.Actions[actionIndex] is not NpcPathAction path) return;
-        var player = await _dalamudUtil.GetPlayerCharacterAsync().ConfigureAwait(false);
-        if (player == null) return;
+        var transform = await _dalamudUtil.GetPlayerTransformAsync().ConfigureAwait(false);
+        if (transform == null) return;
+        var (position, _) = transform.Value;
         path.Points.Add(new NpcPathPoint
         {
-            X = player.Position.X,
-            Y = player.Position.Y,
-            Z = player.Position.Z,
+            X = position.X,
+            Y = position.Y,
+            Z = position.Z,
             Speed = run ? NpcMoveSpeed.Run : NpcMoveSpeed.Walk,
         });
         _store.SaveChanges();
@@ -371,9 +374,9 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
         var entry = FindEntry(sceneId, entryId);
         if (entry == null || actionIndex < 0 || actionIndex >= entry.Actions.Count) return;
         if (entry.Actions[actionIndex] is not NpcRotationAction rot) return;
-        var player = await _dalamudUtil.GetPlayerCharacterAsync().ConfigureAwait(false);
-        if (player == null) return;
-        rot.TargetRotation = player.Rotation;
+        var transform = await _dalamudUtil.GetPlayerTransformAsync().ConfigureAwait(false);
+        if (transform == null) return;
+        rot.TargetRotation = transform.Value.Rotation;
         _store.SaveChanges();
         await RefreshAsync().ConfigureAwait(false);
     }
@@ -1172,8 +1175,9 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
                 return;
             }
 
-            var player = await _dalamudUtil.GetPlayerCharacterAsync().ConfigureAwait(false);
-            if (player == null) return;
+            var transform = await _dalamudUtil.GetPlayerTransformAsync().ConfigureAwait(false);
+            if (transform == null) return;
+            var (position, rotation) = transform.Value;
 
             var (appearance, nickname) = AnamnesisCharaImporter.Parse(path);
 
@@ -1181,10 +1185,10 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
             {
                 DisplayName = string.IsNullOrWhiteSpace(nickname) ? Path.GetFileNameWithoutExtension(path) : nickname,
                 Appearance = appearance,
-                X = player.Position.X,
-                Y = player.Position.Y,
-                Z = player.Position.Z,
-                Rotation = player.Rotation,
+                X = position.X,
+                Y = position.Y,
+                Z = position.Z,
+                Rotation = rotation,
             };
             _store.AddEntryToScene(sceneId, entry);
 
@@ -1361,8 +1365,10 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
                 return;
             }
 
-            var player = await _dalamudUtil.GetPlayerCharacterAsync().ConfigureAwait(false);
-            if (player == null) return;
+            var transform = await _dalamudUtil.GetPlayerTransformAsync().ConfigureAwait(false);
+            if (transform == null) return;
+            var (position, rotation) = transform.Value;
+            var playerName = await _dalamudUtil.GetPlayerNameAsync().ConfigureAwait(false);
 
             var sourceAddr = await _dalamudUtil.RunOnFrameworkThread(_dalamudUtil.GetPlayerPointer).ConfigureAwait(false);
             if (sourceAddr == nint.Zero)
@@ -1375,16 +1381,16 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
             if (captured == null) return; // notification déjà publiée
 
             var (appearance, liveData) = captured.Value;
-            var defaultName = glamourerDesign?.Name ?? player.Name.TextValue;
+            var defaultName = glamourerDesign?.Name ?? playerName;
             var entry = new HousingNpcEntry
             {
                 DisplayName = string.IsNullOrWhiteSpace(displayName) ? defaultName : displayName,
                 Appearance = appearance,
                 LiveData = liveData,
-                X = player.Position.X,
-                Y = player.Position.Y,
-                Z = player.Position.Z,
-                Rotation = player.Rotation,
+                X = position.X,
+                Y = position.Y,
+                Z = position.Z,
+                Rotation = rotation,
             };
             _store.AddEntryToScene(sceneId, entry);
 

@@ -187,10 +187,13 @@ public sealed class CharaDataNearbyManager : DisposableMediatorSubscriberBase
         _nearbyData.Clear();
 
         var ownLocation = await _dalamudUtilService.RunOnFrameworkThread(() => _dalamudUtilService.GetMapData()).ConfigureAwait(false);
-        var player = await _dalamudUtilService.RunOnFrameworkThread(() => _dalamudUtilService.GetPlayerCharacter()).ConfigureAwait(false);
-        if (player == null) return;
-        var currentServer = player.CurrentWorld;
-        var playerPos = player.Position;
+        var playerState = await _dalamudUtilService.RunOnFrameworkThread(() =>
+        {
+            var pc = _dalamudUtilService.GetPlayerCharacter();
+            return pc == null ? ((uint, Vector3)?)null : (pc.CurrentWorld.RowId, pc.Position);
+        }).ConfigureAwait(false);
+        if (playerState == null) return;
+        var (currentServerId, playerPos) = playerState.Value;
 
         var cameraYaw = GetCameraYaw(cameraPos, cameraLookAt);
 
@@ -221,11 +224,11 @@ public sealed class CharaDataNearbyManager : DisposableMediatorSubscriberBase
 
 
                 bool addEntry = (!isInHousing && poseLocation.MapId == ownLocation.MapId
-                        && (!onlyCurrentServer || poseLocation.ServerId == currentServer.RowId))
+                        && (!onlyCurrentServer || poseLocation.ServerId == currentServerId))
                     || (isInHousing
                         && (((ignoreHousingLimits && !onlyCurrentServer)
-                            || (ignoreHousingLimits && onlyCurrentServer) && poseLocation.ServerId == currentServer.RowId)
-                            || poseLocation.ServerId == currentServer.RowId)
+                            || (ignoreHousingLimits && onlyCurrentServer) && poseLocation.ServerId == currentServerId)
+                            || poseLocation.ServerId == currentServerId)
                         && ((poseLocation.HouseId == 0 && poseLocation.DivisionId == ownLocation.DivisionId
                                 && (ignoreHousingLimits || poseLocation.WardId == ownLocation.WardId))
                             || (poseLocation.HouseId > 0

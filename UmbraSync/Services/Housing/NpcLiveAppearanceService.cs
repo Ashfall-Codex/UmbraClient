@@ -45,10 +45,11 @@ public sealed class NpcLiveAppearanceService : DisposableMediatorSubscriberBase
     
     public async Task<(CharacterData? Data, NpcAppearance? Appearance)> CaptureDesignOnSelfAsync(Guid designId)
     {
-        var player = await _dalamudUtil.GetPlayerCharacterAsync().ConfigureAwait(false);
+        var player = await _dalamudUtil.RunOnFrameworkThread(() => _dalamudUtil.GetPlayerCharacter() is { } pc
+            ? ((int Index, nint Address)?)(pc.ObjectIndex, pc.Address)
+            : null).ConfigureAwait(false);
         if (player == null) return (null, null);
-        int index = player.ObjectIndex;
-        var playerAddr = player.Address;
+        var (index, playerAddr) = player.Value;
         var savedState = await _ipc.Glamourer.GetCharacterCustomizationAsync(playerAddr).ConfigureAwait(false);
         try
         {

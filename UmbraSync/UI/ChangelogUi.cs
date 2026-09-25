@@ -342,6 +342,10 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
     {
         return new List<ChangelogEntry>
         {
+            new(new Version(3, 0, 5, 9025), "3.0.5.9025", new List<ChangelogLine>
+            {
+                new("Correction : Suite à une mise à jour de Dalamud, plusieurs fonctions ne marchaient plus : détection des joueurs à proximité, poses et placement Brio en GPose, GPose Together, PNJ de logement et application de MCDF. Elles fonctionnent de nouveau."),
+            }),
             new(new Version(3, 0, 4, 9016), "3.0.4.9016", new List<ChangelogLine>
             {
                 new("Correction : Après un rechargement d'UmbraSync (par exemple une mise à jour en jeu), les joueurs déjà à proximité pouvaient rester sans leurs mods. Ils renvoient désormais leurs données dès votre reconnexion."),
