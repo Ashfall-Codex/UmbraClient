@@ -136,6 +136,7 @@ public record SyncshellDiscoveryUpdated(List<SyncshellDiscoveryEntryDto> Entries
 public record SyncshellAutoDetectStateChanged(string Gid, bool Visible, bool PasswordTemporarilyDisabled) : MessageBase;
 public record GroupLeftMessage(string Gid) : MessageBase;
 public record HousingPlotEnteredMessage(LocationInfo LocationInfo) : MessageBase;
+public record HousingPlotSettledMessage(LocationInfo LocationInfo) : MessageBase;
 public record HousingPlotLeftMessage : MessageBase;
 public record HousingNpcAddRequestMessage : MessageBase;
 public record HousingNpcWipeMessage : MessageBase;

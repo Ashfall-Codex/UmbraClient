@@ -1125,6 +1125,9 @@ Veuillez conserver une copie de votre clé secrète au cas où vous auriez besoi
   <data name="Slot.Toast.JoinFailed" xml:space="preserve">
     <value>Impossible de rejoindre la Syncshell de {0}. Veuillez réessayer.</value>
   </data>
+  <data name="Slot.Toast.MaxGroupsReached" xml:space="preserve">
+    <value>Impossible de rejoindre la Syncshell de {0} : vous avez atteint la limite de {1} syncshells. Quittez-en une pour rejoindre ce SyncSlot.</value>
+  </data>
   <data name="Slot.Toast.BackInRange" xml:space="preserve">
     <value>{0} : vous êtes de retour dans la zone. Le décompte de sortie automatique a été annulé.</value>
   </data>

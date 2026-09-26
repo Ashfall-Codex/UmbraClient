@@ -36,7 +36,12 @@ public sealed class PenumbraRedraw : IDisposable
 
     public async Task RedrawAsync(ILogger logger, GameObjectHandler handler, Guid applicationId, CancellationToken token)
     {
-        if (!_core.APIAvailable || _core.DalamudUtil.IsZoning) return;
+        if (!_core.APIAvailable) return;
+        if (_core.DalamudUtil.IsZoning)
+        {
+            logger.LogWarning("[{appid}] Redraw Penumbra écarté : joueur entre deux zones", applicationId);
+            return;
+        }
 
         var semaphoreAcquired = false;
         try

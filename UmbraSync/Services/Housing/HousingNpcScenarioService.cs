@@ -101,7 +101,12 @@ public sealed class HousingNpcScenarioService : DisposableMediatorSubscriberBase
         _dalamudUtil = dalamudUtil;
         _poseCatalog = poseCatalog;
 
-        Mediator.Subscribe<HousingPlotEnteredMessage>(this, msg => { _ = OnEnteredAsync(msg.LocationInfo); });
+        Mediator.Subscribe<HousingPlotEnteredMessage>(this, msg => _currentLocation = msg.LocationInfo);
+        Mediator.Subscribe<HousingPlotSettledMessage>(this, msg =>
+        {
+            if (_currentLocation != msg.LocationInfo) return;
+            _ = OnEnteredAsync(msg.LocationInfo);
+        });
         Mediator.Subscribe<HousingPlotLeftMessage>(this, m => { _ = OnLeftAsync(); });
         Mediator.Subscribe<ZoneSwitchStartMessage>(this, _ => ForgetSpawned());
         Mediator.Subscribe<HousingNpcAddRequestMessage>(this, m => { _ = DebugAddFromSelfAsync(); });

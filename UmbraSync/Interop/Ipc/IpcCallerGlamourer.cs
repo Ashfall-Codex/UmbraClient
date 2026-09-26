@@ -198,7 +198,12 @@ public sealed class IpcCallerGlamourer : DisposableMediatorSubscriberBase, IIpcC
 
     public async Task<GlamourerApiEc?> ApplyAllAsync(ILogger logger, GameObjectHandler handler, string? customization, Guid applicationId, CancellationToken token, bool allowImmediate = false)
     {
-        if (!APIAvailable || string.IsNullOrEmpty(customization) || _dalamudUtil.IsZoning) return null;
+        if (!APIAvailable || string.IsNullOrEmpty(customization)) return null;
+        if (_dalamudUtil.IsZoning)
+        {
+            logger.LogWarning("[{appid}] Application Glamourer écartée : joueur entre deux zones", applicationId);
+            return null;
+        }
 
         GlamourerApiEc? result = null;
         var semaphoreAcquired = false;

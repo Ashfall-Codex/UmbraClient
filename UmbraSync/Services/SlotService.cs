@@ -293,6 +293,10 @@ public class SlotService : MediatorSubscriberBase, IDisposable
                                 Mediator.Publish(new NotificationMessage(Loc.Get("SlotPopup.Title"), string.Format(Loc.Get("Slot.Toast.Welcome"), slotInfo.SlotName), MareConfiguration.Models.NotificationType.Info));
                             }
                         }
+                        else if (!CanJoinMoreGroups())
+                        {
+                            NotifyMaxGroupsReached(slotInfo);
+                        }
                         else
                         {
                             Logger.LogDebug("Publishing OpenSlotPromptMessage for slot {name} (not a member)", slotInfo.SlotName);
@@ -447,6 +451,10 @@ public class SlotService : MediatorSubscriberBase, IDisposable
                         Mediator.Publish(new NotificationMessage(Loc.Get("SlotPopup.Title"), string.Format(Loc.Get("Slot.Toast.Welcome"), slotInfo.SlotName), MareConfiguration.Models.NotificationType.Info));
                     }
                 }
+                else if (!CanJoinMoreGroups())
+                {
+                    NotifyMaxGroupsReached(slotInfo);
+                }
                 else
                 {
                     Logger.LogInformation("Publishing OpenSlotPromptMessage for slot {name} (not a member)", slotInfo.SlotName);
@@ -455,6 +463,23 @@ public class SlotService : MediatorSubscriberBase, IDisposable
                 }
             }
         }
+    }
+
+    private bool CanJoinMoreGroups()
+    {
+        int max = _apiController.ServerInfo.MaxGroupsJoinedByUser;
+        return max <= 0 || _pairManager.GroupPairs.Count < max;
+    }
+
+    private void NotifyMaxGroupsReached(SlotInfoResponseDto slotInfo)
+    {
+        if (_lastNotifiedSlot?.SlotId == slotInfo.SlotId) return;
+        _lastNotifiedSlot = slotInfo;
+        Logger.LogInformation("Slot {name} : limite de syncshells atteinte ({count}/{max}), popup non affiché",
+            slotInfo.SlotName, _pairManager.GroupPairs.Count, _apiController.ServerInfo.MaxGroupsJoinedByUser);
+        Mediator.Publish(new NotificationMessage(Loc.Get("SlotPopup.Title"),
+            string.Format(Loc.Get("Slot.Toast.MaxGroupsReached"), slotInfo.SlotName, _apiController.ServerInfo.MaxGroupsJoinedByUser),
+            MareConfiguration.Models.NotificationType.Warning));
     }
 
     private void StartLeaveTimer()

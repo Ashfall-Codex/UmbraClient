@@ -35,10 +35,8 @@ public sealed class HousingScenarioSyncService : IHostedService, IMediatorSubscr
         // (aucun fichier écrit sur disque), elles disparaissent donc d'elles-mêmes au redémarrage.
 
         _mediator.Subscribe<HousingPlotEnteredMessage>(this, OnHousingPlotEntered);
+        _mediator.Subscribe<HousingPlotSettledMessage>(this, OnHousingPlotSettled);
         _mediator.Subscribe<HousingPlotLeftMessage>(this, _ => OnHousingPlotLeft());
-        // Le changement de zone détruit les acteurs natifs des PNJ : l'état « appliqué » du manager
-        // ne correspond plus à rien et doit être invalidé, sinon un retour rapide dans le logement
-        // annule le nettoyage différé et le scénario n'est jamais respawné.
         _mediator.Subscribe<ZoneSwitchStartMessage>(this, _ => _manager.InvalidateApplied("changement de zone"));
         _mediator.Subscribe<HousingNpcSharedScenePurgedMessage>(this, _ => OnSharedScenePurged());
         _mediator.Subscribe<ConnectedMessage>(this, _ => OnConnected());
@@ -61,6 +59,19 @@ public sealed class HousingScenarioSyncService : IHostedService, IMediatorSubscr
             msg.LocationInfo.ServerId, msg.LocationInfo.TerritoryId, msg.LocationInfo.WardId, msg.LocationInfo.HouseId);
 
         _currentPlotLocation = msg.LocationInfo;
+    }
+
+    // La recherche du scénario attend le message « stabilisé » (3 s après l'entrée) : juste après
+    // un changement de zone, Penumbra/Glamourer ne sont pas prêts et les PNJ sortent en vanilla
+    // ou avec l'apparence du joueur.
+    private void OnHousingPlotSettled(HousingPlotSettledMessage msg)
+    {
+        if (_currentPlotLocation != msg.LocationInfo)
+        {
+            _logger.LogDebug("Scenario sync : plot settled ignoré, localisation changée entre-temps");
+            return;
+        }
+
         _ = TryApplyScenarioAsync(msg.LocationInfo);
     }
 

@@ -1225,6 +1225,9 @@ Click to change.</value>
   <data name="Slot.Toast.JoinFailed" xml:space="preserve">
     <value>Failed to join the Syncshell of {0}. Please try again.</value>
   </data>
+  <data name="Slot.Toast.MaxGroupsReached" xml:space="preserve">
+    <value>Cannot join the Syncshell of {0}: you have reached the limit of {1} syncshells. Leave one to join this SyncSlot.</value>
+  </data>
   <data name="Slot.Toast.BackInRange" xml:space="preserve">
     <value>You are back in the area of {0}. The auto-leave countdown has been cancelled.</value>
   </data>

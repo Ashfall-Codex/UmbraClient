@@ -10,7 +10,9 @@ public class HousingMonitorService : IHostedService, IMediatorSubscriber
     private readonly ILogger<HousingMonitorService> _logger;
     private readonly MareMediator _mediator;
     private readonly DalamudUtilService _dalamudUtil;
+    private const int PlotSettleDelayMs = 3000;
     private LocationInfo _lastLocation = new();
+    private long? _plotEnteredAtTicks;
     private CancellationTokenSource? _loopCts;
 
     public HousingMonitorService(ILogger<HousingMonitorService> logger, MareMediator mediator, DalamudUtilService dalamudUtil)
@@ -78,13 +80,22 @@ public class HousingMonitorService : IHostedService, IMediatorSubscriber
                     if (isInHousing)
                     {
                         _mediator.Publish(new HousingPlotEnteredMessage(currentLocation));
+                        _plotEnteredAtTicks = Environment.TickCount64;
                     }
                     else if (wasInHousing)
                     {
                         _mediator.Publish(new HousingPlotLeftMessage());
+                        _plotEnteredAtTicks = null;
                     }
 
                     _lastLocation = currentLocation;
+                }
+                else if (_plotEnteredAtTicks is { } enteredAt && Environment.TickCount64 - enteredAt >= PlotSettleDelayMs
+                         && !_dalamudUtil.IsZoning)
+                {
+                    _plotEnteredAtTicks = null;
+                    _logger.LogDebug("Housing plot settled after {DelayMs}ms", PlotSettleDelayMs);
+                    _mediator.Publish(new HousingPlotSettledMessage(currentLocation));
                 }
 
                 var playerTransform = await _dalamudUtil.GetPlayerTransformAsync().ConfigureAwait(false);

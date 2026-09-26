@@ -41,7 +41,7 @@ public sealed class HousingFurnitureSyncService : IHostedService, IMediatorSubsc
         // Nettoyer les mods housing orphelins de sessions précédentes
         _housingShareManager.CleanupStaleMods();
 
-        _mediator.Subscribe<HousingPlotEnteredMessage>(this, OnHousingPlotEntered);
+        _mediator.Subscribe<HousingPlotSettledMessage>(this, OnHousingPlotSettled);
         _mediator.Subscribe<HousingPlotLeftMessage>(this, _ => OnHousingPlotLeft());
         _mediator.Subscribe<ApplyDefaultsToAllSyncsMessage>(this, OnDefaultsChanged);
 
@@ -55,9 +55,9 @@ public sealed class HousingFurnitureSyncService : IHostedService, IMediatorSubsc
         return Task.CompletedTask;
     }
 
-    private void OnHousingPlotEntered(HousingPlotEnteredMessage msg)
+    private void OnHousingPlotSettled(HousingPlotSettledMessage msg)
     {
-        _logger.LogDebug("Entered housing plot {Server}:{Territory}:{Ward}:{House}",
+        _logger.LogDebug("Settled in housing plot {Server}:{Territory}:{Ward}:{House}",
             msg.LocationInfo.ServerId, msg.LocationInfo.TerritoryId, msg.LocationInfo.WardId, msg.LocationInfo.HouseId);
 
         //Global : si la synchro housing est désactivée, ne pas appliquer

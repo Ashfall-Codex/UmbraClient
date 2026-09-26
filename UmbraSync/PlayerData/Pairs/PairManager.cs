@@ -125,21 +125,25 @@ public sealed class PairManager : DisposableMediatorSubscriberBase
         }
     }
 
-    /// <summary>
-    /// Vrai lorsqu'un autre plugin Ashfall présente déjà la fiche complète d'un joueur,
-    /// profil RP compris. UmbraSync lui cède alors son entrée de menu plutôt que de
-    /// proposer deux fois la même chose.
-    ///
-    /// C'est l'autre plugin qui l'annonce : UmbraSync n'a pas à connaître la liste de ceux
-    /// qui pourraient le faire.
-    /// </summary>
-    private bool ExternalPluginHandlesSheets()
+    private bool ExternalPluginHandlesSheetFor(uint objectId)
     {
         if (!_configurationService.Current.ShareRpProfileWithPlugins) return false;
 
+        var pluginInterface = _serviceProvider.GetRequiredService<IDalamudPluginInterface>();
+
         try
         {
-            var pluginInterface = _serviceProvider.GetRequiredService<IDalamudPluginInterface>();
+            return pluginInterface
+                .GetIpcSubscriber<uint, bool>("MasterEvent.Profile.HandlesSheetFor")
+                .InvokeFunc(objectId);
+        }
+        catch
+        {
+            // Point d'entrée par cible absent : plugin plus ancien, ou pas installé du tout.
+        }
+
+        try
+        {
             return pluginInterface
                 .GetIpcSubscriber<bool>("MasterEvent.Profile.HandlesSheets")
                 .InvokeFunc();
@@ -925,7 +929,8 @@ public sealed class PairManager : DisposableMediatorSubscriberBase
 
         TryAddAutoDetectPairRequestItem(args);
 
-        var externalHandlesSheets = ExternalPluginHandlesSheets();
+        var targetObjectId = args.Target is MenuTargetDefault menuTarget ? (uint)menuTarget.TargetObjectId : 0u;
+        var externalHandlesSheets = ExternalPluginHandlesSheetFor(targetObjectId);
         foreach (var pair in _allClientPairs.Where((p => p.Value.IsVisible)))
         {
             pair.Value.AddContextMenu(args, externalHandlesSheets);

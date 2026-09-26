@@ -261,11 +261,31 @@ public sealed class NpcLiveAppearanceService : DisposableMediatorSubscriberBase
 
     private async Task ApplyGlamourerAsync(NpcLiveHandle handle, string? glamourer, CancellationToken token)
     {
+        await WaitForZoningEndAsync(handle, token).ConfigureAwait(false);
         await _ipc.Glamourer.ApplyAllAsync(Logger, handle.Handler, glamourer, handle.ApplicationId, token).ConfigureAwait(false);
         await _ipc.Penumbra.RedrawAsync(Logger, handle.Handler, handle.ApplicationId, token).ConfigureAwait(false);
         await _dalamudUtil.WaitWhileCharacterIsDrawing(Logger, handle.Handler, handle.ApplicationId, 30000, token).ConfigureAwait(false);
     }
     
+    private async Task WaitForZoningEndAsync(NpcLiveHandle handle, CancellationToken token)
+    {
+        const int maxWaitMs = 10000, stepMs = 100;
+        if (!_dalamudUtil.IsZoning) return;
+
+        Logger.LogInformation("Live PNJ : zoning en cours, application Glamourer de l'index {Index} différée", handle.ObjectIndex);
+        int waited = 0;
+        while (_dalamudUtil.IsZoning && waited < maxWaitMs)
+        {
+            await Task.Delay(stepMs, token).ConfigureAwait(false);
+            waited += stepMs;
+        }
+
+        if (_dalamudUtil.IsZoning)
+            Logger.LogWarning("Live PNJ : zoning toujours en cours après {Timeout}ms, l'application Glamourer de l'index {Index} sera probablement écartée", maxWaitMs, handle.ObjectIndex);
+        else
+            Logger.LogDebug("Live PNJ : fin du zoning après {Waited}ms, application Glamourer de l'index {Index}", waited, handle.ObjectIndex);
+    }
+
     private async Task VerifyGlamourerAppliedAsync(NpcLiveHandle handle, string? glamourer, string stateBefore, CancellationToken token)
     {
         if (string.IsNullOrEmpty(glamourer) || string.IsNullOrEmpty(stateBefore)) return;
