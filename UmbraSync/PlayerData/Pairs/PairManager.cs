@@ -978,11 +978,7 @@ public sealed class PairManager : DisposableMediatorSubscriberBase
 
         if (nearbyEntry == null)
         {
-            Logger.LogDebug("[ContextMenu] No AutoDetect match for {name}@{world} (entries={cnt}). Example entries: {examples}",
-                clickedPlayerName,
-                (ushort)clickedPlayer.HomeWorldId,
-                entries.Count,
-                string.Join(", ", entries.Take(5).Select(e => $"{e.Name}/{e.DisplayName}@{e.WorldId}")));
+            Logger.LogDebug("[ContextMenu] No AutoDetect match for the clicked player (entries={cnt})", entries.Count);
             return;
         }
 
@@ -993,17 +989,15 @@ public sealed class PairManager : DisposableMediatorSubscriberBase
 
         if (!canSendRequest && !canAddPair)
         {
-            Logger.LogDebug("[ContextMenu] AutoDetect entry for {name}@{world} is not actionable (Token={hasToken}, Uid={hasUid}, Accepts={accepts})",
-                clickedPlayerName, (ushort)clickedPlayer.HomeWorldId,
+            Logger.LogDebug("[ContextMenu] AutoDetect entry is not actionable (Token={hasToken}, Uid={hasUid}, Accepts={accepts})",
                 !string.IsNullOrEmpty(nearbyEntry.Token),
                 !string.IsNullOrEmpty(nearbyEntry.Uid),
                 nearbyEntry.AcceptPairRequests);
             return;
         }
 
-        Logger.LogDebug("[ContextMenu] AutoDetect match found for {name}@{world}: entry={entryName}/{display}@{entryWorld} (Uid={uid}, Token={hasToken})",
-            clickedPlayerName, (ushort)clickedPlayer.HomeWorldId,
-            nearbyEntry.Name, nearbyEntry.DisplayName ?? "<null>", nearbyEntry.WorldId, nearbyEntry.Uid ?? "<null>", !string.IsNullOrEmpty(nearbyEntry.Token));
+        Logger.LogDebug("[ContextMenu] AutoDetect match found (Uid={uid}, Token={hasToken})",
+            nearbyEntry.Uid ?? "<null>", !string.IsNullOrEmpty(nearbyEntry.Token));
 
         if (canSendRequest)
         {
@@ -1046,8 +1040,8 @@ public sealed class PairManager : DisposableMediatorSubscriberBase
             });
         }
 
-        Logger.LogDebug("[ContextMenu] Added auto-detect menu for {name}@{world} (Uid={uid}) Request={reqEnabled} AddPair={addEnabled}",
-            clickedPlayerName, (ushort)clickedPlayer.HomeWorldId, nearbyEntry.Uid, canSendRequest, canAddPair);
+        Logger.LogDebug("[ContextMenu] Added auto-detect menu (Uid={uid}) Request={reqEnabled} AddPair={addEnabled}",
+            nearbyEntry.Uid, canSendRequest, canAddPair);
     }
 
     private Lazy<List<Pair>> DirectPairsLazy() => new(() => _allClientPairs.Select(k => k.Value)

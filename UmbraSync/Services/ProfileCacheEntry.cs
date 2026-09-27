@@ -33,6 +33,7 @@ internal class ProfileCacheEntry
     public string? MoodlesData { get; set; }
     public ushort ChatIcon { get; set; }
     public byte RpLevel { get; set; }
+    public DateTime? CachedAtUtc { get; set; }
 
     public UmbraProfileData ToProfileData() => new(
         IsFlagged, IsNSFW, Base64ProfilePicture, Description,

@@ -62,6 +62,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
     private bool _ashfallStatusLoading;
     private static readonly TimeSpan AshfallStatusTtl = TimeSpan.FromSeconds(30);
     private readonly RgpdDataService _rgpdDataService;
+    private readonly EstablishmentConfigService _establishmentConfigService;
     private readonly MareConfiguration.SyncshellConfigService _syncshellConfigService;
     private readonly MareConfiguration.CharaDataConfigService _charaDataConfigService;
     private readonly NetworkDiagnosticService _networkDiagnostic;
@@ -151,7 +152,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
         AutoDetectSuppressionService autoDetectSuppressionService,
         PenumbraPrecacheService precacheService,
         ChatTypingDetectionService chatTypingDetectionService,
-        RgpdDataService gdprDataService,
+        RgpdDataService gdprDataService, EstablishmentConfigService establishmentConfigService,
         MareConfiguration.SyncshellConfigService syncshellConfigService,
         MareConfiguration.CharaDataConfigService charaDataConfigService,
         UmbraSync.WebAPI.AshfallConnectService ashfallConnect,
@@ -180,6 +181,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
         _precacheService = precacheService;
         _chatTypingDetectionService = chatTypingDetectionService;
         _rgpdDataService = gdprDataService;
+        _establishmentConfigService = establishmentConfigService;
         _syncshellConfigService = syncshellConfigService;
         _charaDataConfigService = charaDataConfigService;
         _networkDiagnostic = networkDiagnostic;
@@ -1464,6 +1466,16 @@ public class SettingsUi : WindowMediatorSubscriberBase
         }
     }
 
+    private static void DrawPrivacyOptionState(string key, bool enabled)
+    {
+        ImGui.Bullet();
+        ImGui.SameLine();
+        ImGui.TextUnformatted(Loc.Get(key));
+        ImGui.SameLine();
+        UiSharedService.ColorText(Loc.Get(enabled ? "Settings.Privacy.Optional.On" : "Settings.Privacy.Optional.Off"),
+            enabled ? ImGuiColors.HealerGreen : ImGuiColors.DalamudGrey3);
+    }
+
     private void DrawPrivacy()
     {
         _lastTab = "Privacy";
@@ -1509,16 +1521,18 @@ public class SettingsUi : WindowMediatorSubscriberBase
             }
             ImGuiHelpers.ScaledDummy(2f);
 
-            var details = new List<string>();
-            if (_configService.Current.RgpdConsentDataCollection) details.Add(Loc.Get("Settings.Privacy.ConsentDetail.Collection"));
-            if (_configService.Current.RgpdConsentDataSharing) details.Add(Loc.Get("Settings.Privacy.ConsentDetail.Sharing"));
-            if (_configService.Current.RgpdConsentThirdPartyPlugins) details.Add(Loc.Get("Settings.Privacy.ConsentDetail.ThirdParty"));
-            foreach (var d in details)
-            {
-                ImGui.Bullet();
-                ImGui.SameLine();
-                ImGui.TextUnformatted(d);
-            }
+            ImGui.Bullet();
+            ImGui.SameLine();
+            ImGui.TextUnformatted(Loc.Get("Settings.Privacy.ConsentDetail.Mandatory"));
+
+            ImGuiHelpers.ScaledDummy(4f);
+            UiSharedService.TextWrapped(Loc.Get("Settings.Privacy.Optional.Intro"));
+            ImGuiHelpers.ScaledDummy(2f);
+            var choices = _rgpdDataService.CurrentOptionalChoices;
+            DrawPrivacyOptionState("Rgpd.Consent.Optional.Nearby", choices.NearbyDiscovery);
+            DrawPrivacyOptionState("Rgpd.Consent.Optional.Position", choices.ProximityPosition);
+            DrawPrivacyOptionState("Rgpd.Consent.Optional.Typing", choices.TypingIndicator);
+            DrawPrivacyOptionState("Rgpd.Consent.Optional.Plugins", choices.PluginSharing);
         }
         else
         {
@@ -1546,20 +1560,27 @@ public class SettingsUi : WindowMediatorSubscriberBase
                 _rgpdExportStatusMessage = Loc.Get("Settings.Privacy.Export.InProgress");
                 _ = Task.Run(async () =>
                 {
-                    var result = await _apiController.UserRgpdExportData().ConfigureAwait(false);
-                    if (result != null)
+                    try
                     {
+                        var result = await _apiController.UserRgpdExportData().ConfigureAwait(false);
+                        if (result == null)
+                        {
+                            _rgpdExportStatusMessage = Loc.Get("Settings.Privacy.Export.Failed");
+                            return;
+                        }
+
                         var exportDir = !string.IsNullOrEmpty(_configService.Current.ExportFolder)
                             ? _configService.Current.ExportFolder
                             : Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
                         Directory.CreateDirectory(exportDir);
                         var path = Path.Combine(exportDir, $"umbrasync_server_export_{DateTime.UtcNow:yyyyMMdd_HHmmss}.json");
                         var json = System.Text.Json.JsonSerializer.Serialize(result, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
-                        File.WriteAllText(path, json);
-                        _rgpdExportStatusMessage = string.Format(Loc.Get("Settings.Privacy.Export.Success"), path);
+                        await File.WriteAllTextAsync(path, json).ConfigureAwait(false);
+                        _rgpdExportStatusMessage = string.Format(CultureInfo.CurrentCulture, Loc.Get("Settings.Privacy.Export.Success"), path);
                     }
-                    else
+                    catch (Exception ex)
                     {
+                        _logger.LogWarning(ex, "RGPD server export failed");
                         _rgpdExportStatusMessage = Loc.Get("Settings.Privacy.Export.Failed");
                     }
                 });
@@ -4195,6 +4216,14 @@ public class SettingsUi : WindowMediatorSubscriberBase
             _configService.Save();
         }
         _uiShared.DrawHelpText(Loc.Get("Settings.AutoDetect.EnableSlotNotificationsHelp"));
+
+        var enableEstablishmentProximity = _establishmentConfigService.Current.EnableProximityNotifications;
+        if (ToggleSwitch.Draw(Loc.Get("Settings.AutoDetect.EnableEstablishmentProximity"), ref enableEstablishmentProximity))
+        {
+            _establishmentConfigService.Current.EnableProximityNotifications = enableEstablishmentProximity;
+            _establishmentConfigService.Save();
+        }
+        _uiShared.DrawHelpText(Loc.Get("Settings.AutoDetect.EnableEstablishmentProximityHelp"));
 
         if (isAutoDetectSuppressed)
         {

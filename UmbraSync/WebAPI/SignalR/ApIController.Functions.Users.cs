@@ -148,7 +148,7 @@ public partial class ApiController
 
         try
         {
-            Logger.LogInformation("Sending UserSetAlias to server. Alias: {alias}", alias ?? "(null/clearing)");
+            Logger.LogInformation("Sending UserSetAlias to server ({action})", alias == null ? "clearing" : "setting");
             await _mareHub!.InvokeAsync(nameof(UserSetAlias), alias).ConfigureAwait(false);
             Logger.LogInformation("UserSetAlias successfully sent to server");
         }
@@ -169,8 +169,7 @@ public partial class ApiController
 
         try
         {
-            var json = System.Text.Json.JsonSerializer.Serialize(userDescription, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
-            Logger.LogInformation("Sending UserSetProfile to server for {uid}. Data: {json}", userDescription.User.UID, json);
+            Logger.LogInformation("Sending UserSetProfile to server for {uid}", userDescription.User.UID);
             await _mareHub!.InvokeAsync(nameof(UserSetProfile), userDescription).ConfigureAwait(false);
             Logger.LogInformation("UserSetProfile successfully sent to server");
         }
@@ -240,7 +239,7 @@ public partial class ApiController
 
     private async Task PushCharacterDataInternal(CharacterData character, List<UserData> visibleCharacters)
     {
-        Logger.LogInformation("Pushing character data for {hash} to {charas}", character.DataHash.Value, string.Join(", ", visibleCharacters.Select(c => c.AliasOrUID)));
+        Logger.LogInformation("Pushing character data for {hash} to {count} visible pair(s)", character.DataHash.Value, visibleCharacters.Count);
         StringBuilder sb = new();
         foreach (var kvp in character.FileReplacements.ToList())
         {

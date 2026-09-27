@@ -33,9 +33,12 @@ public partial class IntroUi : WindowMediatorSubscriberBase
     private readonly RgpdDataService _rgpdDataService;
     private readonly UiSharedService _uiShared;
     private bool _readFirstPage;
-    private bool _rgpdConsentDataCollection = true;
-    private bool _rgpdConsentDataSharing = true;
-    private bool _rgpdConsentThirdPartyPlugins;
+    // Rien n'est coché d'avance : un consentement pré-rempli n'en est pas un.
+    private bool _rgpdConsentMandatory;
+    private bool _rgpdOptionNearby;
+    private bool _rgpdOptionPosition;
+    private bool _rgpdOptionTyping;
+    private bool _rgpdOptionPlugins;
 
     private string _secretKey = string.Empty;
     private string _timeoutLabel = string.Empty;
@@ -391,16 +394,21 @@ public partial class IntroUi : WindowMediatorSubscriberBase
         UiSharedService.ColorTextWrapped(Loc.Get("Rgpd.Consent.ConnectNotice"), ImGuiColors.DalamudGrey3);
         ImGuiHelpers.ScaledDummy(4f);
 
-        // Mandatory consents
-        ImGui.Checkbox(Loc.Get("Rgpd.Consent.DataCollection"), ref _rgpdConsentDataCollection);
-        UiSharedService.ColorTextWrapped(Loc.Get("Rgpd.Consent.DataCollection.Detail"), ImGuiColors.DalamudGrey3);
+        UiSharedService.ColorTextWrapped(Loc.Get("Rgpd.Consent.ThirdParties"), ImGuiColors.DalamudGrey3);
+        ImGuiHelpers.ScaledDummy(4f);
 
-        ImGui.Checkbox(Loc.Get("Rgpd.Consent.DataSharing"), ref _rgpdConsentDataSharing);
-        UiSharedService.ColorTextWrapped(Loc.Get("Rgpd.Consent.DataSharing.Detail"), ImGuiColors.DalamudGrey3);
+        ImGui.Checkbox(Loc.Get("Rgpd.Consent.Mandatory"), ref _rgpdConsentMandatory);
+        UiSharedService.ColorTextWrapped(Loc.Get("Rgpd.Consent.Mandatory.Detail"), ImGuiColors.DalamudGrey3);
 
-        // Optional consent
-        ImGui.Checkbox(Loc.Get("Rgpd.Consent.ThirdParty"), ref _rgpdConsentThirdPartyPlugins);
-        UiSharedService.ColorTextWrapped(Loc.Get("Rgpd.Consent.ThirdParty.Detail"), ImGuiColors.DalamudGrey3);
+        ImGuiHelpers.ScaledDummy(6f);
+        _uiShared.BigText(Loc.Get("Rgpd.Consent.Optional.Header"));
+        UiSharedService.TextWrapped(Loc.Get("Rgpd.Consent.Optional.Intro"));
+        ImGuiHelpers.ScaledDummy(2f);
+
+        DrawRgpdOption("Rgpd.Consent.Optional.Nearby", ref _rgpdOptionNearby);
+        DrawRgpdOption("Rgpd.Consent.Optional.Position", ref _rgpdOptionPosition);
+        DrawRgpdOption("Rgpd.Consent.Optional.Typing", ref _rgpdOptionTyping);
+        DrawRgpdOption("Rgpd.Consent.Optional.Plugins", ref _rgpdOptionPlugins);
 
         ImGuiHelpers.ScaledDummy(6f);
         ImGui.Separator();
@@ -414,20 +422,26 @@ public partial class IntroUi : WindowMediatorSubscriberBase
         UiSharedService.ColorTextWrapped(Loc.Get("Rgpd.Consent.Controller"), ImGuiColors.DalamudGrey3);
         ImGuiHelpers.ScaledDummy(4f);
 
-        // Accept button (requires mandatory consents)
-        bool canAccept = _rgpdConsentDataCollection && _rgpdConsentDataSharing;
-        using (ImRaii.Disabled(!canAccept))
+        using (ImRaii.Disabled(!_rgpdConsentMandatory))
         {
             if (ImGui.Button(Loc.Get("Rgpd.Consent.AcceptButton")))
             {
-                _rgpdDataService.AcceptRgpdConsent(_rgpdConsentDataCollection, _rgpdConsentDataSharing, _rgpdConsentThirdPartyPlugins);
+                _rgpdDataService.AcceptRgpdConsent(new RgpdDataService.OptionalChoices(
+                    _rgpdOptionNearby, _rgpdOptionPosition, _rgpdOptionTyping, _rgpdOptionPlugins));
             }
         }
 
-        if (!canAccept)
+        if (!_rgpdConsentMandatory)
         {
             UiSharedService.ColorTextWrapped(Loc.Get("Rgpd.Consent.MandatoryWarning"), ImGuiColors.DalamudYellow);
         }
+    }
+
+    private static void DrawRgpdOption(string key, ref bool value)
+    {
+        ToggleSwitch.Draw(Loc.Get(key), ref value);
+        UiSharedService.ColorTextWrapped(Loc.Get(key + ".Detail"), ImGuiColors.DalamudGrey3);
+        ImGuiHelpers.ScaledDummy(2f);
     }
 
 #pragma warning disable MA0009

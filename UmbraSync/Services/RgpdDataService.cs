@@ -4,6 +4,7 @@ using System.Text.Json.Serialization;
 using UmbraSync.MareConfiguration;
 using UmbraSync.MareConfiguration.Configurations;
 using UmbraSync.Services.Mediator;
+using UmbraSync.Services.Notification;
 
 namespace UmbraSync.Services;
 
@@ -17,6 +18,10 @@ public class RgpdDataService : DisposableMediatorSubscriberBase
     private readonly EstablishmentConfigService _establishmentConfigService;
     private readonly SyncshellConfigService _syncshellConfigService;
     private readonly CharaDataConfigService _charaDataConfigService;
+    private readonly TransientConfigService _transientConfigService;
+    private readonly PlayerPerformanceConfigService _playerPerformanceConfigService;
+    private readonly NotificationTracker _notificationTracker;
+    private readonly UmbraProfileManager _umbraProfileManager;
     private readonly string _configDirectory;
     private static readonly TimeSpan BackupPurgeDelay = TimeSpan.FromSeconds(8);
 
@@ -35,6 +40,10 @@ public class RgpdDataService : DisposableMediatorSubscriberBase
         EstablishmentConfigService establishmentConfigService,
         SyncshellConfigService syncshellConfigService,
         CharaDataConfigService charaDataConfigService,
+        TransientConfigService transientConfigService,
+        PlayerPerformanceConfigService playerPerformanceConfigService,
+        NotificationTracker notificationTracker,
+        UmbraProfileManager umbraProfileManager,
         Dalamud.Plugin.IDalamudPluginInterface pluginInterface) : base(logger, mediator)
     {
         _configService = configService;
@@ -45,26 +54,52 @@ public class RgpdDataService : DisposableMediatorSubscriberBase
         _establishmentConfigService = establishmentConfigService;
         _syncshellConfigService = syncshellConfigService;
         _charaDataConfigService = charaDataConfigService;
+        _transientConfigService = transientConfigService;
+        _playerPerformanceConfigService = playerPerformanceConfigService;
+        _notificationTracker = notificationTracker;
+        _umbraProfileManager = umbraProfileManager;
         _configDirectory = pluginInterface.ConfigDirectory.FullName;
 
         Mediator.Subscribe<RgpdDataExportRequestMessage>(this, (msg) => _ = Task.Run(ExportLocalData));
         Mediator.Subscribe<RgpdLocalDataDeletionRequestMessage>(this, (msg) => _ = Task.Run(DeleteLocalData));
     }
-    public bool IsRgpdConsentValid => _configService.Current.RgpdConsentGiven
-        && _configService.Current.AcceptedRgpdVersion >= MareConfig.ExpectedRgpdVersion;
-    
+    public bool IsRgpdConsentValid => _configService.Current.HasValidRgpdConsent();
+
     public bool IsRgpdConsentOutdated => _configService.Current.RgpdConsentGiven
         && _configService.Current.AcceptedRgpdVersion < MareConfig.ExpectedRgpdVersion;
 
-    public void AcceptRgpdConsent(bool dataCollection, bool dataSharing, bool thirdPartyPlugins)
+    /// <summary>Traitements facultatifs : chacun correspond à un réglage que l'utilisateur peut couper à tout moment.</summary>
+    /// <param name="NearbyDiscovery">Détection des joueurs UmbraSync à proximité.</param>
+    /// <param name="ProximityPosition">Envoi de la position pour les slots et les établissements proches.</param>
+    /// <param name="TypingIndicator">Indicateur d'écriture transmis aux paires.</param>
+    /// <param name="PluginSharing">Lecture des fiches RP par les autres plugins installés.</param>
+    public readonly record struct OptionalChoices(bool NearbyDiscovery, bool ProximityPosition, bool TypingIndicator, bool PluginSharing);
+
+    public OptionalChoices CurrentOptionalChoices => new(
+        _configService.Current.EnableAutoDetectDiscovery,
+        _configService.Current.EnableSlotNotifications || _establishmentConfigService.Current.EnableProximityNotifications,
+        _configService.Current.TypingIndicatorEnabled,
+        _configService.Current.ShareRpProfileWithPlugins);
+
+    public void AcceptRgpdConsent(OptionalChoices choices)
     {
         _configService.Current.RgpdConsentGiven = true;
         _configService.Current.RgpdConsentDate = DateTime.UtcNow;
         _configService.Current.AcceptedRgpdVersion = MareConfig.ExpectedRgpdVersion;
-        _configService.Current.RgpdConsentDataCollection = dataCollection;
-        _configService.Current.RgpdConsentDataSharing = dataSharing;
-        _configService.Current.RgpdConsentThirdPartyPlugins = thirdPartyPlugins;
+        _configService.Current.RgpdConsentDataCollection = true;
+        _configService.Current.RgpdConsentDataSharing = true;
+        _configService.Current.RgpdConsentThirdPartyPlugins = choices.PluginSharing;
+
+        _configService.Current.EnableAutoDetectDiscovery = choices.NearbyDiscovery;
+        _configService.Current.AllowAutoDetectPairRequests = choices.NearbyDiscovery;
+        _configService.Current.EnableSlotNotifications = choices.ProximityPosition;
+        _configService.Current.TypingIndicatorEnabled = choices.TypingIndicator;
+        _configService.Current.ShareRpProfileWithPlugins = choices.PluginSharing;
         _configService.Save();
+
+        _establishmentConfigService.Current.EnableProximityNotifications = choices.ProximityPosition;
+        _establishmentConfigService.Save();
+
         Mediator.Publish(new RgpdConsentUpdatedMessage(true));
     }
 
@@ -80,7 +115,11 @@ public class RgpdDataService : DisposableMediatorSubscriberBase
         Mediator.Publish(new RgpdConsentUpdatedMessage(false));
     }
 
+    private const string ProfileCachePattern = "profile_cache_*.json";
+
     private string NetworkDiagnosticDirectory => Path.Combine(_configDirectory, "NetworkDiag");
+
+    private string EventLogDirectory => Path.Combine(_configDirectory, "eventlog");
 
     private string ResolveExportDirectory()
         => !string.IsNullOrEmpty(_configService.Current.ExportFolder)
@@ -94,7 +133,7 @@ public class RgpdDataService : DisposableMediatorSubscriberBase
             var exportData = new Dictionary<string, object?>(StringComparer.Ordinal)
             {
                 ["export_date"] = DateTime.UtcNow.ToString("O"),
-                ["export_format_version"] = 2,
+                ["export_format_version"] = 3,
                 ["consent"] = new Dictionary<string, object?>(StringComparer.Ordinal)
                 {
                     ["given"] = _configService.Current.RgpdConsentGiven,
@@ -104,6 +143,16 @@ public class RgpdDataService : DisposableMediatorSubscriberBase
                     ["data_collection"] = _configService.Current.RgpdConsentDataCollection,
                     ["data_sharing"] = _configService.Current.RgpdConsentDataSharing,
                     ["third_party_plugins"] = _configService.Current.RgpdConsentThirdPartyPlugins,
+                },
+                ["optional_processing"] = new Dictionary<string, object?>(StringComparer.Ordinal)
+                {
+                    ["nearby_discovery"] = _configService.Current.EnableAutoDetectDiscovery,
+                    ["nearby_pair_requests"] = _configService.Current.AllowAutoDetectPairRequests,
+                    ["slot_position"] = _configService.Current.EnableSlotNotifications,
+                    ["establishment_position"] = _establishmentConfigService.Current.EnableProximityNotifications,
+                    ["typing_indicator"] = _configService.Current.TypingIndicatorEnabled,
+                    ["rp_profile_shared_with_plugins"] = _configService.Current.ShareRpProfileWithPlugins,
+                    ["event_log"] = _configService.Current.LogEvents,
                 },
                 ["settings"] = new Dictionary<string, object?>(StringComparer.Ordinal)
                 {
@@ -132,8 +181,29 @@ public class RgpdDataService : DisposableMediatorSubscriberBase
                     ["last_saved_location"] = _charaDataConfigService.Current.LastSavedCharaDataLocation,
                     ["mcdf_local_folder"] = _charaDataConfigService.Current.McdfLocalFolder,
                 },
-                ["network_diagnostic_logs"] = CollectNetworkDiagnosticLogs(),
+                ["pair_overrides"] = new Dictionary<string, object?>(StringComparer.Ordinal)
+                {
+                    ["sync"] = _configService.Current.PairSyncOverrides,
+                    ["target_sound"] = _configService.Current.PairTargetSoundOverrides,
+                    ["performance"] = _playerPerformanceConfigService.Current.UIDsToOverride,
+                    ["nearby_blocked"] = _configService.Current.AutoDetectBlockedUids,
+                    ["delegated_scenarios"] = _configService.Current.KnownDelegatedScenarios,
+                },
+                ["slots"] = new Dictionary<string, object?>(StringComparer.Ordinal)
+                {
+                    ["last_joined"] = _transientConfigService.Current.LastJoinedSlotSyncshellPerUid,
+                    ["pending_leave"] = _transientConfigService.Current.PendingSlotLeaveGidPerUid,
+                },
+                ["notifications"] = _notificationTracker.GetEntries(),
+                ["cached_profiles_of_others"] = DescribeFiles(_configDirectory, ProfileCachePattern),
+                ["event_logs"] = DescribeFiles(EventLogDirectory, "*"),
+                ["network_diagnostic_logs"] = DescribeFiles(NetworkDiagnosticDirectory, "*"),
                 ["file_cache"] = SummarizeFileCache(),
+                ["not_included"] = new[]
+                {
+                    "server.json : clés secrètes de connexion, volontairement exclues de l'export",
+                    "housing_npc_scenarios.json : scènes PNJ que vous avez créées, conservées sur place",
+                },
             };
 
             var exportDir = ResolveExportDirectory();
@@ -152,13 +222,13 @@ public class RgpdDataService : DisposableMediatorSubscriberBase
         }
     }
 
-    private List<Dictionary<string, object?>> CollectNetworkDiagnosticLogs()
+    private List<Dictionary<string, object?>> DescribeFiles(string directory, string pattern)
     {
         var result = new List<Dictionary<string, object?>>();
         try
         {
-            if (!Directory.Exists(NetworkDiagnosticDirectory)) return result;
-            foreach (var file in Directory.EnumerateFiles(NetworkDiagnosticDirectory))
+            if (!Directory.Exists(directory)) return result;
+            foreach (var file in Directory.EnumerateFiles(directory, pattern))
             {
                 var info = new FileInfo(file);
                 result.Add(new Dictionary<string, object?>(StringComparer.Ordinal)
@@ -171,7 +241,7 @@ public class RgpdDataService : DisposableMediatorSubscriberBase
         }
         catch (Exception ex)
         {
-            Logger.LogWarning(ex, "Could not enumerate network diagnostic logs for RGPD export");
+            Logger.LogWarning(ex, "Could not enumerate {pattern} files for RGPD export", pattern);
         }
         return result;
     }
@@ -233,7 +303,24 @@ public class RgpdDataService : DisposableMediatorSubscriberBase
             _charaDataConfigService.Current.LastSavedCharaDataLocation = string.Empty;
             _charaDataConfigService.Save();
 
-            DeleteNetworkDiagnosticLogs();
+            _transientConfigService.Current.LastJoinedSlotSyncshellPerUid.Clear();
+            _transientConfigService.Current.PendingSlotLeaveGidPerUid.Clear();
+            _transientConfigService.Save();
+
+            _playerPerformanceConfigService.Current.UIDsToOverride.Clear();
+            _playerPerformanceConfigService.Save();
+
+            _configService.Current.PairSyncOverrides.Clear();
+            _configService.Current.PairTargetSoundOverrides.Clear();
+            _configService.Current.AutoDetectBlockedUids.Clear();
+            _configService.Current.KnownDelegatedScenarios.Clear();
+
+            _notificationTracker.Clear();
+            _umbraProfileManager.ClearPersistedProfileCache();
+
+            DeleteFiles(_configDirectory, ProfileCachePattern);
+            DeleteFiles(EventLogDirectory, "*");
+            DeleteFiles(NetworkDiagnosticDirectory, "*");
             DeletePreviousExports();
 
             RevokeRgpdConsent();
@@ -262,12 +349,12 @@ public class RgpdDataService : DisposableMediatorSubscriberBase
         }
     }
 
-    private void DeleteNetworkDiagnosticLogs()
+    private void DeleteFiles(string directory, string pattern)
     {
         try
         {
-            if (!Directory.Exists(NetworkDiagnosticDirectory)) return;
-            foreach (var file in Directory.GetFiles(NetworkDiagnosticDirectory))
+            if (!Directory.Exists(directory)) return;
+            foreach (var file in Directory.GetFiles(directory, pattern))
             {
                 try { File.Delete(file); }
                 catch (IOException) { /* fichier en cours d'écriture par la session active */ }
@@ -275,7 +362,7 @@ public class RgpdDataService : DisposableMediatorSubscriberBase
         }
         catch (Exception ex)
         {
-            Logger.LogWarning(ex, "Could not delete network diagnostic logs");
+            Logger.LogWarning(ex, "Could not delete {pattern} files", pattern);
         }
     }
 
@@ -310,12 +397,16 @@ public class RgpdDataService : DisposableMediatorSubscriberBase
             EstablishmentConfigService.ConfigName,
             SyncshellConfigService.ConfigName,
             CharaDataConfigService.ConfigName,
+            TransientConfigService.ConfigName,
+            PlayerPerformanceConfigService.ConfigName,
+            NotificationsConfigService.ConfigName,
+            MareConfigService.ConfigName,
         ];
 
         foreach (var configName in purgedConfigs)
         {
             var prefix = configName.Split('.')[0];
-            foreach (var file in Directory.GetFiles(backupFolder, prefix + "*"))
+            foreach (var file in Directory.GetFiles(backupFolder, prefix + ".*"))
             {
                 try { File.Delete(file); }
                 catch (IOException ex) { Logger.LogWarning(ex, "Could not delete config backup {file}", file); }

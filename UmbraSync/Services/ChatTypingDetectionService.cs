@@ -295,7 +295,10 @@ public sealed class ChatTypingDetectionService : IDisposable
 
                 if (leaderCid != 0UL)
                 {
-                    channels.PartyId = "party:" + leaderCid.ToString(CultureInfo.InvariantCulture);
+                    // Haché : l'identifiant de jeu d'un membre du groupe, peut-être un tiers, ne part pas tel quel.
+                    // Tous les membres calculent la même valeur, le routage reste commun.
+                    channels.PartyId = "party:" + UmbraSync.Utils.Crypto.GetHash256(
+                        "umbra-typing-party:" + leaderCid.ToString(CultureInfo.InvariantCulture))[..32];
                 }
             }
         }

@@ -3092,6 +3092,12 @@ Note: Weapons will not be displayed correctly unless using the same job as the s
   <data name="Settings.AutoDetect.EnableSlotNotificationsHelp" xml:space="preserve">
     <value>If enabled, you will be prompted to join a Syncshell when approaching a registered housing location (Slot).</value>
   </data>
+  <data name="Settings.AutoDetect.EnableEstablishmentProximityHelp" xml:space="preserve">
+    <value>If enabled, your position is sent to the server as you move, to find RP establishments close to you.</value>
+  </data>
+  <data name="Settings.AutoDetect.EnableEstablishmentProximity" xml:space="preserve">
+    <value>Report nearby establishments</value>
+  </data>
   <data name="Settings.AutoDetect.AntiSpam.Header" xml:space="preserve">
     <value>Anti-spam</value>
   </data>
@@ -5590,20 +5596,11 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
   <data name="Settings.Privacy.ConsentExpired" xml:space="preserve">
     <value>Consent expired or missing ! Please renew via the introduction screen.</value>
   </data>
-  <data name="Settings.Privacy.ConsentDetail.Collection" xml:space="preserve">
-    <value>Data collection (identifier, appearance, mods)</value>
-  </data>
-  <data name="Settings.Privacy.ConsentDetail.Sharing" xml:space="preserve">
-    <value>Sharing with paired players</value>
-  </data>
-  <data name="Settings.Privacy.ConsentDetail.ThirdParty" xml:space="preserve">
-    <value>Third-party plugins (Customize+, Honorific, etc.)</value>
-  </data>
   <data name="Settings.Privacy.Export.Header" xml:space="preserve">
     <value>Export Your Data (GDPR Art. 20)</value>
   </data>
   <data name="Settings.Privacy.Export.Description" xml:space="preserve">
-    <value>Export a copy of your personal data as JSON. The local export contains your RP profiles, your notes about pairs, your groups, blocked players, favourites and settings; the server export summarises what the server keeps about your account.</value>
+    <value>Export a copy of your personal data as JSON. The local export contains your RP sheets, notes, groups, blocked players, favorites, per-pair settings, notifications and the list of files kept on your machine. The server export summarizes what the server keeps about your account. Your secret keys are never part of an export.</value>
   </data>
   <data name="Settings.Privacy.Export.LocalButton" xml:space="preserve">
     <value>Export (local)</value>
@@ -5624,7 +5621,7 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
     <value>Delete Local Data (GDPR Art. 17)</value>
   </data>
   <data name="Settings.Privacy.Delete.Description" xml:space="preserve">
-    <value>Erases the personal data kept on your machine: RP profiles, notes about pairs, groups, blocked players, syncshell and MCDF favourites, saved establishments, network diagnostic logs and previous exports, configuration backups included. Consent is reset. The mod cache and server-side data are not affected.</value>
+    <value>Erases the personal data kept on your machine: RP sheets, notes and names of players you met, groups, blocked players, per-pair settings, favorites, saved establishments, notifications, cached sheets of other players, event log, network diagnostic logs and previous exports, configuration backups included. Consent is reset and you are disconnected. Your secret keys, your NPC scenes, the mod cache and server data are not affected.</value>
   </data>
   <data name="Settings.Privacy.Delete.LocalButton" xml:space="preserve">
     <value>Delete local data</value>
@@ -5648,7 +5645,7 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
     <value>Server-side data erasure</value>
   </data>
   <data name="Settings.Privacy.ServerDelete.Description" xml:space="preserve">
-    <value>Permanently deletes your account and everything kept on the server: RP profiles, pairings, syncshell memberships, MCDF and housing shares, establishments and uploaded mod files. Secondary accounts attached to yours are deleted as well.</value>
+    <value>Permanently deletes your account and all data kept on the server: profiles and RP sheets, pairings, permissions, syncshell memberships, MCDF and housing shares, NPC scenarios, establishments, announcements and uploaded mod files. Secondary accounts attached to yours are deleted as well. Technical logs expire on their own after 30 days.</value>
   </data>
   <data name="Settings.Privacy.ServerDelete.Button" xml:space="preserve">
     <value>Delete my server-side data</value>
@@ -5684,7 +5681,7 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
     <value>Revoke Consent</value>
   </data>
   <data name="Settings.Privacy.Revoke.Description" xml:space="preserve">
-    <value>Revoke your GDPR consent. You will be disconnected and returned to the introduction screen.</value>
+    <value>Withdraw your consent. The connection to the server is closed immediately and the consent screen comes back. Your data stays on the server until you delete your account.</value>
   </data>
   <data name="Settings.Privacy.Revoke.Button" xml:space="preserve">
     <value>Revoke my consent</value>
@@ -5714,7 +5711,7 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
     <value>Right to data portability : Export your data in a readable format (JSON).</value>
   </data>
   <data name="Settings.Privacy.Rights.Opposition" xml:space="preserve">
-    <value>Right to object : Withdraw your consent at any time.</value>
+    <value>Right to object: Withdraw your consent or turn off any optional processing at any time.</value>
   </data>
   <data name="Settings.Privacy.Rights.Limitation" xml:space="preserve">
     <value>Right to restriction : Pause processing through the service's pause options.</value>
@@ -5723,46 +5720,79 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
     <value>Data Protection (GDPR)</value>
   </data>
   <data name="Rgpd.Consent.Intro" xml:space="preserve">
-    <value>In accordance with the General Data Protection Regulation (GDPR), UmbraSync needs your explicit consent before processing your personal data.</value>
+    <value>UmbraSync processes personal data to synchronize your appearance with the players you choose. This page describes what is processed, by whom, and for how long. Nothing is sent to the server until you accept.</value>
   </data>
   <data name="Rgpd.Consent.Reassurance" xml:space="preserve">
-    <value>This data is collected solely for the proper functioning of the plugin. No data is sold or shared with third parties for commercial purposes.</value>
+    <value>No data is sold, or used for advertising or profiling.</value>
   </data>
   <data name="Rgpd.Consent.DataCollected.Header" xml:space="preserve">
     <value>Data collected:</value>
   </data>
   <data name="Rgpd.Consent.DataCollected.Details" xml:space="preserve">
-    <value>• Unique identifier (UID), last login date and IP address for the duration of the session&#x0A;• Appearance data: Penumbra mods, Glamourer states and mod files uploaded for synchronization&#x0A;• RP profiles: first name, last name, title, description, picture and custom fields, per character&#x0A;• Pairing list, notes you write about your pairs and syncshell memberships&#x0A;• Shares you publish: MCDF, housing layouts and NPC scenarios&#x0A;• RP establishments you create: name, logo, banner, housing location and events&#x0A;• "Wild RP" announcements: character name, world, zone and residential ward, visible in the directory&#x0A;• Typing indicator: signal sent to your pairs while you type&#x0A;• Ashfall Connect, if you link your account: name and world of your characters sent to connect.ashfall-codex.dev, along with the Discord or XIVAuth identity you associate with it</value>
+    <value>• Account: unique identifier (UID), custom ID, last login date, and your Discord account if you linked one&#x0A;• Character identification: a technical fingerprint derived from its name and world, sent on every connection and visible to your pairs&#x0A;• Appearance data: Penumbra mods, Glamourer states, Customize+, Heels, Honorific, Moodles, pet names, and mod files uploaded for synchronization&#x0A;• Visible players: each time your appearance is sent, the list of your pairs present around you&#x0A;• Profiles: description and picture, and for each character its RP sheet (name, world, first name, last name, title, description, picture, custom fields)&#x0A;• Viewed sheets: the name and world of the character whose profile you open&#x0A;• Pairing list, permissions, notes you write and syncshell memberships&#x0A;• Shares you publish: MCDF, housing layouts and NPC scenarios, with the housing address and the list of allowed people&#x0A;• RP establishments you create: name, logo, banner, location, events, and if you choose so the name of their manager&#x0A;• "Wild RP" announcements: character name, world, zone and residential ward, visible in the directory for two hours&#x0A;• GPose sessions and shared quests, when you join one: pose, position and progress, relayed to participants&#x0A;• Server technical logs: IP address, UID and connection time, kept 30 days for security purposes&#x0A;• Ashfall Connect, only if you link your account: name and world of your characters, and the Discord or XIVAuth identity you associate with it</value>
   </data>
   <data name="Rgpd.Consent.Outdated" xml:space="preserve">
     <value>The scope of the data being processed has changed since you last gave consent. Please read this page again and confirm your agreement.</value>
   </data>
   <data name="Rgpd.Consent.Controller" xml:space="preserve">
-    <value>Data controller: the Ashfall Codex team, publisher of UmbraSync and of the umbra-sync.net server. For any request regarding your data, contact us through the Ashfall Codex Discord server.</value>
+    <value>Data controller: the Ashfall Codex team, publisher of UmbraSync and of the umbra-sync.net server. For any request about your data, including if your account is suspended and you can no longer connect, contact us from the Ashfall Codex Discord server. You may also lodge a complaint with your country's data protection authority.</value>
   </data>
   <data name="Rgpd.Consent.Retention" xml:space="preserve">
-    <value>Retention: your data is kept as long as your account stays active. An account left unused beyond the period set by the server administrator is deleted automatically, along with the files attached to it. Uploaded mod files are kept for as long as they need to be distributed to your pairs.</value>
+    <value>Retention: your data is kept as long as your account stays active. An account left unused for 12 months is deleted automatically, along with everything attached to it. Uploaded mod files are kept for as long as they are used for synchronization. Technical logs are kept 30 days. On your machine, other players' sheets are erased 30 days after they were last viewed.</value>
+  </data>
+  <data name="Settings.Privacy.Optional.Off" xml:space="preserve">
+    <value>disabled</value>
+  </data>
+  <data name="Settings.Privacy.Optional.On" xml:space="preserve">
+    <value>enabled</value>
+  </data>
+  <data name="Settings.Privacy.Optional.Intro" xml:space="preserve">
+    <value>Optional processing, adjustable in the matching settings tabs:</value>
+  </data>
+  <data name="Settings.Privacy.ConsentDetail.Mandatory" xml:space="preserve">
+    <value>Processing required for synchronization</value>
+  </data>
+  <data name="Rgpd.Consent.Optional.Plugins.Detail" xml:space="preserve">
+    <value>Other plugins installed on this computer can read the RP sheet of your visible pairs. Nothing leaves your machine.</value>
+  </data>
+  <data name="Rgpd.Consent.Optional.Plugins" xml:space="preserve">
+    <value>RP sheets readable by other plugins</value>
+  </data>
+  <data name="Rgpd.Consent.Optional.Typing.Detail" xml:space="preserve">
+    <value>Your pairs see that you are typing, and in which channel. The content of your messages is never sent.</value>
+  </data>
+  <data name="Rgpd.Consent.Optional.Typing" xml:space="preserve">
+    <value>Typing indicator</value>
+  </data>
+  <data name="Rgpd.Consent.Optional.Position.Detail" xml:space="preserve">
+    <value>Your in-game position is sent to the server as you move, to suggest nearby syncshells and establishments. It is not stored.</value>
+  </data>
+  <data name="Rgpd.Consent.Optional.Position" xml:space="preserve">
+    <value>Nearby slots and establishments</value>
+  </data>
+  <data name="Rgpd.Consent.Optional.Nearby.Detail" xml:space="preserve">
+    <value>Your character name is sent to the server so other users can recognize you. To find those around you, a hashed fingerprint of every player within 50 m is sent, including players who do not use UmbraSync. These fingerprints are used for comparison and are not stored.</value>
+  </data>
+  <data name="Rgpd.Consent.Optional.Nearby" xml:space="preserve">
+    <value>Nearby player detection</value>
+  </data>
+  <data name="Rgpd.Consent.Optional.Intro" xml:space="preserve">
+    <value>All disabled by default. You can turn them on or off at any time in the settings, with no effect on synchronization.</value>
+  </data>
+  <data name="Rgpd.Consent.Optional.Header" xml:space="preserve">
+    <value>Optional processing</value>
+  </data>
+  <data name="Rgpd.Consent.Mandatory.Detail" xml:space="preserve">
+    <value>Essential to the service: without it, UmbraSync does not connect.</value>
+  </data>
+  <data name="Rgpd.Consent.Mandatory" xml:space="preserve">
+    <value>I accept the processing of my data required for synchronization</value>
+  </data>
+  <data name="Rgpd.Consent.ThirdParties" xml:space="preserve">
+    <value>Hosting: server at OVH (Germany), mod files at Scaleway (European Union). Profile reports are forwarded to the moderation team on Discord, profile picture included. Share contents are stored encrypted, but the server is technically able to decrypt them.</value>
   </data>
   <data name="Rgpd.Consent.ConnectNotice" xml:space="preserve">
-    <value>Ashfall Connect is a separate service. Deleting your UmbraSync account does not erase the RP profile hosted on Connect: deletion must be requested there separately from your Connect account.</value>
-  </data>
-  <data name="Rgpd.Consent.DataCollection" xml:space="preserve">
-    <value>I consent to data collection (required)</value>
-  </data>
-  <data name="Rgpd.Consent.DataCollection.Detail" xml:space="preserve">
-    <value>Required for the synchronization service to function.</value>
-  </data>
-  <data name="Rgpd.Consent.DataSharing" xml:space="preserve">
-    <value>I consent to sharing with paired players (required)</value>
-  </data>
-  <data name="Rgpd.Consent.DataSharing.Detail" xml:space="preserve">
-    <value>Your appearance data is shared with players you choose to pair with.</value>
-  </data>
-  <data name="Rgpd.Consent.ThirdParty" xml:space="preserve">
-    <value>I consent to third-party plugin sharing (optional)</value>
-  </data>
-  <data name="Rgpd.Consent.ThirdParty.Detail" xml:space="preserve">
-    <value>Customize+, Honorific, Moodles, etc. may exchange additional data.</value>
+    <value>Ashfall Connect is a separate service. Deleting your UmbraSync account does not erase what is hosted on Connect: deletion there is requested separately, from the Ashfall Codex team.</value>
   </data>
   <data name="Rgpd.Consent.Rights" xml:space="preserve">
     <value>Your rights:</value>
@@ -5774,7 +5804,7 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
     <value>I accept and continue</value>
   </data>
   <data name="Rgpd.Consent.MandatoryWarning" xml:space="preserve">
-    <value>Collection and sharing consent are required to use the service.</value>
+    <value>This acceptance is required to use the service. Optional processing remains your choice.</value>
   </data>
   <data name="HousingShare.Progress.Hashing" xml:space="preserve">
     <value>Hashing files...</value>

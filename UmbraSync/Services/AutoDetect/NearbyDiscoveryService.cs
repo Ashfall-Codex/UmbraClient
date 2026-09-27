@@ -311,15 +311,7 @@ public class NearbyDiscoveryService(ILogger<NearbyDiscoveryService> logger, Mare
                             if (!string.Equals(snapSig, _lastSnapshotSig, StringComparison.Ordinal))
                             {
                                 _lastSnapshotSig = snapSig;
-                                var sample = entries.Take(5).Select(e =>
-                                {
-                                    var hh = (saltHex + e.Name + e.WorldId.ToString()).GetHash256();
-                                    var shortH = hh.Length > 8 ? hh[..8] : hh;
-                                    return $"{e.Name}({e.WorldId})->{shortH}";
-                                });
-                                var saltShort = saltHex.Length > 8 ? saltHex[..8] : saltHex;
-                                _logger.LogTrace("Nearby snapshot: {count} entries; salt={saltShort}…; samples=[{samples}]",
-                                    entries.Count, saltShort, string.Join(", ", sample));
+                                _logger.LogTrace("Nearby snapshot: {count} entries", entries.Count);
                             }
                         }
                         catch (Exception ex)
@@ -547,15 +539,9 @@ public class NearbyDiscoveryService(ILogger<NearbyDiscoveryService> logger, Mare
         {
             _lastMatchCount = matchCount;
             if (matchCount > 0)
-            {
-                var matchSamples = entries.Where(e => e.IsMatch).Take(5)
-                    .Select(e => string.IsNullOrEmpty(e.DisplayName) ? e.Name : e.DisplayName!);
-                _logger.LogInformation("Nearby: {count} Umbra users nearby [{samples}]", matchCount, string.Join(", ", matchSamples));
-            }
+                _logger.LogInformation("Nearby: {count} Umbra users nearby", matchCount);
             else
-            {
                 _logger.LogTrace("Nearby: {count} Umbra users nearby", matchCount);
-            }
         }
     }
 }

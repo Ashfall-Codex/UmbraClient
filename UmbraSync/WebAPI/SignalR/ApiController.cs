@@ -67,6 +67,7 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
         Mediator.Subscribe<HubClosedMessage>(this, (msg) => MareHubOnClosed(msg.Exception));
         Mediator.Subscribe<HubReconnectedMessage>(this, (msg) => _ = SafeRunReconnected());
         Mediator.Subscribe<HubReconnectingMessage>(this, (msg) => MareHubOnReconnecting(msg.Exception));
+        Mediator.Subscribe<RgpdConsentUpdatedMessage>(this, (msg) => OnRgpdConsentUpdated(msg.ConsentGiven));
 
         ServerState = ServerState.Offline;
 
@@ -114,6 +115,16 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
     public async Task CreateConnections()
     {
         Logger.LogDebug("CreateConnections called");
+
+        // Aucune donnée ne part vers le serveur tant que le consentement n'est pas valide.
+        if (!_configService.Current.HasValidRgpdConsent())
+        {
+            Logger.LogInformation("Not creating Connection, RGPD consent missing or outdated");
+            _connectionDto = null;
+            await StopConnection(ServerState.Disconnected).ConfigureAwait(false);
+            await _connectionCancellationTokenSource.CancelAsync().ConfigureAwait(false);
+            return;
+        }
 
         if (_serverManager.CurrentServer.FullPause)
         {
@@ -357,6 +368,24 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
     private void DalamudUtilOnLogIn()
     {
         _ = Task.Run(() => CreateConnections());
+    }
+
+    private void OnRgpdConsentUpdated(bool consentGiven)
+    {
+        if (consentGiven && !_dalamudUtil.IsLoggedIn) return;
+
+        // Consentement retiré : CreateConnections coupe la session au lieu d'en ouvrir une.
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await CreateConnections().ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "Failed to apply RGPD consent change to the connection");
+            }
+        });
     }
 
     private void DalamudUtilOnLogOut()

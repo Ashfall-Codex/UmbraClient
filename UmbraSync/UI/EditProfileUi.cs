@@ -1041,7 +1041,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
                 {
                     var curProfile = await _apiController.UserGetProfile(new UserDto(new UserData(_apiController.UID, _apiController.DisplayName))).ConfigureAwait(false);
                     if (isRp)
-                        _logger.LogInformation("Saving RP profile for {uid}: {first} {last}", _apiController.UID, localRpProfile.RpFirstName, localRpProfile.RpLastName);
+                        _logger.LogInformation("Saving RP profile for {uid}", _apiController.UID);
                     else
                         _logger.LogInformation("Saving HRP profile for {uid}, keeping local RP data", _apiController.UID);
 

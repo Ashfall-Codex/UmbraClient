@@ -300,7 +300,7 @@ public sealed class HonorificEditor
 
             var b64 = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(profile.HonorificBackupJson));
             await _ipcManager.Honorific.SetTitleAsync(ptr, b64).ConfigureAwait(false);
-            _logger.LogInformation("Restored Honorific title from backup for {char}@{world}", charName, worldId);
+            _logger.LogInformation("Restored Honorific title from backup for the current character");
             _restoreAttempted = true;
         }
         catch (Exception ex)
@@ -316,7 +316,7 @@ public sealed class HonorificEditor
         {
             if (!string.IsNullOrEmpty(profile.HonorificBackupJson))
             {
-                _logger.LogInformation("Clearing Honorific backup for {char}@{world}", charName, worldId);
+                _logger.LogInformation("Clearing Honorific backup for the current character");
                 profile.HonorificBackupJson = string.Empty;
                 profile.HonorificBackupTimestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
                 _rpConfigService.Save();

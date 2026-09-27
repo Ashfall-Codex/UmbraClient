@@ -162,7 +162,8 @@ public sealed class GameObjectHandler : DisposableMediatorSubscriberBase
     public override string ToString()
     {
         var owned = _isOwnedObject ? "Self" : "Other";
-        return $"{owned}/{ObjectKind}:{Name} ({Address:X},{DrawObjectAddress:X})";
+        // Pas de nom ici : tout journal qui écrit un handler passe par cette méthode.
+        return $"{owned}/{ObjectKind} ({Address:X},{DrawObjectAddress:X})";
     }
 
     protected override void Dispose(bool disposing)

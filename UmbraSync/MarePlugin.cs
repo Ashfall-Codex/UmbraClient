@@ -99,6 +99,12 @@ public class MarePlugin : MediatorSubscriberBase, IHostedService
         Mediator.Subscribe<SwitchToMainUiMessage>(this, (msg) => { if (_launchTask == null || _launchTask.IsCompleted) _launchTask = Task.Run(WaitForPlayerAndLaunchCharacterManager); });
         Mediator.Subscribe<DalamudLoginMessage>(this, (_) => DalamudUtilOnLogIn());
         Mediator.Subscribe<DalamudLogoutMessage>(this, (_) => DalamudUtilOnLogOut());
+        // Consentement retiré : les services de synchronisation s'arrêtent et l'écran de consentement revient.
+        Mediator.Subscribe<RgpdConsentUpdatedMessage>(this, (msg) =>
+        {
+            if (msg.ConsentGiven || !_dalamudUtil.IsLoggedIn) return;
+            if (_launchTask == null || _launchTask.IsCompleted) _launchTask = Task.Run(WaitForPlayerAndLaunchCharacterManager);
+        });
 
         Mediator.StartQueueProcessing();
 
@@ -126,7 +132,20 @@ public class MarePlugin : MediatorSubscriberBase, IHostedService
     {
         Logger.LogDebug("Client logout");
 
-        _runtimeServiceScope?.Dispose();
+        StopRuntimeServices();
+    }
+
+    private void StopRuntimeServices()
+    {
+        var scope = Interlocked.Exchange(ref _runtimeServiceScope, null);
+        try
+        {
+            scope?.Dispose();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Error while stopping runtime services");
+        }
     }
 
     private async Task WaitForPlayerAndLaunchCharacterManager()
@@ -140,7 +159,7 @@ public class MarePlugin : MediatorSubscriberBase, IHostedService
         {
             Logger.LogDebug("Launching Managers");
 
-            _runtimeServiceScope?.Dispose();
+            StopRuntimeServices();
             _runtimeServiceScope = _serviceScopeFactory.CreateScope();
             _runtimeServiceScope.ServiceProvider.GetRequiredService<UiService>();
             _runtimeServiceScope.ServiceProvider.GetRequiredService<CommandManagerService>();

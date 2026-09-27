@@ -20,7 +20,7 @@ public class MareConfig : IMareConfiguration
     /// d'une paire visible, et à présenter eux-mêmes la fiche. L'échange ne quitte pas le
     /// poste et ne dévoile rien qu'UmbraSync ne montre déjà à cette paire.
     /// </summary>
-    public bool ShareRpProfileWithPlugins { get; set; } = true;
+    public bool ShareRpProfileWithPlugins { get; set; }
     public bool EnableDtrEntry { get; set; } = true;
     public int DtrStyle { get; set; }
     public bool ShowUidInDtrTooltip { get; set; } = true;
@@ -121,8 +121,8 @@ public class MareConfig : IMareConfiguration
     public string? ArrScenariosPathOverride { get; set; }
     public Dictionary<string, SyncOverrideEntry> PairSyncOverrides { get; set; } = new(StringComparer.Ordinal);
     public Dictionary<string, SyncOverrideEntry> GroupSyncOverrides { get; set; } = new(StringComparer.Ordinal);
-    public bool EnableAutoDetectDiscovery { get; set; } = true;
-    public bool AllowAutoDetectPairRequests { get; set; } = true;
+    public bool EnableAutoDetectDiscovery { get; set; }
+    public bool AllowAutoDetectPairRequests { get; set; }
     public const int AutoDetectFixedMaxDistanceMeters = 50;
     public int AutoDetectMaxDistanceMeters { get; set; } = AutoDetectFixedMaxDistanceMeters;
     public int AutoDetectDeclineCooldownMinutes { get; set; } = 15;
@@ -143,7 +143,7 @@ public class MareConfig : IMareConfiguration
     public NotificationLocation WarningNotification { get; set; } = NotificationLocation.Both;
     public bool TypingIndicatorShowOnNameplates { get; set; } = true;
     public bool TypingIndicatorShowOnPartyList { get; set; } = true;
-    public bool TypingIndicatorEnabled { get; set; } = true;
+    public bool TypingIndicatorEnabled { get; set; }
     public bool TypingIndicatorShowSelf { get; set; } = true;
     public TypingIndicatorBubbleSize TypingIndicatorBubbleSize { get; set; } = TypingIndicatorBubbleSize.Large;
     public bool TypingIndicatorOnlyWhenNameplateVisible { get; set; } = true;
@@ -152,9 +152,9 @@ public class MareConfig : IMareConfiguration
     public float TypingIndicatorPartyOpacity { get; set; } = 0.9f;
     public bool UmbraAPI { get; set; } = true;
     public bool ExperimentalExternalSyncReclaim { get; set; } = false;
-    public bool EnableSlotNotifications { get; set; } = true;
+    public bool EnableSlotNotifications { get; set; }
     public float DefaultSlotRadius { get; set; } = 10f;
-    public const int ExpectedRgpdVersion = 2;
+    public const int ExpectedRgpdVersion = 3;
     public bool RgpdConsentGiven { get; set; }
     public DateTime? RgpdConsentDate { get; set; }
     public int AcceptedRgpdVersion { get; set; }

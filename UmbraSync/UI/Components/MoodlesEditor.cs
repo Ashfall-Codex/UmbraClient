@@ -701,7 +701,7 @@ public sealed partial class MoodlesEditor
         {
             if (!string.IsNullOrEmpty(profile.MoodlesBackupJson))
             {
-                _logger.LogInformation("Clearing moodles backup for {char}@{world} (no active traits)", charName, worldId);
+                _logger.LogInformation("Clearing moodles backup for the current character (no active traits)");
                 profile.MoodlesBackupJson = string.Empty;
                 profile.MoodlesBackupTimestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
                 _rpConfigService.Save();

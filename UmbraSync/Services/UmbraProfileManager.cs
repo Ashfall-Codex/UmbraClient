@@ -30,6 +30,8 @@ public class UmbraProfileManager : MediatorSubscriberBase
     private readonly UmbraProfileData _nsfwProfileData = new(IsFlagged: false, IsNSFW: false, string.Empty, _nsfw);
     private readonly string _configDir;
     private readonly ConcurrentDictionary<string, ((UserData User, string? CharName, uint? WorldId) Key, UmbraProfileData Profile)> _persistedProfiles = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, DateTime> _persistedAtUtc = new(StringComparer.Ordinal);
+    private static readonly TimeSpan PersistedProfileLifetime = TimeSpan.FromDays(30);
     private string? _cacheUid;
     private bool _cacheDirty;
     private Timer? _saveTimer;
@@ -165,9 +167,9 @@ public class UmbraProfileManager : MediatorSubscriberBase
                 WorldId = worldId
             }).ConfigureAwait(false);
 
-            Logger.LogInformation("Profile response for {uid} (charName={charName}, worldId={worldId}): RpFirstName={first}, RpLastName={last}, RpDesc={desc}",
-                data.UID, charName ?? "(null)", worldId?.ToString() ?? "(null)",
-                profile.RpFirstName ?? "(null)", profile.RpLastName ?? "(null)",
+            Logger.LogDebug("Profile response for {uid}: RP name {name}, RP description {desc}",
+                data.UID,
+                string.IsNullOrEmpty(profile.RpFirstName) && string.IsNullOrEmpty(profile.RpLastName) ? "(empty)" : "(set)",
                 string.IsNullOrEmpty(profile.RpDescription) ? "(empty)" : "(set)");
 
             if (!string.IsNullOrEmpty(profile.CharacterName))
@@ -343,7 +345,7 @@ public class UmbraProfileManager : MediatorSubscriberBase
             if (!string.IsNullOrEmpty(profile.RpCustomFields))
             {
                 try { customFields = JsonSerializer.Deserialize<List<RpCustomField>>(profile.RpCustomFields); }
-                catch (JsonException ex) { Logger.LogWarning(ex, "Failed to deserialize RpCustomFields for alt {char}@{world}", altCharName, altWorldId); }
+                catch (JsonException ex) { Logger.LogWarning(ex, "Failed to deserialize RpCustomFields for an alt of {uid}", data.UID); }
             }
 
             var altProfileData = new UmbraProfileData(profile.Disabled, profile.IsNSFW ?? false,
@@ -395,6 +397,7 @@ public class UmbraProfileManager : MediatorSubscriberBase
     public void ClearPersistedProfileCache()
     {
         _persistedProfiles.Clear();
+        _persistedAtUtc.Clear();
         _umbraProfiles.Clear();
         _cacheDirty = true;
         SaveProfileCacheNow();
@@ -440,7 +443,7 @@ public class UmbraProfileManager : MediatorSubscriberBase
 
             if (string.IsNullOrEmpty(charName) || string.Equals(charName, "--", StringComparison.Ordinal) || worldId == 0)
             {
-                Logger.LogWarning("EnsureOwnProfileSynced: Player data unavailable after retries (name={name}, worldId={worldId})", charName, worldId);
+                Logger.LogWarning("EnsureOwnProfileSynced: Player data unavailable after retries");
                 return;
             }
 
@@ -483,6 +486,7 @@ public class UmbraProfileManager : MediatorSubscriberBase
         if (_cacheUid != null) SaveProfileCacheNow();
 
         _persistedProfiles.Clear();
+        _persistedAtUtc.Clear();
         _cacheUid = uid;
         LoadProfileCache();
     }
@@ -503,9 +507,18 @@ public class UmbraProfileManager : MediatorSubscriberBase
 
     private void UpdatePersistedProfile(UserData data, string? charName, uint? worldId, UmbraProfileData profile)
     {
+        // Une fiche que l'utilisateur a choisi de ne pas afficher n'a pas à être conservée sur son disque.
+        if ((profile.IsNSFW && !_mareConfigService.Current.ProfilesAllowNsfw)
+            || (profile.IsRpNSFW && !_mareConfigService.Current.ProfilesAllowRpNsfw))
+        {
+            RemovePersistedProfile(data, charName, worldId);
+            return;
+        }
+
         EnsureCacheLoaded();
         var cacheKey = $"{data.UID}_{charName}_{worldId}";
         _persistedProfiles[cacheKey] = ((data, charName, worldId), profile);
+        _persistedAtUtc[cacheKey] = DateTime.UtcNow;
 
         foreach (var key in _persistedProfiles.Keys.ToList())
         {
@@ -533,8 +546,12 @@ public class UmbraProfileManager : MediatorSubscriberBase
         if (!_cacheDirty || _cacheUid == null) return;
         try
         {
-            var entries = _persistedProfiles.Values.Select(v =>
-                ProfileCacheEntry.FromProfile(v.Key.User, v.Key.CharName, v.Key.WorldId, v.Profile)).ToList();
+            var entries = _persistedProfiles.Select(kvp =>
+            {
+                var entry = ProfileCacheEntry.FromProfile(kvp.Value.Key.User, kvp.Value.Key.CharName, kvp.Value.Key.WorldId, kvp.Value.Profile);
+                entry.CachedAtUtc = _persistedAtUtc.TryGetValue(kvp.Key, out var cachedAt) ? cachedAt : DateTime.UtcNow;
+                return entry;
+            }).ToList();
             var json = JsonSerializer.Serialize(entries, new JsonSerializerOptions { WriteIndented = false });
             File.WriteAllText(GetCacheFilePath(_cacheUid), json);
             _cacheDirty = false;
@@ -557,12 +574,29 @@ public class UmbraProfileManager : MediatorSubscriberBase
             var entries = JsonSerializer.Deserialize<List<ProfileCacheEntry>>(json);
             if (entries == null) return;
 
+            var now = DateTime.UtcNow;
+            int expired = 0;
             foreach (var entry in entries)
             {
+                // Les entrées écrites avant l'ajout de la date partent d'aujourd'hui.
+                var cachedAt = entry.CachedAtUtc ?? now;
+                if (now - cachedAt > PersistedProfileLifetime)
+                {
+                    expired++;
+                    continue;
+                }
+
                 var user = new UserData(entry.UID, entry.Alias);
                 var profile = entry.ToProfileData();
                 var cacheKey = $"{entry.UID}_{entry.CharName}_{entry.WorldId}";
                 _persistedProfiles[cacheKey] = ((user, entry.CharName, entry.WorldId), profile);
+                _persistedAtUtc[cacheKey] = cachedAt;
+            }
+
+            if (expired > 0 || entries.Exists(e => e.CachedAtUtc == null))
+            {
+                _cacheDirty = true;
+                ScheduleCacheSave();
             }
 
             Logger.LogInformation("Loaded {count} profiles from cache for UID {uid}", entries.Count, _cacheUid);

@@ -10,4 +10,10 @@ public static class ConfigurationExtensions
                     && !string.IsNullOrEmpty(configuration.CacheFolder)
                     && Directory.Exists(configuration.CacheFolder);
     }
+
+    public static bool HasValidRgpdConsent(this MareConfig configuration)
+    {
+        return configuration.RgpdConsentGiven
+            && configuration.AcceptedRgpdVersion >= MareConfig.ExpectedRgpdVersion;
+    }
 }

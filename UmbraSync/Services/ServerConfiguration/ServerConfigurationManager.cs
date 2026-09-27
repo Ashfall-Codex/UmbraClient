@@ -103,7 +103,7 @@ public class ServerConfigurationManager
 
         if (currentServer.SecretKeys.TryGetValue(auth.Single().SecretKeyIdx, out var secretKey))
         {
-            _logger.LogTrace("GetSecretKey accessed, returning {key} ({keyValue}) for {chara} on {world}", secretKey.FriendlyName, string.Join("", secretKey.Key.Take(10)), charaName, worldId);
+            _logger.LogTrace("GetSecretKey accessed, returning {key}", secretKey.FriendlyName);
             return secretKey.Key;
         }
 
