@@ -403,12 +403,6 @@ public class SlotService : MediatorSubscriberBase, IDisposable
 
         Logger.LogInformation("Entered housing plot: {location}", location);
         _currentPlot = location;
-        if (_leaveTimerCts != null)
-        {
-            await _leaveTimerCts.CancelAsync().ConfigureAwait(false);
-            _leaveTimerCts.Dispose();
-            _leaveTimerCts = null;
-        }
 
         var slotLocation = new SlotLocationDto
         {
@@ -427,6 +421,25 @@ public class SlotService : MediatorSubscriberBase, IDisposable
         else
         {
             Logger.LogTrace("SlotGetInfo (plot): No slot found for plot {id}", slotLocation.PlotId);
+        }
+
+        // Entrer dans une parcelle ne ramène pas dans le slot rejoint : ce peut être sa propre maison,
+        // sur un autre monde. Annuler le timer ici sans regarder laquelle le relançait à chaque sortie,
+        // et la syncshell du slot rejoint n'était jamais quittée.
+        if (_joinedViaSlot && _currentSlotSyncshell != null
+            && !string.Equals(slotInfo?.AssociatedSyncshell?.Gid, _currentSlotSyncshell.Gid, StringComparison.Ordinal))
+        {
+            LogSlotTransitionOnce($"Slot: entrée dans une parcelle ({slotInfo?.SlotName ?? "sans slot"}) qui n'est pas celle du slot rejoint "
+                + $"« {_currentSlotSyncshell.Name} » — sortie du précédent en cours");
+            if (_leaveTimerCts == null) StartLeaveTimer();
+            return;
+        }
+
+        if (_leaveTimerCts != null)
+        {
+            await _leaveTimerCts.CancelAsync().ConfigureAwait(false);
+            _leaveTimerCts.Dispose();
+            _leaveTimerCts = null;
         }
 
         if (slotInfo != null)
