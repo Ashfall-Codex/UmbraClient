@@ -265,13 +265,15 @@ public partial class CompactUi : WindowMediatorSubscriberBase
         float right = winPos.X + winSize.X - style.WindowBorderSize;
 
         if (right <= left || bottom <= top) return;
-
-        ImGui.GetWindowDrawList().AddRectFilled(
+        var drawList = ImGui.GetWindowDrawList();
+        drawList.PushClipRect(winPos, winPos + winSize, false);
+        drawList.AddRectFilled(
             new Vector2(left, top),
             new Vector2(right, bottom),
             ImGui.GetColorU32(UiSharedService.WithAlpha(UiSharedService.ThemeWindowBg, glassAlpha)),
-            UiSharedService.RadiusWindow,
+            MathF.Max(0f, UiSharedService.RadiusWindow * ImGuiHelpers.GlobalScale - style.WindowBorderSize),
             ImDrawFlags.RoundCornersBottomRight);
+        drawList.PopClipRect();
     }
 
     public override void OnClose()

@@ -20,6 +20,7 @@ using UmbraSync.Services.AutoDetect;
 using UmbraSync.Services.Mediator;
 using UmbraSync.Services.Notification;
 using NotificationType = UmbraSync.MareConfiguration.Models.NotificationType;
+using UmbraSync.UI.Components;
 
 namespace UmbraSync.UI;
 
@@ -1117,9 +1118,9 @@ public class SyncshellAdminUI : WindowMediatorSubscriberBase
         ImGuiHelpers.ScaledDummy(4);
 
         // NSFW + Disabled
-        ImGui.Checkbox(Loc.Get("SyncshellAdmin.Profile.NSFW"), ref _profileNsfw);
+        ToggleSwitch.Draw(Loc.Get("SyncshellAdmin.Profile.NSFW"), ref _profileNsfw);
         _uiSharedService.DrawHelpText(Loc.Get("SyncshellAdmin.Profile.NSFWHelp"));
-        ImGui.Checkbox(Loc.Get("SyncshellAdmin.Profile.Disabled"), ref _profileDisabled);
+        ToggleSwitch.Draw(Loc.Get("SyncshellAdmin.Profile.Disabled"), ref _profileDisabled);
         _uiSharedService.DrawHelpText(Loc.Get("SyncshellAdmin.Profile.DisabledHelp"));
 
         ImGuiHelpers.ScaledDummy(6);
@@ -1263,7 +1264,7 @@ public class SyncshellAdminUI : WindowMediatorSubscriberBase
 
         using (ImRaii.Disabled(_autoDetectToggleInFlight || _autoDetectStateLoading))
         {
-            ImGui.Checkbox(Loc.Get("SyncshellAdmin.AutoDetect.CheckboxLabel"), ref _autoDetectDesiredVisibility);
+            ToggleSwitch.Draw(Loc.Get("SyncshellAdmin.AutoDetect.CheckboxLabel"), ref _autoDetectDesiredVisibility);
         }
         _uiSharedService.DrawHelpText(Loc.Get("SyncshellAdmin.AutoDetect.CheckboxHelp"));
 

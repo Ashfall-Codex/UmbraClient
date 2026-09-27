@@ -911,7 +911,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
         {
             var profile = _rpConfigService.GetCurrentCharacterProfile();
             var isRpNsfw = profile.IsRpNsfw;
-            if (ImGui.Checkbox(Loc.Get("UserProfile.RpNsfw"), ref isRpNsfw))
+            if (ToggleSwitch.Draw(Loc.Get("UserProfile.RpNsfw"), ref isRpNsfw))
             {
                 var charName = _dalamudUtil.GetPlayerName();
                 var worldId = _dalamudUtil.GetHomeWorldId();
@@ -952,7 +952,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
         else
         {
             var isNsfw = umbraProfile.IsNSFW;
-            if (ImGui.Checkbox(Loc.Get("EditProfile.ProfileIsNsfw"), ref isNsfw))
+            if (ToggleSwitch.Draw(Loc.Get("EditProfile.ProfileIsNsfw"), ref isNsfw))
             {
                 var charName = _dalamudUtil.GetPlayerName();
                 var worldId = _dalamudUtil.GetHomeWorldId();

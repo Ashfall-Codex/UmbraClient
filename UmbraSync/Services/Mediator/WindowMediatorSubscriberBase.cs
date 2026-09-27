@@ -1,4 +1,5 @@
 ﻿using Dalamud.Bindings.ImGui;
+using Dalamud.Interface.Utility;
 using Dalamud.Interface.Windowing;
 using Microsoft.Extensions.Logging;
 using UmbraSync.UI;
@@ -42,10 +43,11 @@ public abstract class WindowMediatorSubscriberBase : Window, IMediatorSubscriber
 
         ImGui.PushStyleVar(ImGuiStyleVar.WindowBorderSize, 1f);
         // Rayons concentriques : le contenant est toujours plus arrondi que ce qu'il contient.
-        ImGui.PushStyleVar(ImGuiStyleVar.WindowRounding, UiSharedService.RadiusWindow);
-        ImGui.PushStyleVar(ImGuiStyleVar.ChildRounding, UiSharedService.RadiusCard);
-        ImGui.PushStyleVar(ImGuiStyleVar.PopupRounding, UiSharedService.RadiusCard);
-        ImGui.PushStyleVar(ImGuiStyleVar.FrameRounding, UiSharedService.RadiusControl);
+        float scale = ImGuiHelpers.GlobalScale;
+        ImGui.PushStyleVar(ImGuiStyleVar.WindowRounding, UiSharedService.RadiusWindow * scale);
+        ImGui.PushStyleVar(ImGuiStyleVar.ChildRounding, UiSharedService.RadiusCard * scale);
+        ImGui.PushStyleVar(ImGuiStyleVar.PopupRounding, UiSharedService.RadiusCard * scale);
+        ImGui.PushStyleVar(ImGuiStyleVar.FrameRounding, UiSharedService.RadiusControl * scale);
 
         ImGui.PushStyleColor(ImGuiCol.WindowBg,
             UiSharedService.WithAlpha(UiSharedService.ThemeWindowBg, glass));
@@ -71,6 +73,9 @@ public abstract class WindowMediatorSubscriberBase : Window, IMediatorSubscriber
         ImGui.PushStyleColor(ImGuiCol.ScrollbarGrab, UiSharedService.ThemeScrollbarGrab);
         ImGui.PushStyleColor(ImGuiCol.ScrollbarGrabHovered, UiSharedService.ThemeScrollbarHover);
         ImGui.PushStyleColor(ImGuiCol.ScrollbarGrabActive, UiSharedService.ThemeScrollbarActive);
+        ImGui.PushStyleColor(ImGuiCol.SliderGrab, UiSharedService.ThemeSliderGrab);
+        ImGui.PushStyleColor(ImGuiCol.SliderGrabActive, UiSharedService.ThemeSliderGrabActive);
+        ImGui.PushStyleColor(ImGuiCol.CheckMark, UiSharedService.ThemeCheckMark);
         ImGui.PushStyleColor(ImGuiCol.Tab, UiSharedService.ThemeTabNormal);
         ImGui.PushStyleColor(ImGuiCol.TabHovered, UiSharedService.ThemeTabHovered);
         ImGui.PushStyleColor(ImGuiCol.TabActive, UiSharedService.ThemeTabActive);
@@ -103,7 +108,7 @@ public abstract class WindowMediatorSubscriberBase : Window, IMediatorSubscriber
             ImGui.GetWindowDrawList(),
             pos,
             pos + ImGui.GetWindowSize(),
-            UiSharedService.RadiusWindow,
+            UiSharedService.RadiusWindow * ImGuiHelpers.GlobalScale,
             alpha);
     }
 

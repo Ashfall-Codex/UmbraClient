@@ -15,6 +15,7 @@ using UmbraSync.PlayerData.Pairs;
 using UmbraSync.Localization;
 using UmbraSync.Services;
 using UmbraSync.Services.Mediator;
+using UmbraSync.UI.Components;
 
 namespace UmbraSync.UI;
 
@@ -463,7 +464,7 @@ internal class EstablishmentDetailUi : WindowMediatorSubscriberBase
         ImGui.SetNextItemWidth(200);
         ImGui.InputTextWithHint($"{Loc.Get("Establishment.Field.Faction")}##edit", Loc.Get("Establishment.Field.Optional"), ref _editFactionTag, 50);
 
-        ImGui.Checkbox($"{Loc.Get("Establishment.Field.PublicDirectory")}##edit", ref _editIsPublic);
+        ToggleSwitch.Draw($"{Loc.Get("Establishment.Field.PublicDirectory")}##edit", ref _editIsPublic);
 
         ImGui.Spacing();
         ImGui.Separator();
@@ -497,7 +498,7 @@ internal class EstablishmentDetailUi : WindowMediatorSubscriberBase
             if (_editPlot > 30) _editIsSubdivision = true;
 
             ImGui.TextColored(ImGuiColors.DalamudGrey, Loc.Get("Establishment.Location.Annex"));
-            if (ImGui.Checkbox("##editAnnexe", ref _editIsSubdivision))
+            if (ToggleSwitch.Draw("##editAnnexe", ref _editIsSubdivision))
                 _editLocationDirty = true;
             UiSharedService.AttachToolTip(Loc.Get("Establishment.Location.AnnexTooltip"));
         }
@@ -554,7 +555,7 @@ internal class EstablishmentDetailUi : WindowMediatorSubscriberBase
             }
         }
 
-        ImGui.Checkbox(Loc.Get("Establishment.Detail.ShowOnProfile"), ref _editShowManagerOnProfile);
+        ToggleSwitch.Draw(Loc.Get("Establishment.Detail.ShowOnProfile"), ref _editShowManagerOnProfile);
 
         ImGui.Spacing();
         using var accent = ImRaii.PushColor(ImGuiCol.Button, UiSharedService.AccentColor);
@@ -743,7 +744,7 @@ internal class EstablishmentDetailUi : WindowMediatorSubscriberBase
         ImGui.SameLine();
         ImGuiHelpers.ScaledDummy(10f, 0);
         ImGui.SameLine();
-        ImGui.Checkbox(Loc.Get("Establishment.Event.EndTime"), ref _newEventHasEndTime);
+        ToggleSwitch.Draw(Loc.Get("Establishment.Event.EndTime"), ref _newEventHasEndTime);
         if (_newEventHasEndTime)
         {
             ImGui.SameLine();

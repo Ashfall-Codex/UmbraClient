@@ -14,6 +14,7 @@ using UmbraSync.PlayerData.Pairs;
 using UmbraSync.Localization;
 using UmbraSync.Services;
 using UmbraSync.Services.Mediator;
+using UmbraSync.UI.Components;
 
 namespace UmbraSync.UI;
 
@@ -196,7 +197,7 @@ internal class EstablishmentRegistrationUi : WindowMediatorSubscriberBase
         ImGui.InputTextWithHint("##faction", Loc.Get("Establishment.Field.Optional"), ref _factionTag, 50);
         ImGuiHelpers.ScaledDummy(2f);
 
-        ImGui.Checkbox(Loc.Get("Establishment.Field.PublicDirectory"), ref _isPublic);
+        ToggleSwitch.Draw(Loc.Get("Establishment.Field.PublicDirectory"), ref _isPublic);
         UiSharedService.AttachToolTip(Loc.Get("Establishment.Field.PublicDirectoryTooltip"));
     }
 
@@ -514,7 +515,7 @@ internal class EstablishmentRegistrationUi : WindowMediatorSubscriberBase
 
         ImGui.BeginGroup();
         ImGui.TextColored(ImGuiColors.DalamudGrey, Loc.Get("Establishment.Location.Annex"));
-        ImGui.Checkbox("##annexe", ref _isSubdivision);
+        ToggleSwitch.Draw("##annexe", ref _isSubdivision);
         UiSharedService.AttachToolTip(Loc.Get("Establishment.Location.AnnexTooltip"));
         ImGui.EndGroup();
     }

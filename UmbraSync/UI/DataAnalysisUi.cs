@@ -11,6 +11,7 @@ using UmbraSync.Localization;
 using UmbraSync.Services;
 using UmbraSync.Services.Mediator;
 using UmbraSync.Utils;
+using UmbraSync.UI.Components;
 
 namespace UmbraSync.UI;
 
@@ -375,7 +376,7 @@ public class DataAnalysisUi : WindowMediatorSubscriberBase
 
                 if (string.Equals(_selectedFileTypeTab, "tex", StringComparison.Ordinal))
                 {
-                    ImGui.Checkbox(Loc.Get("DataAnalysis.Bc7.Enable"), ref _enableBc7ConversionMode);
+                    ToggleSwitch.Draw(Loc.Get("DataAnalysis.Bc7.Enable"), ref _enableBc7ConversionMode);
                     if (_enableBc7ConversionMode)
                     {
                         UiSharedService.ColorText(Loc.Get("DataAnalysis.Bc7.WarningTitle"), UiSharedService.AccentColor);

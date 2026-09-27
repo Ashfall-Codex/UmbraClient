@@ -19,6 +19,7 @@ using UmbraSync.Services.Mediator;
 using UmbraSync.Services.ServerConfiguration;
 using UmbraSync.WebAPI;
 using UmbraSync.WebAPI.SignalR.Utils;
+using UmbraSync.UI.Components;
 
 namespace UmbraSync.UI;
 
@@ -228,7 +229,7 @@ public partial class IntroUi : WindowMediatorSubscriberBase
             if (!_dalamudUtilService.IsWine)
             {
                 var useFileCompactor = _configService.Current.UseCompactor;
-                if (ImGui.Checkbox(Loc.Get("CompactUi.IntroUi.Storage.UseCompactorLabel"), ref useFileCompactor))
+                if (ToggleSwitch.Draw(Loc.Get("CompactUi.IntroUi.Storage.UseCompactorLabel"), ref useFileCompactor))
                 {
                     _configService.Current.UseCompactor = useFileCompactor;
                     _configService.Save();

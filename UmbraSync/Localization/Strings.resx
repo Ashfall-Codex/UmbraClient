@@ -7329,4 +7329,100 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
   <data name="PluginRestart.Body" xml:space="preserve">
     <value>{0} was just reloaded or updated. Disable then re-enable UmbraSync in /xlplugins to restore synchronisation.</value>
   </data>
+  <data name="Settings.General.Notes.Title" xml:space="preserve">
+    <value>Notes</value>
+  </data>
+  <data name="Settings.General.Language.Title" xml:space="preserve">
+    <value>Language</value>
+  </data>
+  <data name="Settings.General.Display.Title" xml:space="preserve">
+    <value>Display</value>
+  </data>
+  <data name="Settings.General.Notifications.Title" xml:space="preserve">
+    <value>Notifications</value>
+  </data>
+  <data name="Settings.Performance.Global.Title" xml:space="preserve">
+    <value>Global configuration</value>
+  </data>
+  <data name="Settings.Performance.Limits.Title" xml:space="preserve">
+    <value>Individual limits</value>
+  </data>
+  <data name="Settings.Performance.Whitelist.Title" xml:space="preserve">
+    <value>Whitelisted UIDs</value>
+  </data>
+  <data name="Settings.Performance.Blacklist.Title" xml:space="preserve">
+    <value>Blacklisted UIDs</value>
+  </data>
+  <data name="Settings.Transfer.Downloads.Title" xml:space="preserve">
+    <value>Downloads</value>
+  </data>
+  <data name="Settings.Transfer.Precache.Title" xml:space="preserve">
+    <value>Penumbra pre-cache</value>
+  </data>
+  <data name="Settings.Transfer.Ui.Title" xml:space="preserve">
+    <value>Transfer UI</value>
+  </data>
+  <data name="Settings.Transfer.Current.Title" xml:space="preserve">
+    <value>Current transfers</value>
+  </data>
+  <data name="Settings.Storage.Cache.Title" xml:space="preserve">
+    <value>Local storage</value>
+  </data>
+  <data name="Settings.Storage.Validation.Title" xml:space="preserve">
+    <value>Integrity check</value>
+  </data>
+  <data name="Settings.Storage.Clear.Title" xml:space="preserve">
+    <value>Clear storage</value>
+  </data>
+  <data name="Settings.Advanced.Options.Title" xml:space="preserve">
+    <value>Advanced options</value>
+  </data>
+  <data name="Settings.AutoDetect.Discovery.Title" xml:space="preserve">
+    <value>Nearby detection</value>
+  </data>
+  <data name="Settings.AutoDetect.Slots.Title" xml:space="preserve">
+    <value>Slots</value>
+  </data>
+  <data name="CharaDataHub.Nav.Group.Together" xml:space="preserve">
+    <value>Play together</value>
+  </data>
+  <data name="CharaDataHub.Nav.Group.Apply" xml:space="preserve">
+    <value>Apply</value>
+  </data>
+  <data name="CharaDataHub.Nav.Group.Data" xml:space="preserve">
+    <value>My data</value>
+  </data>
+  <data name="CharaDataHub.Nav.Group.Community" xml:space="preserve">
+    <value>Community</value>
+  </data>
+  <data name="CharaDataHub.Nav.Library" xml:space="preserve">
+    <value>Library</value>
+  </data>
+  <data name="CharaDataHub.Nav.LiveData" xml:space="preserve">
+    <value>Live data</value>
+  </data>
+  <data name="CharaDataHub.Nav.Furniture" xml:space="preserve">
+    <value>Furniture</value>
+  </data>
+  <data name="CharaDataHub.Nav.Npc" xml:space="preserve">
+    <value>NPCs</value>
+  </data>
+  <data name="CharaDataHub.Library.All" xml:space="preserve">
+    <value>All</value>
+  </data>
+  <data name="CharaDataHub.Library.Empty" xml:space="preserve">
+    <value>Nothing to show.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Share.TitleFor" xml:space="preserve">
+    <value>Share: {0}</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Share.Cancel" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Share.ActionTooltip" xml:space="preserve">
+    <value>Share with pairs or syncshells</value>
+  </data>
+  <data name="AutoDetectUi.Syncshell.Search" xml:space="preserve">
+    <value>Search a syncshell, owner or tag…</value>
+  </data>
 </root>

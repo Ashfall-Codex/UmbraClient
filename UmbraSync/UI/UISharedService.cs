@@ -67,9 +67,19 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
     public static readonly Vector4 ThemeTabActive = new(0x4A / 255f, 0x36 / 255f, 0x68 / 255f, 1f);
     public static readonly Vector4 ThemeTextAccent = new(0x9B / 255f, 0x82 / 255f, 0xC0 / 255f, 1f);
     public static readonly Vector4 ThemeRailHovered = new(0x30 / 255f, 0x19 / 255f, 0x46 / 255f, 1f);
+    public static readonly Vector4 ThemePrivacyAccent = new(0f, 0.2f, 0.6f, 1f);
+    public static readonly Vector4 ThemeNavText = new(0.70f, 0.65f, 0.80f, 1f);
+    public static readonly Vector4 ThemeNavTextHovered = new(0.90f, 0.85f, 1f, 1f);
+    public static readonly Vector4 ThemeNavTextActive = new(1f, 1f, 1f, 1f);
     public static readonly Vector4 ThemeRailActive = new(0x50 / 255f, 0x17 / 255f, 0x83 / 255f, 1f);
-    public static Vector4 ThemeCardBorder => WithAlpha(ThemeButtonActive, 0.70f);
-    public const int ThemeColorCount = 24;
+    public static readonly Vector4 ThemeSliderGrab = new(0x96 / 255f, 0x45 / 255f, 0xE6 / 255f, 1f);
+    public static readonly Vector4 ThemeSliderGrabActive = new(0xB4 / 255f, 0x6B / 255f, 0xFF / 255f, 1f);
+    public static readonly Vector4 ThemeCheckMark = new(0xB4 / 255f, 0x6B / 255f, 0xFF / 255f, 1f);
+    public static readonly Vector4 ThemeSwitchKnobOn = new(1f, 0.98f, 1f, 1f);
+    public static readonly Vector4 ThemeSwitchKnobOff = new(0.70f, 0.68f, 0.74f, 1f);
+    public static Vector4 ThemeCardBorder => WithAlpha(AccentColor, 0.45f);
+    public static Vector4 ThemeCardBg => WithAlpha(ThemeButtonBg, CardAlpha());
+    public const int ThemeColorCount = 27;
     public const int ThemeStyleVarCount = 5;
 
     public const float RadiusWindow = 10f;
@@ -129,6 +139,14 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
         return Math.Clamp(baseAlpha * GlassOpacity, 0.35f, 1f);
     }
     
+    // Plus la fenêtre est transparente, plus la carte se densifie : le contenu reste lisible
+    // quelle que soit la scène derrière.
+    public static float CardAlpha(GlassLevel level = GlassLevel.Regular)
+    {
+        float window = GlassAlpha(level);
+        return Math.Clamp(0.45f + (1f - window) * 0.45f, 0f, 1f);
+    }
+
     public static void DrawGlassSheen(ImDrawListPtr drawList, Vector2 min, Vector2 max, float rounding, float alpha)
     {
         if (alpha <= 0f) return;
@@ -627,7 +645,7 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
         _currentWindowFontScale = scale;
     }
 
-    public static void DrawGrouped(Action imguiDrawAction, float rounding = 5f, float? expectedWidth = null, bool drawBorder = true)
+    public static void DrawGrouped(Action imguiDrawAction, float? rounding = null, float? expectedWidth = null, bool drawBorder = true)
     {
         var cursorPos = ImGui.GetCursorPos();
         using (ImRaii.Group())
@@ -646,7 +664,7 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
             ImGui.GetWindowDrawList().AddRect(
                 ImGui.GetItemRectMin() - ImGui.GetStyle().ItemInnerSpacing,
                 ImGui.GetItemRectMax() + ImGui.GetStyle().ItemInnerSpacing,
-                Color(ImGuiColors.DalamudGrey2), rounding);
+                ImGui.GetColorU32(ThemeCardBorder), rounding ?? RadiusCard * ImGuiHelpers.GlobalScale);
         }
     }
 
@@ -658,11 +676,7 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
         var pad = padding ?? new Vector2(
             padBase.X + 4f * ImGuiHelpers.GlobalScale,
             padBase.Y + 3f * ImGuiHelpers.GlobalScale);
-        // Verre sur verre est proscrit : une carte posée sur le châssis se détache par un
-        // voile clair, qui reste lisible quelle que soit la scène derrière la fenêtre.
-        var cardBg = background ?? (GlassOpacity >= 1f
-            ? ThemeHeaderBg
-            : new Vector4(1f, 1f, 1f, 0.045f));
+        var cardBg = background ?? ThemeCardBg;
         var cardBorder = border ?? ThemeCardBorder;
         float cardRounding = rounding ?? RadiusCard * ImGuiHelpers.GlobalScale;
         float borderThickness = Math.Max(1f, Math.Max(style.FrameBorderSize, 1f) * ImGuiHelpers.GlobalScale);
@@ -676,8 +690,12 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
 
         var startCursor = ImGui.GetCursorPos();
         var drawList = ImGui.GetWindowDrawList();
-        drawList.ChannelsSplit(2);
-        drawList.ChannelsSetCurrent(1);
+        bool nested = IsInsideSectionCard(drawList);
+        if (!nested)
+        {
+            drawList.ChannelsSplit(2);
+            drawList.ChannelsSetCurrent(1);
+        }
 
         ImGui.PushID(id);
         ImGui.SetCursorPos(new Vector2(startCursor.X + pad.X, startCursor.Y + pad.Y));
@@ -722,13 +740,16 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
             drawMax.Y = drawMin.Y + borderThickness;
         }
 
-        drawList.ChannelsSetCurrent(0);
+        drawList.ChannelsSetCurrent(nested ? 1 : 0);
         drawList.AddRectFilled(drawMin, drawMax, ImGui.ColorConvertFloat4ToU32(cardBg), cardRounding);
         if (cardBorder.W > 0f && borderThickness > 0f)
         {
             drawList.AddRect(drawMin, drawMax, ImGui.ColorConvertFloat4ToU32(cardBorder), cardRounding, ImDrawFlags.None, borderThickness);
         }
-        drawList.ChannelsMerge();
+        if (nested)
+            drawList.ChannelsSetCurrent(2);
+        else
+            drawList.ChannelsMerge();
 
         ImGui.SetCursorPos(startCursor);
         var dummyWidth = outerMax.X - outerMin.X;
@@ -744,6 +765,136 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
         {
             ImGui.SetCursorPosX(startCursor.X);
         }
+    }
+
+    // Encadré d'information : icône, texte, fond teinté de la couleur du message.
+    public static void DrawNotice(string text, Vector4 color, FontAwesomeIcon icon = FontAwesomeIcon.ExclamationTriangle)
+    {
+        float scale = ImGuiHelpers.GlobalScale;
+        float availWidth = ImGui.GetContentRegionAvail().X;
+        float padding = 8f * scale;
+        var start = ImGui.GetCursorScreenPos();
+        float startX = ImGui.GetCursorPosX();
+
+        var drawList = ImGui.GetWindowDrawList();
+        bool nested = IsInsideSectionCard(drawList);
+        if (!nested)
+        {
+            drawList.ChannelsSplit(2);
+            drawList.ChannelsSetCurrent(1);
+        }
+
+        ImGuiHelpers.ScaledDummy(4f);
+        ImGui.Indent(padding);
+        using (ImRaii.PushFont(UiBuilder.IconFont))
+            ImGui.TextColored(color, icon.ToIconString());
+        ImGui.SameLine();
+        ImGui.PushTextWrapPos(startX + availWidth - padding);
+        ImGui.TextUnformatted(text);
+        ImGui.PopTextWrapPos();
+        ImGui.Unindent(padding);
+        ImGuiHelpers.ScaledDummy(4f);
+
+        var max = new Vector2(start.X + availWidth, ImGui.GetCursorScreenPos().Y);
+        float rounding = RadiusCard * scale;
+        drawList.ChannelsSetCurrent(nested ? 1 : 0);
+        drawList.AddRectFilled(start, max, ImGui.GetColorU32(WithAlpha(color, 0.10f)), rounding);
+        drawList.AddRect(start, max, ImGui.GetColorU32(WithAlpha(color, 0.55f)), rounding);
+        if (nested)
+            drawList.ChannelsSetCurrent(2);
+        else
+            drawList.ChannelsMerge();
+    }
+
+    public static void DrawCardTitle(FontAwesomeIcon icon, string title, Vector4? accent = null)
+    {
+        var color = accent ?? AccentColor;
+        using (ImRaii.PushFont(UiBuilder.IconFont))
+            ImGui.TextColored(color, icon.ToIconString());
+        ImGui.SameLine();
+        ImGui.TextColored(color, title);
+        ImGuiHelpers.ScaledDummy(2f);
+    }
+
+    private static (Vector2 Start, float Width, float Padding, ImDrawListPtr DrawList, int Frame)? _openSectionCard;
+
+    // Carte de section pleine largeur : titre et icône en accent, fond posé derrière le contenu.
+    // Ouvrir une section ferme la précédente, ce qui laisse le code appelant à plat et rend
+    // un return anticipé inoffensif. La dernière se ferme avec EndSectionCard.
+    // Une section s'ouvre et se ferme dans la même fenêtre : la fermer avant d'entrer dans un Child.
+    // Canaux : 0 fond de section, 1 fond d'une DrawCard posée dedans, 2 contenu.
+    public static void BeginSectionCard(string title, FontAwesomeIcon icon)
+    {
+        EndSectionCard();
+
+        float availWidth = ImGui.GetContentRegionAvail().X;
+        float padding = 8f * ImGuiHelpers.GlobalScale;
+        var drawList = ImGui.GetWindowDrawList();
+        _openSectionCard = (ImGui.GetCursorScreenPos(), availWidth, padding, drawList, ImGui.GetFrameCount());
+
+        drawList.ChannelsSplit(3);
+        drawList.ChannelsSetCurrent(2);
+
+        ImGuiHelpers.ScaledDummy(4f);
+        ImGui.Indent(padding);
+        ShiftContentRight(-padding);
+        DrawCardTitle(icon, title);
+        ImGui.PushTextWrapPos(ImGui.GetCursorPosX() + availWidth - padding * 2f);
+    }
+
+    // Marge droite de la carte : ImGui n'a pas d'équivalent d'Indent pour ce bord. On rétrécit
+    // la zone de contenu de la fenêtre le temps de la section, pour que tableaux, curseurs et
+    // textes qui se calent sur la largeur disponible s'arrêtent avant le contour.
+    private static unsafe void ShiftContentRight(float delta)
+    {
+        var window = ImGuiP.GetCurrentWindow().Handle;
+        if (window == null) return;
+        window->WorkRect.Max.X += delta;
+        window->ContentRegionRect.Max.X += delta;
+    }
+
+    public static void EndSectionCard()
+    {
+        if (_openSectionCard is not { } card) return;
+        _openSectionCard = null;
+
+        // Une section restée ouverte à l'image précédente : sa pile a déjà été remise à zéro.
+        if (card.Frame != ImGui.GetFrameCount()) return;
+
+        // Fermée depuis une autre fenêtre : le curseur courant ne décrit plus la carte. On rend
+        // les canaux sans dessiner de fond plutôt que de poser un rectangle au mauvais endroit.
+        if (!SameDrawList(card.DrawList, ImGui.GetWindowDrawList()))
+        {
+            card.DrawList.ChannelsMerge();
+            return;
+        }
+
+        ImGui.PopTextWrapPos();
+        ShiftContentRight(card.Padding);
+        ImGui.Unindent(card.Padding);
+        ImGuiHelpers.ScaledDummy(4f);
+
+        float rounding = RadiusCard * ImGuiHelpers.GlobalScale;
+        var min = card.Start;
+        var max = new Vector2(card.Start.X + card.Width, ImGui.GetCursorScreenPos().Y);
+        card.DrawList.ChannelsSetCurrent(0);
+        card.DrawList.AddRectFilled(min, max, ImGui.GetColorU32(ThemeCardBg), rounding);
+        card.DrawList.AddRect(min, max, ImGui.GetColorU32(ThemeCardBorder), rounding);
+        card.DrawList.ChannelsMerge();
+
+        ImGuiHelpers.ScaledDummy(6f);
+    }
+
+    private static unsafe bool SameDrawList(ImDrawListPtr a, ImDrawListPtr b) => a.Handle == b.Handle;
+
+    private static bool IsInsideSectionCard(ImDrawListPtr drawList)
+        => _openSectionCard is { } card && card.Frame == ImGui.GetFrameCount() && SameDrawList(card.DrawList, drawList);
+
+    public static void DrawSectionCard(string title, FontAwesomeIcon icon, Action draw)
+    {
+        BeginSectionCard(title, icon);
+        draw();
+        EndSectionCard();
     }
 
     public static bool DrawArrowToggle(ref bool state, string id)

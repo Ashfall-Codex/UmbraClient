@@ -12,6 +12,7 @@ using UmbraSync.API.Dto.WildRp;
 using UmbraSync.Localization;
 using UmbraSync.Services;
 using UmbraSync.Services.Mediator;
+using UmbraSync.UI.Components;
 
 namespace UmbraSync.UI;
 
@@ -697,7 +698,7 @@ public partial class CompactUi
 
     private void DrawAnnuaireWildRpList()
     {
-        if (ImGui.Checkbox(Loc.Get("WildRp.FilterWorld"), ref _annuaireWildRpFilterWorld))
+        if (ToggleSwitch.Draw(Loc.Get("WildRp.FilterWorld"), ref _annuaireWildRpFilterWorld))
         {
             _annuaireWildRpPage = 0;
             _ = AnnuaireRefreshWildRpList();

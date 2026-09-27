@@ -80,11 +80,11 @@ public sealed class HonorificEditor
         ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X);
         ImGui.InputTextWithHint("##honorificTitle", Loc.Get("EditProfile.Honorific.TitleHint"), ref _title, 100);
 
-        ImGui.Checkbox(Loc.Get("EditProfile.Honorific.IsPrefix"), ref _isPrefix);
+        ToggleSwitch.Draw(Loc.Get("EditProfile.Honorific.IsPrefix"), ref _isPrefix);
         ImGui.SameLine();
         ImGuiHelpers.ScaledDummy(12f, 0);
         ImGui.SameLine();
-        ImGui.Checkbox(Loc.Get("EditProfile.Honorific.CustomColor"), ref _hasColor);
+        ToggleSwitch.Draw(Loc.Get("EditProfile.Honorific.CustomColor"), ref _hasColor);
         UiSharedService.AttachToolTip(Loc.Get("EditProfile.Honorific.CustomColorTip"));
         if (_hasColor)
         {
@@ -101,7 +101,7 @@ public sealed class HonorificEditor
         ImGui.SameLine();
         ImGuiHelpers.ScaledDummy(12f, 0);
         ImGui.SameLine();
-        ImGui.Checkbox(Loc.Get("EditProfile.Honorific.Glow"), ref _hasGlow);
+        ToggleSwitch.Draw(Loc.Get("EditProfile.Honorific.Glow"), ref _hasGlow);
         if (_hasGlow)
         {
             ImGui.SameLine();

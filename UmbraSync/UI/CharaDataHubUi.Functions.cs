@@ -4,6 +4,7 @@ using UmbraSync.API.Dto.CharaData;
 using UmbraSync.Localization;
 using UmbraSync.MareConfiguration.Models;
 using UmbraSync.Services.CharaData.Models;
+using UmbraSync.UI.Components;
 
 namespace UmbraSync.UI;
 
@@ -121,8 +122,8 @@ public sealed partial class CharaDataHubUi
     {
         SizeConstraints = new()
         {
-            MinimumSize = new((inGposeTab ?? false) ? 400 : 1000, 500),
-            MaximumSize = new((inGposeTab ?? false) ? 400 : 1000, 2000)
+            MinimumSize = new((inGposeTab ?? false) ? 400 + SideRail.ExpandedWidth : 1000, 500),
+            MaximumSize = new((inGposeTab ?? false) ? 400 + SideRail.ExpandedWidth : 1000, 2000)
         };
     }
 

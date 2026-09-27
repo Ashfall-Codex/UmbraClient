@@ -6,6 +6,7 @@ using Dalamud.Interface.Utility.Raii;
 using System.Globalization;
 using System.Numerics;
 using UmbraSync.Localization;
+using UmbraSync.UI.Components;
 
 namespace UmbraSync.UI;
 
@@ -13,7 +14,7 @@ public sealed partial class CharaDataHubUi
 {
     private void DrawNearbyPoses()
     {
-        _uiSharedService.BigText(Loc.Get("CharaDataHub.NearbyPoses.Title"));
+        UiSharedService.BeginSectionCard(Loc.Get("CharaDataHub.NearbyPoses.Title"), FontAwesomeIcon.MapMarkerAlt);
 
         DrawHelpFoldout(Loc.Get("CharaDataHub.NearbyPoses.Help"));
 
@@ -25,21 +26,21 @@ public sealed partial class CharaDataHubUi
                 _charaDataNearbyManager.UserNoteFilter = filterByUser;
             }
             bool onlyCurrent = _configService.Current.NearbyOwnServerOnly;
-            if (ImGui.Checkbox(Loc.Get("CharaDataHub.NearbyPoses.OnlyCurrentWorld"), ref onlyCurrent))
+            if (ToggleSwitch.Draw(Loc.Get("CharaDataHub.NearbyPoses.OnlyCurrentWorld"), ref onlyCurrent))
             {
                 _configService.Current.NearbyOwnServerOnly = onlyCurrent;
                 _configService.Save();
             }
             _uiSharedService.DrawHelpText(Loc.Get("CharaDataHub.NearbyPoses.OnlyCurrentWorldHelp"));
             bool showOwn = _configService.Current.NearbyShowOwnData;
-            if (ImGui.Checkbox(Loc.Get("CharaDataHub.NearbyPoses.ShowOwnData"), ref showOwn))
+            if (ToggleSwitch.Draw(Loc.Get("CharaDataHub.NearbyPoses.ShowOwnData"), ref showOwn))
             {
                 _configService.Current.NearbyShowOwnData = showOwn;
                 _configService.Save();
             }
             _uiSharedService.DrawHelpText(Loc.Get("CharaDataHub.NearbyPoses.ShowOwnDataHelp"));
             bool ignoreHousing = _configService.Current.NearbyIgnoreHousingLimitations;
-            if (ImGui.Checkbox(Loc.Get("CharaDataHub.NearbyPoses.IgnoreHousing"), ref ignoreHousing))
+            if (ToggleSwitch.Draw(Loc.Get("CharaDataHub.NearbyPoses.IgnoreHousing"), ref ignoreHousing))
             {
                 _configService.Current.NearbyIgnoreHousingLimitations = ignoreHousing;
                 _configService.Save();
@@ -47,7 +48,7 @@ public sealed partial class CharaDataHubUi
             _uiSharedService.DrawHelpText(Loc.Get("CharaDataHub.NearbyPoses.IgnoreHousingHelp") + UiSharedService.TooltipSeparator
                 + Loc.Get("CharaDataHub.NearbyPoses.IgnoreHousingNote"));
             bool showWisps = _configService.Current.NearbyDrawWisps;
-            if (ImGui.Checkbox(Loc.Get("CharaDataHub.NearbyPoses.ShowWisps"), ref showWisps))
+            if (ToggleSwitch.Draw(Loc.Get("CharaDataHub.NearbyPoses.ShowWisps"), ref showWisps))
             {
                 _configService.Current.NearbyDrawWisps = showWisps;
                 _configService.Save();
@@ -70,7 +71,7 @@ public sealed partial class CharaDataHubUi
             }
             _uiSharedService.DrawHelpText(Loc.Get("CharaDataHub.NearbyPoses.DetectionDistanceHelp"));
             bool alwaysShow = _configService.Current.NearbyShowAlways;
-            if (ImGui.Checkbox(Loc.Get("CharaDataHub.NearbyPoses.ShowAlways"), ref alwaysShow))
+            if (ToggleSwitch.Draw(Loc.Get("CharaDataHub.NearbyPoses.ShowAlways"), ref alwaysShow))
             {
                 _configService.Current.NearbyShowAlways = alwaysShow;
                 _configService.Save();
@@ -88,7 +89,7 @@ public sealed partial class CharaDataHubUi
 
         DrawUpdateSharedDataButton();
 
-        UiSharedService.DistanceSeparator();
+        UiSharedService.EndSectionCard();
 
         using var child = ImRaii.Child("nearbyPosesChild", new(0, 0), false, ImGuiWindowFlags.AlwaysAutoResize);
 
