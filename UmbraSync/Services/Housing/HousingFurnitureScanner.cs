@@ -271,19 +271,18 @@ public sealed class HousingFurnitureScanner : IMediatorSubscriber
     // Parse les fichiers JSON de configuration du mod Penumbra pour extraire les game paths housing.
     private void ParseModJsonForHousingPaths(string modBasePath, HashSet<string> candidatePaths)
     {
-        // Parser default_mod.json
-        var defaultModFile = Path.Combine(modBasePath, "default_mod.json");
-        if (File.Exists(defaultModFile))
-        {
-            ExtractHousingPathsFromJson(defaultModFile, candidatePaths, isGroupFile: false);
-        }
+        // Depuis Penumbra 1.7 (format 4), options et fichiers vivent dans meta.json : default_mod.json
+        // et group_*.json n'existent plus. Sans cette lecture, un mod dont les fichiers ne sont pas
+        // rangés selon leur chemin de jeu (tableaux, textures renommées…) échappait au scan.
+        ExtractHousingPathsFromJson(Path.Combine(modBasePath, "meta.json"), candidatePaths);
 
-        // Parser tous les group_*.json (contiennent les options avec leurs mappings Files)
+        // Format 3, encore présent sur les Penumbra antérieurs.
+        ExtractHousingPathsFromJson(Path.Combine(modBasePath, "default_mod.json"), candidatePaths);
         try
         {
             foreach (var groupFile in Directory.EnumerateFiles(modBasePath, "group_*.json"))
             {
-                ExtractHousingPathsFromJson(groupFile, candidatePaths, isGroupFile: true);
+                ExtractHousingPathsFromJson(groupFile, candidatePaths);
             }
         }
         catch (Exception ex)
@@ -292,41 +291,47 @@ public sealed class HousingFurnitureScanner : IMediatorSubscriber
         }
     }
 
-    // Extrait les game paths housing depuis un fichier JSON de mod Penumbra.
-    private void ExtractHousingPathsFromJson(string jsonFilePath, HashSet<string> candidatePaths, bool isGroupFile)
+    // Extrait les game paths housing depuis un fichier JSON de mod Penumbra, quel que soit son format.
+    private void ExtractHousingPathsFromJson(string jsonFilePath, HashSet<string> candidatePaths)
     {
+        if (!File.Exists(jsonFilePath)) return;
+
         try
         {
-            var jsonText = File.ReadAllText(jsonFilePath);
-            using var doc = JsonDocument.Parse(jsonText);
-            var root = doc.RootElement;
-
-            if (isGroupFile)
-            {
-                // Structure group_*.json : { "Options": [ { "Files": { gamePath: modPath } } ] }
-                if (root.TryGetProperty("Options", out var options) && options.ValueKind == JsonValueKind.Array)
-                {
-                    foreach (var option in options.EnumerateArray())
-                    {
-                        if (option.TryGetProperty("Files", out var files) && files.ValueKind == JsonValueKind.Object)
-                        {
-                            AddHousingPathsFromFilesElement(files, candidatePaths);
-                        }
-                    }
-                }
-            }
-            else
-            {
-                // Structure default_mod.json : { "Files": { gamePath: modPath } }
-                if (root.TryGetProperty("Files", out var files) && files.ValueKind == JsonValueKind.Object)
-                {
-                    AddHousingPathsFromFilesElement(files, candidatePaths);
-                }
-            }
+            using var doc = JsonDocument.Parse(File.ReadAllText(jsonFilePath));
+            CollectHousingPaths(doc.RootElement, candidatePaths, depth: 0);
         }
         catch (Exception ex)
         {
             _logger.LogDebug(ex, "[HousingScan] Erreur lors du parsing de {File}", Path.GetFileName(jsonFilePath));
+        }
+    }
+
+    // Tout objet « Files » est un dictionnaire gamePath → fichier du mod, où qu'il se trouve :
+    // données par défaut, option d'un groupe, conteneur d'un groupe combiné.
+    private static void CollectHousingPaths(JsonElement element, HashSet<string> candidatePaths, int depth)
+    {
+        if (depth > 16) return;
+
+        if (element.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var item in element.EnumerateArray())
+                CollectHousingPaths(item, candidatePaths, depth + 1);
+            return;
+        }
+
+        if (element.ValueKind != JsonValueKind.Object) return;
+
+        foreach (var property in element.EnumerateObject())
+        {
+            if (property.Value.ValueKind == JsonValueKind.Object
+                && string.Equals(property.Name, "Files", StringComparison.Ordinal))
+            {
+                AddHousingPathsFromFilesElement(property.Value, candidatePaths);
+                continue;
+            }
+
+            CollectHousingPaths(property.Value, candidatePaths, depth + 1);
         }
     }
 

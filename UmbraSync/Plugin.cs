@@ -171,6 +171,7 @@ public sealed class Plugin : IDalamudPlugin
             collection.AddSingleton<SlotService>();
             collection.AddSingleton<HousingMonitorService>();
             collection.AddSingleton<HousingFurnitureScanner>();
+            collection.AddSingleton<HousingFurnitureRedrawService>();
             collection.AddSingleton<HousingShareManager>();
             collection.AddSingleton<HousingFurnitureSyncService>();
             collection.AddSingleton<ArrPathResolver>();

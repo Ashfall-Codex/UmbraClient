@@ -1,4 +1,3 @@
-using Dalamud.Plugin.Services;
 using MessagePack;
 using Microsoft.Extensions.Logging;
 using System.Globalization;
@@ -38,11 +37,12 @@ public sealed class HousingShareManager : IDisposable
     private readonly IpcCallerPenumbra _penumbra;
     private readonly MareMediator _mediator;
     private readonly DalamudUtilService _dalamudUtil;
-    private readonly ICommandManager _commandManager;
     private readonly FileCacheManager _fileCacheManager;
     private readonly FileUploadManager _fileUploadManager;
     private readonly FileDownloadManagerFactory _fileDownloadManagerFactory;
     private readonly MareConfigService _configService;
+    private readonly HousingFurnitureRedrawService _furnitureRedraw;
+    private HousingFurnitureRedrawService.Target _appliedRedrawTarget = HousingFurnitureRedrawService.Target.Empty;
     private readonly SemaphoreSlim _operationSemaphore = new(1, 1);
     private readonly List<HousingShareEntryDto> _ownShares = new();
     private FileDownloadManager? _fileDownloadManager;
@@ -52,17 +52,18 @@ public sealed class HousingShareManager : IDisposable
 
     public HousingShareManager(ILogger<HousingShareManager> logger, ApiController apiController,
         HousingFurnitureScanner scanner, IpcCallerPenumbra penumbra, MareMediator mediator,
-        DalamudUtilService dalamudUtil, ICommandManager commandManager,
+        DalamudUtilService dalamudUtil,
         FileCacheManager fileCacheManager, FileUploadManager fileUploadManager,
-        FileDownloadManagerFactory fileDownloadManagerFactory, MareConfigService configService)
+        FileDownloadManagerFactory fileDownloadManagerFactory, MareConfigService configService,
+        HousingFurnitureRedrawService furnitureRedraw)
     {
+        _furnitureRedraw = furnitureRedraw;
         _logger = logger;
         _apiController = apiController;
         _scanner = scanner;
         _penumbra = penumbra;
         _mediator = mediator;
         _dalamudUtil = dalamudUtil;
-        _commandManager = commandManager;
         _fileCacheManager = fileCacheManager;
         _fileUploadManager = fileUploadManager;
         _fileDownloadManagerFactory = fileDownloadManagerFactory;
@@ -335,19 +336,7 @@ public sealed class HousingShareManager : IDisposable
                     AppliedShareId = null;
                     AppliedShareOwnerUid = null;
                     
-                    try
-                    {
-                        await Task.Delay(500).ConfigureAwait(false);
-                        await _dalamudUtil.RunOnFrameworkThread(() =>
-                        {
-                            _commandManager.ProcessCommand("/penumbra redraw furniture");
-                        }).ConfigureAwait(false);
-                        _logger.LogInformation("Penumbra redraw furniture exécuté après suppression du mod housing précédent");
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning(ex, "Échec du redraw furniture après suppression du mod housing");
-                    }
+                    await RedrawPreviouslyModdedFurnitureAsync().ConfigureAwait(false);
                 }
                 return;
             }
@@ -551,18 +540,28 @@ public sealed class HousingShareManager : IDisposable
         try
         {
             await Task.Delay(500).ConfigureAwait(false);
-            await _dalamudUtil.RunOnFrameworkThread(() =>
-            {
-                _commandManager.ProcessCommand("/penumbra redraw furniture");
-            }).ConfigureAwait(false);
-            _logger.LogInformation("Penumbra redraw furniture exécuté après installation du mod housing");
+
+            // Uniquement les meubles du partage : un redraw global fait sauter les revêtements
+            // posés sur les cloisons, moddées ou non (issue #102).
+            var redrawTarget = HousingFurnitureRedrawService.BuildTarget(modPaths.Keys);
+            _appliedRedrawTarget = redrawTarget;
+            int redrawn = await _furnitureRedraw.RedrawAsync(redrawTarget).ConfigureAwait(false);
 
             ProgressPercent = 1.0f;
 
+            // Rien de rechargé alors que le partage vise des meubles, ou fichiers qu'on ne sait
+            // rattacher à aucun meuble : l'effet n'apparaîtra qu'au prochain chargement de la pièce.
+            bool needsReenter = redrawTarget.HasUnmappedPaths || (redrawTarget.ModelKeys.Count > 0 && redrawn == 0);
+            if (needsReenter)
+            {
+                _logger.LogInformation("Housing share {ShareId} : rechargement de la pièce nécessaire (non rattachés={Unmapped}, rechargés={Redrawn})",
+                    shareId, redrawTarget.HasUnmappedPaths, redrawn);
+            }
+
             _mediator.Publish(new NotificationMessage(
                 Loc.Get("HousingShare.Notification.ShareTitle"),
-                Loc.Get("HousingShare.Notification.FurnitureApplied"),
-                NotificationType.Success,
+                Loc.Get(needsReenter ? "HousingShare.Notification.ReenterForEffect" : "HousingShare.Notification.FurnitureApplied"),
+                needsReenter ? NotificationType.Info : NotificationType.Success,
                 TimeSpan.FromSeconds(6)));
             
             var pathRoots = modPaths.Keys
@@ -585,7 +584,7 @@ public sealed class HousingShareManager : IDisposable
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Échec du redraw furniture, l'utilisateur devra re-entrer dans la maison");
+            _logger.LogWarning(ex, "Échec du redraw des meubles, l'utilisateur devra re-entrer dans la maison");
             _mediator.Publish(new NotificationMessage(
                 Loc.Get("HousingShare.Notification.ShareTitle"),
                 Loc.Get("HousingShare.Notification.ReenterForEffect"),
@@ -610,6 +609,23 @@ public sealed class HousingShareManager : IDisposable
 
             _mediator.Publish(new HousingModsRemovedMessage());
         });
+    }
+
+    // Après le retrait du mod : remet en vanilla les meubles qu'il modifiait, et eux seuls.
+    public async Task RedrawPreviouslyModdedFurnitureAsync()
+    {
+        var target = _appliedRedrawTarget;
+        _appliedRedrawTarget = HousingFurnitureRedrawService.Target.Empty;
+
+        try
+        {
+            await Task.Delay(500).ConfigureAwait(false);
+            await _furnitureRedraw.RedrawAsync(target).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Échec du redraw des meubles après suppression du mod housing");
+        }
     }
 
     public Task RefreshAsync()
