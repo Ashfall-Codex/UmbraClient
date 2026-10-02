@@ -1,4 +1,5 @@
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
+using System.Runtime.InteropServices;
 using UmbraSync.Interop.Ipc;
 using UmbraSync.MareConfiguration;
 using UmbraSync.PlayerData.Handlers;
@@ -7,12 +8,21 @@ using UmbraSync.Services.Mediator;
 
 namespace UmbraSync.PlayerData.Redraw;
 
+[StructLayout(LayoutKind.Auto)]
+public readonly record struct PairRedrawBaseline(nint Address, int ObjectIndex, long Sequence)
+{
+    public bool IsValid => Address != nint.Zero && ObjectIndex >= 0;
+}
+
 public sealed class PairRedrawCoordinator : DisposableMediatorSubscriberBase
 {
     private readonly MareConfigService _configService;
     private readonly IpcManager _ipcManager;
     private readonly DalamudUtilService _dalamudUtil;
     private readonly SemaphoreSlim _gate = new(1, 1);
+    private readonly Lock _eventLock = new();
+    private readonly Dictionary<int, long> _lastRedrawSequenceByIndex = [];
+    private long _redrawSequence;
     private DateTime _lastRedrawAtUtc = DateTime.MinValue;
 
     public PairRedrawCoordinator(ILogger<PairRedrawCoordinator> logger, MareMediator mediator,
@@ -22,6 +32,46 @@ public sealed class PairRedrawCoordinator : DisposableMediatorSubscriberBase
         _configService = configService;
         _ipcManager = ipcManager;
         _dalamudUtil = dalamudUtil;
+
+        Mediator.Subscribe<PenumbraRedrawMessage>(this, msg => RecordPenumbraRedraw(msg.ObjTblIdx));
+    }
+
+    private void RecordPenumbraRedraw(int objectIndex)
+    {
+        if (objectIndex < 0) return;
+        lock (_eventLock)
+        {
+            _lastRedrawSequenceByIndex[objectIndex] = ++_redrawSequence;
+        }
+    }
+
+    public PairRedrawBaseline CaptureBaseline(nint address)
+    {
+        var index = ReadObjectIndex(address);
+        if (index < 0) return default;
+
+        lock (_eventLock)
+        {
+            _lastRedrawSequenceByIndex.TryGetValue(index, out var sequence);
+            return new PairRedrawBaseline(address, index, sequence);
+        }
+    }
+
+    private bool HasRedrawSince(PairRedrawBaseline baseline, nint currentAddress)
+    {
+        if (!baseline.IsValid || currentAddress != baseline.Address) return false;
+        if (ReadObjectIndex(currentAddress) != baseline.ObjectIndex) return false;
+
+        lock (_eventLock)
+        {
+            return _lastRedrawSequenceByIndex.TryGetValue(baseline.ObjectIndex, out var sequence) && sequence > baseline.Sequence;
+        }
+    }
+
+    private static unsafe int ReadObjectIndex(nint address)
+    {
+        if (address == nint.Zero) return -1;
+        return ((FFXIVClientStructs.FFXIV.Client.Game.Object.GameObject*)address)->ObjectIndex;
     }
 
     private static readonly TimeSpan GateWaitTimeout = TimeSpan.FromSeconds(3);
@@ -33,7 +83,8 @@ public sealed class PairRedrawCoordinator : DisposableMediatorSubscriberBase
     /// réapplication Glamourer directe (sans flicker) ; DeferredSoft → settle de quelques frames puis soft.
     /// Tout est gardé en amont par EnableSoftRedraw : si OFF, l'appelant force HardRedraw.
     /// </summary>
-    public async Task ExecuteDecisionAsync(PairRedrawDecision decision, ILogger callerLogger, GameObjectHandler handler, Guid applicationId, CancellationToken token)
+    public async Task ExecuteDecisionAsync(PairRedrawDecision decision, ILogger callerLogger, GameObjectHandler handler, Guid applicationId, CancellationToken token,
+        PairRedrawBaseline? baseline = null)
     {
         switch (decision)
         {
@@ -52,6 +103,12 @@ public sealed class PairRedrawCoordinator : DisposableMediatorSubscriberBase
                 return;
 
             default: // HardRedraw (et tout cas inattendu, par prudence)
+                if (baseline is { } captured && HasRedrawSince(captured, handler.Address))
+                {
+                    callerLogger.LogDebug("[{applicationId}] Redraw decision: HardRedraw ignoré, Penumbra a déjà redessiné l'acteur depuis la pose des mods", applicationId);
+                    return;
+                }
+
                 callerLogger.LogDebug("[{applicationId}] Redraw decision: HardRedraw", applicationId);
                 await RedrawAsync(callerLogger, handler, applicationId, token).ConfigureAwait(false);
                 return;

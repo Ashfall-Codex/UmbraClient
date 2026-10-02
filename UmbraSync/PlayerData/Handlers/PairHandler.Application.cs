@@ -264,7 +264,8 @@ public sealed partial class PairHandler
                             && redrawDecisions.TryGetValue(objectKind, out var d))
                         ? d
                         : PairRedrawDecision.HardRedraw;
-                    await _pairRedrawCoordinator.ExecuteDecisionAsync(redrawDecision, Logger, handler, applicationId, token).ConfigureAwait(false);
+                    await _pairRedrawCoordinator.ExecuteDecisionAsync(redrawDecision, Logger, handler, applicationId, token,
+                        objectKind == ObjectKind.Player ? _redrawBaseline : null).ConfigureAwait(false);
                     break;
 
             }
@@ -633,6 +634,19 @@ public sealed partial class PairHandler
 
             if (updateModdedPaths || updateManip)
             {
+                // L'assignation de collection déclenche un redraw Penumbra sans les mods : on la fait avant
+                // de prendre la baseline pour qu'elle ne soit pas comptée comme un redraw « utile ».
+                var ensured = await _collectionBinder
+                    .EnsureBoundAsync(Logger, _state.Penumbra, Pair.UserData.UID, TryResolveObjectIndexAsync)
+                    .ConfigureAwait(false);
+                if (!ensured.Success)
+                {
+                    AbortApplication(charaData, ensured.Reason, ensured.Failure.ToString());
+                    return;
+                }
+
+                _redrawBaseline = _pairRedrawCoordinator.CaptureBaseline(_charaHandler.Address);
+
                 // L'attente ci-dessus peut durer jusqu'à 30 s
                 var applied = await _collectionBinder.BindAndApplyAsync(Logger, _applicationId, _state.Penumbra,
                     Pair.UserData.UID, TryResolveObjectIndexAsync,
@@ -655,6 +669,11 @@ public sealed partial class PairHandler
                         LastAppliedDataBytes += path.Length;
                     }
                 }
+            }
+
+            else
+            {
+                _redrawBaseline = _pairRedrawCoordinator.CaptureBaseline(_charaHandler.Address);
             }
 
             token.ThrowIfCancellationRequested();

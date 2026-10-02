@@ -21,6 +21,11 @@ public class VisibilityService : DisposableMediatorSubscriberBase
     private readonly DrawObjectTrackingService _drawTracking;
     private readonly MareConfigService _configService;
     private static readonly TimeSpan EventModeSafetyInterval = TimeSpan.FromSeconds(2);
+    // Diagnostic uniquement : un acteur présent dans l'object table mais sans draw object lié reste « visible »
+    // (le jeu cesse de dessiner certains joueurs selon la distance/limite d'affichage, et un redraw délie
+    // brièvement le draw object ; dans les deux cas rien à réappliquer). On journalise la durée de ces absences.
+    private static readonly TimeSpan UndrawnReportThreshold = TimeSpan.FromSeconds(5);
+    private readonly ConcurrentDictionary<string, (DateTime Since, bool Reported)> _undrawnSinceUtc = new(StringComparer.Ordinal);
     private volatile bool _scanRequested;
     private DateTime _lastScanUtc = DateTime.MinValue;
 
@@ -38,6 +43,7 @@ public class VisibilityService : DisposableMediatorSubscriberBase
         {
             _trackedPlayerVisibility.Clear();
             _makeVisibleNextFrame.Clear();
+            _undrawnSinceUtc.Clear();
         });
     }
 
@@ -50,6 +56,37 @@ public class VisibilityService : DisposableMediatorSubscriberBase
     {
         // No PairVisibilityMessage is emitted if the player was visible when removed
         _trackedPlayerVisibility.TryRemove(ident, out _);
+        _undrawnSinceUtc.TryRemove(ident, out _);
+    }
+
+    private bool StaysVisible(string ident, bool inObjectTable, bool isDrawn)
+    {
+        if (!inObjectTable)
+        {
+            _undrawnSinceUtc.TryRemove(ident, out _);
+            return false;
+        }
+
+        if (isDrawn)
+        {
+            if (_undrawnSinceUtc.TryRemove(ident, out var previous))
+            {
+                var undrawn = DateTime.UtcNow - previous.Since;
+                if (undrawn > TimeSpan.FromSeconds(1))
+                    Logger.LogInformation("Draw object de {ident} revenu après {seconds:0.0}s (acteur resté dans l'object table)", ident, undrawn.TotalSeconds);
+            }
+            return true;
+        }
+
+        var entry = _undrawnSinceUtc.GetOrAdd(ident, _ => (DateTime.UtcNow, false));
+        var elapsed = DateTime.UtcNow - entry.Since;
+        if (!entry.Reported && elapsed >= UndrawnReportThreshold)
+        {
+            _undrawnSinceUtc[ident] = (entry.Since, true);
+            Logger.LogInformation("Draw object de {ident} absent depuis {seconds:0.0}s alors que l'acteur est dans l'object table", ident, elapsed.TotalSeconds);
+        }
+
+        return true;
     }
 
     private void FrameworkUpdate()
@@ -68,12 +105,13 @@ public class VisibilityService : DisposableMediatorSubscriberBase
         {
             string ident = player.Key;
             var findResult = _dalamudUtil.FindPlayerByNameHash(ident);
-            // Mode événementiel : "présent" = a un draw object lié (réellement rendu), ce qui évite
-            // d'appliquer sur un acteur présent dans l'object table mais pas encore dessiné.
-            // Mode polling : présence dans l'object table (comportement historique).
+            var inObjectTable = findResult.ObjectId != 0;
+            var isDrawn = findResult.Address != nint.Zero && _drawTracking.HasDrawObjectLinked(findResult.Address);
             var isPresent = eventMode
-                ? (findResult.Address != nint.Zero && _drawTracking.HasDrawObjectLinked(findResult.Address))
-                : findResult.ObjectId != 0;
+                ? (player.Value == TrackedPlayerStatus.Visible ? StaysVisible(ident, inObjectTable, isDrawn) : isDrawn)
+                : inObjectTable;
+            if (player.Value != TrackedPlayerStatus.Visible)
+                _undrawnSinceUtc.TryRemove(ident, out _);
 
             // Transitions
             switch (player.Value)

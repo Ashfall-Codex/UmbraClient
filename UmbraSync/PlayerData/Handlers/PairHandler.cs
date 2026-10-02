@@ -44,6 +44,7 @@ public sealed partial class PairHandler : DisposableMediatorSubscriberBase, IPai
     private readonly PairCharacterReverter _reverter;
     private CancellationTokenSource? _applicationCancellationTokenSource = new();
     private Guid _applicationId;
+    private UmbraSync.PlayerData.Redraw.PairRedrawBaseline? _redrawBaseline;
     private Task? _applicationTask;
     private readonly SemaphoreSlim _applicationStartGate = new(1, 1);
     private GameObjectHandler? _charaHandler;
