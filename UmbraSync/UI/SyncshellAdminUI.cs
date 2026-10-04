@@ -840,7 +840,7 @@ public class SyncshellAdminUI : WindowMediatorSubscriberBase
 
             ImGuiHelpers.ScaledDummy(5);
             ImGui.TextUnformatted(Loc.Get("SyncshellAdmin.Slot.Radius"));
-            ImGui.SliderFloat("##slotradius", ref _slotRadius, 5f, 20f, "%.1f m");
+            ThemedSlider.Float("##slotradius", ref _slotRadius, 5f, 20f, "%.1f m", step: 0.5f);
             _uiSharedService.DrawHelpText(Loc.Get("SyncshellAdmin.Slot.RadiusHelp"));
 
             ImGuiHelpers.ScaledDummy(5);

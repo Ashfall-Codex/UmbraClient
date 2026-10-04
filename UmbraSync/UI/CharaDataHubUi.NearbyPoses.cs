@@ -56,7 +56,7 @@ public sealed partial class CharaDataHubUi
             _uiSharedService.DrawHelpText(Loc.Get("CharaDataHub.NearbyPoses.ShowWispsHelp"));
             int maxWisps = _configService.Current.NearbyMaxWisps;
             ImGui.SetNextItemWidth(140);
-            if (ImGui.SliderInt(Loc.Get("CharaDataHub.NearbyPoses.MaxWisps"), ref maxWisps, 0, 200))
+            if (ThemedSlider.Int(Loc.Get("CharaDataHub.NearbyPoses.MaxWisps"), ref maxWisps, 0, 200))
             {
                 _configService.Current.NearbyMaxWisps = maxWisps;
                 _configService.Save();
@@ -64,7 +64,7 @@ public sealed partial class CharaDataHubUi
             _uiSharedService.DrawHelpText(Loc.Get("CharaDataHub.NearbyPoses.MaxWispsHelp"));
             int poseDetectionDistance = _configService.Current.NearbyDistanceFilter;
             ImGui.SetNextItemWidth(100);
-            if (ImGui.SliderInt(Loc.Get("CharaDataHub.NearbyPoses.DetectionDistance"), ref poseDetectionDistance, 5, 1000))
+            if (ThemedSlider.Int(Loc.Get("CharaDataHub.NearbyPoses.DetectionDistance"), ref poseDetectionDistance, 5, 1000))
             {
                 _configService.Current.NearbyDistanceFilter = poseDetectionDistance;
                 _configService.Save();

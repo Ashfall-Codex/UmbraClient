@@ -25,6 +25,7 @@ using UmbraSync.Services.Mediator;
 using UmbraSync.Models;
 using UmbraSync.Localization;
 using UmbraSync.Services.ServerConfiguration;
+using UmbraSync.UI.Components;
 
 namespace UmbraSync.UI;
 
@@ -1387,8 +1388,10 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
 
         float maxCacheSize = (float)_configService.Current.MaxLocalCacheInGiB;
         ImGui.SetNextItemWidth(MathF.Min(400 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X - 200 * ImGuiHelpers.GlobalScale));
-        if (ImGui.SliderFloat(Loc.Get("Settings.Storage.MaxSize") + "##maxStorageSize", ref maxCacheSize, 1f, 200f, "%.2f GiB"))
+        if (ThemedSlider.Float(Loc.Get("Settings.Storage.MaxSize") + "##maxStorageSize", ref maxCacheSize, 0f, 200f, "%.0f GiB", step: 5f))
         {
+            // 0 n'a pas de sens pour un cache : le premier cran vaut 1 Gio.
+            maxCacheSize = MathF.Max(1f, maxCacheSize);
             _configService.Current.MaxLocalCacheInGiB = maxCacheSize;
             _configService.Save();
         }

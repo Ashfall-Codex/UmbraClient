@@ -557,7 +557,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
         ImGui.AlignTextToFramePadding();
         ImGui.TextUnformatted(Loc.Get("Settings.Transfer.SpeedLimit.NoLimit"));
         ImGui.SetNextItemWidth(MathF.Min(250 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X - 200 * ImGuiHelpers.GlobalScale));
-        if (ImGui.SliderInt(Loc.Get("Settings.Transfer.ParallelDownloads"), ref maxParallelDownloads, 1, 20))
+        if (ThemedSlider.Int(Loc.Get("Settings.Transfer.ParallelDownloads"), ref maxParallelDownloads, 1, 20))
         {
             _configService.Current.ParallelDownloads = maxParallelDownloads;
             _configService.Save();
@@ -578,7 +578,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
         {
             int maxDecompThreads = _configService.Current.MaxDecompressionThreads;
             ImGui.SetNextItemWidth(MathF.Min(250 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X - 200 * ImGuiHelpers.GlobalScale));
-            if (ImGui.SliderInt(Loc.Get("Settings.Transfer.DecompressionThreads"), ref maxDecompThreads, 1, cpuCount))
+            if (ThemedSlider.Int(Loc.Get("Settings.Transfer.DecompressionThreads"), ref maxDecompThreads, 1, cpuCount))
             {
                 _configService.Current.MaxDecompressionThreads = maxDecompThreads;
                 _configService.Save();
@@ -593,7 +593,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
         // Sous-bloc 1 : concurrence d'application GPU
         int maxConcurrentPairApplications = _configService.Current.MaxConcurrentPairApplications;
         ImGui.SetNextItemWidth(MathF.Min(200 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X - 200 * ImGuiHelpers.GlobalScale));
-        if (ImGui.SliderInt(Loc.Get("Settings.Transfer.PairProcessing.MaxConcurrent"), ref maxConcurrentPairApplications, 1, 16))
+        if (ThemedSlider.Int(Loc.Get("Settings.Transfer.PairProcessing.MaxConcurrent"), ref maxConcurrentPairApplications, 1, 16))
         {
             _configService.Current.MaxConcurrentPairApplications = maxConcurrentPairApplications;
             _configService.Save();
@@ -616,7 +616,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
         ImGui.Indent();
         int minRedrawIntervalMs = _configService.Current.MinRedrawIntervalMs;
         ImGui.SetNextItemWidth(MathF.Min(200 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X - 200 * ImGuiHelpers.GlobalScale));
-        if (ImGui.SliderInt(Loc.Get("Settings.Transfer.RedrawCoordination.MinInterval"), ref minRedrawIntervalMs, 50, 500))
+        if (ThemedSlider.Int(Loc.Get("Settings.Transfer.RedrawCoordination.MinInterval"), ref minRedrawIntervalMs, 50, 500, step: 10f))
         {
             _configService.Current.MinRedrawIntervalMs = minRedrawIntervalMs;
             _configService.Save();
@@ -695,7 +695,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
         _uiShared.DrawHelpText("Shows download text (amount of MiB downloaded) in the transfer bars");
         int transferBarWidth = _configService.Current.TransferBarsWidth;
         ImGui.SetNextItemWidth(MathF.Min(250 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X - 200 * ImGuiHelpers.GlobalScale));
-        if (ImGui.SliderInt("Transfer Bar Width", ref transferBarWidth, 0, 500))
+        if (ThemedSlider.Int("Transfer Bar Width", ref transferBarWidth, 0, 500))
         {
             if (transferBarWidth < 10)
                 transferBarWidth = 10;
@@ -705,7 +705,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
         _uiShared.DrawHelpText("Width of the displayed transfer bars (will never be less wide than the displayed text)");
         int transferBarHeight = _configService.Current.TransferBarsHeight;
         ImGui.SetNextItemWidth(MathF.Min(250 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X - 200 * ImGuiHelpers.GlobalScale));
-        if (ImGui.SliderInt("Transfer Bar Height", ref transferBarHeight, 0, 50))
+        if (ThemedSlider.Int("Transfer Bar Height", ref transferBarHeight, 0, 50))
         {
             if (transferBarHeight < 2)
                 transferBarHeight = 2;
@@ -2552,7 +2552,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
         }
         _uiShared.DrawHelpText("Will show profiles on the right side of the main UI");
         ImGui.SetNextItemWidth(MathF.Min(250 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X - 200 * ImGuiHelpers.GlobalScale));
-        if (ImGui.SliderFloat("Hover Delay", ref profileDelay, 1, 10))
+        if (ThemedSlider.Float("Hover Delay", ref profileDelay, 1, 10, step: 0.5f))
         {
             _configService.Current.ProfileDelay = profileDelay;
             _configService.Save();

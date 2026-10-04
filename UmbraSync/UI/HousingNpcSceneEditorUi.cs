@@ -256,7 +256,7 @@ public sealed class HousingNpcSceneEditorUi : WindowMediatorSubscriberBase
 
                 var rot = entry.Rotation;
                 ImGui.SetNextItemWidth(160 * ImGuiHelpers.GlobalScale);
-                if (ImGui.SliderFloat(Loc.Get("HousingNpc.Editor.Rotation"), ref rot, -3.14159f, 3.14159f)) { entry.Rotation = rot; dirty = true; }
+                if (ThemedSlider.Float(Loc.Get("HousingNpc.Editor.Rotation"), ref rot, -3.14159f, 3.14159f, step: 0.0872665f)) { entry.Rotation = rot; dirty = true; }
 
                 var face = entry.FacePlayer;
                 if (ToggleSwitch.Draw(Loc.Get("HousingNpc.Editor.FacePlayer"), ref face)) { entry.FacePlayer = face; dirty = true; }
@@ -828,7 +828,7 @@ public sealed class HousingNpcSceneEditorUi : WindowMediatorSubscriberBase
             {
                 var rr = r.TargetRotation;
                 ImGui.SetNextItemWidth(160 * scale);
-                if (ImGui.SliderFloat(Loc.Get("HousingNpc.Editor.Rotation"), ref rr, -3.14159f, 3.14159f)) { r.TargetRotation = rr; changed = true; }
+                if (ThemedSlider.Float(Loc.Get("HousingNpc.Editor.Rotation"), ref rr, -3.14159f, 3.14159f, step: 0.0872665f)) { r.TargetRotation = rr; changed = true; }
                 ImGui.SameLine();
                 if (_uiShared.IconTextButton(FontAwesomeIcon.LocationArrow, Loc.Get("HousingNpc.Editor.UseMyFacing")))
                     _ = _service.SetActionRotationToPlayerAsync(sceneId, entry.Id, index);

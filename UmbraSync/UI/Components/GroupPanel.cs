@@ -615,7 +615,7 @@ internal sealed class GroupPanel
                 if (_bulkOneTimeInvites.Count == 0)
                 {
                     ImGui.SetNextItemWidth(-1);
-                    ImGui.SliderInt("Amount##bulkinvites", ref _bulkInviteCount, 1, 100);
+                    ThemedSlider.Int("Amount##bulkinvites", ref _bulkInviteCount, 1, 100);
                     using (ImRaii.Disabled(_bulkInvitesTask != null))
                     {
                         if (_uiShared.IconTextButton(FontAwesomeIcon.MailBulk, "Create invites"))
