@@ -96,15 +96,30 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
     private static MareConfigService? _glassConfig;
     private static void AttachGlassConfig(MareConfigService configService) => _glassConfig = configService;
     private static void DetachGlassConfig() => _glassConfig = null;
+    public const float MinOpacity = 0.30f;
+    public const float MaxGlassOpacity = 1f;
+    private const float MinBlurStrength = 1f;
+    private const float MaxBlurStrength = 4.5f;
+    private const float BlurFadeRange = 0.25f;
+    private const float MinResolvedAlpha = 0.18f;
+
+    public static BackdropBlur? Backdrop { get; set; }
+    private static float GlassSetting => Math.Clamp(_glassConfig?.Current.UiGlass ?? 1f, 0f, 1f);
+
     public static float GlassOpacity
     {
         get
         {
-            MareConfigService? cfg = _glassConfig;
-            if (cfg is null || cfg.Current.UiReduceTransparency) return 1f;
-            return Math.Clamp(cfg.Current.UiOpacity, 0.60f, 1f);
+            if (_glassConfig is null) return 1f;
+            return MinOpacity + (MaxGlassOpacity - MinOpacity) * GlassSetting;
         }
     }
+
+    public static float BlurStrength => MinBlurStrength + (MaxBlurStrength - MinBlurStrength) * GlassSetting;
+    public static float BlurOpacity => _glassConfig is null ? 0f : Math.Clamp(GlassSetting / BlurFadeRange, 0f, 1f);
+
+    public static float GlassFromOpacity(float opacity)
+        => Math.Clamp((opacity - MinOpacity) / (MaxGlassOpacity - MinOpacity), 0f, 1f);
 
     public static Vector4 WithAlpha(Vector4 color, float alpha) => color with { W = alpha };
 
@@ -136,7 +151,7 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
         };
 
         if (level == GlassLevel.Opaque) return 1f;
-        return Math.Clamp(baseAlpha * GlassOpacity, 0.35f, 1f);
+        return Math.Clamp(baseAlpha * GlassOpacity, MinResolvedAlpha, 1f);
     }
     
     // Plus la fenêtre est transparente, plus la carte se densifie : le contenu reste lisible

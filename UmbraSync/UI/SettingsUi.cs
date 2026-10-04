@@ -2373,35 +2373,18 @@ public class SettingsUi : WindowMediatorSubscriberBase
         _uiShared.DrawHelpText("Select the language used for Umbra's UI. Missing text falls back to English.");
 
         UiSharedService.BeginSectionCard(Loc.Get("Settings.General.Appearance"), FontAwesomeIcon.Palette);
-        var reduceTransparency = _configService.Current.UiReduceTransparency;
-        if (ToggleSwitch.Draw(Loc.Get("Settings.General.ReduceTransparency"), ref reduceTransparency))
+        ImGui.TextUnformatted(Loc.Get("Settings.General.UiGlass"));
+        var uiGlass = _configService.Current.UiGlass;
+        bool glassReleased = GlassSlider.Draw("##ui_glass", ref uiGlass, 260f * ImGuiHelpers.GlobalScale,
+            Loc.Get("Settings.General.UiGlass.Tooltip"));
+        _configService.Current.UiGlass = uiGlass;
+        if (glassReleased) _configService.Save();
+
+        var clearInGpose = _configService.Current.UiClearGlassInGpose;
+        if (ToggleSwitch.Draw(Loc.Get("Settings.General.ClearGlassInGpose"), ref clearInGpose))
         {
-            _configService.Current.UiReduceTransparency = reduceTransparency;
+            _configService.Current.UiClearGlassInGpose = clearInGpose;
             _configService.Save();
-        }
-        _uiShared.DrawHelpText(Loc.Get("Settings.General.ReduceTransparency.Help"));
-
-        using (ImRaii.Disabled(reduceTransparency))
-        {
-            var uiOpacity = _configService.Current.UiOpacity;
-            if (ImGui.SliderFloat(Loc.Get("Settings.General.UiOpacity"), ref uiOpacity, 0.60f, 1f, "%.2f"))
-            {
-                _configService.Current.UiOpacity = Math.Clamp(uiOpacity, 0.60f, 1f);
-                _configService.Save();
-            }
-        }
-        _uiShared.DrawHelpText(Loc.Get("Settings.General.UiOpacity.Help")
-            + UiSharedService.TooltipSeparator
-            + Loc.Get("Settings.General.UiOpacity.Note"));
-
-        using (ImRaii.Disabled(reduceTransparency))
-        {
-            var clearInGpose = _configService.Current.UiClearGlassInGpose;
-            if (ToggleSwitch.Draw(Loc.Get("Settings.General.ClearGlassInGpose"), ref clearInGpose))
-            {
-                _configService.Current.UiClearGlassInGpose = clearInGpose;
-                _configService.Save();
-            }
         }
         _uiShared.DrawHelpText(Loc.Get("Settings.General.ClearGlassInGpose.Help"));
 

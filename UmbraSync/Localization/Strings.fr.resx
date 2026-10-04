@@ -7266,20 +7266,11 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
   <data name="Settings.General.Appearance" xml:space="preserve">
     <value>Apparence</value>
   </data>
-  <data name="Settings.General.ReduceTransparency" xml:space="preserve">
-    <value>Interface opaque</value>
+  <data name="Settings.General.UiGlass" xml:space="preserve">
+    <value>Effet de transparence</value>
   </data>
-  <data name="Settings.General.ReduceTransparency.Help" xml:space="preserve">
-    <value>Supprime toute transparence des fenêtres. À activer si l'interface devient difficile à lire par-dessus certaines zones du jeu.</value>
-  </data>
-  <data name="Settings.General.UiOpacity" xml:space="preserve">
-    <value>Opacité de l'interface</value>
-  </data>
-  <data name="Settings.General.UiOpacity.Help" xml:space="preserve">
-    <value>Opacité du châssis des fenêtres et de la barre latérale. Plus la valeur est basse, plus la scène du jeu transparaît.</value>
-  </data>
-  <data name="Settings.General.UiOpacity.Note" xml:space="preserve">
-    <value>Les listes, tableaux et champs de saisie restent toujours opaques, quel que soit ce réglage.</value>
+  <data name="Settings.General.UiGlass.Tooltip" xml:space="preserve">
+    <value>À gauche, un verre transparent qui laisse voir le décor presque net. En allant vers la droite, le verre se teinte et se dépolit, jusqu'à un fond entièrement opaque tout à droite. Seuls les fonds sont affectés : le texte, les boutons et les onglets restent opaques.</value>
   </data>
   <data name="Settings.General.ClearGlassInGpose" xml:space="preserve">
     <value>Interface plus transparente en GPose</value>

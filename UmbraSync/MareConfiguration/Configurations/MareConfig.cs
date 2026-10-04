@@ -107,6 +107,8 @@ public class MareConfig : IMareConfiguration
     public bool ShowVisibleUsersSeparately { get; set; } = true;
     public string UiLanguage { get; set; } = "fr";
     public float UiOpacity { get; set; } = 0.88f;
+    public const float DefaultGlass = 0.5f;
+    public float UiGlass { get; set; } = DefaultGlass;
     public bool UiReduceTransparency { get; set; }
     public bool UiClearGlassInGpose { get; set; }
     public string LastChangelogVersionSeen { get; set; } = string.Empty;

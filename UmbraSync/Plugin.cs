@@ -270,6 +270,7 @@ public sealed class Plugin : IDalamudPlugin
             collection.AddScoped<PlayerDataFactory>();
             collection.AddScoped<CollectionOverrideResolver>();
             collection.AddScoped<OnlinePlayerManager>();
+            collection.AddScoped<BackdropBlur>();
             collection.AddScoped<UiService>();
             collection.AddScoped<CommandManagerService>();
             collection.AddScoped<UiSharedService>();

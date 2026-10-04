@@ -89,6 +89,8 @@ public abstract class WindowMediatorSubscriberBase : Window, IMediatorSubscriber
     
     protected virtual GlassLevel WindowGlassLevel => GlassLevel.Opaque;
 
+    protected virtual bool UseBackdropBlur => true;
+
     public override void Draw()
     {
         DrawWindowSheen();
@@ -104,11 +106,19 @@ public abstract class WindowMediatorSubscriberBase : Window, IMediatorSubscriber
         if (alpha >= 1f) return;
 
         var pos = ImGui.GetWindowPos();
+        float rounding = UiSharedService.RadiusWindow * ImGuiHelpers.GlobalScale;
+        float blurOpacity = UiSharedService.BlurOpacity;
+        if (UseBackdropBlur && blurOpacity > 0f && UiSharedService.Backdrop is { } backdrop)
+        {
+            backdrop.EnsureRendered();
+            backdrop.DrawBehind(pos, pos + ImGui.GetWindowSize(), rounding, blurOpacity);
+        }
+
         UiSharedService.DrawGlassSheen(
             ImGui.GetWindowDrawList(),
             pos,
             pos + ImGui.GetWindowSize(),
-            UiSharedService.RadiusWindow * ImGuiHelpers.GlobalScale,
+            rounding,
             alpha);
     }
 

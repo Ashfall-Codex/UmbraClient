@@ -42,6 +42,13 @@
         <PackageReference Include="Glamourer.Api" Version="2.8.2" />
     </ItemGroup>
 
+    <ItemGroup>
+        <Reference Include="TerraFX.Interop.Windows">
+            <HintPath>$(DalamudLibPath)TerraFX.Interop.Windows.dll</HintPath>
+            <Private>false</Private>
+        </Reference>
+    </ItemGroup>
+
     <PropertyGroup>
         <SourceRevisionId>build$([System.DateTime]::UtcNow.ToString("yyyy-MM-ddTHH:mm:ss:fffZ"))</SourceRevisionId>
         <ImplicitUsings>enable</ImplicitUsings>
