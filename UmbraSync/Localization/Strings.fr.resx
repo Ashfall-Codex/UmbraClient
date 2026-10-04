@@ -2573,6 +2573,15 @@ Note : Les armes ne s'afficheront pas correctement sauf si vous utilisez le m&#x
   <data name="CharaDataHub.Mcdf.Upload.EmptyFile" xml:space="preserve">
     <value>Le fichier MCDF est vide.</value>
   </data>
+  <data name="CharaDataHub.Mcdf.Upload.TooLarge" xml:space="preserve">
+    <value>Ce MCDF est trop volumineux pour être envoyé ({0} Mio, limite {1} Mio). Réduis le poids de ton personnage (textures, mods) puis réessaie.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Upload.Rejected" xml:space="preserve">
+    <value>Le serveur a refusé l'envoi du MCDF.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Upload.NotConnected" xml:space="preserve">
+    <value>Non connecté au serveur, le MCDF n'a pas été envoyé.</value>
+  </data>
   <data name="CharaDataHub.Mcdf.Local.Uploading" xml:space="preserve">
     <value>Envoi du MCDF sur le serveur, veuillez patienter...</value>
   </data>

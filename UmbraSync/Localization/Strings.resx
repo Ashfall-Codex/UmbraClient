@@ -2672,6 +2672,15 @@ Note: Weapons will not be displayed correctly unless using the same job as the s
   <data name="CharaDataHub.Mcdf.Upload.EmptyFile" xml:space="preserve">
     <value>MCDF file is empty.</value>
   </data>
+  <data name="CharaDataHub.Mcdf.Upload.TooLarge" xml:space="preserve">
+    <value>This MCDF is too large to be uploaded ({0} MiB, limit {1} MiB). Reduce your character's size (textures, mods) and try again.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Upload.Rejected" xml:space="preserve">
+    <value>The server refused the MCDF upload.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Upload.NotConnected" xml:space="preserve">
+    <value>Not connected to the server, the MCDF was not uploaded.</value>
+  </data>
   <data name="CharaDataHub.Mcdf.Local.Title" xml:space="preserve">
     <value>Local MCDF Files</value>
   </data>
