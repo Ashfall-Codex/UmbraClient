@@ -7314,6 +7314,130 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
   <data name="Settings.Transfer.Precache.Title" xml:space="preserve">
     <value>Pré-cache Penumbra</value>
   </data>
+  <data name="Settings.Transfer.Redraw.Title" xml:space="preserve">
+    <value>Redraws</value>
+  </data>
+  <data name="Settings.Transfer.Limits.Title" xml:space="preserve">
+    <value>Limites</value>
+  </data>
+  <data name="Settings.Transfer.DecompressionThreads.AutoValue" xml:space="preserve">
+    <value>Auto ({0})</value>
+  </data>
+  <data name="Settings.Transfer.Ui.ShowWindow" xml:space="preserve">
+    <value>Fenêtre de transferts séparée</value>
+  </data>
+  <data name="Settings.Transfer.Ui.ShowWindow.Help" xml:space="preserve">
+    <value>La fenêtre de transferts affiche la progression des téléchargements en cours.
+
+Que signifient W/Q/P/D ?
+W = en attente d'un emplacement (voir Téléchargements parallèles max)
+Q = en file d'attente sur le serveur, en attente du signal de départ
+P = téléchargement en cours
+D = décompression du téléchargement</value>
+  </data>
+  <data name="Settings.Transfer.Ui.EditPosition" xml:space="preserve">
+    <value>Modifier la position de la fenêtre de transferts</value>
+  </data>
+  <data name="Settings.Transfer.Ui.ShowBars" xml:space="preserve">
+    <value>Barres de transfert sous les joueurs</value>
+  </data>
+  <data name="Settings.Transfer.Ui.ShowBars.Help" xml:space="preserve">
+    <value>Affiche une barre de progression aux pieds du joueur dont vous téléchargez les données.</value>
+  </data>
+  <data name="Settings.Transfer.Ui.ShowText" xml:space="preserve">
+    <value>Afficher le texte de téléchargement</value>
+  </data>
+  <data name="Settings.Transfer.Ui.ShowText.Help" xml:space="preserve">
+    <value>Affiche la quantité téléchargée (en Mio) dans les barres de transfert.</value>
+  </data>
+  <data name="Settings.Transfer.Ui.BarWidth" xml:space="preserve">
+    <value>Largeur des barres de transfert</value>
+  </data>
+  <data name="Settings.Transfer.Ui.BarWidth.Help" xml:space="preserve">
+    <value>Largeur des barres affichées (jamais plus étroite que le texte affiché).</value>
+  </data>
+  <data name="Settings.Transfer.Ui.BarHeight" xml:space="preserve">
+    <value>Hauteur des barres de transfert</value>
+  </data>
+  <data name="Settings.Transfer.Ui.BarHeight.Help" xml:space="preserve">
+    <value>Hauteur des barres affichées (jamais plus basse que le texte affiché).</value>
+  </data>
+  <data name="Settings.Transfer.Ui.Uploading" xml:space="preserve">
+    <value>Texte « Envoi en cours »</value>
+  </data>
+  <data name="Settings.Transfer.Ui.Uploading.Help" xml:space="preserve">
+    <value>Affiche un texte « Envoi en cours » aux pieds du joueur qui envoie ses données : désactivé, taille normale ou grande police.</value>
+  </data>
+  <data name="Settings.Transfer.Ui.Uploading.Off" xml:space="preserve">
+    <value>Désactivé</value>
+  </data>
+  <data name="Settings.Transfer.Ui.Uploading.Normal" xml:space="preserve">
+    <value>Normal</value>
+  </data>
+  <data name="Settings.Transfer.Ui.Uploading.Large" xml:space="preserve">
+    <value>Grande police</value>
+  </data>
+  <data name="Settings.Advanced.Experimental.Title" xml:space="preserve">
+    <value>Expérimental</value>
+  </data>
+  <data name="Settings.Advanced.Experimental.SoftRedraw" xml:space="preserve">
+    <value>Redraw intelligent (soft/hard)</value>
+  </data>
+  <data name="Settings.Advanced.Experimental.SoftRedraw.Help" xml:space="preserve">
+    <value>Pour un changement de texture ou de matériau seul, réapplique l'apparence via Glamourer sans redraw complet (moins de scintillement et de charge GPU). Les changements de géométrie (mdl, cheveux, visage, queue, manipulations) restent en redraw complet.
+
+Expérimental : si un mod n'apparaît pas correctement, désactivez cette option (retour au comportement habituel, sans redémarrage).</value>
+  </data>
+  <data name="Settings.Advanced.Experimental.EventVisibility" xml:space="preserve">
+    <value>Détection de visibilité événementielle</value>
+  </data>
+  <data name="Settings.Advanced.Experimental.EventVisibility.Help" xml:space="preserve">
+    <value>Détecte l'apparition et la disparition des joueurs via des hooks du jeu (réaction immédiate, moins de charge CPU) au lieu d'un scan périodique. Repli automatique sur le scan si les hooks échouent.
+
+Expérimental : ces hooks sont bas niveau ; en cas de souci, désactivez l'option (les hooks ne sont alors plus posés). Un changement prend effet à la prochaine reconnexion ou au redémarrage du plugin.</value>
+  </data>
+  <data name="Settings.Transfer.Current.Tab.Transfers" xml:space="preserve">
+    <value>Transferts</value>
+  </data>
+  <data name="Settings.Transfer.Current.Tab.Blocked" xml:space="preserve">
+    <value>Transferts bloqués</value>
+  </data>
+  <data name="Settings.Transfer.Current.Uploads" xml:space="preserve">
+    <value>Envois</value>
+  </data>
+  <data name="Settings.Transfer.Current.Downloads" xml:space="preserve">
+    <value>Téléchargements</value>
+  </data>
+  <data name="Settings.Transfer.Current.Col.File" xml:space="preserve">
+    <value>Fichier</value>
+  </data>
+  <data name="Settings.Transfer.Current.Col.Uploaded" xml:space="preserve">
+    <value>Envoyé</value>
+  </data>
+  <data name="Settings.Transfer.Current.Col.Size" xml:space="preserve">
+    <value>Taille</value>
+  </data>
+  <data name="Settings.Transfer.Current.Col.User" xml:space="preserve">
+    <value>Utilisateur</value>
+  </data>
+  <data name="Settings.Transfer.Current.Col.Server" xml:space="preserve">
+    <value>Serveur</value>
+  </data>
+  <data name="Settings.Transfer.Current.Col.Files" xml:space="preserve">
+    <value>Fichiers</value>
+  </data>
+  <data name="Settings.Transfer.Current.Col.Download" xml:space="preserve">
+    <value>Téléchargement</value>
+  </data>
+  <data name="Settings.Transfer.Current.Blocked.Description" xml:space="preserve">
+    <value>Les fichiers que vous avez tenté d'envoyer ou de télécharger, et dont le transfert a été interdit par leurs créateurs, apparaissent ici. Si vous voyez ici des chemins de fichiers de votre disque, ces fichiers n'ont pas pu être envoyés. Si vous voyez des hash, ces fichiers n'ont pas pu être téléchargés. Demandez à votre contact de vous envoyer le mod par un autre moyen, ou procurez-vous-le vous-même.</value>
+  </data>
+  <data name="Settings.Transfer.Current.Blocked.Col.Hash" xml:space="preserve">
+    <value>Hash / Nom de fichier</value>
+  </data>
+  <data name="Settings.Transfer.Current.Blocked.Col.ForbiddenBy" xml:space="preserve">
+    <value>Interdit par</value>
+  </data>
   <data name="Settings.Transfer.Ui.Title" xml:space="preserve">
     <value>Interface des transferts</value>
   </data>

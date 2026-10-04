@@ -7404,6 +7404,130 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
   <data name="Settings.Transfer.Precache.Title" xml:space="preserve">
     <value>Penumbra pre-cache</value>
   </data>
+  <data name="Settings.Transfer.Redraw.Title" xml:space="preserve">
+    <value>Redraws</value>
+  </data>
+  <data name="Settings.Transfer.Limits.Title" xml:space="preserve">
+    <value>Limits</value>
+  </data>
+  <data name="Settings.Transfer.DecompressionThreads.AutoValue" xml:space="preserve">
+    <value>Auto ({0})</value>
+  </data>
+  <data name="Settings.Transfer.Ui.ShowWindow" xml:space="preserve">
+    <value>Separate transfer window</value>
+  </data>
+  <data name="Settings.Transfer.Ui.ShowWindow.Help" xml:space="preserve">
+    <value>The transfer window shows the progress of outstanding downloads.
+
+What do W/Q/P/D stand for?
+W = waiting for a slot (see Maximum parallel downloads)
+Q = queued on the server, waiting for the queue ready signal
+P = processing the download (downloading)
+D = decompressing the download</value>
+  </data>
+  <data name="Settings.Transfer.Ui.EditPosition" xml:space="preserve">
+    <value>Edit transfer window position</value>
+  </data>
+  <data name="Settings.Transfer.Ui.ShowBars" xml:space="preserve">
+    <value>Transfer bars below players</value>
+  </data>
+  <data name="Settings.Transfer.Ui.ShowBars.Help" xml:space="preserve">
+    <value>Renders a progress bar at the feet of the player you are downloading from.</value>
+  </data>
+  <data name="Settings.Transfer.Ui.ShowText" xml:space="preserve">
+    <value>Show download text</value>
+  </data>
+  <data name="Settings.Transfer.Ui.ShowText.Help" xml:space="preserve">
+    <value>Shows the amount downloaded (in MiB) in the transfer bars.</value>
+  </data>
+  <data name="Settings.Transfer.Ui.BarWidth" xml:space="preserve">
+    <value>Transfer bar width</value>
+  </data>
+  <data name="Settings.Transfer.Ui.BarWidth.Help" xml:space="preserve">
+    <value>Width of the displayed transfer bars (never narrower than the displayed text).</value>
+  </data>
+  <data name="Settings.Transfer.Ui.BarHeight" xml:space="preserve">
+    <value>Transfer bar height</value>
+  </data>
+  <data name="Settings.Transfer.Ui.BarHeight.Help" xml:space="preserve">
+    <value>Height of the displayed transfer bars (never shorter than the displayed text).</value>
+  </data>
+  <data name="Settings.Transfer.Ui.Uploading" xml:space="preserve">
+    <value>"Uploading" text</value>
+  </data>
+  <data name="Settings.Transfer.Ui.Uploading.Help" xml:space="preserve">
+    <value>Renders an "Uploading" text at the feet of the player who is uploading data: off, normal size or large font.</value>
+  </data>
+  <data name="Settings.Transfer.Ui.Uploading.Off" xml:space="preserve">
+    <value>Off</value>
+  </data>
+  <data name="Settings.Transfer.Ui.Uploading.Normal" xml:space="preserve">
+    <value>Normal</value>
+  </data>
+  <data name="Settings.Transfer.Ui.Uploading.Large" xml:space="preserve">
+    <value>Large font</value>
+  </data>
+  <data name="Settings.Advanced.Experimental.Title" xml:space="preserve">
+    <value>Experimental</value>
+  </data>
+  <data name="Settings.Advanced.Experimental.SoftRedraw" xml:space="preserve">
+    <value>Smart redraw (soft/hard)</value>
+  </data>
+  <data name="Settings.Advanced.Experimental.SoftRedraw.Help" xml:space="preserve">
+    <value>For a texture or material change alone, reapplies the appearance through Glamourer without a full redraw (less flicker and GPU load). Geometry changes (mdl, hair, face, tail, manipulations) still use a full redraw.
+
+Experimental: if a mod does not show up correctly, turn this off (back to the usual behavior, no restart needed).</value>
+  </data>
+  <data name="Settings.Advanced.Experimental.EventVisibility" xml:space="preserve">
+    <value>Event-based visibility detection</value>
+  </data>
+  <data name="Settings.Advanced.Experimental.EventVisibility.Help" xml:space="preserve">
+    <value>Detects players appearing and disappearing through game hooks (immediate reaction, less CPU load) instead of a periodic scan. Automatically falls back to the scan if the hooks fail.
+
+Experimental: these hooks are low level; if anything goes wrong, turn this off (the hooks are then no longer installed). A change takes effect at the next reconnect or plugin restart.</value>
+  </data>
+  <data name="Settings.Transfer.Current.Tab.Transfers" xml:space="preserve">
+    <value>Transfers</value>
+  </data>
+  <data name="Settings.Transfer.Current.Tab.Blocked" xml:space="preserve">
+    <value>Blocked transfers</value>
+  </data>
+  <data name="Settings.Transfer.Current.Uploads" xml:space="preserve">
+    <value>Uploads</value>
+  </data>
+  <data name="Settings.Transfer.Current.Downloads" xml:space="preserve">
+    <value>Downloads</value>
+  </data>
+  <data name="Settings.Transfer.Current.Col.File" xml:space="preserve">
+    <value>File</value>
+  </data>
+  <data name="Settings.Transfer.Current.Col.Uploaded" xml:space="preserve">
+    <value>Uploaded</value>
+  </data>
+  <data name="Settings.Transfer.Current.Col.Size" xml:space="preserve">
+    <value>Size</value>
+  </data>
+  <data name="Settings.Transfer.Current.Col.User" xml:space="preserve">
+    <value>User</value>
+  </data>
+  <data name="Settings.Transfer.Current.Col.Server" xml:space="preserve">
+    <value>Server</value>
+  </data>
+  <data name="Settings.Transfer.Current.Col.Files" xml:space="preserve">
+    <value>Files</value>
+  </data>
+  <data name="Settings.Transfer.Current.Col.Download" xml:space="preserve">
+    <value>Download</value>
+  </data>
+  <data name="Settings.Transfer.Current.Blocked.Description" xml:space="preserve">
+    <value>Files that you attempted to upload or download that were forbidden to be transferred by their creators will appear here. If you see file paths from your drive here, then those files were not allowed to be uploaded. If you see hashes, those files were not allowed to be downloaded. Ask your paired friend to send you the mod in question through other means or acquire the mod yourself.</value>
+  </data>
+  <data name="Settings.Transfer.Current.Blocked.Col.Hash" xml:space="preserve">
+    <value>Hash / Filename</value>
+  </data>
+  <data name="Settings.Transfer.Current.Blocked.Col.ForbiddenBy" xml:space="preserve">
+    <value>Forbidden by</value>
+  </data>
   <data name="Settings.Transfer.Ui.Title" xml:space="preserve">
     <value>Transfer UI</value>
   </data>

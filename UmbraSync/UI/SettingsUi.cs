@@ -434,16 +434,12 @@ public class SettingsUi : WindowMediatorSubscriberBase
     private void DrawBlockedTransfers()
     {
         _lastTab = "BlockedTransfers";
-        UiSharedService.ColorTextWrapped("Files that you attempted to upload or download that were forbidden to be transferred by their creators will appear here. " +
-                             "If you see file paths from your drive here, then those files were not allowed to be uploaded. If you see hashes, those files were not allowed to be downloaded. " +
-                             "Ask your paired friend to send you the mod in question through other means or acquire the mod yourself.",
-            ImGuiColors.DalamudGrey);
+        UiSharedService.ColorTextWrapped(Loc.Get("Settings.Transfer.Current.Blocked.Description"), ImGuiColors.DalamudGrey);
 
         if (ImGui.BeginTable("TransfersTable", 2, ImGuiTableFlags.SizingStretchProp))
         {
-            ImGui.TableSetupColumn(
-                $"Hash/Filename");
-            ImGui.TableSetupColumn($"Forbidden by");
+            ImGui.TableSetupColumn(Loc.Get("Settings.Transfer.Current.Blocked.Col.Hash"));
+            ImGui.TableSetupColumn(Loc.Get("Settings.Transfer.Current.Blocked.Col.ForbiddenBy"));
 
             ImGui.TableHeadersRow();
 
@@ -465,19 +461,78 @@ public class SettingsUi : WindowMediatorSubscriberBase
         }
     }
 
+    private enum UploadingTextMode { Off, Normal, Large }
+
     private void DrawCurrentTransfers()
     {
         _lastTab = "Transfers";
         DrawSectionHeader(3);
 
-        UiSharedService.BeginSectionCard(Loc.Get("Settings.Transfer.Downloads.Title"), FontAwesomeIcon.Download);
-        bool autoFetchMcdfOnConnect = _configService.Current.AutoFetchMcdfOnConnect;
-        if (ToggleSwitch.Draw(Loc.Get("Settings.Transfer.AutoFetchMcdfOnConnect"), ref autoFetchMcdfOnConnect))
+        UiSharedService.BeginSectionCard(Loc.Get("Settings.Transfer.Limits.Title"), FontAwesomeIcon.Download);
+
+        int maxParallelDownloads = _configService.Current.ParallelDownloads;
+        int downloadSpeedLimit = _configService.Current.DownloadSpeedLimitInBytes;
+
+        ImGui.AlignTextToFramePadding();
+        ImGui.TextUnformatted(Loc.Get("Settings.Transfer.SpeedLimit"));
+        ImGui.SameLine();
+        ImGui.SetNextItemWidth(MathF.Min(100 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X * 0.3f));
+        if (ImGui.InputInt("###speedlimit", ref downloadSpeedLimit))
         {
-            _configService.Current.AutoFetchMcdfOnConnect = autoFetchMcdfOnConnect;
+            _configService.Current.DownloadSpeedLimitInBytes = downloadSpeedLimit;
+            _configService.Save();
+            Mediator.Publish(new DownloadLimitChangedMessage());
+        }
+        ImGui.SameLine();
+        ImGui.SetNextItemWidth(MathF.Min(100 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X * 0.3f));
+        _uiShared.DrawCombo("###speed", [DownloadSpeeds.Bps, DownloadSpeeds.KBps, DownloadSpeeds.MBps],
+            (s) => s switch
+            {
+                DownloadSpeeds.Bps => "Byte/s",
+                DownloadSpeeds.KBps => "KB/s",
+                DownloadSpeeds.MBps => "MB/s",
+                _ => throw new NotSupportedException()
+            }, (s) =>
+            {
+                _configService.Current.DownloadSpeedType = s;
+                _configService.Save();
+                Mediator.Publish(new DownloadLimitChangedMessage());
+            }, _configService.Current.DownloadSpeedType);
+        ImGui.SameLine();
+        ImGui.AlignTextToFramePadding();
+        ImGui.TextUnformatted(Loc.Get("Settings.Transfer.SpeedLimit.NoLimit"));
+        ImGui.SetNextItemWidth(MathF.Min(250 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X - 200 * ImGuiHelpers.GlobalScale));
+        if (ThemedSlider.Int(Loc.Get("Settings.Transfer.ParallelDownloads"), ref maxParallelDownloads, 1, 20))
+        {
+            _configService.Current.ParallelDownloads = maxParallelDownloads;
             _configService.Save();
         }
-        _uiShared.DrawHelpText(Loc.Get("Settings.Transfer.AutoFetchMcdfOnConnect.Help"));
+        UiSharedService.AttachToolTip(Loc.Get("Settings.Transfer.ParallelDownloads.Help"));
+
+        var cpuCount = Environment.ProcessorCount;
+        var autoValue = Math.Clamp(_configService.Current.ParallelDownloads, 1, Math.Min(cpuCount, 4));
+        int maxDecompThreads = Math.Max(0, _configService.Current.MaxDecompressionThreads);
+        ImGui.SetNextItemWidth(MathF.Min(250 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X - 200 * ImGuiHelpers.GlobalScale));
+        if (ThemedSlider.Int(Loc.Get("Settings.Transfer.DecompressionThreads"), ref maxDecompThreads, 0, cpuCount,
+                minText: Loc.Get("Settings.Transfer.DecompressionThreads.AutoValue", autoValue)))
+        {
+            _configService.Current.MaxDecompressionThreads = maxDecompThreads;
+            _configService.Save();
+        }
+        UiSharedService.AttachToolTip(Loc.Get("Settings.Transfer.DecompressionThreads.Help"));
+
+        // Pairs simultanés : la limite d'application GPU, rangée avec les autres limites de parallélisme
+        int maxConcurrentPairApplications = _configService.Current.MaxConcurrentPairApplications;
+        ImGui.SetNextItemWidth(MathF.Min(250 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X - 200 * ImGuiHelpers.GlobalScale));
+        if (ThemedSlider.Int(Loc.Get("Settings.Transfer.PairProcessing.MaxConcurrent"), ref maxConcurrentPairApplications, 1, 16))
+        {
+            _configService.Current.MaxConcurrentPairApplications = maxConcurrentPairApplications;
+            _configService.Save();
+            Mediator.Publish(new PairProcessingLimitChangedMessage());
+        }
+        _uiShared.DrawHelpText(Loc.Get("Settings.Transfer.PairProcessing.MaxConcurrent.Help")
+            + UiSharedService.TooltipSeparator
+            + Loc.Get("Settings.Transfer.PairProcessing.Description"));
 
         UiSharedService.BeginSectionCard(Loc.Get("Settings.Transfer.Precache.Title"), FontAwesomeIcon.CloudUploadAlt);
 
@@ -525,151 +580,19 @@ public class SettingsUi : WindowMediatorSubscriberBase
             UiSharedService.AttachToolTip(Loc.Get("Settings.Transfer.Precache.RunNow.Help"));
         }
 
-        int maxParallelDownloads = _configService.Current.ParallelDownloads;
-        int downloadSpeedLimit = _configService.Current.DownloadSpeedLimitInBytes;
-
-        ImGui.AlignTextToFramePadding();
-        ImGui.TextUnformatted(Loc.Get("Settings.Transfer.SpeedLimit"));
-        ImGui.SameLine();
-        ImGui.SetNextItemWidth(MathF.Min(100 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X * 0.3f));
-        if (ImGui.InputInt("###speedlimit", ref downloadSpeedLimit))
-        {
-            _configService.Current.DownloadSpeedLimitInBytes = downloadSpeedLimit;
-            _configService.Save();
-            Mediator.Publish(new DownloadLimitChangedMessage());
-        }
-        ImGui.SameLine();
-        ImGui.SetNextItemWidth(MathF.Min(100 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X * 0.3f));
-        _uiShared.DrawCombo("###speed", [DownloadSpeeds.Bps, DownloadSpeeds.KBps, DownloadSpeeds.MBps],
-            (s) => s switch
-            {
-                DownloadSpeeds.Bps => "Byte/s",
-                DownloadSpeeds.KBps => "KB/s",
-                DownloadSpeeds.MBps => "MB/s",
-                _ => throw new NotSupportedException()
-            }, (s) =>
-            {
-                _configService.Current.DownloadSpeedType = s;
-                _configService.Save();
-                Mediator.Publish(new DownloadLimitChangedMessage());
-            }, _configService.Current.DownloadSpeedType);
-        ImGui.SameLine();
-        ImGui.AlignTextToFramePadding();
-        ImGui.TextUnformatted(Loc.Get("Settings.Transfer.SpeedLimit.NoLimit"));
-        ImGui.SetNextItemWidth(MathF.Min(250 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X - 200 * ImGuiHelpers.GlobalScale));
-        if (ThemedSlider.Int(Loc.Get("Settings.Transfer.ParallelDownloads"), ref maxParallelDownloads, 1, 20))
-        {
-            _configService.Current.ParallelDownloads = maxParallelDownloads;
-            _configService.Save();
-        }
-        UiSharedService.AttachToolTip(Loc.Get("Settings.Transfer.ParallelDownloads.Help"));
-
-        var cpuCount = Environment.ProcessorCount;
-        var autoValue = Math.Clamp(_configService.Current.ParallelDownloads, 1, Math.Min(cpuCount, 4));
-        bool isAutoDecomp = _configService.Current.MaxDecompressionThreads <= 0;
-        if (ToggleSwitch.Draw(Loc.Get("Settings.Transfer.DecompressionThreads.Auto"), ref isAutoDecomp))
-        {
-            _configService.Current.MaxDecompressionThreads = isAutoDecomp ? 0 : autoValue;
-            _configService.Save();
-        }
-        ImGui.SameLine();
-        ImGui.TextUnformatted(string.Format(CultureInfo.CurrentCulture, Loc.Get("Settings.Transfer.DecompressionThreads.AutoLabel"), autoValue));
-        if (!isAutoDecomp)
-        {
-            int maxDecompThreads = _configService.Current.MaxDecompressionThreads;
-            ImGui.SetNextItemWidth(MathF.Min(250 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X - 200 * ImGuiHelpers.GlobalScale));
-            if (ThemedSlider.Int(Loc.Get("Settings.Transfer.DecompressionThreads"), ref maxDecompThreads, 1, cpuCount))
-            {
-                _configService.Current.MaxDecompressionThreads = maxDecompThreads;
-                _configService.Save();
-            }
-            UiSharedService.AttachToolTip(Loc.Get("Settings.Transfer.DecompressionThreads.Help"));
-        }
-
-        UiSharedService.BeginSectionCard(Loc.Get("Settings.Transfer.PairProcessing.Title"), FontAwesomeIcon.Users);
-        UiSharedService.ColorTextWrapped(Loc.Get("Settings.Transfer.PairProcessing.Description"), ImGuiColors.DalamudGrey);
-        ImGuiHelpers.ScaledDummy(4f);
-
-        // Sous-bloc 1 : concurrence d'application GPU
-        int maxConcurrentPairApplications = _configService.Current.MaxConcurrentPairApplications;
-        ImGui.SetNextItemWidth(MathF.Min(200 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X - 200 * ImGuiHelpers.GlobalScale));
-        if (ThemedSlider.Int(Loc.Get("Settings.Transfer.PairProcessing.MaxConcurrent"), ref maxConcurrentPairApplications, 1, 16))
-        {
-            _configService.Current.MaxConcurrentPairApplications = maxConcurrentPairApplications;
-            _configService.Save();
-            Mediator.Publish(new PairProcessingLimitChangedMessage());
-        }
-        _uiShared.DrawHelpText(Loc.Get("Settings.Transfer.PairProcessing.MaxConcurrent.Help"));
-
-        ImGuiHelpers.ScaledDummy(6f);
-
-        // Sous-bloc 2 : coordination des redraws Penumbra
-        bool enableRedrawCoordination = _configService.Current.EnableRedrawCoordination;
-        if (ToggleSwitch.Draw(Loc.Get("Settings.Transfer.RedrawCoordination.Enable"), ref enableRedrawCoordination))
-        {
-            _configService.Current.EnableRedrawCoordination = enableRedrawCoordination;
-            _configService.Save();
-        }
-        _uiShared.DrawHelpText(Loc.Get("Settings.Transfer.RedrawCoordination.Enable.Help"));
-
-        if (!enableRedrawCoordination) ImGui.BeginDisabled();
-        ImGui.Indent();
-        int minRedrawIntervalMs = _configService.Current.MinRedrawIntervalMs;
-        ImGui.SetNextItemWidth(MathF.Min(200 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X - 200 * ImGuiHelpers.GlobalScale));
-        if (ThemedSlider.Int(Loc.Get("Settings.Transfer.RedrawCoordination.MinInterval"), ref minRedrawIntervalMs, 50, 500, step: 10f))
-        {
-            _configService.Current.MinRedrawIntervalMs = minRedrawIntervalMs;
-            _configService.Save();
-        }
-        _uiShared.DrawHelpText(Loc.Get("Settings.Transfer.RedrawCoordination.MinInterval.Help"));
-        ImGui.Unindent();
-        if (!enableRedrawCoordination) ImGui.EndDisabled();
-
-        ImGuiHelpers.ScaledDummy(6f);
-
-        // Sous-bloc 3 : expérimental — décision de redraw soft/hard
-        bool enableSoftRedraw = _configService.Current.EnableSoftRedraw;
-        if (ToggleSwitch.Draw("[Expérimental] Redraw intelligent (soft/hard)", ref enableSoftRedraw))
-        {
-            _configService.Current.EnableSoftRedraw = enableSoftRedraw;
-            _configService.Save();
-        }
-        _uiShared.DrawHelpText("Pour un changement de texture/material seul, réapplique l'apparence via Glamourer " +
-            "sans redraw complet (moins de flicker et de charge GPU). Les changements de géométrie (mdl, " +
-            "cheveux, visage, queue, manipulations) restent en redraw complet.\n\nExpérimental : si un mod " +
-            "n'apparaît pas correctement, décochez cette case (retour au comportement actuel, sans redémarrage).");
-
-        // Sous-bloc 4 : expérimental — visibilité événementielle
-        bool enableEventVisibility = _configService.Current.EnableEventVisibility;
-        if (ToggleSwitch.Draw("[Expérimental] Détection de visibilité événementielle", ref enableEventVisibility))
-        {
-            _configService.Current.EnableEventVisibility = enableEventVisibility;
-            _configService.Save();
-        }
-        _uiShared.DrawHelpText("Détecte l'apparition/disparition des joueurs via des hooks du jeu (réaction immédiate, " +
-            "moins de charge CPU) au lieu d'un scan périodique. Repli automatique sur le scan si les hooks échouent.\n\n" +
-            "Expérimental : ces hooks sont bas niveau ; en cas de souci, décochez (les hooks ne sont alors plus posés). " +
-            "Un changement de cet interrupteur prend effet à la prochaine reconnexion ou au redémarrage du plugin.");
-
-        DrawCollectionOverrides();
-
         UiSharedService.BeginSectionCard(Loc.Get("Settings.Transfer.Ui.Title"), FontAwesomeIcon.WindowMaximize);
 
         bool showTransferWindow = _configService.Current.ShowTransferWindow;
-        if (ToggleSwitch.Draw("Show separate transfer window", ref showTransferWindow))
+        if (ToggleSwitch.Draw(Loc.Get("Settings.Transfer.Ui.ShowWindow"), ref showTransferWindow))
         {
             _configService.Current.ShowTransferWindow = showTransferWindow;
             _configService.Save();
         }
-        _uiShared.DrawHelpText($"The download window will show the current progress of outstanding downloads.{Environment.NewLine}{Environment.NewLine}" +
-            $"What do W/Q/P/D stand for?{Environment.NewLine}W = Waiting for Slot (see Maximum Parallel Downloads){Environment.NewLine}" +
-            $"Q = Queued on Server, waiting for queue ready signal{Environment.NewLine}" +
-            $"P = Processing download (aka downloading){Environment.NewLine}" +
-            $"D = Decompressing download");
+        _uiShared.DrawHelpText(Loc.Get("Settings.Transfer.Ui.ShowWindow.Help"));
         if (!_configService.Current.ShowTransferWindow) ImGui.BeginDisabled();
         ImGui.Indent();
         bool editTransferWindowPosition = _uiShared.EditTrackerPosition;
-        if (ToggleSwitch.Draw("Edit Transfer Window position", ref editTransferWindowPosition))
+        if (ToggleSwitch.Draw(Loc.Get("Settings.Transfer.Ui.EditPosition"), ref editTransferWindowPosition))
         {
             _uiShared.EditTrackerPosition = editTransferWindowPosition;
         }
@@ -677,78 +600,73 @@ public class SettingsUi : WindowMediatorSubscriberBase
         if (!_configService.Current.ShowTransferWindow) ImGui.EndDisabled();
 
         bool showTransferBars = _configService.Current.ShowTransferBars;
-        if (ToggleSwitch.Draw("Show transfer bars rendered below players", ref showTransferBars))
+        if (ToggleSwitch.Draw(Loc.Get("Settings.Transfer.Ui.ShowBars"), ref showTransferBars))
         {
             _configService.Current.ShowTransferBars = showTransferBars;
             _configService.Save();
         }
-        _uiShared.DrawHelpText("This will render a progress bar during the download at the feet of the player you are downloading from.");
+        _uiShared.DrawHelpText(Loc.Get("Settings.Transfer.Ui.ShowBars.Help"));
 
         if (!showTransferBars) ImGui.BeginDisabled();
         ImGui.Indent();
         bool transferBarShowText = _configService.Current.TransferBarsShowText;
-        if (ToggleSwitch.Draw("Show Download Text", ref transferBarShowText))
+        if (ToggleSwitch.Draw(Loc.Get("Settings.Transfer.Ui.ShowText"), ref transferBarShowText))
         {
             _configService.Current.TransferBarsShowText = transferBarShowText;
             _configService.Save();
         }
-        _uiShared.DrawHelpText("Shows download text (amount of MiB downloaded) in the transfer bars");
+        _uiShared.DrawHelpText(Loc.Get("Settings.Transfer.Ui.ShowText.Help"));
         int transferBarWidth = _configService.Current.TransferBarsWidth;
         ImGui.SetNextItemWidth(MathF.Min(250 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X - 200 * ImGuiHelpers.GlobalScale));
-        if (ThemedSlider.Int("Transfer Bar Width", ref transferBarWidth, 0, 500))
+        if (ThemedSlider.Int(Loc.Get("Settings.Transfer.Ui.BarWidth"), ref transferBarWidth, 0, 500))
         {
             if (transferBarWidth < 10)
                 transferBarWidth = 10;
             _configService.Current.TransferBarsWidth = transferBarWidth;
             _configService.Save();
         }
-        _uiShared.DrawHelpText("Width of the displayed transfer bars (will never be less wide than the displayed text)");
+        _uiShared.DrawHelpText(Loc.Get("Settings.Transfer.Ui.BarWidth.Help"));
         int transferBarHeight = _configService.Current.TransferBarsHeight;
         ImGui.SetNextItemWidth(MathF.Min(250 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X - 200 * ImGuiHelpers.GlobalScale));
-        if (ThemedSlider.Int("Transfer Bar Height", ref transferBarHeight, 0, 50))
+        if (ThemedSlider.Int(Loc.Get("Settings.Transfer.Ui.BarHeight"), ref transferBarHeight, 0, 50))
         {
             if (transferBarHeight < 2)
                 transferBarHeight = 2;
             _configService.Current.TransferBarsHeight = transferBarHeight;
             _configService.Save();
         }
-        _uiShared.DrawHelpText("Height of the displayed transfer bars (will never be less tall than the displayed text)");
-        bool showUploading = _configService.Current.ShowUploading;
-        if (ToggleSwitch.Draw("Show 'Uploading' text below players that are currently uploading", ref showUploading))
-        {
-            _configService.Current.ShowUploading = showUploading;
-            _configService.Save();
-        }
-        _uiShared.DrawHelpText("This will render an 'Uploading' text at the feet of the player that is in progress of uploading data.");
-
+        _uiShared.DrawHelpText(Loc.Get("Settings.Transfer.Ui.BarHeight.Help"));
         ImGui.Unindent();
-        if (!showUploading) ImGui.BeginDisabled();
-        ImGui.Indent();
-        bool showUploadingBigText = _configService.Current.ShowUploadingBigText;
-        if (ToggleSwitch.Draw("Large font for 'Uploading' text", ref showUploadingBigText))
-        {
-            _configService.Current.ShowUploadingBigText = showUploadingBigText;
-            _configService.Save();
-        }
-        _uiShared.DrawHelpText("This will render an 'Uploading' text in a larger font.");
-
-        ImGui.Unindent();
-
-        if (!showUploading) ImGui.EndDisabled();
         if (!showTransferBars) ImGui.EndDisabled();
+
+        // Texte « Envoi en cours » : un seul choix à trois états au lieu de deux interrupteurs imbriqués
+        var uploadingMode = !_configService.Current.ShowUploading ? UploadingTextMode.Off
+            : _configService.Current.ShowUploadingBigText ? UploadingTextMode.Large
+            : UploadingTextMode.Normal;
+        ImGui.SetNextItemWidth(MathF.Min(200 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X - 200 * ImGuiHelpers.GlobalScale));
+        _uiShared.DrawCombo(Loc.Get("Settings.Transfer.Ui.Uploading") + "##uploadingText",
+            [UploadingTextMode.Off, UploadingTextMode.Normal, UploadingTextMode.Large],
+            (m) => Loc.Get("Settings.Transfer.Ui.Uploading." + m),
+            (m) =>
+            {
+                _configService.Current.ShowUploading = m != UploadingTextMode.Off;
+                _configService.Current.ShowUploadingBigText = m == UploadingTextMode.Large;
+                _configService.Save();
+            }, uploadingMode);
+        _uiShared.DrawHelpText(Loc.Get("Settings.Transfer.Ui.Uploading.Help"));
 
         UiSharedService.BeginSectionCard(Loc.Get("Settings.Transfer.Current.Title"), FontAwesomeIcon.ExchangeAlt);
 
         if (ImGui.BeginTabBar("TransfersTabBar"))
         {
-            if (ApiController.ServerState is ServerState.Connected && ImGui.BeginTabItem("Transfers"))
+            if (ApiController.ServerState is ServerState.Connected && ImGui.BeginTabItem(Loc.Get("Settings.Transfer.Current.Tab.Transfers") + "###transfersTabCurrent"))
             {
-                ImGui.TextUnformatted("Uploads");
+                ImGui.TextUnformatted(Loc.Get("Settings.Transfer.Current.Uploads"));
                 if (ImGui.BeginTable("UploadsTable", 3))
                 {
-                    ImGui.TableSetupColumn("File");
-                    ImGui.TableSetupColumn("Uploaded");
-                    ImGui.TableSetupColumn("Size");
+                    ImGui.TableSetupColumn(Loc.Get("Settings.Transfer.Current.Col.File"));
+                    ImGui.TableSetupColumn(Loc.Get("Settings.Transfer.Current.Col.Uploaded"));
+                    ImGui.TableSetupColumn(Loc.Get("Settings.Transfer.Current.Col.Size"));
                     ImGui.TableHeadersRow();
                     foreach (var transfer in _fileTransferManager.CurrentUploads.ToArray())
                     {
@@ -767,13 +685,13 @@ public class SettingsUi : WindowMediatorSubscriberBase
                     ImGui.EndTable();
                 }
                 ImGui.Separator();
-                ImGui.TextUnformatted("Downloads");
+                ImGui.TextUnformatted(Loc.Get("Settings.Transfer.Current.Downloads"));
                 if (ImGui.BeginTable("DownloadsTable", 4))
                 {
-                    ImGui.TableSetupColumn("User");
-                    ImGui.TableSetupColumn("Server");
-                    ImGui.TableSetupColumn("Files");
-                    ImGui.TableSetupColumn("Download");
+                    ImGui.TableSetupColumn(Loc.Get("Settings.Transfer.Current.Col.User"));
+                    ImGui.TableSetupColumn(Loc.Get("Settings.Transfer.Current.Col.Server"));
+                    ImGui.TableSetupColumn(Loc.Get("Settings.Transfer.Current.Col.Files"));
+                    ImGui.TableSetupColumn(Loc.Get("Settings.Transfer.Current.Col.Download"));
                     ImGui.TableHeadersRow();
 
                     foreach (var transfer in _currentDownloads.ToArray())
@@ -803,7 +721,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
                 ImGui.EndTabItem();
             }
 
-            if (ImGui.BeginTabItem("Blocked Transfers"))
+            if (ImGui.BeginTabItem(Loc.Get("Settings.Transfer.Current.Tab.Blocked") + "###transfersTabBlocked"))
             {
                 DrawBlockedTransfers();
                 ImGui.EndTabItem();
@@ -1838,6 +1756,14 @@ public class SettingsUi : WindowMediatorSubscriberBase
             }
             _uiShared.DrawHelpText(Loc.Get("Settings.Advanced.CharaData.DownloadOnConnect.Help"));
 
+            bool autoFetchMcdfOnConnect = _configService.Current.AutoFetchMcdfOnConnect;
+            if (ToggleSwitch.Draw(Loc.Get("Settings.Transfer.AutoFetchMcdfOnConnect"), ref autoFetchMcdfOnConnect))
+            {
+                _configService.Current.AutoFetchMcdfOnConnect = autoFetchMcdfOnConnect;
+                _configService.Save();
+            }
+            _uiShared.DrawHelpText(Loc.Get("Settings.Transfer.AutoFetchMcdfOnConnect.Help"));
+
             ImGuiHelpers.ScaledDummy(2f);
 
             bool showHelpTexts = _charaDataConfigService.Current.ShowHelpTexts;
@@ -1874,6 +1800,28 @@ public class SettingsUi : WindowMediatorSubscriberBase
         });
 
         // --- Debug ---
+        // --- Expérimental ---
+        UiSharedService.DrawSectionCard(Loc.Get("Settings.Advanced.Experimental.Title"), FontAwesomeIcon.Flask, () =>
+        {
+            bool enableSoftRedraw = _configService.Current.EnableSoftRedraw;
+            if (ToggleSwitch.Draw(Loc.Get("Settings.Advanced.Experimental.SoftRedraw"), ref enableSoftRedraw))
+            {
+                _configService.Current.EnableSoftRedraw = enableSoftRedraw;
+                _configService.Save();
+            }
+            _uiShared.DrawHelpText(Loc.Get("Settings.Advanced.Experimental.SoftRedraw.Help"));
+
+            bool enableEventVisibility = _configService.Current.EnableEventVisibility;
+            if (ToggleSwitch.Draw(Loc.Get("Settings.Advanced.Experimental.EventVisibility"), ref enableEventVisibility))
+            {
+                _configService.Current.EnableEventVisibility = enableEventVisibility;
+                _configService.Save();
+            }
+            _uiShared.DrawHelpText(Loc.Get("Settings.Advanced.Experimental.EventVisibility.Help"));
+        });
+
+        DrawCollectionOverrides();
+
         UiSharedService.DrawSectionCard(Loc.Get("Settings.Advanced.Debug"), FontAwesomeIcon.Bug, () =>
         {
 #if DEBUG
@@ -2666,6 +2614,33 @@ public class SettingsUi : WindowMediatorSubscriberBase
 
     private bool _perfUnapplied = false;
 
+    private void DrawRedrawSettings()
+    {
+        UiSharedService.BeginSectionCard(Loc.Get("Settings.Transfer.Redraw.Title"), FontAwesomeIcon.Redo);
+
+        // Sous-bloc 2 : coordination des redraws Penumbra
+        bool enableRedrawCoordination = _configService.Current.EnableRedrawCoordination;
+        if (ToggleSwitch.Draw(Loc.Get("Settings.Transfer.RedrawCoordination.Enable"), ref enableRedrawCoordination))
+        {
+            _configService.Current.EnableRedrawCoordination = enableRedrawCoordination;
+            _configService.Save();
+        }
+        _uiShared.DrawHelpText(Loc.Get("Settings.Transfer.RedrawCoordination.Enable.Help"));
+
+        if (!enableRedrawCoordination) ImGui.BeginDisabled();
+        ImGui.Indent();
+        int minRedrawIntervalMs = _configService.Current.MinRedrawIntervalMs;
+        ImGui.SetNextItemWidth(MathF.Min(200 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X - 200 * ImGuiHelpers.GlobalScale));
+        if (ThemedSlider.Int(Loc.Get("Settings.Transfer.RedrawCoordination.MinInterval"), ref minRedrawIntervalMs, 50, 500, step: 10f))
+        {
+            _configService.Current.MinRedrawIntervalMs = minRedrawIntervalMs;
+            _configService.Save();
+        }
+        _uiShared.DrawHelpText(Loc.Get("Settings.Transfer.RedrawCoordination.MinInterval.Help"));
+        ImGui.Unindent();
+        if (!enableRedrawCoordination) ImGui.EndDisabled();
+    }
+
     private void DrawPerformance()
     {
         DrawSectionHeader(1);
@@ -2886,6 +2861,8 @@ public class SettingsUi : WindowMediatorSubscriberBase
         }
 
         #region Whitelist
+        DrawRedrawSettings();
+
         UiSharedService.BeginSectionCard(Loc.Get("Settings.Performance.Whitelist.Title"), FontAwesomeIcon.UserCheck);
         bool ignoreDirectPairs = _playerPerformanceConfigService.Current.IgnoreDirectPairs;
         if (ToggleSwitch.Draw("Whitelist all individual pairs", ref ignoreDirectPairs))

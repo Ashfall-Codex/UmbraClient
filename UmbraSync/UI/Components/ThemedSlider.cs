@@ -15,17 +15,17 @@ public static partial class ThemedSlider
 
     [GeneratedRegex(@"%(?:\.(\d+))?[dfi]")]
     private static partial Regex FormatSpec();
-    public static bool Int(string label, ref int value, int min, int max, string format = "%d", float? step = null)
+    public static bool Int(string label, ref int value, int min, int max, string format = "%d", float? step = null, string? minText = null)
     {
         float v = value;
         float resolved = step ?? AutoIntStep(max - min);
-        bool changed = Draw(label, ref v, min, max, format, integer: true, resolved);
+        bool changed = Draw(label, ref v, min, max, format, integer: true, resolved, minText);
         if (changed) value = (int)MathF.Round(v);
         return changed;
     }
 
     public static bool Float(string label, ref float value, float min, float max, string format = "%.3f", float? step = null)
-        => Draw(label, ref value, min, max, format, integer: false, step ?? (max - min) / (MaxNotches - 1));
+        => Draw(label, ref value, min, max, format, integer: false, step ?? (max - min) / (MaxNotches - 1), null);
 
     private static float AutoIntStep(int steps)
     {
@@ -35,7 +35,7 @@ public static partial class ThemedSlider
         return MathF.Ceiling(steps / (float)(MaxNotches - 1));
     }
 
-    private static bool Draw(string label, ref float value, float min, float max, string format, bool integer, float step)
+    private static bool Draw(string label, ref float value, float min, float max, string format, bool integer, float step, string? minText)
     {
         var scale = ImGuiHelpers.GlobalScale;
         var dl = ImGui.GetWindowDrawList();
@@ -52,9 +52,11 @@ public static partial class ThemedSlider
         step = Math.Max(step, range / 400f);
         int notches = range > 0f ? (int)MathF.Floor(range / step + 0.0001f) + 1 : 1;
         float totalWidth = Math.Max(120f * scale, ImGui.CalcItemWidth());
-        string valueText = FormatValue(format, value, integer);
-        string widest = FormatValue(format, integer ? max : max, integer);
+        // minText remplace la valeur affichée à la borne basse (par exemple « Auto » pour 0).
+        string valueText = minText is not null && Math.Abs(value - min) < 0.0001f ? minText : FormatValue(format, value, integer);
+        string widest = FormatValue(format, max, integer);
         float valueWidth = Math.Max(ImGui.CalcTextSize(valueText).X, ImGui.CalcTextSize(widest).X);
+        if (minText is not null) valueWidth = Math.Max(valueWidth, ImGui.CalcTextSize(minText).X);
 
         var origin = ImGui.GetCursorScreenPos();
         var centerY = origin.Y + knobRadius;
@@ -119,8 +121,11 @@ public static partial class ThemedSlider
             dl.AddText(new Vector2(origin.X + totalWidth + ImGui.GetStyle().ItemInnerSpacing.X, textY),
                 ImGui.GetColorU32(ImGuiCol.Text), visibleLabel);
 
-        ImGui.SetCursorScreenPos(new Vector2(origin.X, origin.Y + height));
-        ImGui.Dummy(new Vector2(totalWidth, 0f));
+        // Le dernier élément couvre toute la ligne, libellé compris : un SameLine() (icône d'aide)
+        // se place alors à droite du libellé, sur la ligne du curseur.
+        float labelWidth = visibleLabel.Length > 0 ? ImGui.GetStyle().ItemInnerSpacing.X + ImGui.CalcTextSize(visibleLabel).X : 0f;
+        ImGui.SetCursorScreenPos(origin);
+        ImGui.Dummy(new Vector2(totalWidth + labelWidth, height));
         return changed;
     }
 
