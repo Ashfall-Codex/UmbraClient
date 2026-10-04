@@ -104,6 +104,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
     private const float SettingsSidebarWidth = 140f;
     private const int PrivacySettingsTab = 7;
     private readonly SideRail _settingsRail = new();
+    private string _settingsSearch = string.Empty;
 
     private static readonly string[] SettingsLabelKeys = [
         "Settings.Section.General.Title",
@@ -3708,25 +3709,138 @@ public class SettingsUi : WindowMediatorSubscriberBase
         drawList.AddLine(separatorStart, separatorEnd, ImGui.GetColorU32(separatorColor), 1f * ImGuiHelpers.GlobalScale);
         ImGui.SetCursorPos(new Vector2(separatorX + 6f * ImGuiHelpers.GlobalScale, separatorY));
         ImGui.BeginChild("settings-content", Vector2.Zero, false);
-        switch (_activeSettingsTab)
+        if (_settingsSearch.Length > 0)
         {
-            case 0: DrawGeneral(); break;
-            case 1: DrawPerformance(); break;
-            case 2: DrawFileStorageSettings(); break;
-            case 3: DrawCurrentTransfers(); break;
-            case 4: DrawAutoDetect(); break;
-            case 5: DrawChatConfig(); break;
-            case 6:
-                ImGui.BeginDisabled(_registrationInProgress);
-                DrawServerConfiguration();
-                ImGui.EndDisabled();
-                break;
-            case 7: DrawPrivacy(); break;
-            case 8: DrawAdvanced(); break;
-            case 9: DrawAbout(); break;
+            DrawSettingsSearchResults();
+        }
+        else
+        {
+            DrawSettingsBreadcrumb();
+            switch (_activeSettingsTab)
+            {
+                case 0: DrawGeneral(); break;
+                case 1: DrawPerformance(); break;
+                case 2: DrawFileStorageSettings(); break;
+                case 3: DrawCurrentTransfers(); break;
+                case 4: DrawAutoDetect(); break;
+                case 5: DrawChatConfig(); break;
+                case 6:
+                    ImGui.BeginDisabled(_registrationInProgress);
+                    DrawServerConfiguration();
+                    ImGui.EndDisabled();
+                    break;
+                case 7: DrawPrivacy(); break;
+                case 8: DrawAdvanced(); break;
+                case 9: DrawAbout(); break;
+            }
         }
         UiSharedService.EndSectionCard();
         ImGui.EndChild();
+    }
+
+    private void DrawSettingsBreadcrumb()
+    {
+        var section = Loc.Get(SettingsLabelKeys[_activeSettingsTab]).ToUpperInvariant();
+        ImGui.TextColored(UiSharedService.ThemeNavText,
+            $"{Loc.Get("Settings.Breadcrumb.Root").ToUpperInvariant()}  ›  {section}");
+        ImGuiHelpers.ScaledDummy(2f);
+    }
+
+    private void DrawSettingsSearchResults()
+    {
+        var results = SettingsCatalog.Search(_settingsSearch);
+
+        ImGui.TextColored(UiSharedService.ThemeNavText, Loc.Get("Settings.Search.Results", results.Count));
+        ImGuiHelpers.ScaledDummy(4f);
+
+        if (results.Count == 0)
+        {
+            ImGui.TextWrapped(Loc.Get("Settings.Search.Empty"));
+            return;
+        }
+
+        var availWidth = ImGui.GetContentRegionAvail().X;
+        for (var i = 0; i < results.Count; i++)
+        {
+            var entry = results[i];
+            var cursor = ImGui.GetCursorScreenPos();
+
+            if (ImGui.InvisibleButton($"##search_hit{i}", new Vector2(availWidth, ImGui.GetTextLineHeightWithSpacing() * 2f)))
+            {
+                _activeSettingsTab = entry.Section;
+                _settingsSearch = string.Empty;
+            }
+
+            var hovered = ImGui.IsItemHovered();
+            var dl = ImGui.GetWindowDrawList();
+            var max = cursor + new Vector2(availWidth, ImGui.GetTextLineHeightWithSpacing() * 2f);
+            dl.AddRectFilled(cursor, max,
+                ImGui.GetColorU32(hovered ? UiSharedService.ThemeButtonHovered : UiSharedService.ThemeHeaderBg),
+                UiSharedService.RadiusCard * ImGuiHelpers.GlobalScale);
+
+            var pad = 6f * ImGuiHelpers.GlobalScale;
+            DrawHighlightedLabel(dl, cursor + new Vector2(pad, pad * 0.5f), entry.Label, _settingsSearch);
+            dl.AddText(cursor + new Vector2(pad, pad * 0.5f + ImGui.GetTextLineHeight()),
+                ImGui.GetColorU32(UiSharedService.ThemeNavText),
+                Loc.Get(SettingsLabelKeys[entry.Section]).ToUpperInvariant());
+
+            ImGuiHelpers.ScaledDummy(2f);
+        }
+    }
+
+    private static void DrawHighlightedLabel(ImDrawListPtr dl, Vector2 pos, string label, string query)
+    {
+        var textColor = ImGui.GetColorU32(ImGuiCol.Text);
+        var index = SettingsCatalog.IndexOf(label, query.Trim(), out var length);
+        if (index < 0 || length <= 0)
+        {
+            dl.AddText(pos, textColor, label);
+            return;
+        }
+
+        var before = label[..index];
+        var match = label.Substring(index, length);
+        var after = label[(index + length)..];
+
+        var x = pos.X;
+        if (before.Length > 0)
+        {
+            dl.AddText(new Vector2(x, pos.Y), textColor, before);
+            x += ImGui.CalcTextSize(before).X;
+        }
+
+        var matchSize = ImGui.CalcTextSize(match);
+        dl.AddRectFilled(
+            new Vector2(x, pos.Y),
+            new Vector2(x + matchSize.X, pos.Y + matchSize.Y),
+            ImGui.GetColorU32(UiSharedService.AccentColor with { W = 0.35f }),
+            2f * ImGuiHelpers.GlobalScale);
+        dl.AddText(new Vector2(x, pos.Y), textColor, match);
+        x += matchSize.X;
+
+        if (after.Length > 0)
+            dl.AddText(new Vector2(x, pos.Y), textColor, after);
+    }
+
+    private void DrawSettingsSearchBox()
+    {
+        ImGuiHelpers.ScaledDummy(4f);
+
+        ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X);
+        var buffer = _settingsSearch;
+        if (ImGui.InputTextWithHint("##settings_search", Loc.Get("Settings.Search.Hint"), ref buffer, 64))
+            _settingsSearch = buffer;
+
+        if (_settingsSearch.Length > 0)
+        {
+            if (ImGui.IsItemHovered())
+                UiSharedService.AttachToolTip(Loc.Get("Settings.Search.Clear"));
+
+            if (ImGui.IsKeyPressed(ImGuiKey.Escape))
+                _settingsSearch = string.Empty;
+        }
+
+        ImGuiHelpers.ScaledDummy(2f);
     }
 
     private void DrawAbout()
@@ -4028,13 +4142,10 @@ public class SettingsUi : WindowMediatorSubscriberBase
 
         ImGuiHelpers.ScaledDummy(4f);
 
-        // Title — bold, centered
-        using (_uiShared.UidFont.Push())
-        {
-            var titleSz = ImGui.CalcTextSize(title);
-            ImGui.SetCursorPosX(ImGui.GetCursorPosX() + (availWidth - titleSz.X) / 2f);
-            ImGui.TextUnformatted(title);
-        }
+        // Title — accent color, body font size, centered
+        var titleSz = ImGui.CalcTextSize(title);
+        ImGui.SetCursorPosX(ImGui.GetCursorPosX() + (availWidth - titleSz.X) / 2f);
+        ImGui.TextColored(UiSharedService.AccentColor, title);
 
         ImGuiHelpers.ScaledDummy(2f);
 
@@ -4064,6 +4175,8 @@ public class SettingsUi : WindowMediatorSubscriberBase
 
     private void DrawSettingsSidebar()
     {
+        DrawSettingsSearchBox();
+
         var entries = new List<SideRailEntry>(SettingsLabelKeys.Length);
         for (int i = 0; i < SettingsLabelKeys.Length; i++)
             entries.Add(new SideRailEntry(i, Loc.Get(SettingsLabelKeys[i]), SettingsIcons[i]));

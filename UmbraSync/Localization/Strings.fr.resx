@@ -7050,6 +7050,21 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
   <data name="Settings.Storage.Move.NotificationFailed" xml:space="preserve">
     <value>Le déplacement du stockage s'est mal terminé : {0} fichier(s) sont restés dans {1}. Consultez le journal pour le détail.</value>
   </data>
+  <data name="Settings.Breadcrumb.Root" xml:space="preserve">
+    <value>Réglages</value>
+  </data>
+  <data name="Settings.Search.Hint" xml:space="preserve">
+    <value>Rechercher...</value>
+  </data>
+  <data name="Settings.Search.Results" xml:space="preserve">
+    <value>{0} résultat(s)</value>
+  </data>
+  <data name="Settings.Search.Empty" xml:space="preserve">
+    <value>Aucun réglage ne correspond à cette recherche.</value>
+  </data>
+  <data name="Settings.Search.Clear" xml:space="preserve">
+    <value>Échap pour effacer la recherche</value>
+  </data>
   <data name="Settings.Section.General.Title" xml:space="preserve">
     <value>Général</value>
   </data>

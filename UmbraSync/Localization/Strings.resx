@@ -7140,6 +7140,21 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
   <data name="Settings.Storage.Move.NotificationFailed" xml:space="preserve">
     <value>The storage move did not finish cleanly: {0} file(s) stayed in {1}. See the log for details.</value>
   </data>
+  <data name="Settings.Breadcrumb.Root" xml:space="preserve">
+    <value>Settings</value>
+  </data>
+  <data name="Settings.Search.Hint" xml:space="preserve">
+    <value>Search...</value>
+  </data>
+  <data name="Settings.Search.Results" xml:space="preserve">
+    <value>{0} result(s)</value>
+  </data>
+  <data name="Settings.Search.Empty" xml:space="preserve">
+    <value>No setting matches this search.</value>
+  </data>
+  <data name="Settings.Search.Clear" xml:space="preserve">
+    <value>Press Escape to clear the search</value>
+  </data>
   <data name="Settings.Section.General.Title" xml:space="preserve">
     <value>General</value>
   </data>
