@@ -7316,6 +7316,7 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
 Seuil de triangles : {1} k au maximum
 Réduction des textures téléchargées : activée
 Téléchargements parallèles : {2} au maximum
+Applications de joueurs simultanées : 2 au maximum
 
 Un seuil déjà plus bas est conservé. Vos réglages d'avant sont restaurés quand vous désactivez le profil. La liste blanche des paires directes n'est pas modifiée.</value>
   </data>

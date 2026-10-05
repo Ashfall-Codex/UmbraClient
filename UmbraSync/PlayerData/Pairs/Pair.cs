@@ -31,6 +31,10 @@ public class Pair : DisposableMediatorSubscriberBase
     private ushort? _worldId = null;
     private static readonly TimeSpan HandlerReadyTimeout = TimeSpan.FromMinutes(3);
     private const int HandlerReadyPollDelayMs = 500;
+    private static readonly TimeSpan ForcedApplyCoalesceWindow = TimeSpan.FromSeconds(5);
+    private DateTime _lastForcedApplyUtc = DateTime.MinValue;
+    private object? _lastForcedApplyData;
+    private object? _lastForcedApplyHandler;
 
     public Pair(ILogger<Pair> logger, UserData userData, PairHandlerFactory cachedPlayerFactory,
         MareMediator mediator, MareConfigService mareConfig, ServerConfigurationManager serverConfigurationManager,
@@ -304,6 +308,24 @@ public class Pair : DisposableMediatorSubscriberBase
 
         if (_serverConfigurationManager.IsUidBlacklisted(UserData.UID))
             HoldApplication("Blacklist", maxValue: 1);
+
+        // Au bootstrap, plusieurs chemins (groupes, paires directes, en ligne) rappellent l'application forcée
+        // pour la même donnée : tant que le joueur n'est pas visible, les répéter ne fait que recloner et republier.
+        var now = DateTime.UtcNow;
+        if (forced && !CachedPlayer.IsVisible
+            && ReferenceEquals(_lastForcedApplyData, LastReceivedCharacterData)
+            && ReferenceEquals(_lastForcedApplyHandler, CachedPlayer)
+            && now - _lastForcedApplyUtc < ForcedApplyCoalesceWindow)
+        {
+            _logger.LogDebug("ApplyLastReceivedData: duplicate forced apply coalesced for {uid}", UserData.UID);
+            return;
+        }
+        if (forced)
+        {
+            _lastForcedApplyUtc = now;
+            _lastForcedApplyData = LastReceivedCharacterData;
+            _lastForcedApplyHandler = CachedPlayer;
+        }
 
         _logger.LogDebug("ApplyLastReceivedData: Applying character data for {uid}", UserData.UID);
         CachedPlayer.ApplyCharacterData(Guid.NewGuid(), RemoveNotSyncedFiles(LastReceivedCharacterData.DeepClone())!, forced);

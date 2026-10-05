@@ -2671,6 +2671,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
             }
 
             _playerPerformanceConfigService.Save();
+            Mediator.Publish(new PairProcessingLimitChangedMessage());
             _perfUnapplied = false;
             return;
         }
@@ -2700,6 +2701,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
         }
 
         if (shrinkWillChange) _cacheMonitor.ClearSubstStorage();
+        Mediator.Publish(new PairProcessingLimitChangedMessage());
         _perfUnapplied = false;
     }
 

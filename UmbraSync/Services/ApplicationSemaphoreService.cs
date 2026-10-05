@@ -1,5 +1,6 @@
 using System.Runtime.InteropServices;
 using UmbraSync.MareConfiguration;
+using UmbraSync.MareConfiguration.Configurations;
 using UmbraSync.Services.Mediator;
 using Microsoft.Extensions.Logging;
 
@@ -14,7 +15,9 @@ public readonly record struct ApplicationSemaphoreSnapshot(bool IsEnabled, int L
 public sealed class ApplicationSemaphoreService : DisposableMediatorSubscriberBase
 {
     private const int HardLimit = 16;
+    private const int LowSpecLimit = 2;
     private readonly MareConfigService _configService;
+    private readonly PlayerPerformanceConfigService _performanceConfigService;
     private readonly Lock _limitLock = new();
     private readonly LinkedList<PriorityWaiter> _highQueue = new();
     private readonly LinkedList<PriorityWaiter> _lowQueue = new();
@@ -25,10 +28,11 @@ public sealed class ApplicationSemaphoreService : DisposableMediatorSubscriberBa
     private int _inFlight;
 
     public ApplicationSemaphoreService(ILogger<ApplicationSemaphoreService> logger, MareMediator mediator,
-        MareConfigService configService)
+        MareConfigService configService, PlayerPerformanceConfigService performanceConfigService)
         : base(logger, mediator)
     {
         _configService = configService;
+        _performanceConfigService = performanceConfigService;
         _currentLimit = CalculateLimit();
         _availableSlots = _currentLimit;
 
@@ -160,7 +164,9 @@ public sealed class ApplicationSemaphoreService : DisposableMediatorSubscriberBa
 
     private int CalculateLimit()
     {
-        return Math.Clamp(_configService.Current.MaxConcurrentPairApplications, 1, HardLimit);
+        var limit = Math.Clamp(_configService.Current.MaxConcurrentPairApplications, 1, HardLimit);
+        // Profil petite config : on plafonne les applications simultanées pour limiter le pic mémoire/VRAM en foule
+        return _performanceConfigService.Current.LowSpecProfileEnabled ? Math.Min(limit, LowSpecLimit) : limit;
     }
 
     /// <summary>

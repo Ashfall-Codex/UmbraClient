@@ -7406,6 +7406,7 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
 Triangle threshold: {1}k at most
 Shrink downloaded textures: enabled
 Parallel downloads: {2} at most
+Simultaneous player applications: 2 at most
 
 A lower threshold you already set is kept. Your previous settings are restored when you disable the profile. The individual pairs whitelist is not changed.</value>
   </data>
