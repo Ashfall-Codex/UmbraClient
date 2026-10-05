@@ -1,4 +1,5 @@
 ﻿using System.Numerics;
+using System.Runtime.InteropServices;
 using System.Text;
 using Microsoft.Extensions.Logging;
 using Dalamud.Bindings.ImGui;
@@ -21,6 +22,7 @@ public sealed unsafe class BackdropBlur : IDisposable
     private readonly IUiBuilder uiBuilder;
     private readonly ITextureProvider textureProvider;
     private readonly ILogger<BackdropBlur> logger;
+#pragma warning disable S3459
     private ComPtr<ID3D11Device> device;
 
     private Task<IDalamudTextureWrap>? captureTask;
@@ -31,6 +33,7 @@ public sealed unsafe class BackdropBlur : IDisposable
     private ComPtr<ID3D11PixelShader> upShader;
     private ComPtr<ID3D11SamplerState> sampler;
     private ComPtr<ID3D11Buffer> constants;
+#pragma warning restore S3459
 
     private readonly ComPtr<ID3D11Texture2D>[] textures = new ComPtr<ID3D11Texture2D>[Levels];
     private readonly ComPtr<ID3D11RenderTargetView>[] targets = new ComPtr<ID3D11RenderTargetView>[Levels];
@@ -117,9 +120,16 @@ public sealed unsafe class BackdropBlur : IDisposable
     {
         capture?.Dispose();
         capture = null;
-        captureTask?.ContinueWith(t =>
+        _ = captureTask?.ContinueWith(t =>
         {
-            if (t.IsCompletedSuccessfully) t.Result.Dispose();
+            try
+            {
+                if (t.IsCompletedSuccessfully) t.Result.Dispose();
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Erreur pendant la libération de la capture du flou d'arrière-plan");
+            }
         }, TaskScheduler.Default);
         captureTask = null;
         Ready = false;
@@ -394,6 +404,7 @@ public sealed unsafe class BackdropBlur : IDisposable
         }
     }
 
+    [StructLayout(LayoutKind.Auto)]
     private readonly struct SavedState : IDisposable
     {
         private readonly ID3D11DeviceContext* context;

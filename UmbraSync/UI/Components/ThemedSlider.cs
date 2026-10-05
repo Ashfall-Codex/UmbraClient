@@ -13,7 +13,7 @@ public static partial class ThemedSlider
     private const int MajorEvery = 4;
     private static readonly float[] NiceSteps = [1f, 2f, 5f, 10f, 20f, 25f, 50f, 100f, 200f, 250f, 500f, 1000f];
 
-    [GeneratedRegex(@"%(?:\.(\d+))?[dfi]")]
+    [GeneratedRegex(@"%(?:\.(?<decimals>\d+))?[dfi]", RegexOptions.None, matchTimeoutMilliseconds: 100)]
     private static partial Regex FormatSpec();
     public static bool Int(string label, ref int value, int min, int max, string format = "%d", float? step = null, string? minText = null)
     {
@@ -134,8 +134,8 @@ public static partial class ThemedSlider
         var match = FormatSpec().Match(format);
         if (!match.Success) return value.ToString(integer ? "0" : "0.###", CultureInfo.CurrentCulture);
 
-        string number = match.Groups[1].Success
-            ? value.ToString("F" + match.Groups[1].Value, CultureInfo.CurrentCulture)
+        string number = match.Groups["decimals"].Success
+            ? value.ToString("F" + match.Groups["decimals"].Value, CultureInfo.CurrentCulture)
             : integer ? ((int)MathF.Round(value)).ToString(CultureInfo.CurrentCulture) : value.ToString("F3", CultureInfo.CurrentCulture);
         return format[..match.Index] + number + format[(match.Index + match.Length)..];
     }
