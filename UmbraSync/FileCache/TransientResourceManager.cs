@@ -17,6 +17,7 @@ public sealed class TransientResourceManager : DisposableMediatorSubscriberBase
     private readonly TransientConfigService _configurationService;
     private readonly DalamudUtilService _dalamudUtil;
     private readonly string[] _fileTypesToHandle = ["tmb", "pap", "avfx", "atex", "sklb", "eid", "phyb", "scd", "skp", "shpk"];
+    private readonly Lock _playerRelatedLock = new();
     private readonly HashSet<GameObjectHandler> _playerRelatedPointers = [];
     private ConcurrentDictionary<IntPtr, ObjectKind> _cachedFrameAddresses = [];
 
@@ -31,7 +32,12 @@ public sealed class TransientResourceManager : DisposableMediatorSubscriberBase
         Mediator.Subscribe<PriorityFrameworkUpdateMessage>(this, (_) => DalamudUtil_FrameworkUpdate());
         Mediator.Subscribe<ClassJobChangedMessage>(this, (msg) =>
         {
-            if (_playerRelatedPointers.Contains(msg.GameObjectHandler))
+            bool isPlayerRelated;
+            lock (_playerRelatedLock)
+            {
+                isPlayerRelated = _playerRelatedPointers.Contains(msg.GameObjectHandler);
+            }
+            if (isPlayerRelated)
             {
                 DalamudUtil_ClassJobChanged();
             }
@@ -39,13 +45,27 @@ public sealed class TransientResourceManager : DisposableMediatorSubscriberBase
         Mediator.Subscribe<GameObjectHandlerCreatedMessage>(this, (msg) =>
         {
             if (!msg.OwnedObject) return;
-            _playerRelatedPointers.Add(msg.GameObjectHandler);
+            lock (_playerRelatedLock)
+            {
+                _playerRelatedPointers.Add(msg.GameObjectHandler);
+            }
         });
         Mediator.Subscribe<GameObjectHandlerDestroyedMessage>(this, (msg) =>
         {
             if (!msg.OwnedObject) return;
-            _playerRelatedPointers.Remove(msg.GameObjectHandler);
+            lock (_playerRelatedLock)
+            {
+                _playerRelatedPointers.Remove(msg.GameObjectHandler);
+            }
         });
+    }
+
+    private GameObjectHandler[] SnapshotPlayerRelatedPointers()
+    {
+        lock (_playerRelatedLock)
+        {
+            return [.. _playerRelatedPointers];
+        }
     }
 
     private string PlayerPersistentDataKey => _dalamudUtil.GetPlayerNameAsync().GetAwaiter().GetResult() + "_" + _dalamudUtil.GetHomeWorldIdAsync().GetAwaiter().GetResult();
@@ -209,7 +229,7 @@ public sealed class TransientResourceManager : DisposableMediatorSubscriberBase
     {
 
         ConcurrentDictionary<nint, ObjectKind> frameAddresses = [];
-        foreach (GameObjectHandler handler in _playerRelatedPointers)
+        foreach (GameObjectHandler handler in SnapshotPlayerRelatedPointers())
         {
             nint address = handler.CurrentAddress();
             if (address == nint.Zero) continue;
@@ -232,7 +252,7 @@ public sealed class TransientResourceManager : DisposableMediatorSubscriberBase
         _ = Task.Run(() =>
         {
             Logger.LogDebug("Penumbra Mod Settings changed, verifying SemiTransientResources");
-            foreach (var item in _playerRelatedPointers)
+            foreach (var item in SnapshotPlayerRelatedPointers())
             {
                 Mediator.Publish(new TransientResourceChangedMessage(item.Address));
             }
@@ -298,7 +318,7 @@ public sealed class TransientResourceManager : DisposableMediatorSubscriberBase
         }
         else
         {
-            var thing = _playerRelatedPointers.FirstOrDefault(f => f.Address == gameObject);
+            var thing = SnapshotPlayerRelatedPointers().FirstOrDefault(f => f.Address == gameObject);
             value.Add(replacedGamePath);
             Logger.LogDebug("Adding {replacedGamePath} for {gameObject} ({filePath})", replacedGamePath, thing?.ToString() ?? gameObject.ToString("X", CultureInfo.InvariantCulture), filePath);
             _ = Task.Run(async () =>

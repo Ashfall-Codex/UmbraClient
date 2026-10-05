@@ -27,6 +27,8 @@ public class Pair : DisposableMediatorSubscriberBase
     private CancellationTokenSource _applicationCts = new();
     private CancellationTokenSource? _handlerPollingCts = null;
     private readonly Lock _pollingGate = new();
+    private bool _pendingForcedWhilePolling;
+    private CancellationTokenSource? _handlerPollingAppCts;
     private OnlineUserIdentDto? _onlineUserIdentDto = null;
     private ushort? _worldId = null;
     private static readonly TimeSpan HandlerReadyTimeout = TimeSpan.FromMinutes(3);
@@ -273,8 +275,24 @@ public class Pair : DisposableMediatorSubscriberBase
         // Si le handler n'est pas encore initialisé, attendre avec un polling jusqu'à ce qu'il soit prêt
         if (!CachedPlayer.IsInitialized)
         {
+            // Une seule attente par paire : les appels suivants fusionnent leur « forced » dans l'attente en cours
+            // au lieu de l'annuler pour en relancer une identique.
+            lock (_pollingGate)
+            {
+                if (_handlerPollingCts is { IsCancellationRequested: false }
+                    && ReferenceEquals(_handlerPollingAppCts, _applicationCts))
+                {
+                    _pendingForcedWhilePolling |= forced;
+                    return;
+                }
+            }
+
             _logger.LogDebug("ApplyLastReceivedData: Handler not initialized for {uid}, starting polling wait", UserData.UID);
             _applicationCts = _applicationCts.CancelRecreate();
+            lock (_pollingGate)
+            {
+                _handlerPollingAppCts = _applicationCts;
+            }
             _ = WaitForHandlerInitializationAsync(forced, _applicationCts.Token);
             return;
         }
@@ -342,6 +360,7 @@ public class Pair : DisposableMediatorSubscriberBase
             previousCts = _handlerPollingCts;
             cts = new CancellationTokenSource();
             _handlerPollingCts = cts;
+            _pendingForcedWhilePolling = false;
         }
 
         // Annuler le polling précédent (ignorer les exceptions car le CTS peut déjà être disposé)
@@ -369,7 +388,15 @@ public class Pair : DisposableMediatorSubscriberBase
                 if (CachedPlayer != null && CachedPlayer.IsInitialized)
                 {
                     _logger.LogDebug("Handler initialized for {uid}, applying data", UserData.UID);
-                    ApplyLastReceivedDataInternal(forced);
+                    bool effectiveForced;
+                    lock (_pollingGate)
+                    {
+                        effectiveForced = forced || _pendingForcedWhilePolling;
+                        _pendingForcedWhilePolling = false;
+                        // L'attente est terminée : les appels suivants passent par le chemin direct (handler initialisé)
+                        if (ReferenceEquals(_handlerPollingCts, cts)) _handlerPollingCts = null;
+                    }
+                    ApplyLastReceivedDataInternal(effectiveForced);
                     return;
                 }
 
