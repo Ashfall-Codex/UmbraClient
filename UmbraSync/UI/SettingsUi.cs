@@ -502,10 +502,13 @@ public class SettingsUi : WindowMediatorSubscriberBase
         ImGui.AlignTextToFramePadding();
         ImGui.TextUnformatted(Loc.Get("Settings.Transfer.SpeedLimit.NoLimit"));
         ImGui.SetNextItemWidth(MathF.Min(250 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X - 200 * ImGuiHelpers.GlobalScale));
-        if (ThemedSlider.Int(Loc.Get("Settings.Transfer.ParallelDownloads"), ref maxParallelDownloads, 1, 20))
+        using (ImRaii.Disabled(_playerPerformanceConfigService.Current.LowSpecProfileEnabled))
         {
-            _configService.Current.ParallelDownloads = maxParallelDownloads;
-            _configService.Save();
+            if (ThemedSlider.Int(Loc.Get("Settings.Transfer.ParallelDownloads"), ref maxParallelDownloads, 1, 20))
+            {
+                _configService.Current.ParallelDownloads = maxParallelDownloads;
+                _configService.Save();
+            }
         }
         UiSharedService.AttachToolTip(Loc.Get("Settings.Transfer.ParallelDownloads.Help"));
 
@@ -564,11 +567,11 @@ public class SettingsUi : WindowMediatorSubscriberBase
             if (_precacheService.LastRunEndUtc.HasValue || _precacheService.LastRunStartUtc.HasValue)
             {
                 var last = (_precacheService.LastRunEndUtc ?? _precacheService.LastRunStartUtc)!.Value.ToLocalTime();
-                ImGui.TextUnformatted(string.Format(Loc.Get("Settings.Transfer.Precache.LastRun"), last.ToString("g", CultureInfo.CurrentCulture)));
+                ImGui.TextUnformatted(string.Format(Loc.Get("Settings.Transfer.Precache.LastRun"), last.ToString("g", Loc.CurrentCulture)));
             }
 
             // El famoso in progress
-            if (_precacheService.IsUploading && !string.IsNullOrEmpty(_precacheService.StatusText))
+            if (!string.IsNullOrEmpty(_precacheService.StatusText))
             {
                 UiSharedService.ColorTextWrapped(_precacheService.StatusText, ImGuiColors.DalamudGrey);
             }
@@ -2641,12 +2644,93 @@ public class SettingsUi : WindowMediatorSubscriberBase
         if (!enableRedrawCoordination) ImGui.EndDisabled();
     }
 
+    private const int LowSpecVramMiB = 250;
+    private const int LowSpecTrisThousands = 200;
+    private const int LowSpecParallelDownloads = 4;
+
+    private void SetLowSpecProfile(bool enabled)
+    {
+        var perf = _playerPerformanceConfigService.Current;
+
+        if (!enabled)
+        {
+            var backup = perf.LowSpecPreviousSettings;
+            perf.LowSpecProfileEnabled = false;
+            perf.LowSpecPreviousSettings = null;
+
+            if (backup != null)
+            {
+                var shrinkChanged = perf.TextureShrinkMode != backup.TextureShrinkMode;
+                perf.AutoPausePlayersExceedingThresholds = backup.AutoPausePlayersExceedingThresholds;
+                perf.VRAMSizeAutoPauseThresholdMiB = backup.VRAMSizeAutoPauseThresholdMiB;
+                perf.TrisAutoPauseThresholdThousands = backup.TrisAutoPauseThresholdThousands;
+                perf.TextureShrinkMode = backup.TextureShrinkMode;
+                _configService.Current.ParallelDownloads = backup.ParallelDownloads;
+                _configService.Save();
+                if (shrinkChanged) _cacheMonitor.ClearSubstStorage();
+            }
+
+            _playerPerformanceConfigService.Save();
+            _perfUnapplied = false;
+            return;
+        }
+
+        perf.LowSpecPreviousSettings ??= new UmbraSync.MareConfiguration.Configurations.LowSpecBackup
+        {
+            AutoPausePlayersExceedingThresholds = perf.AutoPausePlayersExceedingThresholds,
+            VRAMSizeAutoPauseThresholdMiB = perf.VRAMSizeAutoPauseThresholdMiB,
+            TrisAutoPauseThresholdThousands = perf.TrisAutoPauseThresholdThousands,
+            TextureShrinkMode = perf.TextureShrinkMode,
+            ParallelDownloads = _configService.Current.ParallelDownloads,
+        };
+        perf.LowSpecProfileEnabled = true;
+
+        var shrinkWillChange = perf.TextureShrinkMode != TextureShrinkMode.Always;
+
+        perf.AutoPausePlayersExceedingThresholds = true;
+        perf.VRAMSizeAutoPauseThresholdMiB = Math.Min(perf.VRAMSizeAutoPauseThresholdMiB, LowSpecVramMiB);
+        perf.TrisAutoPauseThresholdThousands = Math.Min(perf.TrisAutoPauseThresholdThousands, LowSpecTrisThousands);
+        perf.TextureShrinkMode = TextureShrinkMode.Always;
+        _playerPerformanceConfigService.Save();
+
+        if (_configService.Current.ParallelDownloads > LowSpecParallelDownloads)
+        {
+            _configService.Current.ParallelDownloads = LowSpecParallelDownloads;
+            _configService.Save();
+        }
+
+        if (shrinkWillChange) _cacheMonitor.ClearSubstStorage();
+        _perfUnapplied = false;
+    }
+
     private void DrawPerformance()
     {
         DrawSectionHeader(1);
 
         bool recalculatePerformance = false;
         string? recalculatePerformanceUID = null;
+
+        bool lowSpec = _playerPerformanceConfigService.Current.LowSpecProfileEnabled;
+
+        UiSharedService.BeginSectionCard(Loc.Get("Settings.Performance.LowSpec.Title"), FontAwesomeIcon.Feather);
+        UiSharedService.DrawCard("lowspec-profile", () =>
+        {
+            UiSharedService.TextWrapped(Loc.Get("Settings.Performance.LowSpec.Desc"));
+            ImGuiHelpers.ScaledDummy(2f);
+            bool enableLowSpec = lowSpec;
+            if (ToggleSwitch.Draw(Loc.Get("Settings.Performance.LowSpec.Toggle"), ref enableLowSpec))
+            {
+                SetLowSpecProfile(enableLowSpec);
+                recalculatePerformance = true;
+            }
+            UiSharedService.AttachToolTip(string.Format(CultureInfo.CurrentCulture, Loc.Get("Settings.Performance.LowSpec.Help"),
+                LowSpecVramMiB, LowSpecTrisThousands, LowSpecParallelDownloads));
+            if (lowSpec)
+            {
+                ImGuiHelpers.ScaledDummy(2f);
+                UiSharedService.ColorTextWrapped(Loc.Get("Settings.Performance.LowSpec.ActiveNote"), UiSharedService.AccentColor);
+            }
+        }, background: UiSharedService.ThemeHighlightBg, border: UiSharedService.AccentColor);
 
         UiSharedService.BeginSectionCard(Loc.Get("Settings.Performance.Global.Title"), FontAwesomeIcon.SlidersH);
 
@@ -2661,7 +2745,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
         bool alwaysShrinkTextures = _playerPerformanceConfigService.Current.TextureShrinkMode == TextureShrinkMode.Always;
         bool deleteOriginalTextures = _playerPerformanceConfigService.Current.TextureShrinkDeleteOriginal;
 
-        using (ImRaii.Disabled(deleteOriginalTextures))
+        using (ImRaii.Disabled(deleteOriginalTextures || lowSpec))
         {
             if (ToggleSwitch.Draw("Shrink downloaded textures", ref alwaysShrinkTextures))
             {
@@ -2803,11 +2887,14 @@ public class SettingsUi : WindowMediatorSubscriberBase
 
         UiSharedService.BeginSectionCard(Loc.Get("Settings.Performance.Limits.Title"), FontAwesomeIcon.TachometerAlt);
         bool autoPause = _playerPerformanceConfigService.Current.AutoPausePlayersExceedingThresholds;
-        if (ToggleSwitch.Draw("Automatically block players exceeding thresholds", ref autoPause))
+        using (ImRaii.Disabled(lowSpec))
         {
-            _playerPerformanceConfigService.Current.AutoPausePlayersExceedingThresholds = autoPause;
-            _playerPerformanceConfigService.Save();
-            recalculatePerformance = true;
+            if (ToggleSwitch.Draw("Automatically block players exceeding thresholds", ref autoPause))
+            {
+                _playerPerformanceConfigService.Current.AutoPausePlayersExceedingThresholds = autoPause;
+                _playerPerformanceConfigService.Save();
+                recalculatePerformance = true;
+            }
         }
         _uiShared.DrawHelpText("When enabled, it will automatically block the modded appearance of all players that exceed the thresholds defined below." + Environment.NewLine
             + "Will print a warning in chat when a player is blocked automatically.");
@@ -2828,6 +2915,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
             }
             var vramAuto = _playerPerformanceConfigService.Current.VRAMSizeAutoPauseThresholdMiB;
             var trisAuto = _playerPerformanceConfigService.Current.TrisAutoPauseThresholdThousands;
+            using var lowSpecLock = ImRaii.Disabled(lowSpec);
             ImGui.SetNextItemWidth(MathF.Min(100 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X * 0.3f));
             if (ImGui.InputInt("Auto Block VRAM threshold", ref vramAuto))
             {

@@ -66,6 +66,7 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
     public static readonly Vector4 ThemeTabNormal = new(0x1C / 255f, 0x1C / 255f, 0x1C / 255f, 0.90f);
     public static readonly Vector4 ThemeTabHovered = new(0x38 / 255f, 0x29 / 255f, 0x52 / 255f, 1f);
     public static readonly Vector4 ThemeTabActive = new(0x4A / 255f, 0x36 / 255f, 0x68 / 255f, 1f);
+    public static readonly Vector4 ThemeHighlightBg = new(0x96 / 255f, 0x45 / 255f, 0xE6 / 255f, 0.14f);
     public static readonly Vector4 ThemeTextAccent = new(0x9B / 255f, 0x82 / 255f, 0xC0 / 255f, 1f);
     public static readonly Vector4 ThemeRailHovered = new(0x30 / 255f, 0x19 / 255f, 0x46 / 255f, 1f);
     public static readonly Vector4 ThemePrivacyAccent = new(0f, 0.2f, 0.6f, 1f);
@@ -161,6 +162,26 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
     {
         float window = GlassAlpha(level);
         return Math.Clamp(0.45f + (1f - window) * 0.45f, 0f, 1f);
+    }
+
+    public static void DrawWindowGlass(GlassLevel level = GlassLevel.Regular, bool useBackdropBlur = true)
+    {
+        if (level == GlassLevel.Opaque) return;
+
+        float alpha = GlassAlpha(ResolveGlassLevel(level));
+        if (alpha >= 1f) return;
+
+        var pos = ImGui.GetWindowPos();
+        var max = pos + ImGui.GetWindowSize();
+        float rounding = RadiusWindow * ImGuiHelpers.GlobalScale;
+        float blurOpacity = BlurOpacity;
+        if (useBackdropBlur && blurOpacity > 0f && Backdrop is { } backdrop)
+        {
+            backdrop.EnsureRendered();
+            backdrop.DrawBehind(pos, max, rounding, blurOpacity);
+        }
+
+        DrawGlassSheen(ImGui.GetWindowDrawList(), pos, max, rounding, alpha);
     }
 
     public static void DrawGlassSheen(ImDrawListPtr drawList, Vector2 min, Vector2 max, float rounding, float alpha)
@@ -270,18 +291,8 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
             _aRealmRepopulatedExists = Services.PluginWatcherService.GetInitialPluginState(pluginInterface, "ARealmRepopulated")?.IsLoaded ?? false;
         });
 
-        UidFont = pluginInterface.UiBuilder.FontAtlas.NewDelegateFontHandle(e =>
-        {
-            e.OnPreBuild(tk => tk.AddDalamudAssetFont(Dalamud.DalamudAsset.NotoSansCjkMedium, new()
-            {
-                SizePx = 27,
-                GlyphRanges = [
-                    0x0020, 0x007E,
-                    0x00A0, 0x017F,
-                    0
-                ]
-            }));
-        });
+        // Police du jeu plutôt que NotoSansCjkMedium : ce dernier copie ~18 Mo de TTF en mémoire native pour du texte latin.
+        UidFont = pluginInterface.UiBuilder.FontAtlas.NewGameFontHandle(new GameFontStyle(GameFontFamily.Axis, 27f));
         GameFont = pluginInterface.UiBuilder.FontAtlas.NewGameFontHandle(new(GameFontFamilyAndSize.Axis12));
         IconFont = pluginInterface.UiBuilder.IconFontFixedWidthHandle;
     }

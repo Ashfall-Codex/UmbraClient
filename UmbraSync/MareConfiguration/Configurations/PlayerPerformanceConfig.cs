@@ -6,6 +6,8 @@ public class PlayerPerformanceConfig : IMareConfiguration
 {
     public int Version { get; set; } = 1;
     public bool AutoPausePlayersExceedingThresholds { get; set; } = true;
+    public bool LowSpecProfileEnabled { get; set; } = false;
+    public LowSpecBackup? LowSpecPreviousSettings { get; set; }
     public bool NotifyAutoPauseDirectPairs { get; set; } = true;
     public bool NotifyAutoPauseGroupPairs { get; set; } = true;
     public bool ShowSelfAnalysisWarnings { get; set; } = true;
@@ -16,4 +18,13 @@ public class PlayerPerformanceConfig : IMareConfiguration
     public bool TextureShrinkDeleteOriginal { get; set; } = false;
     public TextureCompressionMode TextureCompressionMode { get; set; } = TextureCompressionMode.AlwaysCompressed;
     public List<string> UIDsToOverride { get; set; } = [];
+}
+
+public class LowSpecBackup
+{
+    public bool AutoPausePlayersExceedingThresholds { get; set; }
+    public int VRAMSizeAutoPauseThresholdMiB { get; set; }
+    public int TrisAutoPauseThresholdThousands { get; set; }
+    public TextureShrinkMode TextureShrinkMode { get; set; }
+    public int ParallelDownloads { get; set; }
 }

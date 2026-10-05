@@ -347,6 +347,10 @@ public sealed class Plugin : IDalamudPlugin
             catch (Exception e)
             {
                 pluginLog.Error(e, "HostBuilder startup exception");
+                if (UmbraSync.Utils.MemoryPressure.IsOutOfMemory(e))
+                {
+                    UmbraSync.Utils.MemoryPressure.NotifyStartupFailure(notificationManager);
+                }
             }
         }).ConfigureAwait(false);
     }

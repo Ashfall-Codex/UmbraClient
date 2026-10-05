@@ -87,7 +87,7 @@ public abstract class WindowMediatorSubscriberBase : Window, IMediatorSubscriber
         ImGui.PopStyleVar(UiSharedService.ThemeStyleVarCount);
     }
     
-    protected virtual GlassLevel WindowGlassLevel => GlassLevel.Opaque;
+    protected virtual GlassLevel WindowGlassLevel => GlassLevel.Regular;
 
     protected virtual bool UseBackdropBlur => true;
 
@@ -99,27 +99,9 @@ public abstract class WindowMediatorSubscriberBase : Window, IMediatorSubscriber
 
     private void DrawWindowSheen()
     {
-        if (WindowGlassLevel == GlassLevel.Opaque) return;
         if (Flags.HasFlag(ImGuiWindowFlags.NoBackground)) return;
 
-        float alpha = UiSharedService.GlassAlpha(UiSharedService.ResolveGlassLevel(WindowGlassLevel));
-        if (alpha >= 1f) return;
-
-        var pos = ImGui.GetWindowPos();
-        float rounding = UiSharedService.RadiusWindow * ImGuiHelpers.GlobalScale;
-        float blurOpacity = UiSharedService.BlurOpacity;
-        if (UseBackdropBlur && blurOpacity > 0f && UiSharedService.Backdrop is { } backdrop)
-        {
-            backdrop.EnsureRendered();
-            backdrop.DrawBehind(pos, pos + ImGui.GetWindowSize(), rounding, blurOpacity);
-        }
-
-        UiSharedService.DrawGlassSheen(
-            ImGui.GetWindowDrawList(),
-            pos,
-            pos + ImGui.GetWindowSize(),
-            rounding,
-            alpha);
+        UiSharedService.DrawWindowGlass(WindowGlassLevel, UseBackdropBlur);
     }
 
     protected abstract void DrawInternal();

@@ -1695,6 +1695,7 @@ public class SyncshellAdminUI : WindowMediatorSubscriberBase
         ImGui.SetNextWindowSize(new Vector2(420, 500) * ImGuiHelpers.GlobalScale, ImGuiCond.FirstUseEver);
         if (ImGui.Begin(string.Format(CultureInfo.CurrentCulture, Loc.Get("SyncshellAdmin.Profile.PreviewTitle"), GroupFullInfo.GroupAliasOrGID), ref _showProfilePreview))
         {
+            UiSharedService.DrawWindowGlass();
             float availWidth = ImGui.GetContentRegionAvail().X;
 
             if (_bannerTexture != null && _bannerImageBytes.Length > 0)

@@ -7389,6 +7389,32 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
   <data name="Settings.Performance.Global.Title" xml:space="preserve">
     <value>Global configuration</value>
   </data>
+  <data name="Settings.Performance.LowSpec.Title" xml:space="preserve">
+    <value>Low-spec profile</value>
+  </data>
+  <data name="Settings.Performance.LowSpec.Toggle" xml:space="preserve">
+    <value>Enable low-spec profile</value>
+  </data>
+  <data name="Settings.Performance.LowSpec.ActiveNote" xml:space="preserve">
+    <value>Profile active: the settings it manages (texture shrinking, automatic blocking, VRAM and triangle thresholds, parallel downloads) are locked. Disable the profile to change them and get your previous settings back.</value>
+  </data>
+  <data name="Settings.Performance.LowSpec.Desc" xml:space="preserve">
+    <value>For low-spec computers (laptops, graphics cards with 6 GB of VRAM or less). This profile limits how much video memory and processing nearby players can use: appearances that are too heavy are blocked automatically, textures are shrunk and simultaneous downloads are capped. This helps prevent stutter and crashes in crowds.</value>
+  </data>
+  <data name="Settings.Performance.LowSpec.Help" xml:space="preserve">
+    <value>Per-player VRAM threshold: {0} MiB at most
+Triangle threshold: {1}k at most
+Shrink downloaded textures: enabled
+Parallel downloads: {2} at most
+
+A lower threshold you already set is kept. Your previous settings are restored when you disable the profile. The individual pairs whitelist is not changed.</value>
+  </data>
+  <data name="Startup.OutOfMemory.Title" xml:space="preserve">
+    <value>Not enough memory</value>
+  </data>
+  <data name="Startup.OutOfMemory.Message" xml:space="preserve">
+    <value>Umbra Sync could not start because the system ran out of memory. Free up disk space, close background applications and disable unused sync plugins, then restart the game.</value>
+  </data>
   <data name="Settings.Performance.Limits.Title" xml:space="preserve">
     <value>Individual limits</value>
   </data>

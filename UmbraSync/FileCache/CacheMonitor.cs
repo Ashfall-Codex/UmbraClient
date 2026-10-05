@@ -38,7 +38,7 @@ public sealed class CacheMonitor : DisposableMediatorSubscriberBase
             StartPenumbraWatcher(_ipcManager.Penumbra.ModDirectory);
             StartMareWatcher(configService.Current.CacheFolder);
             StartSubstWatcher(_fileDbManager.SubstFolder);
-            InvokeScan();
+            InvokeScan(deferred: true);
         });
         Mediator.Subscribe<HaltScanMessage>(this, (msg) => HaltScan(msg.Source));
         Mediator.Subscribe<ResumeScanMessage>(this, (msg) => ResumeScan(msg.Source));
@@ -47,12 +47,12 @@ public sealed class CacheMonitor : DisposableMediatorSubscriberBase
             StartMareWatcher(configService.Current.CacheFolder);
             StartSubstWatcher(_fileDbManager.SubstFolder);
             StartPenumbraWatcher(_ipcManager.Penumbra.ModDirectory);
-            InvokeScan();
+            InvokeScan(deferred: true);
         });
         Mediator.Subscribe<PenumbraDirectoryChangedMessage>(this, (msg) =>
         {
             StartPenumbraWatcher(msg.ModDirectory);
-            InvokeScan();
+            InvokeScan(deferred: true);
         });
         if (_ipcManager.Penumbra.APIAvailable && !string.IsNullOrEmpty(_ipcManager.Penumbra.ModDirectory))
         {
@@ -62,7 +62,7 @@ public sealed class CacheMonitor : DisposableMediatorSubscriberBase
         {
             StartMareWatcher(configService.Current.CacheFolder);
             StartSubstWatcher(_fileDbManager.SubstFolder);
-            InvokeScan();
+            InvokeScan(deferred: true);
         }
 
         var token = _periodicCalculationTokenSource.Token;
@@ -538,7 +538,7 @@ public sealed class CacheMonitor : DisposableMediatorSubscriberBase
         HandleChanges(changes);
     }
 
-    public void InvokeScan()
+    public void InvokeScan(bool deferred = false)
     {
         TotalFiles = 0;
         _currentFileProgress = 0;
@@ -546,37 +546,57 @@ public sealed class CacheMonitor : DisposableMediatorSubscriberBase
         var token = _scanCancellationTokenSource.Token;
         _ = Task.Run((Func<Task>)(async () =>
         {
-            Logger.LogDebug("Starting Full File Scan");
-            TotalFiles = 0;
-            _currentFileProgress = 0;
-            while (_dalamudUtil.IsOnFrameworkThread)
+            try
             {
-                Logger.LogWarning("Scanner is on framework, waiting for leaving thread before continuing");
-                await Task.Delay(250, token).ConfigureAwait(false);
-            }
+                if (deferred)
+                {
+                    while (!_dalamudUtil.IsLoggedIn)
+                    {
+                        await Task.Delay(1000, token).ConfigureAwait(false);
+                    }
+                    await Task.Delay(Random.Shared.Next(2000, 8000), token).ConfigureAwait(false);
+                }
 
-            Thread scanThread = new(() =>
-            {
-                try
+                Logger.LogDebug("Starting Full File Scan");
+                TotalFiles = 0;
+                _currentFileProgress = 0;
+                while (_dalamudUtil.IsOnFrameworkThread)
                 {
-                    _performanceCollector.LogPerformance(this, $"FullFileScan", () => FullFileScan(token));
+                    Logger.LogWarning("Scanner is on framework, waiting for leaving thread before continuing");
+                    await Task.Delay(250, token).ConfigureAwait(false);
                 }
-                catch (Exception ex)
+
+                Thread scanThread = new(() =>
                 {
-                    Logger.LogError(ex, "Error during Full File Scan");
+                    try
+                    {
+                        _performanceCollector.LogPerformance(this, $"FullFileScan", () => FullFileScan(token));
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.LogError(ex, "Error during Full File Scan");
+                    }
+                })
+                {
+                    Priority = ThreadPriority.Lowest,
+                    IsBackground = true
+                };
+                scanThread.Start();
+                while (scanThread.IsAlive)
+                {
+                    await Task.Delay(250).ConfigureAwait(false);
                 }
-            })
-            {
-                Priority = ThreadPriority.Lowest,
-                IsBackground = true
-            };
-            scanThread.Start();
-            while (scanThread.IsAlive)
-            {
-                await Task.Delay(250).ConfigureAwait(false);
+                TotalFiles = 0;
+                _currentFileProgress = 0;
             }
-            TotalFiles = 0;
-            _currentFileProgress = 0;
+            catch (OperationCanceledException)
+            {
+                Logger.LogTrace("Full File Scan canceled before start");
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "Error while scheduling Full File Scan");
+            }
         }), token);
     }
 
@@ -760,6 +780,7 @@ public sealed class CacheMonitor : DisposableMediatorSubscriberBase
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToDictionary(t => t.ToLowerInvariant(), t => false, StringComparer.OrdinalIgnoreCase);
 
+        penumbraFiles.Clear();
         TotalFiles = allScannedFiles.Count;
         Thread.CurrentThread.Priority = previousThreadPriority;
 
@@ -767,8 +788,7 @@ public sealed class CacheMonitor : DisposableMediatorSubscriberBase
 
         if (ct.IsCancellationRequested) return;
 
-        // scan files from database
-        var threadCount = Math.Clamp((int)(Environment.ProcessorCount / 2.0f), 2, 8);
+        var threadCount = Math.Clamp(Environment.ProcessorCount / 4, 2, 4);
 
         List<FileCacheEntity> entitiesToRemove = [];
         List<FileCacheEntity> entitiesToUpdate = [];

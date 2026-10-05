@@ -180,9 +180,6 @@ public partial class CompactUi : WindowMediatorSubscriberBase
         base.PostDraw();
     }
 
-    protected override UiSharedService.GlassLevel WindowGlassLevel
-        => UiSharedService.GlassLevel.Regular;
-
     protected override void DrawInternal()
     {
         var sidebarWidth = ImGuiHelpers.ScaledVector2(SidebarWidth, 0).X;

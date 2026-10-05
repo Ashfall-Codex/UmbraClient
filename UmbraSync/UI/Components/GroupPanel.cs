@@ -1715,6 +1715,7 @@ internal sealed class GroupPanel
         ImGui.SetNextWindowSize(new Vector2(450f * ImGuiHelpers.GlobalScale, 500f * ImGuiHelpers.GlobalScale), ImGuiCond.FirstUseEver);
         if (ImGui.Begin(windowTitle, ref isOpen, ImGuiWindowFlags.NoCollapse))
         {
+            UiSharedService.DrawWindowGlass();
             var totalMembers = pairsInGroup.Count + 1;
             var connectedMembers = pairsInGroup.Count(p => p.IsOnline) + 1;
             ImGui.TextUnformatted(string.Format(CultureInfo.CurrentCulture, Loc.Get("Syncshell.Members.OnlineTotal"), connectedMembers, totalMembers));
@@ -1888,6 +1889,7 @@ internal sealed class GroupPanel
         ImGui.SetNextWindowSize(new Vector2(420f * ImGuiHelpers.GlobalScale, 450f * ImGuiHelpers.GlobalScale), ImGuiCond.FirstUseEver);
         if (ImGui.Begin(windowTitle, ref isOpen, ImGuiWindowFlags.NoCollapse))
         {
+            UiSharedService.DrawWindowGlass();
             if (_profileLoading)
             {
                 ImGui.TextUnformatted(Loc.Get("SyncshellAdmin.Profile.Loading"));

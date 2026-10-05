@@ -7299,6 +7299,32 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
   <data name="Settings.Performance.Global.Title" xml:space="preserve">
     <value>Configuration globale</value>
   </data>
+  <data name="Settings.Performance.LowSpec.Title" xml:space="preserve">
+    <value>Profil petite config</value>
+  </data>
+  <data name="Settings.Performance.LowSpec.Toggle" xml:space="preserve">
+    <value>Activer le profil petite config</value>
+  </data>
+  <data name="Settings.Performance.LowSpec.ActiveNote" xml:space="preserve">
+    <value>Profil actif : les réglages qu'il gère (réduction des textures, blocage automatique, seuils VRAM et triangles, téléchargements parallèles) sont verrouillés. Désactivez le profil pour les modifier et retrouver vos réglages d'avant.</value>
+  </data>
+  <data name="Settings.Performance.LowSpec.Desc" xml:space="preserve">
+    <value>Pour les ordinateurs à petite configuration (PC portable, carte graphique de 6 Go de VRAM ou moins). Ce profil limite ce que les joueurs autour de vous peuvent consommer en mémoire vidéo et en calcul : les apparences trop lourdes sont bloquées automatiquement, les textures sont réduites et les téléchargements simultanés sont limités. Cela évite les saccades et les plantages en foule.</value>
+  </data>
+  <data name="Settings.Performance.LowSpec.Help" xml:space="preserve">
+    <value>Seuil de VRAM par joueur : {0} Mio au maximum
+Seuil de triangles : {1} k au maximum
+Réduction des textures téléchargées : activée
+Téléchargements parallèles : {2} au maximum
+
+Un seuil déjà plus bas est conservé. Vos réglages d'avant sont restaurés quand vous désactivez le profil. La liste blanche des paires directes n'est pas modifiée.</value>
+  </data>
+  <data name="Startup.OutOfMemory.Title" xml:space="preserve">
+    <value>Mémoire insuffisante</value>
+  </data>
+  <data name="Startup.OutOfMemory.Message" xml:space="preserve">
+    <value>Umbra Sync n'a pas pu démarrer faute de mémoire. Libérez de l'espace disque, fermez les applications en arrière-plan et désactivez les plugins de synchronisation inutilisés, puis relancez le jeu.</value>
+  </data>
   <data name="Settings.Performance.Limits.Title" xml:space="preserve">
     <value>Limites individuelles</value>
   </data>
