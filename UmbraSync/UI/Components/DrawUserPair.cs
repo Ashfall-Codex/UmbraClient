@@ -178,7 +178,7 @@ public class DrawUserPair : DrawPairBase
     {
         var pauseIcon = _pair.IsPaused ? FontAwesomeIcon.Play : FontAwesomeIcon.Pause;
         var pauseIconSize = _uiSharedService.GetIconButtonSize(pauseIcon);
-        var barButtonSize = _uiSharedService.GetIconButtonSize(FontAwesomeIcon.Bars);
+        var barButtonSize = _uiSharedService.GetIconButtonSize(FontAwesomeIcon.EllipsisH);
         var entryUID = _pair.UserData.AliasOrUID;
         var spacingX = ImGui.GetStyle().ItemSpacing.X;
         var edgePadding = UiSharedService.GetCardContentPaddingX() + 6f * ImGuiHelpers.GlobalScale;
@@ -197,16 +197,19 @@ public class DrawUserPair : DrawPairBase
         bool buttonClicked;
         using (ImRaii.PushId($"info-{_pair.UserData.UID}"))
         {
-            buttonClicked = _uiSharedService.IconButton(FontAwesomeIcon.Bars);
+            buttonClicked = _uiSharedService.IconButton(FontAwesomeIcon.EllipsisH);
         }
         if (buttonClicked)
         {
             ImGui.OpenPopup(popupId);
         }
-        if (ImGui.BeginPopup(popupId))
+        using (PopupMenu.PushStyle(270f))
         {
-            using (ImRaii.PushId($"buttons-{_pair.UserData.UID}")) DrawPairedClientMenu(_pair);
-            ImGui.EndPopup();
+            if (ImGui.BeginPopup(popupId))
+            {
+                using (ImRaii.PushId($"buttons-{_pair.UserData.UID}")) DrawPairedClientMenu(_pair);
+                ImGui.EndPopup();
+            }
         }
 
         rightSidePos -= pauseIconSize.X + spacingX;
@@ -332,30 +335,32 @@ public class DrawUserPair : DrawPairBase
 
     private void DrawPairedClientMenu(Pair entry)
     {
-        if (entry.IsVisible && _uiSharedService.IconTextButton(FontAwesomeIcon.Eye, Loc.Get("DrawUserPair.Menu.Target")))
+        var entryUID = entry.UserData.AliasOrUID;
+
+        if (entry.IsVisible && PopupMenu.Row(FontAwesomeIcon.Eye, Loc.Get("DrawUserPair.Menu.Target"), "target"))
         {
             _mediator.Publish(new TargetPairMessage(entry));
             ImGui.CloseCurrentPopup();
         }
-        if (!entry.IsEffectivelyPaused && _uiSharedService.IconTextButton(FontAwesomeIcon.User, Loc.Get("DrawUserPair.Menu.Profile")))
-        {
-            _displayHandler.OpenProfile(entry);
-            ImGui.CloseCurrentPopup();
-        }
         if (!entry.IsEffectivelyPaused)
         {
+            if (PopupMenu.Row(FontAwesomeIcon.User, Loc.Get("DrawUserPair.Menu.Profile"), "profile"))
+            {
+                _displayHandler.OpenProfile(entry);
+                ImGui.CloseCurrentPopup();
+            }
             UiSharedService.AttachToolTip(Loc.Get("DrawUserPair.Menu.ProfileTooltip"));
         }
         if (entry.IsVisible)
         {
 #if DEBUG
-            if (_uiSharedService.IconTextButton(FontAwesomeIcon.PersonCircleQuestion, Loc.Get("DrawUserPair.Menu.Analysis")))
+            if (PopupMenu.Row(FontAwesomeIcon.PersonCircleQuestion, Loc.Get("DrawUserPair.Menu.Analysis"), "analysis"))
             {
                 _displayHandler.OpenAnalysis(_pair);
                 ImGui.CloseCurrentPopup();
             }
 #endif
-            if (_uiSharedService.IconTextButton(FontAwesomeIcon.Sync, Loc.Get("DrawUserPair.Menu.Reload")))
+            if (PopupMenu.Row(FontAwesomeIcon.Sync, Loc.Get("DrawUserPair.Menu.Reload"), "reload"))
             {
                 entry.ApplyLastReceivedData(forced: true);
                 ImGui.CloseCurrentPopup();
@@ -363,22 +368,22 @@ public class DrawUserPair : DrawPairBase
             UiSharedService.AttachToolTip(Loc.Get("DrawUserPair.Menu.ReloadTooltip"));
         }
 
-        if (_uiSharedService.IconTextButton(FontAwesomeIcon.PlayCircle, Loc.Get("DrawUserPair.Menu.CyclePause")))
+        if (PopupMenu.Row(FontAwesomeIcon.PlayCircle, Loc.Get("DrawUserPair.Menu.CyclePause"), "cyclepause"))
         {
             _mediator.Publish(new CyclePauseMessage(entry.UserData));
             ImGui.CloseCurrentPopup();
         }
-        var entryUID = entry.UserData.AliasOrUID;
-        if (_uiSharedService.IconTextButton(FontAwesomeIcon.Folder, Loc.Get("DrawUserPair.Menu.PairGroups")))
+        if (PopupMenu.Row(FontAwesomeIcon.Folder, Loc.Get("DrawUserPair.Menu.PairGroups"), "groups"))
         {
             _selectGroupForPairUi.Open(entry);
         }
         UiSharedService.AttachToolTip(AppendSeenInfo(string.Format(CultureInfo.CurrentCulture, Loc.Get("DrawUserPair.Menu.PairGroupsTooltip"), entryUID)));
 
-        var isDisableSounds = entry.UserPair!.OwnPermissions.IsDisableSounds();
-        string disableSoundsText = Loc.Get(isDisableSounds ? "DrawUserPair.Menu.EnableSounds" : "DrawUserPair.Menu.DisableSounds");
-        var disableSoundsIcon = isDisableSounds ? FontAwesomeIcon.VolumeMute : FontAwesomeIcon.VolumeUp;
-        if (_uiSharedService.IconTextButton(disableSoundsIcon, disableSoundsText))
+        PopupMenu.Section(Loc.Get("DrawUserPair.Menu.SyncHeader"));
+        var own = entry.UserPair!.OwnPermissions;
+
+        var isDisableSounds = own.IsDisableSounds();
+        if (PopupMenu.ToggleRow(FontAwesomeIcon.VolumeUp, Loc.Get("Syncshell.Cards.Perm.Sound"), !isDisableSounds, "sounds"))
         {
             var permissions = entry.UserPair.OwnPermissions;
             permissions.SetDisableSounds(!isDisableSounds);
@@ -386,10 +391,8 @@ public class DrawUserPair : DrawPairBase
             _ = _apiController.UserSetPairPermissions(new UserPermissionsDto(entry.UserData, permissions));
         }
 
-        var isDisableAnims = entry.UserPair!.OwnPermissions.IsDisableAnimations();
-        string disableAnimsText = Loc.Get(isDisableAnims ? "DrawUserPair.Menu.EnableAnim" : "DrawUserPair.Menu.DisableAnim");
-        var disableAnimsIcon = isDisableAnims ? FontAwesomeIcon.WindowClose : FontAwesomeIcon.Running;
-        if (_uiSharedService.IconTextButton(disableAnimsIcon, disableAnimsText))
+        var isDisableAnims = own.IsDisableAnimations();
+        if (PopupMenu.ToggleRow(FontAwesomeIcon.Running, Loc.Get("Syncshell.Cards.Perm.Anim"), !isDisableAnims, "anims"))
         {
             var permissions = entry.UserPair.OwnPermissions;
             permissions.SetDisableAnimations(!isDisableAnims);
@@ -397,10 +400,8 @@ public class DrawUserPair : DrawPairBase
             _ = _apiController.UserSetPairPermissions(new UserPermissionsDto(entry.UserData, permissions));
         }
 
-        var isDisableVFX = entry.UserPair!.OwnPermissions.IsDisableVFX();
-        string disableVFXText = Loc.Get(isDisableVFX ? "DrawUserPair.Menu.EnableVfx" : "DrawUserPair.Menu.DisableVfx");
-        var disableVFXIcon = isDisableVFX ? FontAwesomeIcon.TimesCircle : FontAwesomeIcon.Sun;
-        if (_uiSharedService.IconTextButton(disableVFXIcon, disableVFXText))
+        var isDisableVFX = own.IsDisableVFX();
+        if (PopupMenu.ToggleRow(FontAwesomeIcon.Sun, Loc.Get("Syncshell.Cards.Perm.Vfx"), !isDisableVFX, "vfx"))
         {
             var permissions = entry.UserPair.OwnPermissions;
             permissions.SetDisableVFX(!isDisableVFX);
@@ -408,10 +409,8 @@ public class DrawUserPair : DrawPairBase
             _ = _apiController.UserSetPairPermissions(new UserPermissionsDto(entry.UserData, permissions));
         }
 
-        var isDisableHousing = entry.UserPair!.OwnPermissions.IsDisableHousing();
-        string disableHousingText = Loc.Get(isDisableHousing ? "DrawUserPair.Menu.EnableHousing" : "DrawUserPair.Menu.DisableHousing");
-        var disableHousingIcon = isDisableHousing ? FontAwesomeIcon.TimesCircle : FontAwesomeIcon.Home;
-        if (_uiSharedService.IconTextButton(disableHousingIcon, disableHousingText))
+        var isDisableHousing = own.IsDisableHousing();
+        if (PopupMenu.ToggleRow(FontAwesomeIcon.Home, Loc.Get("Syncshell.Cards.Perm.Housing"), !isDisableHousing, "housing"))
         {
             var permissions = entry.UserPair.OwnPermissions;
             permissions.SetDisableHousing(!isDisableHousing);
@@ -423,17 +422,15 @@ public class DrawUserPair : DrawPairBase
             ? scenarioEntry.DisableHousingScenarios
             : null;
         var isDisableScenarios = scenarioOverride ?? _mareConfig.Current.DefaultDisableHousingScenarios;
-        string disableScenariosText = Loc.Get(isDisableScenarios ? "DrawUserPair.Menu.EnableHousingScenarios" : "DrawUserPair.Menu.DisableHousingScenarios");
-        var disableScenariosIcon = isDisableScenarios ? FontAwesomeIcon.UserSlash : FontAwesomeIcon.UserFriends;
-        if (_uiSharedService.IconTextButton(disableScenariosIcon, disableScenariosText))
+        if (PopupMenu.ToggleRow(FontAwesomeIcon.UserFriends, Loc.Get("DrawUserPair.Menu.PermScenarios"), !isDisableScenarios, "scenarios"))
         {
             _mediator.Publish(new PairSyncOverrideChanged(entry.UserData.UID, null, null, null, null, !isDisableScenarios));
         }
         UiSharedService.AttachToolTip(string.Format(CultureInfo.CurrentCulture, Loc.Get("DrawUserPair.Menu.HousingScenariosTooltip"), entryUID));
-
         UiSharedService.DrawTargetSoundOverrideCombo(_mareConfig, entry.UserData.UID, "##pair_sound_");
-
-        if (_uiSharedService.IconTextButton(FontAwesomeIcon.Trash, Loc.Get("DrawUserPair.Menu.Unpair")) && UiSharedService.CtrlPressed())
+        PopupMenu.Divider();
+        var danger = ImGuiColors.DalamudRed;
+        if (PopupMenu.Row(FontAwesomeIcon.Trash, Loc.Get("DrawUserPair.Menu.Unpair"), "unpair", danger, danger) && UiSharedService.CtrlPressed())
         {
             _ = _apiController.UserRemovePair(new(entry.UserData));
         }

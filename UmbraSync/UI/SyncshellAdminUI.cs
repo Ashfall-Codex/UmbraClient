@@ -90,6 +90,8 @@ public class SyncshellAdminUI : WindowMediatorSubscriberBase
     private bool _profileSaving;
     private bool _profileLoaded;
     private string _profileDescription = string.Empty;
+    private string? _profileBorderColor;
+    private string? _savedProfileBorderColor;
     private List<string> _profileTags = [];
     private string _newTag = string.Empty;
     private bool _profileNsfw;
@@ -1085,6 +1087,12 @@ public class SyncshellAdminUI : WindowMediatorSubscriberBase
 
         ImGuiHelpers.ScaledDummy(4);
 
+        // Couleur du contour de l'icône : vue par tous les membres dans leur liste de syncshells.
+        ImGui.TextUnformatted(Loc.Get("Syncshell.Cards.BorderColor"));
+        ColorSwatchPicker.Draw("syncshellBorderColor", ref _profileBorderColor, UiSharedService.AccentColor);
+
+        ImGuiHelpers.ScaledDummy(4);
+
         // Description
         ImGui.TextUnformatted(Loc.Get("SyncshellAdmin.Profile.Description"));
         ImGui.InputTextMultiline("##profile_desc", ref _profileDescription, 1500, new Vector2(-1, 80));
@@ -1166,6 +1174,7 @@ public class SyncshellAdminUI : WindowMediatorSubscriberBase
                 _profileTags = profile.Tags?.ToList() ?? [];
                 _profileNsfw = profile.IsNsfw;
                 _profileDisabled = profile.IsDisabled;
+                _profileBorderColor = string.IsNullOrEmpty(profile.BorderColor) ? null : profile.BorderColor;
 
                 if (!string.IsNullOrEmpty(profile.ProfileImageBase64))
                 {
@@ -1219,6 +1228,8 @@ public class SyncshellAdminUI : WindowMediatorSubscriberBase
                 BannerImageBase64 = _bannerImageBytes.Length > 0 ? Convert.ToBase64String(_bannerImageBytes) : null,
                 IsNsfw = _profileNsfw,
                 IsDisabled = _profileDisabled,
+                // Chaîne vide = effacer la couleur : ici l'éditeur connaît l'état complet.
+                BorderColor = _profileBorderColor ?? string.Empty,
             };
 
             await _apiController.GroupSetProfile(dto).ConfigureAwait(false);
@@ -1664,6 +1675,7 @@ public class SyncshellAdminUI : WindowMediatorSubscriberBase
         _savedProfileTags = [.. _profileTags];
         _savedProfileNsfw = _profileNsfw;
         _savedProfileDisabled = _profileDisabled;
+        _savedProfileBorderColor = _profileBorderColor;
         _savedProfileImageBytes = _profileImageBytes;
         _savedBannerImageBytes = _bannerImageBytes;
     }
@@ -1673,6 +1685,8 @@ public class SyncshellAdminUI : WindowMediatorSubscriberBase
         if (!string.Equals(_profileDescription, _savedProfileDescription, StringComparison.Ordinal))
             return true;
         if (_profileNsfw != _savedProfileNsfw || _profileDisabled != _savedProfileDisabled)
+            return true;
+        if (!string.Equals(_profileBorderColor, _savedProfileBorderColor, StringComparison.OrdinalIgnoreCase))
             return true;
         if (!_profileImageBytes.SequenceEqual(_savedProfileImageBytes))
             return true;

@@ -44,7 +44,7 @@ public class PairGroupsUi
     {
         var allArePaused = availablePairsInThisTag.All(pair => pair.UserPair.OwnPermissions.IsPaused());
         var pauseButton = allArePaused ? FontAwesomeIcon.Play : FontAwesomeIcon.Pause;
-        var flyoutMenuSize = _uiSharedService.GetIconButtonSize(FontAwesomeIcon.Bars);
+        var flyoutMenuSize = _uiSharedService.GetIconButtonSize(FontAwesomeIcon.EllipsisH);
         var pauseButtonSize = _uiSharedService.GetIconButtonSize(pauseButton);
         var spacingX = ImGui.GetStyle().ItemSpacing.X;
         var currentX = ImGui.GetCursorPosX();
@@ -72,7 +72,7 @@ public class PairGroupsUi
 
         var menuStart = Math.Max(pauseStart + pauseButtonSize.X + spacingX, currentX);
         ImGui.SameLine(menuStart);
-        if (_uiSharedService.IconButton(FontAwesomeIcon.Bars))
+        if (_uiSharedService.IconButton(FontAwesomeIcon.EllipsisH))
         {
             ImGui.OpenPopup("Group Flyout Menu");
         }

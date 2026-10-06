@@ -326,10 +326,36 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
         return new string(letters);
     }
 
+    public static IDisposable PushTooltipStyle()
+    {
+        float scale = ImGuiHelpers.GlobalScale;
+        var scope = new TooltipStyleScope();
+        scope.Add(ImRaii.PushColor(ImGuiCol.PopupBg, WithAlpha(ThemeWindowBg, 0.97f)));
+        scope.Add(ImRaii.PushColor(ImGuiCol.Border, AccentColor with { W = 0.6f }));
+        scope.Add(ImRaii.PushStyle(ImGuiStyleVar.WindowPadding, new Vector2(9f, 7f) * scale));
+        scope.Add(ImRaii.PushStyle(ImGuiStyleVar.PopupRounding, 8f * scale));
+        scope.Add(ImRaii.PushStyle(ImGuiStyleVar.PopupBorderSize, 1f * scale));
+        return scope;
+    }
+
+    private sealed class TooltipStyleScope : IDisposable
+    {
+        private readonly List<IDisposable> _scopes = [];
+
+        public void Add(IDisposable scope) => _scopes.Add(scope);
+
+        public void Dispose()
+        {
+            for (int i = _scopes.Count - 1; i >= 0; i--)
+                _scopes[i].Dispose();
+        }
+    }
+
     public static void AttachToolTip(string text)
     {
         if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
         {
+            using var tooltipStyle = PushTooltipStyle();
             ImGui.BeginTooltip();
             ImGui.PushTextWrapPos(ImGui.GetFontSize() * 35f);
             if (text.Contains(TooltipSeparator, StringComparison.Ordinal))

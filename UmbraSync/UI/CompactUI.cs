@@ -102,7 +102,8 @@ public partial class CompactUi : WindowMediatorSubscriberBase
         SyncshellConfigService syncshellConfig,
         EstablishmentConfigService establishmentConfigService,
         DalamudUtilService dalamudUtilService,
-        SlotService slotService)
+        SlotService slotService,
+        UmbraProfileManager umbraProfileManager)
         : base(logger, mediator, "###UmbraSyncMainUI", performanceCollectorService)
     {
         _dalamudUtilService = dalamudUtilService;
@@ -126,7 +127,7 @@ public partial class CompactUi : WindowMediatorSubscriberBase
         _establishmentConfigService = establishmentConfigService;
         var tagHandler = new TagHandler(_serverManager);
 
-        _groupPanel = new(logger, this, uiShared, _pairManager, uidDisplayHandler, _serverManager, _charaDataManager, _autoDetectRequestService, _configService, syncshellConfig, slotService);
+        _groupPanel = new(logger, this, uiShared, _pairManager, uidDisplayHandler, _serverManager, _charaDataManager, _autoDetectRequestService, _configService, syncshellConfig, slotService, umbraProfileManager);
         _selectGroupForPairUi = new(tagHandler, uidDisplayHandler, _uiSharedService);
         _selectPairsForGroupUi = new(tagHandler, uidDisplayHandler);
         _pairGroupsUi = new(configService, tagHandler, apiController, _selectPairsForGroupUi, _uiSharedService);
@@ -365,6 +366,7 @@ public partial class CompactUi : WindowMediatorSubscriberBase
     }
 
     private readonly SideRail _socialRail = new();
+    private bool _syncshellDefaultsExpanded;
 
     private void DrawSocialSection()
     {
@@ -416,7 +418,18 @@ public partial class CompactUi : WindowMediatorSubscriberBase
 
     private void DrawSocialPage()
     {
-        if (_socialSubSection is SocialSubSection.IndividualPairs or SocialSubSection.Syncshells)
+        if (_socialSubSection is SocialSubSection.Syncshells)
+        {
+            // Les réglages par défaut sont repliés : ils ne sont utiles qu'à l'occasion, la liste passe avant.
+            var expanded = _syncshellDefaultsExpanded;
+            UiSharedService.DrawArrowToggle(ref expanded, "##syncshellDefaultsToggle");
+            _syncshellDefaultsExpanded = expanded;
+            ImGui.SameLine(0f, 6f * ImGuiHelpers.GlobalScale);
+            UiSharedService.ColorText(Loc.Get("CompactUi.Social.DefaultSettings"), UiSharedService.ThemeTextAccent);
+            if (expanded) DrawDefaultSyncSettings();
+            ImGuiHelpers.ScaledDummy(2f);
+        }
+        else if (_socialSubSection is SocialSubSection.IndividualPairs)
         {
             DrawDefaultSyncSettings();
             ImGuiHelpers.ScaledDummy(2f);

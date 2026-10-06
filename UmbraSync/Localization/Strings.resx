@@ -7705,4 +7705,46 @@ Experimental: these hooks are low level; if anything goes wrong, turn this off (
   <data name="EmptyState.Upcoming.Hint" xml:space="preserve">
     <value>Evenings from directory venues will show up here.</value>
   </data>
+  <data name="Syncshell.Cards.Menu" xml:space="preserve">
+    <value>More options</value>
+  </data>
+  <data name="Syncshell.Cards.Perm.Header" xml:space="preserve">
+    <value>Sync for this syncshell</value>
+  </data>
+  <data name="Syncshell.Cards.Perm.Sound" xml:space="preserve">
+    <value>Sounds</value>
+  </data>
+  <data name="Syncshell.Cards.Perm.Anim" xml:space="preserve">
+    <value>Animations</value>
+  </data>
+  <data name="Syncshell.Cards.Perm.Vfx" xml:space="preserve">
+    <value>Visual effects (VFX)</value>
+  </data>
+  <data name="Syncshell.Cards.Perm.Housing" xml:space="preserve">
+    <value>Housing</value>
+  </data>
+  <data name="Syncshell.Cards.DetailsOnline" xml:space="preserve">
+    <value>{0} online</value>
+  </data>
+  <data name="Syncshell.Cards.DetailsVisible" xml:space="preserve">
+    <value>{0} visible</value>
+  </data>
+  <data name="CompactUi.Social.DefaultSettings" xml:space="preserve">
+    <value>Default sync settings</value>
+  </data>
+  <data name="DrawUserPair.Menu.SyncHeader" xml:space="preserve">
+    <value>Sync with this person</value>
+  </data>
+  <data name="DrawUserPair.Menu.PermScenarios" xml:space="preserve">
+    <value>NPC scenarios</value>
+  </data>
+  <data name="Syncshell.Cards.BorderColor" xml:space="preserve">
+    <value>Border color</value>
+  </data>
+  <data name="Syncshell.Cards.BorderColor.Auto" xml:space="preserve">
+    <value>Automatic color</value>
+  </data>
+  <data name="Syncshell.Cards.BorderColor.Custom" xml:space="preserve">
+    <value>Pick a color</value>
+  </data>
 </root>

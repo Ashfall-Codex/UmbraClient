@@ -7615,4 +7615,46 @@ Expérimental : ces hooks sont bas niveau ; en cas de souci, désactivez l'optio
   <data name="EmptyState.Upcoming.Hint" xml:space="preserve">
     <value>Les soirées des lieux de l'annuaire apparaîtront ici.</value>
   </data>
+  <data name="Syncshell.Cards.Menu" xml:space="preserve">
+    <value>Plus d'options</value>
+  </data>
+  <data name="Syncshell.Cards.Perm.Header" xml:space="preserve">
+    <value>Synchroniser pour cette syncshell</value>
+  </data>
+  <data name="Syncshell.Cards.Perm.Sound" xml:space="preserve">
+    <value>Sons</value>
+  </data>
+  <data name="Syncshell.Cards.Perm.Anim" xml:space="preserve">
+    <value>Animations</value>
+  </data>
+  <data name="Syncshell.Cards.Perm.Vfx" xml:space="preserve">
+    <value>Effets visuels (VFX)</value>
+  </data>
+  <data name="Syncshell.Cards.Perm.Housing" xml:space="preserve">
+    <value>Housing</value>
+  </data>
+  <data name="Syncshell.Cards.DetailsOnline" xml:space="preserve">
+    <value>{0} en ligne</value>
+  </data>
+  <data name="Syncshell.Cards.DetailsVisible" xml:space="preserve">
+    <value>{0} visible(s)</value>
+  </data>
+  <data name="CompactUi.Social.DefaultSettings" xml:space="preserve">
+    <value>Réglages de synchronisation par défaut</value>
+  </data>
+  <data name="DrawUserPair.Menu.SyncHeader" xml:space="preserve">
+    <value>Synchronisation avec cette personne</value>
+  </data>
+  <data name="DrawUserPair.Menu.PermScenarios" xml:space="preserve">
+    <value>Scénarios PNJ</value>
+  </data>
+  <data name="Syncshell.Cards.BorderColor" xml:space="preserve">
+    <value>Couleur du contour</value>
+  </data>
+  <data name="Syncshell.Cards.BorderColor.Auto" xml:space="preserve">
+    <value>Couleur automatique</value>
+  </data>
+  <data name="Syncshell.Cards.BorderColor.Custom" xml:space="preserve">
+    <value>Choisir une couleur</value>
+  </data>
 </root>

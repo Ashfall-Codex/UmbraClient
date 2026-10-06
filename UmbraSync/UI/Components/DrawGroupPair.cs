@@ -295,7 +295,7 @@ public class DrawGroupPair : DrawPairBase
             _uiSharedService.GetIconButtonSize(FontAwesomeIcon.Pause).X,
             _uiSharedService.GetIconButtonSize(FontAwesomeIcon.Play).X
         );
-        float barsW = _uiSharedService.GetIconButtonSize(FontAwesomeIcon.Bars).X;
+        float barsW = _uiSharedService.GetIconButtonSize(FontAwesomeIcon.EllipsisH).X;
         float rightEdgeGap = spacing * 1.2f;
         float totalWidth = runningW + spacing
             + (showInfo ? infoMaxW + spacing : 0f)
@@ -459,7 +459,7 @@ public class DrawGroupPair : DrawPairBase
             bool buttonClicked;
             using (ImRaii.PushId($"info-{_pair.UserData.UID}"))
             {
-                buttonClicked = _uiSharedService.IconButtonCentered(FontAwesomeIcon.Bars);
+                buttonClicked = _uiSharedService.IconButtonCentered(FontAwesomeIcon.EllipsisH);
             }
             if (buttonClicked)
             {

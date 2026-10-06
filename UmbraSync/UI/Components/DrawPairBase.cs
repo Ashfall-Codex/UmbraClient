@@ -1,6 +1,7 @@
 ﻿using Dalamud.Bindings.ImGui;
 using Dalamud.Interface;
 using Dalamud.Interface.Utility;
+using Dalamud.Interface.Utility.Raii;
 using System.Numerics;
 using System.Globalization;
 using UmbraSync.Localization;
@@ -54,7 +55,7 @@ public abstract class DrawPairBase
 
         var pauseButtonSize = _uiSharedService.GetIconButtonSize(FontAwesomeIcon.Pause);
         var playButtonSize = _uiSharedService.GetIconButtonSize(FontAwesomeIcon.Play);
-        var menuButtonSize = _uiSharedService.GetIconButtonSize(FontAwesomeIcon.Bars);
+        var menuButtonSize = _uiSharedService.GetIconButtonSize(FontAwesomeIcon.EllipsisH);
 
         float pauseClusterWidth = Math.Max(pauseButtonSize.X, playButtonSize.X);
         float pauseClusterHeight = Math.Max(Math.Max(pauseButtonSize.Y, playButtonSize.Y), ImGui.GetFrameHeight());
@@ -106,8 +107,14 @@ public abstract class DrawPairBase
 
         float leftReserved = GetLeftSideReservedWidth();
         float nameStartX = rowStartCursor.X + padding.X + leftReserved;
-
-        var rightSide = DrawRightSide(buttonTop, buttonTop);
+        float rightSide;
+        using (ImRaii.PushColor(ImGuiCol.Button, new Vector4(0.2f, 0.2f, 0.25f, 1f)))
+        using (ImRaii.PushColor(ImGuiCol.ButtonHovered, new Vector4(0.3f, 0.3f, 0.35f, 1f)))
+        using (ImRaii.PushColor(ImGuiCol.ButtonActive, new Vector4(0.25f, 0.25f, 0.3f, 1f)))
+        using (ImRaii.PushStyle(ImGuiStyleVar.FrameRounding, 6f * ImGuiHelpers.GlobalScale))
+        {
+            rightSide = DrawRightSide(buttonTop, buttonTop);
+        }
 
         ImGui.SameLine(nameStartX);
         ImGui.SetCursorPosY(textTop);
