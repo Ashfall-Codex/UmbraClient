@@ -143,6 +143,11 @@ public partial class CompactUi : WindowMediatorSubscriberBase
         Mediator.Subscribe<CutsceneEndMessage>(this, (_) => UiSharedService_GposeEnd());
         Mediator.Subscribe<DownloadStartedMessage>(this, (msg) => _currentDownloads[msg.DownloadId] = msg.DownloadStatus);
         Mediator.Subscribe<DownloadFinishedMessage>(this, (msg) => _currentDownloads.TryRemove(msg.DownloadId, out _));
+        Mediator.Subscribe<OpenAutoDetectSettingsMessage>(this, (_) =>
+        {
+            _settingsUi.ShowAutoDetectTab();
+            _activeSection = CompactUiSection.Settings;
+        });
         Mediator.Subscribe<DiscoveryListUpdated>(this, (msg) =>
         {
             _nearbyEntries = msg.Entries;

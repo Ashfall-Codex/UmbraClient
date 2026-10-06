@@ -7570,4 +7570,49 @@ Expérimental : ces hooks sont bas niveau ; en cas de souci, désactivez l'optio
   <data name="CompactUi.Sidebar.SocialPending" xml:space="preserve">
     <value>Social — {0} invitation(s) en attente</value>
   </data>
+  <data name="EmptyState.Invitations.Title" xml:space="preserve">
+    <value>Aucune invitation</value>
+  </data>
+  <data name="EmptyState.Invitations.Hint" xml:space="preserve">
+    <value>Les demandes que vous recevez et celles que vous envoyez apparaissent ici.</value>
+  </data>
+  <data name="EmptyState.Nearby.Disabled.Title" xml:space="preserve">
+    <value>Détection désactivée</value>
+  </data>
+  <data name="EmptyState.Nearby.Disabled.Hint" xml:space="preserve">
+    <value>Activez-la pour voir les joueurs UmbraSync qui se trouvent autour de vous.</value>
+  </data>
+  <data name="EmptyState.Nearby.Disabled.Button" xml:space="preserve">
+    <value>Ouvrir les paramètres</value>
+  </data>
+  <data name="EmptyState.Nearby.Empty.Title" xml:space="preserve">
+    <value>Personne autour de vous</value>
+  </data>
+  <data name="EmptyState.Nearby.Empty.Hint" xml:space="preserve">
+    <value>La liste se met à jour toute seule.</value>
+  </data>
+  <data name="EmptyState.SyncFinder.Title" xml:space="preserve">
+    <value>Aucune syncshell visible</value>
+  </data>
+  <data name="EmptyState.Favorites.Title" xml:space="preserve">
+    <value>Aucun favori</value>
+  </data>
+  <data name="EmptyState.Favorites.Hint" xml:space="preserve">
+    <value>Cliquez sur l'étoile d'un lieu pour le retrouver ici.</value>
+  </data>
+  <data name="EmptyState.Favorites.Button" xml:space="preserve">
+    <value>Parcourir l'annuaire</value>
+  </data>
+  <data name="EmptyState.Owned.Title" xml:space="preserve">
+    <value>Aucun lieu enregistré</value>
+  </data>
+  <data name="EmptyState.Owned.Hint" xml:space="preserve">
+    <value>Enregistrez votre établissement pour qu'il apparaisse dans l'annuaire.</value>
+  </data>
+  <data name="EmptyState.Upcoming.Title" xml:space="preserve">
+    <value>Rien de prévu cette semaine</value>
+  </data>
+  <data name="EmptyState.Upcoming.Hint" xml:space="preserve">
+    <value>Les soirées des lieux de l'annuaire apparaîtront ici.</value>
+  </data>
 </root>

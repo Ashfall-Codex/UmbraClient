@@ -7660,4 +7660,49 @@ Experimental: these hooks are low level; if anything goes wrong, turn this off (
   <data name="CompactUi.Sidebar.SocialPending" xml:space="preserve">
     <value>Social — {0} pending invitation(s)</value>
   </data>
+  <data name="EmptyState.Invitations.Title" xml:space="preserve">
+    <value>No invitations</value>
+  </data>
+  <data name="EmptyState.Invitations.Hint" xml:space="preserve">
+    <value>Requests you receive and the ones you send show up here.</value>
+  </data>
+  <data name="EmptyState.Nearby.Disabled.Title" xml:space="preserve">
+    <value>Detection disabled</value>
+  </data>
+  <data name="EmptyState.Nearby.Disabled.Hint" xml:space="preserve">
+    <value>Turn it on to see the UmbraSync players around you.</value>
+  </data>
+  <data name="EmptyState.Nearby.Disabled.Button" xml:space="preserve">
+    <value>Open settings</value>
+  </data>
+  <data name="EmptyState.Nearby.Empty.Title" xml:space="preserve">
+    <value>Nobody around you</value>
+  </data>
+  <data name="EmptyState.Nearby.Empty.Hint" xml:space="preserve">
+    <value>The list updates by itself.</value>
+  </data>
+  <data name="EmptyState.SyncFinder.Title" xml:space="preserve">
+    <value>No syncshell visible</value>
+  </data>
+  <data name="EmptyState.Favorites.Title" xml:space="preserve">
+    <value>No favorites</value>
+  </data>
+  <data name="EmptyState.Favorites.Hint" xml:space="preserve">
+    <value>Click a venue's star to find it here.</value>
+  </data>
+  <data name="EmptyState.Favorites.Button" xml:space="preserve">
+    <value>Browse the directory</value>
+  </data>
+  <data name="EmptyState.Owned.Title" xml:space="preserve">
+    <value>No registered venue</value>
+  </data>
+  <data name="EmptyState.Owned.Hint" xml:space="preserve">
+    <value>Register your venue so it shows up in the directory.</value>
+  </data>
+  <data name="EmptyState.Upcoming.Title" xml:space="preserve">
+    <value>Nothing planned this week</value>
+  </data>
+  <data name="EmptyState.Upcoming.Hint" xml:space="preserve">
+    <value>Evenings from directory venues will show up here.</value>
+  </data>
 </root>

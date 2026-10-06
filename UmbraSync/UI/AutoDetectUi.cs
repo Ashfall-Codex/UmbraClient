@@ -148,7 +148,8 @@ public class AutoDetectUi : WindowMediatorSubscriberBase
 
         if (incomingInvites.Count == 0 && outgoingInvites.Count == 0)
         {
-            UiSharedService.ColorTextWrapped(Loc.Get("AutoDetectUi.Invitations.EmptyAll"), ImGuiColors.DalamudGrey3);
+            _uiSharedService.DrawEmptyState(FontAwesomeIcon.Envelope,
+                Loc.Get("EmptyState.Invitations.Title"), Loc.Get("EmptyState.Invitations.Hint"));
             return;
         }
 
@@ -254,9 +255,13 @@ public class AutoDetectUi : WindowMediatorSubscriberBase
     {
         if (!_configService.Current.EnableAutoDetectDiscovery)
         {
-            ImGuiHelpers.ScaledDummy(4);
-            UiSharedService.DrawNotice(Loc.Get("AutoDetectUi.Nearby.DisabledNotice"), ImGuiColors.DalamudYellow);
-            ImGuiHelpers.ScaledDummy(6);
+            // Activer la détection fait plus que basculer un réglage (notifications, suppression, demandes
+            // d'appairage) : le bouton mène donc à la page de réglages plutôt que de dupliquer cette logique.
+            if (_uiSharedService.DrawEmptyState(FontAwesomeIcon.BroadcastTower,
+                    Loc.Get("EmptyState.Nearby.Disabled.Title"), Loc.Get("EmptyState.Nearby.Disabled.Hint"),
+                    Loc.Get("EmptyState.Nearby.Disabled.Button")))
+                Mediator.Publish(new OpenAutoDetectSettingsMessage());
+            return;
         }
 
         int maxDist = MareConfig.AutoDetectFixedMaxDistanceMeters;
@@ -274,7 +279,8 @@ public class AutoDetectUi : WindowMediatorSubscriberBase
 
         if (orderedEntries.Count == 0)
         {
-            UiSharedService.ColorTextWrapped(Loc.Get("AutoDetectUi.Nearby.Empty"), ImGuiColors.DalamudGrey3);
+            _uiSharedService.DrawEmptyState(FontAwesomeIcon.MapMarkerAlt,
+                Loc.Get("EmptyState.Nearby.Empty.Title"), Loc.Get("EmptyState.Nearby.Empty.Hint"));
             return;
         }
 
@@ -551,7 +557,8 @@ public class AutoDetectUi : WindowMediatorSubscriberBase
 
         if (filteredEntries.Count == 0)
         {
-            UiSharedService.ColorTextWrapped(Loc.Get("AutoDetectUi.Syncshell.Empty"), ImGuiColors.DalamudGrey3);
+            _uiSharedService.DrawEmptyState(FontAwesomeIcon.Search,
+                Loc.Get("EmptyState.SyncFinder.Title"), Loc.Get("AutoDetectUi.Syncshell.Empty"));
             return;
         }
 

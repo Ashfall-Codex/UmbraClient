@@ -83,6 +83,8 @@ public class SettingsUi : WindowMediatorSubscriberBase
     private string _targetSoundGroupSearch = string.Empty;
     private string _lastTab = string.Empty;
     private int _activeSettingsTab;
+
+    public void ShowAutoDetectTab() => _activeSettingsTab = 4;
     private bool? _notesSuccessfullyApplied = null;
     private bool _overwriteExistingLabels = false;
     private bool _readClearCache = false;

@@ -295,6 +295,9 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
         UidFont = pluginInterface.UiBuilder.FontAtlas.NewGameFontHandle(new GameFontStyle(GameFontFamily.Axis, 27f));
         GameFont = pluginInterface.UiBuilder.FontAtlas.NewGameFontHandle(new(GameFontFamilyAndSize.Axis12));
         IconFont = pluginInterface.UiBuilder.IconFontFixedWidthHandle;
+        // Icône construite directement à grande taille : agrandir la petite par échelle de police la rend pixelisée.
+        LargeIconFont = pluginInterface.UiBuilder.FontAtlas.NewDelegateFontHandle(e =>
+            e.OnPreBuild(tk => tk.AddFontAwesomeIconFont(new SafeFontConfig { SizePx = 44f })));
     }
 
     public ApiController ApiController => _apiController;
@@ -305,6 +308,7 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
     public bool HasValidPenumbraModPath => !(_ipcManager.Penumbra.ModDirectory ?? string.Empty).IsNullOrEmpty() && Directory.Exists(_ipcManager.Penumbra.ModDirectory);
 
     public IFontHandle IconFont { get; init; }
+    public IFontHandle LargeIconFont { get; init; }
     public bool IsInGpose => _dalamudUtil.IsInGpose;
 
     public string PlayerName => _dalamudUtil.GetPlayerName();
@@ -802,6 +806,80 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
     }
 
     // Encadré d'information : icône, texte, fond teinté de la couleur du message.
+    /// <summary>
+    /// État vide d'une page : icône atténuée, titre, courte explication et, si besoin, une action.
+    /// </summary>
+    /// <returns>Vrai quand le bouton d'action est cliqué.</returns>
+    public bool DrawEmptyState(FontAwesomeIcon icon, string title, string hint, string? buttonLabel = null)
+    {
+        var scale = ImGuiHelpers.GlobalScale;
+        var avail = ImGui.GetContentRegionAvail();
+        var wrapWidth = MathF.Min(avail.X * 0.85f, 420f * scale);
+        var accentDim = AccentColor with { W = 0.55f };
+
+        ImGui.SetCursorPosY(ImGui.GetCursorPosY() + MathF.Max(8f * scale, avail.Y * 0.22f));
+
+        // Icône
+        var iconText = icon.ToIconString();
+        Vector2 iconSize;
+        using (LargeIconFont.Push())
+        {
+            iconSize = ImGui.CalcTextSize(iconText);
+            ImGui.SetCursorPosX(ImGui.GetCursorPosX() + (avail.X - iconSize.X) / 2f);
+            ImGui.TextColored(accentDim, iconText);
+        }
+
+        ImGuiHelpers.ScaledDummy(8f);
+
+        // Titre
+        using (UidFont.Push())
+        {
+            var titleSize = ImGui.CalcTextSize(title);
+            ImGui.SetCursorPosX(ImGui.GetCursorPosX() + MathF.Max(0f, (avail.X - titleSize.X) / 2f));
+            ImGui.TextUnformatted(title);
+        }
+
+        ImGuiHelpers.ScaledDummy(2f);
+
+        // Explication : chaque ligne est centrée, y compris quand le texte passe à la ligne.
+        foreach (var line in WrapText(hint, wrapWidth))
+        {
+            var lineSize = ImGui.CalcTextSize(line);
+            ImGui.SetCursorPosX(ImGui.GetCursorPosX() + MathF.Max(0f, (avail.X - lineSize.X) / 2f));
+            ImGui.TextColored(ImGuiColors.DalamudGrey3, line);
+        }
+
+        if (string.IsNullOrEmpty(buttonLabel)) return false;
+
+        ImGuiHelpers.ScaledDummy(10f);
+        var buttonWidth = ImGui.CalcTextSize(buttonLabel).X + ImGui.GetStyle().FramePadding.X * 2f + 24f * scale;
+        ImGui.SetCursorPosX(ImGui.GetCursorPosX() + MathF.Max(0f, (avail.X - buttonWidth) / 2f));
+        using var buttonColor = ImRaii.PushColor(ImGuiCol.Button, AccentColor);
+        return ImGui.Button(buttonLabel, new Vector2(buttonWidth, 0));
+    }
+
+    private static List<string> WrapText(string text, float maxWidth)
+    {
+        var lines = new List<string>();
+        var current = new StringBuilder();
+        foreach (var word in text.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var candidate = current.Length == 0 ? word : current + " " + word;
+            if (current.Length > 0 && ImGui.CalcTextSize(candidate).X > maxWidth)
+            {
+                lines.Add(current.ToString());
+                current.Clear().Append(word);
+            }
+            else
+            {
+                current.Clear().Append(candidate);
+            }
+        }
+
+        if (current.Length > 0) lines.Add(current.ToString());
+        return lines;
+    }
+
     public static void DrawNotice(string text, Vector4 color, FontAwesomeIcon icon = FontAwesomeIcon.ExclamationTriangle)
     {
         float scale = ImGuiHelpers.GlobalScale;
@@ -1855,5 +1933,6 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
 
         UidFont.Dispose();
         GameFont.Dispose();
+        LargeIconFont.Dispose();
     }
 }

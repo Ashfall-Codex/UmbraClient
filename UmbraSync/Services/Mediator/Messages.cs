@@ -22,6 +22,7 @@ namespace UmbraSync.Services.Mediator;
 public record SwitchToIntroUiMessage : MessageBase;
 public record SwitchToMainUiMessage : MessageBase;
 public record OpenSettingsUiMessage : MessageBase;
+public record OpenAutoDetectSettingsMessage : MessageBase;
 public record OpenChangelogUiMessage : MessageBase;
 public record DalamudLoginMessage : MessageBase;
 public record DalamudLogoutMessage : MessageBase;

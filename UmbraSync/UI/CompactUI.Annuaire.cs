@@ -233,7 +233,10 @@ public partial class CompactUi
         var bookmarks = _establishmentConfigService.Current.BookmarkedEstablishments;
         if (bookmarks.Count == 0)
         {
-            ImGui.TextDisabled(Loc.Get("Establishment.Directory.NoFavorites"));
+            if (_uiSharedService.DrawEmptyState(FontAwesomeIcon.Star,
+                    Loc.Get("EmptyState.Favorites.Title"), Loc.Get("EmptyState.Favorites.Hint"),
+                    Loc.Get("EmptyState.Favorites.Button")))
+                _socialSubSection = SocialSubSection.DirectoryBrowse;
             return;
         }
 
@@ -308,7 +311,8 @@ public partial class CompactUi
 
         if (_annuaireOwned.Count == 0)
         {
-            ImGui.TextDisabled(Loc.Get("Establishment.Directory.NoOwned"));
+            _uiSharedService.DrawEmptyState(FontAwesomeIcon.Home,
+                Loc.Get("EmptyState.Owned.Title"), Loc.Get("EmptyState.Owned.Hint"));
             return;
         }
 
@@ -592,7 +596,8 @@ public partial class CompactUi
 
         if (_annuaireUpcoming == null || _annuaireUpcoming.Count == 0)
         {
-            ImGui.TextDisabled(Loc.Get("Establishment.Directory.NoUpcoming"));
+            _uiSharedService.DrawEmptyState(FontAwesomeIcon.CalendarAlt,
+                Loc.Get("EmptyState.Upcoming.Title"), Loc.Get("EmptyState.Upcoming.Hint"));
             return;
         }
 
