@@ -14,12 +14,6 @@ public class MareConfig : IMareConfiguration
     public bool AcceptedAgreement { get; set; }
     public string CacheFolder { get; set; } = string.Empty;
     public bool DisableOptionalPluginWarnings { get; set; }
-
-    /// <summary>
-    /// Autorise les autres plugins Ashfall installés sur cette machine à lire le profil RP
-    /// d'une paire visible, et à présenter eux-mêmes la fiche. L'échange ne quitte pas le
-    /// poste et ne dévoile rien qu'UmbraSync ne montre déjà à cette paire.
-    /// </summary>
     public bool ShareRpProfileWithPlugins { get; set; }
     public bool EnableDtrEntry { get; set; } = true;
     public int DtrStyle { get; set; }
@@ -93,6 +87,7 @@ public class MareConfig : IMareConfiguration
     public bool ProfilesAllowNsfw { get; set; }
     public bool ProfilesAllowRpNsfw { get; set; }
     public bool ProfilesShow { get; set; }
+    public bool ShowTargetProfileTooltip { get; set; } = true;
     public bool ShowCharacterNames { get; set; } = true;
     public bool ShowOfflineUsersSeparately { get; set; } = true;
     public bool ShowSyncshellOfflineUsersSeparately { get; set; } = true;

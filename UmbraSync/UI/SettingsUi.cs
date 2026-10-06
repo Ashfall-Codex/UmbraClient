@@ -2511,6 +2511,14 @@ public class SettingsUi : WindowMediatorSubscriberBase
         _uiShared.DrawHelpText("Delay until the profile should be displayed");
         if (!showProfiles) ImGui.EndDisabled();
         ImGui.Unindent();
+        var showTargetTooltip = _configService.Current.ShowTargetProfileTooltip;
+        if (ToggleSwitch.Draw(Loc.Get("Settings.TargetTooltip.Enable"), ref showTargetTooltip))
+        {
+            _configService.Current.ShowTargetProfileTooltip = showTargetTooltip;
+            _configService.Save();
+        }
+        _uiShared.DrawHelpText(Loc.Get("Settings.TargetTooltip.Enable.Help"));
+
         if (ToggleSwitch.Draw("Show profiles marked as NSFW", ref showNsfwProfiles))
         {
             Mediator.Publish(new ClearProfileDataMessage());

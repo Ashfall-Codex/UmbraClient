@@ -7531,4 +7531,10 @@ Expérimental : ces hooks sont bas niveau ; en cas de souci, désactivez l'optio
   <data name="AutoDetectUi.Syncshell.Search" xml:space="preserve">
     <value>Rechercher une syncshell, un propriétaire, un tag…</value>
   </data>
+  <data name="Settings.TargetTooltip.Enable" xml:space="preserve">
+    <value>Afficher une carte de profil sur la cible</value>
+  </data>
+  <data name="Settings.TargetTooltip.Enable.Help" xml:space="preserve">
+    <value>Affiche une petite carte avec la fiche RP du joueur apparié que vous ciblez (le personnage réellement ciblé, pas ses autres personnages).</value>
+  </data>
 </root>

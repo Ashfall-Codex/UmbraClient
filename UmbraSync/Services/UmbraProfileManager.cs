@@ -146,7 +146,8 @@ public class UmbraProfileManager : MediatorSubscriberBase
         var key = NormalizeKey(data, charName, worldId);
         if (!_umbraProfiles.TryGetValue(key, out var profile))
         {
-            _ = Task.Run(() => GetUmbraProfileFromService(data, charName, worldId));
+            if (_umbraProfiles.TryAdd(key, _loadingProfileData))
+                _ = Task.Run(() => GetUmbraProfileFromService(data, charName, worldId));
             return (_loadingProfileData);
         }
 
@@ -546,8 +547,20 @@ public class UmbraProfileManager : MediatorSubscriberBase
             return;
         }
 
+        // Une clé incomplète (personnage ou monde inconnus) correspond à une requête faite sans
+        // savoir quel personnage afficher : le serveur répond alors par une fiche vide, qui ne
+        // doit ni polluer le cache ni écraser la vraie fiche du personnage.
+        if (string.IsNullOrEmpty(charName) || worldId is not > 0) return;
+
         EnsureCacheLoaded();
         var cacheKey = $"{data.UID}_{charName}_{worldId}";
+        bool hasRpName = !string.IsNullOrWhiteSpace(profile.RpFirstName) || !string.IsNullOrWhiteSpace(profile.RpLastName);
+        if (!hasRpName && _persistedProfiles.Values.Any(e =>
+                string.Equals(e.Key.User.UID, data.UID, StringComparison.Ordinal)
+                && string.Equals(e.Key.CharName, charName, StringComparison.Ordinal)
+                && (!string.IsNullOrWhiteSpace(e.Profile.RpFirstName) || !string.IsNullOrWhiteSpace(e.Profile.RpLastName))))
+            return;
+
         _persistedProfiles[cacheKey] = ((data, charName, worldId), profile);
         _persistedAtUtc[cacheKey] = DateTime.UtcNow;
 

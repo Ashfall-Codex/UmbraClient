@@ -1945,6 +1945,7 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
 
             // Portrait (left side)
             var portraitStart = ImGui.GetCursorScreenPos();
+            var portraitRounding = 10f * ImGuiHelpers.GlobalScale;
             if (cached.Texture != null && cached.Texture.Handle != IntPtr.Zero && imgData.Length > 0)
             {
                 bool tallerThanWide = cached.Texture.Height >= cached.Texture.Width;
@@ -1957,20 +1958,36 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
                 var pMin = new Vector2(portraitStart.X + offX, portraitStart.Y + offY);
                 var pMax = new Vector2(pMin.X + newW, pMin.Y + newH);
                 dl.AddImageRounded(cached.Texture.Handle, pMin, pMax,
-                    Vector2.Zero, Vector2.One, ImGui.GetColorU32(new Vector4(1, 1, 1, 1)), 6f * ImGuiHelpers.GlobalScale);
+                    Vector2.Zero, Vector2.One, ImGui.GetColorU32(new Vector4(1, 1, 1, 1)), portraitRounding);
             }
             else
             {
-                dl.AddRectFilled(portraitStart,
-                    new Vector2(portraitStart.X + portraitSize, portraitStart.Y + portraitSize),
-                    ImGui.GetColorU32(new Vector4(0.15f, 0.15f, 0.15f, 1f)), 6f * ImGuiHelpers.GlobalScale);
+                var pEnd = new Vector2(portraitStart.X + portraitSize, portraitStart.Y + portraitSize);
+                dl.AddRectFilled(portraitStart, pEnd, ImGui.GetColorU32(nameColor with { W = 0.16f }), portraitRounding);
+                var initials = GetInitials(!string.IsNullOrEmpty(rpName) ? rpName : charName);
+                if (initials.Length > 0)
+                {
+                    using var initialsFont = _uiSharedService.UidFont.Push();
+                    var textSize = ImGui.CalcTextSize(initials);
+                    dl.AddText(new Vector2(portraitStart.X + (portraitSize - textSize.X) / 2f, portraitStart.Y + (portraitSize - textSize.Y) / 2f),
+                        ImGui.GetColorU32(nameColor with { W = 0.85f }), initials);
+                }
             }
+            dl.AddRect(portraitStart, new Vector2(portraitStart.X + portraitSize, portraitStart.Y + portraitSize),
+                ImGui.GetColorU32(nameColor with { W = 0.45f }), portraitRounding, ImDrawFlags.None, ImGuiHelpers.GlobalScale);
 
             ImGui.Dummy(new Vector2(portraitSize, portraitSize));
             ImGui.SameLine();
 
-            // Right side: info
+            // Right side: info. On réserve la place du bouton pour que les noms longs passent à la ligne
+            // au lieu de passer dessous.
+            var openLabel = Loc.Get("Settings.ProfileBrowser.OpenProfile");
+            var hasOpenButton = _pairManager.GetPairByUID(key.User.UID) != null;
+            var buttonReserve = hasOpenButton
+                ? _uiSharedService.GetIconTextButtonSize(FontAwesomeIcon.ExternalLinkAlt, openLabel) + ImGui.GetStyle().ItemSpacing.X * 4
+                : 0f;
             ImGui.BeginGroup();
+            ImGui.PushTextWrapPos(ImGui.GetCursorPosX() + MathF.Max(80f * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X - buttonReserve));
 
             // RP Name (colored)
             var displayName = !string.IsNullOrEmpty(rpName) ? rpName : charName;
@@ -1995,6 +2012,7 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
             if (!string.IsNullOrEmpty(note))
                 ImGui.TextColored(ImGuiColors.DalamudGrey2, note);
 
+            ImGui.PopTextWrapPos();
             ImGui.EndGroup();
 
             // Open button — right-aligned
@@ -2005,10 +2023,17 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
                 ImGui.SameLine(ImGui.GetContentRegionAvail().X - btnSize - ImGui.GetStyle().ItemSpacing.X * 3 + ImGui.GetCursorPosX());
                 if (_uiSharedService.IconTextButton(FontAwesomeIcon.ExternalLinkAlt, Loc.Get("Settings.ProfileBrowser.OpenProfile")))
                 {
-                    Mediator.Publish(new ProfileOpenStandaloneMessage(pair));
+                    Mediator.Publish(new ProfileOpenStandaloneMessage(pair, key.CharName, key.WorldId));
                 }
             }
         }, stretchWidth: true);
+    }
+
+    private static string GetInitials(string name)
+    {
+        var parts = name.Split([' ', '-', '\''], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var letters = parts.Where(p => char.IsLetter(p[0])).Select(p => char.ToUpperInvariant(p[0])).Take(2).ToArray();
+        return new string(letters);
     }
 
     private static void DrawSubTabButtons(string[] subLabels, FontAwesomeIcon[] subIcons, ref int activeSubTab, System.Numerics.Vector4 accent)

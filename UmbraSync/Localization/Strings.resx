@@ -7621,4 +7621,10 @@ Experimental: these hooks are low level; if anything goes wrong, turn this off (
   <data name="AutoDetectUi.Syncshell.Search" xml:space="preserve">
     <value>Search a syncshell, owner or tag…</value>
   </data>
+  <data name="Settings.TargetTooltip.Enable" xml:space="preserve">
+    <value>Show a profile card when targeting a paired player</value>
+  </data>
+  <data name="Settings.TargetTooltip.Enable.Help" xml:space="preserve">
+    <value>Displays a small card with the RP profile of the targeted paired player (the character you are actually targeting, not their other characters).</value>
+  </data>
 </root>

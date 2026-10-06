@@ -41,6 +41,15 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
     private DateTime _lastMoodlesFetch = DateTime.MinValue;
     private string? _selectedAltCharName;
     private uint? _selectedAltWorldId;
+    private volatile bool _resetTexturesPending;
+
+    public void SelectCharacter(string? charName, uint? worldId)
+    {
+        if (string.IsNullOrEmpty(charName) || worldId is not > 0) return;
+        _selectedAltCharName = charName;
+        _selectedAltWorldId = worldId;
+        _resetTexturesPending = true;
+    }
 
     public StandaloneProfileUi(ILogger<StandaloneProfileUi> logger, MareMediator mediator, UiSharedService uiBuilder,
         ServerConfigurationManager serverManager, MareConfigService configService, UmbraProfileManager umbraProfileManager, ApiController apiController, Pair pair,
@@ -144,6 +153,17 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
             {
                 ImGui.SetWindowSize(new Vector2(800, 600));
                 _windowSizeInitialized = true;
+            }
+
+            if (_resetTexturesPending)
+            {
+                _resetTexturesPending = false;
+                _lastProfilePicture = [];
+                _lastRpProfilePicture = [];
+                _textureWrap?.Dispose();
+                _textureWrap = null;
+                _rpTextureWrap?.Dispose();
+                _rpTextureWrap = null;
             }
 
             var umbraProfile = (_selectedAltCharName != null && _selectedAltWorldId != null)
@@ -283,6 +303,7 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
 
         UiSharedService.ColorText(Loc.Get("AltSwitcher.Label"), ImGuiColors.DalamudGrey);
         ImGuiHelpers.ScaledDummy(2f);
+        var rightEdge = ImGui.GetCursorScreenPos().X + ImGui.GetContentRegionAvail().X;
 
         for (int i = 0; i < alts.Count; i++)
         {
@@ -298,7 +319,13 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
             var textSize = ImGui.CalcTextSize(displayName);
             var btnW = textSize.X + padH * 2;
 
-            if (i > 0) ImGui.SameLine(0, btnSpacing);
+            // Retour à la ligne quand le bouton ne tient plus : sinon les derniers personnages sont inaccessibles.
+            if (i > 0)
+            {
+                var nextX = ImGui.GetItemRectMax().X + btnSpacing * ImGuiHelpers.GlobalScale;
+                if (nextX + btnW <= rightEdge)
+                    ImGui.SameLine(0, btnSpacing);
+            }
 
             var p = ImGui.GetCursorScreenPos();
             bool clicked = ImGui.InvisibleButton($"##alt_{i}", new Vector2(btnW, btnH));

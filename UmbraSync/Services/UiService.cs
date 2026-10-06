@@ -45,12 +45,19 @@ public sealed class UiService : DisposableMediatorSubscriberBase
 
         Mediator.Subscribe<ProfileOpenStandaloneMessage>(this, (msg) =>
         {
-            if (!_createdWindows.Exists(p => p is StandaloneProfileUi ui
-                && string.Equals(ui.Pair.UserData.AliasOrUID, msg.Pair.UserData.AliasOrUID, StringComparison.Ordinal)))
+            var existing = _createdWindows.Find(p => p is StandaloneProfileUi ui
+                && string.Equals(ui.Pair.UserData.AliasOrUID, msg.Pair.UserData.AliasOrUID, StringComparison.Ordinal)) as StandaloneProfileUi;
+            if (existing == null)
             {
                 var window = uiFactory.CreateStandaloneProfileUi(msg.Pair);
+                window.SelectCharacter(msg.CharName, msg.WorldId);
                 _createdWindows.Add(window);
                 _windowSystem.AddWindow(window);
+            }
+            else if (!string.IsNullOrEmpty(msg.CharName))
+            {
+                existing.SelectCharacter(msg.CharName, msg.WorldId);
+                existing.IsOpen = true;
             }
         });
 
