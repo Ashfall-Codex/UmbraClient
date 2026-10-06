@@ -81,6 +81,8 @@ internal sealed class GroupPanel
     private readonly Dictionary<string, DrawGroupPair> _drawGroupPairCache = new(StringComparer.Ordinal);
     private readonly Dictionary<string, List<Pair>> _sortedPairsCache = new(StringComparer.Ordinal);
     private readonly Dictionary<string, long> _sortedPairsLastUpdate = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, (long Tick, List<DrawGroupPair> Pairs)> _drawPairsCache = new(StringComparer.Ordinal);
+    private const long DrawPairsCacheMs = 1000;
     private string? _membersWindowGid = null;
     private bool _membersLeaveConfirm = false;
     private string _syncshellFilter = string.Empty;
@@ -120,6 +122,7 @@ internal sealed class GroupPanel
         _drawGroupPairCache.Clear();
         _sortedPairsCache.Clear();
         _sortedPairsLastUpdate.Clear();
+        _drawPairsCache.Clear();
     }
 
     /// <summary>
@@ -1486,7 +1489,25 @@ internal sealed class GroupPanel
         }
     }
 
-    private List<DrawGroupPair> BuildDrawPairs(GroupFullInfoDto groupDto, IEnumerable<Pair> pairs)
+    /// <summary>
+    /// Le tri complet des membres (clés sur un dictionnaire à clé record, plus allocation des clés de
+    /// tri) refait à chaque frame pour des centaines de membres faisait dépasser la frame à l'ouverture
+    /// de la liste des syncshells. Le résultat est donc gardé une seconde ; l'état visible/en ligne,
+    /// lui, reste lu en direct au moment de répartir les sections.
+    /// </summary>
+    private List<DrawGroupPair> BuildDrawPairs(GroupFullInfoDto groupDto, IEnumerable<Pair> pairs, string cacheScope)
+    {
+        var key = groupDto.GID + "|" + cacheScope;
+        var now = Environment.TickCount64;
+        if (_drawPairsCache.TryGetValue(key, out var cached) && now - cached.Tick < DrawPairsCacheMs)
+            return cached.Pairs;
+
+        var built = BuildDrawPairsUncached(groupDto, pairs);
+        _drawPairsCache[key] = (now, built);
+        return built;
+    }
+
+    private List<DrawGroupPair> BuildDrawPairsUncached(GroupFullInfoDto groupDto, IEnumerable<Pair> pairs)
     {
         var sortedPairs = pairs
             .OrderByDescending(u => string.Equals(u.UserData.UID, groupDto.OwnerUID, StringComparison.Ordinal))
@@ -1542,7 +1563,7 @@ internal sealed class GroupPanel
 
     private void DrawMembersList(GroupFullInfoDto groupDto, List<Pair> pairsInGroup)
     {
-        var drawPairs = BuildDrawPairs(groupDto, pairsInGroup);
+        var drawPairs = BuildDrawPairs(groupDto, pairsInGroup, "fav");
 
         if (_membersSortByType)
         {
@@ -1796,7 +1817,7 @@ internal sealed class GroupPanel
                     (p.PlayerName?.Contains(_membersFilter, StringComparison.OrdinalIgnoreCase) ?? false));
             }
 
-            var drawPairs = BuildDrawPairs(groupDto, filteredPairs);
+            var drawPairs = BuildDrawPairs(groupDto, filteredPairs, "members|" + _membersFilter);
 
             if (ImGui.BeginChild("MembersList", Vector2.Zero, false))
             {

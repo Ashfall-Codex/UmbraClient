@@ -30,6 +30,7 @@ public partial class CompactUi
     private List<(EstablishmentDto Establishment, EstablishmentEventDto Event)>? _annuaireUpcoming;
     private bool _annuaireUpcomingLoading;
     private readonly Dictionary<Guid, IDalamudTextureWrap?> _annuaireLogoCache = new();
+    private readonly Dictionary<Guid, Task<IDalamudTextureWrap>> _annuaireLogoTasks = new();
     private List<EstablishmentDto>? _annuaireBookmarkResults;
     private bool _annuaireBookmarksLoading;
     private WildRpAnnouncementDto? _annuaireWildRpOwn;
@@ -390,16 +391,7 @@ public partial class CompactUi
         {
             if (card)
             {
-                IDalamudTextureWrap? logoTex = null;
-                if (establishment.LogoImageBase64 is { Length: > 0 } && !_annuaireLogoCache.TryGetValue(establishment.Id, out logoTex))
-                {
-                    try
-                    {
-                        logoTex = _uiSharedService.LoadImage(Convert.FromBase64String(establishment.LogoImageBase64));
-                        _annuaireLogoCache[establishment.Id] = logoTex;
-                    }
-                    catch { /* ignore */ }
-                }
+                var logoTex = GetAnnuaireLogo(establishment.Id, establishment.LogoImageBase64);
 
                 // Vertical centering: estimate the two-line content block height and center it
                 var lineH = ImGui.GetTextLineHeight();
@@ -530,12 +522,45 @@ public partial class CompactUi
         }
     }
 
+    private IDalamudTextureWrap? GetAnnuaireLogo(Guid id, string? base64)
+    {
+        if (string.IsNullOrEmpty(base64)) return null;
+        if (_annuaireLogoCache.TryGetValue(id, out var cached)) return cached;
+
+        if (!_annuaireLogoTasks.TryGetValue(id, out var task))
+        {
+            _annuaireLogoTasks[id] = Task.Run(() => _uiSharedService.LoadImageAsync(Convert.FromBase64String(base64)));
+            return null;
+        }
+
+        if (!task.IsCompleted) return null;
+
+        _annuaireLogoTasks.Remove(id);
+        if (task.IsCompletedSuccessfully)
+        {
+            _annuaireLogoCache[id] = task.Result;
+            return task.Result;
+        }
+
+        _logger.LogDebug(task.Exception?.GetBaseException(), "Logo d'établissement {id} illisible", id);
+        _annuaireLogoCache[id] = null;
+        return null;
+    }
+
     private void AnnuaireRefreshAll()
     {
         _annuairePage = 0;
         foreach (var tex in _annuaireLogoCache.Values)
             tex?.Dispose();
         _annuaireLogoCache.Clear();
+        foreach (var pending in _annuaireLogoTasks.Values)
+        {
+            _ = pending.ContinueWith(t =>
+            {
+                if (t.IsCompletedSuccessfully) t.Result.Dispose();
+            }, TaskScheduler.Default);
+        }
+        _annuaireLogoTasks.Clear();
         _annuaireBookmarkResults = null;
         _ = AnnuaireRefreshList();
         _ = AnnuaireRefreshOwned();
@@ -910,16 +935,7 @@ public partial class CompactUi
 
         UiSharedService.DrawCard($"upc_{evt.Id}", () =>
         {
-            IDalamudTextureWrap? logoTex = null;
-            if (establishment.LogoImageBase64 is { Length: > 0 } && !_annuaireLogoCache.TryGetValue(establishment.Id, out logoTex))
-            {
-                try
-                {
-                    logoTex = _uiSharedService.LoadImage(Convert.FromBase64String(establishment.LogoImageBase64));
-                    _annuaireLogoCache[establishment.Id] = logoTex;
-                }
-                catch { /* ignore */ }
-            }
+            var logoTex = GetAnnuaireLogo(establishment.Id, establishment.LogoImageBase64);
 
             // Estimate a 2-line content block; vertically center the logo against it
             var lineH = ImGui.GetTextLineHeight();

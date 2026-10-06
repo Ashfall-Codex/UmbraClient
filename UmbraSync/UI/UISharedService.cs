@@ -1805,6 +1805,9 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
         }
     }
 
+    public Task<IDalamudTextureWrap> LoadImageAsync(byte[] imageData) =>
+        _textureProvider.CreateFromImageAsync(imageData);
+
     internal static void DistanceSeparator()
     {
         ImGuiHelpers.ScaledDummy(5);

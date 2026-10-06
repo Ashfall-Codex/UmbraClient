@@ -149,7 +149,8 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
     private bool _mcdfShareSourceIsLocal;
     private readonly UmbraProfileManager _umbraProfileManager;
     private string _profileBrowserSearch = string.Empty;
-    private readonly Dictionary<string, (byte[] Data, IDalamudTextureWrap? Texture)> _profileBrowserTextures = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, (byte[] Data, Task<IDalamudTextureWrap> Task)> _profileBrowserTextureTasks = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, float> _profileCardHeights = new(StringComparer.Ordinal);
 
     public CharaDataHubUi(ILogger<CharaDataHubUi> logger, MareMediator mediator, PerformanceCollectorService performanceCollectorService,
                          CharaDataManager charaDataManager, CharaDataNearbyManager charaDataNearbyManager, CharaDataConfigService configService,
@@ -1854,9 +1855,10 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
         if (_uiSharedService.IconTextButton(FontAwesomeIcon.Trash, Loc.Get("Settings.ProfileBrowser.ClearCache")))
         {
             _umbraProfileManager.ClearPersistedProfileCache();
-            foreach (var tex in _profileBrowserTextures.Values)
-                tex.Texture?.Dispose();
-            _profileBrowserTextures.Clear();
+            foreach (var pending in _profileBrowserTextureTasks.Values)
+                pending.Task.ContinueWith(t => { if (t.IsCompletedSuccessfully) t.Result.Dispose(); }, TaskScheduler.Default);
+            _profileBrowserTextureTasks.Clear();
+            _profileCardHeights.Clear();
         }
         ImGuiHelpers.ScaledDummy(2f);
 
@@ -1876,10 +1878,24 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
             return;
 
         var cardSpacing = 6f * ImGuiHelpers.GlobalScale;
+        var clipMin = ImGui.GetWindowPos().Y;
+        var clipMax = clipMin + ImGui.GetWindowHeight();
+        float defaultHeight = _profileCardHeights.Count > 0 ? _profileCardHeights.Values.Average() : 90f * ImGuiHelpers.GlobalScale;
         foreach (var entry in filtered)
         {
+            var heightKey = $"{entry.Key.User.UID}_{entry.Key.CharName}_{entry.Key.WorldId}";
+            var height = _profileCardHeights.TryGetValue(heightKey, out var knownHeight) ? knownHeight : defaultHeight;
+            var top = ImGui.GetCursorScreenPos().Y;
+            if (top + height < clipMin || top > clipMax)
+            {
+                ImGui.Dummy(new Vector2(1f, height + cardSpacing));
+                continue;
+            }
+
+            var startY = ImGui.GetCursorPosY();
             DrawProfileCard(entry.Key, entry.Profile, accent);
-            ImGuiHelpers.ScaledDummy(cardSpacing / ImGuiHelpers.GlobalScale);
+            _profileCardHeights[heightKey] = ImGui.GetCursorPosY() - startY;
+            ImGui.Dummy(new Vector2(1f, cardSpacing));
         }
 
         ImGui.EndChild();
@@ -1910,13 +1926,18 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
         // Texture cache key
         var texKey = $"{key.User.UID}_{key.CharName}_{key.WorldId}";
         var imgData = profile.RpImageData.Value;
-        if (!_profileBrowserTextures.TryGetValue(texKey, out var cached) || !imgData.SequenceEqual(cached.Data))
+        if (!_profileBrowserTextureTasks.TryGetValue(texKey, out var cachedTask)
+            || (!ReferenceEquals(imgData, cachedTask.Data) && !imgData.AsSpan().SequenceEqual(cachedTask.Data)))
         {
-            cached.Texture?.Dispose();
-            var tex = _uiSharedService.LoadImage(imgData);
-            _profileBrowserTextures[texKey] = (imgData, tex);
-            cached = (imgData, tex);
+            if (cachedTask.Task != null)
+                cachedTask.Task.ContinueWith(t => { if (t.IsCompletedSuccessfully) t.Result.Dispose(); }, TaskScheduler.Default);
+            cachedTask = (imgData, imgData.Length == 0
+                ? Task.FromException<IDalamudTextureWrap>(new InvalidOperationException("Aucune image"))
+                : Task.Run(() => _uiSharedService.LoadImageAsync(imgData)));
+            _profileBrowserTextureTasks[texKey] = cachedTask;
         }
+        IDalamudTextureWrap? profileTexture = cachedTask.Task.IsCompletedSuccessfully ? cachedTask.Task.Result : null;
+        var cached = (Data: imgData, Texture: profileTexture);
 
         UiSharedService.DrawCard($"profileCard_{texKey}", () =>
         {

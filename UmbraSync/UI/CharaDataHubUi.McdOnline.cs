@@ -839,13 +839,36 @@ public sealed partial class CharaDataHubUi
     int _dataEntries = 0;
     int _onlineDataSubTab = 0;
 
+    private Task? _localMcdfScanTask;
+
     private void ScanLocalMcdfFolder()
     {
+        if (_localMcdfScanTask is { IsCompleted: false }) return;
+
         var folder = _configService.Current.McdfLocalFolder;
+        _localMcdfScanTime = DateTime.UtcNow;
+        _localMcdfScanTask = Task.Run(() =>
+        {
+            try
+            {
+                _localMcdfFiles = ScanLocalMcdfFolderCore(folder);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Scan du dossier MCDF local impossible");
+            }
+            finally
+            {
+                _localMcdfScanTime = DateTime.UtcNow;
+            }
+        });
+    }
+
+    private static List<LocalMcdfEntry> ScanLocalMcdfFolderCore(string? folder)
+    {
         if (string.IsNullOrEmpty(folder) || !Directory.Exists(folder))
         {
-            _localMcdfFiles = [];
-            return;
+            return [];
         }
 
         var results = new List<LocalMcdfEntry>();
@@ -875,11 +898,10 @@ public sealed partial class CharaDataHubUi
             }
         }
 
-        _localMcdfFiles = results
+        return results
             .OrderBy(f => f.SubFolder, StringComparer.OrdinalIgnoreCase)
             .ThenBy(f => f.Description, StringComparer.OrdinalIgnoreCase)
             .ToList();
-        _localMcdfScanTime = DateTime.UtcNow;
     }
 
     private void DrawLocalMcdfSection()

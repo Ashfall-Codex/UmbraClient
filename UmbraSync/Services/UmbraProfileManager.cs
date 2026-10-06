@@ -33,6 +33,8 @@ public class UmbraProfileManager : MediatorSubscriberBase
     private readonly ConcurrentDictionary<string, DateTime> _persistedAtUtc = new(StringComparer.Ordinal);
     private static readonly TimeSpan PersistedProfileLifetime = TimeSpan.FromDays(30);
     private string? _cacheUid;
+    private volatile string? _cacheLoadedForUid;
+    private readonly object _cacheLoadLock = new();
     private bool _cacheDirty;
     private Timer? _saveTimer;
     private CancellationTokenSource? _ownProfileSyncCts;
@@ -75,6 +77,7 @@ public class UmbraProfileManager : MediatorSubscriberBase
             _groupProfiles.Clear();
             _persistedProfiles.Clear();
             _cacheUid = null;
+            _cacheLoadedForUid = null;
         });
         Mediator.Subscribe<GroupProfileUpdatedMessage>(this, (msg) =>
         {
@@ -88,6 +91,8 @@ public class UmbraProfileManager : MediatorSubscriberBase
             CancelOwnProfileSync();
             _ownProfileSyncCts = new CancellationTokenSource();
             _ = DelayedEnsureOwnProfileSyncedAsync(_ownProfileSyncCts.Token);
+       
+            StartBackgroundCacheLoad();
         });
     }
 
@@ -390,7 +395,12 @@ public class UmbraProfileManager : MediatorSubscriberBase
 
     public IReadOnlyCollection<((UserData User, string? CharName, uint? WorldId) Key, UmbraProfileData Profile)> GetCachedProfiles()
     {
-        EnsureCacheLoaded();
+        if (!IsCacheLoadedForCurrentUid())
+        {
+            StartBackgroundCacheLoad();
+            return [];
+        }
+
         return _persistedProfiles.Values.ToList().AsReadOnly();
     }
 
@@ -476,19 +486,40 @@ public class UmbraProfileManager : MediatorSubscriberBase
 
     #region Persistent Profile Cache
 
+    private bool IsCacheLoadedForCurrentUid()
+        => _apiController.IsConnected
+           && string.Equals(_cacheLoadedForUid, _apiController.UID, StringComparison.Ordinal);
+
+    private void StartBackgroundCacheLoad()
+    {
+        if (!_apiController.IsConnected || IsCacheLoadedForCurrentUid()) return;
+        _ = Task.Run(() =>
+        {
+            try
+            {
+                EnsureCacheLoaded();
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "Chargement du cache de profils en arrière-plan impossible");
+            }
+        });
+    }
+
     private void EnsureCacheLoaded()
     {
         if (!_apiController.IsConnected) return;
         var uid = _apiController.UID;
-        if (string.Equals(_cacheUid, uid, StringComparison.Ordinal)) return;
-
-        // Save previous UID's cache if any
-        if (_cacheUid != null) SaveProfileCacheNow();
-
-        _persistedProfiles.Clear();
-        _persistedAtUtc.Clear();
-        _cacheUid = uid;
-        LoadProfileCache();
+        lock (_cacheLoadLock)
+        {
+            if (string.Equals(_cacheLoadedForUid, uid, StringComparison.Ordinal)) return;
+            if (_cacheUid != null && !string.Equals(_cacheUid, uid, StringComparison.Ordinal)) SaveProfileCacheNow();
+            _persistedProfiles.Clear();
+            _persistedAtUtc.Clear();
+            _cacheUid = uid;
+            LoadProfileCache();
+            _cacheLoadedForUid = uid;
+        }
     }
 
     private string GetCacheFilePath(string uid) =>
