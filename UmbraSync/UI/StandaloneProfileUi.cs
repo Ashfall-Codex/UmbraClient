@@ -42,6 +42,8 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
     private string? _selectedAltCharName;
     private uint? _selectedAltWorldId;
     private volatile bool _resetTexturesPending;
+    private string _characterNoteDraft = string.Empty;
+    private string? _characterNoteKey;
 
     public void SelectCharacter(string? charName, uint? worldId)
     {
@@ -362,6 +364,31 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
         ImGuiHelpers.ScaledDummy(4f);
     }
 
+    private void DrawCharacterNote()
+    {
+        if (string.Equals(Pair.UserData.UID, _apiController.UID, StringComparison.Ordinal)) return;
+
+        var (charName, worldId) = (_selectedAltCharName != null && _selectedAltWorldId != null)
+            ? (_selectedAltCharName, _selectedAltWorldId)
+            : _umbraProfileManager.ResolveCharacter(Pair.UserData);
+        if (string.IsNullOrEmpty(charName) || worldId is not > 0) return;
+
+        // Le brouillon suit le personnage affiché : changer de personnage recharge sa propre note.
+        var key = $"{Pair.UserData.UID}|{charName}|{worldId}";
+        if (!string.Equals(_characterNoteKey, key, StringComparison.Ordinal))
+        {
+            _characterNoteKey = key;
+            _characterNoteDraft = _serverManager.GetNoteForCharacter(Pair.UserData.UID, charName, worldId) ?? string.Empty;
+        }
+
+        ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X);
+        ImGui.InputTextWithHint("##characterNote", Loc.Get("StandaloneProfile.CharacterNote.Hint"), ref _characterNoteDraft, 200);
+        if (ImGui.IsItemDeactivatedAfterEdit())
+            _serverManager.SetNoteForCharacter(Pair.UserData.UID, charName, worldId.Value, _characterNoteDraft);
+        UiSharedService.AttachToolTip(Loc.Get("StandaloneProfile.CharacterNote.Tooltip"));
+        ImGuiHelpers.ScaledDummy(4f);
+    }
+
     private bool IsCurrentCharacter(string charName, uint worldId)
     {
         var pair = _pairManager.GetPairByUID(Pair.UserData.UID);
@@ -392,6 +419,8 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
         if (ImGui.IsItemHovered())
             ImGui.SetTooltip("S'ouvre dans votre navigateur web. Le profil doit être en mode \"Public\" sur Connect pour être accessible.");
         ImGuiHelpers.ScaledDummy(cardSpacing / ImGuiHelpers.GlobalScale);
+
+        DrawCharacterNote();
 
         bool hasAnyRpContent = !string.IsNullOrEmpty(profile.RpAge)
             || !string.IsNullOrEmpty(profile.RpHeight)

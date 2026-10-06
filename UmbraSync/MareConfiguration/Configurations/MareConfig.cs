@@ -87,7 +87,9 @@ public class MareConfig : IMareConfiguration
     public bool ProfilesAllowNsfw { get; set; }
     public bool ProfilesAllowRpNsfw { get; set; }
     public bool ProfilesShow { get; set; }
+    public bool ShowRpIdentityInPairList { get; set; } = true;
     public bool ShowTargetProfileTooltip { get; set; } = true;
+    public bool HideTargetProfileTooltipInDuty { get; set; } = true;
     public bool ShowCharacterNames { get; set; } = true;
     public bool ShowOfflineUsersSeparately { get; set; } = true;
     public bool ShowSyncshellOfflineUsersSeparately { get; set; } = true;

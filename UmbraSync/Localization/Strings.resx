@@ -7627,4 +7627,22 @@ Experimental: these hooks are low level; if anything goes wrong, turn this off (
   <data name="Settings.TargetTooltip.Enable.Help" xml:space="preserve">
     <value>Displays a small card with the RP profile of the targeted paired player (the character you are actually targeting, not their other characters).</value>
   </data>
+  <data name="StandaloneProfile.CharacterNote.Hint" xml:space="preserve">
+    <value>Private note about this character...</value>
+  </data>
+  <data name="StandaloneProfile.CharacterNote.Tooltip" xml:space="preserve">
+    <value>Only you can see this note. It is specific to this character, not to the whole account.</value>
+  </data>
+  <data name="Settings.TargetTooltip.HideInDuty" xml:space="preserve">
+    <value>Hide the profile card in instances (dungeons, raids, trials…)</value>
+  </data>
+  <data name="Settings.TargetTooltip.HideInDuty.Help" xml:space="preserve">
+    <value>The card is also always hidden during combat and cutscenes.</value>
+  </data>
+  <data name="Settings.RpIdentityInPairList" xml:space="preserve">
+    <value>Show RP avatar and name in the pair list</value>
+  </data>
+  <data name="Settings.RpIdentityInPairList.Help" xml:space="preserve">
+    <value>Replaces the character name with the RP name, and adds a small avatar. A nickname you set yourself always takes priority.</value>
+  </data>
 </root>

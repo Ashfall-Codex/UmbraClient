@@ -7537,4 +7537,22 @@ Expérimental : ces hooks sont bas niveau ; en cas de souci, désactivez l'optio
   <data name="Settings.TargetTooltip.Enable.Help" xml:space="preserve">
     <value>Affiche une petite carte avec la fiche RP du joueur apparié que vous ciblez (le personnage réellement ciblé, pas ses autres personnages).</value>
   </data>
+  <data name="StandaloneProfile.CharacterNote.Hint" xml:space="preserve">
+    <value>Note privée sur ce personnage.</value>
+  </data>
+  <data name="StandaloneProfile.CharacterNote.Tooltip" xml:space="preserve">
+    <value>Vous seul voyez cette note. Elle est propre à ce personnage.</value>
+  </data>
+  <data name="Settings.TargetTooltip.HideInDuty" xml:space="preserve">
+    <value>Masquer la carte en instance (donjons, raids, défis…)</value>
+  </data>
+  <data name="Settings.TargetTooltip.HideInDuty.Help" xml:space="preserve">
+    <value>La carte est de toute façon toujours masquée en combat et pendant les cinématiques.</value>
+  </data>
+  <data name="Settings.RpIdentityInPairList" xml:space="preserve">
+    <value>Afficher l'avatar et le nom RP dans la liste des paires</value>
+  </data>
+  <data name="Settings.RpIdentityInPairList.Help" xml:space="preserve">
+    <value>Remplace le nom du personnage par son nom RP et ajoute un petit avatar. Un surnom que vous avez défini vous-même reste toujours prioritaire.</value>
+  </data>
 </root>

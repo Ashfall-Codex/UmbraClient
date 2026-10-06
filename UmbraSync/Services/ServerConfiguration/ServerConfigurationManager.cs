@@ -264,6 +264,27 @@ public class ServerConfigurationManager
         return null;
     }
 
+    internal string? GetNoteForCharacter(string uid, string? charName, uint? worldId)
+    {
+        if (string.IsNullOrEmpty(uid) || string.IsNullOrEmpty(charName) || worldId is not > 0) return null;
+        return CurrentNotesStorage().CharacterComments.TryGetValue(CharacterNoteKey(uid, charName, worldId.Value), out var note)
+               && !string.IsNullOrEmpty(note) ? note : null;
+    }
+
+    internal void SetNoteForCharacter(string uid, string charName, uint worldId, string note)
+    {
+        if (string.IsNullOrEmpty(uid) || string.IsNullOrEmpty(charName) || worldId == 0) return;
+        var key = CharacterNoteKey(uid, charName, worldId);
+        if (string.IsNullOrWhiteSpace(note))
+            CurrentNotesStorage().CharacterComments.Remove(key);
+        else
+            CurrentNotesStorage().CharacterComments[key] = note.Trim();
+        _notesConfig.Save();
+    }
+
+    private static string CharacterNoteKey(string uid, string charName, uint worldId)
+        => $"{uid}|{charName}|{worldId}";
+
     internal string? GetNameForUid(string uid)
     {
         if (CurrentNotesStorage().UidLastSeenNames.TryGetValue(uid, out var name))

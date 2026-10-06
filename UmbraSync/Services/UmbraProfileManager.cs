@@ -114,6 +114,46 @@ public class UmbraProfileManager : MediatorSubscriberBase
 
     public UmbraProfileData GetUmbraProfile(UserData data)
     {
+        var (charName, worldId) = ResolveCharacter(data);
+        return GetUmbraProfile(data, charName, worldId);
+    }
+
+    /// <summary>
+    /// Fiche déjà connue (mémoire ou cache disque) pour le personnage courant de cette personne.
+    /// Ne lance jamais de requête : utilisable à chaque frame pour chaque ligne d'une liste.
+    /// </summary>
+    public bool TryGetKnownProfile(UserData data, out UmbraProfileData profile)
+    {
+        profile = _defaultProfileData;
+        var (charName, worldId) = ResolveCharacter(data);
+        if (string.IsNullOrEmpty(charName)) return false;
+        if (worldId == 0) worldId = null;
+
+        if (_umbraProfiles.TryGetValue(NormalizeKey(data, charName, worldId), out var known)
+            && !ReferenceEquals(known, _loadingProfileData) && !ReferenceEquals(known, _defaultProfileData)
+            && !ReferenceEquals(known, _nsfwProfileData))
+        {
+            profile = known;
+            return true;
+        }
+
+        if (!IsCacheLoadedForCurrentUid())
+        {
+            StartBackgroundCacheLoad();
+            return false;
+        }
+
+        if (worldId is > 0 && _persistedProfiles.TryGetValue($"{data.UID}_{charName}_{worldId}", out var persisted))
+        {
+            profile = persisted.Profile;
+            return true;
+        }
+
+        return false;
+    }
+
+    public (string? CharName, uint? WorldId) ResolveCharacter(UserData data)
+    {
         var pair = _pairManager.GetPairByUID(data.UID);
         string? charName;
         uint? worldId;
@@ -137,7 +177,7 @@ public class UmbraProfileManager : MediatorSubscriberBase
             worldId = _serverConfigurationManager.GetWorldIdForUid(data.UID);
         }
 
-        return GetUmbraProfile(data, charName, worldId);
+        return (charName, worldId);
     }
 
     public UmbraProfileData GetUmbraProfile(UserData data, string? charName, uint? worldId)

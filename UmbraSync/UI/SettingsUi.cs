@@ -2511,6 +2511,14 @@ public class SettingsUi : WindowMediatorSubscriberBase
         _uiShared.DrawHelpText("Delay until the profile should be displayed");
         if (!showProfiles) ImGui.EndDisabled();
         ImGui.Unindent();
+        var showRpIdentity = _configService.Current.ShowRpIdentityInPairList;
+        if (ToggleSwitch.Draw(Loc.Get("Settings.RpIdentityInPairList"), ref showRpIdentity))
+        {
+            _configService.Current.ShowRpIdentityInPairList = showRpIdentity;
+            _configService.Save();
+        }
+        _uiShared.DrawHelpText(Loc.Get("Settings.RpIdentityInPairList.Help"));
+
         var showTargetTooltip = _configService.Current.ShowTargetProfileTooltip;
         if (ToggleSwitch.Draw(Loc.Get("Settings.TargetTooltip.Enable"), ref showTargetTooltip))
         {
@@ -2518,6 +2526,17 @@ public class SettingsUi : WindowMediatorSubscriberBase
             _configService.Save();
         }
         _uiShared.DrawHelpText(Loc.Get("Settings.TargetTooltip.Enable.Help"));
+
+        var hideTooltipInDuty = _configService.Current.HideTargetProfileTooltipInDuty;
+        using (ImRaii.Disabled(!showTargetTooltip))
+        {
+            if (ToggleSwitch.Draw(Loc.Get("Settings.TargetTooltip.HideInDuty"), ref hideTooltipInDuty))
+            {
+                _configService.Current.HideTargetProfileTooltipInDuty = hideTooltipInDuty;
+                _configService.Save();
+            }
+        }
+        _uiShared.DrawHelpText(Loc.Get("Settings.TargetTooltip.HideInDuty.Help"));
 
         if (ToggleSwitch.Draw("Show profiles marked as NSFW", ref showNsfwProfiles))
         {

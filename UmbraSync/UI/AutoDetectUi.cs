@@ -30,6 +30,9 @@ public class AutoDetectUi : WindowMediatorSubscriberBase
     private readonly NearbyDiscoveryService _discoveryService;
     private readonly NearbyPendingService _pendingService;
     private readonly PairManager _pairManager;
+    private readonly UmbraProfileManager _profileManager;
+    private readonly UiSharedService _uiSharedService;
+    private readonly Dictionary<string, (byte[] Data, Task<Dalamud.Interface.Textures.TextureWraps.IDalamudTextureWrap> Task)> _nearbyTextureTasks = new(StringComparer.Ordinal);
     private List<Services.Mediator.NearbyEntry> _entries;
     private readonly HashSet<string> _acceptInFlight = new(StringComparer.Ordinal);
     private readonly SyncshellDiscoveryService _syncshellDiscoveryService;
@@ -41,14 +44,18 @@ public class AutoDetectUi : WindowMediatorSubscriberBase
     private bool _showNsfwSyncshells;
     private string _syncshellSearch = string.Empty;
     private int _activeTab;
+    private const int MaxNearbyProfileCards = 15;
 
     public AutoDetectUi(ILogger<AutoDetectUi> logger, MareMediator mediator,
         MareConfigService configService, DalamudUtilService dalamudUtilService,
         AutoDetectRequestService requestService, NearbyPendingService pendingService, PairManager pairManager,
         NearbyDiscoveryService discoveryService, SyncshellDiscoveryService syncshellDiscoveryService,
-        PerformanceCollectorService performanceCollectorService, NotificationTracker notificationTracker)
+        PerformanceCollectorService performanceCollectorService, NotificationTracker notificationTracker,
+        UmbraProfileManager profileManager, UiSharedService uiSharedService)
         : base(logger, mediator, "AutoDetect", performanceCollectorService)
     {
+        _profileManager = profileManager;
+        _uiSharedService = uiSharedService;
         _configService = configService;
         _dalamud = dalamudUtilService;
         _requestService = requestService;
@@ -239,7 +246,8 @@ public class AutoDetectUi : WindowMediatorSubscriberBase
         var pendingTokens = new HashSet<string>(pendingInvites.Select(p => p.Token!).Where(s => !string.IsNullOrEmpty(s)), StringComparer.Ordinal);
         var orderedEntries = sourceEntries
             .Where(e => e.IsMatch)
-            .OrderBy(e => float.IsNaN(e.Distance) ? float.MaxValue : e.Distance)
+            // Ordre alphabétique plutôt que par distance : la liste est stable et ne laisse pas deviner qui est le plus proche.
+            .OrderBy(e => e.DisplayName ?? e.Name, StringComparer.CurrentCultureIgnoreCase)
             .ToList();
 
         if (orderedEntries.Count == 0)
@@ -249,14 +257,6 @@ public class AutoDetectUi : WindowMediatorSubscriberBase
         }
 
         ImGuiHelpers.ScaledDummy(4);
-
-        string WorldName(Services.Mediator.NearbyEntry e) => e.WorldId == 0
-            ? "-"
-            : (_dalamud.WorldData.Value.TryGetValue(e.WorldId, out var mappedWorld) ? mappedWorld : e.WorldId.ToString(CultureInfo.InvariantCulture));
-
-        float worldWidth = 0f;
-        foreach (var e in orderedEntries)
-            worldWidth = MathF.Max(worldWidth, ImGui.CalcTextSize(WorldName(e)).X);
 
         float scale = ImGuiHelpers.GlobalScale;
 
@@ -270,8 +270,6 @@ public class AutoDetectUi : WindowMediatorSubscriberBase
             bool canRequest = entry.AcceptPairRequests && !string.IsNullOrEmpty(entry.Token) && !alreadyPaired && !alreadyInvited;
 
             string displayName = entry.DisplayName ?? entry.Name;
-            string worldName = WorldName(entry);
-            string distanceText = float.IsNaN(entry.Distance) ? "-" : $"{entry.Distance:0.0} m";
 
             string status = alreadyPaired
                 ? Loc.Get("AutoDetectUi.Nearby.Status.Paired")
@@ -300,10 +298,22 @@ public class AutoDetectUi : WindowMediatorSubscriberBase
             bool canInvite = canRequest && !overDistance;
             float rightEdge = ImGui.GetWindowContentRegionMax().X - UiSharedService.GetCardContentPaddingX();
 
+            // Plafond de requêtes de fiches : en zone dense, ne pas déclencher des dizaines de requêtes d'un coup.
+            var rpProfile = i < MaxNearbyProfileCards ? GetNearbyProfile(entry) : null;
+            var rpName = rpProfile == null ? string.Empty : $"{rpProfile.RpFirstName} {rpProfile.RpLastName}".Trim();
+            bool hasRp = !string.IsNullOrEmpty(rpName);
+            var nameColor = hasRp && _configService.Current.UseRpNameColors && !string.IsNullOrEmpty(rpProfile!.RpNameColor)
+                ? UiSharedService.HexToVector4(rpProfile.RpNameColor)
+                : UiSharedService.ThemeNavTextActive;
+
             UiSharedService.DrawCard("nearby-" + i, () =>
             {
+                DrawNearbyPortrait(entry, rpProfile, hasRp ? rpName : displayName, nameColor);
+                ImGui.SameLine();
+                ImGui.BeginGroup();
+
                 ImGui.AlignTextToFramePadding();
-                UiSharedService.ColorText(displayName, UiSharedService.ThemeNavTextActive);
+                UiSharedService.ColorText(hasRp ? rpName : displayName, nameColor);
 
                 string actionLabel = canInvite ? Loc.Get("AutoDetectUi.Nearby.InviteButton") : status;
                 float buttonWidth = ImGui.CalcTextSize(actionLabel).X + ImGui.GetStyle().FramePadding.X * 2f + 12f * scale;
@@ -333,22 +343,94 @@ public class AutoDetectUi : WindowMediatorSubscriberBase
                     }
                 }
 
-                float iconColumn = 24f * scale;
-                float distanceStart = iconColumn + worldWidth + 18f * scale;
+                // Sous le nom RP : le titre, ou à défaut le pseudo, pour toujours savoir qui est la personne.
+                if (hasRp)
+                {
+                    var subtitle = !string.IsNullOrWhiteSpace(rpProfile!.RpTitle) ? rpProfile.RpTitle : displayName;
+                    ImGui.TextColored(ImGuiColors.DalamudGrey, subtitle);
+                }
 
-                DrawSyncshellIcon(FontAwesomeIcon.Globe);
-                ImGui.SameLine(iconColumn);
-                UiSharedService.ColorText(worldName, ImGuiColors.DalamudGrey);
-                UiSharedService.AttachToolTip(Loc.Get("AutoDetectUi.Nearby.Table.World"));
+                if (hasRp)
+                {
+                    var pronouns = rpProfile!.RpCustomFields?.FirstOrDefault(f =>
+                        f.Name.Contains("pronom", StringComparison.OrdinalIgnoreCase)
+                        || f.Name.Contains("pronoun", StringComparison.OrdinalIgnoreCase))?.Value;
+                    var identity = string.Join(" · ", new[] { rpProfile.RpRace, rpProfile.RpEthnicity, rpProfile.RpAge, pronouns }
+                        .Where(v => !string.IsNullOrWhiteSpace(v)));
+                    if (!string.IsNullOrEmpty(identity))
+                        ImGui.TextColored(ImGuiColors.DalamudGrey, identity);
 
-                ImGui.SameLine(distanceStart);
-                DrawSyncshellIcon(FontAwesomeIcon.RulerHorizontal);
-                ImGui.SameLine(distanceStart + iconColumn);
-                UiSharedService.ColorText(distanceText, overDistance ? ImGuiColors.DalamudOrange : ImGuiColors.DalamudGrey);
-                UiSharedService.AttachToolTip(Loc.Get("AutoDetectUi.Nearby.Table.Distance"));
+                    var role = string.Join(" · ", new[] { rpProfile.RpOccupation, string.IsNullOrWhiteSpace(rpProfile.RpAffiliation) ? null : $"<{rpProfile.RpAffiliation}>" }
+                        .Where(v => !string.IsNullOrWhiteSpace(v)));
+                    if (!string.IsNullOrEmpty(role))
+                        ImGui.TextColored(ImGuiColors.DalamudGrey3, role);
+                }
+                ImGui.EndGroup();
             }, stretchWidth: true);
             ImGuiHelpers.ScaledDummy(4);
         }
+    }
+
+    private UmbraProfileData? GetNearbyProfile(Services.Mediator.NearbyEntry entry)
+    {
+        if (string.IsNullOrEmpty(entry.Uid) || string.IsNullOrEmpty(entry.Name)) return null;
+        return _profileManager.GetUmbraProfile(new API.Data.UserData(entry.Uid), entry.Name, entry.WorldId);
+    }
+
+    private void DrawNearbyPortrait(Services.Mediator.NearbyEntry entry, UmbraProfileData? profile, string initialsSource, Vector4 color)
+    {
+        var size = new Vector2(56f * ImGuiHelpers.GlobalScale);
+        var rounding = 10f * ImGuiHelpers.GlobalScale;
+        var start = ImGui.GetCursorScreenPos();
+        var dl = ImGui.GetWindowDrawList();
+
+        Dalamud.Interface.Textures.TextureWraps.IDalamudTextureWrap? texture = null;
+        var data = profile?.RpImageData.Value ?? [];
+        if (data.Length > 0)
+        {
+            var key = $"{entry.Uid}_{entry.Name}_{entry.WorldId}";
+            if (!_nearbyTextureTasks.TryGetValue(key, out var cached)
+                || (!ReferenceEquals(data, cached.Data) && !data.AsSpan().SequenceEqual(cached.Data)))
+            {
+                if (cached.Task != null)
+                    cached.Task.ContinueWith(t => { if (t.IsCompletedSuccessfully) t.Result.Dispose(); }, TaskScheduler.Default);
+                cached = (data, Task.Run(() => _uiSharedService.LoadImageAsync(data)));
+                _nearbyTextureTasks[key] = cached;
+            }
+            if (cached.Task.IsCompletedSuccessfully) texture = cached.Task.Result;
+        }
+
+        if (texture != null && texture.Handle != IntPtr.Zero)
+        {
+            dl.AddImageRounded(texture.Handle, start, start + size, Vector2.Zero, Vector2.One,
+                ImGui.GetColorU32(Vector4.One), rounding);
+        }
+        else
+        {
+            dl.AddRectFilled(start, start + size, ImGui.GetColorU32(color with { W = 0.16f }), rounding);
+            var initials = UiSharedService.GetInitials(initialsSource);
+            if (initials.Length > 0)
+            {
+                using var font = _uiSharedService.UidFont.Push();
+                var textSize = ImGui.CalcTextSize(initials);
+                dl.AddText(start + (size - textSize) / 2f, ImGui.GetColorU32(color with { W = 0.85f }), initials);
+            }
+        }
+
+        dl.AddRect(start, start + size, ImGui.GetColorU32(color with { W = 0.45f }), rounding, ImDrawFlags.None, ImGuiHelpers.GlobalScale);
+        ImGui.Dummy(size);
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            foreach (var pending in _nearbyTextureTasks.Values)
+                pending.Task.ContinueWith(t => { if (t.IsCompletedSuccessfully) t.Result.Dispose(); }, TaskScheduler.Default);
+            _nearbyTextureTasks.Clear();
+        }
+
+        base.Dispose(disposing);
     }
 
     private async Task JoinSyncshellAsync(SyncshellDiscoveryEntryDto entry)

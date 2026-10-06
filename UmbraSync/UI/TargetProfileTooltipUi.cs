@@ -12,6 +12,7 @@ using UmbraSync.MareConfiguration;
 using UmbraSync.PlayerData.Pairs;
 using UmbraSync.Services;
 using UmbraSync.Services.Mediator;
+using UmbraSync.Services.ServerConfiguration;
 
 namespace UmbraSync.UI;
 
@@ -27,6 +28,8 @@ public sealed class TargetProfileTooltipUi : WindowMediatorSubscriberBase
     private readonly UmbraProfileManager _profileManager;
     private readonly MareConfigService _configService;
     private readonly UiSharedService _uiSharedService;
+    private readonly ServerConfigurationManager _serverManager;
+    private readonly DalamudUtilService _dalamudUtil;
 
     private volatile TargetInfo? _target;
     private byte[] _lastPictureData = [];
@@ -37,6 +40,7 @@ public sealed class TargetProfileTooltipUi : WindowMediatorSubscriberBase
     public TargetProfileTooltipUi(ILogger<TargetProfileTooltipUi> logger, MareMediator mediator,
         ITargetManager targetManager, PairManager pairManager, UmbraProfileManager profileManager,
         MareConfigService configService, UiSharedService uiSharedService,
+        ServerConfigurationManager serverManager, DalamudUtilService dalamudUtil,
         PerformanceCollectorService performanceCollectorService)
         : base(logger, mediator, "###UmbraSyncTargetProfileTooltip", performanceCollectorService)
     {
@@ -46,6 +50,8 @@ public sealed class TargetProfileTooltipUi : WindowMediatorSubscriberBase
         _profileManager = profileManager;
         _configService = configService;
         _uiSharedService = uiSharedService;
+        _serverManager = serverManager;
+        _dalamudUtil = dalamudUtil;
 
         Flags = ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoResize
                 | ImGuiWindowFlags.NoCollapse | ImGuiWindowFlags.NoFocusOnAppearing | ImGuiWindowFlags.NoNav
@@ -61,7 +67,9 @@ public sealed class TargetProfileTooltipUi : WindowMediatorSubscriberBase
     {
         try
         {
-            if (!_configService.Current.ShowTargetProfileTooltip)
+            // Désactivée par l'utilisateur, ou en combat / cinématique où elle ne ferait que gêner.
+            if (!_configService.Current.ShowTargetProfileTooltip || _dalamudUtil.IsInCutscene || _dalamudUtil.IsInCombatOrPerforming
+                || (_configService.Current.HideTargetProfileTooltipInDuty && _dalamudUtil.IsInDuty))
             {
                 _target = null;
                 IsOpen = false;
@@ -159,7 +167,10 @@ public sealed class TargetProfileTooltipUi : WindowMediatorSubscriberBase
         if (!string.IsNullOrEmpty(profile.RpTitle))
             ImGui.TextColored(ImGuiColors.DalamudGrey, profile.RpTitle);
 
-        var identity = string.Join(" · ", new[] { profile.RpRace, profile.RpEthnicity, profile.RpAge }
+        var pronouns = profile.RpCustomFields?.FirstOrDefault(f =>
+                f.Name.Contains("pronom", StringComparison.OrdinalIgnoreCase)
+                || f.Name.Contains("pronoun", StringComparison.OrdinalIgnoreCase))?.Value;
+        var identity = string.Join(" · ", new[] { profile.RpRace, profile.RpEthnicity, profile.RpAge, pronouns }
             .Where(v => !string.IsNullOrWhiteSpace(v)));
         if (!string.IsNullOrEmpty(identity))
             ImGui.TextColored(ImGuiColors.DalamudGrey, identity);
@@ -167,6 +178,17 @@ public sealed class TargetProfileTooltipUi : WindowMediatorSubscriberBase
             ImGui.TextColored(ImGuiColors.DalamudGrey, profile.RpOccupation);
         if (!string.IsNullOrWhiteSpace(profile.RpAffiliation))
             ImGui.TextColored(ImGuiColors.DalamudGrey, $"<{profile.RpAffiliation}>");
+        if (!string.IsNullOrWhiteSpace(profile.RpResidence))
+        {
+            _uiSharedService.IconText(FontAwesomeIcon.Home, ImGuiColors.DalamudGrey);
+            ImGui.SameLine();
+            ImGui.TextColored(ImGuiColors.DalamudGrey, profile.RpResidence);
+        }
+
+        var privateNote = _serverManager.GetNoteForCharacter(target.Pair.UserData.UID, target.CharName, target.WorldId)
+                          ?? _serverManager.GetNoteForUid(target.Pair.UserData.UID);
+        if (!string.IsNullOrWhiteSpace(privateNote))
+            ImGui.TextColored(ImGuiColors.DalamudGrey2, privateNote);
         ImGui.PopTextWrapPos();
         ImGui.EndGroup();
 

@@ -1916,7 +1916,8 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
         var worldId = key.WorldId ?? 0;
         var worldName = worldId > 0 && _dalamudUtilService.WorldData.Value.TryGetValue((ushort)worldId, out var wn) ? wn : string.Empty;
         var uid = key.User.AliasOrUID;
-        var note = _serverConfigurationManager.GetNoteForUid(key.User.UID);
+        var note = _serverConfigurationManager.GetNoteForCharacter(key.User.UID, key.CharName, key.WorldId)
+                   ?? _serverConfigurationManager.GetNoteForUid(key.User.UID);
 
         // Name color
         var nameColor = !string.IsNullOrEmpty(profile.RpNameColor)
@@ -1964,7 +1965,7 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
             {
                 var pEnd = new Vector2(portraitStart.X + portraitSize, portraitStart.Y + portraitSize);
                 dl.AddRectFilled(portraitStart, pEnd, ImGui.GetColorU32(nameColor with { W = 0.16f }), portraitRounding);
-                var initials = GetInitials(!string.IsNullOrEmpty(rpName) ? rpName : charName);
+                var initials = UiSharedService.GetInitials(!string.IsNullOrEmpty(rpName) ? rpName : charName);
                 if (initials.Length > 0)
                 {
                     using var initialsFont = _uiSharedService.UidFont.Push();
@@ -2027,13 +2028,6 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
                 }
             }
         }, stretchWidth: true);
-    }
-
-    private static string GetInitials(string name)
-    {
-        var parts = name.Split([' ', '-', '\''], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        var letters = parts.Where(p => char.IsLetter(p[0])).Select(p => char.ToUpperInvariant(p[0])).Take(2).ToArray();
-        return new string(letters);
     }
 
     private static void DrawSubTabButtons(string[] subLabels, FontAwesomeIcon[] subIcons, ref int activeSubTab, System.Numerics.Vector4 accent)

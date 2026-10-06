@@ -315,6 +315,13 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
 
     public uint WorldId => _dalamudUtil.GetHomeWorldId();
 
+    public static string GetInitials(string name)
+    {
+        var parts = name.Split([' ', '-', '\''], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var letters = parts.Where(p => char.IsLetter(p[0])).Select(p => char.ToUpperInvariant(p[0])).Take(2).ToArray();
+        return new string(letters);
+    }
+
     public static void AttachToolTip(string text)
     {
         if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
