@@ -66,7 +66,6 @@ public partial class CompactUi : WindowMediatorSubscriberBase
     {
         Notifications,
         Social,
-        AutoDetect,
         CharacterAnalysis,
         CharacterDataHub,
         EditProfile,
@@ -77,7 +76,15 @@ public partial class CompactUi : WindowMediatorSubscriberBase
     {
         IndividualPairs,
         Syncshells,
-        Annuaire
+        Invitations,
+        Nearby,
+        SyncFinder,
+        Profiles,
+        DirectoryBrowse,
+        DirectoryFavorites,
+        DirectoryMine,
+        DirectoryUpcoming,
+        DirectoryWildRp
     }
 
     public CompactUi(ILogger<CompactUi> logger, UiSharedService uiShared, MareConfigService configService, ApiController apiController, PairManager pairManager,
@@ -304,9 +311,6 @@ public partial class CompactUi : WindowMediatorSubscriberBase
             case CompactUiSection.Social:
                 DrawSocialSection();
                 break;
-            case CompactUiSection.AutoDetect:
-                DrawAutoDetectSection();
-                break;
             case CompactUiSection.CharacterAnalysis:
                 if (_dataAnalysisUi.IsOpen) _dataAnalysisUi.IsOpen = false;
                 _dataAnalysisUi.DrawInline();
@@ -355,17 +359,64 @@ public partial class CompactUi : WindowMediatorSubscriberBase
         using (ImRaii.PushId("grouping-popup")) _selectGroupForPairUi.Draw();
     }
 
+    private readonly SideRail _socialRail = new();
+
     private void DrawSocialSection()
     {
-        DrawDefaultSyncSettings();
-        ImGuiHelpers.ScaledDummy(2f);
-        DrawSocialSwitchButtons();
-        ImGuiHelpers.ScaledDummy(2f);
+        float railWidth = SideRail.WidthFor(ImGui.GetContentRegionAvail().X);
+        bool railCollapsed = railWidth < SideRail.ExpandedWidth * ImGuiHelpers.GlobalScale;
+
+        using (var rail = ImRaii.Child("social-rail", new Vector2(railWidth, 0), false, ImGuiWindowFlags.NoScrollbar))
+        {
+            if (rail)
+            {
+                int active = (int)_socialSubSection;
+                _socialRail.Draw(BuildSocialRail(), ref active, railCollapsed);
+                _socialSubSection = (SocialSubSection)active;
+            }
+        }
+
+        ImGui.SameLine();
+        var separatorStart = ImGui.GetCursorScreenPos();
+        ImGui.GetWindowDrawList().AddLine(
+            separatorStart,
+            separatorStart with { Y = separatorStart.Y + ImGui.GetContentRegionAvail().Y },
+            ImGui.GetColorU32(UiSharedService.WithAlpha(UiSharedService.AccentColor, 0.6f)),
+            1f * ImGuiHelpers.GlobalScale);
+        ImGui.SetCursorPosX(ImGui.GetCursorPosX() + 6f * ImGuiHelpers.GlobalScale);
+
+        // Les listes de paires et de syncshells gèrent leur propre défilement ; les autres pages défilent ici.
+        bool selfScrolling = _socialSubSection is SocialSubSection.IndividualPairs or SocialSubSection.Syncshells
+            or SocialSubSection.Profiles;
         using var socialBody = ImRaii.Child(
             "social-body",
             new Vector2(0, 0),
             false,
-            ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse);
+            selfScrolling ? ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse : ImGuiWindowFlags.None);
+        if (!socialBody) return;
+
+        // Les listes se dimensionnent sur WindowContentWidth : tant que le rail occupe la gauche,
+        // elles doivent se caler sur la zone de contenu et non sur toute la fenêtre.
+        var fullWidth = WindowContentWidth;
+        WindowContentWidth = ImGui.GetContentRegionAvail().X;
+        try
+        {
+            DrawSocialPage();
+        }
+        finally
+        {
+            WindowContentWidth = fullWidth;
+        }
+    }
+
+    private void DrawSocialPage()
+    {
+        if (_socialSubSection is SocialSubSection.IndividualPairs or SocialSubSection.Syncshells)
+        {
+            DrawDefaultSyncSettings();
+            ImGuiHelpers.ScaledDummy(2f);
+        }
+
         switch (_socialSubSection)
         {
             case SocialSubSection.IndividualPairs:
@@ -374,83 +425,76 @@ public partial class CompactUi : WindowMediatorSubscriberBase
             case SocialSubSection.Syncshells:
                 DrawSyncshellSection();
                 break;
-            case SocialSubSection.Annuaire:
-                DrawAnnuaireSection();
+            case SocialSubSection.Invitations:
+                _autoDetectUi.DrawInvitationsPage();
+                break;
+            case SocialSubSection.Nearby:
+                _autoDetectUi.DrawNearbyPage();
+                break;
+            case SocialSubSection.SyncFinder:
+                _autoDetectUi.DrawSyncFinderPage();
+                break;
+            case SocialSubSection.Profiles:
+                _charaDataHubUi.DrawProfilesPage();
+                break;
+            case SocialSubSection.DirectoryBrowse:
+            case SocialSubSection.DirectoryFavorites:
+            case SocialSubSection.DirectoryMine:
+            case SocialSubSection.DirectoryUpcoming:
+            case SocialSubSection.DirectoryWildRp:
+                DrawDirectoryPage();
                 break;
         }
+
+        if (!IsDirectoryPage(_socialSubSection))
+            _directoryEnteredPage = null;
     }
 
-    private static readonly SocialSubSection[] SocialSubSections =
-        [SocialSubSection.IndividualPairs, SocialSubSection.Syncshells, SocialSubSection.Annuaire];
+    private SocialSubSection? _directoryEnteredPage;
 
-    private void DrawSocialSwitchButtons()
+    private static bool IsDirectoryPage(SocialSubSection page)
+        => page is SocialSubSection.DirectoryBrowse or SocialSubSection.DirectoryFavorites
+            or SocialSubSection.DirectoryMine or SocialSubSection.DirectoryUpcoming or SocialSubSection.DirectoryWildRp;
+
+    private void DrawDirectoryPage()
     {
-        var individualLabel = Loc.Get("CompactUi.Sidebar.IndividualPairs");
-        var syncshellLabel = Loc.Get("CompactUi.Sidebar.Syncshells");
-        var annuaireLabel = "Annuaire";
-        var icons = new[] { FontAwesomeIcon.User, FontAwesomeIcon.UserFriends, FontAwesomeIcon.Book };
-        var labels = new[] { individualLabel, syncshellLabel, annuaireLabel };
-
-        const float btnH = 32f;
-        const float btnSpacing = 8f;
-        const float rounding = 4f;
-        const float iconTextGap = 6f;
-
-        var dl = ImGui.GetWindowDrawList();
-        var availWidth = ImGui.GetContentRegionAvail().X;
-        var btnW = (availWidth - btnSpacing * (labels.Length - 1)) / labels.Length;
-
-        var accent = UiSharedService.AccentColor;
-        var borderColor = new Vector4(0.29f, 0.21f, 0.41f, 0.7f);
-        var bgColor = new Vector4(0.11f, 0.11f, 0.11f, 0.9f);
-        var hoverBg = new Vector4(0.17f, 0.13f, 0.22f, 1f);
-
-        for (int i = 0; i < labels.Length; i++)
+        int tab = _socialSubSection switch
         {
-            if (i > 0) ImGui.SameLine(0, btnSpacing);
-
-            var p = ImGui.GetCursorScreenPos();
-            bool clicked = ImGui.InvisibleButton($"##socialTab_{i}", new Vector2(btnW, btnH));
-            bool hovered = ImGui.IsItemHovered();
-            bool isActive = _socialSubSection == SocialSubSections[i];
-
-            var bg = isActive ? accent : hovered ? hoverBg : bgColor;
-            dl.AddRectFilled(p, p + new Vector2(btnW, btnH), ImGui.GetColorU32(bg), rounding);
-            if (!isActive)
-                dl.AddRect(p, p + new Vector2(btnW, btnH), ImGui.GetColorU32(borderColor with { W = hovered ? 0.9f : 0.5f }), rounding);
-
-            // Measure icon
-            ImGui.PushFont(UiBuilder.IconFont);
-            var iconStr = icons[i].ToIconString();
-            var iconSz = ImGui.CalcTextSize(iconStr);
-            ImGui.PopFont();
-
-            var labelSz = ImGui.CalcTextSize(labels[i]);
-            var totalW = iconSz.X + iconTextGap + labelSz.X;
-            var startX = p.X + (btnW - totalW) / 2f;
-
-            var textColor = isActive ? new Vector4(1f, 1f, 1f, 1f) : hovered ? new Vector4(0.9f, 0.85f, 1f, 1f) : new Vector4(0.7f, 0.65f, 0.8f, 1f);
-            var textColorU32 = ImGui.GetColorU32(textColor);
-
-            // Draw icon
-            ImGui.PushFont(UiBuilder.IconFont);
-            dl.AddText(new Vector2(startX, p.Y + (btnH - iconSz.Y) / 2f), textColorU32, iconStr);
-            ImGui.PopFont();
-
-            // Draw label
-            dl.AddText(new Vector2(startX + iconSz.X + iconTextGap, p.Y + (btnH - labelSz.Y) / 2f), textColorU32, labels[i]);
-
-            if (hovered) ImGui.SetMouseCursor(ImGuiMouseCursor.Hand);
-            if (clicked)
-            {
-                _socialSubSection = SocialSubSections[i];
-            }
-        }
+            SocialSubSection.DirectoryMine => 0,
+            SocialSubSection.DirectoryFavorites => 1,
+            SocialSubSection.DirectoryBrowse => 2,
+            SocialSubSection.DirectoryUpcoming => 3,
+            _ => 4,
+        };
+        bool entering = _directoryEnteredPage != _socialSubSection;
+        _directoryEnteredPage = _socialSubSection;
+        DrawAnnuaireSection(tab, entering);
     }
 
-    private void DrawAutoDetectSection()
+    private List<SideRailEntry> BuildSocialRail()
     {
-        using (ImRaii.PushId("autodetect-inline")) _autoDetectUi.DrawInline();
+        int invitations = _autoDetectUi.PendingInvitationCount;
+        var invitationsLabel = invitations > 0
+            ? string.Format(CultureInfo.CurrentCulture, Loc.Get("AutoDetectUi.Tab.Invitations"), invitations)
+            : Loc.Get("CompactUi.Social.Nav.Invitations");
+
+        return
+        [
+            SideRailEntry.Group(Loc.Get("CompactUi.Social.Nav.Group.Contacts")),
+            new((int)SocialSubSection.Invitations, invitationsLabel, FontAwesomeIcon.Envelope),
+            new((int)SocialSubSection.IndividualPairs, Loc.Get("CompactUi.Sidebar.IndividualPairs"), FontAwesomeIcon.User),
+            new((int)SocialSubSection.Syncshells, Loc.Get("CompactUi.Sidebar.Syncshells"), FontAwesomeIcon.UserFriends),
+            new((int)SocialSubSection.Profiles, Loc.Get("CharaDataHub.Tab.Profiles"), FontAwesomeIcon.AddressBook),
+            SideRailEntry.Group(Loc.Get("CompactUi.Social.Nav.Group.Discover")),
+            new((int)SocialSubSection.Nearby, Loc.Get("AutoDetectUi.Tab.Nearby"), FontAwesomeIcon.MapMarkerAlt),
+            new((int)SocialSubSection.SyncFinder, Loc.Get("AutoDetectUi.Tab.SyncFinder"), FontAwesomeIcon.Search),
+            SideRailEntry.Group(Loc.Get("CompactUi.Social.Nav.Directory")),
+            new((int)SocialSubSection.DirectoryMine, Loc.Get("Establishment.Directory.Tab.Mine"), FontAwesomeIcon.Home),
+            new((int)SocialSubSection.DirectoryFavorites, Loc.Get("Establishment.Directory.Tab.Favorites"), FontAwesomeIcon.Star),
+            new((int)SocialSubSection.DirectoryBrowse, Loc.Get("Establishment.Directory.Tab.Browse"), FontAwesomeIcon.Globe),
+            new((int)SocialSubSection.DirectoryUpcoming, Loc.Get("Establishment.Directory.Tab.Upcoming"), FontAwesomeIcon.CalendarAlt),
+            new((int)SocialSubSection.DirectoryWildRp, Loc.Get("WildRp.Tab.Title"), FontAwesomeIcon.Compass),
+        ];
     }
 
     private void DrawUnsupportedVersionBanner()
@@ -476,7 +520,6 @@ public partial class CompactUi : WindowMediatorSubscriberBase
     {
         return section is CompactUiSection.Notifications
             or CompactUiSection.Social
-            or CompactUiSection.AutoDetect
             or CompactUiSection.CharacterAnalysis
             or CompactUiSection.CharacterDataHub;
     }

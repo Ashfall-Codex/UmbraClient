@@ -7555,4 +7555,19 @@ Expérimental : ces hooks sont bas niveau ; en cas de souci, désactivez l'optio
   <data name="Settings.RpIdentityInPairList.Help" xml:space="preserve">
     <value>Remplace le nom du personnage par son nom RP et ajoute un petit avatar. Un surnom que vous avez défini vous-même reste toujours prioritaire.</value>
   </data>
+  <data name="CompactUi.Social.Nav.Group.Contacts" xml:space="preserve">
+    <value>Mes contacts</value>
+  </data>
+  <data name="CompactUi.Social.Nav.Group.Discover" xml:space="preserve">
+    <value>Découvrir</value>
+  </data>
+  <data name="CompactUi.Social.Nav.Invitations" xml:space="preserve">
+    <value>Invitations</value>
+  </data>
+  <data name="CompactUi.Social.Nav.Directory" xml:space="preserve">
+    <value>Annuaire</value>
+  </data>
+  <data name="CompactUi.Sidebar.SocialPending" xml:space="preserve">
+    <value>Social — {0} invitation(s) en attente</value>
+  </data>
 </root>

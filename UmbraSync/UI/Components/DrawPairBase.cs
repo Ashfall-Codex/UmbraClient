@@ -31,6 +31,19 @@ public abstract class DrawPairBase
     public Pair Pair => _pair;
     public string UID => _pair.UserData.UID;
 
+    public float GetRowTotalHeight()
+    {
+        var style = ImGui.GetStyle();
+        var pauseButtonSize = _uiSharedService.GetIconButtonSize(FontAwesomeIcon.Pause);
+        var playButtonSize = _uiSharedService.GetIconButtonSize(FontAwesomeIcon.Play);
+        float pauseClusterHeight = Math.Max(Math.Max(pauseButtonSize.Y, playButtonSize.Y), ImGui.GetFrameHeight());
+        float iconHeight = UiSharedService.GetIconSize(FontAwesomeIcon.Moon).Y;
+        float contentHeight = Math.Max(ImGui.GetFontSize(), Math.Max(iconHeight, pauseClusterHeight));
+        if (_displayHandler.WantsTallRow(_pair))
+            contentHeight = Math.Max(contentHeight, _displayHandler.AvatarSize);
+        return contentHeight + style.FramePadding.Y * 2f + style.ItemSpacing.Y;
+    }
+
     public void DrawPairedClient()
     {
         var style = ImGui.GetStyle();
@@ -57,6 +70,8 @@ public abstract class DrawPairBase
         var presenceIconSize = UiSharedService.GetIconSize(FontAwesomeIcon.Moon);
         float iconHeight = presenceIconSize.Y;
         float contentHeight = Math.Max(textHeight, Math.Max(iconHeight, pauseClusterHeight));
+        if (_displayHandler.WantsTallRow(_pair))
+            contentHeight = Math.Max(contentHeight, _displayHandler.AvatarSize);
         float rowHeight = contentHeight + padding.Y * 2f;
         float totalHeight = rowHeight + spacing.Y;
 

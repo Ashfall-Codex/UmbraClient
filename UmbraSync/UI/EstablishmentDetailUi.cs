@@ -567,12 +567,20 @@ internal class EstablishmentDetailUi : WindowMediatorSubscriberBase
 
     private static string FormatEventTime(EstablishmentEventDto evt)
     {
-        var local = evt.StartsAtUtc.ToLocalTime();
+        var startUtc = evt.StartsAtUtc;
+        var endUtc = evt.EndsAtUtc;
+        if (evt.Recurrence > 0 && EstablishmentReminderService.ComputeCurrentOrNextOccurrence(evt, DateTime.UtcNow) is { } next)
+        {
+            startUtc = next.Start;
+            endUtc = evt.EndsAtUtc.HasValue ? next.End : null;
+        }
+
+        var local = startUtc.ToLocalTime();
         var dayName = DayNamesShort[(int)local.DayOfWeek == 0 ? 6 : (int)local.DayOfWeek - 1];
         var date = $"{dayName} {local:dd/MM} - {local:HH}h{local:mm}";
-        if (evt.EndsAtUtc.HasValue)
+        if (endUtc.HasValue)
         {
-            var endLocal = evt.EndsAtUtc.Value.ToLocalTime();
+            var endLocal = endUtc.Value.ToLocalTime();
             date += $" > {endLocal:HH}h{endLocal:mm}";
         }
         return date;
@@ -615,7 +623,9 @@ internal class EstablishmentDetailUi : WindowMediatorSubscriberBase
             var now = DateTime.UtcNow;
             var futureEvents = _establishment.Events
                 .Where(e => e.StartsAtUtc >= now || (e.EndsAtUtc.HasValue && e.EndsAtUtc.Value >= now) || e.Recurrence > 0)
-                .OrderBy(e => e.StartsAtUtc)
+                .OrderBy(e => e.Recurrence > 0
+                    ? EstablishmentReminderService.ComputeCurrentOrNextOccurrence(e, now)?.Start ?? e.StartsAtUtc
+                    : e.StartsAtUtc)
                 .ToList();
             var pastEvents = _establishment.Events
                 .Where(e => e.StartsAtUtc < now && (!e.EndsAtUtc.HasValue || e.EndsAtUtc.Value < now) && e.Recurrence == 0)

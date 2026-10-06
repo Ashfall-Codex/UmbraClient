@@ -7645,4 +7645,19 @@ Experimental: these hooks are low level; if anything goes wrong, turn this off (
   <data name="Settings.RpIdentityInPairList.Help" xml:space="preserve">
     <value>Replaces the character name with the RP name, and adds a small avatar. A nickname you set yourself always takes priority.</value>
   </data>
+  <data name="CompactUi.Social.Nav.Group.Contacts" xml:space="preserve">
+    <value>My contacts</value>
+  </data>
+  <data name="CompactUi.Social.Nav.Group.Discover" xml:space="preserve">
+    <value>Discover</value>
+  </data>
+  <data name="CompactUi.Social.Nav.Invitations" xml:space="preserve">
+    <value>Invitations</value>
+  </data>
+  <data name="CompactUi.Social.Nav.Directory" xml:space="preserve">
+    <value>Directory</value>
+  </data>
+  <data name="CompactUi.Sidebar.SocialPending" xml:space="preserve">
+    <value>Social — {0} pending invitation(s)</value>
+  </data>
 </root>

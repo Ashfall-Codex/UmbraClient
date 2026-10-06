@@ -87,6 +87,8 @@ public class DrawUserPair : DrawPairBase
             icons++;
 
         float iconsTotal = icons * iconW + Math.Max(0, icons - 1) * spacing;
+        if (_pair.IsOnline && _pair.IsVisible && _displayHandler.TryGetPresenceAvatar(_pair, out _))
+            iconsTotal += Math.Max(0f, _displayHandler.AvatarSize - iconW);
         float cushion = spacing * 0.6f;
         return iconsTotal + cushion;
     }
@@ -125,13 +127,31 @@ public class DrawUserPair : DrawPairBase
         {
             ImGui.SameLine();
             ImGui.SetCursorPosY(textPosY);
-            ImGui.PushFont(UiBuilder.IconFont);
-            UiSharedService.ColorText(FontAwesomeIcon.Eye.ToIconString(), Violet);
-            if (ImGui.IsItemClicked())
+            if (_displayHandler.TryGetPresenceAvatar(_pair, out var avatarProfile))
             {
-                _mediator.Publish(new TargetPairMessage(_pair));
+                var avatarSize = _displayHandler.AvatarSize;
+                var iconHeight = UiSharedService.GetIconSize(FontAwesomeIcon.Moon).Y;
+                var avatarPos = ImGui.GetCursorScreenPos();
+                avatarPos = new Vector2(avatarPos.X, avatarPos.Y + iconHeight / 2f - avatarSize / 2f);
+                ImGui.SetCursorScreenPos(avatarPos);
+                ImGui.InvisibleButton("##presenceAvatar", new Vector2(avatarSize));
+                bool avatarClicked = ImGui.IsItemClicked();
+                _displayHandler.DrawPresenceAvatar(_pair, avatarProfile, avatarPos, avatarSize);
+                if (avatarClicked)
+                {
+                    _mediator.Publish(new TargetPairMessage(_pair));
+                }
             }
-            ImGui.PopFont();
+            else
+            {
+                ImGui.PushFont(UiBuilder.IconFont);
+                UiSharedService.ColorText(FontAwesomeIcon.Eye.ToIconString(), Violet);
+                if (ImGui.IsItemClicked())
+                {
+                    _mediator.Publish(new TargetPairMessage(_pair));
+                }
+                ImGui.PopFont();
+            }
             var visibleTooltip = string.Format(CultureInfo.CurrentCulture, Loc.Get("DrawUserPair.VisibleHeader"), _pair.UserData.AliasOrUID, _pair.PlayerName!)
                 + Environment.NewLine + Loc.Get("DrawUserPair.VisibleTarget");
             if (_pair.LastAppliedDataBytes >= 0)

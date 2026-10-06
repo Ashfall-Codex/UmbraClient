@@ -104,6 +104,8 @@ public class DrawGroupPair : DrawPairBase
 
         var presenceIcon = _pair.IsVisible ? FontAwesomeIcon.Eye : FontAwesomeIcon.CloudMoon;
         float presenceWidth = UiSharedService.GetIconSize(presenceIcon).X;
+        if (_pair.IsVisible && _displayHandler.TryGetPresenceAvatar(_pair, out _))
+            presenceWidth = Math.Max(presenceWidth, _displayHandler.AvatarSize);
 
         float roleWidth = 0f;
         if (showRole)
@@ -178,9 +180,22 @@ public class DrawGroupPair : DrawPairBase
                 ImGui.SameLine(0f, ImGui.GetStyle().ItemSpacing.X * 1.2f);
 
             ImGui.SetCursorPosY(textPosY);
-            ImGui.PushFont(UiBuilder.IconFont);
-            UiSharedService.ColorText(presenceIcon.ToIconString(), presenceColor);
-            ImGui.PopFont();
+            if (_pair.IsVisible && _displayHandler.TryGetPresenceAvatar(_pair, out var avatarProfile))
+            {
+                var avatarSize = _displayHandler.AvatarSize;
+                var iconHeight = UiSharedService.GetIconSize(FontAwesomeIcon.Moon).Y;
+                var avatarPos = ImGui.GetCursorScreenPos();
+                avatarPos = new Vector2(avatarPos.X, avatarPos.Y + iconHeight / 2f - avatarSize / 2f);
+                ImGui.SetCursorScreenPos(avatarPos);
+                ImGui.InvisibleButton("##presenceAvatar", new Vector2(avatarSize));
+                _displayHandler.DrawPresenceAvatar(_pair, avatarProfile, avatarPos, avatarSize);
+            }
+            else
+            {
+                ImGui.PushFont(UiBuilder.IconFont);
+                UiSharedService.ColorText(presenceIcon.ToIconString(), presenceColor);
+                ImGui.PopFont();
+            }
 
             if (_pair.IsOnline && !_pair.IsVisible) presenceText = Loc.Get("GroupPair.OnlineSyncshellOnly");
             else if (_pair.IsOnline && _pair.IsVisible) presenceText = string.Format(CultureInfo.CurrentCulture, Loc.Get("GroupPair.VisibleHeader"), entryUID, _pair.PlayerName) + Environment.NewLine + Loc.Get("GroupPair.VisibleTarget");

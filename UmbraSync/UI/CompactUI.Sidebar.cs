@@ -32,13 +32,12 @@ public partial class CompactUi
             ? Loc.Get("CompactUi.Sidebar.Notifications")
             : Loc.Get("CompactUi.Sidebar.NotificationsEmpty");
         DrawSidebarButton(FontAwesomeIcon.Bell, notificationsTooltip, CompactUiSection.Notifications, hasNotifications, hasNotifications, _notificationCount, null, ImGuiColors.DalamudOrange);
-        DrawSidebarButton(FontAwesomeIcon.GlobeEurope, "Social", CompactUiSection.Social, isConnected);
         int pendingInvites = _nearbyPending.Pending.Count;
-        bool highlightAutoDetect = pendingInvites > 0;
-        string autoDetectTooltip = highlightAutoDetect
-            ? string.Format(CultureInfo.CurrentCulture, Loc.Get("CompactUi.Sidebar.AutoDetectPending"), pendingInvites)
-            : Loc.Get("CompactUi.Sidebar.AutoDetect");
-        DrawSidebarButton(FontAwesomeIcon.BroadcastTower, autoDetectTooltip, CompactUiSection.AutoDetect, isConnected, highlightAutoDetect, pendingInvites);
+        bool highlightSocial = pendingInvites > 0;
+        string socialTooltip = highlightSocial
+            ? string.Format(CultureInfo.CurrentCulture, Loc.Get("CompactUi.Sidebar.SocialPending"), pendingInvites)
+            : "Social";
+        DrawSidebarButton(FontAwesomeIcon.GlobeEurope, socialTooltip, CompactUiSection.Social, isConnected, highlightSocial, pendingInvites);
         DrawSidebarButton(FontAwesomeIcon.PersonCircleQuestion, Loc.Get("CompactUi.Sidebar.CharacterAnalysis"), CompactUiSection.CharacterAnalysis, isConnected);
         DrawSidebarButton(FontAwesomeIcon.CircleNodes, Loc.Get("CompactUi.Sidebar.CharacterDataHub"), CompactUiSection.CharacterDataHub, isConnected);
 

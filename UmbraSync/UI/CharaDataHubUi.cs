@@ -102,7 +102,6 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
         LiveData,
         HousingFurniture,
         HousingNpc,
-        Profiles,
     }
 
     private readonly SideRail _hubRail = new();
@@ -416,8 +415,6 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
         entries.Add(SideRailEntry.Group(Loc.Get("CharaDataHub.Tab.HousingShare")));
         entries.Add(Page(HubPage.HousingFurniture, "CharaDataHub.Nav.Furniture", FontAwesomeIcon.Couch, creation: true));
         entries.Add(Page(HubPage.HousingNpc, "CharaDataHub.Nav.Npc", FontAwesomeIcon.Users, creation: true));
-        entries.Add(SideRailEntry.Group(Loc.Get("CharaDataHub.Nav.Group.Community")));
-        entries.Add(Page(HubPage.Profiles, "CharaDataHub.Tab.Profiles", FontAwesomeIcon.AddressBook));
         return entries;
     }
 
@@ -467,9 +464,6 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
             case HubPage.HousingNpc:
                 using (ImRaii.PushId("housingShare"))
                     DrawHousingShare(page);
-                break;
-            case HubPage.Profiles:
-                DrawProfileBrowser(accent);
                 break;
         }
     }
@@ -1824,6 +1818,13 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
     }
 
 
+
+    // Le navigateur de profils vit désormais dans Social ; la page garde son état (recherche, cartes) ici.
+    public void DrawProfilesPage()
+    {
+        using var id = ImRaii.PushId("profilesPage");
+        DrawProfileBrowser(UiSharedService.AccentColor);
+    }
 
     private void DrawProfileBrowser(Vector4 accent)
     {

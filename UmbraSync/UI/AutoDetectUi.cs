@@ -120,6 +120,28 @@ public class AutoDetectUi : WindowMediatorSubscriberBase
         DrawInternal();
     }
 
+    public int PendingInvitationCount => _pendingService.Pending.Count;
+
+    public int SyncFinderEntryCount => _syncshellEntries.Count > 0 ? _syncshellEntries.Count : _syncshellDiscoveryService.Entries.Count;
+
+    public void DrawInvitationsPage()
+    {
+        using var idScope = ImRaii.PushId("autodetect-invitations");
+        DrawInvitationsTab(_pendingService.Pending.ToList(), _requestService.GetPendingRequestsSnapshot());
+    }
+
+    public void DrawNearbyPage()
+    {
+        using var idScope = ImRaii.PushId("autodetect-nearby");
+        DrawNearbyTab();
+    }
+
+    public void DrawSyncFinderPage()
+    {
+        using var idScope = ImRaii.PushId("autodetect-syncfinder");
+        DrawSyncshellTab();
+    }
+
     private void DrawInvitationsTab(List<KeyValuePair<string, PendingEntry>> incomingInvites, IReadOnlyCollection<AutoDetectRequestService.PendingRequestInfo> outgoingInvites)
     {
         ImGuiHelpers.ScaledDummy(4);

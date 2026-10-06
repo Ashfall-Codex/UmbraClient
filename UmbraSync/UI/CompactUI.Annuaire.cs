@@ -18,16 +18,19 @@ namespace UmbraSync.UI;
 
 public partial class CompactUi
 {
-    // Annuaire state
     private EstablishmentListResponseDto? _annuaireResults;
     private List<EstablishmentDto>? _annuaireOwned;
     private bool _annuaireLoading;
     private string _annuaireSearch = string.Empty;
     private int _annuaireCategory = -1;
+    private readonly string[] _annuaireLocalSearch = new string[5] { "", "", "", "", "" };
+    private readonly int[] _annuaireLocalCategory = new int[5] { -1, -1, -1, -1, -1 };
     private int _annuairePage;
     private int _annuaireTab;
     private bool _annuaireNeedsRefresh = true;
-    private List<(EstablishmentDto Establishment, EstablishmentEventDto Event)>? _annuaireUpcoming;
+    private sealed record UpcomingOccurrence(EstablishmentDto Establishment, EstablishmentEventDto Event, DateTime StartUtc, DateTime EndUtc);
+
+    private List<UpcomingOccurrence>? _annuaireUpcoming;
     private bool _annuaireUpcomingLoading;
     private readonly Dictionary<Guid, IDalamudTextureWrap?> _annuaireLogoCache = new();
     private readonly Dictionary<Guid, Task<IDalamudTextureWrap>> _annuaireLogoTasks = new();
@@ -59,8 +62,11 @@ public partial class CompactUi
 
     private static readonly string[] _dayNames = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 
-    private void DrawAnnuaireSection()
+    private void DrawAnnuaireSection(int tab, bool entering)
     {
+        _annuaireTab = tab;
+        if (entering) RefreshAnnuaireTab(tab);
+
         // Auto-refresh on first display
         if (_annuaireNeedsRefresh)
         {
@@ -68,62 +74,11 @@ public partial class CompactUi
             _ = AnnuaireRefreshOwned();
         }
 
-        // Toolbar: search + category + buttons
-        ImGui.SetNextItemWidth(140);
-        if (ImGui.InputTextWithHint("##annSearch", "Rechercher...", ref _annuaireSearch, 100, ImGuiInputTextFlags.EnterReturnsTrue))
-        {
-            _annuairePage = 0;
-            _ = AnnuaireRefreshList();
-        }
+        if (tab is 1 or 2 or 3)
+            DrawAnnuaireToolbar(tab);
+        else if (tab == 0)
+            DrawAnnuaireRegisterButton();
 
-        ImGui.SameLine();
-        ImGui.SetNextItemWidth(120);
-        var catPreview = _annuaireCategory >= 0 && _annuaireCategory < AnnuaireCategoryNames.Length
-            ? AnnuaireCategoryNames[_annuaireCategory] : "Toutes";
-        using (var combo = ImRaii.Combo("##annCat", catPreview))
-        {
-            if (combo)
-            {
-                if (ImGui.Selectable("Toutes", _annuaireCategory == -1))
-                {
-                    _annuaireCategory = -1;
-                    _annuairePage = 0;
-                    _ = AnnuaireRefreshList();
-                }
-                for (int i = 0; i < AnnuaireCategoryNames.Length; i++)
-                {
-                    if (ImGui.Selectable(AnnuaireCategoryNames[i], _annuaireCategory == i))
-                    {
-                        _annuaireCategory = i;
-                        _annuairePage = 0;
-                        _ = AnnuaireRefreshList();
-                    }
-                }
-            }
-        }
-
-        ImGui.SameLine();
-        if (_uiSharedService.IconButton(FontAwesomeIcon.Search))
-        {
-            _annuairePage = 0;
-            _ = AnnuaireRefreshList();
-        }
-        UiSharedService.AttachToolTip(Loc.Get("Establishment.Directory.Search"));
-
-        ImGui.SameLine();
-        if (_uiSharedService.IconButton(FontAwesomeIcon.Sync))
-            AnnuaireRefreshAll();
-        UiSharedService.AttachToolTip(Loc.Get("Establishment.Directory.Refresh"));
-
-        ImGui.SameLine();
-        if (_uiSharedService.IconButton(FontAwesomeIcon.Plus))
-            Mediator.Publish(new UiToggleMessage(typeof(EstablishmentRegistrationUi)));
-        UiSharedService.AttachToolTip(Loc.Get("Establishment.Directory.Register"));
-
-        ImGui.Spacing();
-
-        // Sub-tabs as styled buttons (hub pattern)
-        DrawAnnuaireTabButtons();
         ImGuiHelpers.ScaledDummy(4f);
 
         switch (_annuaireTab)
@@ -146,103 +101,97 @@ public partial class CompactUi
         }
     }
 
-    private void DrawAnnuaireTabButtons()
+    private void DrawAnnuaireToolbar(int tab)
     {
-        var icons = new[] { FontAwesomeIcon.Home, FontAwesomeIcon.Star, FontAwesomeIcon.Globe, FontAwesomeIcon.CalendarAlt, FontAwesomeIcon.Compass };
-        var labels = new[] {
-            Loc.Get("Establishment.Directory.Tab.Mine"),
-            Loc.Get("Establishment.Directory.Tab.Favorites"),
-            Loc.Get("Establishment.Directory.Tab.Browse"),
-            Loc.Get("Establishment.Directory.Tab.Upcoming"),
-            Loc.Get("WildRp.Tab.Title")
-        };
+        bool serverSide = tab == 2;
+        var scale = ImGuiHelpers.GlobalScale;
+        var itemSpacing = ImGui.GetStyle().ItemSpacing.X;
+        var iconButtonWidth = _uiSharedService.GetIconButtonSize(FontAwesomeIcon.Search).X;
+        int buttons = serverSide ? 2 : 1;
+        // Les boutons ne doivent jamais sortir de la fenêtre : on répartit ce qui reste entre la
+        // catégorie (au plus 130 px) et la recherche, qui prend le surplus.
+        var remaining = MathF.Max(60f * scale, ImGui.GetContentRegionAvail().X - iconButtonWidth * buttons - itemSpacing * (buttons + 1));
+        var categoryWidth = Math.Clamp(remaining * 0.38f, 56f * scale, 130f * scale);
+        var searchWidth = MathF.Max(36f * scale, remaining - categoryWidth);
 
-        const float btnH = 28f;
-        const float btnSpacing = 6f;
-        const float rounding = 4f;
-        const float iconTextGap = 4f;
-        const float btnPadX = 8f;
+        ref string search = ref (serverSide ? ref _annuaireSearch : ref _annuaireLocalSearch[tab]);
+        ref int category = ref (serverSide ? ref _annuaireCategory : ref _annuaireLocalCategory[tab]);
 
-        var dl = ImGui.GetWindowDrawList();
-        var availWidth = ImGui.GetContentRegionAvail().X;
-        var accent = UiSharedService.AccentColor;
-
-        // Measure natural widths
-        var iconStrings = new string[labels.Length];
-        var iconSizes = new Vector2[labels.Length];
-        var labelSizes = new Vector2[labels.Length];
-        var naturalWidths = new float[labels.Length];
-        float totalNatural = btnSpacing * (labels.Length - 1);
-
-        for (int i = 0; i < labels.Length; i++)
+        ImGui.SetNextItemWidth(searchWidth);
+        if (ImGui.InputTextWithHint($"##annSearch{tab}", "Rechercher...", ref search, 100, ImGuiInputTextFlags.EnterReturnsTrue) && serverSide)
         {
-            ImGui.PushFont(UiBuilder.IconFont);
-            iconStrings[i] = icons[i].ToIconString();
-            iconSizes[i] = ImGui.CalcTextSize(iconStrings[i]);
-            ImGui.PopFont();
-            labelSizes[i] = ImGui.CalcTextSize(labels[i]);
-            naturalWidths[i] = iconSizes[i].X + iconTextGap + labelSizes[i].X + btnPadX;
-            totalNatural += naturalWidths[i];
+            _annuairePage = 0;
+            _ = AnnuaireRefreshList();
         }
 
-        bool iconOnly = totalNatural > availWidth;
-
-        var borderColor = new Vector4(0.29f, 0.21f, 0.41f, 0.7f);
-        var bgColor = new Vector4(0.11f, 0.11f, 0.11f, 0.9f);
-        var hoverBg = new Vector4(0.17f, 0.13f, 0.22f, 1f);
-
-        for (int i = 0; i < labels.Length; i++)
+        ImGui.SameLine();
+        ImGui.SetNextItemWidth(categoryWidth);
+        var catPreview = category >= 0 && category < AnnuaireCategoryNames.Length
+            ? AnnuaireCategoryNames[category] : "Toutes";
+        using (var combo = ImRaii.Combo($"##annCat{tab}", catPreview))
         {
-            if (i > 0) ImGui.SameLine(0, btnSpacing);
-
-            float btnW = iconOnly ? (availWidth - btnSpacing * (labels.Length - 1)) / labels.Length : naturalWidths[i];
-
-            var p = ImGui.GetCursorScreenPos();
-            ImGui.InvisibleButton($"##annTab_{i}", new Vector2(btnW, btnH));
-            bool hovered = ImGui.IsItemHovered();
-            bool clicked = ImGui.IsItemClicked();
-            bool isActive = _annuaireTab == i;
-
-            var bg = isActive ? accent : hovered ? hoverBg : bgColor;
-            dl.AddRectFilled(p, p + new Vector2(btnW, btnH), ImGui.GetColorU32(bg), rounding);
-            if (!isActive)
-                dl.AddRect(p, p + new Vector2(btnW, btnH), ImGui.GetColorU32(borderColor with { W = hovered ? 0.9f : 0.5f }), rounding);
-
-            var textColor = isActive ? new Vector4(1f, 1f, 1f, 1f)
-                : hovered ? new Vector4(0.9f, 0.85f, 1f, 1f)
-                : new Vector4(0.7f, 0.65f, 0.8f, 1f);
-            var textColorU32 = ImGui.GetColorU32(textColor);
-
-            if (iconOnly)
+            if (combo)
             {
-                var ix = p.X + (btnW - iconSizes[i].X) / 2f;
-                ImGui.PushFont(UiBuilder.IconFont);
-                dl.AddText(new Vector2(ix, p.Y + (btnH - iconSizes[i].Y) / 2f), textColorU32, iconStrings[i]);
-                ImGui.PopFont();
-                if (hovered) UiSharedService.AttachToolTip(labels[i]);
+                if (ImGui.Selectable("Toutes", category == -1))
+                {
+                    category = -1;
+                    if (serverSide) { _annuairePage = 0; _ = AnnuaireRefreshList(); }
+                }
+                for (int i = 0; i < AnnuaireCategoryNames.Length; i++)
+                {
+                    if (ImGui.Selectable(AnnuaireCategoryNames[i], category == i))
+                    {
+                        category = i;
+                        if (serverSide) { _annuairePage = 0; _ = AnnuaireRefreshList(); }
+                    }
+                }
             }
-            else
+        }
+
+        if (serverSide)
+        {
+            ImGui.SameLine();
+            if (_uiSharedService.IconButton(FontAwesomeIcon.Search))
             {
-                var contentW = iconSizes[i].X + iconTextGap + labelSizes[i].X;
-                var startX = p.X + (btnW - contentW) / 2f;
-
-                ImGui.PushFont(UiBuilder.IconFont);
-                dl.AddText(new Vector2(startX, p.Y + (btnH - iconSizes[i].Y) / 2f), textColorU32, iconStrings[i]);
-                ImGui.PopFont();
-
-                dl.AddText(new Vector2(startX + iconSizes[i].X + iconTextGap, p.Y + (btnH - labelSizes[i].Y) / 2f), textColorU32, labels[i]);
+                _annuairePage = 0;
+                _ = AnnuaireRefreshList();
             }
+            UiSharedService.AttachToolTip(Loc.Get("Establishment.Directory.Search"));
+        }
 
-            if (hovered) ImGui.SetMouseCursor(ImGuiMouseCursor.Hand);
-            if (clicked)
-            {
-                _annuaireTab = i;
-                if (i == 0) _ = AnnuaireRefreshOwned();
-                if (i == 1) _ = AnnuaireRefreshBookmarks();
-                if (i == 2) _ = AnnuaireRefreshList();
-                if (i == 3) _ = AnnuaireRefreshUpcoming();
-                if (i == 4) _ = AnnuaireRefreshWildRp();
-            }
+        ImGui.SameLine();
+        if (_uiSharedService.IconButton(FontAwesomeIcon.Sync))
+        {
+            if (serverSide) AnnuaireRefreshAll();
+            else RefreshAnnuaireTab(tab);
+        }
+        UiSharedService.AttachToolTip(Loc.Get("Establishment.Directory.Refresh"));
+    }
+
+    private static bool MatchesAnnuaireFilter(EstablishmentDto establishment, string? eventTitle, string search, int category)
+    {
+        if (category >= 0 && establishment.Category != category) return false;
+        if (string.IsNullOrWhiteSpace(search)) return true;
+        return establishment.Name.Contains(search, StringComparison.OrdinalIgnoreCase)
+               || (eventTitle != null && eventTitle.Contains(search, StringComparison.OrdinalIgnoreCase));
+    }
+
+    // L'enregistrement d'un établissement n'a de sens que dans « Mes lieux ».
+    private void DrawAnnuaireRegisterButton()
+    {
+        if (_uiSharedService.IconTextButton(FontAwesomeIcon.Plus, Loc.Get("Establishment.Directory.Register")))
+            Mediator.Publish(new UiToggleMessage(typeof(EstablishmentRegistrationUi)));
+    }
+
+    private void RefreshAnnuaireTab(int tab)
+    {
+        switch (tab)
+        {
+            case 0: _ = AnnuaireRefreshOwned(); break;
+            case 1: _ = AnnuaireRefreshBookmarks(); break;
+            case 2: _ = AnnuaireRefreshList(); break;
+            case 3: _ = AnnuaireRefreshUpcoming(); break;
+            case 4: _ = AnnuaireRefreshWildRp(); break;
         }
     }
 
@@ -299,10 +248,20 @@ public partial class CompactUi
 
         if (_annuaireBookmarkResults != null)
         {
+            var shown = _annuaireBookmarkResults
+                .Where(x => MatchesAnnuaireFilter(x, null, _annuaireLocalSearch[1], _annuaireLocalCategory[1]))
+                .OrderBy(x => x.Name, StringComparer.InvariantCultureIgnoreCase)
+                .ToList();
+            if (shown.Count == 0)
+            {
+                ImGui.TextDisabled(Loc.Get("Establishment.Directory.NoResults"));
+                return;
+            }
+
             using var scroll = ImRaii.Child("##annBookmarksScroll", new Vector2(0, 0));
             if (scroll)
             {
-                foreach (var establishment in _annuaireBookmarkResults.OrderBy(x => x.Name, StringComparer.InvariantCultureIgnoreCase))
+                foreach (var establishment in shown)
                     DrawAnnuaireCard(establishment);
             }
         }
@@ -371,19 +330,17 @@ public partial class CompactUi
         var catName = catIndex >= 0 && catIndex < AnnuaireCategoryNames.Length ? AnnuaireCategoryNames[catIndex] : "?";
 
         var scale = ImGuiHelpers.GlobalScale;
-        var logoSize = 44f * scale;
+        var logoSize = 56f * scale;
         var logoRounding = 6f * scale;
         var logoSpacing = 10f * scale;
         var cardWidth = ImGui.GetContentRegionAvail().X;
-        var cardHeight = 76f * scale;
+        var cardHeight = 80f * scale;
 
         // Hover detection on the card area for a subtle highlight
         var cardStartScreen = ImGui.GetCursorScreenPos();
         var cardRectMax = cardStartScreen + new Vector2(cardWidth, cardHeight);
         var hovered = ImGui.IsMouseHoveringRect(cardStartScreen, cardRectMax);
-        var bgColor = hovered
-            ? new Vector4(UiSharedService.AccentColor.X, UiSharedService.AccentColor.Y, UiSharedService.AccentColor.Z, 0.07f)
-            : new Vector4(0f, 0f, 0f, 0f);
+        var bgColor = UiSharedService.AccentColor with { W = hovered ? 0.24f : 0.13f };
         using var pushBg = ImRaii.PushColor(ImGuiCol.ChildBg, bgColor);
 
         using (var card = ImRaii.Child($"##annCard_{establishment.Id}", new Vector2(cardWidth, cardHeight), true,
@@ -393,35 +350,51 @@ public partial class CompactUi
             {
                 var logoTex = GetAnnuaireLogo(establishment.Id, establishment.LogoImageBase64);
 
-                // Vertical centering: estimate the two-line content block height and center it
                 var lineH = ImGui.GetTextLineHeight();
-                var bigLineH = lineH * 1.45f; // BigText is ~1.45x text line
+                var bigLineH = lineH * 1.45f;
                 var spacingY = ImGui.GetStyle().ItemSpacing.Y;
                 var contentH = bigLineH + spacingY + lineH;
                 var innerH = ImGui.GetWindowHeight();
                 var contentY = MathF.Max(0f, (innerH - contentH) / 2f);
 
+                var cardInner = ImGui.GetCursorPos();
+                ImGui.SetCursorPos(Vector2.Zero);
+                bool cardClicked = ImGui.InvisibleButton("##openCard", new Vector2(cardWidth, cardHeight));
+                ImGui.SetItemAllowOverlap();
+                if (cardClicked)
+                    Mediator.Publish(new OpenEstablishmentDetailMessage(establishment.Id));
+                if (ImGui.IsItemHovered()) ImGui.SetMouseCursor(ImGuiMouseCursor.Hand);
+                ImGui.SetCursorPos(cardInner);
+
                 // Draw logo or placeholder (vertically centered against inner height)
                 var logoScreenPos = ImGui.GetCursorScreenPos();
-                var logoTopLeft = new Vector2(logoScreenPos.X, logoScreenPos.Y + MathF.Max(0f, (innerH - logoSize) / 2f));
+                var logoTopLeft = new Vector2(logoScreenPos.X, ImGui.GetWindowPos().Y + MathF.Max(0f, (innerH - logoSize) / 2f));
                 if (logoTex != null)
                 {
-                    ImGui.GetWindowDrawList().AddImageRounded(logoTex.Handle, logoTopLeft,
+                    var logoDraw = ImGui.GetWindowDrawList();
+                    logoDraw.AddImageRounded(logoTex.Handle, logoTopLeft,
                         logoTopLeft + new Vector2(logoSize, logoSize),
                         Vector2.Zero, Vector2.One, ImGui.ColorConvertFloat4ToU32(Vector4.One), logoRounding);
+                    logoDraw.AddRect(logoTopLeft, logoTopLeft + new Vector2(logoSize, logoSize),
+                        ImGui.GetColorU32(UiSharedService.AccentColor with { W = 0.45f }), logoRounding, ImDrawFlags.None, scale);
                 }
                 else
                 {
                     UiSharedService.DrawLogoPlaceholder(logoTopLeft, logoSize, logoRounding, catIcon);
                 }
 
-                ImGui.SetCursorPos(new Vector2(logoSize + logoSpacing, contentY));
-                _uiSharedService.BigText(establishment.Name);
-
-                // Right-aligned buttons on the title line
                 var starSize = _uiSharedService.GetIconButtonSize(FontAwesomeIcon.Star);
                 var eyeSize = _uiSharedService.GetIconButtonSize(FontAwesomeIcon.Eye);
                 var buttonsWidth = starSize.X + eyeSize.X + ImGui.GetStyle().ItemSpacing.X * 2;
+
+                ImGui.SetCursorPos(new Vector2(logoSize + logoSpacing, contentY));
+                var titleMax = MathF.Max(60f * scale, ImGui.GetWindowContentRegionMax().X - ImGui.GetCursorPosX() - buttonsWidth - ImGui.GetStyle().ItemSpacing.X * 2);
+                string title = establishment.Name;
+                using (_uiSharedService.UidFont.Push())
+                    title = UiSharedService.TruncateToWidth(UiSharedService.SanitizeOneLine(establishment.Name), titleMax);
+                _uiSharedService.BigText(title);
+                if (!string.Equals(title, UiSharedService.SanitizeOneLine(establishment.Name), StringComparison.Ordinal))
+                    UiSharedService.AttachToolTip(establishment.Name);
                 var availX = ImGui.GetContentRegionAvail().X;
                 if (availX > buttonsWidth)
                     ImGui.SameLine(ImGui.GetWindowContentRegionMax().X - buttonsWidth);
@@ -580,19 +553,22 @@ public partial class CompactUi
             {
                 var now = DateTime.Now;
                 var weekEnd = now.Date.AddDays(7);
-                var upcoming = new List<(EstablishmentDto, EstablishmentEventDto)>();
+                var upcoming = new List<UpcomingOccurrence>();
 
                 foreach (var estab in result.Establishments)
                 {
                     foreach (var evt in estab.Events)
                     {
-                        var localTime = evt.StartsAtUtc.ToLocalTime();
+                        var occurrence = EstablishmentReminderService.ComputeCurrentOrNextOccurrence(evt, DateTime.UtcNow);
+                        if (occurrence is not { } occ) continue;
+
+                        var localTime = occ.Start.ToLocalTime();
                         if (localTime >= now.AddHours(-1) && localTime.Date < weekEnd)
-                            upcoming.Add((estab, evt));
+                            upcoming.Add(new UpcomingOccurrence(estab, evt, occ.Start, occ.End));
                     }
                 }
 
-                _annuaireUpcoming = upcoming.OrderBy(e => e.Item2.StartsAtUtc).ToList();
+                _annuaireUpcoming = upcoming.OrderBy(o => o.StartUtc).ToList();
                 _logger.LogDebug("Found {count} upcoming events", _annuaireUpcoming.Count);
             }
         }
@@ -623,19 +599,26 @@ public partial class CompactUi
         var now = DateTime.Now;
         var today = now.Date;
 
-        var tonightEvents = _annuaireUpcoming
-            .Where(e => e.Event.StartsAtUtc.ToLocalTime().Date == today && e.Event.StartsAtUtc.ToLocalTime() > now.AddHours(-1))
-            .OrderBy(e => e.Event.StartsAtUtc)
+        var upcomingSearch = _annuaireLocalSearch[3];
+        var upcomingCategory = _annuaireLocalCategory[3];
+        var filteredUpcoming = _annuaireUpcoming
+            .Where(e => MatchesAnnuaireFilter(e.Establishment, e.Event.Title, upcomingSearch, upcomingCategory))
             .ToList();
 
-        var weekEvents = _annuaireUpcoming
-            .Where(e => e.Event.StartsAtUtc.ToLocalTime().Date > today)
-            .OrderBy(e => e.Event.StartsAtUtc)
+        var tonightEvents = filteredUpcoming
+            .Where(e => e.StartUtc.ToLocalTime().Date == today && e.StartUtc.ToLocalTime() > now.AddHours(-1))
+            .OrderBy(e => e.StartUtc)
+            .ToList();
+
+        var weekEvents = filteredUpcoming
+            .Where(e => e.StartUtc.ToLocalTime().Date > today)
+            .OrderBy(e => e.StartUtc)
             .ToList();
 
         if (tonightEvents.Count == 0 && weekEvents.Count == 0)
         {
-            ImGui.TextDisabled(Loc.Get("Establishment.Directory.NoUpcoming"));
+            bool filtering = !string.IsNullOrWhiteSpace(upcomingSearch) || upcomingCategory >= 0;
+            ImGui.TextDisabled(Loc.Get(filtering ? "Establishment.Directory.NoResults" : "Establishment.Directory.NoUpcoming"));
             return;
         }
 
@@ -649,8 +632,8 @@ public partial class CompactUi
             ImGui.SameLine();
             UiSharedService.ColorText(Loc.Get("Establishment.Directory.Tonight"), UiSharedService.AccentColor);
             ImGuiHelpers.ScaledDummy(2f);
-            foreach (var (estab, evt) in tonightEvents)
-                DrawAnnuaireUpcomingCard(estab, evt);
+            foreach (var occurrence in tonightEvents)
+                DrawAnnuaireUpcomingCard(occurrence);
             ImGuiHelpers.ScaledDummy(6f);
         }
 
@@ -661,8 +644,8 @@ public partial class CompactUi
             ImGui.SameLine();
             UiSharedService.ColorText(Loc.Get("Establishment.Directory.ThisWeek"), UiSharedService.AccentColor);
             ImGuiHelpers.ScaledDummy(2f);
-            foreach (var (estab, evt) in weekEvents)
-                DrawAnnuaireUpcomingCard(estab, evt);
+            foreach (var occurrence in weekEvents)
+                DrawAnnuaireUpcomingCard(occurrence);
         }
     }
 
@@ -921,72 +904,123 @@ public partial class CompactUi
 
     #endregion
 
-    private void DrawAnnuaireUpcomingCard(EstablishmentDto establishment, EstablishmentEventDto evt)
+    private void DrawAnnuaireUpcomingCard(UpcomingOccurrence occurrence)
     {
+        var establishment = occurrence.Establishment;
+        var evt = occurrence.Event;
         ImGui.PushID($"upcoming_{establishment.Id}_{evt.Id}");
 
         var catIndex = establishment.Category;
         var catIcon = catIndex >= 0 && catIndex < AnnuaireCategoryIcons.Length ? AnnuaireCategoryIcons[catIndex] : FontAwesomeIcon.QuestionCircle;
 
         var scale = ImGuiHelpers.GlobalScale;
-        var upcLogoSize = 44f * scale;
-        var upcLogoRounding = 6f * scale;
-        var upcLogoSpacing = 10f * scale;
+        var logoSize = 56f * scale;
+        var logoRounding = 6f * scale;
+        var logoSpacing = 10f * scale;
+        var cardWidth = ImGui.GetContentRegionAvail().X;
+        var cardHeight = 76f * scale;
 
-        UiSharedService.DrawCard($"upc_{evt.Id}", () =>
+        var localTime = occurrence.StartUtc.ToLocalTime();
+        var dayOfWeek = _dayNames[(int)localTime.DayOfWeek == 0 ? 6 : (int)localTime.DayOfWeek - 1];
+        bool tonight = localTime.Date == DateTime.Now.Date;
+        var timeStr = tonight ? $"{localTime:HH}h{localTime:mm}" : $"{dayOfWeek} {localTime:HH}h{localTime:mm}";
+
+        var cardStartScreen = ImGui.GetCursorScreenPos();
+        var hovered = ImGui.IsMouseHoveringRect(cardStartScreen, cardStartScreen + new Vector2(cardWidth, cardHeight));
+        using var pushBg = ImRaii.PushColor(ImGuiCol.ChildBg, UiSharedService.AccentColor with { W = hovered ? 0.24f : 0.13f });
+
+        using (var card = ImRaii.Child($"##upcCard_{evt.Id}", new Vector2(cardWidth, cardHeight), true,
+            ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse))
         {
-            var logoTex = GetAnnuaireLogo(establishment.Id, establishment.LogoImageBase64);
-
-            // Estimate a 2-line content block; vertically center the logo against it
-            var lineH = ImGui.GetTextLineHeight();
-            var spacingY = ImGui.GetStyle().ItemSpacing.Y;
-            var contentH = lineH * 2 + spacingY;
-            var blockH = MathF.Max(contentH, logoTex != null ? upcLogoSize : 0f);
-            var contentYOffset = MathF.Max(0f, (blockH - contentH) / 2f);
-
-            var upcScreenPos = ImGui.GetCursorScreenPos();
-            var upcLocalPos = ImGui.GetCursorPos();
-            var upcLogoTopLeft = new Vector2(upcScreenPos.X, upcScreenPos.Y + MathF.Max(0f, (blockH - upcLogoSize) / 2f));
-            if (logoTex != null)
+            if (card)
             {
-                ImGui.GetWindowDrawList().AddImageRounded(logoTex.Handle, upcLogoTopLeft,
-                    upcLogoTopLeft + new Vector2(upcLogoSize, upcLogoSize),
-                    Vector2.Zero, Vector2.One, ImGui.ColorConvertFloat4ToU32(Vector4.One), upcLogoRounding);
+                var innerH = ImGui.GetWindowHeight();
+                var spacing = ImGui.GetStyle().ItemSpacing;
+
+                // Toute la carte ouvre le détail ; le bouton œil, posé après, garde la priorité.
+                var cardInner = ImGui.GetCursorPos();
+                ImGui.SetCursorPos(Vector2.Zero);
+                bool cardClicked = ImGui.InvisibleButton("##openUpcoming", new Vector2(cardWidth, cardHeight));
+                ImGui.SetItemAllowOverlap();
+                if (cardClicked)
+                    Mediator.Publish(new OpenEstablishmentDetailMessage(establishment.Id));
+                if (ImGui.IsItemHovered()) ImGui.SetMouseCursor(ImGuiMouseCursor.Hand);
+                ImGui.SetCursorPos(cardInner);
+
+                // Logo : même rendu que les cartes de l'annuaire (liseré fin, ou pictogramme de catégorie).
+                var logoTex = GetAnnuaireLogo(establishment.Id, establishment.LogoImageBase64);
+                var logoScreen = ImGui.GetCursorScreenPos();
+                // Centré sur la hauteur de la carte : le curseur inclut déjà le retrait du haut, qu'il ne faut pas compter deux fois.
+                var logoTopLeft = new Vector2(logoScreen.X, ImGui.GetWindowPos().Y + MathF.Max(0f, (innerH - logoSize) / 2f));
+                if (logoTex != null)
+                {
+                    var dl = ImGui.GetWindowDrawList();
+                    dl.AddImageRounded(logoTex.Handle, logoTopLeft, logoTopLeft + new Vector2(logoSize),
+                        Vector2.Zero, Vector2.One, ImGui.ColorConvertFloat4ToU32(Vector4.One), logoRounding);
+                    dl.AddRect(logoTopLeft, logoTopLeft + new Vector2(logoSize),
+                        ImGui.GetColorU32(UiSharedService.AccentColor with { W = 0.45f }), logoRounding, ImDrawFlags.None, scale);
+                }
+                else
+                {
+                    UiSharedService.DrawLogoPlaceholder(logoTopLeft, logoSize, logoRounding, catIcon);
+                }
+
+                var textX = logoSize + logoSpacing;
+                var contentMaxX = ImGui.GetWindowContentRegionMax().X - 4f * scale;
+                var eyeSize = _uiSharedService.GetIconButtonSize(FontAwesomeIcon.Eye);
+                var eyeX = contentMaxX - eyeSize.X;
+
+                // Pastille d'horaire : plus marquée pour une soirée du jour.
+                var clockIcon = FontAwesomeIcon.Clock.ToIconString();
+                Vector2 clockSize;
+                using (ImRaii.PushFont(UiBuilder.IconFont))
+                    clockSize = ImGui.CalcTextSize(clockIcon);
+                var timeSize = ImGui.CalcTextSize(timeStr);
+                var chipPadX = 8f * scale;
+                var chipGap = 5f * scale;
+                var chipWidth = chipPadX * 2 + clockSize.X + chipGap + timeSize.X;
+                var chipHeight = ImGui.GetTextLineHeight() + 6f * scale;
+
+                var lineH = ImGui.GetTextLineHeight();
+                var contentH = lineH * 2 + spacing.Y;
+                var contentY = MathF.Max(0f, (innerH - contentH) / 2f);
+                var windowPos = ImGui.GetWindowPos();
+
+                var chipLeft = eyeX - spacing.X - chipWidth;
+                // Centrée sur la même ligne que le bouton œil, au milieu de la carte.
+                var chipTop = (innerH - chipHeight) / 2f;
+                var chipMin = windowPos + new Vector2(chipLeft, chipTop);
+                var chipDl = ImGui.GetWindowDrawList();
+                var chipColor = UiSharedService.AccentColor;
+                chipDl.AddRectFilled(chipMin, chipMin + new Vector2(chipWidth, chipHeight),
+                    ImGui.GetColorU32(chipColor with { W = tonight ? 0.55f : 0.28f }), chipHeight / 2f);
+                chipDl.AddRect(chipMin, chipMin + new Vector2(chipWidth, chipHeight),
+                    ImGui.GetColorU32(chipColor with { W = tonight ? 0.9f : 0.5f }), chipHeight / 2f, ImDrawFlags.None, scale);
+                using (ImRaii.PushFont(UiBuilder.IconFont))
+                    chipDl.AddText(chipMin + new Vector2(chipPadX, (chipHeight - clockSize.Y) / 2f), ImGui.GetColorU32(Vector4.One), clockIcon);
+                chipDl.AddText(chipMin + new Vector2(chipPadX + clockSize.X + chipGap, (chipHeight - timeSize.Y) / 2f),
+                    ImGui.GetColorU32(Vector4.One), timeStr);
+
+                ImGui.SetCursorPos(new Vector2(textX, contentY));
+                var nameMax = MathF.Max(40f * scale, chipLeft - textX - spacing.X);
+                var name = UiSharedService.SanitizeOneLine(establishment.Name);
+                var shownName = UiSharedService.TruncateToWidth(name, nameMax);
+                UiSharedService.ColorText(shownName, UiSharedService.ThemeNavTextActive);
+                if (!string.Equals(shownName, name, StringComparison.Ordinal))
+                    UiSharedService.AttachToolTip(name);
+
+                ImGui.SetCursorPos(new Vector2(textX, contentY + lineH + spacing.Y));
+                var title = UiSharedService.SanitizeOneLine(evt.Title);
+                var titleMax = MathF.Max(40f * scale, eyeX - textX - spacing.X);
+                UiSharedService.ColorText(UiSharedService.TruncateToWidth(title, titleMax), new Vector4(1f, 0.9f, 0.6f, 1f));
+
+                // Bouton œil, centré verticalement à droite.
+                ImGui.SetCursorPos(new Vector2(eyeX, MathF.Max(0f, (innerH - eyeSize.Y) / 2f)));
+                if (_uiSharedService.IconButton(FontAwesomeIcon.Eye))
+                    Mediator.Publish(new OpenEstablishmentDetailMessage(establishment.Id));
+                UiSharedService.AttachToolTip(Loc.Get("Establishment.Directory.ViewDetail"));
             }
-            else
-            {
-                UiSharedService.DrawLogoPlaceholder(upcLogoTopLeft, upcLogoSize, upcLogoRounding, catIcon);
-            }
-            ImGui.SetCursorPos(new Vector2(upcLocalPos.X + upcLogoSize + upcLogoSpacing, upcLocalPos.Y + contentYOffset));
-            ImGui.TextUnformatted(UiSharedService.SanitizeOneLine(establishment.Name));
-
-            var localTime = evt.StartsAtUtc.ToLocalTime();
-            var dayOfWeek = _dayNames[(int)localTime.DayOfWeek == 0 ? 6 : (int)localTime.DayOfWeek - 1];
-            var timeStr = localTime.Date == DateTime.Now.Date
-                ? $"{localTime:HH}h{localTime:mm}"
-                : $"{dayOfWeek} {localTime:HH}h{localTime:mm}";
-
-            ImGui.SameLine();
-            using (ImRaii.PushFont(UiBuilder.IconFont))
-                ImGui.TextColored(ImGuiColors.DalamudGrey, FontAwesomeIcon.Clock.ToIconString());
-            ImGui.SameLine();
-            ImGui.TextColored(ImGuiColors.DalamudGrey, timeStr);
-
-            var eyeSize = _uiSharedService.GetIconButtonSize(FontAwesomeIcon.Eye);
-            var availX = ImGui.GetContentRegionAvail().X;
-            if (availX > eyeSize.X)
-                ImGui.SameLine(ImGui.GetWindowContentRegionMax().X - eyeSize.X - ImGui.GetStyle().ItemSpacing.X * 3);
-            if (_uiSharedService.IconButton(FontAwesomeIcon.Eye))
-                Mediator.Publish(new OpenEstablishmentDetailMessage(establishment.Id));
-            UiSharedService.AttachToolTip(Loc.Get("Establishment.Directory.ViewDetail"));
-
-            if (logoTex != null)
-                ImGui.SetCursorPosX(upcLogoSize + upcLogoSpacing);
-            var title = UiSharedService.SanitizeOneLine(evt.Title);
-            var titleMaxX = ImGui.GetWindowContentRegionMax().X - 4f * scale;
-            var titleAvail = MathF.Max(40f, titleMaxX - ImGui.GetCursorPosX());
-            UiSharedService.ColorText(UiSharedService.TruncateToWidth(title, titleAvail), new Vector4(1f, 0.9f, 0.6f, 1f));
-        }, stretchWidth: true);
+        }
 
         ImGui.PopID();
     }

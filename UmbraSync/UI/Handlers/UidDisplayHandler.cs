@@ -43,26 +43,22 @@ public class UidDisplayHandler
 
     public static void RenderPairList(IEnumerable<DrawPairBase> pairs)
     {
-        var textHeight = ImGui.GetFontSize();
-        var style = ImGui.GetStyle();
-        var framePadding = style.FramePadding;
-        var spacing = style.ItemSpacing;
-        var lineHeight = textHeight + framePadding.Y * 2 + spacing.Y;
         var startY = ImGui.GetCursorStartPos().Y;
         var cursorY = ImGui.GetCursorPosY();
         var contentHeight = UiSharedService.GetWindowContentRegionHeight();
 
         foreach (var entry in pairs)
         {
-            if ((startY + cursorY) < -lineHeight || (startY + cursorY) > contentHeight)
+            var rowHeight = entry.GetRowTotalHeight();
+            if ((startY + cursorY) < -rowHeight || (startY + cursorY) > contentHeight)
             {
-                cursorY += lineHeight;
+                cursorY += rowHeight;
                 ImGui.SetCursorPosY(cursorY);
                 continue;
             }
 
             using (ImRaii.PushId(entry.ImGuiID)) entry.DrawPairedClient();
-            cursorY += lineHeight;
+            cursorY += rowHeight;
         }
     }
 
@@ -86,17 +82,6 @@ public class UidDisplayHandler
                 {
                     playerText = rpName;
                     textIsUid = false;
-                }
-
-                if (rpIdentity != null && !userChoseName && !string.IsNullOrEmpty(rpName))
-                {
-                    var avatar = ImGui.GetFontSize() * 1.45f;
-                    var screen = ImGui.GetCursorScreenPos();
-                    // Le texte est remonté d'un cran par rapport aux icônes (voir DrawPairedClient) : on centre
-                    // l'avatar sur les icônes, donc sur la ligne, et non sur le texte.
-                    var rowCenterOffset = ImGui.GetFontSize() * 0.22f + UiSharedService.GetIconSize(FontAwesomeIcon.Moon).Y / 2f;
-                    DrawMiniAvatar(pair, rpIdentity, rpName, new System.Numerics.Vector2(screen.X, screen.Y + rowCenterOffset - avatar / 2f), avatar);
-                    ImGui.SetCursorPosX(textPosX + avatar + ImGui.GetStyle().ItemSpacing.X * 0.75f);
                 }
             }
 
@@ -201,6 +186,27 @@ public class UidDisplayHandler
         }
 
         return null;
+    }
+
+    public float AvatarSize => ImGui.GetFrameHeight() * 1.3f;
+    
+    public bool TryGetPresenceAvatar(Pair pair, out UmbraProfileData profile)
+    {
+        profile = null!;
+        if (!_mareConfigService.Current.ShowRpIdentityInPairList || !pair.IsVisible) return false;
+        var known = GetRpIdentity(pair);
+        if (known == null || known.RpImageData.Value.Length == 0) return false;
+        profile = known;
+        return true;
+    }
+
+    public bool WantsTallRow(Pair pair)
+        => _mareConfigService.Current.ShowRpIdentityInPairList && pair.IsVisible;
+
+    public void DrawPresenceAvatar(Pair pair, UmbraProfileData profile, System.Numerics.Vector2 pos, float size)
+    {
+        var rpName = $"{profile.RpFirstName} {profile.RpLastName}".Trim();
+        DrawMiniAvatar(pair, profile, rpName, pos, size);
     }
 
     private void DrawMiniAvatar(Pair pair, UmbraProfileData profile, string rpName, System.Numerics.Vector2 pos, float size)
