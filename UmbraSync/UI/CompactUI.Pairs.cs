@@ -28,7 +28,6 @@ public partial class CompactUi
     private string _pairToAdd = string.Empty;
     private int _secretKeyIdx = -1;
     private bool _showModalForUserAddition;
-    private bool _nearbyOpen = true;
     private readonly Dictionary<string, DrawUserPair> _drawUserPairCache = new(StringComparer.Ordinal);
 
     private void DrawAddCharacter()
@@ -199,10 +198,6 @@ public partial class CompactUi
         var allUsers = GetFilteredUsers().OrderBy(u => _uidDisplayHandler.GetSortName(u), UI.Handlers.UidDisplayHandler.NameComparer).ToList();
         var visibleUsersSource = allUsers.Where(u => u.IsVisible).ToList();
         var nonVisibleUsers = allUsers.Where(u => !u.IsVisible).ToList();
-        var nearbyEntriesForDisplay = _configService.Current.EnableAutoDetectDiscovery
-            ? GetNearbyEntriesForDisplay()
-            : [];
-
         ImGui.BeginChild("list", new Vector2(WindowContentWidth, ySize), border: false);
 
         var pendingCount = _nearbyPending.Pending.Count;
@@ -263,148 +258,9 @@ public partial class CompactUi
                 return drawPair;
             }).ToList();
 
-        Action? drawVisibleExtras = null;
-        if (nearbyEntriesForDisplay.Count > 0)
-        {
-            var entriesForExtras = nearbyEntriesForDisplay;
-            drawVisibleExtras = () => DrawNearbyCard(entriesForExtras);
-        }
-
-        _pairGroupsUi.Draw(visibleUsers, onlineUsers, offlineUsers, drawVisibleExtras);
+        _pairGroupsUi.Draw(visibleUsers, onlineUsers, offlineUsers);
 
         ImGui.EndChild();
-    }
-
-    private List<Services.Mediator.NearbyEntry> GetNearbyEntriesForDisplay()
-    {
-        if (_nearbyEntries.Count == 0)
-        {
-            return [];
-        }
-
-        return _nearbyEntries
-            .Where(e => e.IsMatch && e.AcceptPairRequests && !string.IsNullOrEmpty(e.Token) && !IsAlreadyPairedQuickMenu(e))
-            .OrderBy(e => e.Distance)
-            .ToList();
-    }
-
-    private void DrawNearbyCard(IReadOnlyList<Services.Mediator.NearbyEntry> nearbyEntries)
-    {
-        if (nearbyEntries.Count == 0)
-        {
-            return;
-        }
-
-        ImGuiHelpers.ScaledDummy(4f);
-        using (ImRaii.PushId("group-Nearby"))
-        {
-            UiSharedService.DrawCard("nearby-card", () =>
-            {
-                bool nearbyState = _nearbyOpen;
-                UiSharedService.DrawArrowToggle(ref nearbyState, "##nearby-toggle");
-                _nearbyOpen = nearbyState;
-
-                ImGui.SameLine(0f, 6f * ImGuiHelpers.GlobalScale);
-                var onUmbra = nearbyEntries.Count;
-                ImGui.AlignTextToFramePadding();
-                ImGui.TextUnformatted(string.Format(CultureInfo.CurrentCulture, Loc.Get("CompactUi.Nearby.Header"), onUmbra));
-                if (ImGui.IsItemClicked(ImGuiMouseButton.Left))
-                {
-                    _nearbyOpen = !_nearbyOpen;
-                }
-
-                if (!_nearbyOpen)
-                {
-                    return;
-                }
-
-                ImGuiHelpers.ScaledDummy(4f);
-                var indent = 18f * ImGuiHelpers.GlobalScale;
-                ImGui.Indent(indent);
-                var pending = _autoDetectRequestService.GetPendingRequestsSnapshot();
-                var pendingUids = new HashSet<string>(pending.Select(p => p.Uid!).Where(s => !string.IsNullOrEmpty(s)), StringComparer.Ordinal);
-                var pendingTokens = new HashSet<string>(pending.Select(p => p.Token!).Where(s => !string.IsNullOrEmpty(s)), StringComparer.Ordinal);
-                var actionButtonSize = _uiSharedService.GetIconButtonSize(FontAwesomeIcon.UserPlus);
-                using var table = ImRaii.Table("nearby-table", 2, ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.RowBg | ImGuiTableFlags.PadOuterX | ImGuiTableFlags.BordersInnerV);
-                if (table)
-                {
-                    ImGui.TableSetupColumn(Loc.Get("CompactUi.Nearby.Table.Name"), ImGuiTableColumnFlags.WidthStretch, 1f);
-                    ImGui.TableSetupColumn(Loc.Get("CompactUi.Nearby.Table.Action"), ImGuiTableColumnFlags.WidthFixed, actionButtonSize.X);
-
-                    var rowHeight = MathF.Max(ImGui.GetFrameHeight(), ImGui.GetTextLineHeight()) + ImGui.GetStyle().ItemSpacing.Y;
-                    ClippedDrawNearbyRows(nearbyEntries, rowHeight, e =>
-                    {
-                        bool alreadyPaired = false;
-                        if (!string.IsNullOrEmpty(e.Uid))
-                        {
-                            alreadyPaired = _pairManager.DirectPairs.Any(p => string.Equals(p.UserData.UID, e.Uid, StringComparison.Ordinal));
-                        }
-                        bool alreadyInvited = (!string.IsNullOrEmpty(e.Uid) && pendingUids.Contains(e.Uid))
-                                              || (!string.IsNullOrEmpty(e.Token) && pendingTokens.Contains(e.Token));
-
-                        ImGui.TableNextRow();
-
-                        ImGui.TableSetColumnIndex(0);
-                        var name = e.DisplayName ?? e.Name;
-                        ImGui.AlignTextToFramePadding();
-                        ImGui.TextUnformatted(name);
-                        ImGui.TableSetColumnIndex(1);
-                        var curX = ImGui.GetCursorPosX();
-                        var availX = ImGui.GetContentRegionAvail().X; // width of the action column
-                        ImGui.SetCursorPosX(curX + MathF.Max(0, availX - actionButtonSize.X));
-
-                        using (ImRaii.PushId(e.Token ?? e.Uid ?? e.Name))
-                        {
-                            if (alreadyPaired)
-                            {
-                                using (ImRaii.Disabled())
-                                {
-                                    _uiSharedService.IconButton(FontAwesomeIcon.UserPlus);
-                                }
-                                UiSharedService.AttachToolTip(Loc.Get("AutoDetectUi.Nearby.Reason.Paired"));
-                            }
-                            else if (alreadyInvited)
-                            {
-                                using (ImRaii.Disabled())
-                                {
-                                    _uiSharedService.IconButton(FontAwesomeIcon.UserPlus);
-                                }
-                                UiSharedService.AttachToolTip(Loc.Get("AutoDetectUi.Nearby.Reason.AlreadyInvited"));
-                            }
-                            else if (_uiSharedService.IconButton(FontAwesomeIcon.UserPlus))
-                            {
-                                _ = _autoDetectRequestService.SendRequestAsync(e.Token!, e.Uid, e.DisplayName);
-                            }
-                        }
-                        UiSharedService.AttachToolTip(Loc.Get("CompactUi.Nearby.InviteTooltip"));
-                    });
-                }
-
-                ImGui.Unindent(indent);
-            }, stretchWidth: true);
-        }
-        ImGuiHelpers.ScaledDummy(4f);
-    }
-
-    private bool IsAlreadyPairedQuickMenu(Services.Mediator.NearbyEntry entry)
-    {
-        try
-        {
-            if (!string.IsNullOrEmpty(entry.Uid) &&
-                _pairManager.DirectPairs.Any(p => string.Equals(p.UserData.UID, entry.Uid, StringComparison.Ordinal)))
-            {
-                return true;
-            }
-
-            var key = entry.DisplayName ?? entry.Name;
-            if (string.IsNullOrEmpty(key)) return false;
-
-            return _pairManager.DirectPairs.Any(p => string.Equals(p.UserData.AliasOrUID, key, StringComparison.OrdinalIgnoreCase));
-        }
-        catch (Exception)
-        {
-            return false;
-        }
     }
 
     private void DrawNewUserNoteModal()
@@ -452,28 +308,5 @@ public partial class CompactUi
                    (p.GetNote()?.Contains(_characterOrCommentFilter, StringComparison.OrdinalIgnoreCase) ?? false) ||
                    (p.PlayerName?.Contains(_characterOrCommentFilter, StringComparison.OrdinalIgnoreCase) ?? false);
         }).ToList();
-    }
-
-    private static void ClippedDrawNearbyRows<T>(IReadOnlyList<T> data, float lineHeight, Action<T> draw)
-    {
-        var clipper = ImGui.ImGuiListClipper();
-        clipper.Begin(data.Count, lineHeight);
-        try
-        {
-            while (clipper.Step())
-            {
-                for (var row = clipper.DisplayStart; row < clipper.DisplayEnd; row++)
-                {
-                    if (row >= data.Count) return;
-                    if (row < 0) continue;
-                    draw(data[row]);
-                }
-            }
-        }
-        finally
-        {
-            clipper.End();
-            clipper.Destroy();
-        }
     }
 }

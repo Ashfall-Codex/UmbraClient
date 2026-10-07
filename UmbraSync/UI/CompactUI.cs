@@ -346,19 +346,8 @@ public partial class CompactUi : WindowMediatorSubscriberBase
 
     private void DrawSyncshellSection()
     {
-        // Dessiner Nearby juste SOUS la recherche GID/Alias dans la section Syncshell
-        var nearbyEntriesForDisplay = _configService.Current.EnableAutoDetectDiscovery
-            ? GetNearbyEntriesForDisplay()
-            : [];
-
         using (ImRaii.PushId("syncshells"))
-            _groupPanel.DrawSyncshells(drawAfterAdd: () =>
-            {
-                if (nearbyEntriesForDisplay.Count > 0)
-                {
-                    using (ImRaii.PushId("syncshell-nearby")) DrawNearbyCard(nearbyEntriesForDisplay);
-                }
-            });
+            _groupPanel.DrawSyncshells();
         using (ImRaii.PushId("transfers")) DrawTransfers();
         TransferPartHeight = ImGui.GetCursorPosY() - TransferPartHeight;
         using (ImRaii.PushId("group-user-popup")) _selectPairsForGroupUi.Draw(_pairManager.DirectPairs);
