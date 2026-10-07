@@ -83,7 +83,7 @@ public class UmbraProfileManager : MediatorSubscriberBase
         {
             if (msg.Profile.Group != null)
             {
-                _groupProfiles[msg.Profile.Group.GID] = msg.Profile;
+                StoreGroupProfile(msg.Profile.Group.GID, msg.Profile);
             }
         });
         Mediator.Subscribe<ConnectedMessage>(this, (msg) =>
@@ -102,14 +102,169 @@ public class UmbraProfileManager : MediatorSubscriberBase
         return profile;
     }
 
-    public void SetGroupProfile(string gid, GroupProfileDto profile)
+    public void SetGroupProfile(string gid, GroupProfileDto profile) => StoreGroupProfile(gid, profile);
+
+    private void StoreGroupProfile(string gid, GroupProfileDto profile)
     {
         _groupProfiles[gid] = profile;
+        _diskGroupProfiles[gid] = profile;
+        PersistGroupProfileInBackground(gid, profile);
+    }
+
+    // --- Cache disque des profils de syncshell (icône, couleur du contour) ---
+    // Les icônes s'affichent aussitôt au lancement au lieu d'arriver une à une après les requêtes. La fraîcheur
+    // est assurée par la requête de relecture de chaque session et par les mises à jour poussées par le serveur :
+    // dès qu'une image diffère de celle du disque, la copie locale est remplacée.
+
+    private readonly ConcurrentDictionary<string, GroupProfileDto?> _diskGroupProfiles = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, byte> _diskGroupProfileLoads = new(StringComparer.OrdinalIgnoreCase);
+
+    private string GroupProfileCacheDir => Path.Combine(_configDir, "syncshell_profiles");
+
+    private string GroupProfileCachePath(string gid)
+    {
+        // Le GID vient du serveur : on ne garde que des caractères sûrs pour un nom de fichier.
+        var safe = new string(gid.Where(c => char.IsLetterOrDigit(c) || c is '-' or '_').ToArray());
+        return Path.Combine(GroupProfileCacheDir, safe + ".json");
+    }
+
+    private sealed class GroupProfileCacheEntry
+    {
+        public string Gid { get; set; } = string.Empty;
+        public string? ProfileImageBase64 { get; set; }
+        public string? BorderColor { get; set; }
+        public bool IsNsfw { get; set; }
+        public bool IsDisabled { get; set; }
+        public DateTime CachedAtUtc { get; set; }
+    }
+
+    /// <summary>
+    /// Profil de syncshell connu du disque, mais pas encore confirmé par le serveur cette session.
+    /// Ne bloque jamais : la lecture du fichier se fait en arrière-plan et le premier appel renvoie null.
+    /// </summary>
+    public GroupProfileDto? GetCachedGroupProfile(string gid)
+    {
+        if (_diskGroupProfiles.TryGetValue(gid, out var known)) return known;
+        if (!_diskGroupProfileLoads.TryAdd(gid, 0)) return null;
+
+        _ = Task.Run(() =>
+        {
+            try
+            {
+                var path = GroupProfileCachePath(gid);
+                if (!File.Exists(path)) { _diskGroupProfiles.TryAdd(gid, null); return; }
+
+                var entry = JsonSerializer.Deserialize<GroupProfileCacheEntry>(File.ReadAllText(path));
+                if (entry == null || DateTime.UtcNow - entry.CachedAtUtc > PersistedProfileLifetime)
+                {
+                    TryDeleteFile(path);
+                    _diskGroupProfiles.TryAdd(gid, null);
+                    return;
+                }
+
+                _diskGroupProfiles.TryAdd(gid, new GroupProfileDto
+                {
+                    Group = new GroupData(gid),
+                    ProfileImageBase64 = entry.ProfileImageBase64,
+                    BorderColor = entry.BorderColor,
+                    IsNsfw = entry.IsNsfw,
+                    IsDisabled = entry.IsDisabled,
+                });
+            }
+            catch (Exception ex)
+            {
+                Logger.LogDebug(ex, "Cache de profil de syncshell illisible pour {gid}", gid);
+                _diskGroupProfiles.TryAdd(gid, null);
+            }
+        });
+        return null;
+    }
+
+    private void PersistGroupProfileInBackground(string gid, GroupProfileDto profile)
+    {
+        _ = Task.Run(() =>
+        {
+            try
+            {
+                var path = GroupProfileCachePath(gid);
+
+                // Une fiche que l'utilisateur a choisi de ne pas afficher n'a pas à rester sur son disque.
+                if (profile.IsNsfw && !_mareConfigService.Current.ProfilesAllowNsfw)
+                {
+                    TryDeleteFile(path);
+                    return;
+                }
+
+                Directory.CreateDirectory(GroupProfileCacheDir);
+                var entry = new GroupProfileCacheEntry
+                {
+                    Gid = gid,
+                    ProfileImageBase64 = profile.ProfileImageBase64,
+                    BorderColor = string.IsNullOrEmpty(profile.BorderColor) ? null : profile.BorderColor,
+                    IsNsfw = profile.IsNsfw,
+                    IsDisabled = profile.IsDisabled,
+                    CachedAtUtc = DateTime.UtcNow,
+                };
+
+                // Écriture sans rien changer si le contenu est identique : évite d'user le disque à chaque connexion.
+                if (File.Exists(path))
+                {
+                    var previous = JsonSerializer.Deserialize<GroupProfileCacheEntry>(File.ReadAllText(path));
+                    if (previous != null
+                        && string.Equals(previous.ProfileImageBase64, entry.ProfileImageBase64, StringComparison.Ordinal)
+                        && string.Equals(previous.BorderColor, entry.BorderColor, StringComparison.Ordinal)
+                        && previous.IsNsfw == entry.IsNsfw && previous.IsDisabled == entry.IsDisabled
+                        && DateTime.UtcNow - previous.CachedAtUtc < TimeSpan.FromDays(7))
+                        return;
+                }
+
+                var temp = path + ".tmp";
+                File.WriteAllText(temp, JsonSerializer.Serialize(entry));
+                File.Move(temp, path, overwrite: true);
+            }
+            catch (Exception ex)
+            {
+                Logger.LogDebug(ex, "Écriture du cache de profil de syncshell impossible pour {gid}", gid);
+            }
+        });
+    }
+
+    /// <summary>Supprime les profils conservés pour des syncshells que l'utilisateur n'a plus (ou périmés).</summary>
+    public void PruneGroupProfileCache(IReadOnlyCollection<string> currentGids)
+    {
+        _ = Task.Run(() =>
+        {
+            try
+            {
+                if (!Directory.Exists(GroupProfileCacheDir)) return;
+                var keep = new HashSet<string>(currentGids.Select(g => Path.GetFileName(GroupProfileCachePath(g))), StringComparer.OrdinalIgnoreCase);
+                foreach (var file in Directory.EnumerateFiles(GroupProfileCacheDir))
+                {
+                    var name = Path.GetFileName(file);
+                    var expired = DateTime.UtcNow - File.GetLastWriteTimeUtc(file) > PersistedProfileLifetime;
+                    if (!keep.Contains(name) || expired)
+                        TryDeleteFile(file);
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.LogDebug(ex, "Nettoyage du cache de profils de syncshell impossible");
+            }
+        });
+    }
+
+    private static void TryDeleteFile(string path)
+    {
+        try { File.Delete(path); }
+        catch { /* fichier déjà supprimé ou verrouillé : sans conséquence */ }
     }
 
     public void ClearGroupProfile(string gid)
     {
         _groupProfiles.TryRemove(gid, out _);
+        _diskGroupProfiles.TryRemove(gid, out _);
+        _diskGroupProfileLoads.TryRemove(gid, out _);
+        TryDeleteFile(GroupProfileCachePath(gid));
     }
 
     public UmbraProfileData GetUmbraProfile(UserData data)

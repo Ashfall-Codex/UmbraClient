@@ -123,6 +123,7 @@ internal sealed class GroupPanel
     private readonly Dictionary<string, (string? Source, Task<IDalamudTextureWrap?> Task)> _shellIconTasks = new(StringComparer.Ordinal);
     private readonly HashSet<string> _shellProfileRequests = new(StringComparer.Ordinal);
     private DateTime _lastShellProfileRequestUtc = DateTime.MinValue;
+    private bool _shellProfileCachePruned;
 
     public void ClearCache()
     {
@@ -130,6 +131,7 @@ internal sealed class GroupPanel
             pending.Task.ContinueWith(t => { if (t.IsCompletedSuccessfully) t.Result?.Dispose(); }, TaskScheduler.Default);
         _shellIconTasks.Clear();
         _shellProfileRequests.Clear();
+        _shellProfileCachePruned = false;
         _drawGroupPairCache.Clear();
         _sortedPairsCache.Clear();
         _sortedPairsLastUpdate.Clear();
@@ -1024,6 +1026,13 @@ internal sealed class GroupPanel
 
         if (groups.Count == 0) return;
 
+        if (!_shellProfileCachePruned)
+        {
+            // Une fois par session : retire du disque les profils de syncshells que l'on a quittées.
+            _shellProfileCachePruned = true;
+            _profileManager.PruneGroupProfileCache(_pairManager.GroupPairs.Keys.Select(k => k.GID).ToList());
+        }
+
         float scale = ImGuiHelpers.GlobalScale;
         float cardSpacing = 6f * scale;
         float pad = 10f * scale;
@@ -1239,14 +1248,22 @@ internal sealed class GroupPanel
 
     private GroupProfileDto? GetShellProfile(GroupFullInfoDto groupDto)
     {
-        var cached = _profileManager.GetGroupProfile(groupDto.GID);
-        if (cached != null) return cached;
+        // Profil confirmé par le serveur cette session (requête ou mise à jour poussée).
+        var live = _profileManager.GetGroupProfile(groupDto.GID);
+        if (live != null) return live;
 
-        if (DateTime.UtcNow - _lastShellProfileRequestUtc < TimeSpan.FromMilliseconds(400)) return null;
-        if (!_shellProfileRequests.Add(groupDto.GID)) return null;
-        _lastShellProfileRequestUtc = DateTime.UtcNow;
-        _ = FetchShellProfileAsync(groupDto);
-        return null;
+        // En attendant la confirmation : la copie gardée sur le disque, affichée aussitôt. Si l'image a changé
+        // entre-temps, la relecture ci-dessous la remplace ; sinon rien ne bouge à l'écran.
+        var fromDisk = _profileManager.GetCachedGroupProfile(groupDto.GID);
+
+        if (DateTime.UtcNow - _lastShellProfileRequestUtc >= TimeSpan.FromMilliseconds(400)
+            && _shellProfileRequests.Add(groupDto.GID))
+        {
+            _lastShellProfileRequestUtc = DateTime.UtcNow;
+            _ = FetchShellProfileAsync(groupDto);
+        }
+
+        return fromDisk;
     }
 
     private async Task FetchShellProfileAsync(GroupFullInfoDto groupDto)
