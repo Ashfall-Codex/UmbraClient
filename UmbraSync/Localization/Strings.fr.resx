@@ -7767,4 +7767,80 @@ Les modérateurs peuvent exclure, bannir, épingler les membres et nettoyer la S
     <value>Maintenez CTRL+MAJ et cliquez pour transférer la propriété de la Syncshell à {0}.
 ATTENTION : cette action est irréversible.</value>
   </data>
+  <data name="CharaDataHub.Mcdf.Server.Title" xml:space="preserve">
+    <value>Sur le serveur</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Server.Summary" xml:space="preserve">
+    <value>{0} MCDF · {1}</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Server.Help" xml:space="preserve">
+    <value>Les MCDF envoyés sur le serveur. Ceux qui portent l'icône de groupe sont partagés avec des paires ou des syncshells ; les autres ne sont visibles que par vous.
+« Générer un MCDF » capture votre apparence actuelle et l'envoie directement sur le serveur.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.NoResults" xml:space="preserve">
+    <value>Aucun résultat pour cette recherche.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Row.Downloads" xml:space="preserve">
+    <value>{0} téléch.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Row.Expires" xml:space="preserve">
+    <value>expire le {0}</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Local.CardTitle" xml:space="preserve">
+    <value>Sur mon ordinateur</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Local.Summary" xml:space="preserve">
+    <value>{0} fichier(s) · {1}</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Export.Tooltip" xml:space="preserve">
+    <value>Enregistrer votre apparence actuelle dans un fichier .mcdf</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Import.Tooltip" xml:space="preserve">
+    <value>Charger un fichier .mcdf reçu de quelqu'un</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Export.Title" xml:space="preserve">
+    <value>Exporter mon apparence</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Export.Help" xml:space="preserve">
+    <value>Compresse votre personnage dans un fichier MCDF que vous pouvez envoyer vous-même à d'autres personnes. Les fichiers MCDF s'importent pendant le GPose. Des exporteurs non officiels peuvent extraire les données qu'il contient.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Export.Consent" xml:space="preserve">
+    <value>Je comprends qu'en exportant les données de mon personnage dans un fichier et en les envoyant à d'autres personnes, je cède irrévocablement l'apparence actuelle de mon personnage. Les personnes avec qui je partage mes données peuvent les partager à leur tour sans aucune limite.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Export.DescriptionHint" xml:space="preserve">
+    <value>Description affichée au chargement du fichier</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Export.Button" xml:space="preserve">
+    <value>Exporter en MCDF</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Export.DialogTitle" xml:space="preserve">
+    <value>Exporter le personnage dans un fichier</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Export.Note" xml:space="preserve">
+    <value>Pour un résultat fidèle, portez l'apparence voulue avec tous ses mods actifs, puis redessinez votre personnage avant d'exporter.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Delete.ServerConfirm" xml:space="preserve">
+    <value>Supprimer « {0} » du serveur ? Les personnes avec qui il est partagé n'y auront plus accès.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Delete.LocalConfirm" xml:space="preserve">
+    <value>Supprimer le fichier « {0} » de votre ordinateur ?</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Share.Add" xml:space="preserve">
+    <value>Ajouter</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Share.Remove" xml:space="preserve">
+    <value>Retirer</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Share.RevokeAll" xml:space="preserve">
+    <value>Retirer tous les accès</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Share.RevokeAllTooltip" xml:space="preserve">
+    <value>Le MCDF reste sur le serveur, mais plus aucune paire ni syncshell n'y a accès.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Action.Export" xml:space="preserve">
+    <value>Exporter mon apparence</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Action.Import" xml:space="preserve">
+    <value>Importer un fichier MCDF</value>
+  </data>
 </root>

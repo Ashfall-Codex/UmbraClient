@@ -7857,4 +7857,80 @@ Moderators can kick, ban and pin members and clean up the Syncshell.</value>
     <value>Hold CTRL+SHIFT and click to transfer ownership of the Syncshell to {0}.
 WARNING: this cannot be undone.</value>
   </data>
+  <data name="CharaDataHub.Mcdf.Server.Title" xml:space="preserve">
+    <value>On the server</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Server.Summary" xml:space="preserve">
+    <value>{0} MCDF · {1}</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Server.Help" xml:space="preserve">
+    <value>MCDF files uploaded to the server. Those with the group icon are shared with pairs or Syncshells; the others are only visible to you.
+"Generate MCDF" captures your current appearance and uploads it straight to the server.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.NoResults" xml:space="preserve">
+    <value>No results for this search.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Row.Downloads" xml:space="preserve">
+    <value>{0} DL</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Row.Expires" xml:space="preserve">
+    <value>expires {0}</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Local.CardTitle" xml:space="preserve">
+    <value>On my computer</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Local.Summary" xml:space="preserve">
+    <value>{0} file(s) · {1}</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Export.Tooltip" xml:space="preserve">
+    <value>Save your current appearance to a .mcdf file</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Import.Tooltip" xml:space="preserve">
+    <value>Load a .mcdf file you received from someone</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Export.Title" xml:space="preserve">
+    <value>Export my appearance</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Export.Help" xml:space="preserve">
+    <value>Packs your character into an MCDF file that you can send to other people yourself. MCDF files are imported during GPose. Unofficial exporters may be able to extract the data it contains.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Export.Consent" xml:space="preserve">
+    <value>I understand that by exporting my character data to a file and sending it to other people, I irrevocably give away my character's current appearance. The people I share my data with can share it further without any limitation.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Export.DescriptionHint" xml:space="preserve">
+    <value>Description shown when the file is loaded</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Export.Button" xml:space="preserve">
+    <value>Export as MCDF</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Export.DialogTitle" xml:space="preserve">
+    <value>Export character to file</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Export.Note" xml:space="preserve">
+    <value>For best results, wear the intended appearance with all its mods enabled, then redraw your character before exporting.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Delete.ServerConfirm" xml:space="preserve">
+    <value>Delete "{0}" from the server? The people it is shared with will lose access to it.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Delete.LocalConfirm" xml:space="preserve">
+    <value>Delete the file "{0}" from your computer?</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Share.Add" xml:space="preserve">
+    <value>Add</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Share.Remove" xml:space="preserve">
+    <value>Remove</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Share.RevokeAll" xml:space="preserve">
+    <value>Remove all access</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Share.RevokeAllTooltip" xml:space="preserve">
+    <value>The MCDF stays on the server, but no pair or Syncshell can access it anymore.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Action.Export" xml:space="preserve">
+    <value>Export my appearance</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Action.Import" xml:space="preserve">
+    <value>Import an MCDF file</value>
+  </data>
 </root>

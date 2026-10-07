@@ -1041,13 +1041,24 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
         return hovered;
     }
 
-    public static void DrawCardTitle(FontAwesomeIcon icon, string title, Vector4? accent = null)
+    // trailing : résumé gris calé à droite sur la ligne du titre (compteur, taille…), avec son infobulle.
+    public static void DrawCardTitle(FontAwesomeIcon icon, string title, Vector4? accent = null,
+        string? trailing = null, string? trailingTooltip = null)
     {
         var color = accent ?? AccentColor;
         using (ImRaii.PushFont(UiBuilder.IconFont))
             ImGui.TextColored(color, icon.ToIconString());
         ImGui.SameLine();
         ImGui.TextColored(color, title);
+        if (!string.IsNullOrEmpty(trailing))
+        {
+            float trailingWidth = ImGui.CalcTextSize(trailing).X;
+            ImGui.SameLine();
+            ImGui.SetCursorPosX(MathF.Max(ImGui.GetCursorPosX(), ImGui.GetCursorPosX() + ImGui.GetContentRegionAvail().X - trailingWidth));
+            ImGui.TextColored(ImGuiColors.DalamudGrey, trailing);
+            if (!string.IsNullOrEmpty(trailingTooltip))
+                AttachToolTip(trailingTooltip);
+        }
         ImGuiHelpers.ScaledDummy(2f);
     }
 
@@ -1058,7 +1069,7 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
     // un return anticipé inoffensif. La dernière se ferme avec EndSectionCard.
     // Une section s'ouvre et se ferme dans la même fenêtre : la fermer avant d'entrer dans un Child.
     // Canaux : 0 fond de section, 1 fond d'une DrawCard posée dedans, 2 contenu.
-    public static void BeginSectionCard(string title, FontAwesomeIcon icon)
+    public static void BeginSectionCard(string title, FontAwesomeIcon icon, string? trailing = null, string? trailingTooltip = null)
     {
         EndSectionCard();
 
@@ -1073,7 +1084,7 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
         ImGuiHelpers.ScaledDummy(4f);
         ImGui.Indent(padding);
         ShiftContentRight(-padding);
-        DrawCardTitle(icon, title);
+        DrawCardTitle(icon, title, trailing: trailing, trailingTooltip: trailingTooltip);
         ImGui.PushTextWrapPos(ImGui.GetCursorPosX() + availWidth - padding * 2f);
     }
 

@@ -128,8 +128,6 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
     private string _mcdfShareTargetName = string.Empty;
     private string _mcdfNewFolderName = string.Empty;
     private bool _mcdfShowNewFolderInput;
-    private string _mcdfFolderToDelete = string.Empty;
-    private bool _mcdfDeleteFolderModalOpen = true;
     private UmbraSync.API.Dto.McdfShare.McdfShareEntryDto? _mcdfDownloadEntry;
     private string _mcdfDownloadFolder = string.Empty;
     private string _mcdfDownloadNewFolder = string.Empty;
@@ -1119,133 +1117,6 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
         return count;
     }
 
-    private void DrawMcdfImport()
-    {
-        UiSharedService.BeginSectionCard(Loc.Get("CharaDataHub.Mcdf.Import.Title"), FontAwesomeIcon.FileImport);
-
-        DrawHelpFoldout(Loc.Get("CharaDataHub.Mcdf.Import.Help"));
-
-        ImGuiHelpers.ScaledDummy(5);
-
-        if (_charaDataManager.LoadedMcdfHeader == null || _charaDataManager.LoadedMcdfHeader.IsCompleted)
-        {
-            if (_uiSharedService.IconTextButton(FontAwesomeIcon.FolderOpen, Loc.Get("CharaDataHub.Mcdf.Import.Load")))
-            {
-                _fileDialogManager.OpenFileDialog(Loc.Get("CharaDataHub.Mcdf.Import.PickFile"), ".mcdf", (success, paths) =>
-                {
-                    if (!success) return;
-                    if (paths.FirstOrDefault() is not { } path) return;
-
-                    _configService.Current.LastSavedCharaDataLocation = Path.GetDirectoryName(path) ?? string.Empty;
-                    _configService.Save();
-
-                    _charaDataManager.LoadMcdf(path);
-                }, 1, Directory.Exists(_configService.Current.LastSavedCharaDataLocation) ? _configService.Current.LastSavedCharaDataLocation : null);
-            }
-            UiSharedService.AttachToolTip(Loc.Get("CharaDataHub.Mcdf.Import.LoadTooltip"));
-            if ((_charaDataManager.LoadedMcdfHeader?.IsCompleted ?? false))
-            {
-                ImGui.TextUnformatted(Loc.Get("CharaDataHub.Mcdf.Import.LoadedFile"));
-                ImGui.SameLine(200);
-                UiSharedService.TextWrapped(_charaDataManager.LoadedMcdfHeader.Result.LoadedFile.FilePath);
-                ImGui.TextUnformatted(Loc.Get("CharaDataHub.Apply.Description"));
-                ImGui.SameLine(200);
-                UiSharedService.TextWrapped(_charaDataManager.LoadedMcdfHeader.Result.LoadedFile.CharaFileData.Description);
-
-                ImGuiHelpers.ScaledDummy(5);
-
-                var mcdfLocalFolder = _configService.Current.McdfLocalFolder;
-                if (!string.IsNullOrEmpty(mcdfLocalFolder))
-                {
-                    var importDir = Path.Combine(mcdfLocalFolder, "Import");
-                    var sourcePath = _charaDataManager.LoadedMcdfHeader.Result.LoadedFile.FilePath;
-                    var fileName = Path.GetFileName(sourcePath);
-                    var destPath = Path.Combine(importDir, fileName);
-                    bool alreadyExists = File.Exists(destPath);
-
-                    using (ImRaii.Disabled(alreadyExists))
-                    {
-                        if (_uiSharedService.IconTextButton(FontAwesomeIcon.Save, Loc.Get("CharaDataHub.Mcdf.Import.SaveToImport")))
-                        {
-                            try
-                            {
-                                Directory.CreateDirectory(importDir);
-                                File.Copy(sourcePath, destPath, false);
-                                _localMcdfScanTime = DateTime.MinValue;
-                            }
-                            catch (Exception ex)
-                            {
-                                _logger.LogError(ex, "Failed to copy MCDF to import folder");
-                            }
-                        }
-                    }
-                    if (alreadyExists)
-                        UiSharedService.AttachToolTip(Loc.Get("CharaDataHub.Mcdf.Import.AlreadyExists"));
-                    else
-                        UiSharedService.AttachToolTip(string.Format(CultureInfo.CurrentCulture, Loc.Get("CharaDataHub.Mcdf.Import.SaveToImportTooltip"), importDir));
-                }
-                else
-                {
-                    UiSharedService.ColorTextWrapped(Loc.Get("CharaDataHub.Mcdf.Import.NoFolderConfigured"), ImGuiColors.DalamudGrey);
-                }
-
-                ImGuiHelpers.ScaledDummy(5);
-                UiSharedService.ColorTextWrapped(Loc.Get("CharaDataHub.Mcdf.Import.ApplyHint"), ImGuiColors.DalamudGrey);
-            }
-            if ((_charaDataManager.LoadedMcdfHeader?.IsFaulted ?? false) || (_charaDataManager.McdfApplicationTask?.IsFaulted ?? false))
-            {
-                UiSharedService.ColorTextWrapped(Loc.Get("CharaDataHub.Mcdf.Import.ReadError"),
-                    UiSharedService.AccentColor);
-                UiSharedService.ColorTextWrapped(Loc.Get("CharaDataHub.Mcdf.Import.ReadErrorNote"), UiSharedService.AccentColor);
-            }
-        }
-        else
-        {
-            UiSharedService.ColorTextWrapped(Loc.Get("CharaDataHub.Mcdf.Import.Loading"), UiSharedService.AccentColor);
-        }
-    }
-
-    private void DrawMcdfExport()
-    {
-        UiSharedService.BeginSectionCard("Export de fichier MCDF", FontAwesomeIcon.FileExport);
-
-        DrawHelpFoldout("Cette fonctionnalité vous permet de compresser votre personnage dans un fichier MCDF et de l'envoyer manuellement à d'autres personnes. Les fichiers MCDF peuvent être importés pendant le GPose. " +
-            "Sachez qu'il est possible que des personnes créent des exporteurs non officiels pour extraire les données contenues.");
-
-        ImGuiHelpers.ScaledDummy(5);
-
-        ImGui.Checkbox("##readExport", ref _readExport);
-        ImGui.SameLine();
-        UiSharedService.TextWrapped("Je comprends qu'en exportant les données de mon personnage dans un fichier et en les envoyant à d'autres personnes, je cède irrévocablement l'apparence actuelle de mon personnage. Les personnes avec qui je partage mes données ont la possibilité de les partager avec d'autres sans aucune limitation.");
-
-        if (_readExport)
-        {
-            ImGui.Indent();
-
-            ImGui.InputTextWithHint("Description de l'export", "Cette description sera affichée lors du chargement des données", ref _exportDescription, 255);
-            if (_uiSharedService.IconTextButton(FontAwesomeIcon.Save, "Exporter le personnage en MCDF"))
-            {
-                string defaultFileName = string.IsNullOrEmpty(_exportDescription)
-                    ? "export.mcdf"
-                    : SanitizeFileName(_exportDescription, "export") + ".mcdf";
-                _uiSharedService.FileDialogManager.SaveFileDialog("Export Character to file", ".mcdf", defaultFileName, ".mcdf", (success, path) =>
-                {
-                    if (!success) return;
-
-                    _configService.Current.LastSavedCharaDataLocation = Path.GetDirectoryName(path) ?? string.Empty;
-                    _configService.Save();
-
-                    _charaDataManager.SaveMareCharaFile(_exportDescription, path);
-                    _exportDescription = string.Empty;
-                }, Directory.Exists(_configService.Current.LastSavedCharaDataLocation) ? _configService.Current.LastSavedCharaDataLocation : null);
-            }
-            UiSharedService.ColorTextWrapped("Note: For best results make sure you have everything you want to be shared as well as the correct character appearance" +
-                " equipped and redraw your character before exporting.", UiSharedService.AccentColor);
-
-            ImGui.Unindent();
-        }
-    }
-
     private void BeginMcdfShare(string sourceId, bool isLocal, string name,
         IEnumerable<string>? individuals = null, IEnumerable<string>? syncshells = null, DateTime? expiresAtUtc = null)
     {
@@ -1291,7 +1162,7 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
         }
 
         ImGuiHelpers.ScaledDummy(3);
-        ImGui.InputTextWithHint("##mcdfShareDescription", "Description", ref _mcdfShareDescription, 128);
+        ImGui.InputTextWithHint("##mcdfShareDescription", Loc.Get("CharaDataHub.Mcd.Online.Table.Description"), ref _mcdfShareDescription, 128);
         ImGui.InputInt(Loc.Get("CharaDataHub.Mcdf.Share.Expiration"), ref _mcdfShareExpireDays);
 
         DrawMcdfShareIndividualDropdown();
@@ -1306,7 +1177,7 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
         using (ImRaii.Disabled(string.IsNullOrEmpty(normalizedUid)
             || _mcdfShareAllowedIndividuals.Any(p => string.Equals(p, normalizedUid, StringComparison.OrdinalIgnoreCase))))
         {
-            if (ImGui.SmallButton("Ajouter"))
+            if (ImGui.SmallButton(Loc.Get("CharaDataHub.Mcdf.Share.Add")))
             {
                 _mcdfShareAllowedIndividuals.Add(normalizedUid);
                 _mcdfShareIndividualInput = string.Empty;
@@ -1323,7 +1194,7 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
             {
                 ImGui.BulletText(FormatPairLabel(uid));
                 ImGui.SameLine();
-                if (ImGui.SmallButton("Retirer"))
+                if (ImGui.SmallButton(Loc.Get("CharaDataHub.Mcdf.Share.Remove")))
                 {
                     _mcdfShareAllowedIndividuals.Remove(uid);
                 }
@@ -1342,7 +1213,7 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
         using (ImRaii.Disabled(string.IsNullOrEmpty(normalizedSyncshell)
             || _mcdfShareAllowedSyncshells.Any(p => string.Equals(p, normalizedSyncshell, StringComparison.OrdinalIgnoreCase))))
         {
-            if (ImGui.SmallButton("Ajouter"))
+            if (ImGui.SmallButton(Loc.Get("CharaDataHub.Mcdf.Share.Add")))
             {
                 _mcdfShareAllowedSyncshells.Add(normalizedSyncshell);
                 _mcdfShareSyncshellInput = string.Empty;
@@ -1359,7 +1230,7 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
             {
                 ImGui.BulletText(FormatSyncshellLabel(shell));
                 ImGui.SameLine();
-                if (ImGui.SmallButton("Retirer"))
+                if (ImGui.SmallButton(Loc.Get("CharaDataHub.Mcdf.Share.Remove")))
                 {
                     _mcdfShareAllowedSyncshells.Remove(shell);
                 }
@@ -1397,102 +1268,29 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
         {
             ResetMcdfShare();
         }
-    }
 
-    private void DrawMcdfMyShares()
-    {
-        UiSharedService.BeginSectionCard(Loc.Get("CharaDataHub.Mcdf.Share.MyShares"), FontAwesomeIcon.List);
-
-        if (_mcdfShareManager.IsBusy)
+        // Remplace l'ancien « Révoquer » de la liste des partages : le MCDF reste sur le serveur, plus personne n'y a accès.
+        if (!_mcdfShareSourceIsLocal && Guid.TryParse(_mcdfShareSourceId, out var revokeId)
+            && _mcdfShareManager.OwnShares.FirstOrDefault(e => e.Id == revokeId) is { } current
+            && (current.AllowedIndividuals.Count > 0 || current.AllowedSyncshells.Count > 0))
         {
-            UiSharedService.ColorTextWrapped(Loc.Get("CharaDataHub.Mcdf.Local.Uploading"), ImGuiColors.DalamudYellow);
-        }
-        else if (!string.IsNullOrEmpty(_mcdfShareManager.LastError))
-        {
-            UiSharedService.ColorTextWrapped(_mcdfShareManager.LastError!, ImGuiColors.DalamudRed);
-        }
-        else if (!string.IsNullOrEmpty(_mcdfShareManager.LastSuccess))
-        {
-            UiSharedService.ColorTextWrapped(_mcdfShareManager.LastSuccess!, ImGuiColors.HealerGreen);
-        }
-
-        var sharedEntries = _mcdfShareManager.OwnShares.Where(s => s.AllowedIndividuals.Count > 0 || s.AllowedSyncshells.Count > 0).ToList();
-
-        if (sharedEntries.Count == 0)
-        {
-            UiSharedService.ColorTextWrapped(Loc.Get("CharaDataHub.Mcdf.Share.NoShares"), ImGuiColors.DalamudGrey);
-        }
-        else if (ImGui.BeginTable("mcdf-share-list", 6, ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.RowBg | ImGuiTableFlags.BordersOuter | ImGuiTableFlags.PadOuterX))
-        {
-            ImGui.TableSetupColumn("Description", ImGuiTableColumnFlags.WidthStretch);
-            ImGui.TableSetupColumn(Loc.Get("CharaDataHub.Mcdf.Local.ColDate"), ImGuiTableColumnFlags.WidthFixed, 150);
-            ImGui.TableSetupColumn(Loc.Get("CharaDataHub.Apply.SharedWithYou.Expires"), ImGuiTableColumnFlags.WidthFixed, 80);
-            ImGui.TableSetupColumn(Loc.Get("CharaDataHub.Mcdf.Share.Access"), ImGuiTableColumnFlags.WidthFixed, 160);
-            ImGui.TableSetupColumn(Loc.Get("CharaDataHub.Mcdf.OwnShares.Downloads"), ImGuiTableColumnFlags.WidthFixed, 40);
-            var style2 = ImGui.GetStyle();
-            float Bw(string l) => ImGui.CalcTextSize(l).X + style2.FramePadding.X * 2f;
-            float actW2 = Bw(Loc.Get("CharaDataHub.Mcdf.Local.Delete")) + 2f;
-            ImGui.TableSetupColumn("", ImGuiTableColumnFlags.WidthFixed, actW2);
-            ImGui.TableHeadersRow();
-
-            foreach (var entry in sharedEntries)
+            ImGui.SameLine();
+            using (ImRaii.Disabled(_mcdfShareManager.IsBusy))
             {
-                ImGui.TableNextRow(ImGuiTableRowFlags.None, 26f);
-                using var rowId = ImRaii.PushId("shareList" + entry.Id);
-
-                ImGui.TableNextColumn();
-                ImGui.AlignTextToFramePadding();
-                ImGui.TextUnformatted(string.IsNullOrEmpty(entry.Description) ? entry.Id.ToString("D", CultureInfo.InvariantCulture) : entry.Description);
-
-                ImGui.TableNextColumn();
-                ImGui.AlignTextToFramePadding();
-                ImGui.TextUnformatted(entry.CreatedUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm"));
-
-                ImGui.TableNextColumn();
-                ImGui.AlignTextToFramePadding();
-                ImGui.TextUnformatted(entry.ExpiresAtUtc.HasValue ? entry.ExpiresAtUtc.Value.ToLocalTime().ToString("dd/MM/yyyy") : Loc.Get("CharaDataHub.Apply.Never"));
-
-                ImGui.TableNextColumn();
-                ImGui.AlignTextToFramePadding();
-                ImGui.TextUnformatted(string.Format(CultureInfo.CurrentCulture, Loc.Get("CharaDataHub.Mcdf.Share.AccessSummary"), entry.AllowedIndividuals.Count, entry.AllowedSyncshells.Count));
-                if (ImGui.IsItemHovered())
-                {
-                    ImGui.BeginTooltip();
-                    if (entry.AllowedIndividuals.Count > 0)
-                    {
-                        ImGui.TextUnformatted(Loc.Get("CharaDataHub.Mcdf.Share.AllowedUids"));
-                        foreach (var uid in entry.AllowedIndividuals)
-                            ImGui.BulletText(FormatUidWithName(uid));
-                    }
-                    if (entry.AllowedSyncshells.Count > 0)
-                    {
-                        if (entry.AllowedIndividuals.Count > 0) ImGui.Separator();
-                        ImGui.TextUnformatted(Loc.Get("CharaDataHub.Mcdf.Share.AllowedSyncshells"));
-                        foreach (var gid in entry.AllowedSyncshells)
-                            ImGui.BulletText(FormatSyncshellLabel(gid));
-                    }
-                    ImGui.EndTooltip();
-                }
-
-                ImGui.TableNextColumn();
-                ImGui.AlignTextToFramePadding();
-                ImGui.TextUnformatted(entry.DownloadCount.ToString(CultureInfo.CurrentCulture));
-
-                ImGui.TableNextColumn();
-                if (ImGui.SmallButton(Loc.Get("CharaDataHub.Mcdf.Share.Revoke")))
+                if (ImGui.Button(Loc.Get("CharaDataHub.Mcdf.Share.RevokeAll")))
                 {
                     _ = _mcdfShareManager.UpdateShareAsync(new UmbraSync.API.Dto.McdfShare.McdfShareUpdateRequestDto
                     {
-                        ShareId = entry.Id,
-                        Description = entry.Description,
+                        ShareId = current.Id,
+                        Description = current.Description,
                         AllowedIndividuals = [],
                         AllowedSyncshells = [],
-                        ExpiresAtUtc = entry.ExpiresAtUtc,
+                        ExpiresAtUtc = current.ExpiresAtUtc,
                     });
+                    ResetMcdfShare();
                 }
             }
-
-            ImGui.EndTable();
+            UiSharedService.AttachToolTip(Loc.Get("CharaDataHub.Mcdf.Share.RevokeAllTooltip"));
         }
     }
 
