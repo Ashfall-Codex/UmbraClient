@@ -335,40 +335,13 @@ public class AutoDetectUi : WindowMediatorSubscriberBase
 
             UiSharedService.DrawCard("nearby-" + i, () =>
             {
+                float rowTop = ImGui.GetCursorPosY();
                 DrawNearbyPortrait(entry, rpProfile, hasRp ? rpName : displayName, nameColor);
                 ImGui.SameLine();
                 ImGui.BeginGroup();
 
                 ImGui.AlignTextToFramePadding();
                 UiSharedService.ColorText(hasRp ? rpName : displayName, nameColor);
-
-                string actionLabel = canInvite ? Loc.Get("AutoDetectUi.Nearby.InviteButton") : status;
-                float buttonWidth = ImGui.CalcTextSize(actionLabel).X + ImGui.GetStyle().FramePadding.X * 2f + 12f * scale;
-                float actionWidth = canInvite ? buttonWidth : ImGui.CalcTextSize(actionLabel).X;
-
-                ImGui.SameLine();
-                ImGui.SetCursorPosX(MathF.Max(ImGui.GetCursorPosX(), rightEdge - actionWidth));
-                if (canInvite)
-                {
-                    using (ImRaii.PushColor(ImGuiCol.Button, UiSharedService.AccentColor))
-                    using (ImRaii.PushColor(ImGuiCol.ButtonHovered, UiSharedService.ThemeSliderGrabActive))
-                    {
-                        if (ImGui.Button(actionLabel, new Vector2(buttonWidth, 0)))
-                        {
-                            _ = _requestService.SendRequestAsync(entry.Token!, entry.Uid, entry.DisplayName);
-                        }
-                    }
-                    UiSharedService.AttachToolTip(Loc.Get("AutoDetectUi.Nearby.InviteTooltip"));
-                }
-                else
-                {
-                    ImGui.AlignTextToFramePadding();
-                    UiSharedService.ColorText(actionLabel, alreadyPaired ? ImGuiColors.HealerGreen : ImGuiColors.DalamudGrey);
-                    if (!string.IsNullOrEmpty(reason))
-                    {
-                        UiSharedService.AttachToolTip(reason);
-                    }
-                }
 
                 // Sous le nom RP : le titre, ou à défaut le pseudo, pour toujours savoir qui est la personne.
                 if (hasRp)
@@ -393,6 +366,38 @@ public class AutoDetectUi : WindowMediatorSubscriberBase
                         ImGui.TextColored(ImGuiColors.DalamudGrey3, role);
                 }
                 ImGui.EndGroup();
+
+                float textRight = ImGui.GetItemRectMax().X - ImGui.GetWindowPos().X + ImGui.GetScrollX();
+                float rowHeight = ImGui.GetCursorPosY() - ImGui.GetStyle().ItemSpacing.Y - rowTop;
+
+                string actionLabel = canInvite ? Loc.Get("AutoDetectUi.Nearby.InviteButton") : status;
+                float buttonWidth = ImGui.CalcTextSize(actionLabel).X + ImGui.GetStyle().FramePadding.X * 2f + 12f * scale;
+                float actionWidth = canInvite ? buttonWidth : ImGui.CalcTextSize(actionLabel).X;
+
+                ImGui.SetCursorPos(new Vector2(
+                    MathF.Max(textRight + ImGui.GetStyle().ItemSpacing.X, rightEdge - actionWidth),
+                    rowTop + MathF.Max(0f, (rowHeight - ImGui.GetFrameHeight()) / 2f)));
+                if (canInvite)
+                {
+                    using (ImRaii.PushColor(ImGuiCol.Button, UiSharedService.AccentColor))
+                    using (ImRaii.PushColor(ImGuiCol.ButtonHovered, UiSharedService.ThemeSliderGrabActive))
+                    {
+                        if (ImGui.Button(actionLabel, new Vector2(buttonWidth, 0)))
+                        {
+                            _ = _requestService.SendRequestAsync(entry.Token!, entry.Uid, entry.DisplayName);
+                        }
+                    }
+                    UiSharedService.AttachToolTip(Loc.Get("AutoDetectUi.Nearby.InviteTooltip"));
+                }
+                else
+                {
+                    ImGui.AlignTextToFramePadding();
+                    UiSharedService.ColorText(actionLabel, alreadyPaired ? ImGuiColors.HealerGreen : ImGuiColors.DalamudGrey);
+                    if (!string.IsNullOrEmpty(reason))
+                    {
+                        UiSharedService.AttachToolTip(reason);
+                    }
+                }
             }, stretchWidth: true);
             ImGuiHelpers.ScaledDummy(4);
         }
@@ -606,7 +611,10 @@ public class AutoDetectUi : WindowMediatorSubscriberBase
 
         UiSharedService.DrawCard("syncshell-" + entry.GID, () =>
         {
-            // Nom à gauche, action à droite : c'est la ligne qu'on lit en parcourant la liste.
+            // Nom et ligne propriétaire/membres à gauche, action à droite centrée sur ces deux lignes.
+            // Tags et description restent dessous, en pleine largeur.
+            float rowTop = ImGui.GetCursorPosY();
+            float rowStartX = ImGui.GetCursorPosX();
             ImGui.AlignTextToFramePadding();
             if (entry.IsNsfw)
             {
@@ -614,6 +622,29 @@ public class AutoDetectUi : WindowMediatorSubscriberBase
                 ImGui.SameLine();
             }
             UiSharedService.ColorText(string.IsNullOrEmpty(entry.Alias) ? entry.GID : entry.Alias, UiSharedService.ThemeNavTextActive);
+            float nameRight = ImGui.GetItemRectMax().X - ImGui.GetWindowPos().X + ImGui.GetScrollX();
+
+            float iconColumn = 24f * scale;
+            float gap = 18f * scale;
+            float membersStart = iconColumn + ownerWidth + gap;
+            float barStart = membersStart + iconColumn + membersWidth + 10f * scale;
+
+            DrawSyncshellIcon(FontAwesomeIcon.Crown);
+            ImGui.SameLine(iconColumn);
+            UiSharedService.ColorText(SyncshellOwner(entry), ImGuiColors.DalamudGrey);
+            UiSharedService.AttachToolTip(Loc.Get("AutoDetectUi.Syncshell.Table.Owner"));
+
+            ImGui.SameLine(membersStart);
+            DrawSyncshellIcon(FontAwesomeIcon.Users);
+            ImGui.SameLine(membersStart + iconColumn);
+            UiSharedService.ColorText(SyncshellMembers(entry), ImGuiColors.DalamudGrey);
+            UiSharedService.AttachToolTip(Loc.Get("AutoDetectUi.Syncshell.Table.Members"));
+
+            if (entry.MaxUserCount > 0)
+            {
+                ImGui.SameLine(barStart);
+                DrawSyncshellFillBar(entry.MemberCount / (float)entry.MaxUserCount);
+            }
 
             string actionLabel = alreadyMember ? Loc.Get("AutoDetectUi.Syncshell.Status.Member")
                 : joining ? Loc.Get("AutoDetectUi.Syncshell.Status.Joining")
@@ -622,8 +653,11 @@ public class AutoDetectUi : WindowMediatorSubscriberBase
             // Un état se cale sur le bord droit du bouton qu'il remplace, pas sur son bord gauche.
             float actionWidth = alreadyMember || joining ? ImGui.CalcTextSize(actionLabel).X : buttonWidth;
 
-            ImGui.SameLine();
-            ImGui.SetCursorPosX(MathF.Max(ImGui.GetCursorPosX(), rightEdge - actionWidth));
+            float afterHeaderY = ImGui.GetCursorPosY();
+            float headerHeight = afterHeaderY - ImGui.GetStyle().ItemSpacing.Y - rowTop;
+            ImGui.SetCursorPos(new Vector2(
+                MathF.Max(nameRight + ImGui.GetStyle().ItemSpacing.X, rightEdge - actionWidth),
+                rowTop + MathF.Max(0f, (headerHeight - ImGui.GetFrameHeight()) / 2f)));
             if (alreadyMember)
             {
                 ImGui.AlignTextToFramePadding();
@@ -647,27 +681,10 @@ public class AutoDetectUi : WindowMediatorSubscriberBase
                 }
             }
 
-            float iconColumn = 24f * scale;
-            float gap = 18f * scale;
-            float membersStart = iconColumn + ownerWidth + gap;
-            float barStart = membersStart + iconColumn + membersWidth + 10f * scale;
-
-            DrawSyncshellIcon(FontAwesomeIcon.Crown);
-            ImGui.SameLine(iconColumn);
-            UiSharedService.ColorText(SyncshellOwner(entry), ImGuiColors.DalamudGrey);
-            UiSharedService.AttachToolTip(Loc.Get("AutoDetectUi.Syncshell.Table.Owner"));
-
-            ImGui.SameLine(membersStart);
-            DrawSyncshellIcon(FontAwesomeIcon.Users);
-            ImGui.SameLine(membersStart + iconColumn);
-            UiSharedService.ColorText(SyncshellMembers(entry), ImGuiColors.DalamudGrey);
-            UiSharedService.AttachToolTip(Loc.Get("AutoDetectUi.Syncshell.Table.Members"));
-
-            if (entry.MaxUserCount > 0)
-            {
-                ImGui.SameLine(barStart);
-                DrawSyncshellFillBar(entry.MemberCount / (float)entry.MaxUserCount);
-            }
+            // Retour sous l'en-tête uniquement s'il reste du contenu : un SetCursorPos sans item derrière
+            // étendrait la carte et déclencherait l'assertion d'ImGui.
+            if (entry.Tags is { Length: > 0 } || !string.IsNullOrEmpty(entry.Description))
+                ImGui.SetCursorPos(new Vector2(rowStartX, afterHeaderY));
 
             if (entry.Tags is { Length: > 0 })
             {

@@ -1947,6 +1947,7 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
             var dl = ImGui.GetWindowDrawList();
 
             // Portrait (left side)
+            var rowTop = ImGui.GetCursorPosY();
             var portraitStart = ImGui.GetCursorScreenPos();
             var portraitRounding = 10f * ImGuiHelpers.GlobalScale;
             if (cached.Texture != null && cached.Texture.Handle != IntPtr.Zero && imgData.Length > 0)
@@ -2018,13 +2019,16 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
             ImGui.PopTextWrapPos();
             ImGui.EndGroup();
 
-            // Open button — right-aligned
+            // Bouton calé à droite, centré sur la hauteur de la rangée (portrait ou texte, le plus haut des deux).
             var pair = _pairManager.GetPairByUID(key.User.UID);
             if (pair != null)
             {
-                var btnSize = _uiSharedService.GetIconTextButtonSize(FontAwesomeIcon.ExternalLinkAlt, Loc.Get("Settings.ProfileBrowser.OpenProfile"));
-                ImGui.SameLine(ImGui.GetContentRegionAvail().X - btnSize - ImGui.GetStyle().ItemSpacing.X * 3 + ImGui.GetCursorPosX());
-                if (_uiSharedService.IconTextButton(FontAwesomeIcon.ExternalLinkAlt, Loc.Get("Settings.ProfileBrowser.OpenProfile")))
+                var rowHeight = ImGui.GetCursorPosY() - ImGui.GetStyle().ItemSpacing.Y - rowTop;
+                var btnSize = _uiSharedService.GetIconTextButtonSize(FontAwesomeIcon.ExternalLinkAlt, openLabel);
+                ImGui.SetCursorPos(new Vector2(
+                    ImGui.GetContentRegionAvail().X - btnSize - ImGui.GetStyle().ItemSpacing.X * 3 + ImGui.GetCursorPosX(),
+                    rowTop + MathF.Max(0f, (rowHeight - ImGui.GetFrameHeight()) / 2f)));
+                if (_uiSharedService.IconTextButton(FontAwesomeIcon.ExternalLinkAlt, openLabel))
                 {
                     Mediator.Publish(new ProfileOpenStandaloneMessage(pair, key.CharName, key.WorldId));
                 }
