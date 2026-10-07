@@ -9,6 +9,7 @@ using UmbraSync.Services;
 using UmbraSync.Services.Mediator;
 using UmbraSync.Services.ServerConfiguration;
 using UmbraSync.UI.Components;
+using UmbraSync.Utils;
 
 namespace UmbraSync.UI.Handlers;
 
@@ -188,7 +189,7 @@ public class UidDisplayHandler
         return null;
     }
 
-    public float AvatarSize => ImGui.GetFrameHeight() * 1.3f;
+    public static float AvatarSize => ImGui.GetFrameHeight() * 1.3f;
     
     public bool TryGetPresenceAvatar(Pair pair, out UmbraProfileData profile)
     {
@@ -227,7 +228,7 @@ public class UidDisplayHandler
                 || (!ReferenceEquals(data, cached.Data) && !data.AsSpan().SequenceEqual(cached.Data)))
             {
                 if (cached.Task != null)
-                    cached.Task.ContinueWith(t => { if (t.IsCompletedSuccessfully) t.Result.Dispose(); }, TaskScheduler.Default);
+                    cached.Task.DisposeResultWhenCompleted();
                 cached = (data, Task.Run(() => _uiSharedService.LoadImageAsync(data)));
                 _avatarTasks[key] = cached;
             }
@@ -300,7 +301,7 @@ public class UidDisplayHandler
     internal void Clear()
     {
         foreach (var pending in _avatarTasks.Values)
-            pending.Task.ContinueWith(t => { if (t.IsCompletedSuccessfully) t.Result.Dispose(); }, TaskScheduler.Default);
+            pending.Task.DisposeResultWhenCompleted();
         _avatarTasks.Clear();
         _editNickEntry = string.Empty;
         _editUserComment = string.Empty;

@@ -19,13 +19,13 @@ using UmbraSync.Services.Mediator;
 using UmbraSync.Services.Notification;
 using NotificationType = UmbraSync.MareConfiguration.Models.NotificationType;
 using UmbraSync.UI.Components;
+using UmbraSync.Utils;
 
 namespace UmbraSync.UI;
 
 public class AutoDetectUi : WindowMediatorSubscriberBase
 {
     private readonly MareConfigService _configService;
-    private readonly DalamudUtilService _dalamud;
     private readonly AutoDetectRequestService _requestService;
     private readonly NearbyDiscoveryService _discoveryService;
     private readonly NearbyPendingService _pendingService;
@@ -47,7 +47,7 @@ public class AutoDetectUi : WindowMediatorSubscriberBase
     private const int MaxNearbyProfileCards = 15;
 
     public AutoDetectUi(ILogger<AutoDetectUi> logger, MareMediator mediator,
-        MareConfigService configService, DalamudUtilService dalamudUtilService,
+        MareConfigService configService,
         AutoDetectRequestService requestService, NearbyPendingService pendingService, PairManager pairManager,
         NearbyDiscoveryService discoveryService, SyncshellDiscoveryService syncshellDiscoveryService,
         PerformanceCollectorService performanceCollectorService, NotificationTracker notificationTracker,
@@ -57,7 +57,6 @@ public class AutoDetectUi : WindowMediatorSubscriberBase
         _profileManager = profileManager;
         _uiSharedService = uiSharedService;
         _configService = configService;
-        _dalamud = dalamudUtilService;
         _requestService = requestService;
         _pendingService = pendingService;
         _pairManager = pairManager;
@@ -421,7 +420,7 @@ public class AutoDetectUi : WindowMediatorSubscriberBase
                 || (!ReferenceEquals(data, cached.Data) && !data.AsSpan().SequenceEqual(cached.Data)))
             {
                 if (cached.Task != null)
-                    cached.Task.ContinueWith(t => { if (t.IsCompletedSuccessfully) t.Result.Dispose(); }, TaskScheduler.Default);
+                    cached.Task.DisposeResultWhenCompleted();
                 cached = (data, Task.Run(() => _uiSharedService.LoadImageAsync(data)));
                 _nearbyTextureTasks[key] = cached;
             }
@@ -454,7 +453,7 @@ public class AutoDetectUi : WindowMediatorSubscriberBase
         if (disposing)
         {
             foreach (var pending in _nearbyTextureTasks.Values)
-                pending.Task.ContinueWith(t => { if (t.IsCompletedSuccessfully) t.Result.Dispose(); }, TaskScheduler.Default);
+                pending.Task.DisposeResultWhenCompleted();
             _nearbyTextureTasks.Clear();
         }
 

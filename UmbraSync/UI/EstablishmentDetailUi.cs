@@ -1392,7 +1392,7 @@ internal class EstablishmentDetailUi : WindowMediatorSubscriberBase
                 try
                 {
                     var logoBytes = Convert.FromBase64String(logoB64);
-                    _logoTexture = _uiSharedService.LoadImage(logoBytes);
+                    _logoTexture = await _uiSharedService.LoadImageOrEmptyAsync(logoBytes).ConfigureAwait(false);
                     _logger.LogInformation("Server logo texture: {ok}, b64Len={len}", _logoTexture != null, logoB64.Length);
                 }
                 catch (Exception ex) { _logger.LogWarning(ex, "Failed to load logo texture for establishment {id}", _currentId); }
@@ -1402,7 +1402,7 @@ internal class EstablishmentDetailUi : WindowMediatorSubscriberBase
                 try
                 {
                     var bannerBytes = Convert.FromBase64String(bannerB64);
-                    _bannerTexture = _uiSharedService.LoadImage(bannerBytes);
+                    _bannerTexture = await _uiSharedService.LoadImageOrEmptyAsync(bannerBytes).ConfigureAwait(false);
                     _logger.LogInformation("Server banner texture: {ok}, b64Len={len}", _bannerTexture != null, bannerB64.Length);
                 }
                 catch (Exception ex) { _logger.LogWarning(ex, "Failed to load banner texture for establishment {id}", _currentId); }

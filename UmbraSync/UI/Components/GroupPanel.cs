@@ -20,6 +20,7 @@ using UmbraSync.Services.Mediator;
 using UmbraSync.Services.ServerConfiguration;
 using UmbraSync.UI.Handlers;
 using NotificationType = UmbraSync.MareConfiguration.Models.NotificationType;
+using UmbraSync.Utils;
 
 namespace UmbraSync.UI.Components;
 
@@ -128,7 +129,7 @@ internal sealed class GroupPanel
     public void ClearCache()
     {
         foreach (var pending in _shellIconTasks.Values)
-            pending.Task.ContinueWith(t => { if (t.IsCompletedSuccessfully) t.Result?.Dispose(); }, TaskScheduler.Default);
+            pending.Task.DisposeResultWhenCompleted();
         _shellIconTasks.Clear();
         _shellProfileRequests.Clear();
         _shellProfileCachePruned = false;
@@ -1290,7 +1291,7 @@ internal sealed class GroupPanel
         if (string.IsNullOrEmpty(source))
         {
             if (_shellIconTasks.Remove(gid, out var stale))
-                stale.Task.ContinueWith(t => { if (t.IsCompletedSuccessfully) t.Result?.Dispose(); }, TaskScheduler.Default);
+                stale.Task.DisposeResultWhenCompleted();
             return null;
         }
 
@@ -1299,7 +1300,7 @@ internal sealed class GroupPanel
 
         // Nouvelle image (première fois, ou le propriétaire vient de la changer) : on remplace l'ancienne.
         if (entry.Task != null)
-            entry.Task.ContinueWith(t => { if (t.IsCompletedSuccessfully) t.Result?.Dispose(); }, TaskScheduler.Default);
+            entry.Task.DisposeResultWhenCompleted();
         _shellIconTasks[gid] = (source, LoadSyncshellIconAsync(source));
         return null;
     }
@@ -1939,7 +1940,7 @@ internal sealed class GroupPanel
                 try
                 {
                     var bytes = Convert.FromBase64String(profileImg);
-                    _profileTexture = _uiShared.LoadImage(bytes);
+                    _profileTexture = await _uiShared.LoadImageOrEmptyAsync(bytes).ConfigureAwait(false);
                 }
                 catch { /* ignore invalid image */ }
             }
@@ -1949,7 +1950,7 @@ internal sealed class GroupPanel
                 try
                 {
                     var bytes = Convert.FromBase64String(bannerImg);
-                    _bannerTexture = _uiShared.LoadImage(bytes);
+                    _bannerTexture = await _uiShared.LoadImageOrEmptyAsync(bytes).ConfigureAwait(false);
                 }
                 catch { /* ignore invalid image */ }
             }

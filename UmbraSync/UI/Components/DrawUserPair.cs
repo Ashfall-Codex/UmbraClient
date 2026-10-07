@@ -88,7 +88,7 @@ public class DrawUserPair : DrawPairBase
 
         float iconsTotal = icons * iconW + Math.Max(0, icons - 1) * spacing;
         if (_pair.IsOnline && _pair.IsVisible && _displayHandler.TryGetPresenceAvatar(_pair, out _))
-            iconsTotal += Math.Max(0f, _displayHandler.AvatarSize - iconW);
+            iconsTotal += Math.Max(0f, UidDisplayHandler.AvatarSize - iconW);
         float cushion = spacing * 0.6f;
         return iconsTotal + cushion;
     }
@@ -129,7 +129,7 @@ public class DrawUserPair : DrawPairBase
             ImGui.SetCursorPosY(textPosY);
             if (_displayHandler.TryGetPresenceAvatar(_pair, out var avatarProfile))
             {
-                var avatarSize = _displayHandler.AvatarSize;
+                var avatarSize = UidDisplayHandler.AvatarSize;
                 var iconHeight = UiSharedService.GetIconSize(FontAwesomeIcon.Moon).Y;
                 var avatarPos = ImGui.GetCursorScreenPos();
                 avatarPos = new Vector2(avatarPos.X, avatarPos.Y + iconHeight / 2f - avatarSize / 2f);

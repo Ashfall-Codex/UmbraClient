@@ -41,7 +41,7 @@ public abstract class DrawPairBase
         float iconHeight = UiSharedService.GetIconSize(FontAwesomeIcon.Moon).Y;
         float contentHeight = Math.Max(ImGui.GetFontSize(), Math.Max(iconHeight, pauseClusterHeight));
         if (_displayHandler.WantsTallRow(_pair))
-            contentHeight = Math.Max(contentHeight, _displayHandler.AvatarSize);
+            contentHeight = Math.Max(contentHeight, UidDisplayHandler.AvatarSize);
         return contentHeight + style.FramePadding.Y * 2f + style.ItemSpacing.Y;
     }
 
@@ -72,7 +72,7 @@ public abstract class DrawPairBase
         float iconHeight = presenceIconSize.Y;
         float contentHeight = Math.Max(textHeight, Math.Max(iconHeight, pauseClusterHeight));
         if (_displayHandler.WantsTallRow(_pair))
-            contentHeight = Math.Max(contentHeight, _displayHandler.AvatarSize);
+            contentHeight = Math.Max(contentHeight, UidDisplayHandler.AvatarSize);
         float rowHeight = contentHeight + padding.Y * 2f;
         float totalHeight = rowHeight + spacing.Y;
 

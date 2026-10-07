@@ -105,7 +105,7 @@ public class DrawGroupPair : DrawPairBase
         var presenceIcon = _pair.IsVisible ? FontAwesomeIcon.Eye : FontAwesomeIcon.CloudMoon;
         float presenceWidth = UiSharedService.GetIconSize(presenceIcon).X;
         if (_pair.IsVisible && _displayHandler.TryGetPresenceAvatar(_pair, out _))
-            presenceWidth = Math.Max(presenceWidth, _displayHandler.AvatarSize);
+            presenceWidth = Math.Max(presenceWidth, UidDisplayHandler.AvatarSize);
 
         float roleWidth = 0f;
         if (showRole)
@@ -182,7 +182,7 @@ public class DrawGroupPair : DrawPairBase
             ImGui.SetCursorPosY(textPosY);
             if (_pair.IsVisible && _displayHandler.TryGetPresenceAvatar(_pair, out var avatarProfile))
             {
-                var avatarSize = _displayHandler.AvatarSize;
+                var avatarSize = UidDisplayHandler.AvatarSize;
                 var iconHeight = UiSharedService.GetIconSize(FontAwesomeIcon.Moon).Y;
                 var avatarPos = ImGui.GetCursorScreenPos();
                 avatarPos = new Vector2(avatarPos.X, avatarPos.Y + iconHeight / 2f - avatarSize / 2f);

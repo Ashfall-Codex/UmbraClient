@@ -34,7 +34,7 @@ public class UmbraProfileManager : MediatorSubscriberBase
     private static readonly TimeSpan PersistedProfileLifetime = TimeSpan.FromDays(30);
     private string? _cacheUid;
     private volatile string? _cacheLoadedForUid;
-    private readonly object _cacheLoadLock = new();
+    private readonly Lock _cacheLoadLock = new();
     private bool _cacheDirty;
     private Timer? _saveTimer;
     private CancellationTokenSource? _ownProfileSyncCts;
@@ -267,12 +267,6 @@ public class UmbraProfileManager : MediatorSubscriberBase
         TryDeleteFile(GroupProfileCachePath(gid));
     }
 
-    public UmbraProfileData GetUmbraProfile(UserData data)
-    {
-        var (charName, worldId) = ResolveCharacter(data);
-        return GetUmbraProfile(data, charName, worldId);
-    }
-
     /// <summary>
     /// Fiche déjà connue (mémoire ou cache disque) pour le personnage courant de cette personne.
     /// Ne lance jamais de requête : utilisable à chaque frame pour chaque ligne d'une liste.
@@ -333,6 +327,12 @@ public class UmbraProfileManager : MediatorSubscriberBase
         }
 
         return (charName, worldId);
+    }
+
+    public UmbraProfileData GetUmbraProfile(UserData data)
+    {
+        var (charName, worldId) = ResolveCharacter(data);
+        return GetUmbraProfile(data, charName, worldId);
     }
 
     public UmbraProfileData GetUmbraProfile(UserData data, string? charName, uint? worldId)

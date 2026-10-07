@@ -724,7 +724,7 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
 
                 if (_linkedEstablishment?.LogoImageBase64 is { Length: > 0 } logoB64)
                 {
-                    try { _linkedEstablishmentLogo = _uiSharedService.LoadImage(Convert.FromBase64String(logoB64)); }
+                    try { _linkedEstablishmentLogo = await _uiSharedService.LoadImageOrEmptyAsync(Convert.FromBase64String(logoB64)).ConfigureAwait(false); }
                     catch { /* ignore */ }
                 }
             }

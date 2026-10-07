@@ -1179,7 +1179,7 @@ public class SyncshellAdminUI : WindowMediatorSubscriberBase
                 if (!string.IsNullOrEmpty(profile.ProfileImageBase64))
                 {
                     _profileImageBytes = Convert.FromBase64String(profile.ProfileImageBase64);
-                    _profileTexture = _uiSharedService.LoadImage(_profileImageBytes);
+                    _profileTexture = await _uiSharedService.LoadImageOrEmptyAsync(_profileImageBytes).ConfigureAwait(false);
                 }
                 else
                 {
@@ -1190,7 +1190,7 @@ public class SyncshellAdminUI : WindowMediatorSubscriberBase
                 if (!string.IsNullOrEmpty(profile.BannerImageBase64))
                 {
                     _bannerImageBytes = Convert.FromBase64String(profile.BannerImageBase64);
-                    _bannerTexture = _uiSharedService.LoadImage(_bannerImageBytes);
+                    _bannerTexture = await _uiSharedService.LoadImageOrEmptyAsync(_bannerImageBytes).ConfigureAwait(false);
                 }
                 else
                 {

@@ -19,6 +19,7 @@ using UmbraSync.Services.Housing;
 using UmbraSync.Services.Mediator;
 using UmbraSync.Services.ServerConfiguration;
 using UmbraSync.UI.Components;
+using UmbraSync.Utils;
 
 namespace UmbraSync.UI;
 
@@ -1857,7 +1858,7 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
         {
             _umbraProfileManager.ClearPersistedProfileCache();
             foreach (var pending in _profileBrowserTextureTasks.Values)
-                pending.Task.ContinueWith(t => { if (t.IsCompletedSuccessfully) t.Result.Dispose(); }, TaskScheduler.Default);
+                pending.Task.DisposeResultWhenCompleted();
             _profileBrowserTextureTasks.Clear();
             _profileCardHeights.Clear();
         }
@@ -1932,7 +1933,7 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
             || (!ReferenceEquals(imgData, cachedTask.Data) && !imgData.AsSpan().SequenceEqual(cachedTask.Data)))
         {
             if (cachedTask.Task != null)
-                cachedTask.Task.ContinueWith(t => { if (t.IsCompletedSuccessfully) t.Result.Dispose(); }, TaskScheduler.Default);
+                cachedTask.Task.DisposeResultWhenCompleted();
             cachedTask = (imgData, imgData.Length == 0
                 ? Task.FromException<IDalamudTextureWrap>(new InvalidOperationException("Aucune image"))
                 : Task.Run(() => _uiSharedService.LoadImageAsync(imgData)));

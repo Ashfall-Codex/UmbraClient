@@ -1890,13 +1890,7 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
     {
         if (imageData.Length == 0)
         {
-            return _textureProvider.CreateEmpty(new()
-            {
-                Width = 256,
-                Height = 256,
-                DxgiFormat = 3,
-                Pitch = 1024
-            }, cpuRead: false, cpuWrite: false);
+            return CreateEmptyTexture();
         }
         try
         {
@@ -1906,15 +1900,36 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
         catch (Exception ex)
         {
             Logger.LogWarning(ex, "Failed to create texture from image data");
-            return _textureProvider.CreateEmpty(new()
-            {
-                Width = 256,
-                Height = 256,
-                DxgiFormat = 3,
-                Pitch = 1024
-            }, cpuRead: false, cpuWrite: false);
+            return CreateEmptyTexture();
         }
     }
+
+    public async Task<IDalamudTextureWrap> LoadImageOrEmptyAsync(byte[] imageData)
+    {
+        if (imageData.Length == 0)
+        {
+            return CreateEmptyTexture();
+        }
+        try
+        {
+            Logger.LogTrace("Creating texture from image data, size: {size}", imageData.Length);
+            return await _textureProvider.CreateFromImageAsync(imageData).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Failed to create texture from image data");
+            return CreateEmptyTexture();
+        }
+    }
+
+    private IDalamudTextureWrap CreateEmptyTexture() =>
+        _textureProvider.CreateEmpty(new()
+        {
+            Width = 256,
+            Height = 256,
+            DxgiFormat = 3,
+            Pitch = 1024
+        }, cpuRead: false, cpuWrite: false);
 
     public Task<IDalamudTextureWrap> LoadImageAsync(byte[] imageData) =>
         _textureProvider.CreateFromImageAsync(imageData);

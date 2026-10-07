@@ -13,6 +13,7 @@ using UmbraSync.PlayerData.Pairs;
 using UmbraSync.Services;
 using UmbraSync.Services.Mediator;
 using UmbraSync.Services.ServerConfiguration;
+using UmbraSync.Utils;
 
 namespace UmbraSync.UI;
 
@@ -22,7 +23,6 @@ public sealed class TargetProfileTooltipUi : WindowMediatorSubscriberBase
     private static float TooltipWidth => 340f * ImGuiHelpers.GlobalScale;
     private static float PortraitSize => 84f * ImGuiHelpers.GlobalScale;
 
-    private readonly ILogger<TargetProfileTooltipUi> _logger;
     private readonly ITargetManager _targetManager;
     private readonly PairManager _pairManager;
     private readonly UmbraProfileManager _profileManager;
@@ -44,7 +44,6 @@ public sealed class TargetProfileTooltipUi : WindowMediatorSubscriberBase
         PerformanceCollectorService performanceCollectorService)
         : base(logger, mediator, "###UmbraSyncTargetProfileTooltip", performanceCollectorService)
     {
-        _logger = logger;
         _targetManager = targetManager;
         _pairManager = pairManager;
         _profileManager = profileManager;
@@ -131,7 +130,7 @@ public sealed class TargetProfileTooltipUi : WindowMediatorSubscriberBase
         if (_textureTask == null || !ReferenceEquals(pictureData, _lastPictureData) && !pictureData.AsSpan().SequenceEqual(_lastPictureData))
         {
             var previous = _textureTask;
-            previous?.ContinueWith(t => { if (t.IsCompletedSuccessfully) t.Result.Dispose(); }, TaskScheduler.Default);
+            previous.DisposeResultWhenCompleted();
             _lastPictureData = pictureData;
             _textureTask = pictureData.Length == 0
                 ? Task.FromException<IDalamudTextureWrap>(new InvalidOperationException("Pas d'image"))
@@ -250,7 +249,7 @@ public sealed class TargetProfileTooltipUi : WindowMediatorSubscriberBase
     {
         if (disposing)
         {
-            _textureTask?.ContinueWith(t => { if (t.IsCompletedSuccessfully) t.Result.Dispose(); }, TaskScheduler.Default);
+            _textureTask.DisposeResultWhenCompleted();
             _textureTask = null;
         }
 
