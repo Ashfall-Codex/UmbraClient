@@ -1,8 +1,10 @@
 ﻿using Dalamud.Bindings.ImGui;
 using Dalamud.Interface;
+using Dalamud.Interface.Colors;
 using Dalamud.Interface.Utility;
 using Dalamud.Interface.Utility.Raii;
 using System.Globalization;
+using System.Numerics;
 using UmbraSync.API.Data.Extensions;
 using UmbraSync.Localization;
 using UmbraSync.MareConfiguration;
@@ -117,7 +119,11 @@ public class PairGroupsUi
 
         UiSharedService.DrawCard($"pair-group-{tag}", () =>
         {
-            DrawName(tag, isSpecialTag, visibleInThisTag, usersInThisTag.Count, otherUidsTaggedWithTag?.Count);
+            // Les groupes personnalisés gardent leurs boutons pause / menu à droite de l'en-tête.
+            float reservedRight = isSpecialTag ? 8f * ImGuiHelpers.GlobalScale
+                : _uiSharedService.GetIconButtonSize(FontAwesomeIcon.Pause).X + _uiSharedService.GetIconButtonSize(FontAwesomeIcon.EllipsisH).X
+                  + ImGui.GetStyle().ItemSpacing.X * 2f;
+            DrawName(tag, isSpecialTag, visibleInThisTag, usersInThisTag.Count, otherUidsTaggedWithTag?.Count, reservedRight);
             if (!isSpecialTag)
             {
                 using (ImRaii.PushId($"group-{tag}-buttons")) DrawButtons(tag, allUsersList.Cast<DrawUserPair>().Where(p => otherUidsTaggedWithTag!.Contains(p.UID)).ToList());
@@ -128,7 +134,11 @@ public class PairGroupsUi
             ImGuiHelpers.ScaledDummy(4f);
             var indent = 18f * ImGuiHelpers.GlobalScale;
             ImGui.Indent(indent);
-            DrawPairs(usersInThisTag);
+            // Les lignes s'arrêtent à la marge intérieure de la carte, pas au bord de la fenêtre.
+            var cardPadX = ImGui.GetStyle().FramePadding.X + 4f * ImGuiHelpers.GlobalScale;
+            float rowLimit = ImGui.GetWindowPos().X + ImGui.GetWindowContentRegionMax().X - cardPadX - 4f * ImGuiHelpers.GlobalScale;
+            using (DrawPairBase.PushRowRightLimit(rowLimit))
+                DrawPairs(usersInThisTag);
             drawExtraContent?.Invoke();
             ImGui.Unindent(indent);
         }, stretchWidth: true);
@@ -151,7 +161,10 @@ public class PairGroupsUi
         UiSharedService.AttachToolTip(string.Format(CultureInfo.CurrentCulture, Loc.Get("PairGroups.DeleteGroupTooltip"), tag) + Environment.NewLine + Loc.Get("PairGroups.DeleteGroupTooltip.Ctrl"));
     }
 
-    private void DrawName(string tag, bool isSpecialTag, int visible, int online, int? total)
+    private static readonly Vector4 VisibleColor = new(0.4f, 0.75f, 1f, 1f);
+    private static readonly Vector4 OnlineColor = new(0.4f, 0.9f, 0.4f, 1f);
+
+    private void DrawName(string tag, bool isSpecialTag, int visible, int online, int? total, float reservedRight)
     {
         string displayedName = tag switch
         {
@@ -162,26 +175,27 @@ public class PairGroupsUi
             _ => tag
         };
 
-        string resultFolderName = !isSpecialTag
-            ? string.Format(CultureInfo.CurrentCulture, Loc.Get("PairGroups.FolderName"), displayedName, visible, online, total)
-            : string.Format(CultureInfo.CurrentCulture, Loc.Get("PairGroups.FolderNameNoTotal"), displayedName, online);
-        bool isOpen = _tagHandler.IsTagOpen(tag);
-        bool previousState = isOpen;
-        UiSharedService.DrawArrowToggle(ref isOpen, $"##group-toggle-{tag}");
-        if (isOpen != previousState)
+        var color = tag switch
         {
-            _tagHandler.SetTagOpen(tag, isOpen);
-        }
-        ImGui.SameLine(0f, 6f * ImGuiHelpers.GlobalScale);
-        ImGui.AlignTextToFramePadding();
-        ImGui.TextUnformatted(resultFolderName);
-        if (ImGui.IsItemClicked(ImGuiMouseButton.Left))
-        {
-            bool newState = !_tagHandler.IsTagOpen(tag);
-            _tagHandler.SetTagOpen(tag, newState);
-        }
+            TagHandler.CustomVisibleTag => VisibleColor,
+            TagHandler.CustomOnlineTag => OnlineColor,
+            TagHandler.CustomOfflineTag => ImGuiColors.DalamudGrey,
+            TagHandler.CustomUnpairedTag => ImGuiColors.DalamudOrange,
+            _ => UiSharedService.ThemeTextAccent,
+        };
 
-        if (!isSpecialTag && ImGui.IsItemHovered())
+        // Groupes personnalisés : en ligne / total, le détail reste dans l'infobulle.
+        string count = isSpecialTag
+            ? online.ToString(CultureInfo.CurrentCulture)
+            : string.Format(CultureInfo.CurrentCulture, "{0}/{1}", online, total ?? online);
+
+        bool isOpen = _tagHandler.IsTagOpen(tag);
+        bool hovered = UiSharedService.DrawCollapsibleHeader($"##group-toggle-{tag}", displayedName, count, color, ref isOpen,
+            ImGui.GetContentRegionAvail().X - reservedRight, ImGui.GetFrameHeight());
+        if (isOpen != _tagHandler.IsTagOpen(tag))
+            _tagHandler.SetTagOpen(tag, isOpen);
+
+        if (!isSpecialTag && hovered)
         {
             ImGui.BeginTooltip();
             ImGui.TextUnformatted(string.Format(CultureInfo.CurrentCulture, Loc.Get("PairGroups.Tooltip.Group"), tag));

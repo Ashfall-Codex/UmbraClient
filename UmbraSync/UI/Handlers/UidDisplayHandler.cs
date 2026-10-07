@@ -254,6 +254,10 @@ public class UidDisplayHandler
         dl.AddRect(pos, max, ImGui.GetColorU32(color with { W = 0.5f }), rounding, ImDrawFlags.None, 1f);
     }
 
+    // Tri des listes : linguistique, insensible à la casse et aux accents (« Abéhys » avec les A).
+    public static StringComparer NameComparer { get; } =
+        StringComparer.Create(CultureInfo.InvariantCulture, CompareOptions.IgnoreCase | CompareOptions.IgnoreNonSpace);
+
     public (bool isUid, string text) GetPlayerText(Pair pair)
     {
         bool showUidInsteadOfName = ShowUidInsteadOfName(pair);
@@ -262,6 +266,15 @@ public class UidDisplayHandler
             return (true, pair.UserData.UID);
         }
 
+        return GetDisplayName(pair);
+    }
+
+    // Nom tel qu'affiché dans les listes, sans la bascule temporaire vers l'UID : une ligne
+    // ne doit pas changer de place quand on clique dessus pour voir l'UID.
+    public string GetSortName(Pair pair) => GetDisplayName(pair).text;
+
+    private (bool isUid, string text) GetDisplayName(Pair pair)
+    {
         var textIsUid = true;
         string? playerText = _serverManager.GetNoteForUid(pair.UserData.UID);
         if (playerText != null)

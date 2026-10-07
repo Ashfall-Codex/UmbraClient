@@ -8,4 +8,6 @@ public class EstablishmentConfig : IMareConfiguration
     public Dictionary<Guid, string> EstablishmentSyncSlotBindings { get; set; } = [];
     public bool EnableProximityNotifications { get; set; }
     public bool EnableEventReminders { get; set; } = true;
+    public int EventReminderMinutesBefore { get; set; } = 10;
+    public bool NotifyOnEventStart { get; set; } = true;
 }

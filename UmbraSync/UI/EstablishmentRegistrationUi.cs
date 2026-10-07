@@ -168,9 +168,7 @@ internal class EstablishmentRegistrationUi : WindowMediatorSubscriberBase
         ImGuiHelpers.ScaledDummy(2f);
 
         ImGui.TextColored(ImGuiColors.DalamudGrey, Loc.Get("Establishment.Field.Description"));
-        ImGui.SetNextItemWidth(-1);
-        ImGui.InputTextMultiline("##desc", ref _description, 2000,
-            new Vector2(-1, 60 * ImGuiHelpers.GlobalScale));
+        ResizableTextArea.Draw("##desc", ref _description, 2000, defaultHeight: 140f);
         ImGuiHelpers.ScaledDummy(2f);
 
         var availW = ImGui.GetContentRegionAvail().X;

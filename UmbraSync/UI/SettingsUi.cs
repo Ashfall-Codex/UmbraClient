@@ -4417,6 +4417,35 @@ public class SettingsUi : WindowMediatorSubscriberBase
         }
         _uiShared.DrawHelpText(Loc.Get("Settings.AutoDetect.EnableEstablishmentProximityHelp"));
 
+        var establishmentConfig = _establishmentConfigService.Current;
+        var enableEventReminders = establishmentConfig.EnableEventReminders;
+        if (ToggleSwitch.Draw(Loc.Get("Settings.Establishment.EventReminders"), ref enableEventReminders))
+        {
+            establishmentConfig.EnableEventReminders = enableEventReminders;
+            _establishmentConfigService.Save();
+        }
+        _uiShared.DrawHelpText(Loc.Get("Settings.Establishment.EventRemindersHelp"));
+
+        using (ImRaii.Disabled(!enableEventReminders))
+        using (ImRaii.PushIndent(20f * ImGuiHelpers.GlobalScale, false))
+        {
+            var minutesBefore = establishmentConfig.EventReminderMinutesBefore;
+            ImGui.SetNextItemWidth(160f * ImGuiHelpers.GlobalScale);
+            if (ImGui.SliderInt(Loc.Get("Settings.Establishment.ReminderMinutes"), ref minutesBefore, 0, 60, "%d min"))
+            {
+                establishmentConfig.EventReminderMinutesBefore = Math.Clamp(minutesBefore, 0, 60);
+                _establishmentConfigService.Save();
+            }
+            _uiShared.DrawHelpText(Loc.Get("Settings.Establishment.ReminderMinutesHelp"));
+
+            var notifyOnStart = establishmentConfig.NotifyOnEventStart;
+            if (ToggleSwitch.Draw(Loc.Get("Settings.Establishment.NotifyOnStart"), ref notifyOnStart))
+            {
+                establishmentConfig.NotifyOnEventStart = notifyOnStart;
+                _establishmentConfigService.Save();
+            }
+        }
+
         if (isAutoDetectSuppressed)
         {
             UiSharedService.ColorTextWrapped(Loc.Get("Settings.AutoDetect.LockedInInstance"), ImGuiColors.DalamudYellow);

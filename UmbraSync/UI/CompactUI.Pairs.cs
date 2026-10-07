@@ -196,7 +196,7 @@ public partial class CompactUi
         {
             ySize = (ImGui.GetWindowContentRegionMax().Y - ImGui.GetWindowContentRegionMin().Y) - TransferPartHeight - ImGui.GetCursorPosY();
         }
-        var allUsers = GetFilteredUsers().OrderBy(u => u.GetPairSortKey(), StringComparer.Ordinal).ToList();
+        var allUsers = GetFilteredUsers().OrderBy(u => _uidDisplayHandler.GetSortName(u), UI.Handlers.UidDisplayHandler.NameComparer).ToList();
         var visibleUsersSource = allUsers.Where(u => u.IsVisible).ToList();
         var nonVisibleUsers = allUsers.Where(u => !u.IsVisible).ToList();
         var nearbyEntriesForDisplay = _configService.Current.EnableAutoDetectDiscovery

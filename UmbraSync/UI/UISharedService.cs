@@ -836,7 +836,8 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
     /// État vide d'une page : icône atténuée, titre, courte explication et, si besoin, une action.
     /// </summary>
     /// <returns>Vrai quand le bouton d'action est cliqué.</returns>
-    public bool DrawEmptyState(FontAwesomeIcon icon, string title, string hint, string? buttonLabel = null)
+    public bool DrawEmptyState(FontAwesomeIcon icon, string title, string hint, string? buttonLabel = null,
+        FontAwesomeIcon? buttonIcon = null)
     {
         var scale = ImGuiHelpers.GlobalScale;
         var avail = ImGui.GetContentRegionAvail();
@@ -877,11 +878,61 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
 
         if (string.IsNullOrEmpty(buttonLabel)) return false;
 
-        ImGuiHelpers.ScaledDummy(10f);
-        var buttonWidth = ImGui.CalcTextSize(buttonLabel).X + ImGui.GetStyle().FramePadding.X * 2f + 24f * scale;
-        ImGui.SetCursorPosX(ImGui.GetCursorPosX() + MathF.Max(0f, (avail.X - buttonWidth) / 2f));
-        using var buttonColor = ImRaii.PushColor(ImGuiCol.Button, AccentColor);
-        return ImGui.Button(buttonLabel, new Vector2(buttonWidth, 0));
+        ImGuiHelpers.ScaledDummy(12f);
+        return DrawCallToActionButton(buttonLabel, buttonIcon, avail.X);
+    }
+
+    // Bouton d'action principale en pilule, centré dans la largeur donnée.
+    private static bool DrawCallToActionButton(string label, FontAwesomeIcon? icon, float availWidth)
+    {
+        var scale = ImGuiHelpers.GlobalScale;
+        var padX = 18f * scale;
+        var gap = 8f * scale;
+        var height = ImGui.GetFrameHeight() + 10f * scale;
+
+        var iconText = icon?.ToIconString();
+        var iconSize = Vector2.Zero;
+        if (iconText != null)
+        {
+            using (ImRaii.PushFont(UiBuilder.IconFont))
+                iconSize = ImGui.CalcTextSize(iconText);
+        }
+        var labelSize = ImGui.CalcTextSize(label);
+        var contentWidth = labelSize.X + (iconText != null ? iconSize.X + gap : 0f);
+        var size = new Vector2(contentWidth + padX * 2f, height);
+
+        ImGui.SetCursorPosX(ImGui.GetCursorPosX() + MathF.Max(0f, (availWidth - size.X) / 2f));
+        var min = ImGui.GetCursorScreenPos();
+        var max = min + size;
+        bool clicked = ImGui.InvisibleButton("##emptyStateAction", size);
+        bool hovered = ImGui.IsItemHovered();
+        bool active = ImGui.IsItemActive();
+        if (hovered) ImGui.SetMouseCursor(ImGuiMouseCursor.Hand);
+
+        var dl = ImGui.GetWindowDrawList();
+        var rounding = height / 2f;
+        if (hovered)
+        {
+            var glow = 3f * scale;
+            dl.AddRectFilled(min - new Vector2(glow), max + new Vector2(glow),
+                ImGui.GetColorU32(AccentColor with { W = 0.22f }), rounding + glow);
+        }
+        var fill = active ? ThemeSliderGrabActive : AccentColor with { W = hovered ? 1f : 0.85f };
+        dl.AddRectFilled(min, max, ImGui.GetColorU32(fill), rounding);
+        dl.AddRect(min, max, ImGui.GetColorU32(ThemeSliderGrabActive with { W = hovered ? 0.9f : 0.5f }),
+            rounding, ImDrawFlags.None, scale);
+
+        var textColor = ImGui.GetColorU32(ThemeNavTextActive);
+        var x = min.X + (size.X - contentWidth) / 2f;
+        if (iconText != null)
+        {
+            using (ImRaii.PushFont(UiBuilder.IconFont))
+                dl.AddText(new Vector2(x, min.Y + (height - iconSize.Y) / 2f), textColor, iconText);
+            x += iconSize.X + gap;
+        }
+        dl.AddText(new Vector2(x, min.Y + (height - labelSize.Y) / 2f), textColor, label);
+
+        return clicked;
     }
 
     private static List<string> WrapText(string text, float maxWidth)
@@ -942,6 +993,52 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
             drawList.ChannelsSetCurrent(2);
         else
             drawList.ChannelsMerge();
+    }
+
+    // En-tête repliable « › ● TITRE  N » : toute la ligne bascule l'état, le compteur va dans une
+    // pastille de la couleur de la section. Renvoie vrai si la ligne est survolée.
+    public static bool DrawCollapsibleHeader(string id, string title, string? count, Vector4 color, ref bool expanded,
+        float width, float? height = null)
+    {
+        var scale = ImGuiHelpers.GlobalScale;
+        float rowHeight = height ?? ImGui.GetTextLineHeight() + 6f * scale;
+        width = MathF.Max(40f * scale, width);
+        var min = ImGui.GetCursorScreenPos();
+        if (ImGui.InvisibleButton(id, new Vector2(width, rowHeight)))
+            expanded = !expanded;
+        bool hovered = ImGui.IsItemHovered();
+        if (hovered) ImGui.SetMouseCursor(ImGuiMouseCursor.Hand);
+
+        var dl = ImGui.GetWindowDrawList();
+        if (hovered)
+            dl.AddRectFilled(min, min + new Vector2(width, rowHeight), ImGui.GetColorU32(color with { W = 0.08f }), RadiusControl * scale);
+
+        float textY = min.Y + (rowHeight - ImGui.GetTextLineHeight()) / 2f;
+        float x = min.X + 4f * scale;
+        using (ImRaii.PushFont(UiBuilder.IconFont))
+        {
+            var chevron = (expanded ? FontAwesomeIcon.ChevronDown : FontAwesomeIcon.ChevronRight).ToIconString();
+            var chevronSize = ImGui.CalcTextSize(chevron);
+            dl.AddText(new Vector2(x + (10f * scale - chevronSize.X) / 2f, min.Y + (rowHeight - chevronSize.Y) / 2f),
+                ImGui.GetColorU32(ImGuiColors.DalamudGrey), chevron);
+        }
+        x += 16f * scale;
+        dl.AddCircleFilled(new Vector2(x + 3f * scale, min.Y + rowHeight / 2f), 3.5f * scale, ImGui.GetColorU32(color));
+        x += 12f * scale;
+        var upper = title.ToUpper(Loc.CurrentCulture);
+        dl.AddText(new Vector2(x, textY), ImGui.GetColorU32(color), upper);
+        x += ImGui.CalcTextSize(upper).X + 7f * scale;
+
+        if (!string.IsNullOrEmpty(count))
+        {
+            var pad = new Vector2(6f, 0f) * scale;
+            var size = ImGui.CalcTextSize(count) + pad * 2f;
+            var pillMin = new Vector2(x, textY + (ImGui.GetTextLineHeight() - size.Y) / 2f);
+            dl.AddRectFilled(pillMin, pillMin + size, ImGui.GetColorU32(color with { W = 0.18f }), size.Y / 2f);
+            dl.AddText(pillMin + pad, ImGui.GetColorU32(color), count);
+        }
+
+        return hovered;
     }
 
     public static void DrawCardTitle(FontAwesomeIcon icon, string title, Vector4? accent = null)

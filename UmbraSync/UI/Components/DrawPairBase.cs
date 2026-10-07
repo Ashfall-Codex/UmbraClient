@@ -28,6 +28,21 @@ public abstract class DrawPairBase
         _uiSharedService = uiSharedService;
     }
 
+    // Bord droit imposé par un conteneur plus étroit que la fenêtre (tiroir des favoris).
+    [ThreadStatic] private static float? _rowRightLimit;
+
+    public static IDisposable PushRowRightLimit(float screenX)
+    {
+        var previous = _rowRightLimit;
+        _rowRightLimit = screenX;
+        return new RowLimitScope(() => _rowRightLimit = previous);
+    }
+
+    private sealed class RowLimitScope(Action restore) : IDisposable
+    {
+        public void Dispose() => restore();
+    }
+
     public string ImGuiID => _id;
     public Pair Pair => _pair;
     public string UID => _pair.UserData.UID;
@@ -55,18 +70,8 @@ public abstract class DrawPairBase
 
         var pauseButtonSize = _uiSharedService.GetIconButtonSize(FontAwesomeIcon.Pause);
         var playButtonSize = _uiSharedService.GetIconButtonSize(FontAwesomeIcon.Play);
-        var menuButtonSize = _uiSharedService.GetIconButtonSize(FontAwesomeIcon.EllipsisH);
 
-        float pauseClusterWidth = Math.Max(pauseButtonSize.X, playButtonSize.X);
         float pauseClusterHeight = Math.Max(Math.Max(pauseButtonSize.Y, playButtonSize.Y), ImGui.GetFrameHeight());
-        float reservedSpacing = style.ItemSpacing.X * 3f + style.FramePadding.X;
-        float rightButtonWidth =
-            menuButtonSize.X +
-            pauseClusterWidth +
-            reservedSpacing +
-            GetRightSideExtraWidth();
-
-        float availableWidth = Math.Max(ImGui.GetContentRegionAvail().X - rightButtonWidth, 1f);
         float textHeight = ImGui.GetFontSize();
         var presenceIconSize = UiSharedService.GetIconSize(FontAwesomeIcon.Moon);
         float iconHeight = presenceIconSize.Y;
@@ -87,14 +92,20 @@ public abstract class DrawPairBase
         }
 
         var drawList = ImGui.GetWindowDrawList();
-        var backgroundColor = UiSharedService.ThemeHeaderBg;
-        var borderColor = new Vector4(0f, 0f, 0f, 0f);
         float rounding = Math.Max(style.FrameRounding, 7f * ImGuiHelpers.GlobalScale);
 
+        // Le fond couvre toute la ligne, boutons compris : même longueur pour toutes les lignes,
+        // qu'elles aient un bouton supplémentaire ou non. Il s'éclaircit au survol.
         var panelMin = rowStartScreen + new Vector2(0f, spacing.Y * 0.15f);
-        var panelMax = panelMin + new Vector2(availableWidth, rowHeight - spacing.Y * 0.3f);
-        drawList.AddRectFilled(panelMin, panelMax, ImGui.ColorConvertFloat4ToU32(backgroundColor), rounding);
-        drawList.AddRect(panelMin, panelMax, ImGui.ColorConvertFloat4ToU32(borderColor), rounding);
+        // Bord droit pris sur la fenêtre et non sur l'espace restant : toutes les lignes s'arrêtent au même X.
+        float rowRight = ImGui.GetWindowPos().X + ImGui.GetWindowContentRegionMax().X;
+        if (_rowRightLimit is { } limit)
+            rowRight = MathF.Min(rowRight, limit);
+        var panelMax = new Vector2(MathF.Max(rowRight, panelMin.X + 1f), panelMin.Y + rowHeight - spacing.Y * 0.3f);
+        bool rowHovered = ImGui.IsWindowHovered(ImGuiHoveredFlags.ChildWindows | ImGuiHoveredFlags.AllowWhenBlockedByActiveItem)
+            && ImGui.IsMouseHoveringRect(panelMin, panelMax);
+        drawList.AddRectFilled(panelMin, panelMax,
+            ImGui.GetColorU32(rowHovered ? UiSharedService.ThemeFrameBgHovered with { W = 0.45f } : UiSharedService.ThemeHeaderBg), rounding);
 
         float iconTop = rowStartCursor.Y + (rowHeight - iconHeight) / 2f;
         // Nudge text slightly up to sit visually centered with the icon row.

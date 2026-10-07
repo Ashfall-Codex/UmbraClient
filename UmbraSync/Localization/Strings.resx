@@ -7747,4 +7747,114 @@ Experimental: these hooks are low level; if anything goes wrong, turn this off (
   <data name="Syncshell.Cards.BorderColor.Custom" xml:space="preserve">
     <value>Pick a color</value>
   </data>
+  <data name="Ui.TextArea.ResizeHint" xml:space="preserve">
+    <value>Drag to resize</value>
+  </data>
+  <data name="Establishment.Detail.Section.About" xml:space="preserve">
+    <value>About</value>
+  </data>
+  <data name="Establishment.Detail.Fact.Address" xml:space="preserve">
+    <value>Address</value>
+  </data>
+  <data name="Establishment.Detail.Fact.NextEvent" xml:space="preserve">
+    <value>Next event</value>
+  </data>
+  <data name="Establishment.Detail.Fact.Faction" xml:space="preserve">
+    <value>Faction</value>
+  </data>
+  <data name="Establishment.Detail.Fact.Languages" xml:space="preserve">
+    <value>Languages</value>
+  </data>
+  <data name="Establishment.Detail.Fact.HappeningNow" xml:space="preserve">
+    <value>Happening now</value>
+  </data>
+  <data name="Establishment.Detail.CopyAddress" xml:space="preserve">
+    <value>Click to copy the address</value>
+  </data>
+  <data name="Establishment.Detail.AddressCopied" xml:space="preserve">
+    <value>Address copied</value>
+  </data>
+  <data name="Establishment.Detail.ViewRpProfile" xml:space="preserve">
+    <value>View RP profile</value>
+  </data>
+  <data name="Establishment.Reminder.Title" xml:space="preserve">
+    <value>Upcoming event</value>
+  </data>
+  <data name="Establishment.Reminder.Soon" xml:space="preserve">
+    <value>{0}: &quot;{1}&quot; starts in {2} min ({3})</value>
+  </data>
+  <data name="Establishment.Reminder.Started" xml:space="preserve">
+    <value>{0}: &quot;{1}&quot; has started</value>
+  </data>
+  <data name="Settings.Establishment.EventReminders" xml:space="preserve">
+    <value>Reminders for my favorites' events</value>
+  </data>
+  <data name="Settings.Establishment.EventRemindersHelp" xml:space="preserve">
+    <value>Warns you before events of your favorite establishments begin, as a notification and in chat.</value>
+  </data>
+  <data name="Settings.Establishment.ReminderMinutes" xml:space="preserve">
+    <value>Warn before start</value>
+  </data>
+  <data name="Settings.Establishment.ReminderMinutesHelp" xml:space="preserve">
+    <value>0 disables the early reminder.</value>
+  </data>
+  <data name="Settings.Establishment.NotifyOnStart" xml:space="preserve">
+    <value>Also notify when it starts</value>
+  </data>
+  <data name="Syncshell.Cards.Section.Favorites" xml:space="preserve">
+    <value>Favorites</value>
+  </data>
+  <data name="Syncshell.Cards.Section.Others" xml:space="preserve">
+    <value>Other syncshells</value>
+  </data>
+  <data name="Syncshell.Cards.MembersLabel" xml:space="preserve">
+    <value>Members</value>
+  </data>
+  <data name="Syncshell.Members.ViewStatus" xml:space="preserve">
+    <value>Status</value>
+  </data>
+  <data name="Syncshell.Members.ViewType" xml:space="preserve">
+    <value>Type</value>
+  </data>
+  <data name="GroupPair.Menu.ModerationHeader" xml:space="preserve">
+    <value>Moderation</value>
+  </data>
+  <data name="GroupPair.Menu.Pin" xml:space="preserve">
+    <value>Pin</value>
+  </data>
+  <data name="GroupPair.Menu.Unpin" xml:space="preserve">
+    <value>Unpin</value>
+  </data>
+  <data name="GroupPair.Menu.PinTooltip" xml:space="preserve">
+    <value>Pinned members are not removed by a manual Syncshell cleanup.</value>
+  </data>
+  <data name="GroupPair.Menu.Promote" xml:space="preserve">
+    <value>Make moderator</value>
+  </data>
+  <data name="GroupPair.Menu.Demote" xml:space="preserve">
+    <value>Remove moderator</value>
+  </data>
+  <data name="GroupPair.Menu.ModTooltip" xml:space="preserve">
+    <value>Hold CTRL and click to change the moderator status of {0}.
+Moderators can kick, ban and pin members and clean up the Syncshell.</value>
+  </data>
+  <data name="GroupPair.Menu.Remove" xml:space="preserve">
+    <value>Remove from Syncshell</value>
+  </data>
+  <data name="GroupPair.Menu.RemoveTooltip" xml:space="preserve">
+    <value>Hold CTRL and click to remove {0} from the Syncshell.</value>
+  </data>
+  <data name="GroupPair.Menu.Ban" xml:space="preserve">
+    <value>Ban</value>
+  </data>
+  <data name="GroupPair.Menu.BanTooltip" xml:space="preserve">
+    <value>Ban this member from the Syncshell.</value>
+  </data>
+  <data name="GroupPair.Menu.Transfer" xml:space="preserve">
+    <value>Transfer ownership</value>
+  </data>
+  <data name="GroupPair.Menu.TransferTooltip" xml:space="preserve">
+    <value>Hold CTRL+SHIFT and click to transfer ownership of the Syncshell to {0}.
+WARNING: this cannot be undone.</value>
+  </data>
 </root>

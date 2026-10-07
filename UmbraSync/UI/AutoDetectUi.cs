@@ -258,7 +258,7 @@ public class AutoDetectUi : WindowMediatorSubscriberBase
             // d'appairage) : le bouton mène donc à la page de réglages plutôt que de dupliquer cette logique.
             if (_uiSharedService.DrawEmptyState(FontAwesomeIcon.BroadcastTower,
                     Loc.Get("EmptyState.Nearby.Disabled.Title"), Loc.Get("EmptyState.Nearby.Disabled.Hint"),
-                    Loc.Get("EmptyState.Nearby.Disabled.Button")))
+                    Loc.Get("EmptyState.Nearby.Disabled.Button"), FontAwesomeIcon.Cog))
                 Mediator.Publish(new OpenAutoDetectSettingsMessage());
             return;
         }

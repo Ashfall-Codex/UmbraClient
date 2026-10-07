@@ -76,7 +76,7 @@ public partial class CompactUi
 
         if (tab is 1 or 2 or 3)
             DrawAnnuaireToolbar(tab);
-        else if (tab == 0)
+        else if (tab == 0 && _annuaireOwned is not { Count: 0 })
             DrawAnnuaireRegisterButton();
 
         ImGuiHelpers.ScaledDummy(4f);
@@ -235,7 +235,7 @@ public partial class CompactUi
         {
             if (_uiSharedService.DrawEmptyState(FontAwesomeIcon.Star,
                     Loc.Get("EmptyState.Favorites.Title"), Loc.Get("EmptyState.Favorites.Hint"),
-                    Loc.Get("EmptyState.Favorites.Button")))
+                    Loc.Get("EmptyState.Favorites.Button"), FontAwesomeIcon.Compass))
                 _socialSubSection = SocialSubSection.DirectoryBrowse;
             return;
         }
@@ -311,8 +311,11 @@ public partial class CompactUi
 
         if (_annuaireOwned.Count == 0)
         {
-            _uiSharedService.DrawEmptyState(FontAwesomeIcon.Home,
-                Loc.Get("EmptyState.Owned.Title"), Loc.Get("EmptyState.Owned.Hint"));
+            // Sans lieu, l'enregistrement est l'action attendue : le bouton passe sous le message.
+            if (_uiSharedService.DrawEmptyState(FontAwesomeIcon.Home,
+                Loc.Get("EmptyState.Owned.Title"), Loc.Get("EmptyState.Owned.Hint"),
+                Loc.Get("Establishment.Directory.Register"), FontAwesomeIcon.Plus))
+                Mediator.Publish(new UiToggleMessage(typeof(EstablishmentRegistrationUi)));
             return;
         }
 
@@ -909,6 +912,19 @@ public partial class CompactUi
 
     #endregion
 
+    private string? GetAnnuaireAddress(EstablishmentDto establishment)
+    {
+        var loc = establishment.Location;
+        if (loc == null) return null;
+
+        var housing = EstablishmentLocationText.FormatHousing(loc, _uiSharedService.WorldData);
+        if (housing != null) return housing;
+
+        return loc.TerritoryId != 0 && _dalamudUtilService.TerritoryData.Value.TryGetValue(loc.TerritoryId, out var territory)
+            ? territory
+            : null;
+    }
+
     private void DrawAnnuaireUpcomingCard(UpcomingOccurrence occurrence)
     {
         var establishment = occurrence.Establishment;
@@ -923,7 +939,8 @@ public partial class CompactUi
         var logoRounding = 6f * scale;
         var logoSpacing = 10f * scale;
         var cardWidth = ImGui.GetContentRegionAvail().X;
-        var cardHeight = 76f * scale;
+        var address = GetAnnuaireAddress(establishment);
+        var cardHeight = (address != null ? 88f : 76f) * scale;
 
         var localTime = occurrence.StartUtc.ToLocalTime();
         var dayOfWeek = _dayNames[(int)localTime.DayOfWeek == 0 ? 6 : (int)localTime.DayOfWeek - 1];
@@ -987,7 +1004,8 @@ public partial class CompactUi
                 var chipHeight = ImGui.GetTextLineHeight() + 6f * scale;
 
                 var lineH = ImGui.GetTextLineHeight();
-                var contentH = lineH * 2 + spacing.Y;
+                var lineCount = address != null ? 3 : 2;
+                var contentH = lineH * lineCount + spacing.Y * (lineCount - 1);
                 var contentY = MathF.Max(0f, (innerH - contentH) / 2f);
                 var windowPos = ImGui.GetWindowPos();
 
@@ -1018,6 +1036,24 @@ public partial class CompactUi
                 var title = UiSharedService.SanitizeOneLine(evt.Title);
                 var titleMax = MathF.Max(40f * scale, eyeX - textX - spacing.X);
                 UiSharedService.ColorText(UiSharedService.TruncateToWidth(title, titleMax), new Vector4(1f, 0.9f, 0.6f, 1f));
+
+                if (address != null)
+                {
+                    ImGui.SetCursorPos(new Vector2(textX, contentY + (lineH + spacing.Y) * 2));
+                    var markerIcon = FontAwesomeIcon.MapMarkerAlt.ToIconString();
+                    float markerWidth;
+                    using (ImRaii.PushFont(UiBuilder.IconFont))
+                    {
+                        markerWidth = ImGui.CalcTextSize(markerIcon).X;
+                        ImGui.TextColored(ImGuiColors.DalamudGrey, markerIcon);
+                    }
+                    ImGui.SameLine(0, 4f * scale);
+                    var addressMax = MathF.Max(40f * scale, eyeX - textX - markerWidth - 4f * scale - spacing.X);
+                    var shownAddress = UiSharedService.TruncateToWidth(address, addressMax);
+                    ImGui.TextColored(ImGuiColors.DalamudGrey, shownAddress);
+                    if (!string.Equals(shownAddress, address, StringComparison.Ordinal))
+                        UiSharedService.AttachToolTip(address);
+                }
 
                 // Bouton œil, centré verticalement à droite.
                 ImGui.SetCursorPos(new Vector2(eyeX, MathF.Max(0f, (innerH - eyeSize.Y) / 2f)));

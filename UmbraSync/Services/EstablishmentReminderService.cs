@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using UmbraSync.API.Dto.Establishment;
+using UmbraSync.Localization;
 using UmbraSync.MareConfiguration;
 using UmbraSync.MareConfiguration.Models;
 using UmbraSync.Services.Mediator;
@@ -10,11 +11,13 @@ public class EstablishmentReminderService : MediatorSubscriberBase, IDisposable
 {
     private static readonly TimeSpan PollingInterval = TimeSpan.FromMinutes(1);
     private static readonly TimeSpan DefaultEventDuration = TimeSpan.FromMinutes(30);
+    private static readonly TimeSpan CacheLifetime = TimeSpan.FromMinutes(15);
 
     private readonly ApiController _apiController;
     private readonly EstablishmentConfigService _configService;
     private CancellationTokenSource? _timerCts;
-    private readonly HashSet<(Guid EventId, DateTime OccurrenceStartUtc)> _notifiedOccurrences = [];
+    private readonly HashSet<(Guid EventId, DateTime OccurrenceStartUtc, bool IsReminder)> _notifiedOccurrences = [];
+    private readonly Dictionary<Guid, (EstablishmentDto Establishment, DateTime FetchedAtUtc)> _establishmentCache = [];
 
     public EstablishmentReminderService(ILogger<EstablishmentReminderService> logger, MareMediator mediator,
         ApiController apiController, EstablishmentConfigService configService)
@@ -25,6 +28,11 @@ public class EstablishmentReminderService : MediatorSubscriberBase, IDisposable
 
         Mediator.Subscribe<ConnectedMessage>(this, _ => StartTimer());
         Mediator.Subscribe<DisconnectedMessage>(this, _ => StopTimer());
+
+        // Démarré après la connexion (rechargement du plugin, reprise de session) : le
+        // ConnectedMessage est déjà passé, on lance la boucle tout de suite.
+        if (_apiController.IsConnected)
+            StartTimer();
     }
 
     private void StartTimer()
@@ -70,50 +78,94 @@ public class EstablishmentReminderService : MediatorSubscriberBase, IDisposable
 
     private async Task CheckUpcomingEvents(CancellationToken ct)
     {
-        if (!_configService.Current.EnableEventReminders) return;
+        var config = _configService.Current;
+        if (!config.EnableEventReminders) return;
         if (!_apiController.IsConnected) return;
 
-        var bookmarks = _configService.Current.BookmarkedEstablishments;
-        if (bookmarks.Count == 0) return;
+        // Copie : la liste est modifiée depuis l'UI pendant que cette boucle tourne en tâche de fond.
+        var bookmarks = config.BookmarkedEstablishments.ToArray();
+        foreach (var stale in _establishmentCache.Keys.Where(id => !bookmarks.Contains(id)).ToList())
+            _establishmentCache.Remove(stale);
+        if (bookmarks.Length == 0) return;
 
         var now = DateTime.UtcNow;
 
         // Periodic cleanup: drop notification keys older than 7 days to keep memory bounded.
         _notifiedOccurrences.RemoveWhere(k => k.OccurrenceStartUtc < now.AddDays(-7));
 
+        var lead = TimeSpan.FromMinutes(Math.Clamp(config.EventReminderMinutesBefore, 0, 120));
+
         foreach (var establishmentId in bookmarks)
         {
             ct.ThrowIfCancellationRequested();
             try
             {
-                var establishment = await _apiController.EstablishmentGetById(establishmentId).ConfigureAwait(false);
+                var establishment = await GetEstablishmentAsync(establishmentId, now).ConfigureAwait(false);
                 if (establishment?.Events == null) continue;
 
                 foreach (var evt in establishment.Events)
                 {
+                    if (evt == null) continue;
                     var occurrence = ComputeCurrentOrNextOccurrence(evt, now);
                     if (occurrence == null) continue;
 
                     var (occStart, occEnd) = occurrence.Value;
 
-                    // Skip if not currently open (i.e. occurrence is in the future or already past).
-                    if (now < occStart || now > occEnd) continue;
+                    if (lead > TimeSpan.Zero && now >= occStart - lead && now < occStart
+                        && _notifiedOccurrences.Add((evt.Id, occStart, true)))
+                    {
+                        PublishReminder(establishment, evt, occStart, now);
+                    }
 
-                    var key = (evt.Id, occStart);
-                    if (!_notifiedOccurrences.Add(key)) continue;
-
-                    Mediator.Publish(new NotificationMessage(
-                        establishment.Name,
-                        $"{evt.Title} a ouvert",
-                        NotificationType.Info,
-                        TimeSpan.FromSeconds(15)));
+                    if (config.NotifyOnEventStart && now >= occStart && now <= occEnd
+                        && _notifiedOccurrences.Add((evt.Id, occStart, false)))
+                    {
+                        Mediator.Publish(new NotificationMessage(
+                            establishment.Name,
+                            string.Format(Loc.CurrentCulture, Loc.Get("Establishment.Reminder.Started"),
+                                establishment.Name, evt.Title),
+                            NotificationType.Info,
+                            TimeSpan.FromSeconds(15)));
+                    }
                 }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
                 Logger.LogWarning(ex, "Error checking events for establishment {id}", establishmentId);
             }
         }
+    }
+
+    // Les horaires changent rarement : la fiche est relue toutes les 15 minutes, l'échéance
+    // est recalculée localement chaque minute. Un favori tout juste ajouté est lu au tour suivant.
+    private async Task<EstablishmentDto?> GetEstablishmentAsync(Guid establishmentId, DateTime now)
+    {
+        if (_establishmentCache.TryGetValue(establishmentId, out var cached) && now - cached.FetchedAtUtc < CacheLifetime)
+            return cached.Establishment;
+
+        var establishment = await _apiController.EstablishmentGetById(establishmentId).ConfigureAwait(false);
+        if (establishment != null)
+            _establishmentCache[establishmentId] = (establishment, now);
+        else
+            _establishmentCache.Remove(establishmentId);
+        return establishment;
+    }
+
+    private void PublishReminder(EstablishmentDto establishment, EstablishmentEventDto evt, DateTime occStart, DateTime now)
+    {
+        var minutesLeft = Math.Max(1, (int)Math.Ceiling((occStart - now).TotalMinutes));
+        var localStart = occStart.ToLocalTime().ToString("t", Loc.CurrentCulture);
+        var message = string.Format(Loc.CurrentCulture, Loc.Get("Establishment.Reminder.Soon"),
+            establishment.Name, evt.Title, minutesLeft, localStart);
+
+        // Toast et chat quel que soit le réglage « Info » : c'est un rappel que l'utilisateur a demandé.
+        Mediator.Publish(new DualNotificationMessage(
+            Loc.Get("Establishment.Reminder.Title"), message, NotificationType.Info,
+            TimeSpan.FromSeconds(20), ForceBoth: true));
     }
 
     // Returns the occurrence (start, end) that is currently active or the next future one,
