@@ -36,12 +36,17 @@ public class NearbyDiscoveryService(ILogger<NearbyDiscoveryService> logger, Mare
     private bool _disableSent;
     private bool _lastAutoDetectState;
     private volatile bool _suppressNextEnabledNotification;
+    private volatile NearbyVisibility _visibility = NearbyVisibility.Visible;
+    private bool _hiddenDisableSent;
     private DateTime _lastHeartbeat = DateTime.MinValue;
     private static readonly TimeSpan HeartbeatInterval = TimeSpan.FromSeconds(75);
     private readonly System.Threading.Lock _entriesLock = new();
     private List<NearbyEntry> _lastEntries = [];
 
     public MareMediator Mediator => _mediator;
+
+    public NearbyVisibility Visibility => _visibility;
+    public bool IsHidden => _visibility != NearbyVisibility.Visible;
 
     public Task StartAsync(CancellationToken cancellationToken)
     {
@@ -50,6 +55,7 @@ public class NearbyDiscoveryService(ILogger<NearbyDiscoveryService> logger, Mare
         _mediator.Subscribe<ConnectedMessage>(this, _ =>
         {
             _isConnected = true;
+            _hiddenDisableSent = false;
             _configProvider.TryLoadFromStapled();
             // Supprimer la notification "Enabled" lors de la connexion initiale elle sera intégrée dans la notification de bienvenue du serveur
             if (_config.Current.EnableAutoDetectDiscovery)
@@ -95,15 +101,15 @@ public class NearbyDiscoveryService(ILogger<NearbyDiscoveryService> logger, Mare
             var saltHex = Convert.ToHexString(saltBytes);
             string? displayName = null;
             ushort meWorld = 0;
+            var hidden = false;
             try
             {
-                var me = await _dalamud.RunOnFrameworkThread(() => _dalamud.GetPlayerCharacter() is { } pc
-                    ? ((string Name, ushort World)?)(pc.Name.TextValue, (ushort)pc.HomeWorld.RowId)
-                    : null).ConfigureAwait(false);
+                var me = await ReadSelfAsync().ConfigureAwait(false);
                 if (me is { } mePc)
                 {
                     displayName = mePc.Name;
                     meWorld = mePc.World;
+                    hidden = EvaluateVisibility(mePc.StatusId) != NearbyVisibility.Visible;
                 }
             }
             catch (Exception ex)
@@ -111,7 +117,7 @@ public class NearbyDiscoveryService(ILogger<NearbyDiscoveryService> logger, Mare
                 _logger.LogDebug(ex, "Failed to determine own player data for nearby publish");
             }
 
-            if (string.IsNullOrEmpty(displayName)) return;
+            if (string.IsNullOrEmpty(displayName) || hidden) return;
 
             var selfHash = (saltHex + displayName + meWorld.ToString()).GetHash256();
             var ok = await _api.PublishAsync(ep, [selfHash], displayName, ct, _config.Current.AllowAutoDetectPairRequests).ConfigureAwait(false);
@@ -125,6 +131,53 @@ public class NearbyDiscoveryService(ILogger<NearbyDiscoveryService> logger, Mare
         catch (Exception ex)
         {
             _logger.LogDebug(ex, "Immediate publish failed");
+        }
+    }
+
+    private async Task<(string Name, ushort World, uint StatusId)?> ReadSelfAsync()
+    {
+        return await _dalamud.RunOnFrameworkThread(() => _dalamud.GetPlayerCharacter() is { } pc
+            ? ((string Name, ushort World, uint StatusId)?)(pc.Name.TextValue, (ushort)pc.HomeWorld.RowId, pc.OnlineStatus.RowId)
+            : null).ConfigureAwait(false);
+    }
+
+    private NearbyVisibility EvaluateVisibility(uint onlineStatusId)
+    {
+        return NearbyPublishPolicy.Evaluate(onlineStatusId,
+            _config.Current.AutoDetectPublishWhenAfk,
+            _config.Current.AutoDetectPublishWhenNotRoleplaying);
+    }
+
+    private async Task ApplyVisibilityAsync(NearbyVisibility next, string publishEndpoint, CancellationToken ct)
+    {
+        var previous = _visibility;
+        _visibility = next;
+
+        if (next == NearbyVisibility.Visible)
+        {
+            if (previous != NearbyVisibility.Visible)
+            {
+                _logger.LogInformation("Nearby: visible again (was {previous}), publishing presence", previous);
+                _hiddenDisableSent = false;
+                _lastPublishedSignature = null;
+            }
+            return;
+        }
+
+        if (previous != next)
+            _logger.LogInformation("Nearby: now hidden ({reason}), removing presence from the server", next);
+
+        if (_hiddenDisableSent) return;
+
+        _lastPublishedSignature = null;
+        try
+        {
+            await _api.DisableAsync(publishEndpoint.Replace("/publish", "/disable", StringComparison.Ordinal), ct).ConfigureAwait(false);
+            _hiddenDisableSent = true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Failed to notify server of nearby hidden state");
         }
     }
 
@@ -230,6 +283,8 @@ public class NearbyDiscoveryService(ILogger<NearbyDiscoveryService> logger, Mare
                         // Nettoyer les entrées locales et la signature de publish
                         UpdateSnapshot([]);
                         _lastPublishedSignature = null;
+                        _visibility = NearbyVisibility.Visible;
+                        _hiddenDisableSent = false;
 
                         if (!_notifiedDisabled)
                         {
@@ -324,15 +379,15 @@ public class NearbyDiscoveryService(ILogger<NearbyDiscoveryService> logger, Mare
                         {
                             string? displayName = null;
                             string? selfHash = null;
+                            NearbyVisibility? visibility = null;
                             try
                             {
-                                var me = await _dalamud.RunOnFrameworkThread(() => _dalamud.GetPlayerCharacter() is { } pc
-                                    ? ((string Name, ushort World)?)(pc.Name.TextValue, (ushort)pc.HomeWorld.RowId)
-                                    : null).ConfigureAwait(false);
+                                var me = await ReadSelfAsync().ConfigureAwait(false);
                                 if (me is { } mePc)
                                 {
                                     displayName = mePc.Name;
                                     var meWorld = mePc.World;
+                                    visibility = EvaluateVisibility(mePc.StatusId);
                                     _logger.LogTrace("Nearby self ident: {name} ({world})", displayName, meWorld);
                                     selfHash = (saltHex + displayName + meWorld.ToString()).GetHash256();
                                 }
@@ -342,7 +397,12 @@ public class NearbyDiscoveryService(ILogger<NearbyDiscoveryService> logger, Mare
                                 _logger.LogDebug(ex, "Failed to compute self hash for nearby publish");
                             }
 
-                            if (!string.IsNullOrEmpty(selfHash))
+                            if (visibility is { } currentVisibility)
+                            {
+                                await ApplyVisibilityAsync(currentVisibility, publishEndpoint, ct).ConfigureAwait(false);
+                            }
+
+                            if (!string.IsNullOrEmpty(selfHash) && !IsHidden)
                             {
                                 var sig = selfHash;
                                 if (!string.Equals(sig, _lastPublishedSignature, StringComparison.Ordinal))
@@ -385,7 +445,8 @@ public class NearbyDiscoveryService(ILogger<NearbyDiscoveryService> logger, Mare
                             // else: no self character available; skip publish silently
                         }
 
-                        if (!string.IsNullOrEmpty(_configProvider.QueryEndpoint))
+                        // Réciprocité : masqué, on n'interroge pas le serveur, donc on ne voit personne.
+                        if (!string.IsNullOrEmpty(_configProvider.QueryEndpoint) && !IsHidden)
                         {
                             await QueryNearbyMatchesAsync(entries, hashes, hashToIndex, ct).ConfigureAwait(false);
                         }
@@ -475,15 +536,15 @@ public class NearbyDiscoveryService(ILogger<NearbyDiscoveryService> logger, Mare
         var saltHex = Convert.ToHexString(saltBytes);
         string? displayName = null;
         ushort meWorld = 0;
+        var hidden = false;
         try
         {
-            var me = await _dalamud.RunOnFrameworkThread(() => _dalamud.GetPlayerCharacter() is { } pc
-                ? ((string Name, ushort World)?)(pc.Name.TextValue, (ushort)pc.HomeWorld.RowId)
-                : null).ConfigureAwait(false);
+            var me = await ReadSelfAsync().ConfigureAwait(false);
             if (me is { } mePc)
             {
                 displayName = mePc.Name;
                 meWorld = mePc.World;
+                hidden = EvaluateVisibility(mePc.StatusId) != NearbyVisibility.Visible;
             }
         }
         catch (Exception ex)
@@ -491,7 +552,7 @@ public class NearbyDiscoveryService(ILogger<NearbyDiscoveryService> logger, Mare
             _logger.LogDebug(ex, "Failed to gather player info for nearby publish");
         }
 
-        if (string.IsNullOrEmpty(displayName))
+        if (string.IsNullOrEmpty(displayName) || hidden)
         {
             return;
         }

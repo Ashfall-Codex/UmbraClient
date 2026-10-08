@@ -12,6 +12,7 @@ using Dalamud.Interface.Utility.Raii;
 using System.Numerics;
 using System.Text.RegularExpressions;
 using UmbraSync.API.Data;
+using UmbraSync.API.Data.Enum;
 using UmbraSync.API.Dto.User;
 using UmbraSync.Localization;
 using UmbraSync.MareConfiguration;
@@ -73,6 +74,8 @@ public class EditProfileUi : WindowMediatorSubscriberBase
     private readonly ChatIconPicker _chatIconPicker;
     private byte _rpLevel;
     private byte _savedRpLevel;
+    private RpProfileVisibility _rpVisibility = RpProfileVisibility.PairsAndSyncshell;
+    private RpProfileVisibility _savedRpVisibility = RpProfileVisibility.PairsAndSyncshell;
     private DateTime _saveConfirmTime = DateTime.MinValue;
     private string _savedDescriptionText = string.Empty;
     private string _savedRpFirstNameText = string.Empty;
@@ -295,7 +298,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
             p.RpHeight ?? "", p.RpBuild ?? "", p.RpResidence ?? "",
             p.RpOccupation ?? "", p.RpAffiliation ?? "", p.RpAlignment ?? "",
             p.RpAdditionalInfo ?? "", p.RpNameColor ?? "",
-            p.IsRpNSFW.ToString(), p.RpLevel.ToString(),
+            p.IsRpNSFW.ToString(), p.RpLevel.ToString(), p.RpVisibility?.ToString() ?? "",
             customJson);
     }
 
@@ -329,7 +332,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
                 RpAlignment: dto.RpAlignment, RpAdditionalInfo: dto.RpAdditionalInfo,
                 RpNameColor: dto.RpNameColor,
                 RpCustomFields: customFields,
-                ChatIcon: dto.ChatIcon ?? 0, RpLevel: dto.RpLevel ?? 0);
+                ChatIcon: dto.ChatIcon ?? 0, RpLevel: dto.RpLevel ?? 0, RpVisibility: dto.RpVisibility);
 
             var serverSnapshot = ComputeRpSnapshotFromProfile(pseudoProfile);
             if (!string.Equals(serverSnapshot, _hydratedRpSnapshot, StringComparison.Ordinal))
@@ -425,10 +428,12 @@ public class EditProfileUi : WindowMediatorSubscriberBase
                 configProfile.RpAlignment = _rpAlignmentText;
                 configProfile.RpAdditionalInfo = _rpAdditionalInfoText;
                 configProfile.RpNameColor = umbraProfile.RpNameColor ?? string.Empty;
+                if (umbraProfile.RpVisibility.HasValue) configProfile.RpVisibility = umbraProfile.RpVisibility.Value;
                 _rpConfigService.Save();
 
                 _chatIconPicker.SelectedIcon = umbraProfile.ChatIcon > 0 ? umbraProfile.ChatIcon : configProfile.ChatIcon;
                 _rpLevel = umbraProfile.RpLevel != 0 ? umbraProfile.RpLevel : configProfile.RpLevel;
+                _rpVisibility = configProfile.RpVisibility;
 
                 var nameColorHex = umbraProfile.RpNameColor ?? string.Empty;
                 if (!string.IsNullOrEmpty(nameColorHex))
@@ -702,6 +707,10 @@ public class EditProfileUi : WindowMediatorSubscriberBase
             ImGuiHelpers.ScaledDummy(new Vector2(0f, 4f));
 
             DrawRpLevelSelector();
+
+            ImGuiHelpers.ScaledDummy(new Vector2(0f, 4f));
+
+            DrawRpVisibilitySelector();
 
             ImGuiHelpers.ScaledDummy(new Vector2(0f, 4f));
             ImGui.Separator();
@@ -1025,6 +1034,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
                     .ToList();
                 profile.ChatIcon = _chatIconPicker.SelectedIcon;
                 profile.RpLevel = _rpLevel;
+                profile.RpVisibility = _rpVisibility;
                 _rpConfigService.Save();
             }
 
@@ -1074,7 +1084,8 @@ public class EditProfileUi : WindowMediatorSubscriberBase
                         RpCustomFields = customFieldsJsonSnapshot,
                         MoodlesData = moodlesDataSnapshot,
                         ChatIcon = isRp ? localRpProfile.ChatIcon : null,
-                        RpLevel = isRp ? localRpProfile.RpLevel : null
+                        RpLevel = isRp ? localRpProfile.RpLevel : null,
+                        RpVisibility = isRp ? localRpProfile.RpVisibility : null
                     }).ConfigureAwait(false);
 
                     Mediator.Publish(new ClearProfileDataMessage(new UserData(_apiController.UID), charName, worldId));
@@ -1135,6 +1146,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
             }
             _chatIconPicker.SnapshotSaved();
             _savedRpLevel = _rpLevel;
+            _savedRpVisibility = _rpVisibility;
             _honorificEditor.SnapshotSaved();
         }
         else
@@ -1166,7 +1178,8 @@ public class EditProfileUi : WindowMediatorSubscriberBase
                     _savedRpCustomFieldsJson, StringComparison.Ordinal)
                 || _honorificEditor.HasUnsavedChanges
                 || _chatIconPicker.HasUnsavedChanges
-                || _rpLevel != _savedRpLevel;
+                || _rpLevel != _savedRpLevel
+                || _rpVisibility != _savedRpVisibility;
         }
         else
         {
@@ -1237,6 +1250,36 @@ public class EditProfileUi : WindowMediatorSubscriberBase
         if (ImGui.RadioButton(Loc.Get("UserProfile.RpLevel.Mentor"), _rpLevel == mentor))
             _rpLevel = mentor;
         UiSharedService.AttachToolTip(Loc.Get("UserProfile.RpLevel.Mentor.Tooltip"));
+    }
+
+    private static readonly RpProfileVisibility[] RpVisibilityOrder =
+    [
+        RpProfileVisibility.Hidden,
+        RpProfileVisibility.PairsOnly,
+        RpProfileVisibility.PairsAndSyncshell,
+        RpProfileVisibility.Public,
+    ];
+
+    private void DrawRpVisibilitySelector()
+    {
+        ImGui.TextColored(ImGuiColors.DalamudGrey, Loc.Get("UserProfile.RpVisibility"));
+
+        string[] labels =
+        [
+            Loc.Get("UserProfile.RpVisibility.Hidden"),
+            Loc.Get("UserProfile.RpVisibility.PairsOnly"),
+            Loc.Get("UserProfile.RpVisibility.PairsAndSyncshell"),
+            Loc.Get("UserProfile.RpVisibility.Public"),
+        ];
+
+        int index = Array.IndexOf(RpVisibilityOrder, _rpVisibility);
+        if (index < 0) index = Array.IndexOf(RpVisibilityOrder, RpProfileVisibility.PairsAndSyncshell);
+
+        ImGui.SetNextItemWidth(280 * ImGuiHelpers.GlobalScale);
+        if (ImGui.Combo("##rpVisibility", ref index, labels, labels.Length))
+            _rpVisibility = RpVisibilityOrder[index];
+
+        _uiSharedService.DrawHelpText(Loc.Get("UserProfile.RpVisibility.Help"));
     }
 
     protected override void Dispose(bool disposing)

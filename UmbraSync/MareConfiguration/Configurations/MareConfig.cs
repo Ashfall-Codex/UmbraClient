@@ -122,6 +122,8 @@ public class MareConfig : IMareConfiguration
     public Dictionary<string, SyncOverrideEntry> GroupSyncOverrides { get; set; } = new(StringComparer.Ordinal);
     public bool EnableAutoDetectDiscovery { get; set; }
     public bool AllowAutoDetectPairRequests { get; set; }
+    public bool AutoDetectPublishWhenAfk { get; set; } = true;
+    public bool AutoDetectPublishWhenNotRoleplaying { get; set; } = true;
     public const int AutoDetectFixedMaxDistanceMeters = 50;
     public int AutoDetectMaxDistanceMeters { get; set; } = AutoDetectFixedMaxDistanceMeters;
     public int AutoDetectDeclineCooldownMinutes { get; set; } = 15;

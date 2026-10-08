@@ -263,6 +263,18 @@ public class AutoDetectUi : WindowMediatorSubscriberBase
             return;
         }
 
+        // Réciprocité : masqué (AFK ou hors JDR selon les réglages), on ne voit personne non plus.
+        if (_discoveryService.IsHidden)
+        {
+            bool hiddenByAfk = _discoveryService.Visibility == NearbyVisibility.HiddenAfk;
+            string hiddenTitle = hiddenByAfk ? Loc.Get("EmptyState.Nearby.HiddenAfk.Title") : Loc.Get("EmptyState.Nearby.HiddenNotRoleplaying.Title");
+            string hiddenHint = hiddenByAfk ? Loc.Get("EmptyState.Nearby.HiddenAfk.Hint") : Loc.Get("EmptyState.Nearby.HiddenNotRoleplaying.Hint");
+            if (_uiSharedService.DrawEmptyState(FontAwesomeIcon.EyeSlash, hiddenTitle, hiddenHint,
+                    Loc.Get("EmptyState.Nearby.Disabled.Button"), FontAwesomeIcon.Cog))
+                Mediator.Publish(new OpenAutoDetectSettingsMessage());
+            return;
+        }
+
         int maxDist = MareConfig.AutoDetectFixedMaxDistanceMeters;
 
         var sourceEntries = _entries.Count > 0 ? _entries : _discoveryService.SnapshotEntries();

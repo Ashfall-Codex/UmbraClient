@@ -430,7 +430,8 @@ public class UmbraProfileManager : MediatorSubscriberBase
                 customFields,
                 profile.MoodlesData,
                 effectiveChatIcon,
-                effectiveRpLevel);
+                effectiveRpLevel,
+                profile.RpVisibility);
 
             if (_apiController.IsConnected && isSelf && charName != null && worldId != null)
             {
@@ -489,6 +490,11 @@ public class UmbraProfileManager : MediatorSubscriberBase
             // Persist to disk cache (not for self)
             if (!isSelf)
             {
+                // Le serveur ne renvoie un niveau de visibilité à un autre joueur que lorsque la fiche RP existe
+                // mais ne lui est plus accessible : l'ancienne copie conservée sur disque doit disparaître.
+                if (profile.RpVisibility.HasValue)
+                    RemovePersistedProfile(data, charName, worldId);
+
                 UpdatePersistedProfile(data, charName, worldId, profileData);
 
                 // Fetch all alt profiles for this UID in the background (only if we have valid encounter data)
@@ -530,6 +536,8 @@ public class UmbraProfileManager : MediatorSubscriberBase
 
         Logger.LogInformation("Fetched {count} alt profiles for {uid}", allProfiles.Count, data.UID);
         bool isSelf = string.Equals(_apiController.UID, data.UID, StringComparison.Ordinal);
+
+        if (!isSelf) PurgePersistedProfilesNoLongerVisible(data, allProfiles);
 
         foreach (var profile in allProfiles)
         {
@@ -576,6 +584,25 @@ public class UmbraProfileManager : MediatorSubscriberBase
         }
 
         Mediator.Publish(new NameplateRedrawMessage());
+    }
+
+    // Le serveur ne renvoie que les personnages dont la fiche nous est visible : une copie disque d'un autre
+    // personnage du même compte qui n'en fait plus partie a été masquée ou supprimée depuis.
+    private void PurgePersistedProfilesNoLongerVisible(UserData data, IEnumerable<API.Dto.User.UserProfileDto> visibleProfiles)
+    {
+        EnsureCacheLoaded();
+        var visibleKeys = visibleProfiles
+            .Where(p => !string.IsNullOrEmpty(p.CharacterName) && p.WorldId is > 0)
+            .Select(p => $"{data.UID}_{p.CharacterName}_{p.WorldId}")
+            .ToHashSet(StringComparer.Ordinal);
+
+        foreach (var entry in _persistedProfiles.ToList())
+        {
+            if (!string.Equals(entry.Value.Key.User.UID, data.UID, StringComparison.Ordinal)) continue;
+            if (visibleKeys.Contains(entry.Key)) continue;
+            RemovePersistedProfile(data, entry.Value.Key.CharName, entry.Value.Key.WorldId);
+            _umbraProfiles.TryRemove(NormalizeKey(data, entry.Value.Key.CharName, entry.Value.Key.WorldId), out _);
+        }
     }
 
     public List<(string CharName, uint WorldId)> GetEncounteredAlts(string uid)

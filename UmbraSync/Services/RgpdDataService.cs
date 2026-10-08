@@ -148,6 +148,8 @@ public class RgpdDataService : DisposableMediatorSubscriberBase
                 {
                     ["nearby_discovery"] = _configService.Current.EnableAutoDetectDiscovery,
                     ["nearby_pair_requests"] = _configService.Current.AllowAutoDetectPairRequests,
+                    ["nearby_visible_when_afk"] = _configService.Current.AutoDetectPublishWhenAfk,
+                    ["nearby_visible_when_not_roleplaying"] = _configService.Current.AutoDetectPublishWhenNotRoleplaying,
                     ["slot_position"] = _configService.Current.EnableSlotNotifications,
                     ["establishment_position"] = _establishmentConfigService.Current.EnableProximityNotifications,
                     ["typing_indicator"] = _configService.Current.TypingIndicatorEnabled,

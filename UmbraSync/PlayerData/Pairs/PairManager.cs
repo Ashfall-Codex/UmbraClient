@@ -941,6 +941,7 @@ public sealed class PairManager : DisposableMediatorSubscriberBase
     {
         if (!_configurationService.Current.EnableAutoDetectDiscovery) { Logger.LogDebug("[ContextMenu] Skipped pair request: AutoDetectDiscovery disabled"); return; }
         if (!_configurationService.Current.AllowAutoDetectPairRequests) { Logger.LogDebug("[ContextMenu] Skipped pair request: PairRequests not allowed"); return; }
+        if (_autoDetectRequestService.IsNearbyHidden) { Logger.LogDebug("[ContextMenu] Skipped pair request: hidden from nearby discovery"); return; }
         if (args.Target is not MenuTargetDefault target) { Logger.LogDebug("[ContextMenu] Skipped pair request: Target not MenuTargetDefault (was {t})", args.Target.GetType().Name); return; }
 
         uint targetObjectId = (uint)target.TargetObjectId;

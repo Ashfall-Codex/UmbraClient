@@ -2990,6 +2990,39 @@ Note : Les armes ne s'afficheront pas correctement sauf si vous utilisez le m&#x
   <data name="Settings.AutoDetect.Enable" xml:space="preserve">
     <value>Activer l'AutoDetect</value>
   </data>
+  <data name="Settings.AutoDetect.PublishWhenAfk" xml:space="preserve">
+    <value>Rester visible quand je suis AFK</value>
+  </data>
+  <data name="Settings.AutoDetect.PublishWhenAfkHelp" xml:space="preserve">
+    <value>Désactivé, vous êtes masqué aux autres joueurs tant que votre statut est Absent (AFK). La détection fonctionne dans les deux sens : masqué, vous ne voyez personne à proximité non plus.</value>
+  </data>
+  <data name="Settings.AutoDetect.PublishWhenNotRoleplaying" xml:space="preserve">
+    <value>Rester visible hors du mode JDR</value>
+  </data>
+  <data name="Settings.AutoDetect.PublishWhenNotRoleplayingHelp" xml:space="preserve">
+    <value>Désactivé, vous n'êtes visible que lorsque votre statut est Jeu de rôle (/jdr). Dans tout autre statut vous êtes masqué. La détection fonctionne dans les deux sens : masqué, vous ne voyez personne à proximité non plus.</value>
+  </data>
+  <data name="Settings.AutoDetect.Visibility.Visible" xml:space="preserve">
+    <value>Actuellement visible des autres joueurs.</value>
+  </data>
+  <data name="Settings.AutoDetect.Visibility.HiddenAfk" xml:space="preserve">
+    <value>Actuellement masqué : vous êtes AFK.</value>
+  </data>
+  <data name="Settings.AutoDetect.Visibility.HiddenNotRoleplaying" xml:space="preserve">
+    <value>Actuellement masqué : vous n'êtes pas en mode JDR.</value>
+  </data>
+  <data name="EmptyState.Nearby.HiddenAfk.Title" xml:space="preserve">
+    <value>Vous êtes masqué pendant votre AFK</value>
+  </data>
+  <data name="EmptyState.Nearby.HiddenAfk.Hint" xml:space="preserve">
+    <value>La détection fonctionne dans les deux sens : masqué, vous ne voyez personne à proximité non plus. Revenez de votre AFK ou activez « Rester visible quand je suis AFK » dans les réglages.</value>
+  </data>
+  <data name="EmptyState.Nearby.HiddenNotRoleplaying.Title" xml:space="preserve">
+    <value>Vous êtes masqué hors du mode JDR</value>
+  </data>
+  <data name="EmptyState.Nearby.HiddenNotRoleplaying.Hint" xml:space="preserve">
+    <value>La détection fonctionne dans les deux sens : masqué, vous ne voyez personne à proximité non plus. Passez en JDR (/jdr) ou activez « Rester visible hors du mode JDR » dans les réglages.</value>
+  </data>
   <data name="Settings.AutoDetect.InvitesDisabled" xml:space="preserve">
     <value>Invitations entrantes désactivées : les autres ne peuvent pas vous inviter.</value>
   </data>
@@ -4471,6 +4504,24 @@ Note : Les armes ne s'afficheront pas correctement sauf si vous utilisez le m&#x
   <data name="UserProfile.RpLevel.Mentor.Tooltip" xml:space="preserve">
     <value>Joueur expérimenté, disposé à aider et initier les nouveaux.</value>
   </data>
+  <data name="UserProfile.RpVisibility" xml:space="preserve">
+    <value>Visibilité du profil RP</value>
+  </data>
+  <data name="UserProfile.RpVisibility.Hidden" xml:space="preserve">
+    <value>Masqué</value>
+  </data>
+  <data name="UserProfile.RpVisibility.PairsOnly" xml:space="preserve">
+    <value>Paires uniquement</value>
+  </data>
+  <data name="UserProfile.RpVisibility.PairsAndSyncshell" xml:space="preserve">
+    <value>Paires et syncshells</value>
+  </data>
+  <data name="UserProfile.RpVisibility.Public" xml:space="preserve">
+    <value>Public (joueurs à proximité)</value>
+  </data>
+  <data name="UserProfile.RpVisibility.Help" xml:space="preserve">
+    <value>Qui peut voir le profil RP de ce personnage. Masqué : personne. Paires uniquement : vos paires directes. Paires et syncshells : vos paires et les membres de vos syncshells (par défaut). Public : les joueurs Umbra que vous croisez peuvent aussi le voir. Ce réglage ne concerne que ce personnage.</value>
+  </data>
   <data name="Profile.ChatIcon.Label" xml:space="preserve">
     <value>Icône affichée dans le tchat (avant le nom)</value>
   </data>
@@ -4865,6 +4916,9 @@ Note : Les armes ne s'afficheront pas correctement sauf si vous utilisez le m&#x
   </data>
   <data name="Notification.Nearby.Blocked.Body" xml:space="preserve">
     <value>Activez « Autoriser les demandes d'appairage » dans les paramètres pour envoyer des demandes.</value>
+  </data>
+  <data name="Notification.Nearby.Hidden.Body" xml:space="preserve">
+    <value>Vous êtes masqué de la détection à proximité. Redevenez visible pour envoyer des demandes.</value>
   </data>
   <data name="Notification.Nearby.AlreadyPaired.Title" xml:space="preserve">
     <value>Déjà appairé</value>
@@ -7842,5 +7896,26 @@ ATTENTION : cette action est irréversible.</value>
   </data>
   <data name="CharaDataHub.Mcdf.Action.Import" xml:space="preserve">
     <value>Importer un fichier MCDF</value>
+  </data>
+  <data name="Settings.AutoDetect.Group.Visibility" xml:space="preserve">
+    <value>Visibilité</value>
+  </data>
+  <data name="Settings.AutoDetect.Group.Invites" xml:space="preserve">
+    <value>Invitations</value>
+  </data>
+  <data name="Settings.AutoDetect.Status.Visible" xml:space="preserve">
+    <value>Visible des autres joueurs</value>
+  </data>
+  <data name="Settings.AutoDetect.Status.HiddenAfk" xml:space="preserve">
+    <value>Masqué : vous êtes AFK</value>
+  </data>
+  <data name="Settings.AutoDetect.Status.HiddenNotRoleplaying" xml:space="preserve">
+    <value>Masqué : hors mode JDR</value>
+  </data>
+  <data name="Settings.AutoDetect.Status.Off" xml:space="preserve">
+    <value>Détection désactivée</value>
+  </data>
+  <data name="Settings.AutoDetect.Status.Suppressed" xml:space="preserve">
+    <value>En pause dans cette zone</value>
   </data>
 </root>

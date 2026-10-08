@@ -3089,6 +3089,39 @@ Note: Weapons will not be displayed correctly unless using the same job as the s
   <data name="Settings.AutoDetect.Enable" xml:space="preserve">
     <value>Enable AutoDetect</value>
   </data>
+  <data name="Settings.AutoDetect.PublishWhenAfk" xml:space="preserve">
+    <value>Stay visible while AFK</value>
+  </data>
+  <data name="Settings.AutoDetect.PublishWhenAfkHelp" xml:space="preserve">
+    <value>When disabled, you are hidden from other players while your status is Away from Keyboard. Detection works both ways: while hidden, you do not see anyone nearby either.</value>
+  </data>
+  <data name="Settings.AutoDetect.PublishWhenNotRoleplaying" xml:space="preserve">
+    <value>Stay visible when not in roleplaying mode</value>
+  </data>
+  <data name="Settings.AutoDetect.PublishWhenNotRoleplayingHelp" xml:space="preserve">
+    <value>When disabled, you are only visible while your status is Roleplaying (/roleplaying). In any other status you are hidden. Detection works both ways: while hidden, you do not see anyone nearby either.</value>
+  </data>
+  <data name="Settings.AutoDetect.Visibility.Visible" xml:space="preserve">
+    <value>Currently visible to other players.</value>
+  </data>
+  <data name="Settings.AutoDetect.Visibility.HiddenAfk" xml:space="preserve">
+    <value>Currently hidden: you are AFK.</value>
+  </data>
+  <data name="Settings.AutoDetect.Visibility.HiddenNotRoleplaying" xml:space="preserve">
+    <value>Currently hidden: you are not in roleplaying mode.</value>
+  </data>
+  <data name="EmptyState.Nearby.HiddenAfk.Title" xml:space="preserve">
+    <value>You are hidden while AFK</value>
+  </data>
+  <data name="EmptyState.Nearby.HiddenAfk.Hint" xml:space="preserve">
+    <value>Detection works both ways: while you are hidden, you cannot see anyone nearby either. Come back from AFK, or enable "Stay visible while AFK" in the settings.</value>
+  </data>
+  <data name="EmptyState.Nearby.HiddenNotRoleplaying.Title" xml:space="preserve">
+    <value>You are hidden outside roleplaying mode</value>
+  </data>
+  <data name="EmptyState.Nearby.HiddenNotRoleplaying.Hint" xml:space="preserve">
+    <value>Detection works both ways: while you are hidden, you cannot see anyone nearby either. Switch to roleplaying (/roleplaying), or enable "Stay visible when not in roleplaying mode" in the settings.</value>
+  </data>
   <data name="Settings.AutoDetect.InvitesDisabled" xml:space="preserve">
     <value>Incoming invitations disabled: others cannot invite you.</value>
   </data>
@@ -4570,6 +4603,24 @@ Note: Weapons will not be displayed correctly unless using the same job as the s
   <data name="UserProfile.RpLevel.Mentor.Tooltip" xml:space="preserve">
     <value>Experienced player, willing to help and guide newcomers.</value>
   </data>
+  <data name="UserProfile.RpVisibility" xml:space="preserve">
+    <value>RP profile visibility</value>
+  </data>
+  <data name="UserProfile.RpVisibility.Hidden" xml:space="preserve">
+    <value>Hidden</value>
+  </data>
+  <data name="UserProfile.RpVisibility.PairsOnly" xml:space="preserve">
+    <value>Pairs only</value>
+  </data>
+  <data name="UserProfile.RpVisibility.PairsAndSyncshell" xml:space="preserve">
+    <value>Pairs and syncshells</value>
+  </data>
+  <data name="UserProfile.RpVisibility.Public" xml:space="preserve">
+    <value>Public (nearby players)</value>
+  </data>
+  <data name="UserProfile.RpVisibility.Help" xml:space="preserve">
+    <value>Who can see the RP profile of this character. Hidden: nobody. Pairs only: your direct pairs. Pairs and syncshells: your pairs and the members of your syncshells (default). Public: Umbra players who come across you can see it too. This setting applies to this character only.</value>
+  </data>
   <data name="Profile.ChatIcon.Label" xml:space="preserve">
     <value>Chat icon (displayed before the name)</value>
   </data>
@@ -4955,6 +5006,9 @@ Note: Weapons will not be displayed correctly unless using the same job as the s
   </data>
   <data name="Notification.Nearby.Blocked.Body" xml:space="preserve">
     <value>Enable 'Allow pair requests' in Settings to send requests.</value>
+  </data>
+  <data name="Notification.Nearby.Hidden.Body" xml:space="preserve">
+    <value>You are hidden from nearby discovery. Become visible to send requests.</value>
   </data>
   <data name="Notification.Nearby.AlreadyPaired.Title" xml:space="preserve">
     <value>Already paired</value>
@@ -7932,5 +7986,26 @@ WARNING: this cannot be undone.</value>
   </data>
   <data name="CharaDataHub.Mcdf.Action.Import" xml:space="preserve">
     <value>Import an MCDF file</value>
+  </data>
+  <data name="Settings.AutoDetect.Group.Visibility" xml:space="preserve">
+    <value>Visibility</value>
+  </data>
+  <data name="Settings.AutoDetect.Group.Invites" xml:space="preserve">
+    <value>Invitations</value>
+  </data>
+  <data name="Settings.AutoDetect.Status.Visible" xml:space="preserve">
+    <value>Visible to other players</value>
+  </data>
+  <data name="Settings.AutoDetect.Status.HiddenAfk" xml:space="preserve">
+    <value>Hidden: you are AFK</value>
+  </data>
+  <data name="Settings.AutoDetect.Status.HiddenNotRoleplaying" xml:space="preserve">
+    <value>Hidden: not in RP mode</value>
+  </data>
+  <data name="Settings.AutoDetect.Status.Off" xml:space="preserve">
+    <value>Detection disabled</value>
+  </data>
+  <data name="Settings.AutoDetect.Status.Suppressed" xml:space="preserve">
+    <value>Paused in this area</value>
   </data>
 </root>

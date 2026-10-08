@@ -1,3 +1,4 @@
+using UmbraSync.API.Data.Enum;
 using UmbraSync.API.Data;
 
 namespace UmbraSync.MareConfiguration.Configurations;
@@ -36,4 +37,5 @@ public class CharacterRpProfile
     public long HonorificBackupTimestamp { get; set; } = 0;
     public ushort ChatIcon { get; set; } = 0;
     public byte RpLevel { get; set; } = 0;
+    public RpProfileVisibility RpVisibility { get; set; } = RpProfileVisibility.PairsAndSyncshell;
 }

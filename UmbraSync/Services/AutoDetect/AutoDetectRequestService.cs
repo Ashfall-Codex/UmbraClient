@@ -33,6 +33,7 @@ public class AutoDetectRequestService : IMediatorSubscriber
     private static readonly TimeSpan RefusalLockDuration = TimeSpan.FromMinutes(15);
     private readonly Lazy<ApiController> _apiController;
     private readonly Lazy<PairManager> _pairManager;
+    private readonly Lazy<NearbyDiscoveryService> _discoveryService;
 
     public AutoDetectRequestService(ILogger<AutoDetectRequestService> logger, DiscoveryConfigProvider configProvider, DiscoveryApiClient client, MareConfigService configService, MareMediator mediator, DalamudUtilService dalamudUtilService, IServiceProvider serviceProvider, NotificationTracker notificationTracker)
     {
@@ -45,14 +46,24 @@ public class AutoDetectRequestService : IMediatorSubscriber
         _notificationTracker = notificationTracker;
         _apiController = new Lazy<ApiController>(() => serviceProvider.GetRequiredService<ApiController>());
         _pairManager = new Lazy<PairManager>(() => serviceProvider.GetRequiredService<PairManager>());
+        _discoveryService = new Lazy<NearbyDiscoveryService>(() => serviceProvider.GetRequiredService<NearbyDiscoveryService>());
         _mediator.Subscribe<DisconnectedMessage>(this, _ => ClearAllOnDisconnect());
         _mediator.Subscribe<PairOfflineMessage>(this, msg => RemoveOutgoingForUser(msg.User.UID));
     }
 
     public MareMediator Mediator => _mediator;
 
+    public bool IsNearbyHidden => _discoveryService.Value.IsHidden;
+
     public async Task<bool> SendRequestAsync(string? token, string? uid = null, string? targetDisplayName = null, CancellationToken ct = default)
     {
+        if (IsNearbyHidden)
+        {
+            _logger.LogDebug("Nearby request blocked: player is hidden from nearby discovery");
+            _mediator.Publish(new NotificationMessage(Loc.Get("Notification.Nearby.Blocked.Title"), Loc.Get("Notification.Nearby.Hidden.Body"), NotificationType.Info));
+            return false;
+        }
+
         if (!_configService.Current.AllowAutoDetectPairRequests)
         {
             _logger.LogDebug("Nearby request blocked: AllowAutoDetectPairRequests is disabled");

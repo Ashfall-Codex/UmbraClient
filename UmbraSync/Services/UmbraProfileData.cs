@@ -1,4 +1,5 @@
 ﻿using UmbraSync.API.Data;
+using UmbraSync.API.Data.Enum;
 
 namespace UmbraSync.Services;
 
@@ -11,7 +12,8 @@ public record UmbraProfileData(bool IsFlagged, bool IsNSFW, string Base64Profile
     List<RpCustomField>? RpCustomFields = null,
     string? MoodlesData = null,
     ushort ChatIcon = 0,
-    byte RpLevel = 0)
+    byte RpLevel = 0,
+    RpProfileVisibility? RpVisibility = null)
 {
     public Lazy<byte[]> ImageData { get; } = new Lazy<byte[]>(() => string.IsNullOrEmpty(Base64ProfilePicture) ? Array.Empty<byte>() : Convert.FromBase64String(Base64ProfilePicture));
     public Lazy<byte[]> RpImageData { get; } = new Lazy<byte[]>(() => string.IsNullOrEmpty(Base64RpProfilePicture) ? Array.Empty<byte>() : Convert.FromBase64String(Base64RpProfilePicture));

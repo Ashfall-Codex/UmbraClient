@@ -50,6 +50,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
     private readonly PairManager _pairManager;
     private readonly GuiHookService _guiHookService;
     private readonly AutoDetectSuppressionService _autoDetectSuppressionService;
+    private readonly NearbyDiscoveryService _nearbyDiscoveryService;
     private readonly PerformanceCollectorService _performanceCollector;
     private readonly PlayerPerformanceConfigService _playerPerformanceConfigService;
     private readonly AccountRegistrationService _registerService;
@@ -153,6 +154,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
         IpcManager ipcManager, IpcProvider ipcProvider, CacheMonitor cacheMonitor,
         DalamudUtilService dalamudUtilService, AccountRegistrationService registerService,
         AutoDetectSuppressionService autoDetectSuppressionService,
+        NearbyDiscoveryService nearbyDiscoveryService,
         PenumbraPrecacheService precacheService,
         ChatTypingDetectionService chatTypingDetectionService,
         RgpdDataService gdprDataService, EstablishmentConfigService establishmentConfigService,
@@ -179,6 +181,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
         _dalamudUtilService = dalamudUtilService;
         _registerService = registerService;
         _autoDetectSuppressionService = autoDetectSuppressionService;
+        _nearbyDiscoveryService = nearbyDiscoveryService;
         _fileCompactor = fileCompactor;
         _uiShared = uiShared;
         _precacheService = precacheService;
@@ -4264,6 +4267,53 @@ public class SettingsUi : WindowMediatorSubscriberBase
             _activeSettingsTab == PrivacySettingsTab ? UiSharedService.ThemePrivacyAccent : null);
     }
 
+    // Pastille d'état en tête de la carte : ce que les autres voient, en un coup d'œil.
+    private void DrawAutoDetectStatus(bool enabled, bool suppressed)
+    {
+        var (key, color, icon) = !enabled
+            ? ("Settings.AutoDetect.Status.Off", ImGuiColors.DalamudGrey, FontAwesomeIcon.EyeSlash)
+            : suppressed
+                ? ("Settings.AutoDetect.Status.Suppressed", ImGuiColors.DalamudOrange, FontAwesomeIcon.PauseCircle)
+                : _nearbyDiscoveryService.Visibility switch
+                {
+                    NearbyVisibility.HiddenAfk => ("Settings.AutoDetect.Status.HiddenAfk", ImGuiColors.DalamudYellow, FontAwesomeIcon.Moon),
+                    NearbyVisibility.HiddenNotRoleplaying => ("Settings.AutoDetect.Status.HiddenNotRoleplaying", ImGuiColors.DalamudYellow, FontAwesomeIcon.TheaterMasks),
+                    _ => ("Settings.AutoDetect.Status.Visible", ImGuiColors.HealerGreen, FontAwesomeIcon.Eye),
+                };
+
+        var scale = ImGuiHelpers.GlobalScale;
+        var label = Loc.Get(key);
+        var pad = new Vector2(10f, 4f) * scale;
+        float gap = 7f * scale;
+        var iconText = icon.ToIconString();
+        Vector2 iconSize;
+        using (ImRaii.PushFont(UiBuilder.IconFont))
+            iconSize = ImGui.CalcTextSize(iconText);
+        var labelSize = ImGui.CalcTextSize(label);
+        float height = MathF.Max(iconSize.Y, labelSize.Y) + pad.Y * 2f;
+        var size = new Vector2(pad.X * 2f + iconSize.X + gap + labelSize.X, height);
+
+        var min = ImGui.GetCursorScreenPos();
+        var dl = ImGui.GetWindowDrawList();
+        dl.AddRectFilled(min, min + size, ImGui.GetColorU32(color with { W = 0.14f }), height / 2f);
+        dl.AddRect(min, min + size, ImGui.GetColorU32(color with { W = 0.45f }), height / 2f, ImDrawFlags.None, scale);
+        using (ImRaii.PushFont(UiBuilder.IconFont))
+            dl.AddText(min + new Vector2(pad.X, (height - iconSize.Y) / 2f), ImGui.GetColorU32(color), iconText);
+        dl.AddText(min + new Vector2(pad.X + iconSize.X + gap, (height - labelSize.Y) / 2f), ImGui.GetColorU32(color), label);
+        ImGui.Dummy(size);
+        if (suppressed && enabled)
+            UiSharedService.AttachToolTip(Loc.Get("Settings.AutoDetect.SuppressedTooltip"));
+    }
+
+    private static void DrawSettingsSubgroupLabel(FontAwesomeIcon icon, string title)
+    {
+        ImGuiHelpers.ScaledDummy(2f);
+        using (ImRaii.PushFont(UiBuilder.IconFont))
+            ImGui.TextColored(UiSharedService.ThemeTextAccent, icon.ToIconString());
+        ImGui.SameLine(0f, 6f * ImGuiHelpers.GlobalScale);
+        UiSharedService.ColorText(title.ToUpper(Loc.CurrentCulture), UiSharedService.ThemeTextAccent);
+    }
+
     private void DrawAutoDetect()
     {
         _lastTab = "AutoDetect";
@@ -4272,6 +4322,9 @@ public class SettingsUi : WindowMediatorSubscriberBase
         UiSharedService.BeginSectionCard(Loc.Get("Settings.AutoDetect.Discovery.Title"), FontAwesomeIcon.BroadcastTower);
         bool isAutoDetectSuppressed = _autoDetectSuppressionService.IsSuppressed;
         bool enableDiscovery = _configService.Current.EnableAutoDetectDiscovery;
+
+        DrawAutoDetectStatus(enableDiscovery, isAutoDetectSuppressed);
+        ImGuiHelpers.ScaledDummy(4f);
 
         using (ImRaii.Disabled(isAutoDetectSuppressed))
         {
@@ -4305,6 +4358,29 @@ public class SettingsUi : WindowMediatorSubscriberBase
         // Tout le reste est grisé quand AutoDetect est OFF
         using (ImRaii.Disabled(isAutoDetectSuppressed || !enableDiscovery))
         {
+            DrawSettingsSubgroupLabel(FontAwesomeIcon.Eye, Loc.Get("Settings.AutoDetect.Group.Visibility"));
+            var subgroupIndent = 14f * ImGuiHelpers.GlobalScale;
+            ImGui.Indent(subgroupIndent);
+            bool publishWhenAfk = _configService.Current.AutoDetectPublishWhenAfk;
+            if (ToggleSwitch.Draw(Loc.Get("Settings.AutoDetect.PublishWhenAfk"), ref publishWhenAfk))
+            {
+                _configService.Current.AutoDetectPublishWhenAfk = publishWhenAfk;
+                _configService.Save();
+            }
+            _uiShared.DrawHelpText(Loc.Get("Settings.AutoDetect.PublishWhenAfkHelp"));
+
+            bool publishWhenNotRoleplaying = _configService.Current.AutoDetectPublishWhenNotRoleplaying;
+            if (ToggleSwitch.Draw(Loc.Get("Settings.AutoDetect.PublishWhenNotRoleplaying"), ref publishWhenNotRoleplaying))
+            {
+                _configService.Current.AutoDetectPublishWhenNotRoleplaying = publishWhenNotRoleplaying;
+                _configService.Save();
+            }
+            _uiShared.DrawHelpText(Loc.Get("Settings.AutoDetect.PublishWhenNotRoleplayingHelp"));
+            ImGui.Unindent(subgroupIndent);
+
+            ImGuiHelpers.ScaledDummy(4f);
+            DrawSettingsSubgroupLabel(FontAwesomeIcon.Envelope, Loc.Get("Settings.AutoDetect.Group.Invites"));
+            ImGui.Indent(subgroupIndent);
             bool allowRequests = _configService.Current.AllowAutoDetectPairRequests;
             if (ToggleSwitch.Draw(Loc.Get("Settings.AutoDetect.AllowInvites"), ref allowRequests))
             {
@@ -4326,8 +4402,9 @@ public class SettingsUi : WindowMediatorSubscriberBase
                 UiSharedService.AttachToolTip(Loc.Get("Settings.AutoDetect.SuppressedTooltip"));
             }
 
-            // Interactive popup for pair requests
+            // La popup n'a de sens que si les invitations sont acceptées : sous-option en retrait.
             using (ImRaii.Disabled(!_configService.Current.AllowAutoDetectPairRequests))
+            using (ImRaii.PushIndent(18f * ImGuiHelpers.GlobalScale, false))
             {
                 bool useInteractivePopup = _configService.Current.UseInteractivePairRequestPopup;
                 if (ToggleSwitch.Draw(Loc.Get("Settings.AutoDetect.UseInteractivePopup"), ref useInteractivePopup))
@@ -4337,6 +4414,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
                 }
                 _uiShared.DrawHelpText(Loc.Get("Settings.AutoDetect.UseInteractivePopupHelp"));
             }
+            ImGui.Unindent(subgroupIndent);
 
             // --- Section Anti-spam ---
             UiSharedService.BeginSectionCard(Loc.Get("Settings.AutoDetect.AntiSpam.Header"), FontAwesomeIcon.ShieldAlt);
