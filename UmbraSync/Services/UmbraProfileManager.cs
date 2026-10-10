@@ -351,6 +351,7 @@ public class UmbraProfileManager : MediatorSubscriberBase
 
     public void SetPreviewProfile(UserData data, string? charName, uint? worldId, UmbraProfileData profileData)
     {
+        if (worldId == 0) worldId = null;
         var key = NormalizeKey(data, charName, worldId);
         _umbraProfiles[key] = profileData;
     }
@@ -431,7 +432,8 @@ public class UmbraProfileManager : MediatorSubscriberBase
                 profile.MoodlesData,
                 effectiveChatIcon,
                 effectiveRpLevel,
-                profile.RpVisibility);
+                profile.RpVisibility,
+                profile.RpBannerBase64);
 
             if (_apiController.IsConnected && isSelf && charName != null && worldId != null)
             {
@@ -568,7 +570,8 @@ public class UmbraProfileManager : MediatorSubscriberBase
                 customFields,
                 profile.MoodlesData,
                 profile.ChatIcon ?? 0,
-                profile.RpLevel ?? 0);
+                profile.RpLevel ?? 0,
+                Base64RpBanner: profile.RpBannerBase64);
 
             if (!isSelf)
             {

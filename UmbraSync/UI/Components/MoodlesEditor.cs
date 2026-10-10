@@ -195,8 +195,6 @@ public sealed partial class MoodlesEditor
 
     public void DrawSection()
     {
-        ImGui.TextColored(ImGuiColors.DalamudGrey, "Traits du personnage");
-        ImGui.SameLine();
         bool addClicked = false;
         if (_moodleOperationInProgress)
         {

@@ -87,6 +87,7 @@ public record GroupPairPauseMessage(GroupData Group, UserData UserData, GroupUse
 public record GroupWidePauseMessage(GroupData Group, GroupUserPermissions CurrentPermissions, string CallerUID) : MessageBase;
 public record ProfilePopoutToggle(Pair? Pair) : MessageBase;
 public record CompactUiChange(Vector2 Size, Vector2 Position) : MessageBase;
+public record TargetProfilePreviewMessage(UmbraProfileData? Profile) : MessageBase;
 public record ProfileOpenStandaloneMessage(Pair Pair, string? CharName = null, uint? WorldId = null) : MessageBase;
 public record RemoveWindowMessage(WindowMediatorSubscriberBase Window) : MessageBase;
 public record PlayerVisibilityMessage(string Ident, bool IsVisible, bool Invalidate = false) : KeyedMessage(Ident, SameThread: true);

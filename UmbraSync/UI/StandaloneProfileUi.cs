@@ -33,6 +33,8 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
     private byte[] _lastRpProfilePicture = [];
     private IDalamudTextureWrap? _textureWrap;
     private IDalamudTextureWrap? _rpTextureWrap;
+    private IDalamudTextureWrap? _rpBannerTexture;
+    private byte[]? _lastRpBanner;
     private bool _isRpTab = true;
     private bool _windowSizeInitialized = false;
     private string _localMoodlesJson = string.Empty;
@@ -43,7 +45,7 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
     private volatile bool _resetTexturesPending;
     private string _characterNoteDraft = string.Empty;
     private string? _characterNoteKey;
-
+    private const float FixedWindowWidth = 700f;
     public void SelectCharacter(string? charName, uint? worldId)
     {
         if (string.IsNullOrEmpty(charName) || worldId is not > 0) return;
@@ -69,8 +71,8 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
 
         SizeConstraints = new()
         {
-            MinimumSize = new(650, 400),
-            MaximumSize = new(1200, 2000)
+            MinimumSize = new(FixedWindowWidth, 400),
+            MaximumSize = new(FixedWindowWidth, 2000)
         };
 
         bool isSelf = string.Equals(pair.UserData.UID, apiController.UID, StringComparison.Ordinal);
@@ -151,7 +153,7 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
         {
             if (!_windowSizeInitialized)
             {
-                ImGui.SetWindowSize(new Vector2(800, 600));
+                ImGui.SetWindowSize(new Vector2(FixedWindowWidth * ImGuiHelpers.GlobalScale, 600f * ImGuiHelpers.GlobalScale));
                 _windowSizeInitialized = true;
             }
 
@@ -164,6 +166,9 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
                 _textureWrap = null;
                 _rpTextureWrap?.Dispose();
                 _rpTextureWrap = null;
+                _rpBannerTexture?.Dispose();
+                _rpBannerTexture = null;
+                _lastRpBanner = null;
             }
 
             var umbraProfile = (_selectedAltCharName != null && _selectedAltWorldId != null)
@@ -195,6 +200,17 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
                     _textureWrap?.Dispose();
                     _lastProfilePicture = pfpData;
                     _textureWrap = _uiSharedService.LoadImage(_lastProfilePicture);
+                }
+            }
+
+            if (_isRpTab)
+            {
+                var bannerData = umbraProfile.RpBannerData.Value;
+                if (!ReferenceEquals(bannerData, _lastRpBanner))
+                {
+                    _rpBannerTexture?.Dispose();
+                    _lastRpBanner = bannerData;
+                    _rpBannerTexture = bannerData.Length > 0 ? _uiSharedService.LoadImage(bannerData) : null;
                 }
             }
 
@@ -710,7 +726,9 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
                 ImGui.TextColored(ImGuiColors.DalamudGrey, note);
 
             ImGui.EndGroup();
-        }, stretchWidth: true);
+        }, stretchWidth: true, backgroundOverlay: _rpBannerTexture is { } banner
+            ? (min, max, rounding, background) => ProfileBanner.Draw(ImGui.GetWindowDrawList(), banner, min, max, background, rounding)
+            : null);
 
         // Draw moodles AFTER card (on top), right-aligned on same line as name
         DrawMoodlesOnNameLine(nameLineScreen, profile);

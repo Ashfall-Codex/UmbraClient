@@ -13,6 +13,7 @@ internal class ProfileCacheEntry
     public string Base64ProfilePicture { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
     public string? Base64RpProfilePicture { get; set; }
+    public string? Base64RpBanner { get; set; }
     public string? RpDescription { get; set; }
     public bool IsRpNSFW { get; set; }
     public string? RpFirstName { get; set; }
@@ -45,7 +46,8 @@ internal class ProfileCacheEntry
         RpCustomFields,
         MoodlesData,
         ChatIcon,
-        RpLevel);
+        RpLevel,
+        Base64RpBanner: Base64RpBanner);
 
     public static ProfileCacheEntry FromProfile(UserData user, string? charName, uint? worldId, UmbraProfileData profile) => new()
     {
@@ -58,6 +60,7 @@ internal class ProfileCacheEntry
         Base64ProfilePicture = profile.Base64ProfilePicture,
         Description = profile.Description,
         Base64RpProfilePicture = profile.Base64RpProfilePicture,
+        Base64RpBanner = profile.Base64RpBanner,
         RpDescription = profile.RpDescription,
         IsRpNSFW = profile.IsRpNSFW,
         RpFirstName = profile.RpFirstName,

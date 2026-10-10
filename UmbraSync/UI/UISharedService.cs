@@ -735,7 +735,8 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
     }
 
     public static void DrawCard(string id, Action draw, Vector2? padding = null, Vector4? background = null,
-        Vector4? border = null, float? rounding = null, bool stretchWidth = false)
+        Vector4? border = null, float? rounding = null, bool stretchWidth = false,
+        Action<Vector2, Vector2, float, Vector4>? backgroundOverlay = null)
     {
         var style = ImGui.GetStyle();
         var padBase = style.FramePadding;
@@ -812,6 +813,10 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
         {
             drawList.AddRect(drawMin, drawMax, ImGui.ColorConvertFloat4ToU32(cardBorder), cardRounding, ImDrawFlags.None, borderThickness);
         }
+        // Posé sur le fond mais sous le contenu : même canal que le fond, soumis après lui.
+        backgroundOverlay?.Invoke(
+            drawMin + new Vector2(borderThickness), drawMax - new Vector2(borderThickness),
+            MathF.Max(cardRounding - borderThickness, 0f), cardBg);
         if (nested)
             drawList.ChannelsSetCurrent(2);
         else

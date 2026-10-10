@@ -7945,4 +7945,46 @@ ATTENTION : cette action est irréversible.</value>
   <data name="DataAnalysis.FileGroup.NeedsAnalysis" xml:space="preserve">
     <value>Certains de ces fichiers n'ont pas encore été analysés</value>
   </data>
+  <data name="EditProfile.Card.Identity" xml:space="preserve">
+    <value>Identité</value>
+  </data>
+  <data name="EditProfile.Card.TitleChat" xml:space="preserve">
+    <value>Titre et icône de tchat</value>
+  </data>
+  <data name="EditProfile.Card.Visibility" xml:space="preserve">
+    <value>Niveau et visibilité</value>
+  </data>
+  <data name="EditProfile.Card.Details" xml:space="preserve">
+    <value>Détails du personnage</value>
+  </data>
+  <data name="EditProfile.Card.Traits" xml:space="preserve">
+    <value>Traits du personnage</value>
+  </data>
+  <data name="EditProfile.Banner.Label" xml:space="preserve">
+    <value>Bannière du profil</value>
+  </data>
+  <data name="EditProfile.Banner.Select" xml:space="preserve">
+    <value>Choisir une bannière</value>
+  </data>
+  <data name="EditProfile.Banner.Remove" xml:space="preserve">
+    <value>Retirer</value>
+  </data>
+  <data name="EditProfile.Banner.Help" xml:space="preserve">
+    <value>Affichée en fond de ta carte de profil RP, estompée sur les bords. Le centre de l'image reste le plus visible : place-y le sujet. Les images plus hautes sont recadrées automatiquement.</value>
+  </data>
+  <data name="EditProfile.Banner.SizeError" xml:space="preserve">
+    <value>Image trop lourde : 1,5 Mo maximum.</value>
+  </data>
+  <data name="EditProfile.Banner.Recommended" xml:space="preserve">
+    <value>Recommandé : 1200 × 250 px (ratio 5:1), moins de 500 Ko — maximum 1,5 Mo, PNG ou JPEG.</value>
+  </data>
+  <data name="EditProfile.Banner.Preview" xml:space="preserve">
+    <value>Aperçu de la carte</value>
+  </data>
+  <data name="EditProfile.Banner.Preview.Tooltip" xml:space="preserve">
+    <value>Affiche la carte qui apparaît quand on te cible, avec ta bannière. Un second clic la ferme.</value>
+  </data>
+  <data name="EditProfile.CardPreview.Close" xml:space="preserve">
+    <value>Fermer l'aperçu</value>
+  </data>
 </root>

@@ -8035,4 +8035,46 @@ WARNING: this cannot be undone.</value>
   <data name="DataAnalysis.FileGroup.NeedsAnalysis" xml:space="preserve">
     <value>Some of these files haven't been analyzed yet</value>
   </data>
+  <data name="EditProfile.Card.Identity" xml:space="preserve">
+    <value>Identity</value>
+  </data>
+  <data name="EditProfile.Card.TitleChat" xml:space="preserve">
+    <value>Title and chat icon</value>
+  </data>
+  <data name="EditProfile.Card.Visibility" xml:space="preserve">
+    <value>Level and visibility</value>
+  </data>
+  <data name="EditProfile.Card.Details" xml:space="preserve">
+    <value>Character details</value>
+  </data>
+  <data name="EditProfile.Card.Traits" xml:space="preserve">
+    <value>Character traits</value>
+  </data>
+  <data name="EditProfile.Banner.Label" xml:space="preserve">
+    <value>Profile banner</value>
+  </data>
+  <data name="EditProfile.Banner.Select" xml:space="preserve">
+    <value>Choose a banner</value>
+  </data>
+  <data name="EditProfile.Banner.Remove" xml:space="preserve">
+    <value>Remove</value>
+  </data>
+  <data name="EditProfile.Banner.Help" xml:space="preserve">
+    <value>Shown behind your RP profile card, faded at the edges. The centre stays the most visible: put your subject there. Taller images are cropped automatically.</value>
+  </data>
+  <data name="EditProfile.Banner.SizeError" xml:space="preserve">
+    <value>Image too large: 1.5 MB maximum.</value>
+  </data>
+  <data name="EditProfile.Banner.Recommended" xml:space="preserve">
+    <value>Recommended: 1200 × 250 px (5:1 ratio), under 500 KB — maximum 1.5 MB, PNG or JPEG.</value>
+  </data>
+  <data name="EditProfile.Banner.Preview" xml:space="preserve">
+    <value>Card preview</value>
+  </data>
+  <data name="EditProfile.Banner.Preview.Tooltip" xml:space="preserve">
+    <value>Shows the card that appears when you are targeted, with your banner. Click again to close it.</value>
+  </data>
+  <data name="EditProfile.CardPreview.Close" xml:space="preserve">
+    <value>Close preview</value>
+  </data>
 </root>
