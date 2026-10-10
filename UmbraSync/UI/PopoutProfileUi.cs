@@ -24,8 +24,6 @@ public class PopoutProfileUi : WindowMediatorSubscriberBase
     private readonly ServerConfigurationManager _serverManager;
     private readonly MareConfigService _configService;
     private readonly UiSharedService _uiSharedService;
-    private readonly DalamudUtilService _dalamudUtil;
-    private readonly PairManager _pairManager;
     private Vector2 _lastMainPos = Vector2.Zero;
     private Vector2 _lastMainSize = Vector2.Zero;
     private byte[] _lastProfilePicture = [];
@@ -35,20 +33,15 @@ public class PopoutProfileUi : WindowMediatorSubscriberBase
     private IDalamudTextureWrap? _textureWrap;
     private IDalamudTextureWrap? _rpTextureWrap;
     private bool _isRpTab;
-    private string? _selectedAltCharName;
-    private uint? _selectedAltWorldId;
 
     public PopoutProfileUi(ILogger<PopoutProfileUi> logger, MareMediator mediator, UiSharedService uiSharedService,
         ServerConfigurationManager serverManager, MareConfigService mareConfigService,
-        UmbraProfileManager umbraProfileManager, PerformanceCollectorService performanceCollectorService,
-        DalamudUtilService dalamudUtil, PairManager pairManager) : base(logger, mediator, "###UmbraSyncPopoutProfileUI", performanceCollectorService)
+        UmbraProfileManager umbraProfileManager, PerformanceCollectorService performanceCollectorService) : base(logger, mediator, "###UmbraSyncPopoutProfileUI", performanceCollectorService)
     {
         _uiSharedService = uiSharedService;
         _serverManager = serverManager;
         _configService = mareConfigService;
         _umbraProfileManager = umbraProfileManager;
-        _dalamudUtil = dalamudUtil;
-        _pairManager = pairManager;
         Flags = ImGuiWindowFlags.NoDecoration;
 
         Mediator.Subscribe<ProfilePopoutToggle>(this, (msg) =>
@@ -64,8 +57,6 @@ public class PopoutProfileUi : WindowMediatorSubscriberBase
             _supporterTextureWrap?.Dispose();
             _supporterTextureWrap = null;
             _isRpTab = false;
-            _selectedAltCharName = null;
-            _selectedAltWorldId = null;
         });
 
         Mediator.Subscribe<CompactUiChange>(this, (msg) =>
@@ -104,9 +95,7 @@ public class PopoutProfileUi : WindowMediatorSubscriberBase
         {
             var spacing = ImGui.GetStyle().ItemSpacing;
 
-            var umbraProfile = (_selectedAltCharName != null && _selectedAltWorldId != null)
-                ? _umbraProfileManager.GetUmbraProfile(_pair.UserData, _selectedAltCharName, _selectedAltWorldId)
-                : _umbraProfileManager.GetUmbraProfile(_pair.UserData);
+            var umbraProfile = _umbraProfileManager.GetUmbraProfile(_pair.UserData);
 
             var accent = UiSharedService.AccentColor;
             if (accent.W <= 0f) accent = ImGuiColors.ParsedPurple;
@@ -157,7 +146,6 @@ public class PopoutProfileUi : WindowMediatorSubscriberBase
             using (_uiSharedService.UidFont.Push())
                 UiSharedService.ColorText(_pair.UserData.AliasOrUID + (_isRpTab ? " (RP)" : " (HRP)"), nameColor);
 
-            DrawAltPopup();
 
             ImGuiHelpers.ScaledDummy(spacing.Y, spacing.Y);
             var textPos = ImGui.GetCursorPosY();
@@ -206,7 +194,8 @@ public class PopoutProfileUi : WindowMediatorSubscriberBase
 
             if (_isRpTab)
             {
-                var moodlesJson = _pair.LastReceivedCharacterData?.MoodlesData;
+                // Données live = personnage connecté ; hors ligne, elles peuvent venir d'un autre perso du compte
+                var moodlesJson = _pair.IsOnline ? _pair.LastReceivedCharacterData?.MoodlesData : null;
                 if (string.IsNullOrEmpty(moodlesJson))
                     moodlesJson = umbraProfile.MoodlesData;
                 if (!string.IsNullOrEmpty(moodlesJson))
@@ -298,80 +287,6 @@ public class PopoutProfileUi : WindowMediatorSubscriberBase
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Error during draw tooltip");
-        }
-    }
-
-    private void DrawAltPopup()
-    {
-        if (_pair == null) return;
-        var alts = _umbraProfileManager.GetEncounteredAlts(_pair.UserData.UID);
-        if (alts.Count <= 1) return;
-
-        ImGui.SameLine();
-        ImGui.PushFont(UiBuilder.IconFont);
-        var iconSize = ImGui.CalcTextSize(FontAwesomeIcon.Users.ToIconString());
-        ImGui.PopFont();
-        var countSize = ImGui.CalcTextSize($" {alts.Count}");
-        var btnW = iconSize.X + countSize.X + ImGui.GetStyle().FramePadding.X * 2 + 4f;
-
-        if (ImGui.Button($"##altPopupBtn", new Vector2(btnW, ImGui.GetFrameHeight())))
-            ImGui.OpenPopup("##altPopup");
-
-        // Draw icon + text manually over the button
-        var btnMin = ImGui.GetItemRectMin();
-        var btnMax = ImGui.GetItemRectMax();
-        var dl = ImGui.GetWindowDrawList();
-        var centerY = (btnMin.Y + btnMax.Y) / 2f;
-        ImGui.PushFont(UiBuilder.IconFont);
-        dl.AddText(new Vector2(btnMin.X + ImGui.GetStyle().FramePadding.X, centerY - iconSize.Y / 2f),
-            ImGui.GetColorU32(ImGuiColors.DalamudGrey), FontAwesomeIcon.Users.ToIconString());
-        ImGui.PopFont();
-        dl.AddText(new Vector2(btnMin.X + ImGui.GetStyle().FramePadding.X + iconSize.X + 2f, centerY - countSize.Y / 2f),
-            ImGui.GetColorU32(ImGuiColors.DalamudGrey), $" {alts.Count}");
-
-        if (ImGui.BeginPopup("##altPopup"))
-        {
-            ImGui.TextColored(ImGuiColors.DalamudGrey, Loc.Get("AltSwitcher.Label"));
-            ImGui.Separator();
-
-            for (int i = 0; i < alts.Count; i++)
-            {
-                var (charName, worldId) = alts[i];
-                var cachedProfile = _umbraProfileManager.GetUmbraProfile(_pair.UserData, charName, worldId);
-                var first = cachedProfile.RpFirstName ?? string.Empty;
-                var last = cachedProfile.RpLastName ?? string.Empty;
-                var rpName = $"{first} {last}".Trim();
-                var worldName = _dalamudUtil.WorldData.Value.TryGetValue((ushort)worldId, out var wn) ? wn : worldId.ToString();
-                var displayName = !string.IsNullOrEmpty(rpName) ? $"{rpName}  ({charName} @ {worldName})" : $"{charName} @ {worldName}";
-
-                bool isSelected = string.Equals(_selectedAltCharName, charName, StringComparison.Ordinal) && _selectedAltWorldId == worldId;
-                if (_selectedAltCharName == null)
-                {
-                    var pair = _pairManager.GetPairByUID(_pair.UserData.UID);
-                    if (pair != null)
-                        isSelected = string.Equals(pair.PlayerName, charName, StringComparison.Ordinal) && pair.WorldId == worldId;
-                    else
-                    {
-                        var lastName = _serverManager.GetNameForUid(_pair.UserData.UID);
-                        var lastWorld = _serverManager.GetWorldIdForUid(_pair.UserData.UID);
-                        isSelected = string.Equals(lastName, charName, StringComparison.Ordinal) && lastWorld == worldId;
-                    }
-                }
-
-                if (ImGui.Selectable(displayName, isSelected))
-                {
-                    _selectedAltCharName = charName;
-                    _selectedAltWorldId = worldId;
-                    _lastProfilePicture = [];
-                    _lastRpProfilePicture = [];
-                    _textureWrap?.Dispose();
-                    _textureWrap = null;
-                    _rpTextureWrap?.Dispose();
-                    _rpTextureWrap = null;
-                }
-            }
-
-            ImGui.EndPopup();
         }
     }
 }
