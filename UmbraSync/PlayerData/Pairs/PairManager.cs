@@ -42,7 +42,6 @@ public sealed class PairManager : DisposableMediatorSubscriberBase
     private readonly DalamudUtilService _dalamudUtilService;
     private readonly IServiceProvider _serviceProvider;
     private readonly PairFactory _pairFactory;
-    private readonly Lazy<ApiController> _apiController;
     private Lazy<List<Pair>> _directPairsInternal;
     private Lazy<Dictionary<GroupFullInfoDto, List<Pair>>> _groupPairsInternal;
     private static readonly TimeSpan LazyRecreateDebounce = TimeSpan.FromMilliseconds(150);
@@ -71,7 +70,6 @@ public sealed class PairManager : DisposableMediatorSubscriberBase
         _autoDetectRequestService = autoDetectRequestService;
         _dalamudUtilService = dalamudUtilService;
         _serviceProvider = serviceProvider;
-        _apiController = new Lazy<ApiController>(() => serviceProvider.GetRequiredService<ApiController>());
         Mediator.Subscribe<DisconnectedMessage>(this, (_) => ClearPairs());
         _directPairsInternal = DirectPairsLazy();
         _groupPairsInternal = GroupPairsLazy();
@@ -995,7 +993,9 @@ public sealed class PairManager : DisposableMediatorSubscriberBase
 
         bool canSendRequest = nearbyEntry.AcceptPairRequests && !string.IsNullOrEmpty(nearbyEntry.Token)
             && !IsAlreadyDirectPaired(nearbyEntry.Uid ?? string.Empty);
-        bool canAddPair = !string.IsNullOrEmpty(nearbyEntry.Uid)
+        // Même opt-in que la demande : on n'ajoute pas un joueur qui refuse les demandes
+        bool canAddPair = nearbyEntry.AcceptPairRequests
+            && !string.IsNullOrEmpty(nearbyEntry.Uid)
             && !IsAlreadyDirectPaired(nearbyEntry.Uid);
 
         if (!canSendRequest && !canAddPair)
@@ -1046,7 +1046,11 @@ public sealed class PairManager : DisposableMediatorSubscriberBase
                 Priority = 0,
                 OnClicked = clickedArgs =>
                 {
-                    _ = _apiController.Value.UserAddPair(new UserDto(new UserData(nearbyEntry.Uid!)));
+                    // Même chemin que les autres demandes : cooldown, invitation sortante, contrôle du masquage
+                    _ = _autoDetectRequestService.SendDirectUidRequestAsync(
+                        nearbyEntry.Uid!,
+                        nearbyEntry.DisplayName ?? nearbyEntry.Name,
+                        fromNearby: true);
                 }
             });
         }

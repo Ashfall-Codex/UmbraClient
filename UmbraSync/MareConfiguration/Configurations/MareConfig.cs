@@ -128,6 +128,7 @@ public class MareConfig : IMareConfiguration
     public int AutoDetectMaxDistanceMeters { get; set; } = AutoDetectFixedMaxDistanceMeters;
     public int AutoDetectDeclineCooldownMinutes { get; set; } = 15;
     public List<string> AutoDetectBlockedUids { get; set; } = [];
+    public bool AutoDetectBlocksSyncedToServer { get; set; }
     public bool UseInteractivePairRequestPopup { get; set; } = true;
     public bool AutoFetchMcdfOnConnect { get; set; } = false;
     public bool EnableNetworkDiagnosticLog { get; set; } = false;

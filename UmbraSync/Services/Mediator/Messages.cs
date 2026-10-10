@@ -153,6 +153,7 @@ public record ForcePlayerCacheRecreationMessage : MessageBase;
 public record HousingScenarioPublishedMessage(Guid ShareId, LocationInfo Location) : MessageBase;
 public record HousingScanCompleteMessage(LocationInfo Location, int FileCount) : MessageBase;
 public record ManualPairInviteMessage(string SourceUid, string SourceAlias, string TargetUid, string? DisplayName, string InviteId) : MessageBase;
+public record PairRequestAcceptedMessage(UserData Acceptor) : MessageBase;
 public record ApplyDefaultPairPermissionsMessage(UserPairDto Pair) : MessageBase;
 public record DefaultPermissionsUpdatedMessage(DefaultPermissionsDto Permissions) : MessageBase;
 public record ApplyDefaultGroupPermissionsMessage(GroupPairFullInfoDto GroupPair) : MessageBase;

@@ -4998,11 +4998,14 @@ Note: Weapons will not be displayed correctly unless using the same job as the s
   <data name="Notification.Nearby.Cooldown.Body" xml:space="preserve">
     <value>Request already sent. Please wait about {0} before retrying.</value>
   </data>
+  <data name="Notification.AddPair.Failed.Body" xml:space="preserve">
+    <value>Could not add this player. Check your connection and the UID you entered.</value>
+  </data>
   <data name="Notification.Nearby.Locked.Title" xml:space="preserve">
     <value>Nearby request locked</value>
   </data>
   <data name="Notification.Nearby.Locked.Body" xml:space="preserve">
-    <value>Request locked after multiple refusals. Retry in {0}.</value>
+    <value>Request locked after several failed attempts. Retry in {0}.</value>
   </data>
   <data name="Settings.Section.General.Desc" xml:space="preserve">
     <value>Customize the interface, notes, notifications and display preferences.</value>

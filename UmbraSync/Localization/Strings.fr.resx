@@ -4908,11 +4908,14 @@ Note : Les armes ne s'afficheront pas correctement sauf si vous utilisez le m&#x
   <data name="Notification.Nearby.Cooldown.Body" xml:space="preserve">
     <value>Demande déjà envoyée. Merci d'attendre environ {0} avant de réessayer.</value>
   </data>
+  <data name="Notification.AddPair.Failed.Body" xml:space="preserve">
+    <value>Impossible d'ajouter ce joueur. Vérifiez votre connexion et l'UID saisi.</value>
+  </data>
   <data name="Notification.Nearby.Locked.Title" xml:space="preserve">
     <value>Demande bloquée</value>
   </data>
   <data name="Notification.Nearby.Locked.Body" xml:space="preserve">
-    <value>Demande bloquée après plusieurs refus. Réessayez dans {0}.</value>
+    <value>Demande bloquée après plusieurs échecs d'envoi. Réessayez dans {0}.</value>
   </data>
   <data name="Settings.Section.General.Desc" xml:space="preserve">
     <value>Personnalisez l'interface, les notes, les notifications et les préférences d'affichage.</value>

@@ -25,12 +25,12 @@ public class AutoDetectRequestService : IMediatorSubscriber
     private readonly NotificationTracker _notificationTracker;
     private readonly Lock _syncRoot = new();
     private readonly Dictionary<string, DateTime> _activeCooldowns = new(StringComparer.Ordinal);
-    private readonly Dictionary<string, RefusalTracker> _refusalTrackers = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, SendFailureTracker> _sendFailureTrackers = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, PendingRequestInfo> _pendingRequests = new(StringComparer.Ordinal);
-    private const int RefusalsBeforeLock = 3;
+    private const int FailuresBeforeLock = 3;
 
     private static readonly TimeSpan RequestCooldown = TimeSpan.FromMinutes(5);
-    private static readonly TimeSpan RefusalLockDuration = TimeSpan.FromMinutes(15);
+    private static readonly TimeSpan FailureLockDuration = TimeSpan.FromMinutes(15);
     private readonly Lazy<ApiController> _apiController;
     private readonly Lazy<PairManager> _pairManager;
     private readonly Lazy<NearbyDiscoveryService> _discoveryService;
@@ -84,6 +84,12 @@ public class AutoDetectRequestService : IMediatorSubscriber
             return false;
         }
 
+        if (string.IsNullOrEmpty(token))
+        {
+            // Le point d'accès de découverte n'accepte que des jetons : une demande par UID passe par le hub
+            return await SendDirectUidRequestAsync(uid!, targetDisplayName, fromNearby: true, ct).ConfigureAwait(false);
+        }
+
         var targetKey = BuildTargetKey(uid, token, targetDisplayName);
         if (!CanRequestTarget(targetKey)) return false;
         var endpoint = _configProvider.RequestEndpoint;
@@ -104,11 +110,8 @@ public class AutoDetectRequestService : IMediatorSubscriber
             _logger.LogWarning(ex, "Failed to determine player display name for nearby request");
         }
 
-        var requestToken = string.IsNullOrEmpty(token) ? null : token;
-        var requestUid = requestToken == null ? uid : null;
-
         _logger.LogInformation("Nearby: sending pair request via {endpoint}", endpoint);
-        var ok = await _client.SendRequestAsync(endpoint, requestToken, requestUid, displayName, ct).ConfigureAwait(false);
+        var ok = await _client.SendRequestAsync(endpoint, token, displayName, ct).ConfigureAwait(false);
         if (ok)
         {
             RecordRequestSent(targetKey);
@@ -121,36 +124,26 @@ public class AutoDetectRequestService : IMediatorSubscriber
         }
         else
         {
-            RecordRefusal(targetKey);
+            RecordSendFailure(targetKey);
             _mediator.Publish(new NotificationMessage(Loc.Get("Notification.Nearby.Failed.Title"), Loc.Get("Notification.Nearby.Failed.Rejected"), NotificationType.Warning));
             _notificationTracker.Upsert(NotificationEntry.NearbyRequestFailed(Loc.Get("Notification.Nearby.Failed.Rejected")));
         }
         return ok;
     }
 
-    public async Task<bool> SendAcceptNotifyAsync(string targetUid, CancellationToken ct = default)
+    /// <summary>
+    /// Demande d'appairage par UID, via le hub. <paramref name="fromNearby"/> applique en plus les règles
+    /// de la détection de proximité (pas de demande quand on est soi-même masqué).
+    /// </summary>
+    public async Task<bool> SendDirectUidRequestAsync(string uid, string? targetDisplayName = null, bool fromNearby = false, CancellationToken ct = default)
     {
-        var endpoint = _configProvider.AcceptEndpoint;
-        if (string.IsNullOrEmpty(endpoint))
+        if (fromNearby && IsNearbyHidden)
         {
-            _logger.LogDebug("No accept endpoint configured");
+            _logger.LogDebug("Direct pair request blocked: player is hidden from nearby discovery");
+            _mediator.Publish(new NotificationMessage(Loc.Get("Notification.Nearby.Blocked.Title"), Loc.Get("Notification.Nearby.Hidden.Body"), NotificationType.Info));
             return false;
         }
-        string? displayName = null;
-        try
-        {
-            displayName = await _dalamud.RunOnFrameworkThread(() => _dalamud.GetPlayerCharacter()?.Name.TextValue).ConfigureAwait(false);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to determine player display name for accept notify");
-        }
-        _logger.LogInformation("Nearby: sending accept notify via {endpoint}", endpoint);
-        return await _client.SendAcceptAsync(endpoint, targetUid, displayName, ct).ConfigureAwait(false);
-    }
 
-    public async Task<bool> SendDirectUidRequestAsync(string uid, string? targetDisplayName = null, CancellationToken ct = default)
-    {
         if (!_configService.Current.AllowAutoDetectPairRequests)
         {
             _logger.LogDebug("Nearby request blocked: AllowAutoDetectPairRequests is disabled");
@@ -176,6 +169,7 @@ public class AutoDetectRequestService : IMediatorSubscriber
 
         try
         {
+            ct.ThrowIfCancellationRequested();
             await _apiController.Value.UserAddPair(new UserDto(new UserData(uid))).ConfigureAwait(false);
 
             RecordRequestSent(targetKey);
@@ -190,7 +184,7 @@ public class AutoDetectRequestService : IMediatorSubscriber
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Direct pair request failed for {uid}", uid);
-            RecordRefusal(targetKey);
+            RecordSendFailure(targetKey);
 
             _mediator.Publish(new NotificationMessage(Loc.Get("Notification.Nearby.Failed.Title"), Loc.Get("Notification.Nearby.Failed.Rejected"), NotificationType.Warning));
             _notificationTracker.Upsert(NotificationEntry.NearbyRequestFailed(Loc.Get("Notification.Nearby.Failed.Rejected")));
@@ -199,12 +193,8 @@ public class AutoDetectRequestService : IMediatorSubscriber
     }
 
     /// <summary>
-    /// Comptabilise un refus pour cette cible et pose le verrou au troisième d'affilée. Un verrou
-    /// arrivé à échéance remet le compteur à zéro : la série doit être récente pour compter.
-    /// </summary>
-    /// <summary>
-    /// Marque une requête comme partie : le délai d'attente repart, et la série de refus accumulés
-    /// est oubliée puisque la cible vient d'accepter d'être resollicitée.
+    /// Marque une demande comme partie : le délai d'attente repart, et la série d'échecs d'envoi
+    /// consécutifs est oubliée puisque l'envoi vient de réussir.
     /// </summary>
     private void RecordRequestSent(string? targetKey)
     {
@@ -213,11 +203,16 @@ public class AutoDetectRequestService : IMediatorSubscriber
         using (_syncRoot.EnterScope())
         {
             _activeCooldowns[targetKey] = DateTime.UtcNow;
-            _refusalTrackers.Remove(targetKey);
+            _sendFailureTrackers.Remove(targetKey);
         }
     }
 
-    private void RecordRefusal(string? targetKey)
+    /// <summary>
+    /// Comptabilise un échec d'envoi (rejet serveur, erreur réseau) pour cette cible et pose le verrou
+    /// au troisième d'affilée. Un refus de la cible elle-même est silencieux et n'est pas compté ici.
+    /// Un verrou arrivé à échéance remet le compteur à zéro : la série doit être récente pour compter.
+    /// </summary>
+    private void RecordSendFailure(string? targetKey)
     {
         if (string.IsNullOrEmpty(targetKey)) return;
 
@@ -225,10 +220,10 @@ public class AutoDetectRequestService : IMediatorSubscriber
         using (_syncRoot.EnterScope())
         {
             _activeCooldowns.Remove(targetKey);
-            if (!_refusalTrackers.TryGetValue(targetKey, out var tracker))
+            if (!_sendFailureTrackers.TryGetValue(targetKey, out var tracker))
             {
-                tracker = new RefusalTracker();
-                _refusalTrackers[targetKey] = tracker;
+                tracker = new SendFailureTracker();
+                _sendFailureTrackers[targetKey] = tracker;
             }
 
             if (tracker.LockUntil.HasValue && tracker.LockUntil.Value <= now)
@@ -238,9 +233,9 @@ public class AutoDetectRequestService : IMediatorSubscriber
             }
 
             tracker.Count++;
-            if (tracker.Count >= RefusalsBeforeLock)
+            if (tracker.Count >= FailuresBeforeLock)
             {
-                tracker.LockUntil = now.Add(RefusalLockDuration);
+                tracker.LockUntil = now.Add(FailureLockDuration);
             }
         }
 
@@ -254,7 +249,7 @@ public class AutoDetectRequestService : IMediatorSubscriber
         var now = DateTime.UtcNow;
         using (_syncRoot.EnterScope())
         {
-            if (_refusalTrackers.TryGetValue(targetKey, out var tracker) && tracker.LockUntil.HasValue)
+            if (_sendFailureTrackers.TryGetValue(targetKey, out var tracker) && tracker.LockUntil.HasValue)
             {
                 if (tracker.LockUntil.Value > now)
                 {
@@ -262,8 +257,8 @@ public class AutoDetectRequestService : IMediatorSubscriber
                     return false;
                 }
 
-                // Verrou expiré : l'entrée ne sert plus à rien, le compteur de refus repart de zéro.
-                _refusalTrackers.Remove(targetKey);
+                // Verrou expiré : l'entrée ne sert plus à rien, le compteur d'échecs repart de zéro.
+                _sendFailureTrackers.Remove(targetKey);
             }
 
             if (_activeCooldowns.TryGetValue(targetKey, out var lastSent))
@@ -314,7 +309,7 @@ public class AutoDetectRequestService : IMediatorSubscriber
         return seconds == 1 ? "1 seconde" : seconds + " secondes";
     }
 
-    private sealed class RefusalTracker
+    private sealed class SendFailureTracker
     {
         public int Count;
         public DateTime? LockUntil;
@@ -378,6 +373,26 @@ public class AutoDetectRequestService : IMediatorSubscriber
                 break;
             }
         }
+    }
+
+    /// <summary>
+    /// Retire et renvoie l'invitation encore valide envoyée à <paramref name="uid"/>, s'il y en a une.
+    /// </summary>
+    public bool TryTakeOutgoingTo(string uid, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out PendingRequestInfo? info)
+    {
+        info = null;
+        if (string.IsNullOrEmpty(uid)) return false;
+        CleanupExpiredOutgoing();
+        foreach (var kvp in _pendingRequests)
+        {
+            if (string.Equals(kvp.Value.Uid, uid, StringComparison.Ordinal) && _pendingRequests.TryRemove(kvp.Key, out var removed))
+            {
+                info = removed;
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public void RemovePendingRequestByKey(string key)

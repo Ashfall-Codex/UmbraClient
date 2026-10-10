@@ -127,8 +127,26 @@ public partial class ApiController
     // InvokeAsync : l'appelant apprend l'échec (déconnexion, erreur serveur) au lieu d'annoncer un faux succès
     public async Task UserAddPair(UserDto user)
     {
-        if (!IsConnected) return;
-        await _mareHub!.SendAsync(nameof(UserAddPair), user).ConfigureAwait(false);
+        if (!IsConnected) throw new InvalidOperationException("Not connected");
+        await _mareHub!.InvokeAsync(nameof(UserAddPair), user).ConfigureAwait(false);
+    }
+
+    public async Task UserBlock(UserDto user)
+    {
+        if (!IsConnected) throw new InvalidOperationException("Not connected");
+        await _mareHub!.InvokeAsync(nameof(UserBlock), user).ConfigureAwait(false);
+    }
+
+    public async Task UserUnblock(UserDto user)
+    {
+        if (!IsConnected) throw new InvalidOperationException("Not connected");
+        await _mareHub!.InvokeAsync(nameof(UserUnblock), user).ConfigureAwait(false);
+    }
+
+    public async Task<List<UserData>> UserGetBlockedUsers()
+    {
+        if (!IsConnected) throw new InvalidOperationException("Not connected");
+        return await _mareHub!.InvokeAsync<List<UserData>>(nameof(UserGetBlockedUsers)).ConfigureAwait(false);
     }
 
 

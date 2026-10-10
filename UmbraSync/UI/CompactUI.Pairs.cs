@@ -6,6 +6,7 @@ using Dalamud.Interface.Utility.Raii;
 using Dalamud.Utility;
 using System.Diagnostics;
 using System.Globalization;
+using Microsoft.Extensions.Logging;
 using System.Numerics;
 using UmbraSync.API.Data.Extensions;
 using UmbraSync.API.Dto.User;
@@ -78,7 +79,7 @@ public partial class CompactUi
         {
             if (_uiSharedService.IconPlusButtonCentered(height: buttonHeight))
             {
-                _ = _apiController.UserAddPair(new(new(_pairToAdd)));
+                _ = AddPairByUidAsync(_pairToAdd);
                 _pairToAdd = string.Empty;
             }
             var target = _pairToAdd.IsNullOrEmpty() ? Loc.Get("CompactUi.AddPair.OtherUserFallback") : _pairToAdd;
@@ -308,5 +309,18 @@ public partial class CompactUi
                    (p.GetNote()?.Contains(_characterOrCommentFilter, StringComparison.OrdinalIgnoreCase) ?? false) ||
                    (p.PlayerName?.Contains(_characterOrCommentFilter, StringComparison.OrdinalIgnoreCase) ?? false);
         }).ToList();
+    }
+
+    private async Task AddPairByUidAsync(string uidOrAlias)
+    {
+        try
+        {
+            await _apiController.UserAddPair(new UserDto(new(uidOrAlias))).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Adding pair from the main window failed");
+            Mediator.Publish(new NotificationMessage(Loc.Get("Notification.Nearby.Failed.Title"), Loc.Get("Notification.AddPair.Failed.Body"), NotificationType.Warning));
+        }
     }
 }

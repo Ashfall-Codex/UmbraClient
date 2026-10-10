@@ -249,6 +249,8 @@ public sealed class NotificationTracker
             foreach (var s in list)
             {
                 if (!Enum.TryParse<NotificationCategory>(s.Category, out var cat)) continue;
+                // Anciennes demandes d'ami persistées : plus actionnables et porteuses de noms de joueurs
+                if (cat == NotificationCategory.AutoDetect) continue;
                 var entry = new NotificationEntry(cat, s.Id, s.Title, s.Description, s.CreatedAtUtc);
                 _entries[(entry.Category, entry.Id)] = entry;
             }
@@ -264,7 +266,10 @@ public sealed class NotificationTracker
     {
         try
         {
+            // Les demandes d'ami restent en mémoire : elles ne survivent pas à la session côté serveur,
+            // et leur titre contient le nom du demandeur.
             var stored = _entries.Values
+                .Where(e => e.Category != NotificationCategory.AutoDetect)
                 .OrderBy(e => e.CreatedAt)
                 .Select(e => new StoredNotification
                 {

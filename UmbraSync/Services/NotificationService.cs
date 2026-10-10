@@ -132,30 +132,29 @@ public class NotificationService : DisposableMediatorSubscriberBase, IHostedServ
 
     private void ShowNotification(NotificationMessage msg)
     {
-        Logger.LogInformation("{msg}", msg.ToString());
+        // Le contenu peut contenir des noms de joueurs : seulement en Debug
+        if (Logger.IsEnabled(LogLevel.Debug))
+            Logger.LogDebug("{msg}", msg.ToString());
+        else
+            Logger.LogInformation("Notification shown ({type})", msg.Type);
 
         if (!_dalamudUtilService.IsLoggedIn) return;
 
-        bool appendInstruction;
-        bool forceChat = ShouldForceChat(msg, out appendInstruction);
-        var effectiveMessage = forceChat && appendInstruction ? AppendAutoDetectInstruction(msg.Message) : msg.Message;
-        var adjustedMsg = forceChat && appendInstruction ? msg with { Message = effectiveMessage } : msg;
+        var suppressToast = IsAutoDetectPairRequest(msg);
 
-        var suppressToast = IsAutoDetectPairRequest(adjustedMsg);
-
-        switch (adjustedMsg.Type)
+        switch (msg.Type)
         {
             case NotificationType.Info:
             case NotificationType.Success:
-                ShowNotificationLocationBased(adjustedMsg, _configurationService.Current.InfoNotification, forceChat, suppressToast);
+                ShowNotificationLocationBased(msg, _configurationService.Current.InfoNotification, forceChat: false, suppressToast);
                 break;
 
             case NotificationType.Warning:
-                ShowNotificationLocationBased(adjustedMsg, _configurationService.Current.WarningNotification, forceChat, suppressToast);
+                ShowNotificationLocationBased(msg, _configurationService.Current.WarningNotification, forceChat: false, suppressToast);
                 break;
 
             case NotificationType.Error:
-                ShowNotificationLocationBased(adjustedMsg, _configurationService.Current.ErrorNotification, forceChat, suppressToast);
+                ShowNotificationLocationBased(msg, _configurationService.Current.ErrorNotification, forceChat: false, suppressToast);
                 break;
         }
     }
@@ -216,48 +215,6 @@ public class NotificationService : DisposableMediatorSubscriberBase, IHostedServ
         }
     }
 
-    private static bool ShouldForceChat(NotificationMessage msg, out bool appendInstruction)
-    {
-        appendInstruction = false;
-
-        bool isAccept = ContainsNearbyAccept(msg.Title) || ContainsNearbyAccept(msg.Message);
-        if (isAccept)
-            return false;
-
-        bool isRequest = ContainsNearbyRequest(msg.Title) || ContainsNearbyRequest(msg.Message);
-        if (isRequest)
-        {
-            appendInstruction = !IsRequestSentConfirmation(msg);
-            return true;
-        }
-
-        return false;
-    }
-
-    private static bool ContainsNearbyAccept(string? text)
-    {
-        if (string.IsNullOrEmpty(text)) return false;
-        return text.Contains("Nearby Accept", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static bool IsRequestSentConfirmation(NotificationMessage msg)
-    {
-        var sentTitle = Loc.Get("Notification.Nearby.Sent.Title");
-        if (string.Equals(msg.Title, sentTitle, StringComparison.Ordinal))
-            return true;
-
-        var sentBody = Loc.Get("Notification.Nearby.Sent.Body");
-        if (!string.IsNullOrEmpty(msg.Message) && msg.Message.Contains(sentBody, StringComparison.Ordinal))
-            return true;
-
-        return false;
-    }
-
-    private static string AppendAutoDetectInstruction(string? message)
-    {
-        return message ?? string.Empty;
-    }
-
     private void ShowNotificationLocationBased(NotificationMessage msg, NotificationLocation location, bool forceChat, bool suppressToast)
     {
         bool showToast = !suppressToast && location is NotificationLocation.Toast or NotificationLocation.Both;
@@ -300,19 +257,6 @@ public class NotificationService : DisposableMediatorSubscriberBase, IHostedServ
         if (msg.Type != NotificationType.Info && msg.Type != NotificationType.Success) return false;
         if (!_configurationService.Current.UseInteractivePairRequestPopup) return false;
         var incomingTitle = Loc.Get("AutoDetect.Notification.IncomingTitle");
-        if (string.Equals(msg.Title, incomingTitle, StringComparison.Ordinal)) return true;
-        bool isNearbyRequest = ContainsNearbyRequest(msg.Title) || ContainsNearbyRequest(msg.Message);
-        if (isNearbyRequest && !IsRequestSentConfirmation(msg)) return true;
-
-        return false;
-    }
-
-    private static bool ContainsNearbyRequest(string? text)
-    {
-        if (string.IsNullOrEmpty(text)) return false;
-        var nearbyTitle = Loc.Get("Notification.NearbyDetection.Title");
-        return text.Contains("Nearby request", StringComparison.OrdinalIgnoreCase)
-            || text.Contains("Nearby Request", StringComparison.Ordinal)
-            || text.Contains(nearbyTitle, StringComparison.Ordinal);
+        return string.Equals(msg.Title, incomingTitle, StringComparison.Ordinal);
     }
 }

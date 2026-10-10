@@ -125,10 +125,12 @@ public partial class ApiController
                     _doNotNotifyOnNextInfo = false;
                     break;
                 }
+                // Anciens serveurs : ces messages texte doublonnent Client_ReceivePairRequest / Client_PairRequestAccepted
+                if (message.StartsWith("Nearby Request:", StringComparison.Ordinal)
+                    || message.StartsWith("Nearby Accept:", StringComparison.Ordinal))
+                    break;
                 var enrichedMessage = message;
-                bool isNearbyMessage = message.StartsWith("Nearby Request:", StringComparison.Ordinal)
-                    || message.StartsWith("Nearby Accept:", StringComparison.Ordinal);
-                if (!isNearbyMessage && _configService.Current.EnableAutoDetectDiscovery)
+                if (_configService.Current.EnableAutoDetectDiscovery)
                 {
                     enrichedMessage += "\n" + Loc.Get("Notification.NearbyDetection.Enabled");
                 }
@@ -211,10 +213,23 @@ public partial class ApiController
         ExecuteSafely(() =>
         {
             var uid = requester.User.UID;
+            if (string.IsNullOrEmpty(uid)) return;
             var alias = requester.User.Alias ?? string.Empty;
-            Mediator.Publish(new ManualPairInviteMessage(uid, alias, UID, DisplayName, $"pair-request-{uid}"));
+            // Pas de nom d'affichage : seul l'alias ou l'UID du demandeur identifie la demande
+            Mediator.Publish(new ManualPairInviteMessage(uid, alias, UID, null, $"pair-request-{uid}"));
         });
 
+        return Task.CompletedTask;
+    }
+
+    public Task Client_PairRequestAccepted(UserDto acceptor)
+    {
+        if (acceptor?.User is null || string.IsNullOrEmpty(acceptor.User.UID)) return Task.CompletedTask;
+
+        if (Logger.IsEnabled(LogLevel.Debug))
+            Logger.LogDebug("Client_PairRequestAccepted: {uid}", acceptor.User.UID);
+
+        ExecuteSafely(() => Mediator.Publish(new PairRequestAcceptedMessage(acceptor.User)));
         return Task.CompletedTask;
     }
 
@@ -453,6 +468,12 @@ public partial class ApiController
     {
         if (_initialized) return;
         _mareHub!.On(nameof(Client_ReceivePairRequest), act);
+    }
+
+    public void OnPairRequestAccepted(Action<UserDto> act)
+    {
+        if (_initialized) return;
+        _mareHub!.On(nameof(Client_PairRequestAccepted), act);
     }
 
     public void OnUserTypingState(Action<TypingStateDto> act)

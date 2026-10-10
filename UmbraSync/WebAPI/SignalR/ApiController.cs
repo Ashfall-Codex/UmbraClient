@@ -408,6 +408,7 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
         OnUserSendOffline((dto) => _ = Client_UserSendOffline(dto));
         OnUserAddClientPair((dto) => _ = Client_UserAddClientPair(dto));
         OnReceivePairRequest((dto) => _ = Client_ReceivePairRequest(dto));
+        OnPairRequestAccepted((dto) => _ = Client_PairRequestAccepted(dto));
         OnUserReceiveCharacterData((dto) => _ = Client_UserReceiveCharacterData(dto));
         OnUserRemoveClientPair(dto => _ = Client_UserRemoveClientPair(dto));
         OnUserSendOnline(dto => _ = Client_UserSendOnline(dto));
