@@ -1501,9 +1501,6 @@ Click to change.</value>
   <data name="AutoDetectUi.Syncshell.NotificationTitle" xml:space="preserve">
     <value>AutoDetect Syncshell</value>
   </data>
-  <data name="AutoDetectUi.Syncshell.RefreshButton" xml:space="preserve">
-    <value>Refresh list</value>
-  </data>
   <data name="AutoDetectUi.Syncshell.Refreshing" xml:space="preserve">
     <value>Refreshing...</value>
   </data>
@@ -2817,13 +2814,13 @@ Note: Weapons will not be displayed correctly unless using the same job as the s
     <value>Delete this MCDF from the server</value>
   </data>
   <data name="DataAnalysis.AndMore" xml:space="preserve">
-    <value>(and {0} more)</value>
+    <value>and {0} more</value>
   </data>
   <data name="DataAnalysis.Analyzing" xml:space="preserve">
     <value>Analyzing {0}/{1}</value>
   </data>
   <data name="DataAnalysis.Bc7.Enable" xml:space="preserve">
-    <value>Enable BC7 Conversion Mode</value>
+    <value>Enable BC7 conversion mode</value>
   </data>
   <data name="DataAnalysis.Bc7.Start" xml:space="preserve">
     <value>Start conversion of {0} texture(s)</value>
@@ -2835,22 +2832,22 @@ Note: Weapons will not be displayed correctly unless using the same job as the s
     <value>Converting textures to BC7 is irreversible!</value>
   </data>
   <data name="DataAnalysis.Bc7.WarningTitle" xml:space="preserve">
-    <value>WARNING BC7 CONVERSION:</value>
+    <value>BC7 CONVERSION WARNING:</value>
   </data>
   <data name="DataAnalysis.CancelAnalysis" xml:space="preserve">
     <value>Cancel analysis</value>
   </data>
   <data name="DataAnalysis.GamePath" xml:space="preserve">
-    <value>Used by game path:</value>
+    <value>Game path</value>
   </data>
   <data name="DataAnalysis.Intro" xml:space="preserve">
-    <value>This window shows you all files and their sizes that are currently in use through your character and associated entities</value>
+    <value>All files currently used by your character and its associated entities, with their size.</value>
   </data>
   <data name="DataAnalysis.LocalPath" xml:space="preserve">
-    <value>Local file path:</value>
+    <value>Local file</value>
   </data>
   <data name="DataAnalysis.MissingEntriesWarning" xml:space="preserve">
-    <value>Some entries in the analysis have file size not determined yet, press the button below to analyze your current data</value>
+    <value>Some files don't have their size computed yet. Start the analysis to complete the data.</value>
   </data>
   <data name="DataAnalysis.Modal.Cancel" xml:space="preserve">
     <value>Cancel conversion</value>
@@ -2859,25 +2856,13 @@ Note: Weapons will not be displayed correctly unless using the same job as the s
     <value>Current file: {0}</value>
   </data>
   <data name="DataAnalysis.Modal.Progress" xml:space="preserve">
-    <value>BC7 Conversion in progress: {0}/{1}</value>
+    <value>BC7 conversion in progress: {0}/{1}</value>
   </data>
   <data name="DataAnalysis.Modal.Title" xml:space="preserve">
     <value>BC7 Conversion in Progress</value>
   </data>
-  <data name="DataAnalysis.ObjectSizeActual" xml:space="preserve">
-    <value>{0} size (actual):</value>
-  </data>
-  <data name="DataAnalysis.ObjectSizeDownload" xml:space="preserve">
-    <value>{0} size (download size):</value>
-  </data>
-  <data name="DataAnalysis.ObjectTriangles" xml:space="preserve">
-    <value>{0} modded model triangles: {1}</value>
-  </data>
-  <data name="DataAnalysis.ObjectVram" xml:space="preserve">
-    <value>{0} VRAM usage:</value>
-  </data>
   <data name="DataAnalysis.SelectedFile" xml:space="preserve">
-    <value>Selected file:</value>
+    <value>Selected file</value>
   </data>
   <data name="DataAnalysis.StartAll" xml:space="preserve">
     <value>Start analysis (recalculate all entries)</value>
@@ -2889,19 +2874,19 @@ Note: Weapons will not be displayed correctly unless using the same job as the s
     <value>Convert to BC7</value>
   </data>
   <data name="DataAnalysis.Table.DownloadSize" xml:space="preserve">
-    <value>Download Size</value>
+    <value>Download</value>
   </data>
   <data name="DataAnalysis.Table.FileSize" xml:space="preserve">
-    <value>File Size</value>
+    <value>Size</value>
   </data>
   <data name="DataAnalysis.Table.Filepaths" xml:space="preserve">
-    <value>Filepaths</value>
+    <value>Local paths</value>
   </data>
   <data name="DataAnalysis.Table.Format" xml:space="preserve">
     <value>Format</value>
   </data>
   <data name="DataAnalysis.Table.Gamepaths" xml:space="preserve">
-    <value>Gamepaths</value>
+    <value>Game paths</value>
   </data>
   <data name="DataAnalysis.Table.Hash" xml:space="preserve">
     <value>Hash</value>
@@ -2909,35 +2894,11 @@ Note: Weapons will not be displayed correctly unless using the same job as the s
   <data name="DataAnalysis.Table.Triangles" xml:space="preserve">
     <value>Triangles</value>
   </data>
-  <data name="DataAnalysis.TotalFiles" xml:space="preserve">
-    <value>Total files:</value>
-  </data>
-  <data name="DataAnalysis.TotalSizeActual" xml:space="preserve">
-    <value>Total size (actual):</value>
-  </data>
-  <data name="DataAnalysis.TotalSizeDownload" xml:space="preserve">
-    <value>Total size (download size):</value>
-  </data>
   <data name="DataAnalysis.TotalSizeTooltip" xml:space="preserve">
-    <value>Click "Start analysis" to calculate download size</value>
-  </data>
-  <data name="DataAnalysis.TotalTriangles" xml:space="preserve">
-    <value>Total modded model triangles: {0}</value>
-  </data>
-  <data name="DataAnalysis.FileGroup.Files" xml:space="preserve">
-    <value>{0} files</value>
-  </data>
-  <data name="DataAnalysis.FileGroup.SizeActual" xml:space="preserve">
-    <value>{0} files size (actual):</value>
-  </data>
-  <data name="DataAnalysis.FileGroup.SizeDownload" xml:space="preserve">
-    <value>{0} files size (download size):</value>
+    <value>Start the analysis to calculate the download size</value>
   </data>
   <data name="DataAnalysis.FileTypeSummary" xml:space="preserve">
     <value>{0}: {1} files, size: {2}, compressed: {3}</value>
-  </data>
-  <data name="DataAnalysis.FilesFor" xml:space="preserve">
-    <value>Files for {0}</value>
   </data>
   <data name="DataAnalysis.WindowTitle" xml:space="preserve">
     <value>Character Data Analysis</value>
@@ -8007,5 +7968,65 @@ WARNING: this cannot be undone.</value>
   </data>
   <data name="Settings.AutoDetect.Status.Suppressed" xml:space="preserve">
     <value>Paused in this area</value>
+  </data>
+  <data name="DataAnalysis.Bc7.SelectHint" xml:space="preserve">
+    <value>Tick the textures to convert in the “Convert to BC7” column.</value>
+  </data>
+  <data name="DataAnalysis.SelectedFile.None" xml:space="preserve">
+    <value>Select a file in the list to see its paths.</value>
+  </data>
+  <data name="DataAnalysis.Table.File" xml:space="preserve">
+    <value>File</value>
+  </data>
+  <data name="DataAnalysis.Empty.Title" xml:space="preserve">
+    <value>No analysis yet</value>
+  </data>
+  <data name="DataAnalysis.Empty.Hint" xml:space="preserve">
+    <value>Your character data hasn't been built yet. The analysis will show up as soon as it is.</value>
+  </data>
+  <data name="DataAnalysis.Tile.Files" xml:space="preserve">
+    <value>Files</value>
+  </data>
+  <data name="DataAnalysis.Tile.SizeActual" xml:space="preserve">
+    <value>Actual size</value>
+  </data>
+  <data name="DataAnalysis.Tile.SizeDownload" xml:space="preserve">
+    <value>Download size</value>
+  </data>
+  <data name="DataAnalysis.Tile.Vram" xml:space="preserve">
+    <value>VRAM</value>
+  </data>
+  <data name="DataAnalysis.Tile.VramTooltip" xml:space="preserve">
+    <value>Video memory used by textures</value>
+  </data>
+  <data name="DataAnalysis.Tile.Triangles" xml:space="preserve">
+    <value>Triangles</value>
+  </data>
+  <data name="DataAnalysis.Tile.TrianglesTooltip" xml:space="preserve">
+    <value>Triangles of modded models</value>
+  </data>
+  <data name="DataAnalysis.Objects.Title" xml:space="preserve">
+    <value>Objects</value>
+  </data>
+  <data name="DataAnalysis.Object.Player" xml:space="preserve">
+    <value>Character</value>
+  </data>
+  <data name="DataAnalysis.Object.MinionOrMount" xml:space="preserve">
+    <value>Minion / mount</value>
+  </data>
+  <data name="DataAnalysis.Object.Companion" xml:space="preserve">
+    <value>Companion</value>
+  </data>
+  <data name="DataAnalysis.Object.Pet" xml:space="preserve">
+    <value>Pet</value>
+  </data>
+  <data name="DataAnalysis.Files.Title" xml:space="preserve">
+    <value>Files by type</value>
+  </data>
+  <data name="DataAnalysis.Summary" xml:space="preserve">
+    <value>{0} files · {1} actual · {2} download</value>
+  </data>
+  <data name="DataAnalysis.FileGroup.NeedsAnalysis" xml:space="preserve">
+    <value>Some of these files haven't been analyzed yet</value>
   </data>
 </root>

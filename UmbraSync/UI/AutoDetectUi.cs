@@ -1,13 +1,16 @@
-using Dalamud.Bindings.ImGui;
+﻿using Dalamud.Bindings.ImGui;
 using Dalamud.Interface.Windowing;
 using Dalamud.Interface;
 using Dalamud.Interface.Colors;
 using Dalamud.Interface.Utility;
 using Dalamud.Interface.Utility.Raii;
 using Microsoft.Extensions.Logging;
+using Dalamud.Interface.Textures.TextureWraps;
+using System.Collections.Concurrent;
 using System.Globalization;
 using System.Numerics;
 using System.Text;
+using UmbraSync.API.Data;
 using UmbraSync.API.Dto.Group;
 using UmbraSync.Localization;
 using UmbraSync.MareConfiguration;
@@ -20,6 +23,7 @@ using UmbraSync.Services.Notification;
 using NotificationType = UmbraSync.MareConfiguration.Models.NotificationType;
 using UmbraSync.UI.Components;
 using UmbraSync.Utils;
+using UmbraSync.WebAPI;
 
 namespace UmbraSync.UI;
 
@@ -44,6 +48,12 @@ public class AutoDetectUi : WindowMediatorSubscriberBase
     private bool _showNsfwSyncshells;
     private string _syncshellSearch = string.Empty;
     private int _activeTab;
+    private readonly ApiController _apiController;
+    private readonly ConcurrentDictionary<string, GroupProfileDto?> _discoveryProfiles = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, byte> _discoveryProfileRequests = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, (string Source, Task<IDalamudTextureWrap?> Task)> _syncshellIconTasks = new(StringComparer.Ordinal);
+    private Task? _discoveryProfileFetch;
+    private DateTime _lastDiscoveryProfileFetchUtc = DateTime.MinValue;
     private const int MaxNearbyProfileCards = 15;
 
     public AutoDetectUi(ILogger<AutoDetectUi> logger, MareMediator mediator,
@@ -51,10 +61,11 @@ public class AutoDetectUi : WindowMediatorSubscriberBase
         AutoDetectRequestService requestService, NearbyPendingService pendingService, PairManager pairManager,
         NearbyDiscoveryService discoveryService, SyncshellDiscoveryService syncshellDiscoveryService,
         PerformanceCollectorService performanceCollectorService, NotificationTracker notificationTracker,
-        UmbraProfileManager profileManager, UiSharedService uiSharedService)
+        UmbraProfileManager profileManager, UiSharedService uiSharedService, ApiController apiController)
         : base(logger, mediator, "AutoDetect", performanceCollectorService)
     {
         _profileManager = profileManager;
+        _apiController = apiController;
         _uiSharedService = uiSharedService;
         _configService = configService;
         _requestService = requestService;
@@ -472,6 +483,9 @@ public class AutoDetectUi : WindowMediatorSubscriberBase
             foreach (var pending in _nearbyTextureTasks.Values)
                 pending.Task.DisposeResultWhenCompleted();
             _nearbyTextureTasks.Clear();
+            foreach (var pending in _syncshellIconTasks.Values)
+                pending.Task.DisposeResultWhenCompleted();
+            _syncshellIconTasks.Clear();
         }
 
         base.Dispose(disposing);
@@ -522,31 +536,26 @@ public class AutoDetectUi : WindowMediatorSubscriberBase
         bool isRefreshing = _syncshellDiscoveryService.IsRefreshing;
         var serviceError = _syncshellDiscoveryService.LastError;
 
-        if (ImGui.Button(Loc.Get("AutoDetectUi.Syncshell.RefreshButton")))
+        // Barre unique : actualiser, recherche sur toute la largeur restante, filtre NSFW calé à droite.
+        var style = ImGui.GetStyle();
+        if (_uiSharedService.IconButton(isRefreshing ? FontAwesomeIcon.Spinner : FontAwesomeIcon.SyncAlt) && !isRefreshing)
         {
             _ = _syncshellDiscoveryService.RefreshAsync(CancellationToken.None);
         }
-        UiSharedService.AttachToolTip(Loc.Get("AutoDetectUi.Syncshell.RefreshTooltip"));
+        UiSharedService.AttachToolTip(Loc.Get(isRefreshing ? "AutoDetectUi.Syncshell.Refreshing" : "AutoDetectUi.Syncshell.RefreshTooltip"));
 
-        if (isRefreshing)
-        {
-            ImGui.SameLine();
-            ImGui.TextDisabled(Loc.Get("AutoDetectUi.Syncshell.Refreshing"));
-        }
-
-        ImGui.SameLine();
-        using (ImRaii.PushFont(UiBuilder.IconFont))
-        {
-            ImGui.AlignTextToFramePadding();
-            ImGui.TextColored(ImGuiColors.DalamudGrey, FontAwesomeIcon.Search.ToIconString());
-        }
-        ImGui.SameLine();
-        ImGui.SetNextItemWidth(MathF.Min(260f * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X));
-        ImGui.InputTextWithHint("##syncshellSearch", Loc.Get("AutoDetectUi.Syncshell.Search"), ref _syncshellSearch, 64);
         string nsfwLabel = Loc.Get("AutoDetectUi.ShowNSFW");
+        float toggleWidth = ToggleSwitch.MeasureWidth(nsfwLabel);
         ImGui.SameLine();
-        if (ImGui.GetContentRegionAvail().X < ImGui.CalcTextSize(nsfwLabel).X + ImGui.GetFrameHeight() * 2.5f)
-            ImGui.NewLine();
+        float searchAvail = ImGui.GetContentRegionAvail().X;
+        float searchInline = searchAvail - toggleWidth - style.ItemSpacing.X * 2f;
+        bool toggleInline = searchInline >= 160f * ImGuiHelpers.GlobalScale;
+        ImGui.SetNextItemWidth(toggleInline ? searchInline : searchAvail);
+        ImGui.InputTextWithHint("##syncshellSearch", Loc.Get("AutoDetectUi.Syncshell.Search"), ref _syncshellSearch, 64);
+        if (toggleInline)
+        {
+            ImGui.SameLine(0, style.ItemSpacing.X * 2f);
+        }
         ToggleSwitch.Draw(nsfwLabel, ref _showNsfwSyncshells);
 
         ImGuiHelpers.ScaledDummy(4);
@@ -620,27 +629,54 @@ public class AutoDetectUi : WindowMediatorSubscriberBase
         bool joining = _syncshellJoinInFlight.Contains(entry.GID);
         float scale = ImGuiHelpers.GlobalScale;
         float rightEdge = ImGui.GetWindowContentRegionMax().X - UiSharedService.GetCardContentPaddingX();
+        string name = string.IsNullOrEmpty(entry.Alias) ? entry.GID : entry.Alias;
+        var profile = GetDiscoveryProfile(entry.GID, alreadyMember);
+        // Même couleur que la carte de l'onglet Syncshells : celle du profil, sinon dérivée du GID.
+        var tint = GroupPanel.GetSyncshellColor(entry.GID, profile);
+        var icon = GetSyncshellIcon(entry.GID, profile, entry.IsNsfw);
 
         UiSharedService.DrawCard("syncshell-" + entry.GID, () =>
         {
-            // Nom et ligne propriétaire/membres à gauche, action à droite centrée sur ces deux lignes.
-            // Tags et description restent dessous, en pleine largeur.
+            // Même anatomie que les cartes de l'onglet Syncshells : pastille d'initiales, nom, détails et jauge,
+            // action à droite centrée sur la pastille. Tags et description dessous, en pleine largeur.
+            var style = ImGui.GetStyle();
             float rowTop = ImGui.GetCursorPosY();
             float rowStartX = ImGui.GetCursorPosX();
-            ImGui.AlignTextToFramePadding();
+            float tileSize = 48f * scale;
+            DrawSyncshellTile(name, tint, icon, tileSize);
+
+            string actionLabel = alreadyMember ? Loc.Get("AutoDetectUi.Syncshell.Status.Member")
+                : joining ? Loc.Get("AutoDetectUi.Syncshell.Status.Joining")
+                : Loc.Get("AutoDetectUi.Syncshell.JoinButton");
+            var statusIcon = alreadyMember ? FontAwesomeIcon.Check : FontAwesomeIcon.Spinner;
+            float buttonWidth = ImGui.CalcTextSize(actionLabel).X + style.FramePadding.X * 2f + 12f * scale;
+            float actionWidth = alreadyMember || joining ? PillWidth(actionLabel, statusIcon) : buttonWidth;
+
+            float lineHeight = ImGui.GetTextLineHeight();
+            float barHeight = 5f * scale;
+            bool hasBar = entry.MaxUserCount > 0;
+            float blockHeight = lineHeight * 2f + style.ItemSpacing.Y + (hasBar ? style.ItemSpacing.Y + barHeight : 0f);
+            float textX = rowStartX + tileSize + 10f * scale;
+            float textWidth = MathF.Max(40f * scale, rightEdge - actionWidth - 10f * scale - textX);
+
+            ImGui.SetCursorPos(new Vector2(textX, rowTop + MathF.Max(0f, (tileSize - blockHeight) / 2f)));
+            ImGui.BeginGroup();
+
+            float nameWidth = textWidth;
             if (entry.IsNsfw)
             {
-                UiSharedService.ColorText("[NSFW]", ImGuiColors.DalamudRed);
-                ImGui.SameLine();
+                DrawPill("NSFW", ImGuiColors.DalamudRed, lineHeight);
+                nameWidth -= ImGui.GetItemRectSize().X + 6f * scale;
+                ImGui.SameLine(0, 6f * scale);
             }
-            UiSharedService.ColorText(string.IsNullOrEmpty(entry.Alias) ? entry.GID : entry.Alias, UiSharedService.ThemeNavTextActive);
-            float nameRight = ImGui.GetItemRectMax().X - ImGui.GetWindowPos().X + ImGui.GetScrollX();
+            var shownName = UiSharedService.TruncateToWidth(name, nameWidth);
+            UiSharedService.ColorText(shownName, UiSharedService.ThemeTextAccent);
+            if (!string.Equals(shownName, name, StringComparison.Ordinal))
+                UiSharedService.AttachToolTip(name);
 
-            float iconColumn = 24f * scale;
-            float gap = 18f * scale;
-            float membersStart = iconColumn + ownerWidth + gap;
-            float barStart = membersStart + iconColumn + membersWidth + 10f * scale;
-
+            // Colonnes communes à toutes les cartes (largeurs calculées sur la liste filtrée).
+            float iconColumn = 22f * scale;
+            float membersStart = iconColumn + ownerWidth + 16f * scale;
             DrawSyncshellIcon(FontAwesomeIcon.Crown);
             ImGui.SameLine(iconColumn);
             UiSharedService.ColorText(SyncshellOwner(entry), ImGuiColors.DalamudGrey);
@@ -652,33 +688,24 @@ public class AutoDetectUi : WindowMediatorSubscriberBase
             UiSharedService.ColorText(SyncshellMembers(entry), ImGuiColors.DalamudGrey);
             UiSharedService.AttachToolTip(Loc.Get("AutoDetectUi.Syncshell.Table.Members"));
 
-            if (entry.MaxUserCount > 0)
+            if (hasBar)
             {
-                ImGui.SameLine(barStart);
-                DrawSyncshellFillBar(entry.MemberCount / (float)entry.MaxUserCount);
+                float barWidth = MathF.Min(textWidth, MathF.Max(170f * scale, membersStart + iconColumn + membersWidth));
+                DrawSyncshellFillBar(entry.MemberCount / (float)entry.MaxUserCount, tint, new Vector2(barWidth, barHeight));
             }
+            ImGui.EndGroup();
 
-            string actionLabel = alreadyMember ? Loc.Get("AutoDetectUi.Syncshell.Status.Member")
-                : joining ? Loc.Get("AutoDetectUi.Syncshell.Status.Joining")
-                : Loc.Get("AutoDetectUi.Syncshell.JoinButton");
-            float buttonWidth = ImGui.CalcTextSize(actionLabel).X + ImGui.GetStyle().FramePadding.X * 2f + 12f * scale;
-            // Un état se cale sur le bord droit du bouton qu'il remplace, pas sur son bord gauche.
-            float actionWidth = alreadyMember || joining ? ImGui.CalcTextSize(actionLabel).X : buttonWidth;
-
-            float afterHeaderY = ImGui.GetCursorPosY();
-            float headerHeight = afterHeaderY - ImGui.GetStyle().ItemSpacing.Y - rowTop;
+            float headerBottom = MathF.Max(rowTop + tileSize, ImGui.GetCursorPosY() - style.ItemSpacing.Y);
             ImGui.SetCursorPos(new Vector2(
-                MathF.Max(nameRight + ImGui.GetStyle().ItemSpacing.X, rightEdge - actionWidth),
-                rowTop + MathF.Max(0f, (headerHeight - ImGui.GetFrameHeight()) / 2f)));
+                MathF.Max(textX, rightEdge - actionWidth),
+                rowTop + MathF.Max(0f, (headerBottom - rowTop - ImGui.GetFrameHeight()) / 2f)));
             if (alreadyMember)
             {
-                ImGui.AlignTextToFramePadding();
-                UiSharedService.ColorText(actionLabel, ImGuiColors.HealerGreen);
+                DrawPill(actionLabel, ImGuiColors.HealerGreen, ImGui.GetFrameHeight(), statusIcon);
             }
             else if (joining)
             {
-                ImGui.AlignTextToFramePadding();
-                UiSharedService.ColorText(actionLabel, ImGuiColors.DalamudGrey);
+                DrawPill(actionLabel, ImGuiColors.DalamudGrey, ImGui.GetFrameHeight(), statusIcon);
             }
             else
             {
@@ -693,22 +720,166 @@ public class AutoDetectUi : WindowMediatorSubscriberBase
                 }
             }
 
+            bool hasTags = entry.Tags is { Length: > 0 };
             // Retour sous l'en-tête uniquement s'il reste du contenu : un SetCursorPos sans item derrière
             // étendrait la carte et déclencherait l'assertion d'ImGui.
-            if (entry.Tags is { Length: > 0 } || !string.IsNullOrEmpty(entry.Description))
-                ImGui.SetCursorPos(new Vector2(rowStartX, afterHeaderY));
+            if (hasTags || !string.IsNullOrEmpty(entry.Description))
+                ImGui.SetCursorPos(new Vector2(rowStartX, headerBottom + 8f * scale));
 
-            if (entry.Tags is { Length: > 0 })
+            if (hasTags)
             {
-                UiSharedService.ColorTextWrapped(string.Join("  ·  ", entry.Tags), UiSharedService.ThemeTextAccent,
-                    rightEdge);
+                float gap = 4f * scale;
+                float lineX = rowStartX;
+                for (int i = 0; i < entry.Tags!.Length; i++)
+                {
+                    float width = PillWidth(entry.Tags[i]);
+                    if (i > 0 && lineX + gap + width <= rightEdge)
+                    {
+                        ImGui.SameLine(0, gap);
+                        lineX += gap + width;
+                    }
+                    else
+                    {
+                        lineX = rowStartX + width;
+                    }
+                    DrawPill(entry.Tags[i], UiSharedService.ThemeTextAccent, lineHeight + 2f * scale);
+                }
             }
 
             if (!string.IsNullOrEmpty(entry.Description))
             {
+                if (hasTags) ImGuiHelpers.ScaledDummy(1f);
                 UiSharedService.ColorTextWrapped(entry.Description, ImGuiColors.DalamudGrey, rightEdge);
             }
         }, stretchWidth: true);
+    }
+
+    private void DrawSyncshellTile(string name, Vector4 tint, IDalamudTextureWrap? icon, float size)
+    {
+        var min = ImGui.GetCursorScreenPos();
+        var max = min + new Vector2(size);
+        float rounding = 10f * ImGuiHelpers.GlobalScale;
+        var drawList = ImGui.GetWindowDrawList();
+        drawList.AddRectFilled(min, max, ImGui.GetColorU32(tint with { W = 0.22f }), rounding);
+        if (icon != null && icon.Handle != IntPtr.Zero)
+        {
+            drawList.AddImageRounded(icon.Handle, min, max, Vector2.Zero, Vector2.One, ImGui.GetColorU32(Vector4.One), rounding);
+        }
+        else
+        {
+            using (_uiSharedService.UidFont.Push())
+            {
+                var initials = GroupPanel.GetSyncshellInitials(name);
+                drawList.AddText(min + (new Vector2(size) - ImGui.CalcTextSize(initials)) / 2f, ImGui.GetColorU32(tint), initials);
+            }
+        }
+        drawList.AddRect(min, max, ImGui.GetColorU32(tint with { W = 0.65f }), rounding, ImDrawFlags.None, ImGuiHelpers.GlobalScale);
+        ImGui.Dummy(new Vector2(size));
+    }
+
+    private GroupProfileDto? GetDiscoveryProfile(string gid, bool alreadyMember)
+    {
+        var live = _profileManager.GetGroupProfile(gid);
+        if (live != null) return live;
+        if (_discoveryProfiles.TryGetValue(gid, out var fetched) && fetched != null) return fetched;
+
+        if ((_discoveryProfileFetch?.IsCompleted ?? true)
+            && DateTime.UtcNow - _lastDiscoveryProfileFetchUtc >= TimeSpan.FromMilliseconds(400)
+            && _discoveryProfileRequests.TryAdd(gid, 0))
+        {
+            _lastDiscoveryProfileFetchUtc = DateTime.UtcNow;
+            _discoveryProfileFetch = FetchDiscoveryProfileAsync(gid, alreadyMember);
+        }
+
+        return alreadyMember ? _profileManager.GetCachedGroupProfile(gid) : null;
+    }
+
+    private async Task FetchDiscoveryProfileAsync(string gid, bool alreadyMember)
+    {
+        try
+        {
+            var profile = await _apiController.GroupGetProfile(new GroupDto(new GroupData(gid))).ConfigureAwait(false);
+            if (profile != null && alreadyMember)
+                _profileManager.SetGroupProfile(gid, profile);
+            else
+                _discoveryProfiles[gid] = profile;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Profil de syncshell indisponible pour {gid}", gid);
+        }
+    }
+
+    private IDalamudTextureWrap? GetSyncshellIcon(string gid, GroupProfileDto? profile, bool listedNsfw)
+    {
+        // Une syncshell NSFW n'affiche pas son image tant que l'utilisateur n'a pas choisi de les voir.
+        bool hideNsfw = (listedNsfw || profile?.IsNsfw == true) && !_configService.Current.ProfilesAllowNsfw;
+        string? source = profile is { IsDisabled: false } && !hideNsfw ? profile.ProfileImageBase64 : null;
+
+        if (string.IsNullOrEmpty(source))
+        {
+            if (_syncshellIconTasks.Remove(gid, out var stale))
+                stale.Task.DisposeResultWhenCompleted();
+            return null;
+        }
+
+        if (_syncshellIconTasks.TryGetValue(gid, out var entry) && string.Equals(entry.Source, source, StringComparison.Ordinal))
+            return entry.Task.IsCompletedSuccessfully ? entry.Task.Result : null;
+
+        if (entry.Task != null)
+            entry.Task.DisposeResultWhenCompleted();
+        _syncshellIconTasks[gid] = (source, LoadSyncshellIconAsync(source));
+        return null;
+    }
+
+    private async Task<IDalamudTextureWrap?> LoadSyncshellIconAsync(string imageBase64)
+    {
+        try
+        {
+            return await _uiSharedService.LoadImageAsync(Convert.FromBase64String(imageBase64)).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Image de syncshell illisible");
+            return null;
+        }
+    }
+
+    private static float PillWidth(string text, FontAwesomeIcon? icon = null)
+    {
+        float scale = ImGuiHelpers.GlobalScale;
+        float width = ImGui.CalcTextSize(text).X + 16f * scale;
+        if (icon != null)
+        {
+            using (ImRaii.PushFont(UiBuilder.IconFont))
+                width += ImGui.CalcTextSize(icon.Value.ToIconString()).X + 5f * scale;
+        }
+        return width;
+    }
+
+    private static void DrawPill(string text, Vector4 color, float height, FontAwesomeIcon? icon = null)
+    {
+        float scale = ImGuiHelpers.GlobalScale;
+        var size = new Vector2(PillWidth(text, icon), height);
+        var min = ImGui.GetCursorScreenPos();
+        var drawList = ImGui.GetWindowDrawList();
+        drawList.AddRectFilled(min, min + size, ImGui.GetColorU32(color with { W = 0.14f }), height / 2f);
+        drawList.AddRect(min, min + size, ImGui.GetColorU32(color with { W = 0.40f }), height / 2f, ImDrawFlags.None, scale);
+
+        float x = min.X + 8f * scale;
+        float textY = min.Y + (height - ImGui.GetTextLineHeight()) / 2f;
+        if (icon != null)
+        {
+            using (ImRaii.PushFont(UiBuilder.IconFont))
+            {
+                var glyph = icon.Value.ToIconString();
+                var glyphSize = ImGui.CalcTextSize(glyph);
+                drawList.AddText(new Vector2(x, min.Y + (height - glyphSize.Y) / 2f), ImGui.GetColorU32(color), glyph);
+                x += glyphSize.X + 5f * scale;
+            }
+        }
+        drawList.AddText(new Vector2(x, textY), ImGui.GetColorU32(color), text);
+        ImGui.Dummy(size);
     }
 
     private static void DrawSyncshellIcon(FontAwesomeIcon icon)
@@ -717,21 +888,17 @@ public class AutoDetectUi : WindowMediatorSubscriberBase
             ImGui.TextColored(ImGuiColors.DalamudGrey3, icon.ToIconString());
     }
 
-    private static void DrawSyncshellFillBar(float ratio)
+    private static void DrawSyncshellFillBar(float ratio, Vector4 tint, Vector2 size)
     {
-        float scale = ImGuiHelpers.GlobalScale;
-        var size = new Vector2(70f * scale, 4f * scale);
         var pos = ImGui.GetCursorScreenPos();
-        pos.Y += (ImGui.GetTextLineHeight() - size.Y) / 2f;
-
         ratio = Math.Clamp(ratio, 0f, 1f);
-        var fill = ratio >= 0.9f ? ImGuiColors.DalamudOrange : UiSharedService.AccentColor;
+        var fill = ratio >= 0.9f ? ImGuiColors.DalamudOrange : tint with { W = 0.9f };
         var drawList = ImGui.GetWindowDrawList();
         drawList.AddRectFilled(pos, pos + size, ImGui.GetColorU32(UiSharedService.ThemeFrameBgActive), size.Y / 2f);
         if (ratio > 0f)
-            drawList.AddRectFilled(pos, pos + new Vector2(size.X * ratio, size.Y), ImGui.GetColorU32(fill), size.Y / 2f);
+            drawList.AddRectFilled(pos, pos + new Vector2(MathF.Max(size.Y, size.X * ratio), size.Y), ImGui.GetColorU32(fill), size.Y / 2f);
 
-        ImGui.Dummy(new Vector2(size.X, ImGui.GetTextLineHeight()));
+        ImGui.Dummy(size);
     }
 
     private void OnDiscoveryUpdated(Services.Mediator.DiscoveryListUpdated msg)

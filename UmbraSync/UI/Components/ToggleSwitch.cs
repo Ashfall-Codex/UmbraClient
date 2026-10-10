@@ -11,6 +11,15 @@ public static class ToggleSwitch
     private const float AnimationSpeed = 16f;
     private static readonly Dictionary<uint, float> Positions = [];
 
+    public static float MeasureWidth(string label)
+    {
+        float height = MathF.Round(ImGui.GetFrameHeight() * 0.82f);
+        int idMarker = label.IndexOf("##", StringComparison.Ordinal);
+        ReadOnlySpan<char> visible = idMarker >= 0 ? label.AsSpan(0, idMarker) : label.AsSpan();
+        float labelWidth = visible.IsEmpty ? 0f : ImGui.GetStyle().ItemInnerSpacing.X + ImGui.CalcTextSize(visible).X;
+        return MathF.Round(height * 1.8f) + labelWidth;
+    }
+
     public static bool Draw(string label, ref bool value)
     {
         var style = ImGui.GetStyle();

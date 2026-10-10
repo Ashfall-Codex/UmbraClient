@@ -1401,9 +1401,6 @@ Veuillez conserver une copie de votre clé secrète au cas où vous auriez besoi
   <data name="AutoDetectUi.Syncshell.NotificationTitle" xml:space="preserve">
     <value>Syncshell AutoDetect</value>
   </data>
-  <data name="AutoDetectUi.Syncshell.RefreshButton" xml:space="preserve">
-    <value>Actualiser la liste</value>
-  </data>
   <data name="AutoDetectUi.Syncshell.Refreshing" xml:space="preserve">
     <value>Actualisation...</value>
   </data>
@@ -2718,130 +2715,94 @@ Note : Les armes ne s'afficheront pas correctement sauf si vous utilisez le m&#x
     <value>Supprimer ce MCDF du serveur</value>
   </data>
   <data name="DataAnalysis.AndMore" xml:space="preserve">
-    <value />
+    <value>et {0} autre(s)</value>
   </data>
   <data name="DataAnalysis.Analyzing" xml:space="preserve">
-    <value />
+    <value>Analyse en cours {0}/{1}</value>
   </data>
   <data name="DataAnalysis.Bc7.Enable" xml:space="preserve">
-    <value />
+    <value>Activer le mode de conversion BC7</value>
   </data>
   <data name="DataAnalysis.Bc7.Start" xml:space="preserve">
-    <value />
+    <value>Convertir {0} texture(s)</value>
   </data>
   <data name="DataAnalysis.Bc7.WarningDetails" xml:space="preserve">
-    <value />
+    <value>- La conversion en BC7 réduit fortement la taille des textures (compressée et non compressée). Elle est recommandée pour les grandes textures (4k et plus).&#x0A;- Certaines textures, notamment celles qui utilisent des colorsets, se prêtent mal à la conversion BC7 et peuvent présenter des artefacts visuels.&#x0A;- Avant de convertir, assurez-vous de disposer des fichiers d'origine du mod pour pouvoir le réimporter en cas de problème.&#x0A;- Tous les doublons trouvés d'une texture (entrées avec plus d'un chemin de fichier) sont convertis automatiquement.&#x0A;- La conversion en BC7 est une opération très lourde : selon le nombre de textures, elle peut prendre un moment.</value>
   </data>
   <data name="DataAnalysis.Bc7.WarningIrreversible" xml:space="preserve">
-    <value />
+    <value>La conversion en BC7 est irréversible !</value>
   </data>
   <data name="DataAnalysis.Bc7.WarningTitle" xml:space="preserve">
-    <value />
+    <value>ATTENTION, CONVERSION BC7 :</value>
   </data>
   <data name="DataAnalysis.CancelAnalysis" xml:space="preserve">
-    <value />
-  </data>
-  <data name="DataAnalysis.FileGroup.Files" xml:space="preserve">
-    <value />
-  </data>
-  <data name="DataAnalysis.FileGroup.SizeActual" xml:space="preserve">
-    <value />
-  </data>
-  <data name="DataAnalysis.FileGroup.SizeDownload" xml:space="preserve">
-    <value />
+    <value>Annuler l'analyse</value>
   </data>
   <data name="DataAnalysis.FileTypeSummary" xml:space="preserve">
-    <value />
-  </data>
-  <data name="DataAnalysis.FilesFor" xml:space="preserve">
-    <value />
+    <value>{0} : {1} fichiers, taille : {2}, compressé : {3}</value>
   </data>
   <data name="DataAnalysis.GamePath" xml:space="preserve">
-    <value />
+    <value>Chemin de jeu</value>
   </data>
   <data name="DataAnalysis.Intro" xml:space="preserve">
-    <value />
+    <value>Tous les fichiers actuellement utilisés par votre personnage et les entités associées, avec leur taille.</value>
   </data>
   <data name="DataAnalysis.LocalPath" xml:space="preserve">
-    <value />
+    <value>Fichier local</value>
   </data>
   <data name="DataAnalysis.MissingEntriesWarning" xml:space="preserve">
-    <value />
+    <value>La taille de certains fichiers n'a pas encore été calculée. Lancez l'analyse pour compléter les données.</value>
   </data>
   <data name="DataAnalysis.Modal.Cancel" xml:space="preserve">
-    <value />
+    <value>Annuler la conversion</value>
   </data>
   <data name="DataAnalysis.Modal.CurrentFile" xml:space="preserve">
-    <value />
+    <value>Fichier en cours : {0}</value>
   </data>
   <data name="DataAnalysis.Modal.Progress" xml:space="preserve">
-    <value />
+    <value>Conversion BC7 en cours : {0}/{1}</value>
   </data>
   <data name="DataAnalysis.Modal.Title" xml:space="preserve">
-    <value />
-  </data>
-  <data name="DataAnalysis.ObjectSizeActual" xml:space="preserve">
-    <value />
-  </data>
-  <data name="DataAnalysis.ObjectSizeDownload" xml:space="preserve">
-    <value />
-  </data>
-  <data name="DataAnalysis.ObjectTriangles" xml:space="preserve">
-    <value />
-  </data>
-  <data name="DataAnalysis.ObjectVram" xml:space="preserve">
-    <value />
+    <value>Conversion BC7 en cours</value>
   </data>
   <data name="DataAnalysis.SelectedFile" xml:space="preserve">
-    <value />
+    <value>Fichier sélectionné</value>
   </data>
   <data name="DataAnalysis.StartAll" xml:space="preserve">
-    <value />
+    <value>Lancer l'analyse (tout recalculer)</value>
   </data>
   <data name="DataAnalysis.StartMissing" xml:space="preserve">
-    <value />
+    <value>Lancer l'analyse (fichiers manquants)</value>
   </data>
   <data name="DataAnalysis.Table.ConvertBc7" xml:space="preserve">
-    <value />
+    <value>Convertir en BC7</value>
   </data>
   <data name="DataAnalysis.Table.DownloadSize" xml:space="preserve">
-    <value />
+    <value>Téléchargement</value>
   </data>
   <data name="DataAnalysis.Table.FileSize" xml:space="preserve">
-    <value />
+    <value>Taille</value>
   </data>
   <data name="DataAnalysis.Table.Filepaths" xml:space="preserve">
-    <value />
+    <value>Chemins locaux</value>
   </data>
   <data name="DataAnalysis.Table.Format" xml:space="preserve">
-    <value />
+    <value>Format</value>
   </data>
   <data name="DataAnalysis.Table.Gamepaths" xml:space="preserve">
-    <value />
+    <value>Chemins de jeu</value>
   </data>
   <data name="DataAnalysis.Table.Hash" xml:space="preserve">
-    <value />
+    <value>Hash</value>
   </data>
   <data name="DataAnalysis.Table.Triangles" xml:space="preserve">
-    <value />
-  </data>
-  <data name="DataAnalysis.TotalFiles" xml:space="preserve">
-    <value />
-  </data>
-  <data name="DataAnalysis.TotalSizeActual" xml:space="preserve">
-    <value />
-  </data>
-  <data name="DataAnalysis.TotalSizeDownload" xml:space="preserve">
-    <value />
+    <value>Triangles</value>
   </data>
   <data name="DataAnalysis.TotalSizeTooltip" xml:space="preserve">
-    <value />
-  </data>
-  <data name="DataAnalysis.TotalTriangles" xml:space="preserve">
-    <value />
+    <value>Lancez l'analyse pour calculer la taille de téléchargement</value>
   </data>
   <data name="DataAnalysis.WindowTitle" xml:space="preserve">
-    <value />
+    <value>Analyse des données du personnage</value>
   </data>
   <data name="DownloadUi.Downloads.Status" xml:space="preserve">
     <value />
@@ -7917,5 +7878,65 @@ ATTENTION : cette action est irréversible.</value>
   </data>
   <data name="Settings.AutoDetect.Status.Suppressed" xml:space="preserve">
     <value>En pause dans cette zone</value>
+  </data>
+  <data name="DataAnalysis.Bc7.SelectHint" xml:space="preserve">
+    <value>Cochez les textures à convertir dans la colonne « Convertir en BC7 ».</value>
+  </data>
+  <data name="DataAnalysis.SelectedFile.None" xml:space="preserve">
+    <value>Sélectionnez un fichier dans la liste pour afficher ses chemins.</value>
+  </data>
+  <data name="DataAnalysis.Table.File" xml:space="preserve">
+    <value>Fichier</value>
+  </data>
+  <data name="DataAnalysis.Empty.Title" xml:space="preserve">
+    <value>Aucune analyse disponible</value>
+  </data>
+  <data name="DataAnalysis.Empty.Hint" xml:space="preserve">
+    <value>Les données de votre personnage n'ont pas encore été construites. L'analyse s'affichera dès qu'elles le seront.</value>
+  </data>
+  <data name="DataAnalysis.Tile.Files" xml:space="preserve">
+    <value>Fichiers</value>
+  </data>
+  <data name="DataAnalysis.Tile.SizeActual" xml:space="preserve">
+    <value>Taille réelle</value>
+  </data>
+  <data name="DataAnalysis.Tile.SizeDownload" xml:space="preserve">
+    <value>Téléchargement</value>
+  </data>
+  <data name="DataAnalysis.Tile.Vram" xml:space="preserve">
+    <value>VRAM</value>
+  </data>
+  <data name="DataAnalysis.Tile.VramTooltip" xml:space="preserve">
+    <value>Mémoire vidéo occupée par les textures</value>
+  </data>
+  <data name="DataAnalysis.Tile.Triangles" xml:space="preserve">
+    <value>Triangles</value>
+  </data>
+  <data name="DataAnalysis.Tile.TrianglesTooltip" xml:space="preserve">
+    <value>Triangles des modèles moddés</value>
+  </data>
+  <data name="DataAnalysis.Objects.Title" xml:space="preserve">
+    <value>Objets</value>
+  </data>
+  <data name="DataAnalysis.Object.Player" xml:space="preserve">
+    <value>Personnage</value>
+  </data>
+  <data name="DataAnalysis.Object.MinionOrMount" xml:space="preserve">
+    <value>Mascotte / monture</value>
+  </data>
+  <data name="DataAnalysis.Object.Companion" xml:space="preserve">
+    <value>Compagnon</value>
+  </data>
+  <data name="DataAnalysis.Object.Pet" xml:space="preserve">
+    <value>Familier</value>
+  </data>
+  <data name="DataAnalysis.Files.Title" xml:space="preserve">
+    <value>Fichiers par type</value>
+  </data>
+  <data name="DataAnalysis.Summary" xml:space="preserve">
+    <value>{0} fichiers · {1} réels · {2} en téléchargement</value>
+  </data>
+  <data name="DataAnalysis.FileGroup.NeedsAnalysis" xml:space="preserve">
+    <value>Certains de ces fichiers n'ont pas encore été analysés</value>
   </data>
 </root>

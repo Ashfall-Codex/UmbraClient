@@ -1334,10 +1334,10 @@ internal sealed class GroupPanel
         }
     }
 
-    private static Vector4 GetSyncshellColor(string gid, GroupProfileDto? profile)
+    internal static Vector4 GetSyncshellColor(string gid, GroupProfileDto? profile)
         => ColorSwatchPicker.TryParse(profile?.BorderColor, out var chosen) ? chosen : GetSyncshellTint(gid);
 
-    private static Vector4 GetSyncshellTint(string gid)
+    internal static Vector4 GetSyncshellTint(string gid)
     {
         uint hash = 2166136261;
         foreach (var c in gid)
@@ -1348,7 +1348,7 @@ internal sealed class GroupPanel
         return new Vector4(r, g, b, 1f);
     }
 
-    private static string GetSyncshellInitials(string name)
+    internal static string GetSyncshellInitials(string name)
     {
         var parts = name.Split([' ', '-', '\'', '_', '[', ']'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         var words = parts.Where(p => p.Any(char.IsLetterOrDigit)).ToArray();
