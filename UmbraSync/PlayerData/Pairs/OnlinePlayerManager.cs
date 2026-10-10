@@ -32,6 +32,10 @@ public class OnlinePlayerManager : DisposableMediatorSubscriberBase
     private static readonly TimeSpan MaxRetryDelay = TimeSpan.FromMinutes(2);
     private static readonly TimeSpan RebuildRequestCooldown = TimeSpan.FromSeconds(30);
     private const int MaxConsecutivePushFailures = 8;
+    private readonly HashSet<string> _pendingReUploads = new(StringComparer.OrdinalIgnoreCase);
+    private int _reUploadScheduled;
+    private static readonly TimeSpan ReUploadDebounce = TimeSpan.FromSeconds(2);
+    private const int MaxReUploadHashes = 200;
 
     public OnlinePlayerManager(ILogger<OnlinePlayerManager> logger, ApiController apiController, DalamudUtilService dalamudUtil,
         PairManager pairManager, MareMediator mediator, FileUploadManager fileTransferManager,
@@ -69,6 +73,7 @@ public class OnlinePlayerManager : DisposableMediatorSubscriberBase
             }
         });
 
+        Mediator.Subscribe<FilesReUploadRequestedMessage>(this, (msg) => OnReUploadRequested(msg.Hashes));
         Mediator.Subscribe<PairOnlineMessage>(this, (msg) =>
         {
             if (!_apiController.IsConnected) return;
@@ -116,6 +121,112 @@ public class OnlinePlayerManager : DisposableMediatorSubscriberBase
             // _pushLock n'est pas disposé : un push en vol peut encore le relâcher
         }
         base.Dispose(disposing);
+    }
+
+    // Le serveur signale des fichiers de notre apparence qu'il n'a plus : on les ré-uploade, sans
+    // re-push (le pair qui les attendait relance lui-même son téléchargement).
+    private void OnReUploadRequested(List<string> hashes)
+    {
+        if (_disposed || hashes.Count == 0) return;
+
+        int added = 0;
+        lock (_stateLock)
+        {
+            if (_lastCreatedData == null) return;
+
+            // Jamais d'upload d'un fichier qui ne fait pas partie de notre apparence actuelle
+            Dictionary<string, string> current = new(StringComparer.OrdinalIgnoreCase);
+            foreach (var replacement in _lastCreatedData.FileReplacements.Values.SelectMany(v => v))
+            {
+                if (string.IsNullOrEmpty(replacement.FileSwapPath) && !string.IsNullOrEmpty(replacement.Hash))
+                    current.TryAdd(replacement.Hash, replacement.Hash);
+            }
+
+            foreach (var hash in hashes)
+            {
+                if (_pendingReUploads.Count >= MaxReUploadHashes) break;
+                if (current.TryGetValue(hash, out var ownHash) && _pendingReUploads.Add(ownHash))
+                    added++;
+            }
+        }
+
+        Logger.LogDebug("Ré-upload demandé par le serveur : {added}/{requested} fichier(s) de l'apparence actuelle", added, hashes.Count);
+        if (added > 0)
+            ScheduleReUpload();
+    }
+
+    private void ScheduleReUpload()
+    {
+        if (Interlocked.Exchange(ref _reUploadScheduled, 1) == 1) return;
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                var token = _runtimeCts.Token;
+                await Task.Delay(ReUploadDebounce, token).ConfigureAwait(false);
+                await ReUploadPendingAsync(token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                // Arrêt du plugin ou déconnexion
+            }
+            catch (ObjectDisposedException)
+            {
+                // Arrêt du plugin
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "Erreur inattendue pendant le ré-upload demandé par le serveur");
+            }
+            finally
+            {
+                Interlocked.Exchange(ref _reUploadScheduled, 0);
+                bool more;
+                lock (_stateLock)
+                {
+                    more = _pendingReUploads.Count > 0;
+                }
+                if (more && !_disposed)
+                    ScheduleReUpload();
+            }
+        });
+    }
+
+    private async Task ReUploadPendingAsync(CancellationToken token)
+    {
+        if (!_apiController.IsConnected)
+        {
+            lock (_stateLock)
+            {
+                _pendingReUploads.Clear();
+            }
+            return;
+        }
+
+        // Jamais en même temps qu'un upload + push : ils partagent l'état de FileUploadManager
+        await _pushLock.WaitAsync(token).ConfigureAwait(false);
+        try
+        {
+            List<string> hashes;
+            lock (_stateLock)
+            {
+                hashes = [.. _pendingReUploads];
+                _pendingReUploads.Clear();
+            }
+            if (hashes.Count == 0) return;
+
+            var uploaded = await _fileTransferManager.ReUploadFiles(hashes, token).ConfigureAwait(false);
+            Logger.LogInformation("Ré-upload demandé par le serveur terminé : {uploaded}/{count} fichier(s) renvoyé(s)", uploaded, hashes.Count);
+        }
+        catch (FileUploadManager.MissingLocalUploadFilesException ex)
+        {
+            Logger.LogDebug("Ré-upload impossible pour {count} fichier(s) absents localement", ex.MissingHashes.Count);
+        }
+        finally
+        {
+            _pushLock.Release();
+        }
     }
 
     private void PushToAllVisibleUsers()

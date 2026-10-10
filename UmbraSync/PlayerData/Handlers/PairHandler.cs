@@ -130,6 +130,7 @@ public sealed partial class PairHandler : DisposableMediatorSubscriberBase, IPai
 
         Mediator.SubscribeKeyed<PlayerVisibilityMessage>(this, Pair.Ident, (msg) => UpdateVisibility(msg.IsVisible, msg.Invalidate));
         Mediator.Subscribe<GlamourerResetMessage>(this, (msg) => OnGlamourerReset(msg.Address));
+        Mediator.Subscribe<RetryMissingFilesMessage>(this, OnRetryMissingFiles);
 
         Mediator.Subscribe<ZoneSwitchStartMessage>(this, (_) =>
         {

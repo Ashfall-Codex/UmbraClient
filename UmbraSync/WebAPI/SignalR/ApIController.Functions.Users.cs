@@ -149,6 +149,33 @@ public partial class ApiController
         return await _mareHub!.InvokeAsync<List<UserData>>(nameof(UserGetBlockedUsers)).ConfigureAwait(false);
     }
 
+    // Serveur sans FilesReportMissing : inutile de réessayer jusqu'à la prochaine connexion
+    private volatile bool _filesReportMissingUnsupported;
+
+    public bool CanReportMissingFiles => IsConnected && !_filesReportMissingUnsupported;
+
+    public Task FilesReportMissing(UserDto owner, List<string> hashes) => TryReportMissingFiles(owner, hashes);
+
+    /// <summary>
+    /// Signale au serveur des fichiers de <paramref name="owner"/> absents du serveur, pour qu'il lui
+    /// demande de les ré-uploader. Renvoie false si le signalement n'a pas pu être fait.
+    /// </summary>
+    public async Task<bool> TryReportMissingFiles(UserDto owner, List<string> hashes)
+    {
+        if (!CanReportMissingFiles || hashes.Count == 0) return false;
+        try
+        {
+            await _mareHub!.InvokeAsync(nameof(FilesReportMissing), owner, hashes).ConfigureAwait(false);
+            return true;
+        }
+        catch (Exception ex) when (ex.Message.Contains("does not exist", StringComparison.OrdinalIgnoreCase))
+        {
+            _filesReportMissingUnsupported = true;
+            Logger.LogDebug("FilesReportMissing unavailable on this server, missing file reports disabled until reconnect");
+            return false;
+        }
+    }
+
 
     public async Task UserDelete()
     {

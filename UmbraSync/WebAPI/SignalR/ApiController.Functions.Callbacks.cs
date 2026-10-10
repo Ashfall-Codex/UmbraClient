@@ -233,6 +233,18 @@ public partial class ApiController
         return Task.CompletedTask;
     }
 
+    public Task Client_FilesReUploadRequested(List<string> hashes)
+    {
+        if (hashes is null || hashes.Count == 0) return Task.CompletedTask;
+
+        if (Logger.IsEnabled(LogLevel.Debug))
+            Logger.LogDebug("Client_FilesReUploadRequested: {count} hash(es)", hashes.Count);
+
+        var copy = hashes.Where(h => !string.IsNullOrWhiteSpace(h)).ToList();
+        ExecuteSafely(() => Mediator.Publish(new FilesReUploadRequestedMessage(copy)));
+        return Task.CompletedTask;
+    }
+
     public Task Client_UserTypingState(TypingStateDto dto)
     {
         if (Logger.IsEnabled(LogLevel.Trace))
@@ -474,6 +486,12 @@ public partial class ApiController
     {
         if (_initialized) return;
         _mareHub!.On(nameof(Client_PairRequestAccepted), act);
+    }
+
+    public void OnFilesReUploadRequested(Action<List<string>> act)
+    {
+        if (_initialized) return;
+        _mareHub!.On(nameof(Client_FilesReUploadRequested), act);
     }
 
     public void OnUserTypingState(Action<TypingStateDto> act)

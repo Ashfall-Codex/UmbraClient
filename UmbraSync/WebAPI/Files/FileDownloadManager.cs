@@ -175,6 +175,19 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
         return false;
     }
 
+    /// <summary>
+    /// Oublie le statut « absent du serveur » et le cooldown d'échec de ces hashes : utilisé après
+    /// une demande de ré-upload, pour que la prochaine application les redemande au serveur.
+    /// </summary>
+    public void ForgetServerMissing(IEnumerable<string> hashes)
+    {
+        foreach (var hash in hashes)
+        {
+            _serverMissingHashes.TryRemove(hash, out _);
+            _hashFailureCooldowns.TryRemove(hash, out _);
+        }
+    }
+
     private void TrackHashesMissingOnServer(List<DownloadFileDto> dtos)
     {
         List<string>? missing = null;

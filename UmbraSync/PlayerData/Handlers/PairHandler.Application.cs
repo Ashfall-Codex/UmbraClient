@@ -502,6 +502,17 @@ public sealed partial class PairHandler
                 {
                     Logger.LogDebug("[BASE-{appBase}] {count} missing files are all forbidden or absent server-side, no reapply", applicationBase, finalMissing.Count);
                 }
+
+                // Fichiers que le serveur n'a plus : on lui demande de les faire ré-uploader par le pair
+                var missingOnServer = finalMissing
+                    .Where(c => !string.IsNullOrEmpty(c.Hash)
+                        && !_downloadManager.ForbiddenTransfers.Exists(f => string.Equals(f.Hash, c.Hash, StringComparison.Ordinal))
+                        && _downloadManager.IsHashMissingOnServer(c.Hash))
+                    .Select(c => c.Hash)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+                if (missingOnServer.Count > 0)
+                    Mediator.Publish(new ReportMissingFilesMessage(Pair.UserData, missingOnServer, charaData.DataHash.Value));
             }
 
             try
@@ -807,6 +818,20 @@ public sealed partial class PairHandler
         RecordFailure(reason, conditions);
         _state.CachedData = charaData;
         Mediator.Publish(new PairDataAppliedMessage(Pair.UserData.UID, charaData));
+    }
+
+    // Relance après une demande de ré-upload : la donnée doit être celle pour laquelle on a signalé
+    private void OnRetryMissingFiles(RetryMissingFilesMessage msg)
+    {
+        if (!string.Equals(msg.OwnerUid, Pair.UserData.UID, StringComparison.Ordinal)) return;
+
+        var data = _state.CachedData;
+        if (data == null || !string.Equals(data.DataHash.Value, msg.DataHash, StringComparison.Ordinal)) return;
+        if (!_assetResolver.HasMissingFiles(data)) return;
+
+        Logger.LogDebug("Relance après demande de ré-upload pour {pair} ({count} fichier(s))", this, msg.Hashes.Count);
+        _downloadManager.ForgetServerMissing(msg.Hashes);
+        _state.PendingModReapply = true;
     }
 
     // Appelé sur le framework thread (DelayedFrameworkUpdateMessage)

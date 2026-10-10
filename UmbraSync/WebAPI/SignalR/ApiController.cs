@@ -409,6 +409,7 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
         OnUserAddClientPair((dto) => _ = Client_UserAddClientPair(dto));
         OnReceivePairRequest((dto) => _ = Client_ReceivePairRequest(dto));
         OnPairRequestAccepted((dto) => _ = Client_PairRequestAccepted(dto));
+        OnFilesReUploadRequested((hashes) => _ = Client_FilesReUploadRequested(hashes));
         OnUserReceiveCharacterData((dto) => _ = Client_UserReceiveCharacterData(dto));
         OnUserRemoveClientPair(dto => _ = Client_UserRemoveClientPair(dto));
         OnUserSendOnline(dto => _ = Client_UserSendOnline(dto));
@@ -445,6 +446,7 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
         _healthCheckTokenSource = new CancellationTokenSource();
         _ = ClientHealthCheck(_healthCheckTokenSource.Token);
 
+        _filesReportMissingUnsupported = false;
         _initialized = true;
     }
     

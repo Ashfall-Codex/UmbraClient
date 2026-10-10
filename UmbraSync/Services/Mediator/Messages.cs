@@ -154,6 +154,9 @@ public record HousingScenarioPublishedMessage(Guid ShareId, LocationInfo Locatio
 public record HousingScanCompleteMessage(LocationInfo Location, int FileCount) : MessageBase;
 public record ManualPairInviteMessage(string SourceUid, string SourceAlias, string TargetUid, string? DisplayName, string InviteId) : MessageBase;
 public record PairRequestAcceptedMessage(UserData Acceptor) : MessageBase;
+public record FilesReUploadRequestedMessage(List<string> Hashes) : MessageBase;
+public record ReportMissingFilesMessage(UserData Owner, List<string> Hashes, string DataHash) : MessageBase;
+public record RetryMissingFilesMessage(string OwnerUid, List<string> Hashes, string DataHash) : MessageBase;
 public record ApplyDefaultPairPermissionsMessage(UserPairDto Pair) : MessageBase;
 public record DefaultPermissionsUpdatedMessage(DefaultPermissionsDto Permissions) : MessageBase;
 public record ApplyDefaultGroupPermissionsMessage(GroupPairFullInfoDto GroupPair) : MessageBase;

@@ -156,6 +156,39 @@ public sealed class FileUploadManager : DisposableMediatorSubscriberBase
         return data;
     }
 
+    /// <summary>
+    /// Ré-uploade des fichiers que le serveur a perdus, même s'ils sont marqués comme vérifiés
+    /// localement. Les fichiers absents du disque sont ignorés. Renvoie le nombre de fichiers envoyés.
+    /// </summary>
+    public async Task<int> ReUploadFiles(IReadOnlyCollection<string> hashes, CancellationToken ct)
+    {
+        if (hashes.Count == 0) return 0;
+
+        if (!_orchestrator.IsInitialized
+            && !await _orchestrator.WaitForInitializationAsync(TimeSpan.FromSeconds(10), ct).ConfigureAwait(false))
+        {
+            throw new InvalidOperationException("FileTransferOrchestrator non initialisé, ré-upload impossible");
+        }
+
+        HashSet<string> present = new(StringComparer.Ordinal);
+        foreach (var hash in hashes)
+        {
+            if (_fileDbManager.GetFileCacheByHash(hash) == null)
+            {
+                Logger.LogDebug("[{hash}] Ré-upload ignoré : fichier absent localement", hash);
+                continue;
+            }
+
+            _verifiedUploadedHashes.TryRemove(hash, out _);
+            present.Add(hash);
+        }
+
+        if (present.Count == 0) return 0;
+
+        await UploadUnverifiedFiles(present, [], ct).ConfigureAwait(false);
+        return present.Count;
+    }
+
     protected override void Dispose(bool disposing)
     {
         base.Dispose(disposing);
