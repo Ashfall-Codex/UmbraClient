@@ -611,7 +611,7 @@ internal class EstablishmentDetailUi : WindowMediatorSubscriberBase
         ResizableTextArea.Draw("##editDesc", ref _editDescription, 2000, defaultHeight: 180f);
 
         ImGui.SetNextItemWidth(200 * ImGuiHelpers.GlobalScale);
-        ImGui.Combo($"{Loc.Get("Establishment.Field.Category")}##edit", ref _editCategory, CategoryNames, CategoryNames.Length);
+        UiSharedService.Combo($"{Loc.Get("Establishment.Field.Category")}##edit", ref _editCategory, CategoryNames, CategoryNames.Length);
 
         ImGui.SetNextItemWidth(200 * ImGuiHelpers.GlobalScale);
         ImGui.InputTextWithHint($"{Loc.Get("Establishment.Field.Schedule")}##edit", Loc.Get("Establishment.Field.ScheduleHint"), ref _editSchedule, 200);
@@ -630,11 +630,11 @@ internal class EstablishmentDetailUi : WindowMediatorSubscriberBase
 
         ImGui.TextColored(ImGuiColors.DalamudGrey, Loc.Get("Establishment.Location.District"));
         ImGui.SetNextItemWidth(220);
-        if (ImGui.Combo("##editDistrict", ref _editDistrictIndex, DistrictNames, DistrictNames.Length))
+        if (UiSharedService.Combo("##editDistrict", ref _editDistrictIndex, DistrictNames, DistrictNames.Length))
             _editLocationDirty = true;
 
         ImGui.SetNextItemWidth(220);
-        if (ImGui.Combo("##editHousingType", ref _editHousingType, HousingTypeNames, HousingTypeNames.Length))
+        if (UiSharedService.Combo("##editHousingType", ref _editHousingType, HousingTypeNames, HousingTypeNames.Length))
             _editLocationDirty = true;
 
         ImGui.TextColored(ImGuiColors.DalamudGrey, Loc.Get("Establishment.Location.Ward"));
@@ -690,7 +690,7 @@ internal class EstablishmentDetailUi : WindowMediatorSubscriberBase
                 managerPreview = currentProfile?.CharacterName ?? Loc.Get("Establishment.Syncshell.None");
 
             ImGui.SetNextItemWidth(250);
-            using (var combo = ImRaii.Combo("##editManager", managerPreview))
+            using (var combo = UiSharedService.Combo("##editManager", managerPreview))
             {
                 if (combo)
                 {
@@ -900,7 +900,7 @@ internal class EstablishmentDetailUi : WindowMediatorSubscriberBase
         var monthNames = new[] { "Janvier", "Fevrier", "Mars", "Avril", "Mai", "Juin",
             "Juillet", "Aout", "Septembre", "Octobre", "Novembre", "Decembre" };
         var monthIdx = _newEventMonth - 1;
-        if (ImGui.Combo("##evtMonth", ref monthIdx, monthNames, monthNames.Length))
+        if (UiSharedService.Combo("##evtMonth", ref monthIdx, monthNames, monthNames.Length))
             _newEventMonth = monthIdx + 1;
         _newEventMonth = Math.Clamp(_newEventMonth, 1, 12);
 
@@ -953,7 +953,7 @@ internal class EstablishmentDetailUi : WindowMediatorSubscriberBase
             Loc.Get("Establishment.Event.Recurrence.Yearly")
         };
         ImGui.SetNextItemWidth(200 * ImGuiHelpers.GlobalScale);
-        ImGui.Combo("##evtRecurrence", ref _newEventRecurrence, recLabels, recLabels.Length);
+        UiSharedService.Combo("##evtRecurrence", ref _newEventRecurrence, recLabels, recLabels.Length);
 
         // Validation
         var canCreate = !string.IsNullOrWhiteSpace(_newEventTitle);
@@ -1017,7 +1017,7 @@ internal class EstablishmentDetailUi : WindowMediatorSubscriberBase
         }
 
         ImGui.SetNextItemWidth(280);
-        using (var combo = ImRaii.Combo("##syncslotBinding", currentDisplay))
+        using (var combo = UiSharedService.Combo("##syncslotBinding", currentDisplay))
         {
             if (combo)
             {

@@ -427,7 +427,7 @@ public sealed partial class MoodlesEditor
             ImGui.TextColored(ImGuiColors.DalamudGrey, "Type");
             ImGui.SetNextItemWidth(-1);
             var typeNames = new[] { "Positif (Buff)", "Négatif (Debuff)", "Neutre" };
-            ImGui.Combo("##moodleType", ref _newType, typeNames, typeNames.Length);
+            UiSharedService.Combo("##moodleType", ref _newType, typeNames, typeNames.Length);
 
             ImGuiHelpers.ScaledDummy(new Vector2(0f, 8f));
 

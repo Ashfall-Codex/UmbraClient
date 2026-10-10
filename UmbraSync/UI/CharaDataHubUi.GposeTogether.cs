@@ -186,7 +186,7 @@ public sealed partial class CharaDataHubUi
             using (ImRaii.Disabled(!_uiSharedService.IsInGpose))
             {
                 ImGui.SetNextItemWidth(200);
-                using (var combo = ImRaii.Combo("##character", string.IsNullOrEmpty(user.AssociatedCharaName) ? Loc.Get("CharaDataHub.GposeTogether.NoCharacter") : CharaName(user.AssociatedCharaName)))
+                using (var combo = UiSharedService.Combo("##character", string.IsNullOrEmpty(user.AssociatedCharaName) ? Loc.Get("CharaDataHub.GposeTogether.NoCharacter") : CharaName(user.AssociatedCharaName)))
                 {
                     if (combo)
                     {

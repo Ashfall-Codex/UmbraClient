@@ -1304,7 +1304,7 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
             ? "Sélectionner un pair synchronisé..."
             : FormatPairLabel(previewSource);
 
-        using var combo = ImRaii.Combo("##mcdfShareUidDropdown", previewLabel, ImGuiComboFlags.None);
+        using var combo = UiSharedService.Combo("##mcdfShareUidDropdown", previewLabel, ImGuiComboFlags.None);
         if (!combo)
         {
             return;
@@ -1334,7 +1334,7 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
             ? "Sélectionner une syncshell..."
             : FormatSyncshellLabel(previewSource);
 
-        using var combo = ImRaii.Combo("##mcdfShareSyncshellDropdown", previewLabel, ImGuiComboFlags.None);
+        using var combo = UiSharedService.Combo("##mcdfShareSyncshellDropdown", previewLabel, ImGuiComboFlags.None);
         if (!combo)
         {
             return;

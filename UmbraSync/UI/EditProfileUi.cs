@@ -1276,7 +1276,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
         if (index < 0) index = Array.IndexOf(RpVisibilityOrder, RpProfileVisibility.PairsAndSyncshell);
 
         ImGui.SetNextItemWidth(280 * ImGuiHelpers.GlobalScale);
-        if (ImGui.Combo("##rpVisibility", ref index, labels, labels.Length))
+        if (UiSharedService.Combo("##rpVisibility", ref index, labels, labels.Length))
             _rpVisibility = RpVisibilityOrder[index];
 
         _uiSharedService.DrawHelpText(Loc.Get("UserProfile.RpVisibility.Help"));

@@ -128,7 +128,7 @@ public partial class CompactUi
         ImGui.SetNextItemWidth(categoryWidth);
         var catPreview = category >= 0 && category < AnnuaireCategoryNames.Length
             ? AnnuaireCategoryNames[category] : "Toutes";
-        using (var combo = ImRaii.Combo($"##annCat{tab}", catPreview))
+        using (var combo = UiSharedService.Combo($"##annCat{tab}", catPreview))
         {
             if (combo)
             {

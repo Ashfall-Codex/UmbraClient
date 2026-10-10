@@ -545,7 +545,7 @@ public sealed partial class CharaDataHubUi
             ? "S\u00e9lectionner un pair synchronis\u00e9..."
             : FormatPairLabel(previewSource);
 
-        using var combo = ImRaii.Combo("##housingShareUidDropdown", previewLabel, ImGuiComboFlags.None);
+        using var combo = UiSharedService.Combo("##housingShareUidDropdown", previewLabel, ImGuiComboFlags.None);
         if (!combo) return;
 
         foreach (var pair in _pairManager.DirectPairs
@@ -572,7 +572,7 @@ public sealed partial class CharaDataHubUi
             ? "S\u00e9lectionner une syncshell..."
             : FormatSyncshellLabel(previewSource);
 
-        using var combo = ImRaii.Combo("##housingShareSyncshellDropdown", previewLabel, ImGuiComboFlags.None);
+        using var combo = UiSharedService.Combo("##housingShareSyncshellDropdown", previewLabel, ImGuiComboFlags.None);
         if (!combo) return;
 
         foreach (var group in _pairManager.Groups.Values
@@ -599,7 +599,7 @@ public sealed partial class CharaDataHubUi
             ? "S\u00e9lectionner un pair synchronis\u00e9..."
             : FormatPairLabel(previewSource);
 
-        using var combo = ImRaii.Combo("##housingShareEditUidDropdown", previewLabel, ImGuiComboFlags.None);
+        using var combo = UiSharedService.Combo("##housingShareEditUidDropdown", previewLabel, ImGuiComboFlags.None);
         if (!combo) return;
 
         foreach (var pair in _pairManager.DirectPairs
@@ -626,7 +626,7 @@ public sealed partial class CharaDataHubUi
             ? "S\u00e9lectionner une syncshell..."
             : FormatSyncshellLabel(previewSource);
 
-        using var combo = ImRaii.Combo("##housingShareEditSyncshellDropdown", previewLabel, ImGuiComboFlags.None);
+        using var combo = UiSharedService.Combo("##housingShareEditSyncshellDropdown", previewLabel, ImGuiComboFlags.None);
         if (!combo) return;
 
         foreach (var group in _pairManager.Groups.Values
@@ -792,7 +792,7 @@ public sealed partial class CharaDataHubUi
         }
 
         ImGui.SetNextItemWidth(360f);
-        using (var combo = ImRaii.Combo("##scenarioPick", FormatScenarioLabel(selectedInfo)))
+        using (var combo = UiSharedService.Combo("##scenarioPick", FormatScenarioLabel(selectedInfo)))
         {
             if (combo)
             {
@@ -1249,7 +1249,7 @@ public sealed partial class CharaDataHubUi
             ? Loc.Get("HousingScenario.SelectPair")
             : FormatPairLabel(currentValue);
 
-        using var combo = ImRaii.Combo("##" + id, previewLabel, ImGuiComboFlags.HeightLarge);
+        using var combo = UiSharedService.Combo("##" + id, previewLabel, ImGuiComboFlags.HeightLarge);
         if (!combo) return;
 
         var search = _pairPickerSearch.TryGetValue(id, out var stored) ? stored : string.Empty;
@@ -1326,7 +1326,7 @@ public sealed partial class CharaDataHubUi
             ? "Sélectionner une syncshell..."
             : FormatSyncshellLabel(previewSource);
 
-        using var combo = ImRaii.Combo("##scenarioSyncshellDropdown", previewLabel, ImGuiComboFlags.None);
+        using var combo = UiSharedService.Combo("##scenarioSyncshellDropdown", previewLabel, ImGuiComboFlags.None);
         if (!combo) return;
 
         foreach (var group in _pairManager.Groups.Values
@@ -1366,7 +1366,7 @@ public sealed partial class CharaDataHubUi
             ? "Sélectionner une syncshell..."
             : FormatSyncshellLabel(previewSource);
 
-        using var combo = ImRaii.Combo("##scenarioEditSyncshellDropdown", previewLabel, ImGuiComboFlags.None);
+        using var combo = UiSharedService.Combo("##scenarioEditSyncshellDropdown", previewLabel, ImGuiComboFlags.None);
         if (!combo) return;
 
         foreach (var group in _pairManager.Groups.Values

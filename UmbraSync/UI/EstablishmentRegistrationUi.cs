@@ -177,7 +177,7 @@ internal class EstablishmentRegistrationUi : WindowMediatorSubscriberBase
         ImGui.BeginGroup();
         ImGui.TextColored(ImGuiColors.DalamudGrey, Loc.Get("Establishment.Field.Category"));
         ImGui.SetNextItemWidth(halfW);
-        ImGui.Combo("##category", ref _category, CategoryNames, CategoryNames.Length);
+        UiSharedService.Combo("##category", ref _category, CategoryNames, CategoryNames.Length);
         ImGui.EndGroup();
 
         ImGui.SameLine();
@@ -434,7 +434,7 @@ internal class EstablishmentRegistrationUi : WindowMediatorSubscriberBase
         var previewName = _selectedWorldId != 0 && _uiSharedService.WorldData.TryGetValue(_selectedWorldId, out var wn)
             ? wn : Loc.Get("Establishment.Location.ServerChoose");
         ImGui.SetNextItemWidth(halfW);
-        using (var combo = ImRaii.Combo("##server", previewName))
+        using (var combo = UiSharedService.Combo("##server", previewName))
         {
             if (combo)
             {
@@ -470,7 +470,7 @@ internal class EstablishmentRegistrationUi : WindowMediatorSubscriberBase
         ImGui.BeginGroup();
         ImGui.TextColored(ImGuiColors.DalamudGrey, Loc.Get("Establishment.Location.District"));
         ImGui.SetNextItemWidth(halfW);
-        ImGui.Combo("##district", ref _selectedDistrictIndex, DistrictNames, DistrictNames.Length);
+        UiSharedService.Combo("##district", ref _selectedDistrictIndex, DistrictNames, DistrictNames.Length);
         ImGui.EndGroup();
 
         ImGuiHelpers.ScaledDummy(2f);
@@ -542,7 +542,7 @@ internal class EstablishmentRegistrationUi : WindowMediatorSubscriberBase
 
         var preview = _linkedSyncshellGid != null ? _linkedSyncshellDisplay : Loc.Get("Establishment.Syncshell.None");
         ImGui.SetNextItemWidth(-1);
-        using (var combo = ImRaii.Combo("##syncslotLink", preview))
+        using (var combo = UiSharedService.Combo("##syncslotLink", preview))
         {
             if (combo)
             {

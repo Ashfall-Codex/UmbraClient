@@ -954,7 +954,7 @@ internal sealed class GroupPanel
                 : string.Format(CultureInfo.CurrentCulture, Loc.Get("Settings.ChatTargetSound.SoundItem"), currentValue);
 
         ImGui.SetNextItemWidth(200 * ImGuiHelpers.GlobalScale);
-        if (ImGui.BeginCombo(Loc.Get("Settings.ChatTargetSound.Override.Label") + "##shell_sound_" + gid, previewLabel))
+        if (UiSharedService.BeginCombo(Loc.Get("Settings.ChatTargetSound.Override.Label") + "##shell_sound_" + gid, previewLabel))
         {
             if (ImGui.Selectable(Loc.Get("Settings.ChatTargetSound.Override.Default"), !hasOverride))
             {
@@ -975,7 +975,7 @@ internal sealed class GroupPanel
                     _mareConfig.Save();
                 }
             }
-            ImGui.EndCombo();
+            UiSharedService.EndCombo();
         }
     }
 

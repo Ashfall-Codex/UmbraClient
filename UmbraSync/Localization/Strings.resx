@@ -7395,6 +7395,9 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
   <data name="Settings.General.Notes.Title" xml:space="preserve">
     <value>Notes</value>
   </data>
+  <data name="Settings.General.Language.Help" xml:space="preserve">
+    <value>Language used for Umbra's interface. Missing text falls back to English.</value>
+  </data>
   <data name="Settings.General.Language.Title" xml:space="preserve">
     <value>Language</value>
   </data>

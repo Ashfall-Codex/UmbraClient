@@ -312,7 +312,7 @@ public sealed partial class CharaDataHubUi
         {
             ImGui.SameLine();
             ImGui.SetNextItemWidth(100);
-            if (ImGui.BeginCombo(Loc.Get("CharaDataHub.Mcd.Appearance.Year"), expiryDate.Year.ToString(CultureInfo.InvariantCulture)))
+            if (UiSharedService.BeginCombo(Loc.Get("CharaDataHub.Mcd.Appearance.Year"), expiryDate.Year.ToString(CultureInfo.InvariantCulture)))
             {
                 for (int year = DateTime.UtcNow.Year; year < DateTime.UtcNow.Year + 4; year++)
                 {
@@ -321,13 +321,13 @@ public sealed partial class CharaDataHubUi
                         updateDto.SetExpiry(year, expiryDate.Month, expiryDate.Day);
                     }
                 }
-                ImGui.EndCombo();
+                UiSharedService.EndCombo();
             }
             ImGui.SameLine();
 
             int daysInMonth = DateTime.DaysInMonth(expiryDate.Year, expiryDate.Month);
             ImGui.SetNextItemWidth(100);
-            if (ImGui.BeginCombo(Loc.Get("CharaDataHub.Mcd.Appearance.Month"), expiryDate.Month.ToString(CultureInfo.InvariantCulture)))
+            if (UiSharedService.BeginCombo(Loc.Get("CharaDataHub.Mcd.Appearance.Month"), expiryDate.Month.ToString(CultureInfo.InvariantCulture)))
             {
                 for (int month = 1; month <= 12; month++)
                 {
@@ -336,12 +336,12 @@ public sealed partial class CharaDataHubUi
                         updateDto.SetExpiry(expiryDate.Year, month, expiryDate.Day);
                     }
                 }
-                ImGui.EndCombo();
+                UiSharedService.EndCombo();
             }
             ImGui.SameLine();
 
             ImGui.SetNextItemWidth(100);
-            if (ImGui.BeginCombo(Loc.Get("CharaDataHub.Mcd.Appearance.Day"), expiryDate.Day.ToString(CultureInfo.InvariantCulture)))
+            if (UiSharedService.BeginCombo(Loc.Get("CharaDataHub.Mcd.Appearance.Day"), expiryDate.Day.ToString(CultureInfo.InvariantCulture)))
             {
                 for (int day = 1; day <= daysInMonth; day++)
                 {
@@ -350,7 +350,7 @@ public sealed partial class CharaDataHubUi
                         updateDto.SetExpiry(expiryDate.Year, expiryDate.Month, day);
                     }
                 }
-                ImGui.EndCombo();
+                UiSharedService.EndCombo();
             }
         }
         ImGuiHelpers.ScaledDummy(5);
@@ -1026,7 +1026,7 @@ public sealed partial class CharaDataHubUi
         ImGui.InputText(inputId, ref value, 20);
         ImGui.SameLine(0.0f, 0.0f);
 
-        using var combo = ImRaii.Combo(comboId, string.Empty, ImGuiComboFlags.NoPreview | ImGuiComboFlags.PopupAlignLeft);
+        using var combo = UiSharedService.Combo(comboId, string.Empty, ImGuiComboFlags.NoPreview | ImGuiComboFlags.PopupAlignLeft);
         if (!combo)
         {
             return;

@@ -67,6 +67,8 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
     public static readonly Vector4 ThemeTabHovered = new(0x38 / 255f, 0x29 / 255f, 0x52 / 255f, 1f);
     public static readonly Vector4 ThemeTabActive = new(0x4A / 255f, 0x36 / 255f, 0x68 / 255f, 1f);
     public static readonly Vector4 ThemeHighlightBg = new(0x96 / 255f, 0x45 / 255f, 0xE6 / 255f, 0.14f);
+    public static readonly Vector4 ThemePopupBg = new(0.13f, 0.12f, 0.15f, 0.98f);
+    public static readonly Vector4 ThemeSelectedBg = new(0x96 / 255f, 0x45 / 255f, 0xE6 / 255f, 0.32f);
     public static readonly Vector4 ThemeTextAccent = new(0x9B / 255f, 0x82 / 255f, 0xC0 / 255f, 1f);
     public static readonly Vector4 ThemeRailHovered = new(0x30 / 255f, 0x19 / 255f, 0x46 / 255f, 1f);
     public static readonly Vector4 ThemePrivacyAccent = new(0f, 0.2f, 0.6f, 1f);
@@ -609,7 +611,7 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
                 : string.Format(CultureInfo.CurrentCulture, Loc.Get("Settings.ChatTargetSound.SoundItem"), currentValue);
 
         ImGui.SetNextItemWidth(200 * ImGuiHelpers.GlobalScale);
-        if (!ImGui.BeginCombo(Loc.Get("Settings.ChatTargetSound.Override.Label") + idPrefix + uid, previewLabel))
+        if (!UiSharedService.BeginCombo(Loc.Get("Settings.ChatTargetSound.Override.Label") + idPrefix + uid, previewLabel))
             return;
 
         if (ImGui.Selectable(Loc.Get("Settings.ChatTargetSound.Override.Default"), !hasOverride))
@@ -634,7 +636,7 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
             }
         }
 
-        ImGui.EndCombo();
+        UiSharedService.EndCombo();
     }
 
     public static void DrawProgressBarLabels(ImDrawListPtr drawList, Vector2 barStart, Vector2 barEnd,
@@ -1628,6 +1630,85 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
         DrawHelpText(Loc.Get("Settings.Storage.MaxSize.Help"));
     }
 
+    private const int ComboColorCount = 8;
+    private const int ComboStyleVarCount = 2;
+
+    // Sélecteurs : flèche fondue dans le champ, liste détachée de la fenêtre (fond, bordure, marges)
+    // et élément sélectionné mis en évidence. Reste poussé jusqu'à EndCombo pour styler la liste.
+    private static void PushComboStyle()
+    {
+        ImGui.PushStyleColor(ImGuiCol.Button, ThemeFrameBg);
+        ImGui.PushStyleColor(ImGuiCol.ButtonHovered, ThemeFrameBgHovered);
+        ImGui.PushStyleColor(ImGuiCol.ButtonActive, ThemeFrameBgActive);
+        ImGui.PushStyleColor(ImGuiCol.PopupBg, ThemePopupBg);
+        ImGui.PushStyleColor(ImGuiCol.Border, ThemeBorder);
+        ImGui.PushStyleColor(ImGuiCol.Header, ThemeSelectedBg);
+        ImGui.PushStyleColor(ImGuiCol.HeaderHovered, ThemeFrameBgHovered);
+        ImGui.PushStyleColor(ImGuiCol.HeaderActive, ThemeFrameBgActive);
+        ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, new Vector2(ImGui.GetStyle().WindowPadding.X, 6f * ImGuiHelpers.GlobalScale));
+        ImGui.PushStyleVar(ImGuiStyleVar.PopupBorderSize, 1f);
+    }
+
+    private static void PopComboStyle()
+    {
+        ImGui.PopStyleVar(ComboStyleVarCount);
+        ImGui.PopStyleColor(ComboColorCount);
+    }
+
+    /// <summary>BeginCombo au style UmbraSync ; à fermer par <see cref="EndCombo"/> s'il renvoie vrai.</summary>
+    public static bool BeginCombo(string label, string preview, ImGuiComboFlags flags = ImGuiComboFlags.None)
+    {
+        PushComboStyle();
+        if (ImGui.BeginCombo(label, preview, flags)) return true;
+        PopComboStyle();
+        return false;
+    }
+
+    public static void EndCombo()
+    {
+        ImGui.EndCombo();
+        PopComboStyle();
+    }
+
+    /// <summary>Équivalent stylé d'ImRaii.Combo.</summary>
+    public static ThemedCombo Combo(string label, string preview, ImGuiComboFlags flags = ImGuiComboFlags.None)
+        => new(label, preview, flags);
+
+    /// <summary>Équivalent stylé d'ImGui.Combo sur une liste de libellés.</summary>
+    public static bool Combo(string label, ref int currentItem, string[] items, int itemsCount)
+    {
+        PushComboStyle();
+        try
+        {
+            return ImGui.Combo(label, ref currentItem, items, itemsCount);
+        }
+        finally
+        {
+            PopComboStyle();
+        }
+    }
+
+    public sealed class ThemedCombo : IDisposable
+    {
+        private bool _disposed;
+
+        internal ThemedCombo(string label, string preview, ImGuiComboFlags flags)
+        {
+            Success = BeginCombo(label, preview, flags);
+        }
+
+        public bool Success { get; }
+
+        public static implicit operator bool(ThemedCombo combo) => combo.Success;
+
+        public void Dispose()
+        {
+            if (_disposed) return;
+            _disposed = true;
+            if (Success) EndCombo();
+        }
+    }
+
     public T? DrawCombo<T>(string comboName, IEnumerable<T> comboItems, Func<T, string> toName,
         Action<T?>? onSelected = null, T? initialSelectedItem = default)
     {
@@ -1650,7 +1731,7 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
             }
         }
 
-        if (ImGui.BeginCombo(comboName, toName((T)selectedItem!)))
+        if (UiSharedService.BeginCombo(comboName, toName((T)selectedItem!)))
         {
             foreach (var item in comboItemList)
             {
@@ -1662,7 +1743,7 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
                 }
             }
 
-            ImGui.EndCombo();
+            UiSharedService.EndCombo();
         }
 
         return (T)_selectedComboItems[comboName];
@@ -1692,7 +1773,7 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
 
         var entry = toEntry((T)selectedItem!);
         ImGui.PushStyleColor(ImGuiCol.Text, ColorHelpers.RgbaUintToVector4(ColorHelpers.SwapEndianness(entry.Color)));
-        if (ImGui.BeginCombo(comboName, entry.Name))
+        if (UiSharedService.BeginCombo(comboName, entry.Name))
         {
             foreach (var item in comboItemList)
             {
@@ -1707,7 +1788,7 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
                 ImGui.PopStyleColor();
             }
 
-            ImGui.EndCombo();
+            UiSharedService.EndCombo();
         }
         ImGui.PopStyleColor();
 
@@ -1912,7 +1993,7 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
                 comboEntries[i] += " [Current]";
         }
         ImGui.SetNextItemWidth(MathF.Min(250 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X - 200 * ImGuiHelpers.GlobalScale));
-        if (ImGui.BeginCombo("Select Service", comboEntries[_serverSelectionIndex]))
+        if (UiSharedService.BeginCombo("Select Service", comboEntries[_serverSelectionIndex]))
         {
             for (int i = 0; i < comboEntries.Length; i++)
             {
@@ -1932,7 +2013,7 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
                 }
             }
 
-            ImGui.EndCombo();
+            UiSharedService.EndCombo();
         }
 
         if (intro)

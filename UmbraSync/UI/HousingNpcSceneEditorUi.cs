@@ -645,7 +645,7 @@ public sealed class HousingNpcSceneEditorUi : WindowMediatorSubscriberBase
             : PoseVariantLabel(current);
 
         ImGui.SetNextItemWidth(220 * ImGuiHelpers.GlobalScale);
-        using var combo = ImRaii.Combo(Loc.Get("HousingNpc.Editor.PoseVariant") + "##posevar" + entry.Id, label);
+        using var combo = UiSharedService.Combo(Loc.Get("HousingNpc.Editor.PoseVariant") + "##posevar" + entry.Id, label);
         UiSharedService.AttachToolTip(Loc.Get("HousingNpc.Editor.PoseVariantTip"));
         if (!combo) return false;
 
@@ -892,7 +892,7 @@ public sealed class HousingNpcSceneEditorUi : WindowMediatorSubscriberBase
             Loc.Get("HousingNpc.Editor.ActSync"),
         };
         ImGui.SetNextItemWidth(150 * ImGuiHelpers.GlobalScale);
-        if (ImGui.Combo("##addkind", ref kind, names, names.Length)) _addActionKind[entry.Id] = kind;
+        if (UiSharedService.Combo("##addkind", ref kind, names, names.Length)) _addActionKind[entry.Id] = kind;
         ImGui.SameLine();
         if (_uiShared.IconTextButton(FontAwesomeIcon.Plus, Loc.Get("HousingNpc.Editor.AddAction")))
         {
@@ -917,13 +917,13 @@ public sealed class HousingNpcSceneEditorUi : WindowMediatorSubscriberBase
         changed = false;
         var result = current;
         ImGui.SetNextItemWidth(100 * ImGuiHelpers.GlobalScale);
-        if (ImGui.BeginCombo("##spd" + id, SpeedName(current)))
+        if (UiSharedService.BeginCombo("##spd" + id, SpeedName(current)))
         {
             foreach (var s in new[] { NpcMoveSpeed.Walk, NpcMoveSpeed.Run, NpcMoveSpeed.Custom })
             {
                 if (ImGui.Selectable(SpeedName(s), s == current)) { result = s; changed = true; }
             }
-            ImGui.EndCombo();
+            UiSharedService.EndCombo();
         }
         return result;
     }
@@ -1023,7 +1023,7 @@ public sealed class HousingNpcSceneEditorUi : WindowMediatorSubscriberBase
     {
         ushort result = 0;
         ImGui.SetNextItemWidth(150 * ImGuiHelpers.GlobalScale);
-        using var combo = ImRaii.Combo(Loc.Get("HousingNpc.Editor.TimelineFind") + "##tlp" + id, string.Empty);
+        using var combo = UiSharedService.Combo(Loc.Get("HousingNpc.Editor.TimelineFind") + "##tlp" + id, string.Empty);
         if (!combo) return 0;
 
         ImGui.SetNextItemWidth(-1);
@@ -1078,7 +1078,7 @@ public sealed class HousingNpcSceneEditorUi : WindowMediatorSubscriberBase
         changed = false;
         ushort result = current;
         ImGui.SetNextItemWidth(220 * ImGuiHelpers.GlobalScale);
-        using var combo = ImRaii.Combo((label ?? Loc.Get("HousingNpc.Editor.Emote")) + "##" + id, EmoteName(current));
+        using var combo = UiSharedService.Combo((label ?? Loc.Get("HousingNpc.Editor.Emote")) + "##" + id, EmoteName(current));
         if (combo)
         {
             ImGui.SetNextItemWidth(-1);

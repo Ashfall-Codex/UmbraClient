@@ -369,7 +369,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
 
             // Combo pour changer la collection
             ImGui.SetNextItemWidth(MathF.Min(250 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X - 200 * ImGuiHelpers.GlobalScale));
-            if (ImGui.BeginCombo("##collOverride_" + gid, collName))
+            if (UiSharedService.BeginCombo("##collOverride_" + gid, collName))
             {
                 foreach (var (cId, cName) in userCollections)
                 {
@@ -379,7 +379,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
                         changed = true;
                     }
                 }
-                ImGui.EndCombo();
+                UiSharedService.EndCombo();
             }
 
             ImGui.SameLine();
@@ -1020,7 +1020,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
             var soundIndex = _configService.Current.ChatTargetSoundIndex;
             ImGui.SetNextItemWidth(200 * ImGuiHelpers.GlobalScale);
             var preview = string.Format(Loc.Get("Settings.ChatTargetSound.SoundItem"), soundIndex);
-            using (var combo = ImRaii.Combo(Loc.Get("Settings.ChatTargetSound.SoundIndex"), preview))
+            using (var combo = UiSharedService.Combo(Loc.Get("Settings.ChatTargetSound.SoundIndex"), preview))
             {
                 if (combo)
                 {
@@ -1089,7 +1089,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
                 : string.Format(CultureInfo.CurrentCulture, Loc.Get("Settings.ChatTargetSound.SoundItem"), currentSound);
 
             ImGui.SetNextItemWidth(150 * ImGuiHelpers.GlobalScale);
-            using (var combo = ImRaii.Combo("##sound", soundPreview))
+            using (var combo = UiSharedService.Combo("##sound", soundPreview))
             {
                 if (combo)
                 {
@@ -1135,7 +1135,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
         if (availablePairs.Count > 0)
         {
             ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X);
-            using var combo = ImRaii.Combo("##add_pair_override", Loc.Get("Settings.ChatTargetSound.Override.SelectPair"));
+            using var combo = UiSharedService.Combo("##add_pair_override", Loc.Get("Settings.ChatTargetSound.Override.SelectPair"));
             if (combo)
             {
                 ImGui.SetNextItemWidth(-1);
@@ -1209,7 +1209,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
                 : string.Format(CultureInfo.CurrentCulture, Loc.Get("Settings.ChatTargetSound.SoundItem"), currentSound);
 
             ImGui.SetNextItemWidth(150 * ImGuiHelpers.GlobalScale);
-            using (var combo = ImRaii.Combo("##sound", soundPreview))
+            using (var combo = UiSharedService.Combo("##sound", soundPreview))
             {
                 if (combo)
                 {
@@ -1255,7 +1255,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
         if (availableGroups.Count > 0)
         {
             ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X);
-            using var combo = ImRaii.Combo("##add_group_override", Loc.Get("Settings.ChatTargetSound.Override.SelectGroup"));
+            using var combo = UiSharedService.Combo("##add_group_override", Loc.Get("Settings.ChatTargetSound.Override.SelectGroup"));
             if (combo)
             {
                 ImGui.SetNextItemWidth(-1);
@@ -2305,8 +2305,9 @@ public class SettingsUi : WindowMediatorSubscriberBase
         }
 
         var languageLabel = Loc.GetLanguageDisplayName(selectedLanguage);
-        ImGui.SetNextItemWidth(MathF.Min(250 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X - 200 * ImGuiHelpers.GlobalScale));
-        if (ImGui.BeginCombo("Interface Language##uiLanguage", string.IsNullOrEmpty(languageLabel) ? selectedLanguage : languageLabel))
+        // Le titre de la section sert de libellé : pas de texte à droite du champ
+        ImGui.SetNextItemWidth(MathF.Min(260 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X - ImGui.GetFrameHeight() - ImGui.GetStyle().ItemSpacing.X));
+        if (UiSharedService.BeginCombo("##uiLanguage", string.IsNullOrEmpty(languageLabel) ? selectedLanguage : languageLabel))
         {
             foreach (var option in Loc.AvailableLanguages)
             {
@@ -2324,9 +2325,9 @@ public class SettingsUi : WindowMediatorSubscriberBase
                     ImGui.SetItemDefaultFocus();
                 }
             }
-            ImGui.EndCombo();
+            UiSharedService.EndCombo();
         }
-        _uiShared.DrawHelpText("Select the language used for Umbra's UI. Missing text falls back to English.");
+        _uiShared.DrawHelpText(Loc.Get("Settings.General.Language.Help"));
 
         UiSharedService.BeginSectionCard(Loc.Get("Settings.General.Appearance"), FontAwesomeIcon.Palette);
         ImGui.TextUnformatted(Loc.Get("Settings.General.UiGlass"));
@@ -3264,7 +3265,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
                             string selectedKeyName = string.Empty;
                             if (selectedServer.SecretKeys.TryGetValue(item.SecretKeyIdx, out var selectedKey))
                                 selectedKeyName = selectedKey.FriendlyName;
-                            if (ImGui.BeginCombo($"##combo{i}", selectedKeyName))
+                            if (UiSharedService.BeginCombo($"##combo{i}", selectedKeyName))
                             {
                                 foreach (var key in selectedServer.SecretKeys)
                                 {
@@ -3275,7 +3276,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
                                         _serverConfigurationManager.Save();
                                     }
                                 }
-                                ImGui.EndCombo();
+                                UiSharedService.EndCombo();
                             }
 
                             // Delete button
@@ -4432,7 +4433,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
             if (selectedIndex < 0) selectedIndex = 3; // fallback 10 min
 
             ImGui.SetNextItemWidth(120 * ImGuiHelpers.GlobalScale);
-            if (ImGui.Combo(Loc.Get("Settings.AutoDetect.DeclineCooldown"), ref selectedIndex, cooldownLabels, cooldownLabels.Length))
+            if (UiSharedService.Combo(Loc.Get("Settings.AutoDetect.DeclineCooldown"), ref selectedIndex, cooldownLabels, cooldownLabels.Length))
             {
                 _configService.Current.AutoDetectDeclineCooldownMinutes = cooldownOptions[selectedIndex];
                 _configService.Save();
@@ -4536,7 +4537,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
         string previewText = styleIndex == 0 ? DtrDefaultPreviewText : DtrEntry.RenderDtrStyle(styleIndex, "123");
 
         ImGui.SetNextItemWidth(MathF.Min(250 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X - 200 * ImGuiHelpers.GlobalScale));
-        bool comboOpen = ImGui.BeginCombo("Server Info Bar style", previewText);
+        bool comboOpen = UiSharedService.BeginCombo("Server Info Bar style", previewText);
 
         if (comboOpen)
         {
@@ -4557,7 +4558,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
 
             }
 
-            ImGui.EndCombo();
+            UiSharedService.EndCombo();
         }
 
     }

@@ -170,7 +170,7 @@ internal class EstablishmentDirectoryUi : WindowMediatorSubscriberBase
         ImGui.SetNextItemWidth(140);
         var categoryPreview = _selectedCategory >= 0 && _selectedCategory < CategoryNames.Length
             ? CategoryNames[_selectedCategory] : Loc.Get("Establishment.Directory.AllCategories");
-        using (var combo = ImRaii.Combo("##category", categoryPreview))
+        using (var combo = UiSharedService.Combo("##category", categoryPreview))
         {
             if (combo)
             {
