@@ -145,18 +145,20 @@ public class CollectionOverrideResolver
                     continue;
                 }
 
-                // Récupérer les game paths de ce remplacement qui ont une résolution dans la nouvelle collection
-                var resolvedGamePaths = originalFr.GamePaths
+                // Les game paths d'une même entrée peuvent pointer vers des fichiers différents
+                // dans la collection cible : une entrée par fichier résolu
+                var resolvedGroups = originalFr.GamePaths
                     .Where(gp => newResolutions.ContainsKey(gp))
-                    .ToArray();
+                    .GroupBy(gp => newResolutions[gp], StringComparer.OrdinalIgnoreCase);
 
-                if (resolvedGamePaths.Length == 0) continue;
-
-                newReplacements.Add(new FileReplacementData
+                foreach (var group in resolvedGroups)
                 {
-                    GamePaths = resolvedGamePaths,
-                    Hash = string.Empty, // Sera rempli après
-                });
+                    newReplacements.Add(new FileReplacementData
+                    {
+                        GamePaths = group.ToArray(),
+                        Hash = string.Empty, // Sera rempli après
+                    });
+                }
             }
 
             newFileReplacements[objectKind] = newReplacements;

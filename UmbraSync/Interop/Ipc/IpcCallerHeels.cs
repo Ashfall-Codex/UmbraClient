@@ -77,6 +77,7 @@ public sealed class IpcCallerHeels : IIpcCaller
 
     public void CheckAPI()
     {
+        bool wasAvailable = APIAvailable;
         try
         {
             APIAvailable = _heelsGetApiVersion.InvokeFunc() is { Item1: 2, Item2: >= 0 };
@@ -85,6 +86,9 @@ public sealed class IpcCallerHeels : IIpcCaller
         {
             APIAvailable = false;
         }
+
+        if (APIAvailable && !wasAvailable)
+            _mareMediator.Publish(new AppearanceIpcReadyMessage("Heels"));
     }
 
     public void Dispose()

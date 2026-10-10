@@ -179,7 +179,10 @@ public sealed class IpcCallerGlamourer : DisposableMediatorSubscriberBase, IIpcC
             }
             _shownGlamourerUnavailable = _shownGlamourerUnavailable && !apiAvailable;
 
+            bool becameAvailable = apiAvailable && !APIAvailable;
             APIAvailable = apiAvailable;
+            if (becameAvailable)
+                _mareMediator.Publish(new AppearanceIpcReadyMessage("Glamourer"));
 
             // Alerte posée pendant que Glamourer démarrait : elle n'a plus lieu d'être une fois
             // qu'il répond. Sans ce retrait elle restait dans le centre de notifications pour de bon.

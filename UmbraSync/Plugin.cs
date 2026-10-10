@@ -88,6 +88,7 @@ public sealed class Plugin : IDalamudPlugin
 
             // add mare related singletons
             collection.AddSingleton<MareMediator>();
+            collection.AddSingleton<CacheLeaseRegistry>();
             collection.AddSingleton<FileCacheManager>();
             collection.AddSingleton<ServerConfigurationManager>();
             collection.AddSingleton<ApiController>();

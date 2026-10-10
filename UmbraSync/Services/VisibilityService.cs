@@ -59,6 +59,21 @@ public class VisibilityService : DisposableMediatorSubscriberBase
         _undrawnSinceUtc.TryRemove(ident, out _);
     }
 
+    /// <summary>
+    /// Le handler s'est mis invisible de lui-même (changement de zone, acteur perdu en cours
+    /// d'application) : on repasse le suivi à « non visible » pour qu'un joueur toujours présent
+    /// redéclenche une transition visible au prochain scan.
+    /// </summary>
+    public void RearmTracking(string ident)
+    {
+        if (string.IsNullOrEmpty(ident)) return;
+        if (_trackedPlayerVisibility.TryUpdate(ident, TrackedPlayerStatus.NotVisible, TrackedPlayerStatus.Visible))
+        {
+            _undrawnSinceUtc.TryRemove(ident, out _);
+            _scanRequested = true;
+        }
+    }
+
     private bool StaysVisible(string ident, bool inObjectTable, bool isDrawn)
     {
         if (!inObjectTable)

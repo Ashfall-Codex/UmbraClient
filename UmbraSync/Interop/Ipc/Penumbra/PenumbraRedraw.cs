@@ -34,7 +34,7 @@ public sealed class PenumbraRedraw : IDisposable
     }
 
 
-    public async Task RedrawAsync(ILogger logger, GameObjectHandler handler, Guid applicationId, CancellationToken token)
+    public async Task RedrawAsync(ILogger logger, GameObjectHandler handler, Guid applicationId, CancellationToken token, Func<bool>? skipIfRedrawn = null)
     {
         if (!_core.APIAvailable) return;
         if (_core.DalamudUtil.IsZoning)
@@ -51,6 +51,7 @@ public sealed class PenumbraRedraw : IDisposable
 
             await _core.RedrawManager.PenumbraRedrawInternalAsync(logger, handler, applicationId, (chara) =>
             {
+                if (skipIfRedrawn?.Invoke() == true) return;
                 logger.LogDebug("[{appid}] Calling on IPC: PenumbraRedraw", applicationId);
                 _penumbraRedraw.Invoke(chara.ObjectIndex, setting: PenumbraEnum.RedrawType.Redraw);
 

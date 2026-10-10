@@ -40,14 +40,15 @@ public class PlayerDataFactory
         _logger.LogTrace("Creating {this}", nameof(PlayerDataFactory));
     }
 
-    public async Task BuildCharacterData(CharacterData previousData, GameObjectHandler? playerRelatedObject, CancellationToken token)
+    // Renvoie false si la construction a échoué : previousData est alors laissé intact.
+    public async Task<bool> BuildCharacterData(CharacterData previousData, GameObjectHandler? playerRelatedObject, CancellationToken token)
     {
         if (!_ipcManager.Initialized)
         {
             throw new InvalidOperationException("Penumbra or Glamourer is not connected");
         }
 
-        if (playerRelatedObject == null) return;
+        if (playerRelatedObject == null) return false;
 
         bool pointerIsZero = true;
         try
@@ -74,20 +75,18 @@ public class PlayerDataFactory
             previousData.FileReplacements.Remove(playerRelatedObject.ObjectKind);
             previousData.GlamourerString.Remove(playerRelatedObject.ObjectKind);
             previousData.CustomizePlusScale.Remove(playerRelatedObject.ObjectKind);
-            return;
+            return true;
         }
 
-        var previousFileReplacements = previousData.FileReplacements.ToDictionary(d => d.Key, d => d.Value);
-        var previousGlamourerData = previousData.GlamourerString.ToDictionary(d => d.Key, d => d.Value);
-        var previousCustomize = previousData.CustomizePlusScale.ToDictionary(d => d.Key, d => d.Value);
+        // Construction dans une copie : en cas d'échec, previousData garde la dernière valeur fiable
+        var workingData = CloneForBuild(previousData);
 
         try
         {
             await _performanceCollector.LogPerformanceAsync(this, $"CreateCharacterData>{playerRelatedObject.ObjectKind}", async () =>
             {
-                await CreateCharacterData(previousData, playerRelatedObject, token).ConfigureAwait(false);
+                await CreateCharacterData(workingData, playerRelatedObject, token).ConfigureAwait(false);
             }).ConfigureAwait(true);
-            return;
         }
         catch (OperationCanceledException)
         {
@@ -97,11 +96,33 @@ public class PlayerDataFactory
         catch (Exception e)
         {
             _logger.LogWarning(e, "Failed to create {object} data", playerRelatedObject);
+            return false;
         }
 
-        previousData.FileReplacements = previousFileReplacements;
-        previousData.GlamourerString = previousGlamourerData;
-        previousData.CustomizePlusScale = previousCustomize;
+        previousData.FileReplacements = workingData.FileReplacements;
+        previousData.GlamourerString = workingData.GlamourerString;
+        previousData.CustomizePlusScale = workingData.CustomizePlusScale;
+        previousData.HeelsData = workingData.HeelsData;
+        previousData.HonorificData = workingData.HonorificData;
+        previousData.ManipulationString = workingData.ManipulationString;
+        previousData.PetNamesData = workingData.PetNamesData;
+        previousData.MoodlesData = workingData.MoodlesData;
+        return true;
+    }
+
+    public static CharacterData CloneForBuild(CharacterData source)
+    {
+        return new CharacterData
+        {
+            FileReplacements = source.FileReplacements.ToDictionary(d => d.Key, d => new HashSet<FileReplacement>(d.Value, FileReplacementComparer.Instance)),
+            GlamourerString = source.GlamourerString.ToDictionary(d => d.Key, d => d.Value),
+            CustomizePlusScale = source.CustomizePlusScale.ToDictionary(d => d.Key, d => d.Value),
+            HeelsData = source.HeelsData,
+            HonorificData = source.HonorificData,
+            ManipulationString = source.ManipulationString,
+            PetNamesData = source.PetNamesData,
+            MoodlesData = source.MoodlesData,
+        };
     }
 
     private async Task<bool> CheckForNullDrawObject(IntPtr playerPointer)

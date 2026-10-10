@@ -201,6 +201,23 @@ public sealed class TransientResourceManager : DisposableMediatorSubscriberBase
     {
         base.Dispose(disposing);
 
+        lock (_sendTransientLock)
+        {
+            if (!_transientDisposed)
+            {
+                _transientDisposed = true;
+                try
+                {
+                    _sendTransientCts.Cancel();
+                    _sendTransientCts.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogDebug(ex, "Erreur ignorée à l'annulation du debounce transitoire");
+                }
+            }
+        }
+
         try
         {
             TransientResources.Clear();
@@ -265,12 +282,17 @@ public sealed class TransientResourceManager : DisposableMediatorSubscriberBase
         var gameObject = msg.GameObject;
         var filePath = msg.FilePath;
 
-        // ignore files already processed this frame
-        if (_cachedHandledPaths.Contains(gamePath)) return;
+        // ignore files to not handle
+        if (!_fileTypesToHandle.Any(type => gamePath.EndsWith(type, StringComparison.OrdinalIgnoreCase))) return;
 
+        // ignore files not belonging to anything player related, avant la déduplication :
+        // un autre joueur qui charge le même chemin dans la frame ne doit pas masquer le nôtre
+        if (!_cachedFrameAddresses.TryGetValue(gameObject, out _)) return;
+
+        // ignore files already processed this frame
         lock (_cacheAdditionLock)
         {
-            _cachedHandledPaths.Add(gamePath);
+            if (!_cachedHandledPaths.Add(gameObject.ToString("X", CultureInfo.InvariantCulture) + "|" + gamePath)) return;
         }
 
         // replace individual mtrl stuff
@@ -284,26 +306,6 @@ public sealed class TransientResourceManager : DisposableMediatorSubscriberBase
         // ignore files that are the same
         var replacedGamePath = gamePath.ToLowerInvariant().Replace("\\", "/", StringComparison.OrdinalIgnoreCase);
         if (string.Equals(filePath, replacedGamePath, StringComparison.OrdinalIgnoreCase)) return;
-
-        // ignore files to not handle
-        if (!_fileTypesToHandle.Any(type => gamePath.EndsWith(type, StringComparison.OrdinalIgnoreCase)))
-        {
-            lock (_cacheAdditionLock)
-            {
-                _cachedHandledPaths.Add(gamePath);
-            }
-            return;
-        }
-
-        // ignore files not belonging to anything player related
-        if (!_cachedFrameAddresses.TryGetValue(gameObject, out _))
-        {
-            lock (_cacheAdditionLock)
-            {
-                _cachedHandledPaths.Add(gamePath);
-            }
-            return;
-        }
 
         if (!TransientResources.TryGetValue(gameObject, out HashSet<string>? value))
         {
@@ -321,16 +323,51 @@ public sealed class TransientResourceManager : DisposableMediatorSubscriberBase
             var thing = SnapshotPlayerRelatedPointers().FirstOrDefault(f => f.Address == gameObject);
             value.Add(replacedGamePath);
             Logger.LogDebug("Adding {replacedGamePath} for {gameObject} ({filePath})", replacedGamePath, thing?.ToString() ?? gameObject.ToString("X", CultureInfo.InvariantCulture), filePath);
-            _ = Task.Run(async () =>
-            {
-                _sendTransientCts.Cancel();
-                _sendTransientCts.Dispose();
-                _sendTransientCts = new();
-                var token = _sendTransientCts.Token;
-                await Task.Delay(TimeSpan.FromSeconds(2), token).ConfigureAwait(false);
-                Mediator.Publish(new TransientResourceChangedMessage(gameObject));
-            });
+            ScheduleTransientResourceChanged(gameObject);
         }
+    }
+
+    // Un seul timer pour tous les objets, mais chaque objet modifié reçoit son message
+    private void ScheduleTransientResourceChanged(IntPtr gameObject)
+    {
+        CancellationToken token;
+        lock (_sendTransientLock)
+        {
+            if (_transientDisposed) return;
+            _pendingTransientObjects.Add(gameObject);
+            _sendTransientCts.Cancel();
+            _sendTransientCts.Dispose();
+            _sendTransientCts = new();
+            token = _sendTransientCts.Token;
+        }
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(TimeSpan.FromSeconds(2), token).ConfigureAwait(false);
+                List<IntPtr> objects;
+                lock (_sendTransientLock)
+                {
+                    if (token.IsCancellationRequested) return;
+                    objects = [.. _pendingTransientObjects];
+                    _pendingTransientObjects.Clear();
+                }
+
+                foreach (var obj in objects)
+                {
+                    Mediator.Publish(new TransientResourceChangedMessage(obj));
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // debounce réarmé
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "Erreur lors de la notification des ressources transitoires");
+            }
+        }, CancellationToken.None);
     }
 
     internal void RemoveTransientResource(ObjectKind objectKind, string path)
@@ -343,5 +380,8 @@ public sealed class TransientResourceManager : DisposableMediatorSubscriberBase
         }
     }
 
+    private readonly Lock _sendTransientLock = new();
+    private readonly HashSet<IntPtr> _pendingTransientObjects = [];
+    private bool _transientDisposed;
     private CancellationTokenSource _sendTransientCts = new();
 }

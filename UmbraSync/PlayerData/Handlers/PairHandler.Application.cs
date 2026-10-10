@@ -1,7 +1,6 @@
 using Glamourer.Api.Enums;
 using Microsoft.Extensions.Logging;
 using UmbraSync.API.Data;
-using UmbraSync.Interop.Ipc.Penumbra;
 using UmbraSync.PlayerData.Redraw;
 using UmbraSync.Services;
 using UmbraSync.Services.Events;
@@ -53,7 +52,8 @@ public sealed partial class PairHandler
             _state.CachedData = characterData;
             Mediator.Publish(new PairDataAppliedMessage(Pair.UserData.UID, characterData));
             Logger.LogDebug("[BASE-{appBase}] Setting data: {hash}, forceApplyMods: {force}", applicationBase, _state.CachedData.DataHash.Value, _state.ForceApplyMods);
-            _isVisible = false;
+            // Pas de _isVisible = false ici : VisibilityService ne republierait jamais la transition.
+            // La reprise passe par TryReapplyPendingData dès que l'acteur a de nouveau une adresse.
             _state.Deferred = applicationBase;
             return;
         }
@@ -81,10 +81,17 @@ public sealed partial class PairHandler
 
         if (Logger.IsEnabled(LogLevel.Debug))
             Logger.LogDebug("[BASE-{appbase}] Applying data for {player}, forceApplyCustomization: {forced}, forceApplyMods: {forceMods}", applicationBase, this, forceApplyCustomization, _state.ForceApplyMods);
-        Logger.LogDebug("[BASE-{appbase}] Hash for data is {newHash}, current cache hash is {oldHash}", applicationBase, characterData.DataHash.Value, _state.CachedData?.DataHash.Value ?? "NODATA");
+        Logger.LogDebug("[BASE-{appbase}] Hash for data is {newHash}, last applied hash is {oldHash}", applicationBase, characterData.DataHash.Value, _state.LastAppliedData?.DataHash.Value ?? "NODATA");
+
+        if (!forceApplyCustomization && !_state.ForceApplyMods && IsApplyingOrDownloading
+            && string.Equals(characterData.DataHash.Value, _inFlightDataHash, StringComparison.Ordinal))
+        {
+            Logger.LogDebug("[BASE-{appbase}] Hash {hash} is already being applied, ignoring", applicationBase, characterData.DataHash.Value);
+            return;
+        }
 
         var hasMissingFiles = false;
-        if (string.Equals(characterData.DataHash.Value, _state.CachedData?.DataHash.Value ?? string.Empty, StringComparison.Ordinal)
+        if (string.Equals(characterData.DataHash.Value, _state.LastAppliedData?.DataHash.Value ?? string.Empty, StringComparison.Ordinal)
             && !forceApplyCustomization
             && !_state.ForceApplyMods
             && !_state.PendingModReapply)
@@ -115,7 +122,6 @@ public sealed partial class PairHandler
             _state.ForceApplyMods = _state.ForceApplyMods || (PlayerCharacter == IntPtr.Zero && _state.CachedData == null);
             _state.CachedData = characterData;
             _state.Deferred = applicationBase;
-            _isVisible = false;
             return;
         }
 
@@ -124,7 +130,9 @@ public sealed partial class PairHandler
 
         _state.ForceApplyMods |= forceApplyCustomization || hasMissingFiles;
 
-        var charaDataToUpdate = characterData.CheckUpdatedData(applicationBase, _state.CachedData?.DeepClone() ?? new(), Logger, ToString(), forceApplyCustomization, _state.ForceApplyMods);
+        // Diff contre la dernière donnée réellement appliquée : CachedData peut contenir une donnée
+        // différée ou annulée, dont les mods n'ont jamais été posés.
+        var charaDataToUpdate = characterData.CheckUpdatedData(applicationBase, _state.LastAppliedData?.DeepClone() ?? new(), Logger, ToString(), forceApplyCustomization, _state.ForceApplyMods);
 
         if (_charaHandler != null && _state.ForceApplyMods)
         {
@@ -152,7 +160,7 @@ public sealed partial class PairHandler
         // Elle voyage avec l'application : un second push pour la même paire ne doit pas réécrire
         // la décision d'une application encore en vol (elle s'appliquerait à un diff différent).
         var redrawDecisions = _configService.Current.EnableSoftRedraw
-            ? characterData.ComputeRedrawDecisions(_state.CachedData, charaDataToUpdate)
+            ? characterData.ComputeRedrawDecisions(_state.LastAppliedData, charaDataToUpdate)
             : null;
 
         // Un redraw imposé de l'extérieur (changement de job) ne se déduit pas du diff de fichiers :
@@ -167,8 +175,11 @@ public sealed partial class PairHandler
     private async Task ApplyCustomizationDataAsync(Guid applicationId, KeyValuePair<ObjectKind, HashSet<PlayerChanges>> changes, CharacterData charaData,
         IReadOnlyDictionary<ObjectKind, PairRedrawDecision>? redrawDecisions, CancellationToken token)
     {
-        if (PlayerCharacter == nint.Zero) return;
+        // Joueur disparu : c'est un échec, pas un succès silencieux (sinon l'application est comptée
+        // comme faite et rien ne la relance au retour du joueur).
         var ptr = PlayerCharacter;
+        if (ptr == nint.Zero)
+            throw new InvalidOperationException("Player pointer is zero, cannot apply customization data");
 
         var handler = changes.Key switch
         {
@@ -184,8 +195,27 @@ public sealed partial class PairHandler
         {
             if (handler.Address == nint.Zero)
             {
+                if (changes.Key == ObjectKind.Player)
+                    throw new InvalidOperationException("Player pointer is zero, cannot apply customization data");
+
+                // Monture/familier/compagnon pas encore sorti : réappliqué à son apparition.
+                lock (_state.PendingOwnedObjects)
+                    _state.PendingOwnedObjects.Add(changes.Key);
+                Logger.LogDebug("[{applicationId}] {kind} not present for {handler}, deferring until it spawns", applicationId, changes.Key, this);
                 return;
             }
+
+            if (changes.Key != ObjectKind.Player)
+            {
+                lock (_state.PendingOwnedObjects)
+                    _state.PendingOwnedObjects.Remove(changes.Key);
+            }
+
+            // Joueur : référence prise après la pose des mods. Objets possédés : les mods sont déjà posés à ce
+            // stade, donc tout redraw Penumbra postérieur les a chargés et rend le nôtre inutile.
+            var redrawBaseline = changes.Key == ObjectKind.Player
+                ? _redrawBaseline
+                : _pairRedrawCoordinator.CaptureBaseline(handler.Address);
 
             Logger.LogDebug("[{applicationId}] Applying Customization Data for {handler}", applicationId, handler);
             await _dalamudUtil.WaitWhileCharacterIsDrawing(Logger, handler, applicationId, 30000, token).ConfigureAwait(false);
@@ -195,13 +225,13 @@ public sealed partial class PairHandler
                 var orderedChanges = changes.Value.OrderBy(p => (int)p).ToList();
                 var serialChangeList = orderedChanges.Where(p => p <= PlayerChanges.ForcedRedraw).ToList();
                 var asyncChangeList = orderedChanges.Where(p => p > PlayerChanges.ForcedRedraw).ToList();
-                await _dalamudUtil.RunOnFrameworkThread(async () => await ProcessCustomizationChangesAsync(handler, applicationId, changes.Key, serialChangeList, charaData, redrawDecisions, token).ConfigureAwait(false)).ConfigureAwait(false);
-                await Task.Run(async () => await ProcessCustomizationChangesAsync(handler, applicationId, changes.Key, asyncChangeList, charaData, redrawDecisions, token).ConfigureAwait(false), CancellationToken.None).ConfigureAwait(false);
+                await _dalamudUtil.RunOnFrameworkThread(async () => await ProcessCustomizationChangesAsync(handler, applicationId, changes.Key, serialChangeList, charaData, redrawDecisions, redrawBaseline, token).ConfigureAwait(false)).ConfigureAwait(false);
+                await Task.Run(async () => await ProcessCustomizationChangesAsync(handler, applicationId, changes.Key, asyncChangeList, charaData, redrawDecisions, redrawBaseline, token).ConfigureAwait(false), CancellationToken.None).ConfigureAwait(false);
             }
             else
             {
                 var orderedChanges = changes.Value.OrderBy(p => (int)p).ToList();
-                await ProcessCustomizationChangesAsync(handler, applicationId, changes.Key, orderedChanges, charaData, redrawDecisions, token).ConfigureAwait(false);
+                await ProcessCustomizationChangesAsync(handler, applicationId, changes.Key, orderedChanges, charaData, redrawDecisions, redrawBaseline, token).ConfigureAwait(false);
             }
         }
         finally
@@ -212,7 +242,7 @@ public sealed partial class PairHandler
 
     private async Task ProcessCustomizationChangesAsync(GameObjectHandler handler, Guid applicationId, ObjectKind objectKind,
         IEnumerable<PlayerChanges> changeList, CharacterData charaData,
-        IReadOnlyDictionary<ObjectKind, PairRedrawDecision>? redrawDecisions, CancellationToken token)
+        IReadOnlyDictionary<ObjectKind, PairRedrawDecision>? redrawDecisions, PairRedrawBaseline? redrawBaseline, CancellationToken token)
     {
         foreach (var change in changeList)
         {
@@ -265,7 +295,7 @@ public sealed partial class PairHandler
                         ? d
                         : PairRedrawDecision.HardRedraw;
                     await _pairRedrawCoordinator.ExecuteDecisionAsync(redrawDecision, Logger, handler, applicationId, token,
-                        objectKind == ObjectKind.Player ? _redrawBaseline : null).ConfigureAwait(false);
+                        redrawBaseline).ConfigureAwait(false);
                     break;
 
             }
@@ -291,27 +321,29 @@ public sealed partial class PairHandler
             return;
         }
 
-        _state.PendingModReapply = false;
+        // PendingModReapply n'est plus effacé ici : seule une application menée à terme l'efface, et
+        // seulement si aucune nouvelle demande n'est arrivée entre-temps (génération).
+        var reapplyGeneration = _state.ModReapplyGeneration;
 
         var updateModdedPaths = updatedData.Values.Any(v => v.Any(p => p == PlayerChanges.ModFiles));
         var updateManip = updatedData.Values.Any(v => v.Any(p => p == PlayerChanges.ModManip));
-        var hasOtherChanges = updatedData.Values.Any(v => v.Any(p => p != PlayerChanges.ModFiles && p != PlayerChanges.ModManip && p != PlayerChanges.ForcedRedraw));
 
         _downloadCancellationTokenSource = _downloadCancellationTokenSource?.CancelRecreate() ?? new CancellationTokenSource();
         var downloadToken = _downloadCancellationTokenSource.Token;
+        var dataHash = charaData.DataHash.Value;
+        _inFlightDataHash = dataHash;
 
+        // Un changement de mods seul passe par le même chemin que le reste : le ForcedRedraw issu du diff
+        // est exécuté via PairRedrawCoordinator (soft/hard selon la décision, redraw sauté si Penumbra
+        // a déjà redessiné l'acteur après la pose des mods).
+        // CancellationToken.None : le délégué doit toujours tourner pour marquer la reprise s'il est annulé.
         _downloadTask = Task.Run(async () =>
         {
-            if ((updateModdedPaths || updateManip) && !hasOtherChanges && !_state.ForceApplyMods)
-            {
-                Logger.LogDebug("[BASE-{appBase}] Applying mod changes only - skipping full redraw", applicationBase);
-                await ApplyModChangesOnlyAsync(applicationBase, charaData, updatedData, updateModdedPaths, updateManip, redrawDecisions, downloadToken).ConfigureAwait(false);
-                return;
-            }
-
+            // Bail propre à cette passe : protège de l'éviction les fichiers téléchargés mais pas encore appliqués
+            object pendingLeaseOwner = new();
             try
             {
-                await DownloadAndApplyCharacterAsync(applicationBase, charaData, updatedData, updateModdedPaths, updateManip, redrawDecisions, downloadToken).ConfigureAwait(false);
+                await DownloadAndApplyCharacterAsync(applicationBase, charaData, updatedData, updateModdedPaths, updateManip, redrawDecisions, reapplyGeneration, pendingLeaseOwner, downloadToken).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
@@ -324,64 +356,22 @@ public sealed partial class PairHandler
                 RecordFailure($"Échec de l'application: {ex.Message}", "Exception");
                 Logger.LogWarning(ex, "[BASE-{appBase}] DownloadAndApplyCharacterAsync failed, marking for reapply", applicationBase);
             }
-        }, downloadToken);
+            finally
+            {
+                _cacheLeases.ReleaseLeases(pendingLeaseOwner);
+                if (string.Equals(_inFlightDataHash, dataHash, StringComparison.Ordinal))
+                    _inFlightDataHash = null;
+            }
+        }, CancellationToken.None);
     }
-    
-    private async Task ApplyModChangesOnlyAsync(Guid applicationBase, CharacterData charaData,
-        Dictionary<ObjectKind, HashSet<PlayerChanges>> updatedData, bool updateModdedPaths, bool updateManip,
-        IReadOnlyDictionary<ObjectKind, PairRedrawDecision>? redrawDecisions, CancellationToken token)
-    {
-        Logger.LogDebug("[BASE-{applicationBase}] Applying mod changes only", applicationBase);
 
-        try
-        {
-            var modOnlyUpdatedData = new Dictionary<ObjectKind, HashSet<PlayerChanges>>();
-
-            foreach (var kvp in updatedData)
-            {
-                var modChanges = new HashSet<PlayerChanges>();
-                if (updateModdedPaths && kvp.Value.Contains(PlayerChanges.ModFiles))
-                {
-                    modChanges.Add(PlayerChanges.ModFiles);
-                }
-                if (updateManip && kvp.Value.Contains(PlayerChanges.ModManip))
-                {
-                    modChanges.Add(PlayerChanges.ModManip);
-                }
-
-                if (modChanges.Count > 0)
-                {
-                    modOnlyUpdatedData[kvp.Key] = modChanges;
-                }
-            }
-
-            if (modOnlyUpdatedData.Count == 0)
-            {
-                Logger.LogDebug("[BASE-{applicationBase}] No mod changes to apply", applicationBase);
-                return;
-            }
-            
-            foreach (var changes in modOnlyUpdatedData.Values)
-            {
-                changes.Remove(PlayerChanges.ForcedRedraw);
-            }
-
-            Logger.LogDebug("[BASE-{applicationBase}] Applying mod changes using simplified mechanism", applicationBase);
-            await DownloadAndApplyCharacterAsync(applicationBase, charaData, modOnlyUpdatedData, updateModdedPaths, updateManip, redrawDecisions, token).ConfigureAwait(false);
-
-            Logger.LogDebug("[BASE-{applicationBase}] Mod changes applied without forced redraw", applicationBase);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogWarning(ex, "[BASE-{applicationBase}] Failed to apply mod changes only, falling back to full apply", applicationBase);
-            await DownloadAndApplyCharacterAsync(applicationBase, charaData, updatedData, updateModdedPaths, updateManip, redrawDecisions, token).ConfigureAwait(false);
-        }
-    }
+    private string? _inFlightDataHash;
 
     private Task? _pairDownloadTask;
 
     private async Task DownloadAndApplyCharacterAsync(Guid applicationBase, CharacterData charaData, Dictionary<ObjectKind, HashSet<PlayerChanges>> updatedData,
-        bool updateModdedPaths, bool updateManip, IReadOnlyDictionary<ObjectKind, PairRedrawDecision>? redrawDecisions, CancellationToken downloadToken)
+        bool updateModdedPaths, bool updateManip, IReadOnlyDictionary<ObjectKind, PairRedrawDecision>? redrawDecisions, int reapplyGeneration,
+        object pendingLeaseOwner, CancellationToken downloadToken)
     {
         Logger.LogTrace("[BASE-{appBase}] DownloadAndApplyCharacterAsync", applicationBase);
         Dictionary<(string GamePath, string? Hash), string> moddedPaths = [];
@@ -395,15 +385,29 @@ public sealed partial class PairHandler
             var resolution = _assetResolver.Resolve(applicationBase, charaData, compressedUsage, downloadToken);
             List<FileReplacementData> toDownloadReplacements = resolution.MissingFiles;
             var locallyPresentFiles = resolution.LocallyPresentFiles;
+            LeasePendingFiles(pendingLeaseOwner, charaData, resolution.ModdedPaths.Values);
             // moddedPaths n'est pas repris ici : la résolution finale, après la boucle de download,
             // écrase de toute façon le dictionnaire avant qu'il ne soit lu.
 
             while (toDownloadReplacements.Count > 0 && attempts++ <= 10 && !downloadToken.IsCancellationRequested)
             {
-                if (_pairDownloadTask != null && !_pairDownloadTask.IsCompleted)
+                var priorDownloadTask = _pairDownloadTask;
+                if (priorDownloadTask != null && !priorDownloadTask.IsCompleted)
                 {
                     Logger.LogDebug("[BASE-{appBase}] Finishing prior running download task for {pair}, {kind}", applicationBase, ToString(), updatedData);
-                    await _pairDownloadTask.ConfigureAwait(false);
+                    try
+                    {
+                        await priorDownloadTask.ConfigureAwait(false);
+                    }
+                    catch (OperationCanceledException) when (!downloadToken.IsCancellationRequested)
+                    {
+                        // Le téléchargement précédent a été annulé par cette application même : on continue.
+                        Logger.LogDebug("[BASE-{appBase}] Prior download task was cancelled, continuing", applicationBase);
+                    }
+                    catch (Exception ex) when (!downloadToken.IsCancellationRequested)
+                    {
+                        Logger.LogDebug(ex, "[BASE-{appBase}] Prior download task failed, continuing", applicationBase);
+                    }
                 }
 
                 Logger.LogDebug("[BASE-{appBase}] Downloading missing files for {pair}, {kind}", applicationBase, ToString(), updatedData);
@@ -437,6 +441,7 @@ public sealed partial class PairHandler
                 resolution = _assetResolver.Resolve(applicationBase, charaData, compressedUsage, downloadToken);
                 toDownloadReplacements = resolution.MissingFiles;
                 locallyPresentFiles = resolution.LocallyPresentFiles;
+                LeasePendingFiles(pendingLeaseOwner, charaData, resolution.ModdedPaths.Values);
 
                 var forbiddenOnly = toDownloadReplacements.Where(c =>
                     _downloadManager.ForbiddenTransfers.Exists(f => string.Equals(f.Hash, c.Hash, StringComparison.Ordinal))).ToList();
@@ -480,6 +485,7 @@ public sealed partial class PairHandler
             var finalResolution = _assetResolver.Resolve(applicationBase, charaData, compressedUsage, downloadToken);
             var finalMissing = finalResolution.MissingFiles;
             moddedPaths = finalResolution.ModdedPaths;
+            LeasePendingFiles(pendingLeaseOwner, charaData, moddedPaths.Values);
             if (finalMissing.Count > 0)
             {
                 var retriableMissing = finalMissing.Count(c =>
@@ -502,9 +508,12 @@ public sealed partial class PairHandler
             {
                 Mediator.Publish(new HaltScanMessage(nameof(PlayerPerformanceService.ShrinkTextures)));
                 if (await _playerPerformanceService.ShrinkTextures(this, charaData, downloadToken).ConfigureAwait(false))
+                {
                     moddedPaths = _assetResolver
                         .Resolve(applicationBase, charaData, _assetResolver.ComputeCompressedAlternateUsage(), downloadToken)
                         .ModdedPaths;
+                    LeasePendingFiles(pendingLeaseOwner, charaData, moddedPaths.Values);
+                }
             }
             finally
             {
@@ -583,13 +592,32 @@ public sealed partial class PairHandler
 
         try
         {
+            // Attente du draw hors du slot d'application : un pair coupé par les limites d'affichage, ou
+            // parti en cours de route, ne doit pas bloquer les applications des autres pairs.
+            var readyHandler = _charaHandler;
+            var ready = readyHandler == null
+                ? DalamudUtilService.ActorLoadWaitResult.AddressLost
+                : await _dalamudUtil.WaitForFullyLoadedAsync(readyHandler, ActorReadyTimeout, token).ConfigureAwait(false);
+            if (ready is DalamudUtilService.ActorLoadWaitResult.AddressLost or DalamudUtilService.ActorLoadWaitResult.NotDrawn)
+            {
+                Logger.LogDebug("[BASE-{appBase}] {pair} not ready for application ({state}), deferring", applicationBase, this, ready);
+                _state.PendingModReapply = true;
+                RecordFailure(ready == DalamudUtilService.ActorLoadWaitResult.NotDrawn
+                    ? "Personnage non affiché (limites d'affichage ?)"
+                    : "Personnage introuvable", "ActorNotReady");
+                return;
+            }
+
+            if (ready == DalamudUtilService.ActorLoadWaitResult.TimedOut)
+                Logger.LogDebug("[BASE-{appBase}] {pair} still loading after {timeout}s, applying anyway", applicationBase, this, ActorReadyTimeout.TotalSeconds);
+
 #pragma warning disable MA0004 // ConfigureAwait on await using
             await using var applyLease = await _applicationSemaphoreService
                 .AcquireAsync(token, highPriority: IsVisible, gpuHeavy: updateModdedPaths || updateManip)
                 .ConfigureAwait(false);
 #pragma warning restore MA0004
 
-            await ApplyCharacterDataAsync(applicationBase, charaData, updatedData, updateModdedPaths, updateManip, moddedPaths, redrawDecisions, token).ConfigureAwait(false);
+            await ApplyCharacterDataAsync(applicationBase, charaData, updatedData, updateModdedPaths, updateManip, moddedPaths, redrawDecisions, reapplyGeneration, token).ConfigureAwait(false);
         }
         finally
         {
@@ -603,8 +631,20 @@ public sealed partial class PairHandler
         }
     }
 
+    private void LeasePendingFiles(object pendingLeaseOwner, CharacterData charaData, IEnumerable<string> resolvedPaths)
+    {
+        _cacheLeases.SetLeases(pendingLeaseOwner, charaData.FileReplacements.Values
+            .SelectMany(v => v)
+            .Select(f => f.Hash)
+            .Concat(resolvedPaths));
+    }
+
+    private static readonly TimeSpan ActorReadyTimeout = TimeSpan.FromSeconds(60);
+    private static readonly TimeSpan InLeaseLoadTimeout = TimeSpan.FromSeconds(15);
+
     private async Task ApplyCharacterDataAsync(Guid applicationBase, CharacterData charaData, Dictionary<ObjectKind, HashSet<PlayerChanges>> updatedData, bool updateModdedPaths, bool updateManip,
-        Dictionary<(string GamePath, string? Hash), string> moddedPaths, IReadOnlyDictionary<ObjectKind, PairRedrawDecision>? redrawDecisions, CancellationToken token)
+        Dictionary<(string GamePath, string? Hash), string> moddedPaths, IReadOnlyDictionary<ObjectKind, PairRedrawDecision>? redrawDecisions, int reapplyGeneration,
+        CancellationToken token)
     {
         try
         {
@@ -625,31 +665,32 @@ public sealed partial class PairHandler
 
             Logger.LogDebug("[{applicationId}] Waiting for initial draw for for {handler}", _applicationId, _charaHandler);
             await _dalamudUtil.WaitWhileCharacterIsDrawing(Logger, _charaHandler!, _applicationId, 30000, token).ConfigureAwait(false);
-            if (_charaHandler!.Address != nint.Zero)
-            {
-                await _dalamudUtil.WaitForFullyLoadedAsync(_charaHandler!, token).ConfigureAwait(false);
-            }
+            // L'acteur était prêt avant la prise du slot : cette attente ne couvre que le redraw de
+            // l'assignation initiale, elle est donc courte et bornée.
+            var loaded = await _dalamudUtil.WaitForFullyLoadedAsync(_charaHandler!, InLeaseLoadTimeout, token).ConfigureAwait(false);
+            if (loaded == DalamudUtilService.ActorLoadWaitResult.AddressLost)
+                throw new InvalidOperationException("Player pointer became zero while waiting for draw");
 
             token.ThrowIfCancellationRequested();
 
             if (updateModdedPaths || updateManip)
             {
-                // L'assignation de collection déclenche un redraw Penumbra sans les mods : on la fait avant
-                // de prendre la baseline pour qu'elle ne soit pas comptée comme un redraw « utile ».
-                var ensured = await _collectionBinder
-                    .EnsureBoundAsync(Logger, _state.Penumbra, Pair.UserData.UID, TryResolveObjectIndexAsync)
-                    .ConfigureAwait(false);
-                if (!ensured.Success)
+                if (_state.Penumbra.Collection == Guid.Empty)
                 {
-                    AbortApplication(charaData, ensured.Reason, ensured.Failure.ToString());
-                    return;
+                    var created = await _collectionBinder
+                        .EnsureBoundAsync(Logger, _state.Penumbra, Pair.UserData.UID, TryResolveObjectIndexAsync)
+                        .ConfigureAwait(false);
+                    if (!created.Success)
+                    {
+                        AbortApplication(charaData, created.Reason, created.Failure.ToString());
+                        return;
+                    }
                 }
 
-                _redrawBaseline = _pairRedrawCoordinator.CaptureBaseline(_charaHandler.Address);
-
-                // L'attente ci-dessus peut durer jusqu'à 30 s
-                var applied = await _collectionBinder.BindAndApplyAsync(Logger, _applicationId, _state.Penumbra,
-                    Pair.UserData.UID, TryResolveObjectIndexAsync,
+                // Les mods sont posés dans la collection AVANT une éventuelle (ré)assignation : le redraw que
+                // Penumbra lance à l'assignation charge alors l'acteur avec les mods. La baseline est prise
+                // entre les deux : seul un redraw postérieur à la pose des mods dispense du HardRedraw.
+                var applied = await _collectionBinder.ApplyStateAsync(Logger, _applicationId, _state.Penumbra,
                     updateModdedPaths ? moddedPaths.ToDictionary(k => k.Key.GamePath, k => k.Value, StringComparer.Ordinal) : null,
                     updateManip ? charaData.ManipulationData : null).ConfigureAwait(false);
 
@@ -659,8 +700,21 @@ public sealed partial class PairHandler
                     return;
                 }
 
+                _redrawBaseline = _pairRedrawCoordinator.CaptureBaseline(_charaHandler!.Address);
+
+                var ensured = await _collectionBinder
+                    .EnsureBoundAsync(Logger, _state.Penumbra, Pair.UserData.UID, TryResolveObjectIndexAsync)
+                    .ConfigureAwait(false);
+                if (!ensured.Success)
+                {
+                    AbortApplication(charaData, ensured.Reason, ensured.Failure.ToString());
+                    return;
+                }
+
                 if (updateModdedPaths)
                 {
+                    // Les fichiers posés dans la collection ne doivent pas être évincés du cache tant qu'ils sont appliqués
+                    _cacheLeases.SetLeases(this, moddedPaths.Values);
                     LastAppliedDataBytes = -1;
                     foreach (var path in moddedPaths.Values.Distinct(StringComparer.OrdinalIgnoreCase).Select(v => new FileInfo(v)).Where(p => p.Exists))
                     {
@@ -673,7 +727,7 @@ public sealed partial class PairHandler
 
             else
             {
-                _redrawBaseline = _pairRedrawCoordinator.CaptureBaseline(_charaHandler.Address);
+                _redrawBaseline = _pairRedrawCoordinator.CaptureBaseline(_charaHandler!.Address);
             }
 
             token.ThrowIfCancellationRequested();
@@ -687,7 +741,8 @@ public sealed partial class PairHandler
 
             _state.CachedData = charaData;
             _state.LastAppliedData = charaData;
-            _state.PendingModReapply = false;
+            _state.Deferred = Guid.Empty;
+            _state.ClearModReapply(reapplyGeneration);
             Mediator.Publish(new PairDataAppliedMessage(Pair.UserData.UID, charaData));
 
             Logger.LogDebug("[{applicationId}] Application finished", _applicationId);
@@ -695,7 +750,6 @@ public sealed partial class PairHandler
             ClearFailureState();
             if (_glamourerLockRefused)
                 RecordFailure("Apparence Glamourer verrouillée par un autre plugin", "GlamourerLocked");
-            IsVisible = true;
         }
         catch (OperationCanceledException)
         {
@@ -708,8 +762,11 @@ public sealed partial class PairHandler
         catch (Exception ex)
         {
             _state.PendingModReapply = true;
-            if (ex is AggregateException aggr && aggr.InnerExceptions.Any(e => e is ArgumentNullException))
+            var handler = _charaHandler;
+            if (handler == null || handler.Address == nint.Zero)
             {
+                // Joueur disparu en cours d'application : il sera redétecté par VisibilityService.
+                _visibilityService.RearmTracking(Pair.Ident);
                 IsVisible = false;
                 _state.ForceApplyMods = true;
                 _state.CachedData = charaData;
@@ -752,32 +809,187 @@ public sealed partial class PairHandler
         Mediator.Publish(new PairDataAppliedMessage(Pair.UserData.UID, charaData));
     }
 
+    // Appelé sur le framework thread (DelayedFrameworkUpdateMessage)
     private void TryReapplyPendingData()
     {
-        if (!_state.PendingModReapply || !IsVisible
-            || (_applicationTask != null && !_applicationTask.IsCompleted)
-            || (_downloadTask != null && !_downloadTask.IsCompleted))
+        if ((!_state.PendingModReapply && _state.Deferred == Guid.Empty) || !IsVisible
+            || PlayerCharacter == nint.Zero
+            || IsApplyingOrDownloading
+            || !CanApplyNow())
             return;
 
         var now = DateTime.UtcNow;
         if (_state.LastApplyAttemptAt.HasValue && now - _state.LastApplyAttemptAt.Value < TimeSpan.FromSeconds(5) + _reapplyJitter)
             return;
 
-        var dataToApply = _state.CachedData ?? Pair.LastReceivedCharacterData;
-        if (dataToApply == null)
+        var fallback = _state.CachedData;
+        if (Pair.LastReceivedCharacterData == null && fallback == null)
             return;
 
-        Logger.LogDebug("Auto-retry: reapplying pending data for {handler} (pendingModReapply=true)", this);
+        // Posé ici aussi : si la paire refuse l'application en amont, on ne retente pas à chaque tick.
+        _state.LastApplyAttemptAt = now;
+        Logger.LogDebug("Auto-retry: reapplying last received data for {handler} (pendingModReapply={pending}, deferred={deferred})",
+            this, _state.PendingModReapply, _state.Deferred != Guid.Empty);
         _ = Task.Run(() =>
         {
             try
             {
-                ApplyCharacterData(Guid.NewGuid(), dataToApply, forceApplyCustomization: true);
+                ReapplyLatestData(Guid.NewGuid(), fallback);
             }
             catch (Exception ex)
             {
                 Logger.LogError(ex, "Failed to reapply pending data for {handler}", this);
             }
         });
+    }
+
+    private bool CanApplyNow()
+        => !_dalamudUtil.IsInGpose
+           && !_dalamudUtil.IsInCutscene
+           && !_dalamudUtil.IsZoning
+           && !(_configService.Current.HoldCombatApplication && _dalamudUtil.IsInCombatOrPerforming)
+           && _ipcManager.Penumbra.APIAvailable
+           && _ipcManager.Glamourer.APIAvailable
+           && !Pair.IsApplicationBlocked
+           && !Pair.IsPaused;
+
+    /// <summary>
+    /// Relance depuis la dernière donnée reçue du serveur (filtrée par la paire), et non depuis
+    /// CachedData qui peut être une donnée plus ancienne restée en plan.
+    /// </summary>
+    private void ReapplyLatestData(Guid applicationBase, CharacterData? fallback)
+    {
+        if (Pair.LastReceivedCharacterData != null)
+            Pair.ApplyLastReceivedData(forced: true);
+        else if (fallback != null)
+            ApplyCharacterData(applicationBase, fallback, forceApplyCustomization: true);
+    }
+
+    private static readonly TimeSpan IpcReadyReapplyCooldown = TimeSpan.FromSeconds(10);
+    private DateTime _lastIpcReadyReapplyUtc = DateTime.MinValue;
+
+    // Glamourer, Customize+ ou Heels vient de (re)devenir disponible : ce qui a été reçu ou posé
+    // pendant son absence est perdu ou en attente.
+    private void OnAppearanceIpcReady(string plugin)
+    {
+        var applied = _state.LastAppliedData;
+        bool deferred = _state.Deferred != Guid.Empty;
+        bool concerned = deferred || (applied != null && plugin switch
+        {
+            "Glamourer" => applied.GlamourerData.Count > 0,
+            "CustomizePlus" => applied.CustomizePlusData.Values.Any(v => !string.IsNullOrEmpty(v)),
+            "Heels" => !string.IsNullOrEmpty(applied.HeelsData),
+            _ => false,
+        });
+        if (!concerned || !IsVisible) return;
+
+        var now = DateTime.UtcNow;
+        if (now - _lastIpcReadyReapplyUtc < IpcReadyReapplyCooldown) return;
+        _lastIpcReadyReapplyUtc = now;
+
+        Logger.LogDebug("{plugin} available again, reapplying data for {handler}", plugin, this);
+        _state.RequestModReapply();
+        var fallback = _state.CachedData;
+        int jitterMs = Random.Shared.Next(500, 3000);
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(jitterMs).ConfigureAwait(false);
+                if (IsVisible && !IsApplyingOrDownloading)
+                    ReapplyLatestData(Guid.NewGuid(), fallback);
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "Failed to reapply data after {plugin} became available for {user}", plugin, Pair.UserData.UID);
+            }
+        });
+    }
+
+    private static readonly TimeSpan OwnedObjectCheckInterval = TimeSpan.FromSeconds(2);
+    private DateTime _nextOwnedObjectCheckUtc = DateTime.MinValue;
+
+    // Appelé sur le framework thread (DelayedFrameworkUpdateMessage) : monture, familier ou compagnon
+    // absent lors de l'application, on lui pose Glamourer et Customize+ dès qu'il apparaît.
+    private void TryApplyPendingOwnedObjects()
+    {
+        lock (_state.PendingOwnedObjects)
+        {
+            if (_state.PendingOwnedObjects.Count == 0) return;
+        }
+
+        var now = DateTime.UtcNow;
+        if (now < _nextOwnedObjectCheckUtc) return;
+        _nextOwnedObjectCheckUtc = now + OwnedObjectCheckInterval;
+
+        var data = _state.LastAppliedData;
+        var ptr = PlayerCharacter;
+        if (data == null || ptr == nint.Zero)
+        {
+            if (data == null)
+            {
+                lock (_state.PendingOwnedObjects)
+                    _state.PendingOwnedObjects.Clear();
+            }
+            return;
+        }
+
+        if (!IsVisible || IsApplyingOrDownloading || !CanApplyNow()) return;
+
+        List<KeyValuePair<ObjectKind, HashSet<PlayerChanges>>> spawned = [];
+        lock (_state.PendingOwnedObjects)
+        {
+            foreach (var kind in _state.PendingOwnedObjects.ToList())
+            {
+                var address = kind switch
+                {
+                    ObjectKind.MinionOrMount => _dalamudUtil.GetMinionOrMount(ptr),
+                    ObjectKind.Pet => _dalamudUtil.GetPet(ptr),
+                    ObjectKind.Companion => _dalamudUtil.GetCompanion(ptr),
+                    _ => nint.Zero,
+                };
+                if (address == nint.Zero) continue;
+
+                _state.PendingOwnedObjects.Remove(kind);
+                HashSet<PlayerChanges> changes = [];
+                if (data.GlamourerData.ContainsKey(kind)) changes.Add(PlayerChanges.Glamourer);
+                if (data.CustomizePlusData.TryGetValue(kind, out var cplus) && !string.IsNullOrEmpty(cplus)) changes.Add(PlayerChanges.Customize);
+                if (changes.Count > 0)
+                    spawned.Add(new(kind, changes));
+            }
+        }
+
+        if (spawned.Count == 0) return;
+
+        CancellationToken token;
+        try
+        {
+            token = _applicationCancellationTokenSource?.Token ?? CancellationToken.None;
+        }
+        catch (ObjectDisposedException)
+        {
+            return;
+        }
+
+        _ = Task.Run(async () =>
+        {
+            var applicationId = Guid.NewGuid();
+            try
+            {
+                foreach (var changes in spawned)
+                {
+                    Logger.LogDebug("[{applicationId}] {kind} spawned for {handler}, applying its appearance", applicationId, changes.Key, this);
+                    await ApplyCustomizationDataAsync(applicationId, changes, data, null, token).ConfigureAwait(false);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                Logger.LogDebug("[{applicationId}] Owned object application cancelled for {handler}", applicationId, this);
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "[{applicationId}] Failed to apply owned object appearance for {user}", applicationId, Pair.UserData.UID);
+            }
+        }, CancellationToken.None);
     }
 }

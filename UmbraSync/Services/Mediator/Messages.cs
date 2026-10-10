@@ -56,6 +56,7 @@ public record PetNamesMessage(string PetNicknamesData) : MessageBase;
 public record MoodlesMessage(IntPtr Address) : MessageBase;
 public record MoodlesReadyMessage : MessageBase;
 public record HonorificReadyMessage : MessageBase;
+public record AppearanceIpcReadyMessage(string Plugin) : MessageBase;
 public record PlayerChangedMessage(CharacterData Data) : MessageBase;
 public record CharacterChangedMessage(GameObjectHandler GameObjectHandler) : MessageBase;
 public record TransientResourceChangedMessage(IntPtr Address) : MessageBase;

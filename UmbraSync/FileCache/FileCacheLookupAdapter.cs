@@ -13,7 +13,11 @@ public sealed class FileCacheLookupAdapter : IFileCacheLookup
     }
 
     public ICachedFile? GetByHash(string hash, bool preferSubst = false)
-        => _fileDbManager.GetFileCacheByHash(hash, preferSubst);
+    {
+        var fileCache = _fileDbManager.GetFileCacheByHash(hash, preferSubst);
+        _fileDbManager.MarkUsed(fileCache);
+        return fileCache;
+    }
 
     public ICachedFile MigrateToExtension(ICachedFile cachedFile, string extension)
         => cachedFile is FileCacheEntity entity

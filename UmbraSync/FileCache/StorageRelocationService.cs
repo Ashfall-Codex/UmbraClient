@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging;
 using UmbraSync.Interop.Ipc;
 using UmbraSync.MareConfiguration;
 using UmbraSync.MareConfiguration.Models;
+using UmbraSync.PlayerData.Pairs;
 using UmbraSync.Services.Mediator;
 
 namespace UmbraSync.FileCache;
@@ -27,13 +28,15 @@ public sealed class StorageRelocationService : IDisposable
     private readonly FileCacheManager _fileCacheManager;
     private readonly IpcManager _ipcManager;
     private readonly MareMediator _mediator;
+    private readonly PairManager _pairManager;
 #pragma warning disable S2930 // durée de vie volontairement liée au processus, pas au service
     private readonly CancellationTokenSource _shutdownCts = new();
 #pragma warning restore S2930
     private int _running;
 
     public StorageRelocationService(ILogger<StorageRelocationService> logger, MareConfigService configService,
-        CacheMonitor cacheMonitor, FileCacheManager fileCacheManager, IpcManager ipcManager, MareMediator mediator)
+        CacheMonitor cacheMonitor, FileCacheManager fileCacheManager, IpcManager ipcManager, MareMediator mediator,
+        PairManager pairManager)
     {
         _logger = logger;
         _configService = configService;
@@ -41,6 +44,7 @@ public sealed class StorageRelocationService : IDisposable
         _fileCacheManager = fileCacheManager;
         _ipcManager = ipcManager;
         _mediator = mediator;
+        _pairManager = pairManager;
     }
 
     public bool IsRunning => _running == 1;
@@ -132,6 +136,9 @@ public sealed class StorageRelocationService : IDisposable
         long movedBytes = 0;
 
         _cacheMonitor.HaltScan(HaltSource);
+        // Les collections Penumbra des pairs pointent vers l'ancien dossier et les téléchargements
+        // en cours y écriraient : on suspend pairs et téléchargements le temps du déplacement.
+        List<Pair> heldPairs = HoldPairs();
 
         try
         {
@@ -196,6 +203,9 @@ public sealed class StorageRelocationService : IDisposable
                 RestartMonitoring();
             }
 
+            // Le déblocage réapplique les pairs visibles avec les nouveaux chemins.
+            ReleasePairs(heldPairs, skipApplication: token.IsCancellationRequested);
+
             bool sourceEmptied = IsSourceEmptied(source);
             LastResult = new StorageRelocationResult(switched && failed == 0, StorageFolderIssue.None,
                 moved, failed, movedBytes, source, target, sourceEmptied);
@@ -205,6 +215,40 @@ public sealed class StorageRelocationService : IDisposable
 
             if (!token.IsCancellationRequested)
                 Notify(switched && failed == 0);
+        }
+    }
+
+    private List<Pair> HoldPairs()
+    {
+        List<Pair> held = [];
+        foreach (Pair pair in _pairManager.GetOnlineUserPairs())
+        {
+            try
+            {
+                pair.HoldDownloads(HaltSource, maxValue: 1);
+                held.Add(pair);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Could not hold a pair during storage relocation");
+            }
+        }
+
+        return held;
+    }
+
+    private void ReleasePairs(List<Pair> heldPairs, bool skipApplication)
+    {
+        foreach (Pair pair in heldPairs)
+        {
+            try
+            {
+                pair.UnholdDownloads(HaltSource, skipApplication);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Could not release a pair after storage relocation");
+            }
         }
     }
 

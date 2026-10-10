@@ -137,6 +137,40 @@ public class PairAssetResolverTests
     }
 
     [Fact]
+    public void Une_exception_transitoire_relance_la_resolution_complete()
+    {
+        var cache = new FakeFileCache().With("HASH1", "/cache/hash1.mdl").With("HASH2", "/cache/hash2.mdl");
+        cache.FailingLookups = 1;
+        var data = Build.Data(
+            Build.Replacement("HASH1", "chara/one.mdl"),
+            Build.Replacement("HASH2", "chara/two.mdl"));
+
+        var result = Resolve(Create(cache), data);
+
+        Assert.Empty(result.MissingFiles);
+        Assert.Equal(2, result.ModdedPaths.Count);
+    }
+
+    [Fact]
+    public void Une_exception_persistante_remonte_au_lieu_d_une_resolution_partielle()
+    {
+        var cache = new FakeFileCache().With("HASH1", "/cache/hash1.mdl");
+        cache.FailingLookups = int.MaxValue;
+        var data = Build.Data(Build.Replacement("HASH1", "chara/one.mdl"));
+
+        Assert.Throws<InvalidOperationException>(() => Resolve(Create(cache), data));
+    }
+
+    [Fact]
+    public void HasMissingFiles_accepte_la_texture_reduite_quand_l_original_a_ete_supprime()
+    {
+        var cache = new FakeFileCache().WithSubst("SHRUNK", "/cache/subst/shrunk.tex");
+        var data = Build.Data(Build.Replacement("SHRUNK", "chara/body.tex"));
+
+        Assert.False(Create(cache).HasMissingFiles(data));
+    }
+
+    [Fact]
     public void Un_uid_surcharge_force_la_qualite_source()
     {
         var compression = new FakeCompressionSettings

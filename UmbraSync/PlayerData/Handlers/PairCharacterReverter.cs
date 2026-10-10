@@ -21,7 +21,8 @@ public sealed class PairCharacterReverter
         Func<string> DescribeForLog,
         Func<bool> IsVisible,
         Func<GameObjectHandler?> GetCharaHandler,
-        Action CancelInFlightWork);
+        Action CancelInFlightWork,
+        Action OnCollectionRemoved);
 
     private readonly ILogger _logger;
     private readonly Pair _pair;
@@ -106,6 +107,7 @@ public sealed class PairCharacterReverter
             await _ipcManager.Penumbra.RemoveTemporaryCollectionAsync(_logger, applicationId, col).ConfigureAwait(false);
             _state.Penumbra.Collection = Guid.Empty;
             _state.Penumbra.AssignedObjectIndex = -1;
+            _context.OnCollectionRemoved();
         }
         catch (Exception ex)
         {
@@ -205,6 +207,7 @@ public sealed class PairCharacterReverter
                 _logger.LogDebug("[{applicationId}] {pair} is still applied by another sync plugin, only removing Umbra's collection", applicationId, _context.DescribeForLog());
                 await RemoveTemporaryCollectionAsync(applicationId).ConfigureAwait(false);
                 _state.CachedData = null;
+                _state.LastAppliedData = null;
                 _mediator.Publish(new PairDataAppliedMessage(_pair.UserData.UID, null));
                 return;
             }
@@ -239,7 +242,9 @@ public sealed class PairCharacterReverter
                 }
             }
 
+            // Mods et apparence retirés : plus rien n'est appliqué, la reprise doit tout reposer.
             _state.CachedData = null;
+            _state.LastAppliedData = null;
             _mediator.Publish(new PairDataAppliedMessage(_pair.UserData.UID, null));
 
             _logger.LogInformation("[{applicationId}] Revert to restored state complete for {user}", applicationId, _pair.UserData.UID);

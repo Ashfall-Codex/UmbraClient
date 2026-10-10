@@ -441,6 +441,16 @@ public sealed class PairManager : DisposableMediatorSubscriberBase
 
         Mediator.Publish(new ClearProfileDataMessage(dto.User));
 
+        // Reconnexion sur un autre personnage sans passage hors ligne (crash, timeout serveur) :
+        // l'ancien handler vise encore l'ancien personnage, on le remplace au lieu de le réappliquer.
+        if (pair.IsOnline && !string.IsNullOrEmpty(pair.Ident)
+            && !string.Equals(pair.Ident, dto.Ident, StringComparison.Ordinal))
+        {
+            Logger.LogInformation("Pair {uid} came online with a different character, recreating its handler", dto.User.UID);
+            pair.MarkOffline();
+            pair.LastReceivedCharacterData = null;
+        }
+
         if (pair.HasCachedPlayer)
         {
             if (Logger.IsEnabled(LogLevel.Trace))

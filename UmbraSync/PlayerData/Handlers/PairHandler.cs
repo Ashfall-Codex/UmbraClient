@@ -37,6 +37,7 @@ public sealed partial class PairHandler : DisposableMediatorSubscriberBase, IPai
     private readonly ApplicationSemaphoreService _applicationSemaphoreService;
     private readonly ServerConfigurationManager _serverConfigurationManager;
     private readonly PairRedrawCoordinator _pairRedrawCoordinator;
+    private readonly CacheLeaseRegistry _cacheLeases;
     private readonly PairAssetResolver _assetResolver;
     private readonly PairAppliedState _state = new();
     private readonly Lock _applyGate = new();
@@ -88,8 +89,9 @@ public sealed partial class PairHandler : DisposableMediatorSubscriberBase, IPai
         MareConfigService configService, VisibilityService visibilityService,
         ApplicationSemaphoreService applicationSemaphoreService, ServerConfigurationManager serverConfigurationManager,
         PairRedrawCoordinator pairRedrawCoordinator, CompressedAlternateManager compressedAlternateManager,
-        PlayerPerformanceConfigService playerPerformanceConfigService) : base(logger, mediator)
+        PlayerPerformanceConfigService playerPerformanceConfigService, CacheLeaseRegistry cacheLeases) : base(logger, mediator)
     {
+        _cacheLeases = cacheLeases;
         Pair = pair;
         PairAnalyzer = pairAnalyzer;
         _gameObjectHandlerFactory = gameObjectHandlerFactory;
@@ -108,7 +110,8 @@ public sealed partial class PairHandler : DisposableMediatorSubscriberBase, IPai
             new TextureCompressionSettingsAdapter(playerPerformanceConfigService));
         _collectionBinder = new PenumbraCollectionBinder(ipcManager);
         _visibilityGrace = new PairVisibilityGrace(logger, pair, _state, ipcManager,
-            describeForLog: ToString, isVisible: () => IsVisible);
+            describeForLog: ToString, isVisible: () => IsVisible,
+            onCollectionRemoved: () => _cacheLeases.ReleaseLeases(this));
         _reverter = new PairCharacterReverter(logger, pair, _state, ipcManager, dalamudUtil,
             gameObjectHandlerFactory, pairRedrawCoordinator, mediator,
             new PairCharacterReverter.Context(
@@ -120,7 +123,8 @@ public sealed partial class PairHandler : DisposableMediatorSubscriberBase, IPai
                 {
                     _applicationCancellationTokenSource = _applicationCancellationTokenSource?.CancelRecreate();
                     _downloadCancellationTokenSource = _downloadCancellationTokenSource?.CancelRecreate();
-                }));
+                },
+                OnCollectionRemoved: () => _cacheLeases.ReleaseLeases(this)));
 
         _visibilityService.StartTracking(Pair.Ident);
 
@@ -131,6 +135,13 @@ public sealed partial class PairHandler : DisposableMediatorSubscriberBase, IPai
         {
             _downloadCancellationTokenSource?.CancelDispose();
             _charaHandler?.Invalidate();
+            // Sans rearm, un pair présent avant et après le changement de zone reste « visible » côté
+            // VisibilityService : aucune transition n'est republiée et rien n'est réappliqué.
+            _visibilityService.RearmTracking(Pair.Ident);
+            // C+, talons, Honorific et Moodles sont posés par adresse : l'acteur de la nouvelle zone
+            // doit les recevoir à nouveau, même si la donnée n'a pas changé.
+            if (_state.LastAppliedData != null)
+                _state.RequestModReapply();
             IsVisible = false;
         });
         Mediator.Subscribe<CutsceneStartMessage>(this, _ => DisableSync());
@@ -157,6 +168,12 @@ public sealed partial class PairHandler : DisposableMediatorSubscriberBase, IPai
         {
             _state.Penumbra.Collection = Guid.Empty;
             _state.Penumbra.AssignedObjectIndex = -1;
+            // Penumbra relancé : les collections temporaires et leurs mods ont disparu.
+            if (_state.LastAppliedData != null || _state.CachedData != null)
+            {
+                _state.ForceApplyMods = true;
+                _state.RequestModReapply();
+            }
             if (_state.Deferred != Guid.Empty && _state.CachedData != null)
             {
                 ApplyCharacterData(_state.Deferred, _state.CachedData, forceApplyCustomization: true);
@@ -194,8 +211,10 @@ public sealed partial class PairHandler : DisposableMediatorSubscriberBase, IPai
         Mediator.Subscribe<DelayedFrameworkUpdateMessage>(this, _ =>
         {
             TryReapplyPendingData();
+            TryApplyPendingOwnedObjects();
             CheckExternalSyncReclaim();
         });
+        Mediator.Subscribe<AppearanceIpcReadyMessage>(this, msg => OnAppearanceIpcReady(msg.Plugin));
 
         LastAppliedDataBytes = -1;
     }
@@ -280,7 +299,7 @@ public sealed partial class PairHandler : DisposableMediatorSubscriberBase, IPai
         Logger.LogDebug("Invalidating handler for {uid}", Pair.UserData.UID);
         _charaHandler?.Invalidate();
         _state.ForceApplyMods = true;
-        _state.PendingModReapply = true;
+        _state.RequestModReapply();
     }
 
     protected override void Dispose(bool disposing)
@@ -305,6 +324,7 @@ public sealed partial class PairHandler : DisposableMediatorSubscriberBase, IPai
             }
 
             _reverter.UndoApplicationAsync(applicationId).GetAwaiter().GetResult();
+            _cacheLeases.ReleaseLeases(this);
 
             PlayerName = null;
             _applicationCancellationTokenSource?.Dispose();
@@ -481,48 +501,32 @@ public sealed partial class PairHandler : DisposableMediatorSubscriberBase, IPai
             Mediator.Publish(new PairHandlerVisibleMessage(this));
             int applyJitterMs = Random.Shared.Next(0, VisibilityApplyJitterMaxMs);
 
-            if (_state.Deferred != Guid.Empty && _state.CachedData != null)
+            // Toujours repartir de la dernière donnée reçue : CachedData peut être une donnée plus
+            // ancienne dont l'application a été annulée.
+            if (Pair.LastReceivedCharacterData != null || _state.CachedData != null)
             {
-                // application différée : pas de log (déjà tracé à la réception)
-                Guid deferredId = _state.Deferred;
-                CharacterData deferredData = _state.CachedData;
-                _ = Task.Run(async () =>
-                {
-                    await Task.Delay(applyJitterMs).ConfigureAwait(false);
-                    ApplyCharacterData(deferredId, deferredData, forceApplyCustomization: true);
-                });
-            }
-            else if (_state.CachedData != null)
-            {
-                Guid appData = Guid.NewGuid();
-                CharacterData cached = _state.CachedData;
+                Guid appData = _state.Deferred != Guid.Empty ? _state.Deferred : Guid.NewGuid();
+                CharacterData? cached = _state.CachedData;
                 if (Logger.IsEnabled(LogLevel.Trace))
-                    Logger.LogTrace("[BASE-{appBase}] {pairHandler} visibility changed, now: {visi}, cached data exists", appData, this, IsVisible);
+                    Logger.LogTrace("[BASE-{appBase}] {pairHandler} visibility changed, now: {visi}, reapplying last received data", appData, this, IsVisible);
 
                 _ = Task.Run(async () =>
                 {
-                    await Task.Delay(applyJitterMs).ConfigureAwait(false);
-                    ApplyCharacterData(appData, cached, forceApplyCustomization: true);
-                });
-            }
-            else if (Pair.LastReceivedCharacterData != null)
-            {
-                Guid appData = Guid.NewGuid();
-                Logger.LogDebug("[BASE-{appBase}] {pairHandler} visibility changed, now: {visi}, using LastReceivedCharacterData fallback", appData, this, IsVisible);
-
-                _ = Task.Run(async () =>
-                {
-                    await Task.Delay(applyJitterMs).ConfigureAwait(false);
-                    Pair.ApplyLastReceivedData(forced: true);
+                    try
+                    {
+                        await Task.Delay(applyJitterMs).ConfigureAwait(false);
+                        ReapplyLatestData(appData, cached);
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.LogWarning(ex, "[BASE-{appBase}] Failed to reapply data on visibility for {user}", appData, Pair.UserData.UID);
+                    }
                 });
             }
             else
             {
                 Logger.LogTrace("{this} visibility changed, now: {visi}, no cached data exists", this, IsVisible);
             }
-
-            // Retry automatique si une application précédente a échoué
-            TryReapplyPendingData();
         }
         else if (IsVisible && !nowVisible)
         {

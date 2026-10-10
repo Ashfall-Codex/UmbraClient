@@ -141,6 +141,12 @@ public class FileTransferOrchestrator : DisposableMediatorSubscriberBase
         return await SendRequestInternalAsync(requestMessage, ct, httpCompletionOption).ConfigureAwait(false);
     }
 
+    public async Task<HttpResponseMessage> SendRequestAsync(HttpRequestMessage requestMessage, CancellationToken ct,
+        HttpCompletionOption httpCompletionOption = HttpCompletionOption.ResponseContentRead)
+    {
+        return await SendRequestInternalAsync(requestMessage, ct, httpCompletionOption).ConfigureAwait(false);
+    }
+
     public async Task<HttpResponseMessage> SendRequestAsync<T>(HttpMethod method, Uri uri, T content, CancellationToken ct) where T : class
     {
         using var requestMessage = new HttpRequestMessage(method, uri);
@@ -149,6 +155,81 @@ public class FileTransferOrchestrator : DisposableMediatorSubscriberBase
         else
             requestMessage.Content = content as ByteArrayContent;
         return await SendRequestInternalAsync(requestMessage, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Variante avec nouvel essai court sur 429 (Retry-After respecté) et 502/503/504 ou erreur réseau.
+    /// Réservée aux requêtes idempotentes de téléchargement : le message est reconstruit à chaque essai.
+    /// </summary>
+    public Task<HttpResponseMessage> SendRetryableRequestAsync(HttpMethod method, Uri uri, CancellationToken ct,
+        HttpCompletionOption httpCompletionOption = HttpCompletionOption.ResponseContentRead)
+    {
+        return SendWithTransientRetryAsync(() => new HttpRequestMessage(method, uri), ct, httpCompletionOption);
+    }
+
+    public Task<HttpResponseMessage> SendRetryableRequestAsync<T>(HttpMethod method, Uri uri, T content, CancellationToken ct) where T : class
+    {
+        return SendWithTransientRetryAsync(() => new HttpRequestMessage(method, uri) { Content = JsonContent.Create(content) }, ct,
+            HttpCompletionOption.ResponseContentRead);
+    }
+
+    private async Task<HttpResponseMessage> SendWithTransientRetryAsync(Func<HttpRequestMessage> requestFactory, CancellationToken ct,
+        HttpCompletionOption httpCompletionOption)
+    {
+        int attempt = 0;
+        while (true)
+        {
+            attempt++;
+            using var requestMessage = requestFactory();
+            var uri = requestMessage.RequestUri;
+            HttpResponseMessage response;
+            try
+            {
+                response = await SendRequestInternalAsync(requestMessage, ct, httpCompletionOption).ConfigureAwait(false);
+            }
+            catch (HttpRequestException ex) when (attempt < MaxTransientAttempts && !ct.IsCancellationRequested)
+            {
+                var delay = TransientRetryDelay(attempt, null);
+                Logger.LogWarning("Erreur réseau sur {uri}, nouvel essai {attempt}/{max} dans {delay} ms ({error})",
+                    uri, attempt + 1, MaxTransientAttempts, (int)delay.TotalMilliseconds, ex.InnerException?.Message ?? ex.Message);
+                await Task.Delay(delay, ct).ConfigureAwait(false);
+                continue;
+            }
+
+            if (attempt >= MaxTransientAttempts || !IsTransientStatus(response.StatusCode))
+                return response;
+
+            var retryDelay = TransientRetryDelay(attempt, response.Headers.RetryAfter);
+            if (retryDelay > MaxTransientRetryDelay)
+            {
+                // Le serveur demande une pause plus longue que ce qu'on accepte d'attendre ici :
+                // on rend la réponse, l'appelant échoue et le cooldown par hash prend le relais.
+                return response;
+            }
+
+            Logger.LogWarning("HTTP {status} sur {uri}, nouvel essai {attempt}/{max} dans {delay} ms",
+                (int)response.StatusCode, uri, attempt + 1, MaxTransientAttempts, (int)retryDelay.TotalMilliseconds);
+            response.Dispose();
+            await Task.Delay(retryDelay, ct).ConfigureAwait(false);
+        }
+    }
+
+    private const int MaxTransientAttempts = 3;
+    private static readonly TimeSpan MaxTransientRetryDelay = TimeSpan.FromSeconds(15);
+
+    private static bool IsTransientStatus(HttpStatusCode status)
+        => status is HttpStatusCode.TooManyRequests or HttpStatusCode.BadGateway
+            or HttpStatusCode.ServiceUnavailable or HttpStatusCode.GatewayTimeout;
+
+    private static TimeSpan TransientRetryDelay(int attempt, RetryConditionHeaderValue? retryAfter)
+    {
+        var requested = retryAfter?.Delta
+            ?? (retryAfter?.Date is { } date ? date - DateTimeOffset.UtcNow : null);
+        if (requested is { } delta && delta > TimeSpan.Zero)
+            return delta;
+
+        double baseMs = 1000 * Math.Pow(2, attempt - 1);
+        return TimeSpan.FromMilliseconds(baseMs * (0.5 + Random.Shared.NextDouble() * 0.5));
     }
 
     public async Task<HttpResponseMessage> SendRequestStreamAsync(HttpMethod method, Uri uri, ProgressableStreamContent content, CancellationToken ct)

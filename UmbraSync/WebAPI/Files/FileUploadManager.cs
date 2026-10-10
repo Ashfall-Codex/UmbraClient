@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.Logging;
+using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using UmbraSync.API.Data;
@@ -21,7 +22,9 @@ public sealed class FileUploadManager : DisposableMediatorSubscriberBase
     private readonly ServerConfigurationManager _serverManager;
     private readonly ConcurrentDictionary<string, DateTime> _verifiedUploadedHashes = new(StringComparer.Ordinal);
     private CancellationTokenSource? _uploadCancellationTokenSource = new();
-    private const int MaxParallelUploads = 3;
+    private const int MaxParallelUploads = 2;
+    private const int MaxRateLimitAttempts = 6;
+    private static readonly TimeSpan VerifiedUploadTtl = TimeSpan.FromMinutes(1);
 
     public FileUploadManager(ILogger<FileUploadManager> logger, MareMediator mediator,
         FileTransferOrchestrator orchestrator,
@@ -117,12 +120,12 @@ public sealed class FileUploadManager : DisposableMediatorSubscriberBase
         return [];
     }
 
-    public async Task<CharacterData> UploadFiles(CharacterData data, List<UserData> visiblePlayers)
+    public async Task<CharacterData> UploadFiles(CharacterData data, List<UserData> visiblePlayers, CancellationToken ct = default)
     {
         if (!_orchestrator.IsInitialized)
         {
             Logger.LogDebug("FileTransferOrchestrator pas encore initialisé, attente avant upload de {hash}", data.DataHash.Value);
-            if (!await _orchestrator.WaitForInitializationAsync(TimeSpan.FromSeconds(10), CancellationToken.None).ConfigureAwait(false))
+            if (!await _orchestrator.WaitForInitializationAsync(TimeSpan.FromSeconds(10), ct).ConfigureAwait(false))
             {
                 // Surtout ne pas retourner data tel quel : l'appelant pousserait un manifest
                 // référençant des fichiers jamais uploadés, que les pairs ne pourraient
@@ -134,7 +137,7 @@ public sealed class FileUploadManager : DisposableMediatorSubscriberBase
 
         CancelUpload();
 
-        _uploadCancellationTokenSource = new CancellationTokenSource();
+        _uploadCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(ct);
         var uploadToken = _uploadCancellationTokenSource.Token;
         Logger.LogDebug("Sending Character data {hash} to service {url}", data.DataHash.Value, _serverManager.CurrentRealApiUrl);
 
@@ -167,14 +170,42 @@ public sealed class FileUploadManager : DisposableMediatorSubscriberBase
             FileHashes = hashes,
             UIDs = uids
         };
-        var response = await _orchestrator.SendRequestAsync(HttpMethod.Post, MareFiles.ServerFilesFilesSendFullPath(_orchestrator.FilesCdnUri!), filesSendDto, ct).ConfigureAwait(false);
-        return await response.Content.ReadFromJsonAsync<List<UploadFileDto>>(cancellationToken: ct).ConfigureAwait(false) ?? [];
+        int attempt = 0;
+        while (true)
+        {
+            attempt++;
+            using var response = await _orchestrator.SendRequestAsync(HttpMethod.Post, MareFiles.ServerFilesFilesSendFullPath(_orchestrator.FilesCdnUri!), filesSendDto, ct).ConfigureAwait(false);
+            if (response.StatusCode == HttpStatusCode.TooManyRequests && attempt < MaxRateLimitAttempts)
+            {
+                var wait = RateLimitRetryDelay(response.Headers.RetryAfter, attempt);
+                Logger.LogWarning("FilesSend limité par le serveur (429), nouvel essai dans {delay:F0}s ({attempt}/{max})", wait.TotalSeconds, attempt, MaxRateLimitAttempts);
+                await Task.Delay(wait, ct).ConfigureAwait(false);
+                continue;
+            }
+
+            if (!response.IsSuccessStatusCode)
+            {
+                Logger.LogWarning("FilesSend a échoué avec HTTP {status}", (int)response.StatusCode);
+                response.EnsureSuccessStatusCode();
+            }
+
+            return await response.Content.ReadFromJsonAsync<List<UploadFileDto>>(cancellationToken: ct).ConfigureAwait(false) ?? [];
+        }
+    }
+
+    // Repris de Snowcloak (UploadRateLimitRetry) : Retry-After s'il est fourni, sinon 5 s exponentiel, plafonné à 60 s.
+    private static TimeSpan RateLimitRetryDelay(RetryConditionHeaderValue? retryAfter, int attempt)
+    {
+        var value = retryAfter?.Delta ?? (retryAfter?.Date - DateTimeOffset.UtcNow);
+        if (value is not { } duration || duration <= TimeSpan.Zero)
+            duration = TimeSpan.FromSeconds(Math.Min(60, 5 * Math.Pow(2, attempt - 1)));
+        return duration < TimeSpan.FromMinutes(1) ? duration : TimeSpan.FromMinutes(1);
     }
 
     private HashSet<string> GetUnverifiedFiles(CharacterData data)
     {
         // Purge stale entries to prevent unbounded growth
-        var cutoff = DateTime.UtcNow.Subtract(TimeSpan.FromMinutes(20));
+        var cutoff = DateTime.UtcNow.Subtract(VerifiedUploadTtl);
         foreach (var key in _verifiedUploadedHashes.Keys.ToList())
         {
             if (_verifiedUploadedHashes.TryGetValue(key, out var ts) && ts < cutoff)
@@ -189,7 +220,7 @@ public sealed class FileUploadManager : DisposableMediatorSubscriberBase
                 verifiedTime = DateTime.MinValue;
             }
 
-            if (verifiedTime < DateTime.UtcNow.Subtract(TimeSpan.FromMinutes(10)))
+            if (verifiedTime < DateTime.UtcNow.Subtract(VerifiedUploadTtl))
             {
                 Logger.LogTrace("Verifying {item}, last verified: {date}", item, verifiedTime);
                 unverifiedUploadHashes.Add(item);
@@ -214,41 +245,47 @@ public sealed class FileUploadManager : DisposableMediatorSubscriberBase
 
         Logger.LogInformation("[{hash}] Uploading {size}", fileHash, UiSharedService.ByteToString(compressedFile.Length));
 
-        if (uploadToken.IsCancellationRequested) return;
+        uploadToken.ThrowIfCancellationRequested();
 
         const int maxRetries = 3;
-        for (int attempt = 1; attempt <= maxRetries; attempt++)
+        int attempt = 0;
+        int rateLimitedAttempts = 0;
+        while (true)
         {
+            TimeSpan wait;
             try
             {
                 await UploadFileStream(compressedFile, fileHash, munged: false, postProgress, uploadToken).ConfigureAwait(false);
                 _verifiedUploadedHashes[fileHash] = DateTime.UtcNow;
                 return;
             }
-            catch (OperationCanceledException)
+            catch (UploadRateLimitedException ex) when (rateLimitedAttempts + 1 < MaxRateLimitAttempts)
+            {
+                rateLimitedAttempts++;
+                wait = RateLimitRetryDelay(ex.RetryAfter, rateLimitedAttempts);
+                Logger.LogWarning("[{hash}] Upload limité par le serveur (429), nouvel essai dans {delay:F0}s ({attempt}/{max})",
+                    fileHash, wait.TotalSeconds, rateLimitedAttempts, MaxRateLimitAttempts);
+            }
+            catch (OperationCanceledException) when (uploadToken.IsCancellationRequested)
             {
                 Logger.LogDebug("[{hash}] Upload cancelled", fileHash);
-                return;
+                throw;
             }
             catch (Exception ex)
             {
+                // Inclut le timeout HttpClient (TaskCanceledException sans annulation de notre jeton)
+                attempt++;
                 if (attempt >= maxRetries)
                 {
                     Logger.LogWarning(ex, "[{hash}] Upload failed after {attempts} attempts", fileHash, maxRetries);
-                    return;
+                    throw;
                 }
 
+                wait = TimeSpan.FromSeconds(attempt);
                 Logger.LogWarning(ex, "[{hash}] Upload failed (attempt {attempt}/{max}), retrying", fileHash, attempt, maxRetries);
-                try
-                {
-                    await Task.Delay(TimeSpan.FromSeconds(attempt), uploadToken).ConfigureAwait(false);
-                }
-                catch (OperationCanceledException)
-                {
-                    Logger.LogDebug("[{hash}] Upload cancelled during retry delay", fileHash);
-                    return;
-                }
             }
+
+            await Task.Delay(wait, uploadToken).ConfigureAwait(false);
         }
     }
 
@@ -280,6 +317,9 @@ public sealed class FileUploadManager : DisposableMediatorSubscriberBase
 
         using var response = await _orchestrator.SendRequestStreamAsync(HttpMethod.Post, uploadUri, streamContent, uploadToken).ConfigureAwait(false);
 
+        if (response.StatusCode == HttpStatusCode.TooManyRequests)
+            throw new UploadRateLimitedException(response.Headers.RetryAfter);
+
         if (!response.IsSuccessStatusCode)
         {
             Logger.LogWarning("[{hash}] Upload failed with HTTP {status}", fileHash, (int)response.StatusCode);
@@ -291,7 +331,9 @@ public sealed class FileUploadManager : DisposableMediatorSubscriberBase
 
     private async Task UploadUnverifiedFiles(HashSet<string> unverifiedUploadHashes, List<UserData> visiblePlayers, CancellationToken uploadToken)
     {
-        unverifiedUploadHashes = unverifiedUploadHashes.Where(h => _fileDbManager.GetFileCacheByHash(h) != null).ToHashSet(StringComparer.Ordinal);
+        var locallyMissing = unverifiedUploadHashes.Where(h => _fileDbManager.GetFileCacheByHash(h) == null).ToList();
+        if (locallyMissing.Count > 0)
+            throw new MissingLocalUploadFilesException(locallyMissing);
 
         Logger.LogDebug("Verifying {count} files", unverifiedUploadHashes.Count);
         var filesToUpload = await FilesSend([.. unverifiedUploadHashes], visiblePlayers.Select(p => p.UID).ToList(), uploadToken).ConfigureAwait(false);
@@ -308,7 +350,14 @@ public sealed class FileUploadManager : DisposableMediatorSubscriberBase
             catch (Exception ex)
             {
                 Logger.LogWarning(ex, "Tried to request file {hash} but file was not present", file.Hash);
+                locallyMissing.Add(file.Hash);
             }
+        }
+
+        if (locallyMissing.Count > 0)
+        {
+            CurrentUploads.Clear();
+            throw new MissingLocalUploadFilesException(locallyMissing);
         }
 
         foreach (var file in filesToUpload.Where(c => c.IsForbidden))
@@ -327,40 +376,66 @@ public sealed class FileUploadManager : DisposableMediatorSubscriberBase
         var totalSize = CurrentUploads.Sum(c => c.Total);
         Logger.LogDebug("Compressing and uploading files");
         var toUpload = CurrentUploads.Where(f => f.CanBeTransferred && !f.IsTransferred).ToList();
-        using (var uploadSemaphore = new SemaphoreSlim(MaxParallelUploads))
+        try
         {
-            var uploadTasks = toUpload.Select(async file =>
+            using (var uploadSemaphore = new SemaphoreSlim(MaxParallelUploads))
             {
-                await uploadSemaphore.WaitAsync(uploadToken).ConfigureAwait(false);
-                try
+                var uploadTasks = toUpload.Select(async file =>
                 {
-                    Logger.LogDebug("[{hash}] Compressing", file);
-                    var data = await _fileDbManager.GetCompressedFileData(file.Hash, uploadToken).ConfigureAwait(false);
-                    file.Total = data.Item2.Length;
-                    Logger.LogDebug("[{hash}] Starting upload for {filePath}", file.Hash, _fileDbManager.GetFileCacheByHash(file.Hash)!.ResolvedFilepath);
-                    await UploadFile(data.Item2, file.Hash, true, uploadToken).ConfigureAwait(false);
-                }
-                finally
-                {
-                    uploadSemaphore.Release();
-                }
-            }).ToList();
-            await Task.WhenAll(uploadTasks).ConfigureAwait(false);
-        }
+                    await uploadSemaphore.WaitAsync(uploadToken).ConfigureAwait(false);
+                    try
+                    {
+                        Logger.LogDebug("[{hash}] Compressing", file);
+                        (string, byte[]) data;
+                        try
+                        {
+                            data = await _fileDbManager.GetCompressedFileData(file.Hash, uploadToken).ConfigureAwait(false);
+                        }
+                        catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException)
+                        {
+                            throw new MissingLocalUploadFilesException([file.Hash]);
+                        }
+                        file.Total = data.Item2.Length;
+                        Logger.LogDebug("[{hash}] Starting upload for {filePath}", file.Hash, _fileDbManager.GetFileCacheByHash(file.Hash)?.ResolvedFilepath);
+                        await UploadFile(data.Item2, file.Hash, true, uploadToken).ConfigureAwait(false);
+                    }
+                    finally
+                    {
+                        uploadSemaphore.Release();
+                    }
+                }).ToList();
+                await Task.WhenAll(uploadTasks).ConfigureAwait(false);
+            }
 
-        if (CurrentUploads.Count > 0)
+            if (CurrentUploads.Count > 0)
+            {
+                var compressedSize = CurrentUploads.Sum(c => c.Total);
+                Logger.LogDebug("Upload complete, compressed {size} to {compressed}", UiSharedService.ByteToString(totalSize), UiSharedService.ByteToString(compressedSize));
+
+                _fileDbManager.WriteOutFullCsv();
+            }
+
+            // Seuls les fichiers que le serveur n'a pas réclamés sont déjà présents chez lui
+            var requestedHashes = filesToUpload.Select(f => f.Hash).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            foreach (var file in unverifiedUploadHashes.Where(c => !requestedHashes.Contains(c)))
+            {
+                _verifiedUploadedHashes[file] = DateTime.UtcNow;
+            }
+        }
+        finally
         {
-            var compressedSize = CurrentUploads.Sum(c => c.Total);
-            Logger.LogDebug("Upload complete, compressed {size} to {compressed}", UiSharedService.ByteToString(totalSize), UiSharedService.ByteToString(compressedSize));
-
-            _fileDbManager.WriteOutFullCsv();
+            CurrentUploads.Clear();
         }
+    }
 
-        foreach (var file in unverifiedUploadHashes.Where(c => !CurrentUploads.Exists(u => string.Equals(u.Hash, c, StringComparison.Ordinal))))
-        {
-            _verifiedUploadedHashes[file] = DateTime.UtcNow;
-        }
+    public sealed class UploadRateLimitedException(RetryConditionHeaderValue? retryAfter) : Exception("Upload rate limited (HTTP 429)")
+    {
+        public RetryConditionHeaderValue? RetryAfter { get; } = retryAfter;
+    }
 
-        CurrentUploads.Clear();
+    public sealed class MissingLocalUploadFilesException(IReadOnlyCollection<string> missingHashes)
+        : Exception($"{missingHashes.Count} fichier(s) à uploader introuvable(s) localement")
+    {
+        public IReadOnlyCollection<string> MissingHashes { get; } = missingHashes;
     }
 }

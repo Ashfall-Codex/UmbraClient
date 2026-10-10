@@ -18,12 +18,19 @@ public sealed class CacheCreationService : DisposableMediatorSubscriberBase
     private readonly Dictionary<ObjectKind, GameObjectHandler> _cachesToCreate = [];
     private readonly PlayerDataFactory _characterDataFactory;
     private readonly CancellationTokenSource _cts = new();
-    private readonly CharacterData _playerData = new();
+    // Dernier état publié : jamais modifié en place, remplacé en bloc sous _playerDataLock
+    private CharacterData _playerData = new();
+    private readonly Lock _playerDataLock = new();
+    private readonly HashSet<ObjectKind> _kindsClearedDuringBuild = [];
     private readonly Dictionary<ObjectKind, GameObjectHandler> _playerRelatedObjects = [];
     private Task? _cacheCreationTask;
     private CancellationTokenSource? _globalDebounceCts;
     private readonly Lock _debounceLock = new();
+    private readonly HashSet<ObjectKind> _pendingDebouncedKinds = [];
+    private readonly Dictionary<ObjectKind, int> _buildFailures = [];
+    private const int MaxBuildRetries = 5;
     private int _pendingChangesCount;
+    private bool _disposed;
 
     private bool _isZoning = false;
     private bool _haltCharaDataCreation;
@@ -67,23 +74,25 @@ public sealed class CacheCreationService : DisposableMediatorSubscriberBase
             if (msg.GameObjectHandler != _playerRelatedObjects[ObjectKind.Player]) return;
 
             Logger.LogTrace("Removing pet data for {obj}", msg.GameObjectHandler);
-            _playerData.FileReplacements.Remove(ObjectKind.Pet);
-            _playerData.GlamourerString.Remove(ObjectKind.Pet);
-            _playerData.CustomizePlusScale.Remove(ObjectKind.Pet);
-            Mediator.Publish(new CharacterDataCreatedMessage(_playerData.ToAPI()));
+            RemoveKindAndPublish(ObjectKind.Pet);
         });
 
         Mediator.Subscribe<ClearCacheForObjectMessage>(this, (msg) =>
         {
             // ignore pets
             if (msg.ObjectToCreateFor == _playerRelatedObjects[ObjectKind.Pet]) return;
+            var kind = msg.ObjectToCreateFor.ObjectKind;
             _ = Task.Run(() =>
             {
-                Logger.LogTrace("Clearing cache for {obj}", msg.ObjectToCreateFor);
-                _playerData.FileReplacements.Remove(msg.ObjectToCreateFor.ObjectKind);
-                _playerData.GlamourerString.Remove(msg.ObjectToCreateFor.ObjectKind);
-                _playerData.CustomizePlusScale.Remove(msg.ObjectToCreateFor.ObjectKind);
-                Mediator.Publish(new CharacterDataCreatedMessage(_playerData.ToAPI()));
+                try
+                {
+                    Logger.LogTrace("Clearing cache for {obj}", msg.ObjectToCreateFor);
+                    RemoveKindAndPublish(kind);
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogWarning(ex, "Erreur lors du nettoyage des données de {kind}", kind);
+                }
             });
         });
 
@@ -155,19 +164,57 @@ public sealed class CacheCreationService : DisposableMediatorSubscriberBase
     {
         base.Dispose(disposing);
 
-        _playerRelatedObjects.Values.ToList().ForEach(p => p.Dispose());
-        _globalDebounceCts?.Cancel();
-        _globalDebounceCts?.Dispose();
-        _cts.Dispose();
+        if (_disposed) return;
+        _disposed = true;
+
+        try
+        {
+            _playerRelatedObjects.Values.ToList().ForEach(p => p.Dispose());
+            lock (_debounceLock)
+            {
+                _globalDebounceCts?.Cancel();
+                _globalDebounceCts?.Dispose();
+                _globalDebounceCts = null;
+            }
+            _cts.Cancel();
+            _cts.Dispose();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Erreur pendant le Dispose de CacheCreationService");
+        }
     }
-    
+
+    private void RemoveKindAndPublish(ObjectKind kind)
+    {
+        CharacterData updated;
+        lock (_playerDataLock)
+        {
+            updated = PlayerDataFactory.CloneForBuild(_playerData);
+            RemoveKind(updated, kind);
+            _playerData = updated;
+            _kindsClearedDuringBuild.Add(kind);
+        }
+        Mediator.Publish(new CharacterDataCreatedMessage(updated.ToAPI()));
+    }
+
+    private static void RemoveKind(CharacterData data, ObjectKind kind)
+    {
+        data.FileReplacements.Remove(kind);
+        data.GlamourerString.Remove(kind);
+        data.CustomizePlusScale.Remove(kind);
+    }
+
     private void QueueCacheCreationDebounced(ObjectKind kind, TimeSpan? customDelay = null)
     {
         var delay = customDelay ?? GlobalDebounceDelay;
 
         lock (_debounceLock)
         {
-            // Cancel any pending debounce timer
+            if (_disposed) return;
+
+            // Les kinds s'accumulent : un seul timer, mais aucun changement n'est perdu
+            _pendingDebouncedKinds.Add(kind);
             _globalDebounceCts?.Cancel();
             _globalDebounceCts?.Dispose();
             _globalDebounceCts = new CancellationTokenSource();
@@ -180,22 +227,75 @@ public sealed class CacheCreationService : DisposableMediatorSubscriberBase
                 {
                     await Task.Delay(delay, token).ConfigureAwait(false);
 
-                    await QueueCacheCreation(kind).ConfigureAwait(false);
+                    List<ObjectKind> kinds;
                     lock (_debounceLock)
                     {
+                        if (token.IsCancellationRequested) return;
+                        kinds = [.. _pendingDebouncedKinds];
+                        _pendingDebouncedKinds.Clear();
                         if (_pendingChangesCount > 1)
                         {
-                            Logger.LogDebug("Debounce coalesced {count} changes into single update", _pendingChangesCount);
+                            Logger.LogDebug("Debounce coalesced {count} changes into single update ({kinds})", _pendingChangesCount, string.Join(", ", kinds));
                         }
                         _pendingChangesCount = 0;
+                    }
+
+                    foreach (var pendingKind in kinds)
+                    {
+                        await QueueCacheCreation(pendingKind).ConfigureAwait(false);
                     }
                 }
                 catch (OperationCanceledException)
                 {
                     // Expected when debounce is reset
                 }
-            }, token);
+                catch (Exception ex)
+                {
+                    Logger.LogWarning(ex, "Erreur lors de la mise en file des reconstructions");
+                }
+            }, CancellationToken.None);
         }
+    }
+
+    private void ScheduleBuildRetry(ObjectKind kind, GameObjectHandler handler)
+    {
+        int failures;
+        lock (_debounceLock)
+        {
+            if (_disposed) return;
+            _buildFailures.TryGetValue(kind, out failures);
+            failures++;
+            if (failures > MaxBuildRetries)
+            {
+                _buildFailures.Remove(kind);
+                Logger.LogWarning("Construction des données de {kind} abandonnée après {count} échecs, en attente du prochain changement", kind, MaxBuildRetries);
+                return;
+            }
+            _buildFailures[kind] = failures;
+        }
+
+        var delay = TimeSpan.FromSeconds(Math.Min(30, 2 * Math.Pow(2, failures - 1)));
+        Logger.LogDebug("Nouvelle construction de {kind} dans {delay}s ({attempt}/{max})", kind, delay.TotalSeconds, failures, MaxBuildRetries);
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(delay, _cts.Token).ConfigureAwait(false);
+                await QueueCacheCreation(kind, handler).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                // arrêt du plugin
+            }
+            catch (ObjectDisposedException)
+            {
+                // arrêt du plugin
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "Erreur lors de la replanification de {kind}", kind);
+            }
+        });
     }
     private async Task QueueCacheCreation(ObjectKind kind, GameObjectHandler? handler = null)
     {
@@ -225,12 +325,64 @@ public sealed class CacheCreationService : DisposableMediatorSubscriberBase
             {
                 try
                 {
-                    foreach (var obj in toCreate)
+                    // Construction dans un objet neuf : l'état publié n'est remplacé qu'en cas de succès
+                    CharacterData workingData;
+                    lock (_playerDataLock)
                     {
-                        await _characterDataFactory.BuildCharacterData(_playerData, obj.Value, _cts.Token).ConfigureAwait(false);
+                        workingData = PlayerDataFactory.CloneForBuild(_playerData);
+                        _kindsClearedDuringBuild.Clear();
                     }
 
-                    Mediator.Publish(new CharacterDataCreatedMessage(_playerData.ToAPI()));
+                    int succeeded = 0;
+                    foreach (var obj in toCreate)
+                    {
+                        bool built;
+                        try
+                        {
+                            built = await _characterDataFactory.BuildCharacterData(workingData, obj.Value, _cts.Token).ConfigureAwait(false);
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            throw;
+                        }
+                        catch (Exception ex)
+                        {
+                            Logger.LogWarning(ex, "Échec de la construction des données de {kind}", obj.Key);
+                            built = false;
+                        }
+
+                        if (built)
+                        {
+                            succeeded++;
+                            lock (_debounceLock)
+                            {
+                                _buildFailures.Remove(obj.Key);
+                            }
+                        }
+                        else
+                        {
+                            ScheduleBuildRetry(obj.Key, obj.Value);
+                        }
+                    }
+
+                    if (succeeded == 0) return;
+
+                    lock (_playerDataLock)
+                    {
+                        // Un objet disparu pendant la construction ne doit pas être ressuscité
+                        foreach (var kind in _kindsClearedDuringBuild)
+                        {
+                            RemoveKind(workingData, kind);
+                        }
+                        _kindsClearedDuringBuild.Clear();
+                        _playerData = workingData;
+                    }
+
+                    Mediator.Publish(new CharacterDataCreatedMessage(workingData.ToAPI()));
+                }
+                catch (OperationCanceledException)
+                {
+                    Logger.LogDebug("Cache Creation cancelled");
                 }
                 catch (Exception ex)
                 {

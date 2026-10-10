@@ -65,8 +65,8 @@ public sealed class IpcCallerPenumbra : DisposableMediatorSubscriberBase, IIpcCa
     public void CheckAPI() => _core.CheckAPI();
     public void CheckModDirectory() => _core.CheckModDirectory();
     public Task<HashSet<string>?> GetEnabledModRootsAsync() => _modSettings.GetEnabledModRootsAsync();
-    public Task RedrawAsync(ILogger logger, GameObjectHandler handler, Guid applicationId, CancellationToken token)
-        => _redraw.RedrawAsync(logger, handler, applicationId, token);
+    public Task RedrawAsync(ILogger logger, GameObjectHandler handler, Guid applicationId, CancellationToken token, Func<bool>? skipIfRedrawn = null)
+        => _redraw.RedrawAsync(logger, handler, applicationId, token, skipIfRedrawn);
 
     public void RedrawNow(ILogger logger, Guid applicationId, int objectIndex)
         => _redraw.RedrawNow(logger, applicationId, objectIndex);

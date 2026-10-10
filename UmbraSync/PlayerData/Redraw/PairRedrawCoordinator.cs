@@ -92,6 +92,7 @@ public sealed class PairRedrawCoordinator : DisposableMediatorSubscriberBase
                 return;
 
             case PairRedrawDecision.SoftReapply:
+                if (AlreadyRedrawn(baseline, handler, callerLogger, applicationId, decision)) return;
                 callerLogger.LogDebug("[{applicationId}] Redraw decision: SoftReapply", applicationId);
                 await _ipcManager.Glamourer.ReapplyDirectAsync(callerLogger, handler, applicationId, token).ConfigureAwait(false);
                 return;
@@ -99,27 +100,44 @@ public sealed class PairRedrawCoordinator : DisposableMediatorSubscriberBase
             case PairRedrawDecision.DeferredSoftReapply:
                 callerLogger.LogDebug("[{applicationId}] Redraw decision: DeferredSoftReapply", applicationId);
                 await _dalamudUtil.WaitForFrameworkFramesAsync(DeferredSoftReapplyFrames, token).ConfigureAwait(false);
+                if (AlreadyRedrawn(baseline, handler, callerLogger, applicationId, decision)) return;
                 await _ipcManager.Glamourer.ReapplyDirectAsync(callerLogger, handler, applicationId, token).ConfigureAwait(false);
                 return;
 
             default: // HardRedraw (et tout cas inattendu, par prudence)
-                if (baseline is { } captured && HasRedrawSince(captured, handler.Address))
-                {
-                    callerLogger.LogDebug("[{applicationId}] Redraw decision: HardRedraw ignoré, Penumbra a déjà redessiné l'acteur depuis la pose des mods", applicationId);
-                    return;
-                }
-
+                if (AlreadyRedrawn(baseline, handler, callerLogger, applicationId, decision)) return;
                 callerLogger.LogDebug("[{applicationId}] Redraw decision: HardRedraw", applicationId);
-                await RedrawAsync(callerLogger, handler, applicationId, token).ConfigureAwait(false);
+                await RedrawAsync(callerLogger, handler, applicationId, token, baseline).ConfigureAwait(false);
                 return;
         }
     }
 
-    public async Task RedrawAsync(ILogger callerLogger, GameObjectHandler handler, Guid applicationId, CancellationToken token)
+    // Un redraw Penumbra survenu après la pose des mods a rechargé l'acteur avec ceux-ci :
+    // ni la réapplication Glamourer ni un second redraw n'apportent quoi que ce soit.
+    private bool AlreadyRedrawn(PairRedrawBaseline? baseline, GameObjectHandler handler, ILogger callerLogger, Guid applicationId, PairRedrawDecision decision)
     {
+        if (baseline is not { } captured || !HasRedrawSince(captured, handler.Address)) return false;
+        callerLogger.LogDebug("[{applicationId}] Redraw decision: {decision} ignoré, Penumbra a déjà redessiné l'acteur depuis la pose des mods", applicationId, decision);
+        return true;
+    }
+
+    public async Task RedrawAsync(ILogger callerLogger, GameObjectHandler handler, Guid applicationId, CancellationToken token,
+        PairRedrawBaseline? baseline = null)
+    {
+        // Revérifié sur le framework thread juste avant l'IPC : un redraw survenu pendant l'attente
+        // du créneau ou de l'espacement rend le nôtre inutile.
+        Func<bool>? skipIfRedrawn = baseline is { } captured
+            ? () =>
+            {
+                if (!HasRedrawSince(captured, handler.Address)) return false;
+                callerLogger.LogDebug("[{applicationId}] HardRedraw ignoré au dernier moment, Penumbra a redessiné l'acteur entre-temps", applicationId);
+                return true;
+            }
+            : null;
+
         if (!_configService.Current.EnableRedrawCoordination)
         {
-            await _ipcManager.Penumbra.RedrawAsync(callerLogger, handler, applicationId, token).ConfigureAwait(false);
+            await _ipcManager.Penumbra.RedrawAsync(callerLogger, handler, applicationId, token, skipIfRedrawn).ConfigureAwait(false);
             return;
         }
         
@@ -154,7 +172,7 @@ public sealed class PairRedrawCoordinator : DisposableMediatorSubscriberBase
             callerLogger.LogTrace("[{applicationId}] Redraw gate occupé > {timeout}s, espacement ignoré", applicationId, GateWaitTimeout.TotalSeconds);
         }
         
-        await _ipcManager.Penumbra.RedrawAsync(callerLogger, handler, applicationId, token).ConfigureAwait(false);
+        await _ipcManager.Penumbra.RedrawAsync(callerLogger, handler, applicationId, token, skipIfRedrawn).ConfigureAwait(false);
     }
 
     protected override void Dispose(bool disposing)
