@@ -11,14 +11,13 @@ using UmbraSync.Localization;
 using UmbraSync.MareConfiguration;
 using UmbraSync.Services;
 using UmbraSync.Services.Mediator;
+using UmbraSync.UI.Components;
 using Microsoft.Extensions.Logging;
 
 namespace UmbraSync.UI;
 
 public sealed class ChangelogUi : WindowMediatorSubscriberBase
 {
-    private const int AlwaysExpandedEntryCount = 1;
-
     private static readonly string[] WatchedExternalPlugins =
     [
         "Penumbra",
@@ -32,7 +31,6 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
     ];
 
     private readonly MareConfigService _configService;
-    private readonly UiSharedService _uiShared;
     private readonly IDalamudPluginInterface _pluginInterface;
     private readonly Version _currentVersion;
     private readonly string _currentVersionLabel;
@@ -41,16 +39,13 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
     private IReadOnlyList<(string Name, string Version)> _updatedExternalPlugins;
     private readonly Dictionary<string, string> _currentExternalSnapshot;
 
-    private bool _historyOpen;
-    private bool? _pendingHistoryOpenState;
     private bool _hasAcknowledgedVersion;
 
-    public ChangelogUi(ILogger<ChangelogUi> logger, UiSharedService uiShared, MareConfigService configService,
+    public ChangelogUi(ILogger<ChangelogUi> logger, MareConfigService configService,
         MareMediator mediator, PerformanceCollectorService performanceCollectorService,
         IDalamudPluginInterface pluginInterface)
         : base(logger, mediator, Loc.Get("ChangelogUi.WindowTitle") + "###UmbraSyncChangelog", performanceCollectorService)
     {
-        _uiShared = uiShared;
         _configService = configService;
         _pluginInterface = pluginInterface;
         _currentVersion = Assembly.GetExecutingAssembly().GetName().Version ?? new Version(0, 0, 0, 0);
@@ -64,13 +59,16 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
         RespectCloseHotkey = true;
         SizeConstraints = new()
         {
-            MinimumSize = new(520, 360),
-            MaximumSize = new(900, 1200)
+            MinimumSize = new(420, 320),
+            MaximumSize = new(900, 1400)
         };
-        Flags |= ImGuiWindowFlags.NoResize;
+        Size = new Vector2(560, 620);
+        SizeCondition = ImGuiCond.FirstUseEver;
         ShowCloseButton = true;
 
-        if (_isUmbraSyncUpdated)
+        // Le tour de nouveautés présente la version à la place du journal : un seul écran à l'ouverture.
+        // Une installation neuve a son assistant : le journal ne s'ouvre qu'une fois la configuration faite.
+        if (_isUmbraSyncUpdated && _configService.Current.HasValidSetup() && !_configService.Current.HasPendingWhatsNewTour())
         {
             IsOpen = true;
         }
@@ -162,105 +160,100 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
 
     protected override void DrawInternal()
     {
-        DrawHeader();
-        DrawActions();
-        ImGui.Separator();
-        DrawEntries();
-    }
+        float availWidth = ImGui.GetContentRegionAvail().X;
 
-    private void DrawHeader()
-    {
-        using (_uiShared.UidFont.Push())
+        WizardControls.DrawStepHeader(FontAwesomeIcon.FileAlt, Loc.Get("ChangelogUi.HeaderTitle"),
+            string.Format(CultureInfo.CurrentCulture, Loc.Get("ChangelogUi.LoadedVersion"), _currentVersionLabel), availWidth);
+
+        ImGui.PushTextWrapPos(ImGui.GetCursorPosX() + availWidth);
+        ImGui.TextColored(UiSharedService.AccentColor, Loc.Get("ChangelogUi.Tagline"));
+        ImGui.PopTextWrapPos();
+        ImGuiHelpers.ScaledDummy(6f);
+
+        // La liste laisse la place du bouton, sinon elle le pousse hors de la fenêtre.
+        float footer = ImGui.GetFrameHeightWithSpacing() + 4f * ImGuiHelpers.GlobalScale;
+        using (var list = ImRaii.Child("##changelog_entries", new Vector2(0f, -footer), false))
         {
-            ImGui.TextUnformatted(Loc.Get("ChangelogUi.HeaderTitle"));
+            if (list)
+                DrawEntries();
         }
 
-        ImGui.TextColored(ImGuiColors.DalamudGrey, string.Format(CultureInfo.CurrentCulture, Loc.Get("ChangelogUi.LoadedVersion"), _currentVersionLabel));
-        ImGui.Separator();
-    }
-
-    private void DrawActions()
-    {
-        var hasHistory = _entries.Count > AlwaysExpandedEntryCount;
-        if (hasHistory)
-        {
-            var label = _historyOpen ? Loc.Get("ChangelogUi.HideAll") : Loc.Get("ChangelogUi.ShowAll");
-            if (ImGui.Button(label))
-                _pendingHistoryOpenState = !_historyOpen;
-            ImGui.SameLine();
-        }
-        if (ImGui.Button(Loc.Get("ChangelogUi.MarkAsRead")))
+        if (ImGui.Button(Loc.Get("ChangelogUi.MarkAsRead"), new Vector2(ImGui.GetContentRegionAvail().X, 0f)))
         {
             MarkCurrentVersionAsReadIfNeeded();
             IsOpen = false;
         }
     }
 
+    // Seule la version courante est présentée : l'historique complet n'est plus affiché.
     private void DrawEntries()
     {
-        ImGuiHelpers.ScaledDummy(2f);
-
-        for (int i = 0; i < AlwaysExpandedEntryCount && i < _entries.Count; i++)
-            DrawEntry(_entries[i]);
-
-        if (_entries.Count <= AlwaysExpandedEntryCount)
-            return;
-
-        ImGuiHelpers.ScaledDummy(4f);
-
-        if (_pendingHistoryOpenState.HasValue)
-        {
-            ImGui.SetNextItemOpen(_pendingHistoryOpenState.Value, ImGuiCond.Always);
-            _pendingHistoryOpenState = null;
-        }
-
-        var historyLabel = $"{Loc.Get("ChangelogUi.FullHistory")} ({_entries.Count - AlwaysExpandedEntryCount})";
-        _historyOpen = ImGui.CollapsingHeader(historyLabel);
-        if (_historyOpen)
-        {
-            for (int j = AlwaysExpandedEntryCount; j < _entries.Count; j++)
-                DrawEntry(_entries[j]);
-        }
+        if (_entries.Count > 0)
+            DrawEntry(_entries[0]);
+        UiSharedService.EndSectionCard();
     }
 
+    // Une carte par version ; les lignes sont rangées par nature (nouveautés, améliorations, corrections…).
     private void DrawEntry(ChangelogEntry entry)
     {
-        using (ImRaii.PushId(entry.VersionLabel))
+        bool isCurrent = entry.Version == _currentVersion;
+        UiSharedService.BeginSectionCard(entry.VersionLabel, FontAwesomeIcon.CodeBranch,
+            trailing: isCurrent ? Loc.Get("ChangelogUi.CurrentTag") : null);
+
+        foreach (var kind in SectionOrder)
         {
-            UiSharedService.DrawCard($"changelog_{entry.VersionLabel}", () =>
+            var lines = entry.Lines.Where(l => DetectLineKind(l.Text) == kind).ToList();
+            if (lines.Count == 0) continue;
+
+            if (kind != LineKind.Generic)
             {
-                DrawVersionPill(entry);
-                ImGuiHelpers.ScaledDummy(4f);
-                foreach (var line in entry.Lines)
-                {
-                    DrawLine(line);
-                }
-            }, stretchWidth: true);
+                var (color, icon) = GetLineStyle(kind);
+                using (ImRaii.PushFont(UiBuilder.IconFont))
+                    ImGui.TextColored(color, icon.ToIconString());
+                ImGui.SameLine();
+                ImGui.TextColored(color, Loc.Get(SectionTitleKey(kind)));
+            }
+
+            foreach (var line in lines)
+                DrawBullet(line, kind);
+
             ImGuiHelpers.ScaledDummy(4f);
         }
     }
 
-    private void DrawVersionPill(ChangelogEntry entry)
+    private static void DrawBullet(ChangelogLine line, LineKind kind)
     {
-        var isCurrent = entry.Version == _currentVersion;
-        var color = isCurrent ? ImGuiColors.HealerGreen : ImGuiColors.DalamudWhite;
-        var bg = color; bg.W = 0.18f;
-        var border = color; border.W = 0.55f;
-
-        var padX = 8f * ImGuiHelpers.GlobalScale;
-        var padY = 2f * ImGuiHelpers.GlobalScale;
-        var rounding = 4f * ImGuiHelpers.GlobalScale;
-        var label = isCurrent ? $"{entry.VersionLabel}  \u2022  actuelle" : entry.VersionLabel;
-        var textSize = ImGui.CalcTextSize(label);
-        var dl = ImGui.GetWindowDrawList();
-        var min = ImGui.GetCursorScreenPos();
-        var max = min + new Vector2(textSize.X + padX * 2, textSize.Y + padY * 2);
-        dl.AddRectFilled(min, max, ImGui.ColorConvertFloat4ToU32(bg), rounding);
-        dl.AddRect(min, max, ImGui.ColorConvertFloat4ToU32(border), rounding);
-        ImGui.SetCursorScreenPos(min + new Vector2(padX, padY));
-        ImGui.TextColored(color, label);
-        ImGui.SetCursorScreenPos(new Vector2(min.X, max.Y + ImGui.GetStyle().ItemSpacing.Y));
+        float bulletWidth = 14f * ImGuiHelpers.GlobalScale;
+        float indent = bulletWidth * (1 + Math.Max(0, line.IndentLevel));
+        ImGui.Indent(indent);
+        float x = ImGui.GetCursorPosX();
+        ImGui.SetCursorPosX(x - bulletWidth);
+        ImGui.TextColored(line.Color ?? ImGuiColors.DalamudGrey, "\u2022");
+        ImGui.SameLine(x);
+        ImGui.TextUnformatted(StripKindPrefix(line.Text, kind));
+        ImGui.Unindent(indent);
+        ImGuiHelpers.ScaledDummy(1f);
     }
+
+    // Le titre de section dit déjà la nature : « Nouveauté : » en tête de ligne serait redondant.
+    private static string StripKindPrefix(string text, LineKind kind)
+    {
+        if (kind == LineKind.Generic) return text;
+
+        int colon = text.IndexOf(':', StringComparison.Ordinal);
+        return colon is > 0 and < 24 ? text[(colon + 1)..].TrimStart() : text;
+    }
+
+    private static readonly LineKind[] SectionOrder =
+        [LineKind.New, LineKind.Improve, LineKind.Fix, LineKind.Other, LineKind.Generic];
+
+    private static string SectionTitleKey(LineKind kind) => kind switch
+    {
+        LineKind.New => "ChangelogUi.Section.New",
+        LineKind.Improve => "ChangelogUi.Section.Improve",
+        LineKind.Fix => "ChangelogUi.Section.Fix",
+        _ => "ChangelogUi.Section.Other",
+    };
 
     private static readonly Vector4 ColorNew = new(0.4f, 0.9f, 0.4f, 1f);
     private static readonly Vector4 ColorImprove = new(0.6f, 0.8f, 1f, 1f);
@@ -275,7 +268,8 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
         if (text.StartsWith("Am\u00e9lioration", StringComparison.OrdinalIgnoreCase)) return LineKind.Improve;
         if (text.StartsWith("Correct", StringComparison.OrdinalIgnoreCase)) return LineKind.Fix;
         if (text.StartsWith("Autre", StringComparison.OrdinalIgnoreCase)
-            || text.StartsWith("Mise \u00e0 jour", StringComparison.OrdinalIgnoreCase)) return LineKind.Other;
+            || text.StartsWith("Mise \u00e0 jour", StringComparison.OrdinalIgnoreCase)
+            || text.StartsWith("Optimisation", StringComparison.OrdinalIgnoreCase)) return LineKind.Other;
         return LineKind.Generic;
     }
 
@@ -287,26 +281,6 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
         LineKind.Other => (ColorOther, FontAwesomeIcon.Cog),
         _ => (ImGuiColors.DalamudWhite, FontAwesomeIcon.CircleNotch),
     };
-
-    private static void DrawLine(ChangelogLine line)
-    {
-        using var indent = line.IndentLevel > 0 ? ImRaii.PushIndent(line.IndentLevel) : null;
-        var kind = DetectLineKind(line.Text);
-        var (autoColor, icon) = GetLineStyle(kind);
-        var color = line.Color ?? autoColor;
-
-        var iconSpacing = 6f * ImGuiHelpers.GlobalScale;
-        using (ImRaii.PushFont(UiBuilder.IconFont))
-            ImGui.TextColored(color, icon.ToIconString());
-        ImGui.SameLine(0, iconSpacing);
-        var wrapPos = ImGui.GetWindowContentRegionMax().X - 4f * ImGuiHelpers.GlobalScale;
-        ImGui.PushTextWrapPos(wrapPos);
-        ImGui.PushStyleColor(ImGuiCol.Text, color);
-        ImGui.TextUnformatted(line.Text);
-        ImGui.PopStyleColor();
-        ImGui.PopTextWrapPos();
-        ImGui.Dummy(new Vector2(0, 2f * ImGuiHelpers.GlobalScale));
-    }
 
     private void MarkCurrentVersionAsReadIfNeeded()
     {
@@ -342,6 +316,16 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
     {
         return new List<ChangelogEntry>
         {
+            new(new Version(3, 1, 0, 0), "3.1.0.0", new List<ChangelogLine>
+            {
+                new("Nouveauté : Une bannière personnalisée pour votre profil RP, avec un bouton « Aperçu de la carte » dans l'éditeur. La bannière s'affiche sur la fiche et dans l'infobulle de cible. Une fiche n'affiche plus qu'un seul personnage, avec son propre titre et ses propres Moodles."),
+                new("Nouveauté : Les demandes d'ami acceptées créent la paire tout de suite, sans seconde confirmation. Le blocage d'un joueur passe par le serveur et vos blocages locaux y sont repris à la première connexion."),
+                new("Nouveauté : Une gestion complète des fichiers et des dossiers MCDF, et l'envoi des gros partages MCDF en streaming."),
+                new("Nouveauté : Un nouveau style d'interface : barre latérale, interrupteurs, curseurs et sélecteurs harmonisés, flou d'arrière-plan et transparence réglables, mode « verre clair » en GPose, recherche dans les paramètres."),
+                new("Amélioration : L'envoi, le téléchargement, l'application et le cache ont été fiabilisés. Un fichier absent du serveur est renvoyé à la demande."),
+                new("Amélioration : En logement, seuls les meubles concernés sont rechargés : les revêtements et les papiers peints ne sautent plus."),
+                new("Autre : Le périmètre des données traitées a évolué (RGPD) : un nouvel accord vous est demandé, avec des traitements facultatifs que vous activez ou coupez à tout moment dans Paramètres, onglet « Vie privée »."),
+            }),
             new(new Version(3, 0, 5, 9025), "3.0.5.9025", new List<ChangelogLine>
             {
                 new("Correction : Suite à une mise à jour de Dalamud, plusieurs fonctions ne marchaient plus : détection des joueurs à proximité, poses et placement Brio en GPose, GPose Together, PNJ de logement et application de MCDF. Elles fonctionnent de nouveau."),

@@ -307,6 +307,29 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
     public bool EditTrackerPosition { get; set; }
 
     public IFontHandle GameFont { get; init; }
+    public IReadOnlyList<(string Name, bool Exists, string? HintKey)> GetOptionalPluginStates() =>
+    [
+        ("SimpleHeels", _heelsExists, null),
+        ("Customize+", _customizePlusExists, null),
+        ("Honorific", _honorificExists, null),
+        ("PetNicknames", _petNamesExists, null),
+        ("Moodles", _moodlesExists, null),
+        ("Brio", _brioExists, null),
+        ("A Quest Reborn", _questRebornExists, null),
+        ("A Realm Repopulated", _aRealmRepopulatedExists, null),
+    ];
+
+    public IReadOnlyList<(string Name, bool Exists, string? HintKey)> GetDetectedPluginStates() =>
+    [
+        ("Chat2", _chatTwoExists, "Settings.Plugins.Chat2.Hint"),
+        ("Chat Proximity", _chatProximityExists, "Settings.Plugins.ChatProximity.Hint"),
+        ("ChatAlert", _chatAlertExists, "Settings.Plugins.ChatAlert.Hint"),
+        ("SimpleTweaks", _simpleTweaksExists, "Settings.Plugins.SimpleTweaks.Hint"),
+    ];
+
+    public bool PenumbraAvailable => _penumbraExists;
+    public bool GlamourerAvailable => _glamourerExists;
+    public bool MandatoryPluginsAvailable => _penumbraExists && _glamourerExists;
     public bool HasValidPenumbraModPath => !(_ipcManager.Penumbra.ModDirectory ?? string.Empty).IsNullOrEmpty() && Directory.Exists(_ipcManager.Penumbra.ModDirectory);
 
     public IFontHandle IconFont { get; init; }

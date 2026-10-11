@@ -187,6 +187,9 @@ public record RgpdDataExportReadyMessage(string? ExportPath) : MessageBase;
 public record RgpdLocalDataDeletionRequestMessage : MessageBase;
 public record RgpdLocalDataDeletionCompleteMessage : MessageBase;
 public record SwitchToRgpdConsentUiMessage : MessageBase;
+// ServicesPending : MarePlugin n'a pas lancé les services (consentement manquant) ; le tour doit publier
+// SwitchToMainUiMessage une fois le consentement donné et la connexion établie.
+public record SwitchToWhatsNewUiMessage(bool ServicesPending) : MessageBase;
 public record EstablishmentEnteredMessage(UmbraSync.API.Dto.Establishment.EstablishmentDto Establishment) : MessageBase;
 public record EstablishmentLeftMessage : MessageBase;
 public record OpenEstablishmentDetailMessage(Guid EstablishmentId) : MessageBase;

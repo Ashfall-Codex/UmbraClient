@@ -239,6 +239,75 @@ public class EditProfileUi : WindowMediatorSubscriberBase
             Base64RpBanner: _rpBannerImage.Length > 0 ? Convert.ToBase64String(_rpBannerImage) : null
         );
     }
+    private void PushStandalonePreview()
+    {
+        var myUserData = new UserData(_apiController.UID, _apiController.DisplayName);
+        var pair = _pairManager.GetPairByUID(_apiController.UID) ?? _pairFactory.Create(myUserData);
+
+        SetProfilePreview();
+        Mediator.Publish(new ProfileOpenStandaloneMessage(pair));
+    }
+
+    public RpProfileVisibility GetRpVisibility() => _rpConfigService.GetCurrentCharacterProfile().RpVisibility;
+
+    // Réglage enregistré tout de suite, sans passer par « Sauvegarder le profil » : le reste de la fiche
+    // reprend les valeurs du serveur. Renvoie false si le personnage n'est pas encore résolu.
+    public bool SetRpVisibility(RpProfileVisibility visibility)
+    {
+        var charName = _dalamudUtil.GetPlayerName();
+        var worldId = _dalamudUtil.GetHomeWorldId();
+        if (string.IsNullOrEmpty(charName) || string.Equals(charName, "--", StringComparison.Ordinal) || worldId == 0)
+            return false;
+
+        var profile = _rpConfigService.GetCurrentCharacterProfile();
+        if (profile.RpVisibility == visibility) return true;
+        profile.RpVisibility = visibility;
+        _rpConfigService.Save();
+        _rpVisibility = visibility;
+        _savedRpVisibility = visibility;
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                var curProfile = await _apiController.UserGetProfile(new UserDto(new UserData(_apiController.UID, _apiController.DisplayName))).ConfigureAwait(false);
+                _logger.LogInformation("Setting RP visibility to {visibility} for {uid}", visibility, _apiController.UID);
+                await _apiController.UserSetProfile(new UserProfileDto(new UserData(_apiController.UID, _apiController.DisplayName), curProfile.Disabled, curProfile.IsNSFW, curProfile.ProfilePictureBase64, curProfile.Description)
+                {
+                    CharacterName = charName,
+                    WorldId = worldId,
+                    RpProfilePictureBase64 = curProfile.RpProfilePictureBase64,
+                    RpDescription = curProfile.RpDescription,
+                    IsRpNSFW = curProfile.IsRpNSFW,
+                    RpFirstName = curProfile.RpFirstName,
+                    RpLastName = curProfile.RpLastName,
+                    RpTitle = curProfile.RpTitle,
+                    RpAge = curProfile.RpAge,
+                    RpRace = curProfile.RpRace,
+                    RpEthnicity = curProfile.RpEthnicity,
+                    RpHeight = curProfile.RpHeight,
+                    RpBuild = curProfile.RpBuild,
+                    RpResidence = curProfile.RpResidence,
+                    RpOccupation = curProfile.RpOccupation,
+                    RpAffiliation = curProfile.RpAffiliation,
+                    RpAlignment = curProfile.RpAlignment,
+                    RpAdditionalInfo = curProfile.RpAdditionalInfo,
+                    RpNameColor = curProfile.RpNameColor,
+                    RpCustomFields = curProfile.RpCustomFields,
+                    MoodlesData = curProfile.MoodlesData,
+                    RpVisibility = visibility
+                }).ConfigureAwait(false);
+                Mediator.Publish(new ClearProfileDataMessage(new UserData(_apiController.UID), charName, worldId));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to save RP visibility");
+                Mediator.Publish(new NotificationMessage(Loc.Get("EditProfile.SaveErrorTitle"), Loc.Get("EditProfile.SaveErrorBody"), NotificationType.Error));
+            }
+        });
+        return true;
+    }
+
     private void PushPreview()
     {
         var previewProfileData = SetProfilePreview();
@@ -266,13 +335,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
         if (accent.W <= 0f) accent = ImGuiColors.ParsedPurple;
 
         if (_uiSharedService.IconTextButton(FontAwesomeIcon.Eye, Loc.Get("EditProfile.PreviewButton")))
-        {
-            var myUserData = new UserData(_apiController.UID, _apiController.DisplayName);
-            var pair = _pairManager.GetPairByUID(_apiController.UID) ?? _pairFactory.Create(myUserData);
-
-            SetProfilePreview();
-            Mediator.Publish(new ProfileOpenStandaloneMessage(pair));
-        }
+            PushStandalonePreview();
         ImGui.SameLine();
         if (_uiSharedService.IconTextButton(FontAwesomeIcon.Tag, Loc.Get("EditProfile.SetCustomId.Button")))
         {
@@ -754,7 +817,6 @@ public class EditProfileUi : WindowMediatorSubscriberBase
             DrawBannerSection(w);
 
             UiSharedService.BeginSectionCard(Loc.Get("EditProfile.Card.TitleChat"), FontAwesomeIcon.Crown);
-            w = ImGui.GetContentRegionAvail().X;
 
             _honorificEditor.Draw();
 
@@ -763,7 +825,6 @@ public class EditProfileUi : WindowMediatorSubscriberBase
             _chatIconPicker.Draw();
 
             UiSharedService.BeginSectionCard(Loc.Get("EditProfile.Card.Visibility"), FontAwesomeIcon.SlidersH);
-            w = ImGui.GetContentRegionAvail().X;
 
             DrawRpLevelSelector();
 

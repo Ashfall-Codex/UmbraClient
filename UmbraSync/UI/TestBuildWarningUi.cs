@@ -41,7 +41,9 @@ public sealed class TestBuildWarningUi : WindowMediatorSubscriberBase
         ShowCloseButton = false;
         RespectCloseHotkey = false;
 
+        // Premier lancement : l'assistant d'installation porte lui-même l'avertissement, une seule fenêtre s'ouvre.
         if (isTestBuild
+            && _configService.Current.AcceptedAgreement
             && !string.Equals(_configService.Current.LastTestBuildWarningVersionSeen, _versionLabel, StringComparison.Ordinal))
         {
             IsOpen = true;

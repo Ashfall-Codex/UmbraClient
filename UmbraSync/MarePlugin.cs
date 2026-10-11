@@ -118,12 +118,25 @@ public class MarePlugin : MediatorSubscriberBase, IHostedService
                 return;
             }
 
+            var whatsNewPending = _mareConfigService.Current.HasPendingWhatsNewTour();
             if (!_rgpdDataService.IsRgpdConsentValid)
             {
-                Logger.LogInformation("RGPD consent missing or expired, showing consent screen");
-                Mediator.Publish(new SwitchToRgpdConsentUiMessage());
+                if (whatsNewPending)
+                {
+                    // Le tour de la version embarque la page de consentement.
+                    Logger.LogInformation("RGPD consent missing or expired, showing what's new tour");
+                    Mediator.Publish(new SwitchToWhatsNewUiMessage(ServicesPending: true));
+                }
+                else
+                {
+                    Logger.LogInformation("RGPD consent missing or expired, showing consent screen");
+                    Mediator.Publish(new SwitchToRgpdConsentUiMessage());
+                }
                 return;
             }
+
+            if (whatsNewPending)
+                Mediator.Publish(new SwitchToWhatsNewUiMessage(ServicesPending: false));
             _runtimeServiceScope.ServiceProvider.GetRequiredService<CacheCreationService>();
             _runtimeServiceScope.ServiceProvider.GetRequiredService<TransientResourceManager>();
             _runtimeServiceScope.ServiceProvider.GetRequiredService<OnlinePlayerManager>();

@@ -80,19 +80,21 @@ public sealed class PenumbraPrecacheService : DisposableMediatorSubscriberBase, 
         }
     }
 
-    public void TriggerManualPrecache()
+    // ignoreEnableSetting : l'utilisateur le demande explicitement (tour de nouveautés), même si le
+    // pré-cache automatique est désactivé dans les paramètres.
+    public void TriggerManualPrecache(bool ignoreEnableSetting = false)
     {
-        TriggerScan("Manual");
+        TriggerScan("Manual", ignoreEnableSetting);
     }
 
-    private void TriggerScan(string source)
+    private void TriggerScan(string source, bool ignoreEnableSetting = false)
     {
         if (_disposed || _stopping || _cts.IsCancellationRequested)
         {
             return;
         }
 
-        if (!_configService.Current.EnablePenumbraPrecache)
+        if (!ignoreEnableSetting && !_configService.Current.EnablePenumbraPrecache)
         {
             Logger.LogDebug("PenumbraPrecache disabled; ignoring trigger {source}", source);
             return;
