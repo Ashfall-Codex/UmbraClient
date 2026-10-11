@@ -2192,11 +2192,11 @@ public class SettingsUi : WindowMediatorSubscriberBase
         {
             using (ImRaii.PushIndent(20f))
             {
-                if (_validationTask.IsCompleted)
+                if (_validationTask.IsCompletedSuccessfully)
                 {
                     UiSharedService.TextWrapped(Loc.Get("Settings.Storage.Validation.Done", _validationTask.Result.Count));
                 }
-                else
+                else if (!_validationTask.IsCompleted)
                 {
 
                     UiSharedService.TextWrapped(Loc.Get("Settings.Storage.Validation.Running", _currentProgress.Item1, _currentProgress.Item2));

@@ -81,14 +81,14 @@ public sealed partial class CharaDataHubUi
                         {
                             _charaDataManager.CancelUpload();
                         }
-                        else if (_charaDataManager.UploadTask?.IsCompleted ?? false)
+                        else if (_charaDataManager.UploadTask?.IsCompletedSuccessfully ?? false)
                         {
                             var color = UiSharedService.GetSuccessColor(_charaDataManager.UploadTask.Result.Success);
                             UiSharedService.ColorTextWrapped(_charaDataManager.UploadTask.Result.Output, color);
                         }
                     });
                 }
-                else if (_charaDataManager.UploadTask?.IsCompleted ?? false)
+                else if (_charaDataManager.UploadTask?.IsCompletedSuccessfully ?? false)
                 {
                     var color = UiSharedService.GetSuccessColor(_charaDataManager.UploadTask.Result.Success);
                     UiSharedService.ColorTextWrapped(_charaDataManager.UploadTask.Result.Output, color);
@@ -664,7 +664,7 @@ public sealed partial class CharaDataHubUi
         {
             UiSharedService.ColorTextWrapped(Loc.Get("CharaDataHub.Mcd.Online.Creating"), UiSharedService.AccentColor);
         }
-        else if (_charaDataManager.DataCreationTask != null && _charaDataManager.DataCreationTask.IsCompleted)
+        else if (_charaDataManager.DataCreationTask is { IsCompletedSuccessfully: true })
         {
             var color = _charaDataManager.DataCreationTask.Result.Success ? ImGuiColors.HealerGreen : UiSharedService.AccentColor;
             UiSharedService.ColorTextWrapped(_charaDataManager.DataCreationTask.Result.Output, color);

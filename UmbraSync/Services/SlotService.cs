@@ -158,6 +158,18 @@ public class SlotService : MediatorSubscriberBase, IDisposable
 
     private async void OnHousingPositionUpdate(uint serverId, uint territoryId, uint divisionId, uint wardId, Vector3 position)
     {
+        try
+        {
+            await OnHousingPositionUpdateAsync(serverId, territoryId, divisionId, wardId, position).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Slot: échec du traitement de la position (territory={territory}, ward={ward})", territoryId, wardId);
+        }
+    }
+
+    private async Task OnHousingPositionUpdateAsync(uint serverId, uint territoryId, uint divisionId, uint wardId, Vector3 position)
+    {
         if (!_configService.Current.EnableSlotNotifications)
         {
             // En Information et une seule fois : ce réglage désactive toute la détection de sortie,

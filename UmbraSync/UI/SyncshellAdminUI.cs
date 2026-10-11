@@ -438,7 +438,7 @@ public class SyncshellAdminUI : WindowMediatorSubscriberBase
                         {
                             UiSharedService.ColorTextWrapped(Loc.Get("SyncshellAdmin.Cleanup.PruneCalculating"), ImGuiColors.DalamudYellow);
                         }
-                        else
+                        else if (_pruneTestTask.IsCompletedSuccessfully)
                         {
                             ImGui.AlignTextToFramePadding();
                             UiSharedService.TextWrapped(string.Format(CultureInfo.CurrentCulture, Loc.Get("SyncshellAdmin.Cleanup.PruneFound"), _pruneTestTask.Result, _pruneDays));
@@ -463,7 +463,7 @@ public class SyncshellAdminUI : WindowMediatorSubscriberBase
                         {
                             UiSharedService.ColorTextWrapped(Loc.Get("SyncshellAdmin.Cleanup.Pruning"), ImGuiColors.DalamudYellow);
                         }
-                        else
+                        else if (_pruneTask.IsCompletedSuccessfully)
                         {
                             UiSharedService.TextWrapped(string.Format(CultureInfo.CurrentCulture, Loc.Get("SyncshellAdmin.Cleanup.PrunedResult"), _pruneTask.Result));
                         }
