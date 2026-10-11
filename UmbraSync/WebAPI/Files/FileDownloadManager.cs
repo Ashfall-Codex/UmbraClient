@@ -52,6 +52,9 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
 
     private const int FileSizesBatchSize = 500;
     private static readonly TimeSpan DownloadReadyTimeout = TimeSpan.FromSeconds(45);
+    private static readonly TimeSpan FirstReadyProbeDelay = TimeSpan.FromSeconds(2);
+    private static readonly TimeSpan FastReadyProbeDelay = TimeSpan.FromSeconds(1);
+    private static readonly TimeSpan LegacyReadyProbeDelay = TimeSpan.FromSeconds(5);
     private const int InactivityTimeoutSeconds = 30;
     private readonly ConcurrentDictionary<string, (string ClaimedHash, long Generation)> _ownedClaims = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, DateTime> _cdnFailedHashes = new(StringComparer.Ordinal);
@@ -2219,6 +2222,27 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
         }
     }
 
+    // true = prêt, false = en file ou re-enfilée, null = réponse sans état (ancien serveur : corps vide).
+    private static async Task<bool?> ReadCheckQueueReadyAsync(HttpResponseMessage response, CancellationToken ct)
+    {
+        try
+        {
+            var body = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+            if (string.IsNullOrWhiteSpace(body) || body.Length > 256) return null;
+
+            using var doc = System.Text.Json.JsonDocument.Parse(body);
+            if (doc.RootElement.ValueKind != System.Text.Json.JsonValueKind.Object) return null;
+            if (!doc.RootElement.TryGetProperty("state", out _)) return null;
+            if (!doc.RootElement.TryGetProperty("ready", out var ready)) return null;
+
+            return ready.ValueKind == System.Text.Json.JsonValueKind.True;
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return null;
+        }
+    }
+
     private async Task WaitForDownloadReady(List<DownloadFileTransfer> downloadFileTransfer, Guid requestId, Uri effectiveBaseUri, CancellationToken downloadCt)
     {
         CancellationTokenSource? localTimeoutCts = null;
@@ -2227,13 +2251,15 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
         // de retry du lot au lieu de tourner indéfiniment en tenant un slot.
         var deadline = DateTime.UtcNow + DownloadReadyTimeout;
         bool timedOut = false;
+        bool readyByCheck = false;
+        var probeDelay = FirstReadyProbeDelay;
         try
         {
             localTimeoutCts = new();
-            localTimeoutCts.CancelAfter(TimeSpan.FromSeconds(5));
+            localTimeoutCts.CancelAfter(probeDelay);
             composite = CancellationTokenSource.CreateLinkedTokenSource(downloadCt, localTimeoutCts.Token);
 
-            while (!_orchestrator.IsDownloadReady(requestId))
+            while (!readyByCheck && !_orchestrator.IsDownloadReady(requestId))
             {
                 if (DateTime.UtcNow >= deadline)
                 {
@@ -2254,6 +2280,17 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
                         using var req = await _orchestrator.SendRetryableRequestAsync(HttpMethod.Get, MareFiles.RequestCheckQueueFullPath(effectiveBaseUri, requestId),
                             downloadFileTransfer.Select(c => c.Hash).ToList(), downloadCt).ConfigureAwait(false);
                         req.EnsureSuccessStatusCode();
+
+                        var queueReady = await ReadCheckQueueReadyAsync(req, downloadCt).ConfigureAwait(false);
+                        if (queueReady == true)
+                        {
+                            // « prêt » annoncé par le serveur : pas besoin d'attendre le message SignalR (perdu
+                            // si le hub reconnectait). Les anciens clients passaient par un doublon en file.
+                            Logger.LogDebug("Download {requestId} ready (Check)", requestId);
+                            readyByCheck = true;
+                        }
+
+                        probeDelay = queueReady.HasValue ? FastReadyProbeDelay : LegacyReadyProbeDelay;
                     }
                     catch (Exception ex) when (!downloadCt.IsCancellationRequested)
                     {
@@ -2263,12 +2300,13 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
                     localTimeoutCts.Dispose();
                     composite.Dispose();
                     localTimeoutCts = new();
-                    localTimeoutCts.CancelAfter(TimeSpan.FromSeconds(5));
+                    localTimeoutCts.CancelAfter(probeDelay);
                     composite = CancellationTokenSource.CreateLinkedTokenSource(downloadCt, localTimeoutCts.Token);
                 }
             }
 
-            Logger.LogDebug("Download {requestId} ready", requestId);
+            if (!readyByCheck)
+                Logger.LogDebug("Download {requestId} ready", requestId);
         }
         finally
         {
