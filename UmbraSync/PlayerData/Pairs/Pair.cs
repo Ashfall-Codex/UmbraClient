@@ -626,6 +626,8 @@ public class Pair : DisposableMediatorSubscriberBase
             CachedPlayer?.UndoApplication();
     }
 
+    public Task CancelDownloadsAsync() => CachedPlayer?.CancelDownloadsAsync() ?? Task.CompletedTask;
+
     public void UnholdDownloads(string source, bool skipApplication = false)
     {
         _logger.LogDebug("Déblocage des téléchargements pour {uid} (raison {raison})", UserData.UID, source);

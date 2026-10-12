@@ -359,6 +359,13 @@ public sealed partial class PairHandler : DisposableMediatorSubscriberBase, IPai
         });
     }
 
+    // Déplacement du stockage : le téléchargement en cours écrirait dans l'ancien dossier
+    public Task CancelDownloadsAsync()
+    {
+        _downloadCancellationTokenSource = _downloadCancellationTokenSource?.CancelRecreate();
+        return _downloadTask ?? Task.CompletedTask;
+    }
+
     private void DisableSync()
     {
         Logger.LogDebug("Disabling sync for {pair}", ToString());

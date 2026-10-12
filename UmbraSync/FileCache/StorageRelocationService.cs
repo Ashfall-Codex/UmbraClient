@@ -124,16 +124,11 @@ public sealed class StorageRelocationService : IDisposable
         }
 
         string target = StorageFolderValidator.Normalize(targetFolder);
-        List<(string Source, string Target, long Size)> plan = BuildPlan(source, target, out List<string> temporaryFiles);
-        FilesTotal = plan.Count;
-        BytesTotal = plan.Sum(p => p.Size);
-
-        _logger.LogInformation("Relocating storage from {source} to {target}: {count} file(s), {bytes} bytes",
-            source, target, FilesTotal, BytesTotal);
 
         int moved = 0;
         int failed = 0;
         long movedBytes = 0;
+        bool planned = false;
 
         _cacheMonitor.HaltScan(HaltSource);
         // Les collections Penumbra des pairs pointent vers l'ancien dossier et les téléchargements
@@ -142,6 +137,18 @@ public sealed class StorageRelocationService : IDisposable
 
         try
         {
+            // Liste établie seulement une fois les téléchargements en cours arrêtés : plus rien n'écrit dans la source
+            WaitForPairDownloads(heldPairs, token);
+            if (token.IsCancellationRequested) return;
+
+            List<(string Source, string Target, long Size)> plan = BuildPlan(source, target, out List<string> temporaryFiles);
+            FilesTotal = plan.Count;
+            BytesTotal = plan.Sum(p => p.Size);
+            planned = true;
+
+            _logger.LogInformation("Relocating storage from {source} to {target}: {count} file(s), {bytes} bytes",
+                source, target, FilesTotal, BytesTotal);
+
             _cacheMonitor.StopMonitoring();
             Directory.CreateDirectory(target);
 
@@ -178,7 +185,7 @@ public sealed class StorageRelocationService : IDisposable
         }
         finally
         {
-            bool switched = moved > 0 || failed == 0;
+            bool switched = planned && (moved > 0 || failed == 0);
             if (switched)
             {
                 _configService.Current.CacheFolder = target;
@@ -235,6 +242,39 @@ public sealed class StorageRelocationService : IDisposable
         }
 
         return held;
+    }
+
+    private static readonly TimeSpan DownloadStopTimeout = TimeSpan.FromSeconds(30);
+
+    private void WaitForPairDownloads(List<Pair> heldPairs, CancellationToken token)
+    {
+        List<Task> downloads = [];
+        foreach (Pair pair in heldPairs)
+        {
+            try
+            {
+                downloads.Add(pair.CancelDownloadsAsync());
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Could not cancel the downloads of a pair during storage relocation");
+            }
+        }
+
+        try
+        {
+            // Les téléchargements annulés se terminent en OperationCanceledException : seul l'arrêt compte
+            if (!Task.WhenAll(downloads).ContinueWith(_ => { }, TaskScheduler.Default).Wait(DownloadStopTimeout, token))
+                _logger.LogWarning("Storage relocation: some downloads did not stop within {timeout}s", DownloadStopTimeout.TotalSeconds);
+        }
+        catch (OperationCanceledException)
+        {
+            // Déchargement du plugin : l'appelant abandonne le déplacement
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Waiting for the downloads to stop failed");
+        }
     }
 
     private void ReleasePairs(List<Pair> heldPairs, bool skipApplication)
