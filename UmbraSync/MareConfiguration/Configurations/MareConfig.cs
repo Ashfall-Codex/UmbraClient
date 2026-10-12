@@ -133,6 +133,7 @@ public class MareConfig : IMareConfiguration
     public bool AutoDetectBlocksSyncedToServer { get; set; }
     // Déblocages pas encore confirmés par le serveur : rejoués au connect, jamais réimportés depuis la liste serveur
     public List<string> AutoDetectPendingServerUnblocks { get; set; } = [];
+    public bool AllowUidPairRequests { get; set; } = true;
     public bool UseInteractivePairRequestPopup { get; set; } = true;
     public bool AutoFetchMcdfOnConnect { get; set; } = false;
     public bool EnableNetworkDiagnosticLog { get; set; } = false;

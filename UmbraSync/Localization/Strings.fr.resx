@@ -8347,4 +8347,13 @@ ATTENTION : cette action est irréversible.</value>
   <data name="Wizard.Done.Next.Settings" xml:space="preserve">
     <value>Vous pourrez tout ajuster plus tard dans les paramètres.</value>
   </data>
+  <data name="Settings.AutoDetect.AllowUidInvites" xml:space="preserve">
+    <value>Accepter les demandes d'ami par UID</value>
+  </data>
+  <data name="Settings.AutoDetect.AllowUidInvitesHelp" xml:space="preserve">
+    <value>Désactivé : les demandes envoyées en saisissant votre UID sont refusées par le serveur et l'expéditeur en est prévenu. Vous ne recevez rien. Les demandes de proximité suivent le réglage des invitations ci-dessus.</value>
+  </data>
+  <data name="Notification.AddPair.RequestsDisabled.Body" xml:space="preserve">
+    <value>Ce joueur n'accepte pas les demandes d'ami par UID.</value>
+  </data>
 </root>

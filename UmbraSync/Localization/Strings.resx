@@ -8437,4 +8437,13 @@ WARNING: this cannot be undone.</value>
   <data name="Wizard.Done.Next.Settings" xml:space="preserve">
     <value>You can adjust everything later in the settings.</value>
   </data>
+  <data name="Settings.AutoDetect.AllowUidInvites" xml:space="preserve">
+    <value>Accept friend requests by UID</value>
+  </data>
+  <data name="Settings.AutoDetect.AllowUidInvitesHelp" xml:space="preserve">
+    <value>Off: requests sent by entering your UID are refused by the server and the sender is told. You receive nothing. Nearby requests follow the invitation setting above.</value>
+  </data>
+  <data name="Notification.AddPair.RequestsDisabled.Body" xml:space="preserve">
+    <value>This player does not accept friend requests by UID.</value>
+  </data>
 </root>

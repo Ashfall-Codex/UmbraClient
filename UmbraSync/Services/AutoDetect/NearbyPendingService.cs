@@ -284,6 +284,20 @@ public sealed class NearbyPendingService : IMediatorSubscriber, IDisposable
         }
     }
 
+    // Reposé à chaque connexion : le serveur l'oublie au bout de 30 jours
+    private async Task PushUidRequestsSettingAsync()
+    {
+        try
+        {
+            await _api.UserSetPairRequestsAllowed(_configService.Current.AllowUidPairRequests).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            // Serveur sans la méthode : les demandes par UID restent acceptées
+            _logger.LogDebug(ex, "NearbyPending: could not sync the UID pair request setting to the server");
+        }
+    }
+
     private void OnConnected()
     {
         CancelConnectionWork();
@@ -301,6 +315,8 @@ public sealed class NearbyPendingService : IMediatorSubscriber, IDisposable
         {
             // Règle anti-burst au connect
             await Task.Delay(Random.Shared.Next(2000, 8000), token).ConfigureAwait(false);
+
+            await PushUidRequestsSettingAsync().ConfigureAwait(false);
 
             // Déblocages pas encore confirmés : rejoués AVANT la fusion, sinon la liste serveur les réimporterait
             foreach (var uid in _configService.Current.AutoDetectPendingServerUnblocks.ToList())

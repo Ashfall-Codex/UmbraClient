@@ -317,6 +317,10 @@ public partial class CompactUi
         {
             await _apiController.UserAddPair(new UserDto(new(uidOrAlias))).ConfigureAwait(false);
         }
+        catch (Exception ex) when (ApiController.IsPairRequestsDisabledError(ex))
+        {
+            Mediator.Publish(new NotificationMessage(Loc.Get("Notification.Nearby.Failed.Title"), Loc.Get("Notification.AddPair.RequestsDisabled.Body"), NotificationType.Warning));
+        }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Adding pair from the main window failed");

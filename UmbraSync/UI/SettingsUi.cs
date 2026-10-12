@@ -295,6 +295,20 @@ public class SettingsUi : WindowMediatorSubscriberBase
         }
     }
 
+    private async Task PushUidRequestsSettingAsync(bool allowed)
+    {
+        try
+        {
+            if (_apiController.IsConnected)
+                await _apiController.UserSetPairRequestsAllowed(allowed).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            // Hors ligne ou serveur sans la méthode : reposé à la prochaine connexion
+            _logger.LogDebug(ex, "Could not sync the UID pair request setting to the server");
+        }
+    }
+
     private void DrawBlockedTransfers()
     {
         _lastTab = "BlockedTransfers";
@@ -4272,6 +4286,15 @@ public class SettingsUi : WindowMediatorSubscriberBase
                 }
                 _uiShared.DrawHelpText(Loc.Get("Settings.AutoDetect.UseInteractivePopupHelp"));
             }
+
+            bool allowUidRequests = _configService.Current.AllowUidPairRequests;
+            if (ToggleSwitch.Draw(Loc.Get("Settings.AutoDetect.AllowUidInvites"), ref allowUidRequests))
+            {
+                _configService.Current.AllowUidPairRequests = allowUidRequests;
+                _configService.Save();
+                _ = PushUidRequestsSettingAsync(allowUidRequests);
+            }
+            _uiShared.DrawHelpText(Loc.Get("Settings.AutoDetect.AllowUidInvitesHelp"));
             ImGui.Unindent(subgroupIndent);
 
             // --- Section Anti-spam ---

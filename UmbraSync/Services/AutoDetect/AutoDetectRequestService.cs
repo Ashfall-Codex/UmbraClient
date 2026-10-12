@@ -181,6 +181,13 @@ public class AutoDetectRequestService : IMediatorSubscriber
 
             return true;
         }
+        catch (Exception ex) when (ApiController.IsPairRequestsDisabledError(ex))
+        {
+            RecordSendFailure(targetKey);
+            _mediator.Publish(new NotificationMessage(Loc.Get("Notification.Nearby.Failed.Title"), Loc.Get("Notification.AddPair.RequestsDisabled.Body"), NotificationType.Warning));
+            _notificationTracker.Upsert(NotificationEntry.NearbyRequestFailed(Loc.Get("Notification.AddPair.RequestsDisabled.Body")));
+            return false;
+        }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Direct pair request failed for {uid}", uid);

@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.SignalR.Client;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Logging;
 using System.Globalization;
 using System.Text;
@@ -6,6 +7,7 @@ using System.Text.RegularExpressions;
 using UmbraSync.API.Data;
 using UmbraSync.API.Data.Enum;
 using UmbraSync.API.Dto.User;
+using UmbraSync.API.SignalR;
 
 namespace UmbraSync.WebAPI.SignalR;
 
@@ -142,6 +144,15 @@ public partial class ApiController
         if (!IsConnected) throw new InvalidOperationException("Not connected");
         await _mareHub!.InvokeAsync(nameof(UserUnblock), user).ConfigureAwait(false);
     }
+
+    public async Task UserSetPairRequestsAllowed(bool allowed)
+    {
+        if (!IsConnected) throw new InvalidOperationException("Not connected");
+        await _mareHub!.InvokeAsync(nameof(UserSetPairRequestsAllowed), allowed).ConfigureAwait(false);
+    }
+
+    public static bool IsPairRequestsDisabledError(Exception ex)
+        => ex is HubException && ex.Message.Contains(IMareHub.ErrorPairRequestsDisabled, StringComparison.Ordinal);
 
     public async Task<List<UserData>> UserGetBlockedUsers()
     {

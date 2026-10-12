@@ -100,6 +100,7 @@ public static class SettingsCatalog
         new(AutoDetect, "Settings.AutoDetect.Discovery.Title"),
         new(AutoDetect, "Settings.AutoDetect.Enable"),
         new(AutoDetect, "Settings.AutoDetect.AllowInvites"),
+        new(AutoDetect, "Settings.AutoDetect.AllowUidInvites", "Settings.AutoDetect.AllowUidInvitesHelp"),
         new(AutoDetect, "Settings.AutoDetect.UseInteractivePopup"),
         new(AutoDetect, "Settings.AutoDetect.AntiSpam.Header"),
         new(AutoDetect, "Settings.AutoDetect.Slots.Title"),
