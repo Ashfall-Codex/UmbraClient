@@ -208,11 +208,13 @@ public sealed partial class PairHandler
             if (changes.Key != ObjectKind.Player)
             {
                 lock (_state.PendingOwnedObjects)
+                {
                     _state.PendingOwnedObjects.Remove(changes.Key);
+                    _state.OwnedObjectsToReapply.Remove(changes.Key);
+                    _state.AppliedOwnedObjects[changes.Key] = (handler.Address, DateTime.UtcNow);
+                }
             }
-
-            // Joueur : référence prise après la pose des mods. Objets possédés : les mods sont déjà posés à ce
-            // stade, donc tout redraw Penumbra postérieur les a chargés et rend le nôtre inutile.
+            
             var redrawBaseline = changes.Key == ObjectKind.Player
                 ? _redrawBaseline
                 : _pairRedrawCoordinator.CaptureBaseline(handler.Address);
@@ -932,6 +934,41 @@ public sealed partial class PairHandler
     }
 
     private static readonly TimeSpan OwnedObjectCheckInterval = TimeSpan.FromSeconds(2);
+    // Nos propres poses (Glamourer) peuvent recréer le modèle : on ignore ce qui suit de près une pose
+    private static readonly TimeSpan OwnedObjectRedrawGrace = TimeSpan.FromSeconds(8);
+
+    private nint GetOwnedObjectAddress(ObjectKind kind, nint playerPtr) => kind switch
+    {
+        ObjectKind.MinionOrMount => _dalamudUtil.GetMinionOrMount(playerPtr),
+        ObjectKind.Pet => _dalamudUtil.GetPet(playerPtr),
+        ObjectKind.Companion => _dalamudUtil.GetCompanion(playerPtr),
+        _ => nint.Zero,
+    };
+
+    private static HashSet<PlayerChanges> BuildOwnedObjectChanges(ObjectKind kind, CharacterData data)
+    {
+        HashSet<PlayerChanges> changes = [];
+        if (data.GlamourerData.ContainsKey(kind)) changes.Add(PlayerChanges.Glamourer);
+        if (data.CustomizePlusData.TryGetValue(kind, out var cplus) && !string.IsNullOrEmpty(cplus)) changes.Add(PlayerChanges.Customize);
+        return changes;
+    }
+
+    // Appelé sur le framework thread (DrawObjectLinkedMessage) : nouveau modèle pour l'une de nos montures,
+    // familiers ou compagnons déjà habillés (rangé puis ressorti au même emplacement mémoire)
+    private void OnOwnedObjectRedrawn(nint gameObject)
+    {
+        if (gameObject == nint.Zero) return;
+        lock (_state.PendingOwnedObjects)
+        {
+            foreach (var (kind, applied) in _state.AppliedOwnedObjects)
+            {
+                if (applied.Address != gameObject) continue;
+                if (DateTime.UtcNow - applied.AppliedAtUtc < OwnedObjectRedrawGrace) return;
+                _state.OwnedObjectsToReapply.Add(kind);
+                return;
+            }
+        }
+    }
     private DateTime _nextOwnedObjectCheckUtc = DateTime.MinValue;
 
     // Appelé sur le framework thread (DelayedFrameworkUpdateMessage) : monture, familier ou compagnon
@@ -940,7 +977,7 @@ public sealed partial class PairHandler
     {
         lock (_state.PendingOwnedObjects)
         {
-            if (_state.PendingOwnedObjects.Count == 0) return;
+            if (_state.PendingOwnedObjects.Count == 0 && _state.AppliedOwnedObjects.Count == 0) return;
         }
 
         var now = DateTime.UtcNow;
@@ -954,7 +991,11 @@ public sealed partial class PairHandler
             if (data == null)
             {
                 lock (_state.PendingOwnedObjects)
+                {
                     _state.PendingOwnedObjects.Clear();
+                    _state.AppliedOwnedObjects.Clear();
+                    _state.OwnedObjectsToReapply.Clear();
+                }
             }
             return;
         }
@@ -964,21 +1005,34 @@ public sealed partial class PairHandler
         List<KeyValuePair<ObjectKind, HashSet<PlayerChanges>>> spawned = [];
         lock (_state.PendingOwnedObjects)
         {
+            // Objets déjà habillés : rangés (adresse nulle) → en attente ; ressortis ailleurs ou modèle recréé → à réhabiller
+            foreach (var (kind, applied) in _state.AppliedOwnedObjects.ToList())
+            {
+                var current = GetOwnedObjectAddress(kind, ptr);
+                if (current == nint.Zero)
+                {
+                    _state.AppliedOwnedObjects.Remove(kind);
+                    _state.OwnedObjectsToReapply.Remove(kind);
+                    _state.PendingOwnedObjects.Add(kind);
+                    continue;
+                }
+
+                if (current == applied.Address && !_state.OwnedObjectsToReapply.Contains(kind)) continue;
+
+                _state.AppliedOwnedObjects.Remove(kind);
+                _state.OwnedObjectsToReapply.Remove(kind);
+                var reapply = BuildOwnedObjectChanges(kind, data);
+                if (reapply.Count > 0)
+                    spawned.Add(new(kind, reapply));
+            }
+
             foreach (var kind in _state.PendingOwnedObjects.ToList())
             {
-                var address = kind switch
-                {
-                    ObjectKind.MinionOrMount => _dalamudUtil.GetMinionOrMount(ptr),
-                    ObjectKind.Pet => _dalamudUtil.GetPet(ptr),
-                    ObjectKind.Companion => _dalamudUtil.GetCompanion(ptr),
-                    _ => nint.Zero,
-                };
+                var address = GetOwnedObjectAddress(kind, ptr);
                 if (address == nint.Zero) continue;
 
                 _state.PendingOwnedObjects.Remove(kind);
-                HashSet<PlayerChanges> changes = [];
-                if (data.GlamourerData.ContainsKey(kind)) changes.Add(PlayerChanges.Glamourer);
-                if (data.CustomizePlusData.TryGetValue(kind, out var cplus) && !string.IsNullOrEmpty(cplus)) changes.Add(PlayerChanges.Customize);
+                var changes = BuildOwnedObjectChanges(kind, data);
                 if (changes.Count > 0)
                     spawned.Add(new(kind, changes));
             }

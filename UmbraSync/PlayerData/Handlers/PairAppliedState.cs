@@ -57,8 +57,9 @@ public sealed class PairAppliedState
         }
     }
 
-    /// <summary>Objets possédés (monture, familier, compagnon) absents au moment de l'application.</summary>
     public HashSet<ObjectKind> PendingOwnedObjects { get; } = [];
+    public Dictionary<ObjectKind, (nint Address, DateTime AppliedAtUtc)> AppliedOwnedObjects { get; } = [];
+    public HashSet<ObjectKind> OwnedObjectsToReapply { get; } = [];
 
     public Guid Deferred { get; set; } = Guid.Empty;
     public bool RedrawOnNextApplication { get; set; }

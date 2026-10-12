@@ -216,6 +216,7 @@ public sealed partial class PairHandler : DisposableMediatorSubscriberBase, IPai
             CheckExternalSyncReclaim();
         });
         Mediator.Subscribe<AppearanceIpcReadyMessage>(this, msg => OnAppearanceIpcReady(msg.Plugin));
+        Mediator.Subscribe<DrawObjectLinkedMessage>(this, msg => OnOwnedObjectRedrawn(msg.GameObject));
 
         LastAppliedDataBytes = -1;
     }
