@@ -32,6 +32,11 @@ public class OnlinePlayerManager : DisposableMediatorSubscriberBase
     private static readonly TimeSpan MaxRetryDelay = TimeSpan.FromMinutes(2);
     private static readonly TimeSpan RebuildRequestCooldown = TimeSpan.FromSeconds(30);
     private const int MaxConsecutivePushFailures = 8;
+    // Au-delà de MaxConsecutivePushFailures : on ne lâche pas les destinataires, on espace simplement les essais
+    private static readonly TimeSpan SlowRetryDelay = TimeSpan.FromMinutes(5);
+    // Dernière donnée construite par collection override (purgée quand l'override disparaît) : ses fichiers
+    // font partie de nos apparences actuelles et peuvent être redemandés par le serveur (HUB-3)
+    private readonly Dictionary<Guid, CharacterData> _lastOverrideData = [];
     private readonly HashSet<string> _pendingReUploads = new(StringComparer.OrdinalIgnoreCase);
     private int _reUploadScheduled;
     private static readonly TimeSpan ReUploadDebounce = TimeSpan.FromSeconds(2);
@@ -59,6 +64,9 @@ public class OnlinePlayerManager : DisposableMediatorSubscriberBase
                 {
                     _lastCreatedData = newData;
                     _dataGeneration++;
+                    // Une nouvelle apparence sort du mode « relance lente » : on réessaie normalement
+                    if (_consecutivePushFailures > MaxConsecutivePushFailures)
+                        ResetRetryState();
                 }
             }
 
@@ -136,7 +144,8 @@ public class OnlinePlayerManager : DisposableMediatorSubscriberBase
 
             // Jamais d'upload d'un fichier qui ne fait pas partie de notre apparence actuelle
             Dictionary<string, string> current = new(StringComparer.OrdinalIgnoreCase);
-            foreach (var replacement in _lastCreatedData.FileReplacements.Values.SelectMany(v => v))
+            foreach (var replacement in _lastCreatedData.FileReplacements.Values.SelectMany(v => v)
+                         .Concat(_lastOverrideData.Values.SelectMany(d => d.FileReplacements.Values.SelectMany(v => v))))
             {
                 if (string.IsNullOrEmpty(replacement.FileSwapPath) && !string.IsNullOrEmpty(replacement.Hash))
                     current.TryAdd(replacement.Hash, replacement.Hash);
@@ -392,6 +401,8 @@ public class OnlinePlayerManager : DisposableMediatorSubscriberBase
         List<UserData> served = [];
         bool allSucceeded = true;
 
+        PruneOverrideData();
+
         if (_collectionOverrideResolver.HasAnyCollectionOverride())
         {
             var (defaultUsers, overrideUsers) = _collectionOverrideResolver.SplitUsersByCollection(recipients);
@@ -474,9 +485,19 @@ public class OnlinePlayerManager : DisposableMediatorSubscriberBase
 
         if (alternativeData == null)
         {
+            lock (_stateLock)
+            {
+                _lastOverrideData.Remove(collectionId);
+            }
+
             // Ne jamais envoyer la tenue par défaut à une syncshell qui a sa propre collection
             Logger.LogWarning("Collection override {collId} indisponible, aucun envoi à ses membres", collectionId);
             return null;
+        }
+
+        lock (_stateLock)
+        {
+            _lastOverrideData[collectionId] = alternativeData;
         }
 
         try
@@ -494,6 +515,19 @@ public class OnlinePlayerManager : DisposableMediatorSubscriberBase
         }
     }
 
+    // Oublie les données des collections override qui ne sont plus configurées
+    private void PruneOverrideData()
+    {
+        HashSet<Guid> active = _collectionOverrideResolver.HasAnyCollectionOverride()
+            ? [.. _collectionOverrideResolver.GetActiveOverrides().Values]
+            : [];
+        lock (_stateLock)
+        {
+            foreach (var collectionId in _lastOverrideData.Keys.Where(k => !active.Contains(k)).ToList())
+                _lastOverrideData.Remove(collectionId);
+        }
+    }
+
     private bool IsStale(long generation)
     {
         lock (_stateLock)
@@ -506,17 +540,21 @@ public class OnlinePlayerManager : DisposableMediatorSubscriberBase
     {
         bool missingLocalFiles = ex is FileUploadManager.MissingLocalUploadFilesException;
         bool requestRebuild = false;
-        bool abandoned = false;
+        bool slowMode = false;
+        bool enteringSlowMode = false;
         int failures;
-        TimeSpan delay = TimeSpan.Zero;
+        TimeSpan delay;
         lock (_stateLock)
         {
             failures = ++_consecutivePushFailures;
             if (failures > MaxConsecutivePushFailures)
             {
-                abandoned = true;
-                _usersToPushDataTo.Clear();
-                ResetRetryState();
+                // Les destinataires restent en attente : relance lente jusqu'au succès, à un changement de
+                // données ou à la déconnexion (qui vide la liste)
+                slowMode = true;
+                enteringSlowMode = failures == MaxConsecutivePushFailures + 1;
+                delay = SlowRetryDelay;
+                _nextRetryUtc = DateTime.UtcNow + delay;
             }
             else
             {
@@ -532,9 +570,12 @@ public class OnlinePlayerManager : DisposableMediatorSubscriberBase
             }
         }
 
-        if (abandoned)
+        if (slowMode)
         {
-            Logger.LogWarning(ex, "Push abandonné après {count} échecs consécutifs, en attente du prochain changement", MaxConsecutivePushFailures);
+            if (enteringSlowMode)
+                Logger.LogWarning(ex, "Push en échec {count} fois de suite, nouvelle tentative toutes les {delay:F0} min", MaxConsecutivePushFailures, SlowRetryDelay.TotalMinutes);
+            else
+                Logger.LogDebug(ex, "Push toujours en échec ({failures} tentatives), prochaine dans {delay:F0} min", failures, SlowRetryDelay.TotalMinutes);
         }
         else if (missingLocalFiles)
         {

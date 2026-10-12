@@ -236,12 +236,20 @@ public sealed class NearbyPendingService : IMediatorSubscriber, IDisposable
             _logger.LogInformation("NearbyPending: blocked {uid} permanently", uid);
         }
 
+        // Un déblocage en attente de confirmation serveur n'a plus de sens : on rebloque
+        if (_configService.Current.AutoDetectPendingServerUnblocks.RemoveAll(u => string.Equals(u, uid, StringComparison.Ordinal)) > 0)
+            _configService.Save();
+
         _ = PushBlockToServerAsync(uid, block: true);
     }
 
     public void Unblock(string uid)
     {
         _configService.Current.AutoDetectBlockedUids.RemoveAll(u => string.Equals(u, uid, StringComparison.Ordinal));
+        // Mémorisé jusqu'à confirmation du serveur : sinon un échec serait annulé par la fusion au connect suivant
+        var pendingUnblocks = _configService.Current.AutoDetectPendingServerUnblocks;
+        if (!pendingUnblocks.Contains(uid, StringComparer.Ordinal))
+            pendingUnblocks.Add(uid);
         _configService.Save();
         _logger.LogInformation("NearbyPending: unblocked {uid}", uid);
 
@@ -254,9 +262,15 @@ public sealed class NearbyPendingService : IMediatorSubscriber, IDisposable
         {
             var dto = new UmbraSync.API.Dto.User.UserDto(new UmbraSync.API.Data.UserData(uid));
             if (block)
+            {
                 await _api.UserBlock(dto).ConfigureAwait(false);
+            }
             else
+            {
                 await _api.UserUnblock(dto).ConfigureAwait(false);
+                if (_configService.Current.AutoDetectPendingServerUnblocks.RemoveAll(u => string.Equals(u, uid, StringComparison.Ordinal)) > 0)
+                    _configService.Save();
+            }
         }
         catch (Exception ex)
         {
@@ -288,6 +302,16 @@ public sealed class NearbyPendingService : IMediatorSubscriber, IDisposable
             // Règle anti-burst au connect
             await Task.Delay(Random.Shared.Next(2000, 8000), token).ConfigureAwait(false);
 
+            // Déblocages pas encore confirmés : rejoués AVANT la fusion, sinon la liste serveur les réimporterait
+            foreach (var uid in _configService.Current.AutoDetectPendingServerUnblocks.ToList())
+            {
+                token.ThrowIfCancellationRequested();
+                await _api.UserUnblock(new UmbraSync.API.Dto.User.UserDto(new UmbraSync.API.Data.UserData(uid))).ConfigureAwait(false);
+                _configService.Current.AutoDetectPendingServerUnblocks.RemoveAll(u => string.Equals(u, uid, StringComparison.Ordinal));
+                _configService.Save();
+                _logger.LogDebug("NearbyPending: pending unblock of {uid} confirmed by the server", uid);
+            }
+
             if (!_configService.Current.AutoDetectBlocksSyncedToServer)
             {
                 foreach (var uid in _configService.Current.AutoDetectBlockedUids.ToList())
@@ -308,6 +332,8 @@ public sealed class NearbyPendingService : IMediatorSubscriber, IDisposable
             foreach (var user in serverBlocks ?? [])
             {
                 if (string.IsNullOrEmpty(user?.UID) || local.Contains(user.UID, StringComparer.Ordinal)) continue;
+                // Débloqué localement, confirmation serveur encore en attente : ne jamais le réimporter
+                if (_configService.Current.AutoDetectPendingServerUnblocks.Contains(user.UID, StringComparer.Ordinal)) continue;
                 local.Add(user.UID);
                 added++;
             }

@@ -20,8 +20,9 @@ public static class PairRedrawPathRules
         "/face/", "/hair/", "/tail/", "/animation/", "/skeleton/",
     ];
 
-    // Extensions imposant un redraw complet (géométrie / sound containers).
-    private static readonly string[] FullRedrawExtensions = [".mdl", ".scd"];
+    // Extensions imposant un redraw complet (géométrie / sound containers / physique 7.x : les données
+    // de physique sont chargées avec le squelette, une réapplication Glamourer ne les recharge pas).
+    private static readonly string[] FullRedrawExtensions = [".mdl", ".scd", ".kdb"];
 
     // Extensions « légères » : texture / material uniquement.
     private static readonly string[] TextureOrMaterialExtensions = [".tex", ".mtrl"];
