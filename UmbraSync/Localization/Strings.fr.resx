@@ -253,33 +253,6 @@
   </data>
 
   <!-- Override de collection par Syncshell -->
-  <data name="Settings.Transfer.CollectionOverride.Title" xml:space="preserve">
-    <value>Collection par Syncshell</value>
-  </data>
-  <data name="Settings.Transfer.CollectionOverride.Description" xml:space="preserve">
-    <value>Choisissez une collection Penumbra spécifique à envoyer pour chaque syncshell. Par défaut, votre collection actuelle est utilisée.</value>
-  </data>
-  <data name="Settings.Transfer.CollectionOverride.NoPenumbra" xml:space="preserve">
-    <value>Penumbra n'est pas disponible. Connectez Penumbra pour configurer les exceptions de collection.</value>
-  </data>
-  <data name="Settings.Transfer.CollectionOverride.NoSyncshell" xml:space="preserve">
-    <value>Aucun syncshell disponible. Rejoignez un syncshell pour configurer les exceptions de collection.</value>
-  </data>
-  <data name="Settings.Transfer.CollectionOverride.Enable" xml:space="preserve">
-    <value>Activer les exceptions de collection par syncshell</value>
-  </data>
-  <data name="Settings.Transfer.CollectionOverride.Default" xml:space="preserve">
-    <value>Par défaut (collection actuelle)</value>
-  </data>
-  <data name="Settings.Transfer.CollectionOverride.Unknown" xml:space="preserve">
-    <value>(collection inconnue)</value>
-  </data>
-  <data name="Settings.Transfer.CollectionOverride.AddException" xml:space="preserve">
-    <value>Ajouter une exception</value>
-  </data>
-  <data name="Settings.Transfer.CollectionOverride.SelectSyncshell" xml:space="preserve">
-    <value>Choisir un syncshell</value>
-  </data>
 
   <!-- Vanity / Custom ID in Edit Profile (FR) -->
   <data name="EditProfile.SetCustomId.Button" xml:space="preserve">

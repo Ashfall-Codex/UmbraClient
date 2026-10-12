@@ -6,10 +6,11 @@ using UmbraSync.UI;
 
 namespace UmbraSync.MareConfiguration;
 
-public class ConfigurationMigrator(ILogger<ConfigurationMigrator> logger, MareConfigService mareConfig) : IHostedService
+public class ConfigurationMigrator(ILogger<ConfigurationMigrator> logger, MareConfigService mareConfig, SyncshellConfigService syncshellConfig) : IHostedService
 {
     private readonly ILogger<ConfigurationMigrator> _logger = logger;
     private readonly MareConfigService _mareConfig = mareConfig;
+    private readonly SyncshellConfigService _syncshellConfig = syncshellConfig;
 
     public void Migrate()
     {
@@ -89,6 +90,29 @@ public class ConfigurationMigrator(ILogger<ConfigurationMigrator> logger, MareCo
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Configuration migration failed");
+        }
+
+        MigrateSyncshellConfig();
+    }
+
+    private void MigrateSyncshellConfig()
+    {
+        try
+        {
+            var path = _syncshellConfig.ConfigurationPath;
+            if (!File.Exists(path)) return;
+
+            using var doc = JsonDocument.Parse(File.ReadAllText(path));
+            if (doc.RootElement.TryGetProperty("GroupCollectionOverrides", out _)
+                || doc.RootElement.TryGetProperty("EnableCollectionOverrides", out _))
+            {
+                _logger.LogInformation("Removed syncshell collection overrides from config");
+                _syncshellConfig.Save();
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Syncshell configuration migration failed");
         }
     }
 

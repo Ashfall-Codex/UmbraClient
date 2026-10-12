@@ -175,7 +175,6 @@ public class RgpdDataService : DisposableMediatorSubscriberBase
                 ["syncshells"] = new Dictionary<string, object?>(StringComparer.Ordinal)
                 {
                     ["favorites"] = _syncshellConfigService.Current.FavoriteSyncshells,
-                    ["collection_overrides"] = _syncshellConfigService.Current.GroupCollectionOverrides,
                 },
                 ["chara_data"] = new Dictionary<string, object?>(StringComparer.Ordinal)
                 {
@@ -298,7 +297,6 @@ public class RgpdDataService : DisposableMediatorSubscriberBase
             _establishmentConfigService.Save();
 
             _syncshellConfigService.Current.FavoriteSyncshells.Clear();
-            _syncshellConfigService.Current.GroupCollectionOverrides.Clear();
             _syncshellConfigService.Save();
 
             _charaDataConfigService.Current.FavoriteCodes.Clear();

@@ -271,7 +271,6 @@ public sealed class Plugin : IDalamudPlugin
             collection.AddScoped<CacheCreationService>();
             collection.AddScoped<TransientResourceManager>();
             collection.AddScoped<PlayerDataFactory>();
-            collection.AddScoped<CollectionOverrideResolver>();
             collection.AddScoped<OnlinePlayerManager>();
             collection.AddScoped<MissingFileReportService>();
             collection.AddScoped<BackdropBlur>();

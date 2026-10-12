@@ -159,8 +159,6 @@ public static class SettingsCatalog
         new(Advanced, "Settings.Advanced.Experimental.Title"),
         new(Advanced, "Settings.Advanced.Experimental.SoftRedraw", "Settings.Advanced.Experimental.SoftRedraw.Help"),
         new(Advanced, "Settings.Advanced.Experimental.EventVisibility", "Settings.Advanced.Experimental.EventVisibility.Help"),
-        new(Advanced, "Settings.Transfer.CollectionOverride.Title"),
-        new(Advanced, "Settings.Transfer.CollectionOverride.Enable"),
         new(Advanced, "Settings.Transfer.AutoFetchMcdfOnConnect"),
         new(Advanced, "Settings.Advanced.Debug"),
         new(Advanced, "Settings.Advanced.Debug.CopyCharaData", "Settings.Advanced.Debug.CopyCharaData.Help"),

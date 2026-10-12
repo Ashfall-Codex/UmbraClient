@@ -14,7 +14,6 @@ public class OnlinePlayerManager : DisposableMediatorSubscriberBase
     private readonly DalamudUtilService _dalamudUtil;
     private readonly FileUploadManager _fileTransferManager;
     private readonly PairManager _pairManager;
-    private readonly CollectionOverrideResolver _collectionOverrideResolver;
     private readonly Lock _stateLock = new();
     private CharacterData? _lastCreatedData;
     private long _dataGeneration;
@@ -34,23 +33,18 @@ public class OnlinePlayerManager : DisposableMediatorSubscriberBase
     private const int MaxConsecutivePushFailures = 8;
     // Au-delà de MaxConsecutivePushFailures : on ne lâche pas les destinataires, on espace simplement les essais
     private static readonly TimeSpan SlowRetryDelay = TimeSpan.FromMinutes(5);
-    // Dernière donnée construite par collection override (purgée quand l'override disparaît) : ses fichiers
-    // font partie de nos apparences actuelles et peuvent être redemandés par le serveur (HUB-3)
-    private readonly Dictionary<Guid, CharacterData> _lastOverrideData = [];
     private readonly HashSet<string> _pendingReUploads = new(StringComparer.OrdinalIgnoreCase);
     private int _reUploadScheduled;
     private static readonly TimeSpan ReUploadDebounce = TimeSpan.FromSeconds(2);
     private const int MaxReUploadHashes = 200;
 
     public OnlinePlayerManager(ILogger<OnlinePlayerManager> logger, ApiController apiController, DalamudUtilService dalamudUtil,
-        PairManager pairManager, MareMediator mediator, FileUploadManager fileTransferManager,
-        CollectionOverrideResolver collectionOverrideResolver) : base(logger, mediator)
+        PairManager pairManager, MareMediator mediator, FileUploadManager fileTransferManager) : base(logger, mediator)
     {
         _apiController = apiController;
         _dalamudUtil = dalamudUtil;
         _pairManager = pairManager;
         _fileTransferManager = fileTransferManager;
-        _collectionOverrideResolver = collectionOverrideResolver;
 
         Mediator.Subscribe<DelayedFrameworkUpdateMessage>(this, (_) => FrameworkOnUpdate());
         Mediator.Subscribe<CharacterDataCreatedMessage>(this, (msg) =>
@@ -144,8 +138,7 @@ public class OnlinePlayerManager : DisposableMediatorSubscriberBase
 
             // Jamais d'upload d'un fichier qui ne fait pas partie de notre apparence actuelle
             Dictionary<string, string> current = new(StringComparer.OrdinalIgnoreCase);
-            foreach (var replacement in _lastCreatedData.FileReplacements.Values.SelectMany(v => v)
-                         .Concat(_lastOverrideData.Values.SelectMany(d => d.FileReplacements.Values.SelectMany(v => v))))
+            foreach (var replacement in _lastCreatedData.FileReplacements.Values.SelectMany(v => v))
             {
                 if (string.IsNullOrEmpty(replacement.FileSwapPath) && !string.IsNullOrEmpty(replacement.Hash))
                     current.TryAdd(replacement.Hash, replacement.Hash);
@@ -399,44 +392,10 @@ public class OnlinePlayerManager : DisposableMediatorSubscriberBase
         }
 
         List<UserData> served = [];
-        bool allSucceeded = true;
-
-        PruneOverrideData();
-
-        if (_collectionOverrideResolver.HasAnyCollectionOverride())
-        {
-            var (defaultUsers, overrideUsers) = _collectionOverrideResolver.SplitUsersByCollection(recipients);
-
-            if (defaultUsers.Count > 0)
-            {
-                Logger.LogDebug("Push de {hash} (collection par défaut) vers {users}",
-                    dataToSend.DataHash.Value,
-                    string.Join(", ", defaultUsers.Select(k => k.AliasOrUID)));
-                allSucceeded &= await PushToAsync(dataToSend, defaultUsers, served, token).ConfigureAwait(false);
-            }
-
-            foreach (var (collectionId, collectionUsers) in overrideUsers)
-            {
-                var overrideData = await GetOverrideDataAsync(dataToSend, collectionId, collectionUsers, token).ConfigureAwait(false);
-                if (overrideData == null)
-                {
-                    allSucceeded = false;
-                    continue;
-                }
-
-                Logger.LogDebug("Push de collection override {collId} vers {users}",
-                    collectionId,
-                    string.Join(", ", collectionUsers.Select(k => k.AliasOrUID)));
-                allSucceeded &= await PushToAsync(overrideData, collectionUsers, served, token).ConfigureAwait(false);
-            }
-        }
-        else
-        {
-            Logger.LogDebug("Push de {hash} vers {users}",
-                dataToSend.DataHash.Value,
-                string.Join(", ", recipients.Select(k => k.AliasOrUID)));
-            allSucceeded &= await PushToAsync(dataToSend, recipients, served, token).ConfigureAwait(false);
-        }
+        Logger.LogDebug("Push de {hash} vers {users}",
+            dataToSend.DataHash.Value,
+            string.Join(", ", recipients.Select(k => k.AliasOrUID)));
+        bool allSucceeded = await PushToAsync(dataToSend, recipients, served, token).ConfigureAwait(false);
 
         lock (_stateLock)
         {
@@ -469,63 +428,6 @@ public class OnlinePlayerManager : DisposableMediatorSubscriberBase
 
         served.AddRange(users);
         return true;
-    }
-
-    private async Task<CharacterData?> GetOverrideDataAsync(CharacterData defaultData, Guid collectionId, List<UserData> users, CancellationToken token)
-    {
-        CharacterData? alternativeData = null;
-        try
-        {
-            alternativeData = await _collectionOverrideResolver.BuildAlternativeCharacterData(defaultData, collectionId).ConfigureAwait(false);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogWarning(ex, "Erreur lors de la construction de la collection override {collId}", collectionId);
-        }
-
-        if (alternativeData == null)
-        {
-            lock (_stateLock)
-            {
-                _lastOverrideData.Remove(collectionId);
-            }
-
-            // Ne jamais envoyer la tenue par défaut à une syncshell qui a sa propre collection
-            Logger.LogWarning("Collection override {collId} indisponible, aucun envoi à ses membres", collectionId);
-            return null;
-        }
-
-        lock (_stateLock)
-        {
-            _lastOverrideData[collectionId] = alternativeData;
-        }
-
-        try
-        {
-            return await _fileTransferManager.UploadFiles(alternativeData, users, token).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException) when (token.IsCancellationRequested)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            Logger.LogWarning(ex, "Upload des fichiers de la collection override {collId} échoué", collectionId);
-            return null;
-        }
-    }
-
-    // Oublie les données des collections override qui ne sont plus configurées
-    private void PruneOverrideData()
-    {
-        HashSet<Guid> active = _collectionOverrideResolver.HasAnyCollectionOverride()
-            ? [.. _collectionOverrideResolver.GetActiveOverrides().Values]
-            : [];
-        lock (_stateLock)
-        {
-            foreach (var collectionId in _lastOverrideData.Keys.Where(k => !active.Contains(k)).ToList())
-                _lastOverrideData.Remove(collectionId);
-        }
     }
 
     private bool IsStale(long generation)
