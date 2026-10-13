@@ -1,4 +1,3 @@
-using Dalamud.Plugin.Services;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using UmbraSync.API.Dto.CharaData;
@@ -13,23 +12,17 @@ public sealed class HousingFurnitureSyncService : IHostedService, IMediatorSubsc
     private readonly MareMediator _mediator;
     private readonly HousingShareManager _housingShareManager;
     private readonly MareConfigService _configService;
-    private readonly DalamudUtilService _dalamudUtil;
-    private readonly ICommandManager _commandManager;
 
     public HousingFurnitureSyncService(
         ILogger<HousingFurnitureSyncService> logger,
         MareMediator mediator,
         HousingShareManager housingShareManager,
-        MareConfigService configService,
-        DalamudUtilService dalamudUtil,
-        ICommandManager commandManager)
+        MareConfigService configService)
     {
         _logger = logger;
         _mediator = mediator;
         _housingShareManager = housingShareManager;
         _configService = configService;
-        _dalamudUtil = dalamudUtil;
-        _commandManager = commandManager;
     }
 
     public MareMediator Mediator => _mediator;
@@ -41,7 +34,7 @@ public sealed class HousingFurnitureSyncService : IHostedService, IMediatorSubsc
         // Nettoyer les mods housing orphelins de sessions précédentes
         _housingShareManager.CleanupStaleMods();
 
-        _mediator.Subscribe<HousingPlotEnteredMessage>(this, OnHousingPlotEntered);
+        _mediator.Subscribe<HousingPlotSettledMessage>(this, OnHousingPlotSettled);
         _mediator.Subscribe<HousingPlotLeftMessage>(this, _ => OnHousingPlotLeft());
         _mediator.Subscribe<ApplyDefaultsToAllSyncsMessage>(this, OnDefaultsChanged);
 
@@ -55,9 +48,9 @@ public sealed class HousingFurnitureSyncService : IHostedService, IMediatorSubsc
         return Task.CompletedTask;
     }
 
-    private void OnHousingPlotEntered(HousingPlotEnteredMessage msg)
+    private void OnHousingPlotSettled(HousingPlotSettledMessage msg)
     {
-        _logger.LogDebug("Entered housing plot {Server}:{Territory}:{Ward}:{House}",
+        _logger.LogDebug("Settled in housing plot {Server}:{Territory}:{Ward}:{House}",
             msg.LocationInfo.ServerId, msg.LocationInfo.TerritoryId, msg.LocationInfo.WardId, msg.LocationInfo.HouseId);
 
         //Global : si la synchro housing est désactivée, ne pas appliquer
@@ -84,12 +77,8 @@ public sealed class HousingFurnitureSyncService : IHostedService, IMediatorSubsc
         try
         {
             await _housingShareManager.RemoveAppliedModsAsync().ConfigureAwait(false);
-            await Task.Delay(500).ConfigureAwait(false);
-            await _dalamudUtil.RunOnFrameworkThread(() =>
-            {
-                _commandManager.ProcessCommand("/penumbra redraw furniture");
-            }).ConfigureAwait(false);
-            _logger.LogInformation("Redraw furniture exécuté après désactivation du housing");
+            await _housingShareManager.RedrawPreviouslyModdedFurnitureAsync().ConfigureAwait(false);
+            _logger.LogInformation("Meubles du partage rechargés après désactivation du housing");
         }
         catch (Exception ex)
         {

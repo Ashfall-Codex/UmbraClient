@@ -88,6 +88,7 @@ public sealed class Plugin : IDalamudPlugin
 
             // add mare related singletons
             collection.AddSingleton<MareMediator>();
+            collection.AddSingleton<CacheLeaseRegistry>();
             collection.AddSingleton<FileCacheManager>();
             collection.AddSingleton<ServerConfigurationManager>();
             collection.AddSingleton<ApiController>();
@@ -171,6 +172,7 @@ public sealed class Plugin : IDalamudPlugin
             collection.AddSingleton<SlotService>();
             collection.AddSingleton<HousingMonitorService>();
             collection.AddSingleton<HousingFurnitureScanner>();
+            collection.AddSingleton<HousingFurnitureRedrawService>();
             collection.AddSingleton<HousingShareManager>();
             collection.AddSingleton<HousingFurnitureSyncService>();
             collection.AddSingleton<ArrPathResolver>();
@@ -246,8 +248,10 @@ public sealed class Plugin : IDalamudPlugin
             collection.AddScoped<WindowMediatorSubscriberBase, PairRequestToastUi>();
             collection.AddScoped<WindowMediatorSubscriberBase>(sp => sp.GetRequiredService<AutoDetectUi>());
             collection.AddScoped<WindowMediatorSubscriberBase, ChangelogUi>();
+            collection.AddScoped<WindowMediatorSubscriberBase, WhatsNewUi>();
             collection.AddScoped<WindowMediatorSubscriberBase, TestBuildWarningUi>();
             collection.AddScoped<WindowMediatorSubscriberBase, PopoutProfileUi>();
+            collection.AddScoped<WindowMediatorSubscriberBase, TargetProfileTooltipUi>();
             collection.AddScoped<UmbraSync.WebAPI.AshfallConnectService>();
             collection.AddSingleton<UmbraSync.Services.AshfallConnectAutoSyncService>();
             collection.AddScoped<UmbraSync.UI.AshfallLinkCodeUi>();
@@ -267,8 +271,9 @@ public sealed class Plugin : IDalamudPlugin
             collection.AddScoped<CacheCreationService>();
             collection.AddScoped<TransientResourceManager>();
             collection.AddScoped<PlayerDataFactory>();
-            collection.AddScoped<CollectionOverrideResolver>();
             collection.AddScoped<OnlinePlayerManager>();
+            collection.AddScoped<MissingFileReportService>();
+            collection.AddScoped<BackdropBlur>();
             collection.AddScoped<UiService>();
             collection.AddScoped<CommandManagerService>();
             collection.AddScoped<UiSharedService>();
@@ -345,6 +350,10 @@ public sealed class Plugin : IDalamudPlugin
             catch (Exception e)
             {
                 pluginLog.Error(e, "HostBuilder startup exception");
+                if (UmbraSync.Utils.MemoryPressure.IsOutOfMemory(e))
+                {
+                    UmbraSync.Utils.MemoryPressure.NotifyStartupFailure(notificationManager);
+                }
             }
         }).ConfigureAwait(false);
     }

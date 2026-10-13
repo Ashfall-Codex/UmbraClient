@@ -5,16 +5,18 @@ using Dalamud.Interface.Utility;
 using Dalamud.Interface.Utility.Raii;
 using System.Globalization;
 using System.Numerics;
+using UmbraSync.API.Dto.CharaData;
 using UmbraSync.API.Dto.HousingScenario;
 using UmbraSync.Localization;
 using UmbraSync.Services.Housing;
 using UmbraSync.Services.Mediator;
+using UmbraSync.UI.Components;
 
 namespace UmbraSync.UI;
 
 public sealed partial class CharaDataHubUi
 {
-    private int _housingSubTab;
+    private readonly PolledUiValue<LocationInfo> _housingLocationPoll;
     private bool _housingScenarioInitialized;
     private List<HousingNpcScenario> _localScenes = new();
     private string _housingScenarioSelectedId = string.Empty;
@@ -59,7 +61,7 @@ public sealed partial class CharaDataHubUi
     private string _housingShareEditSyncshellDropdownSelection = string.Empty;
     private string _housingShareEditSyncshellInput = string.Empty;
 
-    private void DrawHousingShare(Vector4 accent)
+    private void DrawHousingShare(HubPage page)
     {
         if (!_uiSharedService.ApiController.IsConnected)
         {
@@ -69,22 +71,15 @@ public sealed partial class CharaDataHubUi
             return;
         }
 
-        var housingLabels = new[] { "Meubles", "PNJ" };
-        var housingIcons = new[] { FontAwesomeIcon.Couch, FontAwesomeIcon.Users };
-        DrawSubTabButtons(housingLabels, housingIcons, ref _housingSubTab, accent);
-
-        ImGuiHelpers.ScaledDummy(4f);
-
-        switch (_housingSubTab)
+        if (page == HubPage.HousingFurniture)
         {
-            case 0:
-                using (var id = ImRaii.PushId("housingFurniture"))
-                    DrawHousingFurnitureSection();
-                break;
-            case 1:
-                using (var id = ImRaii.PushId("housingScenario"))
-                    DrawHousingScenarioSection();
-                break;
+            using var id = ImRaii.PushId("housingFurniture");
+            DrawHousingFurnitureSection();
+        }
+        else
+        {
+            using var id = ImRaii.PushId("housingScenario");
+            DrawHousingScenarioSection();
         }
     }
 
@@ -100,7 +95,7 @@ public sealed partial class CharaDataHubUi
             _ = housingShareManager.RefreshAsync();
         }
 
-        _uiSharedService.BigText(Loc.Get("HousingShare.Title"));
+        UiSharedService.BeginSectionCard(Loc.Get("HousingShare.Title"), FontAwesomeIcon.Couch);
 
         if (housingShareManager.IsBusy)
         {
@@ -118,7 +113,7 @@ public sealed partial class CharaDataHubUi
 
         ImGuiHelpers.ScaledDummy(5);
 
-        var currentLocation = _dalamudUtilService.GetMapDataAsync().GetAwaiter().GetResult();
+        var currentLocation = _housingLocationPoll.Poll(_logger);
         bool isInsideHouse = currentLocation.HouseId != 0;
         bool isInHousingEditMode = _dalamudUtilService.IsInHousingMode;
 
@@ -146,9 +141,7 @@ public sealed partial class CharaDataHubUi
             ImGui.SameLine();
             ImGui.TextWrapped(Loc.Get("HousingShare.Warning.DefaultCollection"));
             ImGui.PopStyleColor();
-            ImGuiHelpers.ScaledDummy(3);
-            UiSharedService.DistanceSeparator();
-            _uiSharedService.BigText(Loc.Get("HousingShare.Scanner"));
+            UiSharedService.BeginSectionCard(Loc.Get("HousingShare.Scanner"), FontAwesomeIcon.Search);
 
             if (scanner.IsScanning)
             {
@@ -176,9 +169,7 @@ public sealed partial class CharaDataHubUi
             // Publish section
             if (scanner.CollectedFurnitureCount > 0)
             {
-                ImGuiHelpers.ScaledDummy(5);
-                UiSharedService.DistanceSeparator();
-                _uiSharedService.BigText(Loc.Get("HousingShare.PublishButton"));
+                UiSharedService.BeginSectionCard(Loc.Get("HousingShare.PublishButton"), FontAwesomeIcon.Upload);
 
                 UiSharedService.ColorTextWrapped(
                     string.Format(CultureInfo.CurrentCulture, Loc.Get("HousingShare.ScanResult"), scanner.CollectedFurnitureCount),
@@ -190,7 +181,7 @@ public sealed partial class CharaDataHubUi
                 ImGuiHelpers.ScaledDummy(3);
 
                 // Visibilité : checkbox tout partager
-                ImGui.Checkbox("Partager à tous mes paires et syncshells", ref _housingShareToAll);
+                ToggleSwitch.Draw("Partager à tous mes paires et syncshells", ref _housingShareToAll);
 
                 if (!_housingShareToAll)
                 {
@@ -271,7 +262,7 @@ public sealed partial class CharaDataHubUi
 
                 ImGuiHelpers.ScaledDummy(3);
 
-                ImGui.Checkbox(Loc.Get("HousingShare.DisableSourceAfterPublish"), ref _housingShareDisableSourceMods);
+                ToggleSwitch.Draw(Loc.Get("HousingShare.DisableSourceAfterPublish"), ref _housingShareDisableSourceMods);
                 _uiSharedService.DrawHelpText(Loc.Get("HousingShare.DisableSourceAfterPublish.Help"));
 
                 ImGuiHelpers.ScaledDummy(3);
@@ -314,9 +305,7 @@ public sealed partial class CharaDataHubUi
         }
 
         // Own shares list
-        ImGuiHelpers.ScaledDummy(5);
-        UiSharedService.DistanceSeparator();
-        _uiSharedService.BigText(Loc.Get("HousingShare.OwnShares"));
+        UiSharedService.BeginSectionCard(Loc.Get("HousingShare.OwnShares"), FontAwesomeIcon.List);
 
         if (_uiSharedService.IconTextButton(FontAwesomeIcon.Sync, Loc.Get("HousingShare.Refresh")))
         {
@@ -438,9 +427,7 @@ public sealed partial class CharaDataHubUi
 
     private void DrawHousingShareEditSection(Services.Housing.HousingShareManager housingShareManager, API.Dto.HousingShare.HousingShareEntryDto entry)
     {
-        ImGuiHelpers.ScaledDummy(3);
-        UiSharedService.DistanceSeparator();
-        _uiSharedService.BigText($"Modifier le partage : {(string.IsNullOrEmpty(entry.Description) ? entry.Id.ToString("D", CultureInfo.InvariantCulture) : entry.Description)}");
+        UiSharedService.BeginSectionCard($"Modifier le partage : {(string.IsNullOrEmpty(entry.Description) ? entry.Id.ToString("D", CultureInfo.InvariantCulture) : entry.Description)}", FontAwesomeIcon.Edit);
 
         ImGui.SetNextItemWidth(300);
         ImGui.InputTextWithHint("##housingShareEditDesc", Loc.Get("HousingShare.Description"), ref _housingShareEditDescription, 128);
@@ -448,7 +435,7 @@ public sealed partial class CharaDataHubUi
         ImGuiHelpers.ScaledDummy(3);
 
         // Visibilité : checkbox tout partager
-        ImGui.Checkbox("Partager à tous mes paires et syncshells##edit", ref _housingShareEditToAll);
+        ToggleSwitch.Draw("Partager à tous mes paires et syncshells##edit", ref _housingShareEditToAll);
 
         if (!_housingShareEditToAll)
         {
@@ -558,7 +545,7 @@ public sealed partial class CharaDataHubUi
             ? "S\u00e9lectionner un pair synchronis\u00e9..."
             : FormatPairLabel(previewSource);
 
-        using var combo = ImRaii.Combo("##housingShareUidDropdown", previewLabel, ImGuiComboFlags.None);
+        using var combo = UiSharedService.Combo("##housingShareUidDropdown", previewLabel, ImGuiComboFlags.None);
         if (!combo) return;
 
         foreach (var pair in _pairManager.DirectPairs
@@ -585,7 +572,7 @@ public sealed partial class CharaDataHubUi
             ? "S\u00e9lectionner une syncshell..."
             : FormatSyncshellLabel(previewSource);
 
-        using var combo = ImRaii.Combo("##housingShareSyncshellDropdown", previewLabel, ImGuiComboFlags.None);
+        using var combo = UiSharedService.Combo("##housingShareSyncshellDropdown", previewLabel, ImGuiComboFlags.None);
         if (!combo) return;
 
         foreach (var group in _pairManager.Groups.Values
@@ -612,7 +599,7 @@ public sealed partial class CharaDataHubUi
             ? "S\u00e9lectionner un pair synchronis\u00e9..."
             : FormatPairLabel(previewSource);
 
-        using var combo = ImRaii.Combo("##housingShareEditUidDropdown", previewLabel, ImGuiComboFlags.None);
+        using var combo = UiSharedService.Combo("##housingShareEditUidDropdown", previewLabel, ImGuiComboFlags.None);
         if (!combo) return;
 
         foreach (var pair in _pairManager.DirectPairs
@@ -639,7 +626,7 @@ public sealed partial class CharaDataHubUi
             ? "S\u00e9lectionner une syncshell..."
             : FormatSyncshellLabel(previewSource);
 
-        using var combo = ImRaii.Combo("##housingShareEditSyncshellDropdown", previewLabel, ImGuiComboFlags.None);
+        using var combo = UiSharedService.Combo("##housingShareEditSyncshellDropdown", previewLabel, ImGuiComboFlags.None);
         if (!combo) return;
 
         foreach (var group in _pairManager.Groups.Values
@@ -658,7 +645,7 @@ public sealed partial class CharaDataHubUi
 
     private void DrawHousingScenarioSection()
     {
-        _uiSharedService.BigText(Loc.Get("HousingScenario.Title"));
+        UiSharedService.BeginSectionCard(Loc.Get("HousingScenario.Title"), FontAwesomeIcon.Users);
 
         ImGuiHelpers.ScaledDummy(5);
 
@@ -688,7 +675,7 @@ public sealed partial class CharaDataHubUi
 
         ImGuiHelpers.ScaledDummy(5);
 
-        var currentLocation = _dalamudUtilService.GetMapDataAsync().GetAwaiter().GetResult();
+        var currentLocation = _housingLocationPoll.Poll(_logger);
         bool isInsideHouse = currentLocation.HouseId != 0;
 
         if (!isInsideHouse)
@@ -743,9 +730,7 @@ public sealed partial class CharaDataHubUi
         }
 
         // Mes scénarios partagés
-        ImGuiHelpers.ScaledDummy(5);
-        UiSharedService.DistanceSeparator();
-        _uiSharedService.BigText(Loc.Get("HousingScenario.OwnSharesTitle"));
+        UiSharedService.BeginSectionCard(Loc.Get("HousingScenario.OwnSharesTitle"), FontAwesomeIcon.List);
 
         if (_uiSharedService.IconTextButton(FontAwesomeIcon.Sync, Loc.Get("HousingScenario.Refresh")))
         {
@@ -758,9 +743,7 @@ public sealed partial class CharaDataHubUi
 
         if (scenarioManager.DelegationQuerySupported)
         {
-            ImGuiHelpers.ScaledDummy(5);
-            UiSharedService.DistanceSeparator();
-            _uiSharedService.BigText(Loc.Get("HousingScenario.DelegatedTitle"));
+            UiSharedService.BeginSectionCard(Loc.Get("HousingScenario.DelegatedTitle"), FontAwesomeIcon.UserShield);
             ImGui.TextWrapped(Loc.Get("HousingScenario.DelegatedHelp"));
             ImGuiHelpers.ScaledDummy(3);
 
@@ -809,7 +792,7 @@ public sealed partial class CharaDataHubUi
         }
 
         ImGui.SetNextItemWidth(360f);
-        using (var combo = ImRaii.Combo("##scenarioPick", FormatScenarioLabel(selectedInfo)))
+        using (var combo = UiSharedService.Combo("##scenarioPick", FormatScenarioLabel(selectedInfo)))
         {
             if (combo)
             {
@@ -831,7 +814,7 @@ public sealed partial class CharaDataHubUi
 
         ImGuiHelpers.ScaledDummy(3);
 
-        ImGui.Checkbox(Loc.Get("HousingScenario.ShareToAll") + "##scenario", ref _housingScenarioToAll);
+        ToggleSwitch.Draw(Loc.Get("HousingScenario.ShareToAll") + "##scenario", ref _housingScenarioToAll);
 
         if (!_housingScenarioToAll)
         {
@@ -1109,15 +1092,13 @@ public sealed partial class CharaDataHubUi
 
     private void DrawHousingScenarioEditSection(HousingScenarioManager scenarioManager, HousingScenarioEntryDto entry)
     {
-        ImGuiHelpers.ScaledDummy(3);
-        UiSharedService.DistanceSeparator();
-        _uiSharedService.BigText($"Modifier : {(string.IsNullOrEmpty(entry.Description) ? entry.Id.ToString("D", CultureInfo.InvariantCulture) : entry.Description)}");
+        UiSharedService.BeginSectionCard($"Modifier : {(string.IsNullOrEmpty(entry.Description) ? entry.Id.ToString("D", CultureInfo.InvariantCulture) : entry.Description)}", FontAwesomeIcon.Edit);
 
         ImGui.SetNextItemWidth(300);
         ImGui.InputTextWithHint("##scenarioEditDesc", Loc.Get("HousingScenario.ColDescription"), ref _housingScenarioEditDescription, 128);
 
         ImGuiHelpers.ScaledDummy(3);
-        ImGui.Checkbox(Loc.Get("HousingScenario.ShareToAll") + "##scenarioEdit", ref _housingScenarioEditToAll);
+        ToggleSwitch.Draw(Loc.Get("HousingScenario.ShareToAll") + "##scenarioEdit", ref _housingScenarioEditToAll);
 
         if (!_housingScenarioEditToAll)
         {
@@ -1268,7 +1249,7 @@ public sealed partial class CharaDataHubUi
             ? Loc.Get("HousingScenario.SelectPair")
             : FormatPairLabel(currentValue);
 
-        using var combo = ImRaii.Combo("##" + id, previewLabel, ImGuiComboFlags.HeightLarge);
+        using var combo = UiSharedService.Combo("##" + id, previewLabel, ImGuiComboFlags.HeightLarge);
         if (!combo) return;
 
         var search = _pairPickerSearch.TryGetValue(id, out var stored) ? stored : string.Empty;
@@ -1345,7 +1326,7 @@ public sealed partial class CharaDataHubUi
             ? "Sélectionner une syncshell..."
             : FormatSyncshellLabel(previewSource);
 
-        using var combo = ImRaii.Combo("##scenarioSyncshellDropdown", previewLabel, ImGuiComboFlags.None);
+        using var combo = UiSharedService.Combo("##scenarioSyncshellDropdown", previewLabel, ImGuiComboFlags.None);
         if (!combo) return;
 
         foreach (var group in _pairManager.Groups.Values
@@ -1385,7 +1366,7 @@ public sealed partial class CharaDataHubUi
             ? "Sélectionner une syncshell..."
             : FormatSyncshellLabel(previewSource);
 
-        using var combo = ImRaii.Combo("##scenarioEditSyncshellDropdown", previewLabel, ImGuiComboFlags.None);
+        using var combo = UiSharedService.Combo("##scenarioEditSyncshellDropdown", previewLabel, ImGuiComboFlags.None);
         if (!combo) return;
 
         foreach (var group in _pairManager.Groups.Values

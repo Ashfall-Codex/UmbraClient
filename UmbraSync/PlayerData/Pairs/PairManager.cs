@@ -42,7 +42,6 @@ public sealed class PairManager : DisposableMediatorSubscriberBase
     private readonly DalamudUtilService _dalamudUtilService;
     private readonly IServiceProvider _serviceProvider;
     private readonly PairFactory _pairFactory;
-    private readonly Lazy<ApiController> _apiController;
     private Lazy<List<Pair>> _directPairsInternal;
     private Lazy<Dictionary<GroupFullInfoDto, List<Pair>>> _groupPairsInternal;
     private static readonly TimeSpan LazyRecreateDebounce = TimeSpan.FromMilliseconds(150);
@@ -71,7 +70,6 @@ public sealed class PairManager : DisposableMediatorSubscriberBase
         _autoDetectRequestService = autoDetectRequestService;
         _dalamudUtilService = dalamudUtilService;
         _serviceProvider = serviceProvider;
-        _apiController = new Lazy<ApiController>(() => serviceProvider.GetRequiredService<ApiController>());
         Mediator.Subscribe<DisconnectedMessage>(this, (_) => ClearPairs());
         _directPairsInternal = DirectPairsLazy();
         _groupPairsInternal = GroupPairsLazy();
@@ -125,21 +123,25 @@ public sealed class PairManager : DisposableMediatorSubscriberBase
         }
     }
 
-    /// <summary>
-    /// Vrai lorsqu'un autre plugin Ashfall présente déjà la fiche complète d'un joueur,
-    /// profil RP compris. UmbraSync lui cède alors son entrée de menu plutôt que de
-    /// proposer deux fois la même chose.
-    ///
-    /// C'est l'autre plugin qui l'annonce : UmbraSync n'a pas à connaître la liste de ceux
-    /// qui pourraient le faire.
-    /// </summary>
-    private bool ExternalPluginHandlesSheets()
+    private bool ExternalPluginHandlesSheetFor(uint objectId)
     {
         if (!_configurationService.Current.ShareRpProfileWithPlugins) return false;
 
+        var pluginInterface = _serviceProvider.GetRequiredService<IDalamudPluginInterface>();
+
         try
         {
-            var pluginInterface = _serviceProvider.GetRequiredService<IDalamudPluginInterface>();
+            return pluginInterface
+                .GetIpcSubscriber<uint, bool>("MasterEvent.Profile.HandlesSheetFor")
+                .InvokeFunc(objectId);
+        }
+        catch
+        {
+            // Point d'entrée par cible absent : plugin plus ancien, ou pas installé du tout.
+        }
+
+        try
+        {
             return pluginInterface
                 .GetIpcSubscriber<bool>("MasterEvent.Profile.HandlesSheets")
                 .InvokeFunc();
@@ -436,6 +438,16 @@ public sealed class PairManager : DisposableMediatorSubscriberBase
         }
 
         Mediator.Publish(new ClearProfileDataMessage(dto.User));
+
+        // Reconnexion sur un autre personnage sans passage hors ligne (crash, timeout serveur) :
+        // l'ancien handler vise encore l'ancien personnage, on le remplace au lieu de le réappliquer.
+        if (pair.IsOnline && !string.IsNullOrEmpty(pair.Ident)
+            && !string.Equals(pair.Ident, dto.Ident, StringComparison.Ordinal))
+        {
+            Logger.LogInformation("Pair {uid} came online with a different character, recreating its handler", dto.User.UID);
+            pair.MarkOffline();
+            pair.LastReceivedCharacterData = null;
+        }
 
         if (pair.HasCachedPlayer)
         {
@@ -925,7 +937,8 @@ public sealed class PairManager : DisposableMediatorSubscriberBase
 
         TryAddAutoDetectPairRequestItem(args);
 
-        var externalHandlesSheets = ExternalPluginHandlesSheets();
+        var targetObjectId = args.Target is MenuTargetDefault menuTarget ? (uint)menuTarget.TargetObjectId : 0u;
+        var externalHandlesSheets = ExternalPluginHandlesSheetFor(targetObjectId);
         foreach (var pair in _allClientPairs.Where((p => p.Value.IsVisible)))
         {
             pair.Value.AddContextMenu(args, externalHandlesSheets);
@@ -936,6 +949,7 @@ public sealed class PairManager : DisposableMediatorSubscriberBase
     {
         if (!_configurationService.Current.EnableAutoDetectDiscovery) { Logger.LogDebug("[ContextMenu] Skipped pair request: AutoDetectDiscovery disabled"); return; }
         if (!_configurationService.Current.AllowAutoDetectPairRequests) { Logger.LogDebug("[ContextMenu] Skipped pair request: PairRequests not allowed"); return; }
+        if (_autoDetectRequestService.IsNearbyHidden) { Logger.LogDebug("[ContextMenu] Skipped pair request: hidden from nearby discovery"); return; }
         if (args.Target is not MenuTargetDefault target) { Logger.LogDebug("[ContextMenu] Skipped pair request: Target not MenuTargetDefault (was {t})", args.Target.GetType().Name); return; }
 
         uint targetObjectId = (uint)target.TargetObjectId;
@@ -973,32 +987,28 @@ public sealed class PairManager : DisposableMediatorSubscriberBase
 
         if (nearbyEntry == null)
         {
-            Logger.LogDebug("[ContextMenu] No AutoDetect match for {name}@{world} (entries={cnt}). Example entries: {examples}",
-                clickedPlayerName,
-                (ushort)clickedPlayer.HomeWorldId,
-                entries.Count,
-                string.Join(", ", entries.Take(5).Select(e => $"{e.Name}/{e.DisplayName}@{e.WorldId}")));
+            Logger.LogDebug("[ContextMenu] No AutoDetect match for the clicked player (entries={cnt})", entries.Count);
             return;
         }
 
         bool canSendRequest = nearbyEntry.AcceptPairRequests && !string.IsNullOrEmpty(nearbyEntry.Token)
             && !IsAlreadyDirectPaired(nearbyEntry.Uid ?? string.Empty);
-        bool canAddPair = !string.IsNullOrEmpty(nearbyEntry.Uid)
+        // Même opt-in que la demande : on n'ajoute pas un joueur qui refuse les demandes
+        bool canAddPair = nearbyEntry.AcceptPairRequests
+            && !string.IsNullOrEmpty(nearbyEntry.Uid)
             && !IsAlreadyDirectPaired(nearbyEntry.Uid);
 
         if (!canSendRequest && !canAddPair)
         {
-            Logger.LogDebug("[ContextMenu] AutoDetect entry for {name}@{world} is not actionable (Token={hasToken}, Uid={hasUid}, Accepts={accepts})",
-                clickedPlayerName, (ushort)clickedPlayer.HomeWorldId,
+            Logger.LogDebug("[ContextMenu] AutoDetect entry is not actionable (Token={hasToken}, Uid={hasUid}, Accepts={accepts})",
                 !string.IsNullOrEmpty(nearbyEntry.Token),
                 !string.IsNullOrEmpty(nearbyEntry.Uid),
                 nearbyEntry.AcceptPairRequests);
             return;
         }
 
-        Logger.LogDebug("[ContextMenu] AutoDetect match found for {name}@{world}: entry={entryName}/{display}@{entryWorld} (Uid={uid}, Token={hasToken})",
-            clickedPlayerName, (ushort)clickedPlayer.HomeWorldId,
-            nearbyEntry.Name, nearbyEntry.DisplayName ?? "<null>", nearbyEntry.WorldId, nearbyEntry.Uid ?? "<null>", !string.IsNullOrEmpty(nearbyEntry.Token));
+        Logger.LogDebug("[ContextMenu] AutoDetect match found (Uid={uid}, Token={hasToken})",
+            nearbyEntry.Uid ?? "<null>", !string.IsNullOrEmpty(nearbyEntry.Token));
 
         if (canSendRequest)
         {
@@ -1036,13 +1046,17 @@ public sealed class PairManager : DisposableMediatorSubscriberBase
                 Priority = 0,
                 OnClicked = clickedArgs =>
                 {
-                    _ = _apiController.Value.UserAddPair(new UserDto(new UserData(nearbyEntry.Uid!)));
+                    // Même chemin que les autres demandes : cooldown, invitation sortante, contrôle du masquage
+                    _ = _autoDetectRequestService.SendDirectUidRequestAsync(
+                        nearbyEntry.Uid!,
+                        nearbyEntry.DisplayName ?? nearbyEntry.Name,
+                        fromNearby: true);
                 }
             });
         }
 
-        Logger.LogDebug("[ContextMenu] Added auto-detect menu for {name}@{world} (Uid={uid}) Request={reqEnabled} AddPair={addEnabled}",
-            clickedPlayerName, (ushort)clickedPlayer.HomeWorldId, nearbyEntry.Uid, canSendRequest, canAddPair);
+        Logger.LogDebug("[ContextMenu] Added auto-detect menu (Uid={uid}) Request={reqEnabled} AddPair={addEnabled}",
+            nearbyEntry.Uid, canSendRequest, canAddPair);
     }
 
     private Lazy<List<Pair>> DirectPairsLazy() => new(() => _allClientPairs.Select(k => k.Value)

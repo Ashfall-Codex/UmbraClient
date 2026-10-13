@@ -158,6 +158,18 @@ public class SlotService : MediatorSubscriberBase, IDisposable
 
     private async void OnHousingPositionUpdate(uint serverId, uint territoryId, uint divisionId, uint wardId, Vector3 position)
     {
+        try
+        {
+            await OnHousingPositionUpdateAsync(serverId, territoryId, divisionId, wardId, position).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Slot: échec du traitement de la position (territory={territory}, ward={ward})", territoryId, wardId);
+        }
+    }
+
+    private async Task OnHousingPositionUpdateAsync(uint serverId, uint territoryId, uint divisionId, uint wardId, Vector3 position)
+    {
         if (!_configService.Current.EnableSlotNotifications)
         {
             // En Information et une seule fois : ce réglage désactive toute la détection de sortie,
@@ -293,6 +305,10 @@ public class SlotService : MediatorSubscriberBase, IDisposable
                                 Mediator.Publish(new NotificationMessage(Loc.Get("SlotPopup.Title"), string.Format(Loc.Get("Slot.Toast.Welcome"), slotInfo.SlotName), MareConfiguration.Models.NotificationType.Info));
                             }
                         }
+                        else if (!CanJoinMoreGroups())
+                        {
+                            NotifyMaxGroupsReached(slotInfo);
+                        }
                         else
                         {
                             Logger.LogDebug("Publishing OpenSlotPromptMessage for slot {name} (not a member)", slotInfo.SlotName);
@@ -399,12 +415,6 @@ public class SlotService : MediatorSubscriberBase, IDisposable
 
         Logger.LogInformation("Entered housing plot: {location}", location);
         _currentPlot = location;
-        if (_leaveTimerCts != null)
-        {
-            await _leaveTimerCts.CancelAsync().ConfigureAwait(false);
-            _leaveTimerCts.Dispose();
-            _leaveTimerCts = null;
-        }
 
         var slotLocation = new SlotLocationDto
         {
@@ -423,6 +433,25 @@ public class SlotService : MediatorSubscriberBase, IDisposable
         else
         {
             Logger.LogTrace("SlotGetInfo (plot): No slot found for plot {id}", slotLocation.PlotId);
+        }
+
+        // Entrer dans une parcelle ne ramène pas dans le slot rejoint : ce peut être sa propre maison,
+        // sur un autre monde. Annuler le timer ici sans regarder laquelle le relançait à chaque sortie,
+        // et la syncshell du slot rejoint n'était jamais quittée.
+        if (_joinedViaSlot && _currentSlotSyncshell != null
+            && !string.Equals(slotInfo?.AssociatedSyncshell?.Gid, _currentSlotSyncshell.Gid, StringComparison.Ordinal))
+        {
+            LogSlotTransitionOnce($"Slot: entrée dans une parcelle ({slotInfo?.SlotName ?? "sans slot"}) qui n'est pas celle du slot rejoint "
+                + $"« {_currentSlotSyncshell.Name} » — sortie du précédent en cours");
+            if (_leaveTimerCts == null) StartLeaveTimer();
+            return;
+        }
+
+        if (_leaveTimerCts != null)
+        {
+            await _leaveTimerCts.CancelAsync().ConfigureAwait(false);
+            _leaveTimerCts.Dispose();
+            _leaveTimerCts = null;
         }
 
         if (slotInfo != null)
@@ -447,6 +476,10 @@ public class SlotService : MediatorSubscriberBase, IDisposable
                         Mediator.Publish(new NotificationMessage(Loc.Get("SlotPopup.Title"), string.Format(Loc.Get("Slot.Toast.Welcome"), slotInfo.SlotName), MareConfiguration.Models.NotificationType.Info));
                     }
                 }
+                else if (!CanJoinMoreGroups())
+                {
+                    NotifyMaxGroupsReached(slotInfo);
+                }
                 else
                 {
                     Logger.LogInformation("Publishing OpenSlotPromptMessage for slot {name} (not a member)", slotInfo.SlotName);
@@ -455,6 +488,23 @@ public class SlotService : MediatorSubscriberBase, IDisposable
                 }
             }
         }
+    }
+
+    private bool CanJoinMoreGroups()
+    {
+        int max = _apiController.ServerInfo.MaxGroupsJoinedByUser;
+        return max <= 0 || _pairManager.GroupPairs.Count < max;
+    }
+
+    private void NotifyMaxGroupsReached(SlotInfoResponseDto slotInfo)
+    {
+        if (_lastNotifiedSlot?.SlotId == slotInfo.SlotId) return;
+        _lastNotifiedSlot = slotInfo;
+        Logger.LogInformation("Slot {name} : limite de syncshells atteinte ({count}/{max}), popup non affiché",
+            slotInfo.SlotName, _pairManager.GroupPairs.Count, _apiController.ServerInfo.MaxGroupsJoinedByUser);
+        Mediator.Publish(new NotificationMessage(Loc.Get("SlotPopup.Title"),
+            string.Format(Loc.Get("Slot.Toast.MaxGroupsReached"), slotInfo.SlotName, _apiController.ServerInfo.MaxGroupsJoinedByUser),
+            MareConfiguration.Models.NotificationType.Warning));
     }
 
     private void StartLeaveTimer()

@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+﻿using Dalamud.Plugin.Services;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using System.Reflection;
@@ -12,60 +13,6 @@ using UmbraSync.Services.ServerConfiguration;
 
 namespace UmbraSync;
 
-#pragma warning disable S125 // Sections of code should not be commented out
-/*
-                                                                    (..,,...,,,,,+/,                ,,.....,,+
-                                                              ..,,+++/((###%%%&&%%#(+,,.,,,+++,,,,//,,#&@@@@%+.
-                                                          ...+//////////(/,,,,++,.,(###((//////////,..  .,#@@%/./
-                                                       ,..+/////////+///,.,. ,&@@@@,,/////////////+,..    ,(##+,.
-                                                    ,,.+//////////++++++..     ./#%#,+/////////////+,....,/((,..,
-                                                  +..////////////+++++++...  .../##(,,////////////////++,,,+/(((+,
-                                                +,.+//////////////+++++++,.,,,/(((+.,////////////////////////((((#/,,
-                                              /+.+//////////++++/++++++++++,,...,++///////////////////////////((((##,
-                                             /,.////////+++++++++++++++++++++////////+++//////++/+++++//////////((((#(+,
-                                           /+.+////////+++++++++++++++++++++++++++++++++++++++++++++++++++++/////((((##+
-                                          +,.///////////////+++++++++++++++++++++++++++++++++++++++++++++++++++///((((%/
-                                         /.,/////////////////+++++++++++++++++++++++++++++++++++++++++++++++++++///+/(#+
-                                        +,./////////////////+++++++++++++++++++++++++++++++++++++++++++++++,,+++++///((,
-                                       ...////////++/++++++++++++++++++++++++,,++++++++++++++++++++++++++++++++++++//(,,
-                                       ..//+,+///++++++++++++++++++,,,,+++,,,,,,,,,,,,++++++++,,+++++++++++++++++++//,,+
-                                      ..,++,.++++++++++++++++++++++,,,,,,,,,,,,,,,,,,,++++++++,,,,,,,,,,++++++++++...
-                                      ..+++,.+++++++++++++++++++,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,++,..,.
-                                     ..,++++,,+++++++++++,+,,,,,,,,,,..,+++++++++,,,,,,.....................,//+,+
-                                 ....,+++++,.,+++++++++++,,,,,,,,.+///(((((((((((((///////////////////////(((+,,,
-                          .....,++++++++++..,+++++++++++,,.,,,.////////(((((((((((((((////////////////////+,,/
-                      .....,++++++++++++,..,,+++++++++,,.,../////////////////((((((((((//////////////////,,+
-                   ...,,+++++++++++++,.,,.,,,+++++++++,.,/////////////////(((//++++++++++++++//+++++++++/,,
-                ....,++++++++++++++,.,++.,++++++++++++.,+////////////////////+++++++++++++++++++++++++///,,..
-              ...,++++++++++++++++..+++..+++++++++++++.,//////////////////////////++++++++++++///////++++......
-            ...++++++++++++++++++..++++.,++,++++++++++.+///////////////////////////////////////////++++++..,,,..
-          ...+++++++++++++++++++..+++++..,+,,+++++++++.+//////////////////////////////////////////+++++++...,,,,..
-         ..++++++++++++++++++++..++++++..,+,,+++++++++.+//////////////////////////////////////++++++++++,....,,,,..
-       ...+++//(//////+++++++++..++++++,.,+++++++++++++,..,....,,,+++///////////////////////++++++++++++..,,,,,,,,...
-      ..,++/(((((//////+++++++,.,++++++,,.,,,+++++++++++++++++++++++,.++////////////////////+++++++++++.....,,,,,,,...
-     ..,//#(((((///////+++++++..++++++++++,...,++,++++++++++++++++,...+++/////////////////////+,,,+++...  ....,,,,,,...
-   ...+//(((((//////////++++++..+++++++++++++++,......,,,,++++++,,,..+++////////////////////////+,....     ...,,,,,,,...
-   ..,//((((////////////++++++..++++++/+++++++++++++,,...,,........,+/+//////////////////////((((/+,..     ....,.,,,,..
-  ...+/////////////////////+++..++++++/+///+++++++++++++++++++++///+/+////////////////////////(((((/+...   .......,,...
-  ..++////+++//////////////++++.+++++++++///////++++++++////////////////////////////////////+++/(((((/+..    .....,,...
-  .,++++++++///////////////++++..++++//////////////////////////////////////////////////////++++++/((((++..    ........
-  .+++++++++////////////////++++,.+++/////////////////////////////////////////////////////+++++++++/((/++..
- .,++++++++//////////////////++++,.+++//////////////////////////////////////////////////+++++++++++++//+++..
- .++++++++//////////////////////+/,.,+++////((((////////////////////////////////////////++++++++++++++++++...
- .++++++++///////////////////////+++..++++//((((((((///////////////////////////////////++++++++++++++++++++ .
- .++++++///////////////////////////++,.,+++++/(((((((((/////////////////////////////+++++++++++++++++++++++,..
- .++++++////////////////////////////+++,.,+++++++/((((((((//////////////////////////++++++++++++++++++++++++..
- .+++++++///////////////////++////////++++,.,+++++++++///////////+////////////////+++++++++++++++++++++++++,..
- ..++++++++++//////////////////////+++++++..+...,+++++++++++++++/++++++++++++++++++++++++++++++++++++++++++,...
-  ..++++++++++++///////////////+++++++,...,,,,,.,....,,,,+++++++++++++++++++++++++++++++++++++++++++++++,,,,...
-  ...++++++++++++++++++++++++++,,,,...,,,,,,,,,..,,++,,,.,,,,,,,,,,,,,,,,,,+++++++++++++++++++++++++,,,,,,,,..
-   ...+++++++++++++++,,,,,,,,....,,,,,,,,,,,,,,,..,,++++++,,,,,,,,,,,,,,,,+++++++++++++++++++++++++,,,,,,,,,..
-     ...++++++++++++,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,...,++++++++++++++++++++++++++++++++++++++++++++,,,,,,,,,,...
-       ,....,++++++++++++++,,,+++++++,,,,,,,,,,,,,,,,,.,++++++++++++++++++++++++++++++++++++++++++++,,,,,,,,..
-
-*/
-#pragma warning restore S125 // Sections of code should not be commented out
-
 public class MarePlugin : MediatorSubscriberBase, IHostedService
 {
     private readonly DalamudUtilService _dalamudUtil;
@@ -73,6 +20,7 @@ public class MarePlugin : MediatorSubscriberBase, IHostedService
     private readonly ServerConfigurationManager _serverConfigurationManager;
     private readonly RgpdDataService _rgpdDataService;
     private readonly IServiceScopeFactory _serviceScopeFactory;
+    private readonly INotificationManager _notificationManager;
     private IServiceScope? _runtimeServiceScope;
     private Task? _launchTask;
 
@@ -80,13 +28,14 @@ public class MarePlugin : MediatorSubscriberBase, IHostedService
         ServerConfigurationManager serverConfigurationManager,
         DalamudUtilService dalamudUtil,
         RgpdDataService rgpdDataService,
-        IServiceScopeFactory serviceScopeFactory, MareMediator mediator) : base(logger, mediator)
+        IServiceScopeFactory serviceScopeFactory, INotificationManager notificationManager, MareMediator mediator) : base(logger, mediator)
     {
         _mareConfigService = mareConfigService;
         _serverConfigurationManager = serverConfigurationManager;
         _dalamudUtil = dalamudUtil;
         _rgpdDataService = rgpdDataService;
         _serviceScopeFactory = serviceScopeFactory;
+        _notificationManager = notificationManager;
     }
 
     public Task StartAsync(CancellationToken cancellationToken)
@@ -99,6 +48,12 @@ public class MarePlugin : MediatorSubscriberBase, IHostedService
         Mediator.Subscribe<SwitchToMainUiMessage>(this, (msg) => { if (_launchTask == null || _launchTask.IsCompleted) _launchTask = Task.Run(WaitForPlayerAndLaunchCharacterManager); });
         Mediator.Subscribe<DalamudLoginMessage>(this, (_) => DalamudUtilOnLogIn());
         Mediator.Subscribe<DalamudLogoutMessage>(this, (_) => DalamudUtilOnLogOut());
+        // Consentement retiré : les services de synchronisation s'arrêtent et l'écran de consentement revient.
+        Mediator.Subscribe<RgpdConsentUpdatedMessage>(this, (msg) =>
+        {
+            if (msg.ConsentGiven || !_dalamudUtil.IsLoggedIn) return;
+            if (_launchTask == null || _launchTask.IsCompleted) _launchTask = Task.Run(WaitForPlayerAndLaunchCharacterManager);
+        });
 
         Mediator.StartQueueProcessing();
 
@@ -126,7 +81,20 @@ public class MarePlugin : MediatorSubscriberBase, IHostedService
     {
         Logger.LogDebug("Client logout");
 
-        _runtimeServiceScope?.Dispose();
+        StopRuntimeServices();
+    }
+
+    private void StopRuntimeServices()
+    {
+        var scope = Interlocked.Exchange(ref _runtimeServiceScope, null);
+        try
+        {
+            scope?.Dispose();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Error while stopping runtime services");
+        }
     }
 
     private async Task WaitForPlayerAndLaunchCharacterManager()
@@ -140,7 +108,7 @@ public class MarePlugin : MediatorSubscriberBase, IHostedService
         {
             Logger.LogDebug("Launching Managers");
 
-            _runtimeServiceScope?.Dispose();
+            StopRuntimeServices();
             _runtimeServiceScope = _serviceScopeFactory.CreateScope();
             _runtimeServiceScope.ServiceProvider.GetRequiredService<UiService>();
             _runtimeServiceScope.ServiceProvider.GetRequiredService<CommandManagerService>();
@@ -150,15 +118,29 @@ public class MarePlugin : MediatorSubscriberBase, IHostedService
                 return;
             }
 
+            var whatsNewPending = _mareConfigService.Current.HasPendingWhatsNewTour();
             if (!_rgpdDataService.IsRgpdConsentValid)
             {
-                Logger.LogInformation("RGPD consent missing or expired, showing consent screen");
-                Mediator.Publish(new SwitchToRgpdConsentUiMessage());
+                if (whatsNewPending)
+                {
+                    // Le tour de la version embarque la page de consentement.
+                    Logger.LogInformation("RGPD consent missing or expired, showing what's new tour");
+                    Mediator.Publish(new SwitchToWhatsNewUiMessage(ServicesPending: true));
+                }
+                else
+                {
+                    Logger.LogInformation("RGPD consent missing or expired, showing consent screen");
+                    Mediator.Publish(new SwitchToRgpdConsentUiMessage());
+                }
                 return;
             }
+
+            if (whatsNewPending)
+                Mediator.Publish(new SwitchToWhatsNewUiMessage(ServicesPending: false));
             _runtimeServiceScope.ServiceProvider.GetRequiredService<CacheCreationService>();
             _runtimeServiceScope.ServiceProvider.GetRequiredService<TransientResourceManager>();
             _runtimeServiceScope.ServiceProvider.GetRequiredService<OnlinePlayerManager>();
+            _runtimeServiceScope.ServiceProvider.GetRequiredService<MissingFileReportService>();
             _runtimeServiceScope.ServiceProvider.GetRequiredService<PairLedger>();
             _runtimeServiceScope.ServiceProvider.GetRequiredService<NotificationService>();
             _runtimeServiceScope.ServiceProvider.GetRequiredService<SyncDefaultsService>();
@@ -170,6 +152,7 @@ public class MarePlugin : MediatorSubscriberBase, IHostedService
             _runtimeServiceScope.ServiceProvider.GetRequiredService<ChatTypingDetectionService>();
             _runtimeServiceScope.ServiceProvider.GetRequiredService<GuiHookService>();
             _runtimeServiceScope.ServiceProvider.GetRequiredService<CharacterAnalyzer>();
+            _runtimeServiceScope.ServiceProvider.GetRequiredService<EstablishmentReminderService>();
 
 #if !DEBUG
             if (_mareConfigService.Current.LogLevel != LogLevel.Information)
@@ -183,6 +166,10 @@ public class MarePlugin : MediatorSubscriberBase, IHostedService
         catch (Exception ex)
         {
             Logger.LogCritical(ex, "Error during launch of managers");
+            if (Utils.MemoryPressure.IsOutOfMemory(ex))
+            {
+                Utils.MemoryPressure.NotifyStartupFailure(_notificationManager);
+            }
         }
     }
 }

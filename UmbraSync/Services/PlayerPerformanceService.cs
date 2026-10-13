@@ -369,6 +369,7 @@ public class PlayerPerformanceService : DisposableMediatorSubscriberBase
                         {
                             _logger.LogDebug("Deleting original texture: {filePath}", filePath);
                             File.Delete(filePath);
+                            _fileCacheManager.RemoveHashedFile(fileEntry.Hash, fileEntry.PrefixedFilePath);
                         }
                         catch (Exception ex)
                         {

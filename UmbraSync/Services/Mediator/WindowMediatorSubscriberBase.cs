@@ -1,7 +1,9 @@
 ﻿using Dalamud.Bindings.ImGui;
+using Dalamud.Interface.Utility;
 using Dalamud.Interface.Windowing;
 using Microsoft.Extensions.Logging;
 using UmbraSync.UI;
+using GlassLevel = UmbraSync.UI.UiSharedService.GlassLevel;
 
 namespace UmbraSync.Services.Mediator;
 
@@ -37,15 +39,27 @@ public abstract class WindowMediatorSubscriberBase : Window, IMediatorSubscriber
 
     public override void PreDraw()
     {
-        ImGui.PushStyleVar(ImGuiStyleVar.WindowBorderSize, 2f);
-        ImGui.PushStyleVar(ImGuiStyleVar.WindowRounding, 4f);
-        ImGui.PushStyleColor(ImGuiCol.WindowBg, UiSharedService.ThemeWindowBg);
+        float glass = UiSharedService.GlassAlpha(UiSharedService.ResolveGlassLevel(WindowGlassLevel));
+
+        ImGui.PushStyleVar(ImGuiStyleVar.WindowBorderSize, 1f);
+        // Rayons concentriques : le contenant est toujours plus arrondi que ce qu'il contient.
+        float scale = ImGuiHelpers.GlobalScale;
+        ImGui.PushStyleVar(ImGuiStyleVar.WindowRounding, UiSharedService.RadiusWindow * scale);
+        ImGui.PushStyleVar(ImGuiStyleVar.ChildRounding, UiSharedService.RadiusCard * scale);
+        ImGui.PushStyleVar(ImGuiStyleVar.PopupRounding, UiSharedService.RadiusCard * scale);
+        ImGui.PushStyleVar(ImGuiStyleVar.FrameRounding, UiSharedService.RadiusControl * scale);
+
+        ImGui.PushStyleColor(ImGuiCol.WindowBg,
+            UiSharedService.WithAlpha(UiSharedService.ThemeWindowBg, glass));
+        // Éphémères et posés au-dessus de tout : le cas d'usage idéal du matériau.
+        ImGui.PushStyleColor(ImGuiCol.PopupBg,
+            UiSharedService.WithAlpha(UiSharedService.ThemeWindowBg, glass));
         ImGui.PushStyleColor(ImGuiCol.ChildBg, UiSharedService.ThemeChildBg);
         ImGui.PushStyleColor(ImGuiCol.Border, UiSharedService.ThemeBorder);
         ImGui.PushStyleColor(ImGuiCol.Separator, UiSharedService.ThemeSeparator);
-        ImGui.PushStyleColor(ImGuiCol.TitleBg, UiSharedService.ThemeTitleBar);
-        ImGui.PushStyleColor(ImGuiCol.TitleBgActive, UiSharedService.ThemeTitleBar);
-        ImGui.PushStyleColor(ImGuiCol.TitleBgCollapsed, UiSharedService.ThemeTitleBar);
+        ImGui.PushStyleColor(ImGuiCol.TitleBg, UiSharedService.WithAlpha(UiSharedService.ThemeTitleBar, glass));
+        ImGui.PushStyleColor(ImGuiCol.TitleBgActive, UiSharedService.WithAlpha(UiSharedService.ThemeTitleBar, glass));
+        ImGui.PushStyleColor(ImGuiCol.TitleBgCollapsed, UiSharedService.WithAlpha(UiSharedService.ThemeTitleBar, glass));
         ImGui.PushStyleColor(ImGuiCol.FrameBg, UiSharedService.ThemeFrameBg);
         ImGui.PushStyleColor(ImGuiCol.FrameBgHovered, UiSharedService.ThemeFrameBgHovered);
         ImGui.PushStyleColor(ImGuiCol.FrameBgActive, UiSharedService.ThemeFrameBgActive);
@@ -59,6 +73,9 @@ public abstract class WindowMediatorSubscriberBase : Window, IMediatorSubscriber
         ImGui.PushStyleColor(ImGuiCol.ScrollbarGrab, UiSharedService.ThemeScrollbarGrab);
         ImGui.PushStyleColor(ImGuiCol.ScrollbarGrabHovered, UiSharedService.ThemeScrollbarHover);
         ImGui.PushStyleColor(ImGuiCol.ScrollbarGrabActive, UiSharedService.ThemeScrollbarActive);
+        ImGui.PushStyleColor(ImGuiCol.SliderGrab, UiSharedService.ThemeSliderGrab);
+        ImGui.PushStyleColor(ImGuiCol.SliderGrabActive, UiSharedService.ThemeSliderGrabActive);
+        ImGui.PushStyleColor(ImGuiCol.CheckMark, UiSharedService.ThemeCheckMark);
         ImGui.PushStyleColor(ImGuiCol.Tab, UiSharedService.ThemeTabNormal);
         ImGui.PushStyleColor(ImGuiCol.TabHovered, UiSharedService.ThemeTabHovered);
         ImGui.PushStyleColor(ImGuiCol.TabActive, UiSharedService.ThemeTabActive);
@@ -69,10 +86,22 @@ public abstract class WindowMediatorSubscriberBase : Window, IMediatorSubscriber
         ImGui.PopStyleColor(UiSharedService.ThemeColorCount);
         ImGui.PopStyleVar(UiSharedService.ThemeStyleVarCount);
     }
+    
+    protected virtual GlassLevel WindowGlassLevel => GlassLevel.Regular;
+
+    protected virtual bool UseBackdropBlur => true;
 
     public override void Draw()
     {
+        DrawWindowSheen();
         _performanceCollectorService.LogPerformance(this, $"Draw", DrawInternal);
+    }
+
+    private void DrawWindowSheen()
+    {
+        if (Flags.HasFlag(ImGuiWindowFlags.NoBackground)) return;
+
+        UiSharedService.DrawWindowGlass(WindowGlassLevel, UseBackdropBlur);
     }
 
     protected abstract void DrawInternal();

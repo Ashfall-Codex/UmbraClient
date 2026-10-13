@@ -195,8 +195,6 @@ public sealed partial class MoodlesEditor
 
     public void DrawSection()
     {
-        ImGui.TextColored(ImGuiColors.DalamudGrey, "Traits du personnage");
-        ImGui.SameLine();
         bool addClicked = false;
         if (_moodleOperationInProgress)
         {
@@ -427,7 +425,7 @@ public sealed partial class MoodlesEditor
             ImGui.TextColored(ImGuiColors.DalamudGrey, "Type");
             ImGui.SetNextItemWidth(-1);
             var typeNames = new[] { "Positif (Buff)", "Négatif (Debuff)", "Neutre" };
-            ImGui.Combo("##moodleType", ref _newType, typeNames, typeNames.Length);
+            UiSharedService.Combo("##moodleType", ref _newType, typeNames, typeNames.Length);
 
             ImGuiHelpers.ScaledDummy(new Vector2(0f, 8f));
 
@@ -701,7 +699,7 @@ public sealed partial class MoodlesEditor
         {
             if (!string.IsNullOrEmpty(profile.MoodlesBackupJson))
             {
-                _logger.LogInformation("Clearing moodles backup for {char}@{world} (no active traits)", charName, worldId);
+                _logger.LogInformation("Clearing moodles backup for the current character (no active traits)");
                 profile.MoodlesBackupJson = string.Empty;
                 profile.MoodlesBackupTimestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
                 _rpConfigService.Save();

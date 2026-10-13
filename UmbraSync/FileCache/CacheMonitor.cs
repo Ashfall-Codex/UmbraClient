@@ -18,16 +18,22 @@ public sealed class CacheMonitor : DisposableMediatorSubscriberBase
     private readonly FileCacheManager _fileDbManager;
     private readonly IpcManager _ipcManager;
     private readonly PerformanceCollectorService _performanceCollector;
+    private readonly CacheLeaseRegistry _cacheLeases;
+    private readonly Lock _cacheSizeLock = new();
+    private static readonly TimeSpan ReconciliationInterval = TimeSpan.FromMinutes(15);
+    private DateTime _lastReconciliationUtc = DateTime.UtcNow;
+    private readonly ConcurrentDictionary<string, byte> _pendingWatcherRestarts = new(StringComparer.Ordinal);
     private long _currentFileProgress;
     private CancellationTokenSource _scanCancellationTokenSource = new();
     private readonly CancellationTokenSource _periodicCalculationTokenSource = new();
-    public static readonly IImmutableList<string> AllowedFileExtensions = [".mdl", ".tex", ".mtrl", ".tmb", ".pap", ".avfx", ".atex", ".sklb", ".eid", ".phyb", ".pbd", ".scd", ".skp", ".shpk"];
+    public static readonly IImmutableList<string> AllowedFileExtensions = [".mdl", ".tex", ".mtrl", ".tmb", ".pap", ".avfx", ".atex", ".sklb", ".eid", ".phyb", ".pbd", ".scd", ".skp", ".shpk", ".kdb"];
 
     public CacheMonitor(ILogger<CacheMonitor> logger, IpcManager ipcManager, MareConfigService configService,
         FileCacheManager fileDbManager, MareMediator mediator, PerformanceCollectorService performanceCollector, DalamudUtilService dalamudUtil,
-        FileCompactor fileCompactor) : base(logger, mediator)
+        FileCompactor fileCompactor, CacheLeaseRegistry cacheLeases) : base(logger, mediator)
     {
         _ipcManager = ipcManager;
+        _cacheLeases = cacheLeases;
         _configService = configService;
         _fileDbManager = fileDbManager;
         _performanceCollector = performanceCollector;
@@ -38,7 +44,7 @@ public sealed class CacheMonitor : DisposableMediatorSubscriberBase
             StartPenumbraWatcher(_ipcManager.Penumbra.ModDirectory);
             StartMareWatcher(configService.Current.CacheFolder);
             StartSubstWatcher(_fileDbManager.SubstFolder);
-            InvokeScan();
+            InvokeScan(deferred: true);
         });
         Mediator.Subscribe<HaltScanMessage>(this, (msg) => HaltScan(msg.Source));
         Mediator.Subscribe<ResumeScanMessage>(this, (msg) => ResumeScan(msg.Source));
@@ -47,12 +53,12 @@ public sealed class CacheMonitor : DisposableMediatorSubscriberBase
             StartMareWatcher(configService.Current.CacheFolder);
             StartSubstWatcher(_fileDbManager.SubstFolder);
             StartPenumbraWatcher(_ipcManager.Penumbra.ModDirectory);
-            InvokeScan();
+            InvokeScan(deferred: true);
         });
         Mediator.Subscribe<PenumbraDirectoryChangedMessage>(this, (msg) =>
         {
             StartPenumbraWatcher(msg.ModDirectory);
-            InvokeScan();
+            InvokeScan(deferred: true);
         });
         if (_ipcManager.Penumbra.APIAvailable && !string.IsNullOrEmpty(_ipcManager.Penumbra.ModDirectory))
         {
@@ -62,7 +68,7 @@ public sealed class CacheMonitor : DisposableMediatorSubscriberBase
         {
             StartMareWatcher(configService.Current.CacheFolder);
             StartSubstWatcher(_fileDbManager.SubstFolder);
-            InvokeScan();
+            InvokeScan(deferred: true);
         }
 
         var token = _periodicCalculationTokenSource.Token;
@@ -79,10 +85,15 @@ public sealed class CacheMonitor : DisposableMediatorSubscriberBase
                     }
 
                     RecalculateFileCacheSize(token);
+                    ReconcileStorageIfDue(token);
                 }
-                catch
+                catch (OperationCanceledException)
                 {
-                    // ignore
+                    // arrêt
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogDebug(ex, "Periodic storage calculation failed");
                 }
                 await Task.Delay(TimeSpan.FromMinutes(1), token).ConfigureAwait(false);
             }
@@ -111,9 +122,9 @@ public sealed class CacheMonitor : DisposableMediatorSubscriberBase
     public void StopMonitoring()
     {
         Logger.LogInformation("Stopping monitoring of Penumbra and Mare storage folders");
-        MareWatcher?.Dispose();
-        SubstWatcher?.Dispose();
-        PenumbraWatcher?.Dispose();
+        DisposeWatcher(MareWatcher);
+        DisposeWatcher(SubstWatcher);
+        DisposeWatcher(PenumbraWatcher);
         MareWatcher = null;
         SubstWatcher = null;
         PenumbraWatcher = null;
@@ -123,7 +134,7 @@ public sealed class CacheMonitor : DisposableMediatorSubscriberBase
 
     public void StartMareWatcher(string? snowPath)
     {
-        MareWatcher?.Dispose();
+        DisposeWatcher(MareWatcher);
         if (string.IsNullOrEmpty(snowPath) || !Directory.Exists(snowPath))
         {
             MareWatcher = null;
@@ -151,12 +162,13 @@ public sealed class CacheMonitor : DisposableMediatorSubscriberBase
 
         MareWatcher.Deleted += MareWatcher_FileChanged;
         MareWatcher.Created += MareWatcher_FileChanged;
+        MareWatcher.Error += Watcher_Error;
         MareWatcher.EnableRaisingEvents = true;
     }
 
     public void StartSubstWatcher(string? substPath)
     {
-        SubstWatcher?.Dispose();
+        DisposeWatcher(SubstWatcher);
         if (string.IsNullOrEmpty(substPath))
         {
             SubstWatcher = null;
@@ -191,6 +203,7 @@ public sealed class CacheMonitor : DisposableMediatorSubscriberBase
 
         SubstWatcher.Deleted += SubstWatcher_FileChanged;
         SubstWatcher.Created += SubstWatcher_FileChanged;
+        SubstWatcher.Error += Watcher_Error;
         SubstWatcher.EnableRaisingEvents = true;
     }
 
@@ -226,7 +239,7 @@ public sealed class CacheMonitor : DisposableMediatorSubscriberBase
 
     public void StartPenumbraWatcher(string? penumbraPath)
     {
-        PenumbraWatcher?.Dispose();
+        DisposeWatcher(PenumbraWatcher);
         if (string.IsNullOrEmpty(penumbraPath))
         {
             PenumbraWatcher = null;
@@ -252,7 +265,114 @@ public sealed class CacheMonitor : DisposableMediatorSubscriberBase
         PenumbraWatcher.Created += Fs_Changed;
         PenumbraWatcher.Changed += Fs_Changed;
         PenumbraWatcher.Renamed += Fs_Renamed;
+        PenumbraWatcher.Error += Watcher_Error;
         PenumbraWatcher.EnableRaisingEvents = true;
+    }
+
+    private void DisposeWatcher(FileSystemWatcher? watcher)
+    {
+        if (watcher == null) return;
+        try
+        {
+            watcher.EnableRaisingEvents = false;
+            watcher.Deleted -= MareWatcher_FileChanged;
+            watcher.Created -= MareWatcher_FileChanged;
+            watcher.Deleted -= SubstWatcher_FileChanged;
+            watcher.Created -= SubstWatcher_FileChanged;
+            watcher.Deleted -= Fs_Changed;
+            watcher.Created -= Fs_Changed;
+            watcher.Changed -= Fs_Changed;
+            watcher.Renamed -= Fs_Renamed;
+            watcher.Error -= Watcher_Error;
+            watcher.Dispose();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogDebug(ex, "Error while disposing a file system watcher");
+        }
+    }
+
+    // Débordement du tampon ou perte du handle (fréquent sous Wine/macOS) : les événements
+    // perdus ne seront jamais rejoués, on redémarre le watcher puis on rattrape par un scan.
+    private void Watcher_Error(object sender, ErrorEventArgs e)
+    {
+        if (ReferenceEquals(sender, MareWatcher))
+            ScheduleWatcherRestart("Umbra", () =>
+            {
+                StartMareWatcher(_configService.Current.CacheFolder);
+                ReconcileStorage(_periodicCalculationTokenSource.Token);
+            }, e.GetException());
+        else if (ReferenceEquals(sender, SubstWatcher))
+            ScheduleWatcherRestart("Subst", () =>
+            {
+                StartSubstWatcher(_fileDbManager.SubstFolder);
+                ReconcileStorage(_periodicCalculationTokenSource.Token);
+            }, e.GetException());
+        else if (ReferenceEquals(sender, PenumbraWatcher))
+            ScheduleWatcherRestart("Penumbra", () =>
+            {
+                StartPenumbraWatcher(_ipcManager.Penumbra.ModDirectory);
+                InvokeScan();
+            }, e.GetException());
+    }
+
+    private void ScheduleWatcherRestart(string name, Action restart, Exception? error)
+    {
+        if (!_pendingWatcherRestarts.TryAdd(name, 0)) return;
+        Logger.LogWarning(error, "{name} FSW reported an error, restarting it and rescanning", name);
+
+        CancellationToken token;
+        try
+        {
+            token = _periodicCalculationTokenSource.Token;
+        }
+        catch (ObjectDisposedException)
+        {
+            _pendingWatcherRestarts.TryRemove(name, out _);
+            return;
+        }
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(TimeSpan.FromSeconds(5), token).ConfigureAwait(false);
+                while (HaltScanLocks.Any(f => f.Value.Value > 0))
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(5), token).ConfigureAwait(false);
+                }
+
+                restart();
+            }
+            catch (OperationCanceledException)
+            {
+                // arrêt
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "Could not restart the {name} FSW", name);
+            }
+            finally
+            {
+                _pendingWatcherRestarts.TryRemove(name, out _);
+            }
+        }, token);
+    }
+
+    private void ReconcileStorageIfDue(CancellationToken token)
+    {
+        if (DateTime.UtcNow - _lastReconciliationUtc < ReconciliationInterval) return;
+        ReconcileStorage(token);
+    }
+
+    private void ReconcileStorage(CancellationToken token)
+    {
+        if (!_configService.Current.InitialScanComplete || IsScanRunning || HaltScanLocks.Any(f => f.Value.Value > 0)) return;
+        _lastReconciliationUtc = DateTime.UtcNow;
+
+        var (added, removed) = _fileDbManager.ReconcileStorageFolders(token);
+        if (added > 0 || removed > 0)
+            Logger.LogInformation("Storage reconciliation: {added} file(s) indexed, {removed} stale entrie(s) removed", added, removed);
     }
 
     private void Fs_Changed(object sender, FileSystemEventArgs e)
@@ -538,7 +658,7 @@ public sealed class CacheMonitor : DisposableMediatorSubscriberBase
         HandleChanges(changes);
     }
 
-    public void InvokeScan()
+    public void InvokeScan(bool deferred = false)
     {
         TotalFiles = 0;
         _currentFileProgress = 0;
@@ -546,90 +666,204 @@ public sealed class CacheMonitor : DisposableMediatorSubscriberBase
         var token = _scanCancellationTokenSource.Token;
         _ = Task.Run((Func<Task>)(async () =>
         {
-            Logger.LogDebug("Starting Full File Scan");
-            TotalFiles = 0;
-            _currentFileProgress = 0;
-            while (_dalamudUtil.IsOnFrameworkThread)
+            try
             {
-                Logger.LogWarning("Scanner is on framework, waiting for leaving thread before continuing");
-                await Task.Delay(250, token).ConfigureAwait(false);
-            }
+                if (deferred)
+                {
+                    while (!_dalamudUtil.IsLoggedIn)
+                    {
+                        await Task.Delay(1000, token).ConfigureAwait(false);
+                    }
+                    await Task.Delay(Random.Shared.Next(2000, 8000), token).ConfigureAwait(false);
+                }
 
-            Thread scanThread = new(() =>
-            {
-                try
+                Logger.LogDebug("Starting Full File Scan");
+                TotalFiles = 0;
+                _currentFileProgress = 0;
+                while (_dalamudUtil.IsOnFrameworkThread)
                 {
-                    _performanceCollector.LogPerformance(this, $"FullFileScan", () => FullFileScan(token));
+                    Logger.LogWarning("Scanner is on framework, waiting for leaving thread before continuing");
+                    await Task.Delay(250, token).ConfigureAwait(false);
                 }
-                catch (Exception ex)
+
+                Thread scanThread = new(() =>
                 {
-                    Logger.LogError(ex, "Error during Full File Scan");
+                    try
+                    {
+                        _performanceCollector.LogPerformance(this, $"FullFileScan", () => FullFileScan(token));
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.LogError(ex, "Error during Full File Scan");
+                    }
+                })
+                {
+                    Priority = ThreadPriority.Lowest,
+                    IsBackground = true
+                };
+                scanThread.Start();
+                while (scanThread.IsAlive)
+                {
+                    await Task.Delay(250).ConfigureAwait(false);
                 }
-            })
-            {
-                Priority = ThreadPriority.Lowest,
-                IsBackground = true
-            };
-            scanThread.Start();
-            while (scanThread.IsAlive)
-            {
-                await Task.Delay(250).ConfigureAwait(false);
+                TotalFiles = 0;
+                _currentFileProgress = 0;
             }
-            TotalFiles = 0;
-            _currentFileProgress = 0;
+            catch (OperationCanceledException)
+            {
+                Logger.LogTrace("Full File Scan canceled before start");
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "Error while scheduling Full File Scan");
+            }
         }), token);
     }
 
     public void RecalculateFileCacheSize(CancellationToken token)
     {
-        if (string.IsNullOrEmpty(_configService.Current.CacheFolder) || !Directory.Exists(_configService.Current.CacheFolder))
+        lock (_cacheSizeLock)
+        {
+            RecalculateFileCacheSizeInternal(token);
+        }
+    }
+
+    private void RecalculateFileCacheSizeInternal(CancellationToken token)
+    {
+        string cacheFolder = _configService.Current.CacheFolder;
+        if (string.IsNullOrEmpty(cacheFolder) || !Directory.Exists(cacheFolder))
         {
             FileCacheSize = 0;
             return;
         }
 
         FileCacheSize = -1;
-        DriveInfo di = new(new DirectoryInfo(_configService.Current.CacheFolder).Root.FullName);
+        DriveInfo di = new(new DirectoryInfo(cacheFolder).Root.FullName);
         try
         {
             FileCacheDriveFree = di.AvailableFreeSpace;
         }
         catch (Exception ex)
         {
-            Logger.LogWarning(ex, "Could not determine drive size for Storage Folder {folder}", _configService.Current.CacheFolder);
+            Logger.LogWarning(ex, "Could not determine drive size for Storage Folder {folder}", cacheFolder);
         }
 
-        var files = Directory.EnumerateFiles(_configService.Current.CacheFolder)
-            .Concat(Directory.EnumerateFiles(_fileDbManager.SubstFolder))
-            .Select(f => new FileInfo(f))
-            .OrderBy(f => f.LastAccessTime).ToList();
-        FileCacheSize = files
-            .Sum(f =>
-            {
-                token.ThrowIfCancellationRequested();
+        IEnumerable<string> paths = Directory.EnumerateFiles(cacheFolder);
+        string substFolder = _fileDbManager.SubstFolder;
+        if (!string.IsNullOrEmpty(substFolder) && Directory.Exists(substFolder))
+            paths = paths.Concat(Directory.EnumerateFiles(substFolder));
 
-                try
-                {
-                    return _fileCompactor.GetFileSizeOnDisk(f, StorageisNTFS);
-                }
-                catch
-                {
-                    return 0;
-                }
-            });
+        HashSet<string> pendingTouches = _cacheLeases.DrainPendingTouches();
+        List<(FileInfo File, string Hash, long Size, DateTime LastUse)> candidates = [];
+        long totalSize = 0;
+        foreach (string path in paths)
+        {
+            token.ThrowIfCancellationRequested();
+
+            FileInfo fileInfo = new(path);
+            long size;
+            try
+            {
+                size = _fileCompactor.GetFileSizeOnDisk(fileInfo, StorageisNTFS);
+            }
+            catch
+            {
+                continue;
+            }
+
+            totalSize += size;
+
+            // Seuls les fichiers nommés par leur hash sont évincables : les temporaires
+            // (.tmp, .cdntmp, .lz4tmp, .blk) appartiennent à des téléchargements en cours.
+            if (!CacheLeaseRegistry.TryGetHashFromCacheFileName(path, out string? hash)) continue;
+
+            DateTime lastUse = GetLastUse(fileInfo, hash, pendingTouches);
+            candidates.Add((fileInfo, hash, size, lastUse));
+        }
+
+        FileCacheSize = totalSize;
 
         var maxCacheInBytes = (long)(_configService.Current.MaxLocalCacheInGiB * 1024d * 1024d * 1024d);
-
         if (FileCacheSize < maxCacheInBytes) return;
 
-        var maxCacheBuffer = maxCacheInBytes * 0.05d;
-        while (FileCacheSize > maxCacheInBytes - (long)maxCacheBuffer)
+        var targetSize = maxCacheInBytes - (long)(maxCacheInBytes * 0.05d);
+        HashSet<string> leased = _cacheLeases.GetLeasedHashesSnapshot();
+        int deleted = 0;
+        int skippedLeased = 0;
+        int removedEntries = 0;
+
+        foreach (var candidate in candidates.OrderBy(c => c.LastUse))
         {
-            var oldestFile = files[0];
-            FileCacheSize -= _fileCompactor.GetFileSizeOnDisk(oldestFile);
-            File.Delete(oldestFile.FullName);
-            files.Remove(oldestFile);
+            if (FileCacheSize <= targetSize) break;
+            token.ThrowIfCancellationRequested();
+
+            // Limite stricte : seuls les fichiers appliqués ou en attente d'application la font dépasser
+            if (leased.Contains(candidate.Hash))
+            {
+                skippedLeased++;
+                continue;
+            }
+
+            try
+            {
+                File.Delete(candidate.File.FullName);
+                FileCacheSize -= candidate.Size;
+                deleted++;
+                removedEntries += _fileDbManager.RemoveEntriesForFile(candidate.Hash, candidate.File.FullName);
+                _cacheLeases.Forget(candidate.Hash);
+            }
+            catch (Exception ex)
+            {
+                Logger.LogDebug(ex, "Could not evict cache file {file}", candidate.File.FullName);
+            }
         }
+
+        if (removedEntries > 0)
+            _fileDbManager.WriteOutFullCsv();
+
+        if (deleted > 0 || skippedLeased > 0)
+        {
+            Logger.LogInformation("Cache eviction: {deleted} file(s) deleted, {leased} in-use file(s) kept, size now {size} bytes (limit {limit})",
+                deleted, skippedLeased, FileCacheSize, maxCacheInBytes);
+        }
+
+        if (FileCacheSize > targetSize)
+            Logger.LogDebug("Cache still above its eviction target: remaining files are in use");
+    }
+
+    // LastAccessTime seul n'est pas fiable (désactivé sur NTFS, approximatif sous Wine/macOS) :
+    // on prend le plus récent entre l'atime, le mtime (date de téléchargement) et l'usage connu en
+    // mémoire, puis on réécrit l'atime des fichiers utilisés pour que l'ordre survive au redémarrage.
+    private DateTime GetLastUse(FileInfo fileInfo, string hash, HashSet<string> pendingTouches)
+    {
+        DateTime lastUse;
+        try
+        {
+            lastUse = fileInfo.LastWriteTimeUtc;
+            DateTime lastAccess = fileInfo.LastAccessTimeUtc;
+            if (lastAccess > lastUse) lastUse = lastAccess;
+        }
+        catch
+        {
+            lastUse = DateTime.MinValue;
+        }
+
+        if (_cacheLeases.TryGetLastUse(hash, out DateTime knownUse) && knownUse > lastUse)
+            lastUse = knownUse;
+
+        if (pendingTouches.Contains(hash) && lastUse > DateTime.MinValue)
+        {
+            try
+            {
+                File.SetLastAccessTimeUtc(fileInfo.FullName, lastUse);
+            }
+            catch (Exception ex)
+            {
+                Logger.LogTrace(ex, "Could not update access time of {file}", fileInfo.FullName);
+            }
+        }
+
+        return lastUse;
     }
 
     public void ResetLocks()
@@ -655,9 +889,12 @@ public sealed class CacheMonitor : DisposableMediatorSubscriberBase
             // already disposed, nothing to do
         }
         _scanCancellationTokenSource.Dispose();
-        PenumbraWatcher?.Dispose();
-        MareWatcher?.Dispose();
-        SubstWatcher?.Dispose();
+        DisposeWatcher(PenumbraWatcher);
+        DisposeWatcher(MareWatcher);
+        DisposeWatcher(SubstWatcher);
+        PenumbraWatcher = null;
+        MareWatcher = null;
+        SubstWatcher = null;
         TryCancelAndDispose(_penumbraFswCts);
         TryCancelAndDispose(_mareFswCts);
         TryCancelAndDispose(_substFswCts);
@@ -743,10 +980,8 @@ public sealed class CacheMonitor : DisposableMediatorSubscriberBase
                                 .AsParallel()
                                 .Where(f =>
                                 {
-                                    // Skip temporary files that are being written
-                                    if (f.EndsWith(".cdntmp", StringComparison.OrdinalIgnoreCase) ||
-                                        f.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase) ||
-                                        f.EndsWith(".blk", StringComparison.OrdinalIgnoreCase))
+                                    // Skip temporary files that are being written (.tmp, .lz4tmp, .cdntmp, .blk)
+                                    if (StorageFolderValidator.IsTemporaryFile(f))
                                         return false;
 
                                     var val = f.Split('\\')[^1];
@@ -760,6 +995,7 @@ public sealed class CacheMonitor : DisposableMediatorSubscriberBase
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToDictionary(t => t.ToLowerInvariant(), t => false, StringComparer.OrdinalIgnoreCase);
 
+        penumbraFiles.Clear();
         TotalFiles = allScannedFiles.Count;
         Thread.CurrentThread.Priority = previousThreadPriority;
 
@@ -767,8 +1003,7 @@ public sealed class CacheMonitor : DisposableMediatorSubscriberBase
 
         if (ct.IsCancellationRequested) return;
 
-        // scan files from database
-        var threadCount = Math.Clamp((int)(Environment.ProcessorCount / 2.0f), 2, 8);
+        var threadCount = Math.Clamp(Environment.ProcessorCount / 4, 2, 4);
 
         List<FileCacheEntity> entitiesToRemove = [];
         List<FileCacheEntity> entitiesToUpdate = [];

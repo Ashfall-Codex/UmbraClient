@@ -5,7 +5,7 @@
         <LangVersion>13.0</LangVersion>
         <AssemblyName>UmbraSync</AssemblyName>
         <RootNamespace>UmbraSync</RootNamespace>
-        <Version>3.0.5.9025</Version>
+        <Version>3.1.0.1013</Version>
     </PropertyGroup>
 
     <ItemGroup>
@@ -24,33 +24,29 @@
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
-        <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.6" />
-        <PackageReference Include="Microsoft.AspNetCore.SignalR.Protocols.MessagePack" Version="10.0.11" />
+        <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.12" />
+        <PackageReference Include="Microsoft.AspNetCore.SignalR.Protocols.MessagePack" Version="10.0.12" />
         <PackageReference Include="MessagePack" Version="3.1.8" />
-        <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.6" />
+        <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.12" />
         <PackageReference Include="SonarAnalyzer.CSharp" Version="10.21.0.135717">
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
-        <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.16.0" />
+        <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.19.2" />
         <PackageReference Update="DalamudPackager" Version="15.0.0" />
         <PackageReference Update="DotNet.ReproducibleBuilds" Version="2.0.2" />
     </ItemGroup>
 
-    <ItemGroup Condition="Exists('.\Penumbra.Api\Penumbra.Api.csproj')">
-        <ProjectReference Include=".\Penumbra.Api\Penumbra.Api.csproj" />
-    </ItemGroup>
-
-    <ItemGroup Condition="!Exists('.\Penumbra.Api\Penumbra.Api.csproj')">
-        <PackageReference Include="Penumbra.Api" Version="5.15.1" />
-    </ItemGroup>
-
-    <ItemGroup Condition="Exists('.\Glamourer.Api\Glamourer.Api.csproj')">
-        <ProjectReference Include=".\Glamourer.Api\Glamourer.Api.csproj" />
-    </ItemGroup>
-
-    <ItemGroup Condition="!Exists('.\Glamourer.Api\Glamourer.Api.csproj')">
+    <ItemGroup>
+        <PackageReference Include="Penumbra.Api" Version="5.19.2" />
         <PackageReference Include="Glamourer.Api" Version="2.8.2" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <Reference Include="TerraFX.Interop.Windows">
+            <HintPath>$(DalamudLibPath)TerraFX.Interop.Windows.dll</HintPath>
+            <Private>false</Private>
+        </Reference>
     </ItemGroup>
 
     <PropertyGroup>

@@ -16,11 +16,12 @@ public sealed class UiService : DisposableMediatorSubscriberBase
     private readonly ILogger<UiService> _logger;
     private readonly MareConfigService _mareConfigService;
     private readonly IWindowSystem _windowSystem;
+    private readonly BackdropBlur _backdropBlur;
 
     public UiService(ILogger<UiService> logger, IUiBuilder uiBuilder,
         MareConfigService mareConfigService, IWindowSystem windowSystem,
         IEnumerable<WindowMediatorSubscriberBase> windows,
-        UiFactory uiFactory, FileDialogManager fileDialogManager,
+        UiFactory uiFactory, FileDialogManager fileDialogManager, BackdropBlur backdropBlur,
         MareMediator mareMediator) : base(logger, mareMediator)
     {
         _logger = logger;
@@ -29,6 +30,8 @@ public sealed class UiService : DisposableMediatorSubscriberBase
         _mareConfigService = mareConfigService;
         _windowSystem = windowSystem;
         _fileDialogManager = fileDialogManager;
+        _backdropBlur = backdropBlur;
+        UiSharedService.Backdrop = backdropBlur;
 
         _uiBuilder.DisableGposeUiHide = true;
         _uiBuilder.Draw += Draw;
@@ -42,12 +45,19 @@ public sealed class UiService : DisposableMediatorSubscriberBase
 
         Mediator.Subscribe<ProfileOpenStandaloneMessage>(this, (msg) =>
         {
-            if (!_createdWindows.Exists(p => p is StandaloneProfileUi ui
-                && string.Equals(ui.Pair.UserData.AliasOrUID, msg.Pair.UserData.AliasOrUID, StringComparison.Ordinal)))
+            var existing = _createdWindows.Find(p => p is StandaloneProfileUi ui
+                && string.Equals(ui.Pair.UserData.AliasOrUID, msg.Pair.UserData.AliasOrUID, StringComparison.Ordinal)) as StandaloneProfileUi;
+            if (existing == null)
             {
                 var window = uiFactory.CreateStandaloneProfileUi(msg.Pair);
+                window.SelectCharacter(msg.CharName, msg.WorldId);
                 _createdWindows.Add(window);
                 _windowSystem.AddWindow(window);
+            }
+            else if (!string.IsNullOrEmpty(msg.CharName))
+            {
+                existing.SelectCharacter(msg.CharName, msg.WorldId);
+                existing.IsOpen = true;
             }
         });
 
@@ -122,13 +132,16 @@ public sealed class UiService : DisposableMediatorSubscriberBase
         }
 
         _uiBuilder.Draw -= Draw;
+        UiSharedService.Backdrop = null;
         _uiBuilder.OpenConfigUi -= ToggleUi;
         _uiBuilder.OpenMainUi -= ToggleMainUi;
     }
 
     private void Draw()
     {
+        _backdropBlur.Strength = UiSharedService.BlurStrength;
         _windowSystem.Draw();
+        _backdropBlur.ReleaseIfIdle();
         _fileDialogManager.Draw();
     }
 }

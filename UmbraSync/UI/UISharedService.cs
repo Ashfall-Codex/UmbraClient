@@ -25,6 +25,7 @@ using UmbraSync.Services.Mediator;
 using UmbraSync.Models;
 using UmbraSync.Localization;
 using UmbraSync.Services.ServerConfiguration;
+using UmbraSync.UI.Components;
 
 namespace UmbraSync.UI;
 
@@ -39,34 +40,174 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
 
     public const float ContentFontScale = 0.92f;
 
-    public static Vector4 AccentColor { get; set; } = new Vector4(0x96 / 255f, 0x45 / 255f, 0xE6 / 255f, 1f);
-    public static Vector4 AccentHoverColor { get; set; } = new Vector4(0x38 / 255f, 0x29 / 255f, 0x52 / 255f, 1f);
-    public static Vector4 AccentActiveColor { get; set; } = AccentHoverColor;
+    public static readonly Vector4 AccentColor = new(0x96 / 255f, 0x45 / 255f, 0xE6 / 255f, 1f);
+    public static Vector4 AccentHoverColor => ThemeButtonHovered;
+    public static Vector4 AccentActiveColor => AccentHoverColor;
 
     // --- Thème UmbraSync "Royal Smoke" — #6A0DAD accent, #1C1C1C fond, chrome désaturé ---
-    public static readonly Vector4 ThemeWindowBg      = new(0.11f, 0.11f, 0.11f, 1f);
-    public static readonly Vector4 ThemeChildBg        = new(0f, 0f, 0f, 0f);
-    public static readonly Vector4 ThemeBorder         = new(0x38 / 255f, 0x29 / 255f, 0x52 / 255f, 1f);
-    public static readonly Vector4 ThemeTitleBar       = new(0x2A / 255f, 0x1F / 255f, 0x3D / 255f, 1f);
-    public static readonly Vector4 ThemeSeparator      = new(0x38 / 255f, 0x29 / 255f, 0x52 / 255f, 0.60f);
-    public static readonly Vector4 ThemeFrameBg        = new(0.16f, 0.15f, 0.18f, 1f);
+    public static readonly Vector4 ThemeWindowBg = new(0.11f, 0.11f, 0.11f, 1f);
+    public static readonly Vector4 ThemeChildBg = new(0f, 0f, 0f, 0f);
+    public static readonly Vector4 ThemeBorder = new(0x38 / 255f, 0x29 / 255f, 0x52 / 255f, 1f);
+    public static readonly Vector4 ThemeTitleBar = new(0x2A / 255f, 0x1F / 255f, 0x3D / 255f, 1f);
+    public static readonly Vector4 ThemeSeparator = new(0x38 / 255f, 0x29 / 255f, 0x52 / 255f, 0.60f);
+    public static readonly Vector4 ThemeFrameBg = new(0.16f, 0.15f, 0.18f, 1f);
     public static readonly Vector4 ThemeFrameBgHovered = new(0x38 / 255f, 0x29 / 255f, 0x52 / 255f, 0.7f);
-    public static readonly Vector4 ThemeFrameBgActive  = new(0x4A / 255f, 0x36 / 255f, 0x68 / 255f, 1f);
-    public static readonly Vector4 ThemeButtonBg       = new(0x2A / 255f, 0x1F / 255f, 0x3D / 255f, 1f);
-    public static readonly Vector4 ThemeButtonHovered   = new(0x38 / 255f, 0x29 / 255f, 0x52 / 255f, 1f);
-    public static readonly Vector4 ThemeButtonActive    = new(0x4A / 255f, 0x36 / 255f, 0x68 / 255f, 1f);
-    public static readonly Vector4 ThemeHeaderBg       = new(0x1C / 255f, 0x1C / 255f, 0x1C / 255f, 1f);
-    public static readonly Vector4 ThemeHeaderHovered   = new(0x38 / 255f, 0x29 / 255f, 0x52 / 255f, 0.7f);
-    public static readonly Vector4 ThemeHeaderActive    = new(0x4A / 255f, 0x36 / 255f, 0x68 / 255f, 1f);
-    public static readonly Vector4 ThemeScrollbarBg    = new(0.08f, 0.08f, 0.08f, 0.50f);
-    public static readonly Vector4 ThemeScrollbarGrab  = new(0x38 / 255f, 0x29 / 255f, 0x52 / 255f, 1f);
+    public static readonly Vector4 ThemeFrameBgActive = new(0x4A / 255f, 0x36 / 255f, 0x68 / 255f, 1f);
+    public static readonly Vector4 ThemeButtonBg = new(0x2A / 255f, 0x1F / 255f, 0x3D / 255f, 1f);
+    public static readonly Vector4 ThemeButtonHovered = new(0x38 / 255f, 0x29 / 255f, 0x52 / 255f, 1f);
+    public static readonly Vector4 ThemeButtonActive = new(0x4A / 255f, 0x36 / 255f, 0x68 / 255f, 1f);
+    public static readonly Vector4 ThemeHeaderBg = new(0x1C / 255f, 0x1C / 255f, 0x1C / 255f, 1f);
+    public static readonly Vector4 ThemeHeaderHovered = new(0x38 / 255f, 0x29 / 255f, 0x52 / 255f, 0.7f);
+    public static readonly Vector4 ThemeHeaderActive = new(0x4A / 255f, 0x36 / 255f, 0x68 / 255f, 1f);
+    public static readonly Vector4 ThemeScrollbarBg = new(0.08f, 0.08f, 0.08f, 0.50f);
+    public static readonly Vector4 ThemeScrollbarGrab = new(0x38 / 255f, 0x29 / 255f, 0x52 / 255f, 1f);
     public static readonly Vector4 ThemeScrollbarHover = new(0x4A / 255f, 0x36 / 255f, 0x68 / 255f, 1f);
     public static readonly Vector4 ThemeScrollbarActive = new(0x5E / 255f, 0x45 / 255f, 0x80 / 255f, 1f);
-    public static readonly Vector4 ThemeTabNormal      = new(0x1C / 255f, 0x1C / 255f, 0x1C / 255f, 0.90f);
-    public static readonly Vector4 ThemeTabHovered     = new(0x38 / 255f, 0x29 / 255f, 0x52 / 255f, 1f);
-    public static readonly Vector4 ThemeTabActive      = new(0x4A / 255f, 0x36 / 255f, 0x68 / 255f, 1f);
-    public const int ThemeColorCount = 23;
-    public const int ThemeStyleVarCount = 2;
+    public static readonly Vector4 ThemeTabNormal = new(0x1C / 255f, 0x1C / 255f, 0x1C / 255f, 0.90f);
+    public static readonly Vector4 ThemeTabHovered = new(0x38 / 255f, 0x29 / 255f, 0x52 / 255f, 1f);
+    public static readonly Vector4 ThemeTabActive = new(0x4A / 255f, 0x36 / 255f, 0x68 / 255f, 1f);
+    public static readonly Vector4 ThemeHighlightBg = new(0x96 / 255f, 0x45 / 255f, 0xE6 / 255f, 0.14f);
+    public static readonly Vector4 ThemePopupBg = new(0.13f, 0.12f, 0.15f, 0.98f);
+    public static readonly Vector4 ThemeSelectedBg = new(0x96 / 255f, 0x45 / 255f, 0xE6 / 255f, 0.32f);
+    public static readonly Vector4 ThemeTextAccent = new(0x9B / 255f, 0x82 / 255f, 0xC0 / 255f, 1f);
+    public static readonly Vector4 ThemeRailHovered = new(0x30 / 255f, 0x19 / 255f, 0x46 / 255f, 1f);
+    public static readonly Vector4 ThemePrivacyAccent = new(0f, 0.2f, 0.6f, 1f);
+    public static readonly Vector4 ThemeNavText = new(0.70f, 0.65f, 0.80f, 1f);
+    public static readonly Vector4 ThemeNavTextHovered = new(0.90f, 0.85f, 1f, 1f);
+    public static readonly Vector4 ThemeNavTextActive = new(1f, 1f, 1f, 1f);
+    public static readonly Vector4 ThemeRailActive = new(0x50 / 255f, 0x17 / 255f, 0x83 / 255f, 1f);
+    public static readonly Vector4 ThemeSliderGrab = new(0x96 / 255f, 0x45 / 255f, 0xE6 / 255f, 1f);
+    public static readonly Vector4 ThemeSliderGrabActive = new(0xB4 / 255f, 0x6B / 255f, 0xFF / 255f, 1f);
+    public static readonly Vector4 ThemeCheckMark = new(0xB4 / 255f, 0x6B / 255f, 0xFF / 255f, 1f);
+    public static readonly Vector4 ThemeSwitchKnobOn = new(1f, 0.98f, 1f, 1f);
+    public static readonly Vector4 ThemeSwitchKnobOff = new(0.70f, 0.68f, 0.74f, 1f);
+    public static Vector4 ThemeCardBorder => WithAlpha(AccentColor, 0.45f);
+    public static Vector4 ThemeCardBg => WithAlpha(ThemeButtonBg, CardAlpha());
+    public const int ThemeColorCount = 27;
+    public const int ThemeStyleVarCount = 5;
+
+    public const float RadiusWindow = 10f;
+    public const float RadiusCard = 6f;
+    public const float RadiusControl = 4f;
+
+    public enum GlassLevel
+    {
+        Regular,
+        Clear,
+        Opaque
+    }
+
+    private static MareConfigService? _glassConfig;
+    private static void AttachGlassConfig(MareConfigService configService) => _glassConfig = configService;
+    private static void DetachGlassConfig() => _glassConfig = null;
+    public const float MinOpacity = 0.30f;
+    public const float MaxGlassOpacity = 1f;
+    private const float MinBlurStrength = 1f;
+    private const float MaxBlurStrength = 4.5f;
+    private const float BlurFadeRange = 0.25f;
+    private const float MinResolvedAlpha = 0.18f;
+
+    public static BackdropBlur? Backdrop { get; set; }
+    private static float GlassSetting => Math.Clamp(_glassConfig?.Current.UiGlass ?? 1f, 0f, 1f);
+
+    public static float GlassOpacity
+    {
+        get
+        {
+            if (_glassConfig is null) return 1f;
+            return MinOpacity + (MaxGlassOpacity - MinOpacity) * GlassSetting;
+        }
+    }
+
+    public static float BlurStrength => MinBlurStrength + (MaxBlurStrength - MinBlurStrength) * GlassSetting;
+    public static float BlurOpacity => _glassConfig is null ? 0f : Math.Clamp(GlassSetting / BlurFadeRange, 0f, 1f);
+
+    public static float GlassFromOpacity(float opacity)
+        => Math.Clamp((opacity - MinOpacity) / (MaxGlassOpacity - MinOpacity), 0f, 1f);
+
+    public static Vector4 WithAlpha(Vector4 color, float alpha) => color with { W = alpha };
+
+    /// <summary>
+    /// En GPose et sur activation explicite, le matériau passe en Clair : c'est le seul
+    /// contexte qui réunit les trois conditions — fond volontairement visible,
+    /// assombrissement acceptable, contrôles peu nombreux.
+    /// </summary>
+    public static GlassLevel ResolveGlassLevel(GlassLevel requested)
+    {
+        if (requested != GlassLevel.Regular) return requested;
+
+        MareConfigService? cfg = _glassConfig;
+        return cfg is not null && cfg.Current.UiClearGlassInGpose && ClearGlassContextActive
+            ? GlassLevel.Clear
+            : GlassLevel.Regular;
+    }
+
+    /// <summary>Renseigné par le service d'interface : évite de dépendre de Dalamud ici.</summary>
+    public static bool ClearGlassContextActive { get; set; }
+
+    public static float GlassAlpha(GlassLevel level)
+    {
+        float baseAlpha = level switch
+        {
+            GlassLevel.Clear => 0.55f,
+            GlassLevel.Opaque => 1f,
+            _ => 1f,
+        };
+
+        if (level == GlassLevel.Opaque) return 1f;
+        return Math.Clamp(baseAlpha * GlassOpacity, MinResolvedAlpha, 1f);
+    }
+    
+    // Plus la fenêtre est transparente, plus la carte se densifie : le contenu reste lisible
+    // quelle que soit la scène derrière.
+    public static float CardAlpha(GlassLevel level = GlassLevel.Regular)
+    {
+        float window = GlassAlpha(level);
+        return Math.Clamp(0.45f + (1f - window) * 0.45f, 0f, 1f);
+    }
+
+    public static void DrawWindowGlass(GlassLevel level = GlassLevel.Regular, bool useBackdropBlur = true)
+    {
+        if (level == GlassLevel.Opaque) return;
+
+        float alpha = GlassAlpha(ResolveGlassLevel(level));
+        if (alpha >= 1f) return;
+
+        var pos = ImGui.GetWindowPos();
+        var max = pos + ImGui.GetWindowSize();
+        float rounding = RadiusWindow * ImGuiHelpers.GlobalScale;
+        float blurOpacity = BlurOpacity;
+        if (useBackdropBlur && blurOpacity > 0f && Backdrop is { } backdrop)
+        {
+            backdrop.EnsureRendered();
+            backdrop.DrawBehind(pos, max, rounding, blurOpacity);
+        }
+
+        DrawGlassSheen(ImGui.GetWindowDrawList(), pos, max, rounding, alpha);
+    }
+
+    public static void DrawGlassSheen(ImDrawListPtr drawList, Vector2 min, Vector2 max, float rounding, float alpha)
+    {
+        if (alpha <= 0f) return;
+
+        float height = max.Y - min.Y;
+        if (height <= 2f || max.X - min.X <= 2f) return;
+
+        var mid = new Vector2(max.X, min.Y + height * 0.42f);
+        uint lit = Color(new Vector4(1f, 1f, 1f, 0.05f * alpha));
+        uint off = Color(new Vector4(1f, 1f, 1f, 0f));
+
+        drawList.PushClipRect(min, max, true);
+        drawList.AddRectFilledMultiColor(min, mid, lit, lit, off, off);
+        drawList.PopClipRect();
+
+        float inset = Math.Min(rounding, (max.X - min.X) / 2f);
+        drawList.AddLine(
+            new Vector2(min.X + inset, min.Y + 0.5f),
+            new Vector2(max.X - inset, min.Y + 0.5f),
+            Color(new Vector4(1f, 1f, 1f, 0.14f * alpha)),
+            1f);
+    }
 
     public readonly FileDialogManager FileDialogManager;
 
@@ -128,12 +269,14 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
         _cacheMonitor = cacheMonitor;
         FileDialogManager = fileDialogManager;
         _configService = configService;
+        AttachGlassConfig(configService);
         _dalamudUtil = dalamudUtil;
         _textureProvider = textureProvider;
         _serverConfigurationManager = serverManager;
 
         Mediator.Subscribe<DelayedFrameworkUpdateMessage>(this, (_) =>
         {
+            ClearGlassContextActive = _dalamudUtil.IsInGpose;
             _penumbraExists = _ipcManager.Penumbra.APIAvailable;
             _glamourerExists = _ipcManager.Glamourer.APIAvailable;
             _customizePlusExists = _ipcManager.CustomizePlus.APIAvailable;
@@ -150,20 +293,13 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
             _aRealmRepopulatedExists = Services.PluginWatcherService.GetInitialPluginState(pluginInterface, "ARealmRepopulated")?.IsLoaded ?? false;
         });
 
-        UidFont = pluginInterface.UiBuilder.FontAtlas.NewDelegateFontHandle(e =>
-        {
-            e.OnPreBuild(tk => tk.AddDalamudAssetFont(Dalamud.DalamudAsset.NotoSansCjkMedium, new()
-            {
-                SizePx = 27,
-                GlyphRanges = [
-                    0x0020, 0x007E,
-                    0x00A0, 0x017F,
-                    0
-                ]
-            }));
-        });
+        // Police du jeu plutôt que NotoSansCjkMedium : ce dernier copie ~18 Mo de TTF en mémoire native pour du texte latin.
+        UidFont = pluginInterface.UiBuilder.FontAtlas.NewGameFontHandle(new GameFontStyle(GameFontFamily.Axis, 27f));
         GameFont = pluginInterface.UiBuilder.FontAtlas.NewGameFontHandle(new(GameFontFamilyAndSize.Axis12));
         IconFont = pluginInterface.UiBuilder.IconFontFixedWidthHandle;
+        // Icône construite directement à grande taille : agrandir la petite par échelle de police la rend pixelisée.
+        LargeIconFont = pluginInterface.UiBuilder.FontAtlas.NewDelegateFontHandle(e =>
+            e.OnPreBuild(tk => tk.AddFontAwesomeIconFont(new SafeFontConfig { SizePx = 44f })));
     }
 
     public ApiController ApiController => _apiController;
@@ -171,9 +307,33 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
     public bool EditTrackerPosition { get; set; }
 
     public IFontHandle GameFont { get; init; }
+    public IReadOnlyList<(string Name, bool Exists, string? HintKey)> GetOptionalPluginStates() =>
+    [
+        ("SimpleHeels", _heelsExists, null),
+        ("Customize+", _customizePlusExists, null),
+        ("Honorific", _honorificExists, null),
+        ("PetNicknames", _petNamesExists, null),
+        ("Moodles", _moodlesExists, null),
+        ("Brio", _brioExists, null),
+        ("A Quest Reborn", _questRebornExists, null),
+        ("A Realm Repopulated", _aRealmRepopulatedExists, null),
+    ];
+
+    public IReadOnlyList<(string Name, bool Exists, string? HintKey)> GetDetectedPluginStates() =>
+    [
+        ("Chat2", _chatTwoExists, "Settings.Plugins.Chat2.Hint"),
+        ("Chat Proximity", _chatProximityExists, "Settings.Plugins.ChatProximity.Hint"),
+        ("ChatAlert", _chatAlertExists, "Settings.Plugins.ChatAlert.Hint"),
+        ("SimpleTweaks", _simpleTweaksExists, "Settings.Plugins.SimpleTweaks.Hint"),
+    ];
+
+    public bool PenumbraAvailable => _penumbraExists;
+    public bool GlamourerAvailable => _glamourerExists;
+    public bool MandatoryPluginsAvailable => _penumbraExists && _glamourerExists;
     public bool HasValidPenumbraModPath => !(_ipcManager.Penumbra.ModDirectory ?? string.Empty).IsNullOrEmpty() && Directory.Exists(_ipcManager.Penumbra.ModDirectory);
 
     public IFontHandle IconFont { get; init; }
+    public IFontHandle LargeIconFont { get; init; }
     public bool IsInGpose => _dalamudUtil.IsInGpose;
 
     public string PlayerName => _dalamudUtil.GetPlayerName();
@@ -184,10 +344,43 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
 
     public uint WorldId => _dalamudUtil.GetHomeWorldId();
 
+    public static string GetInitials(string name)
+    {
+        var parts = name.Split([' ', '-', '\''], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var letters = parts.Where(p => char.IsLetter(p[0])).Select(p => char.ToUpperInvariant(p[0])).Take(2).ToArray();
+        return new string(letters);
+    }
+
+    public static IDisposable PushTooltipStyle()
+    {
+        float scale = ImGuiHelpers.GlobalScale;
+        var scope = new TooltipStyleScope();
+        scope.Add(ImRaii.PushColor(ImGuiCol.PopupBg, WithAlpha(ThemeWindowBg, 0.97f)));
+        scope.Add(ImRaii.PushColor(ImGuiCol.Border, AccentColor with { W = 0.6f }));
+        scope.Add(ImRaii.PushStyle(ImGuiStyleVar.WindowPadding, new Vector2(9f, 7f) * scale));
+        scope.Add(ImRaii.PushStyle(ImGuiStyleVar.PopupRounding, 8f * scale));
+        scope.Add(ImRaii.PushStyle(ImGuiStyleVar.PopupBorderSize, 1f * scale));
+        return scope;
+    }
+
+    private sealed class TooltipStyleScope : IDisposable
+    {
+        private readonly List<IDisposable> _scopes = [];
+
+        public void Add(IDisposable scope) => _scopes.Add(scope);
+
+        public void Dispose()
+        {
+            for (int i = _scopes.Count - 1; i >= 0; i--)
+                _scopes[i].Dispose();
+        }
+    }
+
     public static void AttachToolTip(string text)
     {
         if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
         {
+            using var tooltipStyle = PushTooltipStyle();
             ImGui.BeginTooltip();
             ImGui.PushTextWrapPos(ImGui.GetFontSize() * 35f);
             if (text.Contains(TooltipSeparator, StringComparison.Ordinal))
@@ -373,7 +566,7 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
     {
         if (string.IsNullOrEmpty(hex)) return AccentColor;
         var span = hex.AsSpan();
-        if (span.Length > 0 && span[0] == '#') span = span[1..];
+        if (span[0] == '#') span = span[1..];
         if (span.Length != 6 || !uint.TryParse(span, System.Globalization.NumberStyles.HexNumber, null, out var rgb))
             return AccentColor;
         return new Vector4(((rgb >> 16) & 0xFF) / 255f, ((rgb >> 8) & 0xFF) / 255f, (rgb & 0xFF) / 255f, 1f);
@@ -441,7 +634,7 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
                 : string.Format(CultureInfo.CurrentCulture, Loc.Get("Settings.ChatTargetSound.SoundItem"), currentValue);
 
         ImGui.SetNextItemWidth(200 * ImGuiHelpers.GlobalScale);
-        if (!ImGui.BeginCombo(Loc.Get("Settings.ChatTargetSound.Override.Label") + idPrefix + uid, previewLabel))
+        if (!UiSharedService.BeginCombo(Loc.Get("Settings.ChatTargetSound.Override.Label") + idPrefix + uid, previewLabel))
             return;
 
         if (ImGui.Selectable(Loc.Get("Settings.ChatTargetSound.Override.Default"), !hasOverride))
@@ -466,7 +659,7 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
             }
         }
 
-        ImGui.EndCombo();
+        UiSharedService.EndCombo();
     }
 
     public static void DrawProgressBarLabels(ImDrawListPtr drawList, Vector2 barStart, Vector2 barEnd,
@@ -541,7 +734,7 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
         _currentWindowFontScale = scale;
     }
 
-    public static void DrawGrouped(Action imguiDrawAction, float rounding = 5f, float? expectedWidth = null, bool drawBorder = true)
+    public static void DrawGrouped(Action imguiDrawAction, float? rounding = null, float? expectedWidth = null, bool drawBorder = true)
     {
         var cursorPos = ImGui.GetCursorPos();
         using (ImRaii.Group())
@@ -560,21 +753,22 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
             ImGui.GetWindowDrawList().AddRect(
                 ImGui.GetItemRectMin() - ImGui.GetStyle().ItemInnerSpacing,
                 ImGui.GetItemRectMax() + ImGui.GetStyle().ItemInnerSpacing,
-                Color(ImGuiColors.DalamudGrey2), rounding);
+                ImGui.GetColorU32(ThemeCardBorder), rounding ?? RadiusCard * ImGuiHelpers.GlobalScale);
         }
     }
 
     public static void DrawCard(string id, Action draw, Vector2? padding = null, Vector4? background = null,
-        Vector4? border = null, float? rounding = null, bool stretchWidth = false)
+        Vector4? border = null, float? rounding = null, bool stretchWidth = false,
+        Action<Vector2, Vector2, float, Vector4>? backgroundOverlay = null)
     {
         var style = ImGui.GetStyle();
         var padBase = style.FramePadding;
         var pad = padding ?? new Vector2(
             padBase.X + 4f * ImGuiHelpers.GlobalScale,
             padBase.Y + 3f * ImGuiHelpers.GlobalScale);
-        var cardBg = background ?? new Vector4(0x1C / 255f, 0x1C / 255f, 0x1C / 255f, 1f);
-        var cardBorder = border ?? new Vector4(0x4A / 255f, 0x36 / 255f, 0x68 / 255f, 0.70f);
-        float cardRounding = rounding ?? Math.Max(style.FrameRounding, 8f * ImGuiHelpers.GlobalScale);
+        var cardBg = background ?? ThemeCardBg;
+        var cardBorder = border ?? ThemeCardBorder;
+        float cardRounding = rounding ?? RadiusCard * ImGuiHelpers.GlobalScale;
         float borderThickness = Math.Max(1f, Math.Max(style.FrameBorderSize, 1f) * ImGuiHelpers.GlobalScale);
         float borderInset = borderThickness;
 
@@ -586,8 +780,12 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
 
         var startCursor = ImGui.GetCursorPos();
         var drawList = ImGui.GetWindowDrawList();
-        drawList.ChannelsSplit(2);
-        drawList.ChannelsSetCurrent(1);
+        bool nested = IsInsideSectionCard(drawList);
+        if (!nested)
+        {
+            drawList.ChannelsSplit(2);
+            drawList.ChannelsSetCurrent(1);
+        }
 
         ImGui.PushID(id);
         ImGui.SetCursorPos(new Vector2(startCursor.X + pad.X, startCursor.Y + pad.Y));
@@ -632,13 +830,20 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
             drawMax.Y = drawMin.Y + borderThickness;
         }
 
-        drawList.ChannelsSetCurrent(0);
+        drawList.ChannelsSetCurrent(nested ? 1 : 0);
         drawList.AddRectFilled(drawMin, drawMax, ImGui.ColorConvertFloat4ToU32(cardBg), cardRounding);
         if (cardBorder.W > 0f && borderThickness > 0f)
         {
             drawList.AddRect(drawMin, drawMax, ImGui.ColorConvertFloat4ToU32(cardBorder), cardRounding, ImDrawFlags.None, borderThickness);
         }
-        drawList.ChannelsMerge();
+        // Posé sur le fond mais sous le contenu : même canal que le fond, soumis après lui.
+        backgroundOverlay?.Invoke(
+            drawMin + new Vector2(borderThickness), drawMax - new Vector2(borderThickness),
+            MathF.Max(cardRounding - borderThickness, 0f), cardBg);
+        if (nested)
+            drawList.ChannelsSetCurrent(2);
+        else
+            drawList.ChannelsMerge();
 
         ImGui.SetCursorPos(startCursor);
         var dummyWidth = outerMax.X - outerMin.X;
@@ -654,6 +859,318 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
         {
             ImGui.SetCursorPosX(startCursor.X);
         }
+    }
+
+    // Encadré d'information : icône, texte, fond teinté de la couleur du message.
+    /// <summary>
+    /// État vide d'une page : icône atténuée, titre, courte explication et, si besoin, une action.
+    /// </summary>
+    /// <returns>Vrai quand le bouton d'action est cliqué.</returns>
+    public bool DrawEmptyState(FontAwesomeIcon icon, string title, string hint, string? buttonLabel = null,
+        FontAwesomeIcon? buttonIcon = null)
+    {
+        var scale = ImGuiHelpers.GlobalScale;
+        var avail = ImGui.GetContentRegionAvail();
+        var wrapWidth = MathF.Min(avail.X * 0.85f, 420f * scale);
+        var accentDim = AccentColor with { W = 0.55f };
+
+        ImGui.SetCursorPosY(ImGui.GetCursorPosY() + MathF.Max(8f * scale, avail.Y * 0.22f));
+
+        // Icône
+        var iconText = icon.ToIconString();
+        Vector2 iconSize;
+        using (LargeIconFont.Push())
+        {
+            iconSize = ImGui.CalcTextSize(iconText);
+            ImGui.SetCursorPosX(ImGui.GetCursorPosX() + (avail.X - iconSize.X) / 2f);
+            ImGui.TextColored(accentDim, iconText);
+        }
+
+        ImGuiHelpers.ScaledDummy(8f);
+
+        // Titre
+        using (UidFont.Push())
+        {
+            var titleSize = ImGui.CalcTextSize(title);
+            ImGui.SetCursorPosX(ImGui.GetCursorPosX() + MathF.Max(0f, (avail.X - titleSize.X) / 2f));
+            ImGui.TextUnformatted(title);
+        }
+
+        ImGuiHelpers.ScaledDummy(2f);
+
+        // Explication : chaque ligne est centrée, y compris quand le texte passe à la ligne.
+        foreach (var line in WrapText(hint, wrapWidth))
+        {
+            var lineSize = ImGui.CalcTextSize(line);
+            ImGui.SetCursorPosX(ImGui.GetCursorPosX() + MathF.Max(0f, (avail.X - lineSize.X) / 2f));
+            ImGui.TextColored(ImGuiColors.DalamudGrey3, line);
+        }
+
+        if (string.IsNullOrEmpty(buttonLabel)) return false;
+
+        ImGuiHelpers.ScaledDummy(12f);
+        return DrawCallToActionButton(buttonLabel, buttonIcon, avail.X);
+    }
+
+    // Bouton d'action principale en pilule, centré dans la largeur donnée.
+    private static bool DrawCallToActionButton(string label, FontAwesomeIcon? icon, float availWidth)
+    {
+        var scale = ImGuiHelpers.GlobalScale;
+        var padX = 18f * scale;
+        var gap = 8f * scale;
+        var height = ImGui.GetFrameHeight() + 10f * scale;
+
+        var iconText = icon?.ToIconString();
+        var iconSize = Vector2.Zero;
+        if (iconText != null)
+        {
+            using (ImRaii.PushFont(UiBuilder.IconFont))
+                iconSize = ImGui.CalcTextSize(iconText);
+        }
+        var labelSize = ImGui.CalcTextSize(label);
+        var contentWidth = labelSize.X + (iconText != null ? iconSize.X + gap : 0f);
+        var size = new Vector2(contentWidth + padX * 2f, height);
+
+        ImGui.SetCursorPosX(ImGui.GetCursorPosX() + MathF.Max(0f, (availWidth - size.X) / 2f));
+        var min = ImGui.GetCursorScreenPos();
+        var max = min + size;
+        bool clicked = ImGui.InvisibleButton("##emptyStateAction", size);
+        bool hovered = ImGui.IsItemHovered();
+        bool active = ImGui.IsItemActive();
+        if (hovered) ImGui.SetMouseCursor(ImGuiMouseCursor.Hand);
+
+        var dl = ImGui.GetWindowDrawList();
+        var rounding = height / 2f;
+        if (hovered)
+        {
+            var glow = 3f * scale;
+            dl.AddRectFilled(min - new Vector2(glow), max + new Vector2(glow),
+                ImGui.GetColorU32(AccentColor with { W = 0.22f }), rounding + glow);
+        }
+        var fill = active ? ThemeSliderGrabActive : AccentColor with { W = hovered ? 1f : 0.85f };
+        dl.AddRectFilled(min, max, ImGui.GetColorU32(fill), rounding);
+        dl.AddRect(min, max, ImGui.GetColorU32(ThemeSliderGrabActive with { W = hovered ? 0.9f : 0.5f }),
+            rounding, ImDrawFlags.None, scale);
+
+        var textColor = ImGui.GetColorU32(ThemeNavTextActive);
+        var x = min.X + (size.X - contentWidth) / 2f;
+        if (iconText != null)
+        {
+            using (ImRaii.PushFont(UiBuilder.IconFont))
+                dl.AddText(new Vector2(x, min.Y + (height - iconSize.Y) / 2f), textColor, iconText);
+            x += iconSize.X + gap;
+        }
+        dl.AddText(new Vector2(x, min.Y + (height - labelSize.Y) / 2f), textColor, label);
+
+        return clicked;
+    }
+
+    private static List<string> WrapText(string text, float maxWidth)
+    {
+        var lines = new List<string>();
+        var current = new StringBuilder();
+        foreach (var word in text.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var candidate = current.Length == 0 ? word : current + " " + word;
+            if (current.Length > 0 && ImGui.CalcTextSize(candidate).X > maxWidth)
+            {
+                lines.Add(current.ToString());
+                current.Clear().Append(word);
+            }
+            else
+            {
+                current.Clear().Append(candidate);
+            }
+        }
+
+        if (current.Length > 0) lines.Add(current.ToString());
+        return lines;
+    }
+
+    public static void DrawNotice(string text, Vector4 color, FontAwesomeIcon icon = FontAwesomeIcon.ExclamationTriangle)
+    {
+        float scale = ImGuiHelpers.GlobalScale;
+        float availWidth = ImGui.GetContentRegionAvail().X;
+        float padding = 8f * scale;
+        var start = ImGui.GetCursorScreenPos();
+        float startX = ImGui.GetCursorPosX();
+
+        var drawList = ImGui.GetWindowDrawList();
+        bool nested = IsInsideSectionCard(drawList);
+        if (!nested)
+        {
+            drawList.ChannelsSplit(2);
+            drawList.ChannelsSetCurrent(1);
+        }
+
+        ImGuiHelpers.ScaledDummy(4f);
+        ImGui.Indent(padding);
+        using (ImRaii.PushFont(UiBuilder.IconFont))
+            ImGui.TextColored(color, icon.ToIconString());
+        ImGui.SameLine();
+        ImGui.PushTextWrapPos(startX + availWidth - padding);
+        ImGui.TextUnformatted(text);
+        ImGui.PopTextWrapPos();
+        ImGui.Unindent(padding);
+        ImGuiHelpers.ScaledDummy(4f);
+
+        var max = new Vector2(start.X + availWidth, ImGui.GetCursorScreenPos().Y);
+        float rounding = RadiusCard * scale;
+        drawList.ChannelsSetCurrent(nested ? 1 : 0);
+        drawList.AddRectFilled(start, max, ImGui.GetColorU32(WithAlpha(color, 0.10f)), rounding);
+        drawList.AddRect(start, max, ImGui.GetColorU32(WithAlpha(color, 0.55f)), rounding);
+        if (nested)
+            drawList.ChannelsSetCurrent(2);
+        else
+            drawList.ChannelsMerge();
+    }
+
+    // En-tête repliable « › ● TITRE  N » : toute la ligne bascule l'état, le compteur va dans une
+    // pastille de la couleur de la section. Renvoie vrai si la ligne est survolée.
+    public static bool DrawCollapsibleHeader(string id, string title, string? count, Vector4 color, ref bool expanded,
+        float width, float? height = null)
+    {
+        var scale = ImGuiHelpers.GlobalScale;
+        float rowHeight = height ?? ImGui.GetTextLineHeight() + 6f * scale;
+        width = MathF.Max(40f * scale, width);
+        var min = ImGui.GetCursorScreenPos();
+        if (ImGui.InvisibleButton(id, new Vector2(width, rowHeight)))
+            expanded = !expanded;
+        bool hovered = ImGui.IsItemHovered();
+        if (hovered) ImGui.SetMouseCursor(ImGuiMouseCursor.Hand);
+
+        var dl = ImGui.GetWindowDrawList();
+        if (hovered)
+            dl.AddRectFilled(min, min + new Vector2(width, rowHeight), ImGui.GetColorU32(color with { W = 0.08f }), RadiusControl * scale);
+
+        float textY = min.Y + (rowHeight - ImGui.GetTextLineHeight()) / 2f;
+        float x = min.X + 4f * scale;
+        using (ImRaii.PushFont(UiBuilder.IconFont))
+        {
+            var chevron = (expanded ? FontAwesomeIcon.ChevronDown : FontAwesomeIcon.ChevronRight).ToIconString();
+            var chevronSize = ImGui.CalcTextSize(chevron);
+            dl.AddText(new Vector2(x + (10f * scale - chevronSize.X) / 2f, min.Y + (rowHeight - chevronSize.Y) / 2f),
+                ImGui.GetColorU32(ImGuiColors.DalamudGrey), chevron);
+        }
+        x += 16f * scale;
+        dl.AddCircleFilled(new Vector2(x + 3f * scale, min.Y + rowHeight / 2f), 3.5f * scale, ImGui.GetColorU32(color));
+        x += 12f * scale;
+        var upper = title.ToUpper(Loc.CurrentCulture);
+        dl.AddText(new Vector2(x, textY), ImGui.GetColorU32(color), upper);
+        x += ImGui.CalcTextSize(upper).X + 7f * scale;
+
+        if (!string.IsNullOrEmpty(count))
+        {
+            var pad = new Vector2(6f, 0f) * scale;
+            var size = ImGui.CalcTextSize(count) + pad * 2f;
+            var pillMin = new Vector2(x, textY + (ImGui.GetTextLineHeight() - size.Y) / 2f);
+            dl.AddRectFilled(pillMin, pillMin + size, ImGui.GetColorU32(color with { W = 0.18f }), size.Y / 2f);
+            dl.AddText(pillMin + pad, ImGui.GetColorU32(color), count);
+        }
+
+        return hovered;
+    }
+
+    // trailing : résumé gris calé à droite sur la ligne du titre (compteur, taille…), avec son infobulle.
+    public static void DrawCardTitle(FontAwesomeIcon icon, string title, Vector4? accent = null,
+        string? trailing = null, string? trailingTooltip = null)
+    {
+        var color = accent ?? AccentColor;
+        using (ImRaii.PushFont(UiBuilder.IconFont))
+            ImGui.TextColored(color, icon.ToIconString());
+        ImGui.SameLine();
+        ImGui.TextColored(color, title);
+        if (!string.IsNullOrEmpty(trailing))
+        {
+            float trailingWidth = ImGui.CalcTextSize(trailing).X;
+            ImGui.SameLine();
+            ImGui.SetCursorPosX(MathF.Max(ImGui.GetCursorPosX(), ImGui.GetCursorPosX() + ImGui.GetContentRegionAvail().X - trailingWidth));
+            ImGui.TextColored(ImGuiColors.DalamudGrey, trailing);
+            if (!string.IsNullOrEmpty(trailingTooltip))
+                AttachToolTip(trailingTooltip);
+        }
+        ImGuiHelpers.ScaledDummy(2f);
+    }
+
+    private static (Vector2 Start, float Width, float Padding, ImDrawListPtr DrawList, int Frame)? _openSectionCard;
+
+    // Carte de section pleine largeur : titre et icône en accent, fond posé derrière le contenu.
+    // Ouvrir une section ferme la précédente, ce qui laisse le code appelant à plat et rend
+    // un return anticipé inoffensif. La dernière se ferme avec EndSectionCard.
+    // Une section s'ouvre et se ferme dans la même fenêtre : la fermer avant d'entrer dans un Child.
+    // Canaux : 0 fond de section, 1 fond d'une DrawCard posée dedans, 2 contenu.
+    public static void BeginSectionCard(string title, FontAwesomeIcon icon, string? trailing = null, string? trailingTooltip = null)
+    {
+        EndSectionCard();
+
+        float availWidth = ImGui.GetContentRegionAvail().X;
+        float padding = 8f * ImGuiHelpers.GlobalScale;
+        var drawList = ImGui.GetWindowDrawList();
+        _openSectionCard = (ImGui.GetCursorScreenPos(), availWidth, padding, drawList, ImGui.GetFrameCount());
+
+        drawList.ChannelsSplit(3);
+        drawList.ChannelsSetCurrent(2);
+
+        ImGuiHelpers.ScaledDummy(4f);
+        ImGui.Indent(padding);
+        ShiftContentRight(-padding);
+        DrawCardTitle(icon, title, trailing: trailing, trailingTooltip: trailingTooltip);
+        ImGui.PushTextWrapPos(ImGui.GetCursorPosX() + availWidth - padding * 2f);
+    }
+
+    // Marge droite de la carte : ImGui n'a pas d'équivalent d'Indent pour ce bord. On rétrécit
+    // la zone de contenu de la fenêtre le temps de la section, pour que tableaux, curseurs et
+    // textes qui se calent sur la largeur disponible s'arrêtent avant le contour.
+    private static unsafe void ShiftContentRight(float delta)
+    {
+        var window = ImGuiP.GetCurrentWindow().Handle;
+        if (window == null) return;
+        window->WorkRect.Max.X += delta;
+        window->ContentRegionRect.Max.X += delta;
+    }
+
+    public static void EndSectionCard()
+    {
+        if (_openSectionCard is not { } card) return;
+        _openSectionCard = null;
+
+        // Une section restée ouverte à l'image précédente : sa pile a déjà été remise à zéro.
+        if (card.Frame != ImGui.GetFrameCount()) return;
+
+        // Fermée depuis une autre fenêtre : le curseur courant ne décrit plus la carte. On rend
+        // les canaux sans dessiner de fond plutôt que de poser un rectangle au mauvais endroit.
+        if (!SameDrawList(card.DrawList, ImGui.GetWindowDrawList()))
+        {
+            card.DrawList.ChannelsMerge();
+            return;
+        }
+
+        ImGui.PopTextWrapPos();
+        ShiftContentRight(card.Padding);
+        ImGui.Unindent(card.Padding);
+        ImGuiHelpers.ScaledDummy(4f);
+
+        float rounding = RadiusCard * ImGuiHelpers.GlobalScale;
+        var min = card.Start;
+        var max = new Vector2(card.Start.X + card.Width, ImGui.GetCursorScreenPos().Y);
+        card.DrawList.ChannelsSetCurrent(0);
+        card.DrawList.AddRectFilled(min, max, ImGui.GetColorU32(ThemeCardBg), rounding);
+        card.DrawList.AddRect(min, max, ImGui.GetColorU32(ThemeCardBorder), rounding);
+        card.DrawList.ChannelsMerge();
+
+        ImGuiHelpers.ScaledDummy(6f);
+    }
+
+    private static unsafe bool SameDrawList(ImDrawListPtr a, ImDrawListPtr b) => a.Handle == b.Handle;
+
+    private static bool IsInsideSectionCard(ImDrawListPtr drawList)
+        => _openSectionCard is { } card && card.Frame == ImGui.GetFrameCount() && SameDrawList(card.DrawList, drawList);
+
+    public static void DrawSectionCard(string title, FontAwesomeIcon icon, Action draw)
+    {
+        BeginSectionCard(title, icon);
+        draw();
+        EndSectionCard();
     }
 
     public static bool DrawArrowToggle(ref bool state, string id)
@@ -756,7 +1273,11 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
         }
     }
 
-    public static Vector4 GetBoolColor(bool input) => input ? AccentColor : UiSharedService.AccentColor;
+    /// <summary>État neutre : présent / absent, en ligne / hors ligne. Ni l'un ni l'autre n'est un problème.</summary>
+    public static Vector4 GetBoolColor(bool input) => input ? AccentColor : ImGuiColors.DalamudGrey;
+
+    /// <summary>Réussite ou échec : le faux mérite l'attention (envoi raté, plugin manquant, action impossible).</summary>
+    public static Vector4 GetSuccessColor(bool input) => input ? AccentColor : ImGuiColors.DalamudRed;
 
     public float GetIconTextButtonSize(FontAwesomeIcon icon, string text)
     {
@@ -1127,12 +1648,93 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
 
         float maxCacheSize = (float)_configService.Current.MaxLocalCacheInGiB;
         ImGui.SetNextItemWidth(MathF.Min(400 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X - 200 * ImGuiHelpers.GlobalScale));
-        if (ImGui.SliderFloat(Loc.Get("Settings.Storage.MaxSize") + "##maxStorageSize", ref maxCacheSize, 1f, 200f, "%.2f GiB"))
+        if (ThemedSlider.Float(Loc.Get("Settings.Storage.MaxSize") + "##maxStorageSize", ref maxCacheSize, 0f, 200f, "%.0f GiB", step: 5f))
         {
+            // 0 n'a pas de sens pour un cache : le premier cran vaut 1 Gio.
+            maxCacheSize = MathF.Max(1f, maxCacheSize);
             _configService.Current.MaxLocalCacheInGiB = maxCacheSize;
             _configService.Save();
         }
         DrawHelpText(Loc.Get("Settings.Storage.MaxSize.Help"));
+    }
+
+    private const int ComboColorCount = 8;
+    private const int ComboStyleVarCount = 2;
+
+    // Sélecteurs : flèche fondue dans le champ, liste détachée de la fenêtre (fond, bordure, marges)
+    // et élément sélectionné mis en évidence. Reste poussé jusqu'à EndCombo pour styler la liste.
+    private static void PushComboStyle()
+    {
+        ImGui.PushStyleColor(ImGuiCol.Button, ThemeFrameBg);
+        ImGui.PushStyleColor(ImGuiCol.ButtonHovered, ThemeFrameBgHovered);
+        ImGui.PushStyleColor(ImGuiCol.ButtonActive, ThemeFrameBgActive);
+        ImGui.PushStyleColor(ImGuiCol.PopupBg, ThemePopupBg);
+        ImGui.PushStyleColor(ImGuiCol.Border, ThemeBorder);
+        ImGui.PushStyleColor(ImGuiCol.Header, ThemeSelectedBg);
+        ImGui.PushStyleColor(ImGuiCol.HeaderHovered, ThemeFrameBgHovered);
+        ImGui.PushStyleColor(ImGuiCol.HeaderActive, ThemeFrameBgActive);
+        ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, new Vector2(ImGui.GetStyle().WindowPadding.X, 6f * ImGuiHelpers.GlobalScale));
+        ImGui.PushStyleVar(ImGuiStyleVar.PopupBorderSize, 1f);
+    }
+
+    private static void PopComboStyle()
+    {
+        ImGui.PopStyleVar(ComboStyleVarCount);
+        ImGui.PopStyleColor(ComboColorCount);
+    }
+
+    /// <summary>BeginCombo au style UmbraSync ; à fermer par <see cref="EndCombo"/> s'il renvoie vrai.</summary>
+    public static bool BeginCombo(string label, string preview, ImGuiComboFlags flags = ImGuiComboFlags.None)
+    {
+        PushComboStyle();
+        if (ImGui.BeginCombo(label, preview, flags)) return true;
+        PopComboStyle();
+        return false;
+    }
+
+    public static void EndCombo()
+    {
+        ImGui.EndCombo();
+        PopComboStyle();
+    }
+
+    /// <summary>Équivalent stylé d'ImRaii.Combo.</summary>
+    public static ThemedCombo Combo(string label, string preview, ImGuiComboFlags flags = ImGuiComboFlags.None)
+        => new(label, preview, flags);
+
+    /// <summary>Équivalent stylé d'ImGui.Combo sur une liste de libellés.</summary>
+    public static bool Combo(string label, ref int currentItem, string[] items, int itemsCount)
+    {
+        PushComboStyle();
+        try
+        {
+            return ImGui.Combo(label, ref currentItem, items, itemsCount);
+        }
+        finally
+        {
+            PopComboStyle();
+        }
+    }
+
+    public sealed class ThemedCombo : IDisposable
+    {
+        private bool _disposed;
+
+        internal ThemedCombo(string label, string preview, ImGuiComboFlags flags)
+        {
+            Success = BeginCombo(label, preview, flags);
+        }
+
+        public bool Success { get; }
+
+        public static implicit operator bool(ThemedCombo combo) => combo.Success;
+
+        public void Dispose()
+        {
+            if (_disposed) return;
+            _disposed = true;
+            if (Success) EndCombo();
+        }
     }
 
     public T? DrawCombo<T>(string comboName, IEnumerable<T> comboItems, Func<T, string> toName,
@@ -1157,7 +1759,7 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
             }
         }
 
-        if (ImGui.BeginCombo(comboName, toName((T)selectedItem!)))
+        if (UiSharedService.BeginCombo(comboName, toName((T)selectedItem!)))
         {
             foreach (var item in comboItemList)
             {
@@ -1169,7 +1771,7 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
                 }
             }
 
-            ImGui.EndCombo();
+            UiSharedService.EndCombo();
         }
 
         return (T)_selectedComboItems[comboName];
@@ -1199,7 +1801,7 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
 
         var entry = toEntry((T)selectedItem!);
         ImGui.PushStyleColor(ImGuiCol.Text, ColorHelpers.RgbaUintToVector4(ColorHelpers.SwapEndianness(entry.Color)));
-        if (ImGui.BeginCombo(comboName, entry.Name))
+        if (UiSharedService.BeginCombo(comboName, entry.Name))
         {
             foreach (var item in comboItemList)
             {
@@ -1214,7 +1816,7 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
                 ImGui.PopStyleColor();
             }
 
-            ImGui.EndCombo();
+            UiSharedService.EndCombo();
         }
         ImGui.PopStyleColor();
 
@@ -1398,7 +2000,7 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
     {
         ImGui.TextUnformatted(name);
         ImGui.SameLine();
-        IconText(exists ? check : cross, GetBoolColor(exists));
+        IconText(exists ? check : cross, GetSuccessColor(exists));
     }
 
     public int DrawServiceSelection(bool selectOnChange = false, bool intro = false)
@@ -1419,7 +2021,7 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
                 comboEntries[i] += " [Current]";
         }
         ImGui.SetNextItemWidth(MathF.Min(250 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X - 200 * ImGuiHelpers.GlobalScale));
-        if (ImGui.BeginCombo("Select Service", comboEntries[_serverSelectionIndex]))
+        if (UiSharedService.BeginCombo("Select Service", comboEntries[_serverSelectionIndex]))
         {
             for (int i = 0; i < comboEntries.Length; i++)
             {
@@ -1439,7 +2041,7 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
                 }
             }
 
-            ImGui.EndCombo();
+            UiSharedService.EndCombo();
         }
 
         if (intro)
@@ -1505,13 +2107,7 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
     {
         if (imageData.Length == 0)
         {
-            return _textureProvider.CreateEmpty(new()
-            {
-                Width = 256,
-                Height = 256,
-                DxgiFormat = 3,
-                Pitch = 1024
-            }, cpuRead: false, cpuWrite: false);
+            return CreateEmptyTexture();
         }
         try
         {
@@ -1521,15 +2117,39 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
         catch (Exception ex)
         {
             Logger.LogWarning(ex, "Failed to create texture from image data");
-            return _textureProvider.CreateEmpty(new()
-            {
-                Width = 256,
-                Height = 256,
-                DxgiFormat = 3,
-                Pitch = 1024
-            }, cpuRead: false, cpuWrite: false);
+            return CreateEmptyTexture();
         }
     }
+
+    public async Task<IDalamudTextureWrap> LoadImageOrEmptyAsync(byte[] imageData)
+    {
+        if (imageData.Length == 0)
+        {
+            return CreateEmptyTexture();
+        }
+        try
+        {
+            Logger.LogTrace("Creating texture from image data, size: {size}", imageData.Length);
+            return await _textureProvider.CreateFromImageAsync(imageData).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Failed to create texture from image data");
+            return CreateEmptyTexture();
+        }
+    }
+
+    private IDalamudTextureWrap CreateEmptyTexture() =>
+        _textureProvider.CreateEmpty(new()
+        {
+            Width = 256,
+            Height = 256,
+            DxgiFormat = 3,
+            Pitch = 1024
+        }, cpuRead: false, cpuWrite: false);
+
+    public Task<IDalamudTextureWrap> LoadImageAsync(byte[] imageData) =>
+        _textureProvider.CreateFromImageAsync(imageData);
 
     internal static void DistanceSeparator()
     {
@@ -1567,7 +2187,10 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
 
         base.Dispose(disposing);
 
+        DetachGlassConfig();
+
         UidFont.Dispose();
         GameFont.Dispose();
+        LargeIconFont.Dispose();
     }
 }

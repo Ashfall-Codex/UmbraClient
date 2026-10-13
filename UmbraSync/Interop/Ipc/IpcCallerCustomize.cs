@@ -103,6 +103,7 @@ public sealed class IpcCallerCustomize : IIpcCaller
 
     public void CheckAPI()
     {
+        bool wasAvailable = APIAvailable;
         try
         {
             var version = _customizePlusApiVersion.InvokeFunc();
@@ -112,6 +113,9 @@ public sealed class IpcCallerCustomize : IIpcCaller
         {
             APIAvailable = false;
         }
+
+        if (APIAvailable && !wasAvailable)
+            _mareMediator.Publish(new AppearanceIpcReadyMessage("CustomizePlus"));
     }
 
     private void OnCustomizePlusScaleChange(ushort c, Guid g)

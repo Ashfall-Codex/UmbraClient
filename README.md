@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-API <code>v5000</code> &middot; C# 13 / .NET 10 &middot; Dalamud SDK 15.0
+Version <code>3.1.0.1013</code> &middot; API <code>v5001</code> &middot; C# 13 / .NET 10 &middot; Dalamud SDK 15.0
 </p>
 <p align="center">
 <a href="https://github.com/Ashfall-Codex/UmbraClient/actions/workflows/build.yml"><img src="https://github.com/Ashfall-Codex/UmbraClient/actions/workflows/build.yml/badge.svg" alt="Build Status" /></a>
@@ -33,10 +33,16 @@ API <code>v5000</code> &middot; C# 13 / .NET 10 &middot; Dalamud SDK 15.0
 - **Penumbra** : synchronisation automatique des mods, collections, settings et mods temporaires entre joueurs appairés
 - **Glamourer** : synchronisation de l'apparence complète (customization, états, verrouillages)
 - **Plugins tiers** : intégration native avec Customize+, Heels, Honorific, Moodles, PetNames et Brio
-- **Transfert intelligent** : envoi et réception rapides des mods, reprise automatique en cas de coupure, évite les doublons et vérifie l'intégrité des fichiers
-- **Distribution CDN** : téléchargement prioritaire depuis le CDN avec bascule automatique vers le serveur principal en cas d'indisponibilité
+- **Transfert intelligent** : envoi et réception rapides des mods, reprise automatique en cas de coupure (en-têtes Range), évite les doublons et vérifie l'intégrité des fichiers (SHA1)
+- **Distribution CDN** : téléchargement prioritaire depuis le CDN (stockage S3). Après plusieurs échecs, le CDN est suspendu 60 s puis retenté, sans basculer sur le serveur principal pour un incident passager. Un fichier introuvable sur le CDN est servi par le serveur principal, qui le récupère lui-même sur S3 si besoin
+- **Envoi fiable** : l'apparence n'est envoyée qu'une fois ses fichiers uploadés, chaque paire reçoit toujours la dernière version, et les envois en échec sont relancés (10 s, 20 s, 40 s… puis toutes les 5 min)
+- **Ré-upload à la demande** : un fichier perdu côté serveur est signalé par le joueur qui ne peut pas le télécharger, et le serveur demande à son propriétaire de le renvoyer, sans révéler qui l'a signalé
+- **Filtrage des entrées invalides** : un chemin de mod que le serveur refuserait est retiré de l'envoi, au lieu de faire rejeter toute l'apparence
+- **Physique moddée** : les fichiers `.kdb` (physique des cheveux et des vêtements) sont synchronisés
+- **Montures, familiers et compagnons** : leur apparence (Glamourer, Customize+) est appliquée à leur apparition, et de nouveau quand ils sont rangés puis ressortis
 - **Compression BC7** : les textures synchronisées sont converties côté serveur en BC7 et distribuées sous forme d'alternates, ce qui réduit la mémoire vidéo et le volume téléchargé. Trois modes au choix : qualité source, compression des nouveaux téléchargements, ou tout compressé
-- **Cache local** : gestion automatique du cache de mods avec compaction, nettoyage et monitoring de taille. Vidage manuel possible depuis les paramètres, avec compte rendu du nombre de fichiers supprimés et de l'espace libéré
+- **Cache local** : gestion automatique du cache de mods avec compaction, nettoyage et monitoring de taille. Les fichiers appliqués aux joueurs visibles ne sont jamais évincés, même si la limite est atteinte. Vidage manuel possible depuis les paramètres, avec compte rendu du nombre de fichiers supprimés et de l'espace libéré
+- **Déplacement du stockage** : changement du dossier de cache avec déplacement des fichiers, téléchargements en cours arrêtés pendant la copie puis réapplication des joueurs visibles
 
 ### AutoDetect
 
@@ -44,7 +50,9 @@ API <code>v5000</code> &middot; C# 13 / .NET 10 &middot; Dalamud SDK 15.0
 - **Détection de proximité** : découverte automatique des joueurs UmbraSync à portée de votre personnage
 - **Annuaire SyncFinder** : consultation et adhésion aux Syncshells publiques depuis une liste centralisée
 - **SyncSlot** : liaison d'une Syncshell à votre housing avec partage temporaire optionnel, détection intérieur/extérieur
-- **Anti-spam** : cooldown configurable au refus d'invitation (1 min à 1h) et blacklist persistante de joueurs bloqués
+- **Demandes d'ami** : quand le destinataire accepte, la paire est créée des deux côtés, même si l'expéditeur a redémarré son jeu entre-temps. Jeton de demande à usage unique et limites de débit côté serveur
+- **Demandes par UID** : réglage « Accepter les demandes d'ami par UID » (activé par défaut). Désactivé, le serveur refuse ces demandes et l'expéditeur en est prévenu
+- **Anti-spam** : cooldown configurable au refus d'invitation (1 min à 1h) et blocage de joueurs enregistré côté serveur, appliqué dans les deux sens avant toute notification
 - **Suppression automatique** : désactivation automatique en zone instanciée (donjon, raid, PvP) avec restauration à la sortie
 - **Planification** : programmation horaire de l'AutoDetect par Syncshell (durée fixe ou plages horaires)
 
@@ -52,6 +60,7 @@ API <code>v5000</code> &middot; C# 13 / .NET 10 &middot; Dalamud SDK 15.0
 
 - **Ashfall Connect** : liez votre compte à la plateforme Ashfall Connect (Discord / XIVAuth) pour héberger, éditer et **certifier** votre fiche RP enrichie. Niveaux de certification d'identité (Bronze / Argent / Or). Liaison par code à usage unique depuis le plugin
 - **Profil RP** : fiche personnage complète (prénom, nom, titre, âge, race, taille, résidence, occupation, alignement, etc.) avec champs personnalisés, photo dédiée et couleur de nom configurable
+- **Bannière de profil** : image de bannière sur la fiche RP, visible par les autres joueurs
 - **Profil classique** : photo de profil, description personnelle, statut NSFW
 - **Icône de chat** : icône XIV affichée dans le chat avant le nom RP, sélecteur intégré avec recherche par ID ou par nom, palette partagée avec l'éditeur Moodles
 - **Titre Honorific intégré** : édition du titre complet directement depuis la fiche RP avec color picker (couleur + glow), préfixe optionnel. Synchronisé automatiquement via Honorific
@@ -96,7 +105,6 @@ API <code>v5000</code> &middot; C# 13 / .NET 10 &middot; Dalamud SDK 15.0
 - **Administration** : gestion des membres (ban, retrait, permissions), transfert de propriété, changement de mot de passe, renommage de la syncshell
 - **Invitations temporaires** : génération d'invitations à usage unique
 - **Rôles** : Owner, Moderator, Member avec permissions granulaires
-- **Collection Penumbra** : liaison d'une collection Penumbra spécifique par Syncshell
 - **Profil de groupe** : description, tags, logo pour la découverte publique
 - **Tri des membres** : tri de la liste des membres par type de pair ou par ordre alphabétique
 - **Pruning** : nettoyage automatique des membres inactifs
@@ -117,7 +125,7 @@ API <code>v5000</code> &middot; C# 13 / .NET 10 &middot; Dalamud SDK 15.0
 - **Widget de téléchargement** : suivi en temps réel des transferts upload/download
 - **Widget Server Bar** : indicateur de statut dans la barre de serveur FFXIV avec styles personnalisables
 - **Overlay d'écriture** : indicateur visuel sur les nameplates des joueurs en train d'écrire
-- **Changelog intégré** : affichage automatique des nouveautés à chaque mise à jour
+- **Changelog intégré** : affichage automatique des nouveautés à chaque mise à jour, avec un tour guidé des nouvelles fonctions
 - **Notifications** : système centralisé avec badge, toast et panneau dédié, respectant les préférences d'affichage utilisateur (Nowhere/Chat/Toast/Both)
 - **Messages de service** : diffusion de messages par le serveur (information, avertissement, erreur) et notification explicite en cas de déconnexion forcée
 
@@ -152,13 +160,14 @@ Le projet est composé de plusieurs modules :
 |---|---|---|
 | `UmbraSync/` | C# 13 / .NET 10 / Dalamud SDK | Plugin FFXIV principal |
 | `UmbraAPI/` | Submodule git | API partagée avec le serveur (contrats et DTOs) |
-| `Penumbra.Api/` | Submodule git | API d'intégration Penumbra |
-| `Glamourer.Api/` | Submodule git | API d'intégration Glamourer |
 | `ffxiv_pictomancy/` | Submodule git | Bibliothèque de dessin 3D dans le monde |
+| `AshfallSync.Tests/` | xUnit | Tests unitaires |
+
+Les API Penumbra et Glamourer viennent des paquets NuGet `Penumbra.Api` et `Glamourer.Api`.
 
 ### Plugin (C#)
 
-- **Point d'entree** : `Plugin.cs` — injection de dépendances via `Microsoft.Extensions.DependencyInjection` avec architecture hosted services
+- **Point d'entrée** : `Plugin.cs` — injection de dépendances via `Microsoft.Extensions.DependencyInjection` avec architecture hosted services
 - **Communication** : SignalR (WebSocket) avec authentification JWT, reconnexion automatique, protocole MessagePack + compression LZ4Block (frames binaires pour contourner les middleboxes qui coupent les WebSockets JSON)
 - **Bus de messages** : Mediator pattern central (`MareMediator`) pour la communication intra-plugin
 - **UI** : ImGui avec thème violet/sombre "Royal Smoke", fenêtres modulaires, composants réutilisables (`BbCodeToolbar`, `HonorificEditor`, `MoodlesEditor`, `ChatIconPicker`)
@@ -190,7 +199,12 @@ dotnet build UmbraSync.sln -c Debug --no-restore -p:DALAMUD_DIR="$DALAMUD_DIR"
 
 # Build Release
 dotnet build UmbraSync.sln -c Release --no-restore -p:DALAMUD_DIR="$DALAMUD_DIR" -p:ContinuousIntegrationBuild=true
+
+# Tests unitaires
+dotnet test AshfallSync.Tests/AshfallSync.Tests.csproj
 ```
+
+Le plugin chargé par Dalamud est la sortie Release x64 (`UmbraSync/bin/x64/Release`).
 
 ---
 
@@ -225,17 +239,17 @@ La commande principale est `/usync`. Un alias `/umbrasync` est également enregi
 
 | Package | Version |
 |---|---|
-| `Microsoft.AspNetCore.SignalR.Client` | 10.0.6 |
-| `Microsoft.AspNetCore.SignalR.Protocols.MessagePack` | 10.0.11 |
+| `Microsoft.AspNetCore.SignalR.Client` | 10.0.12 |
+| `Microsoft.AspNetCore.SignalR.Protocols.MessagePack` | 10.0.12 |
 | `MessagePack` | 3.1.8 |
-| `Microsoft.Extensions.Hosting` | 10.0.6 |
-| `System.IdentityModel.Tokens.Jwt` | 8.16.0 |
+| `Microsoft.Extensions.Hosting` | 10.0.12 |
+| `System.IdentityModel.Tokens.Jwt` | 8.19.2 |
 | `K4os.Compression.LZ4.Streams` | 1.3.8 |
 | `K4os.Compression.LZ4.Legacy` | 1.3.8 |
 | `Downloader` | 5.1.0 |
 | `Chaos.NaCl.Standard` | 1.0.0 |
 | `Brio.API` | 3.0.1 |
-| `Penumbra.Api` | 5.15.1 |
+| `Penumbra.Api` | 5.19.2 |
 | `Glamourer.Api` | 2.8.2 |
 | `Dalamud.NET.Sdk` | 15.0.0 |
 | `DalamudPackager` | 15.0.0 |
@@ -244,23 +258,25 @@ Analyseurs statiques appliqués à la compilation : `Meziantou.Analyzer` 3.0.200
 
 > Les versions de `MessagePack` et des paquets SignalR doivent rester identiques côté serveur (UmbraServer). Un désalignement provoque des erreurs de désérialisation à l'exécution.
 
+### Compatibilité avec le serveur
+
+Le client et le serveur partagent la version d'API `IMareHub.ApiVersion` (UmbraAPI), actuellement `5001`. À la connexion, un client dont la version d'API diffère de celle du serveur se déconnecte et affiche la version requise (`ExpectedClientVersion` côté serveur). Toute montée de version d'API doit donc être déployée sur le serveur au moment de la publication du client.
+
 ### Submodules git
 
 | Submodule | Source |
 |---|---|
 | `UmbraAPI/` | [Ashfall-Codex/UmbraAPI](https://github.com/Ashfall-Codex/UmbraAPI) |
-| `Penumbra.Api/` | [Ottermandias/Penumbra.Api](https://github.com/Ottermandias/Penumbra.Api) |
-| `Glamourer.Api/` | [Ottermandias/Glamourer.Api](https://github.com/Ottermandias/Glamourer.Api) |
 | `ffxiv_pictomancy/` | [sourpuh/ffxiv_pictomancy](https://github.com/sourpuh/ffxiv_pictomancy) |
 
 ---
 
 ## Langues
 
-- **Francais** (langue par defaut)
+- **Français** (langue par défaut)
 - **English**
 
-Basée sur des fichiers `.resx` : `Localization/Strings.resx` porte les chaînes anglaises (ressource neutre, source des traductions Crowdin) et `Strings.fr.resx` les chaînes françaises. Environ 2 200 clés de traduction, avec changement de langue à chaud via les paramètres.
+Basée sur des fichiers `.resx` : `Localization/Strings.resx` porte les chaînes anglaises (ressource neutre, source des traductions Crowdin) et `Strings.fr.resx` les chaînes françaises. Environ 2 750 clés de traduction, avec changement de langue à chaud via les paramètres.
 
 Une clé absente de `Strings.fr.resx` retombe sur la ressource neutre et s'affiche donc en anglais, y compris pour un utilisateur configuré en français.
 
@@ -297,7 +313,7 @@ UmbraSync/
 │   ├── Notification/       # Système de notifications
 │   ├── Rendering/          # PictomancyService
 │   └── ServerConfiguration/ # Configuration serveur
-├── UI/                     # 39 fenêtres et vues ImGui
+├── UI/                     # Fenêtres et vues ImGui (environ 45 fichiers)
 │   ├── Components/         # Composants réutilisables (DrawPairBase, GroupPanel, BbCodeRenderer/Toolbar, HonorificEditor, MoodlesEditor, ChatIconPicker)
 │   │   └── Popup/          # Handlers de popups (ban, report, slot)
 │   ├── Handlers/           # Handlers UI (TagHandler, UidDisplayHandler)
@@ -314,7 +330,7 @@ UmbraSync/
 
 UmbraAPI/
 └── UmbraSyncAPI/
-    ├── SignalR/            # IMareHub (121 méthodes), IMareHubClient
+    ├── SignalR/            # IMareHub (128 méthodes), IMareHubClient
     ├── Dto/                # 85 DTOs (User, Group, CharaData, Files, Housing, Establishment, WildRp, Rgpd, etc.)
     ├── Data/               # Enums et modèles de données
     └── Routes/             # Définitions de routes API

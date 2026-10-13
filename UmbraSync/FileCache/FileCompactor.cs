@@ -85,15 +85,23 @@ public sealed class FileCompactor
         CompactFile(filePath);
     }
 
-    public void RenameAndCompact(string filePath, string originalFilePath)
+    /// <summary>
+    /// Place le temporaire vérifié à son emplacement final puis le compresse (NTFS natif : la
+    /// compression WOF se fait sur le fichier final, après le déplacement). Écrase un éventuel
+    /// fichier existant : il peut être tronqué ou corrompu, le temporaire, lui, a été vérifié.
+    /// Renvoie faux si le fichier final n'a pas pu être remplacé.
+    /// </summary>
+    public bool RenameAndCompact(string filePath, string originalFilePath)
     {
         try
         {
-            File.Move(originalFilePath, filePath);
+            File.Move(originalFilePath, filePath, overwrite: true);
         }
-        catch (IOException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            // File already exists - clean up the source temp file to avoid orphaned .cdntmp files
+            // Destination verrouillée (lecture en cours par le jeu, antivirus) : on garde l'existant
+            // et on nettoie le temporaire pour ne pas laisser de .cdntmp orphelin.
+            _logger.LogWarning(ex, "Could not move verified file to {path}", filePath);
             try
             {
                 if (File.Exists(originalFilePath))
@@ -101,19 +109,27 @@ public sealed class FileCompactor
                     File.Delete(originalFilePath);
                 }
             }
-            catch (Exception ex)
+            catch (Exception deleteEx)
             {
-                _logger.LogWarning(ex, "Failed to delete orphaned temp file {path}", originalFilePath);
+                _logger.LogWarning(deleteEx, "Failed to delete orphaned temp file {path}", originalFilePath);
             }
-            return;
+            return false;
         }
 
         if (_dalamudUtilService.IsWine || !_mareConfigService.Current.UseCompactor)
         {
-            return;
+            return true;
         }
 
-        CompactFile(filePath);
+        try
+        {
+            CompactFile(filePath);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not compact {path}", filePath);
+        }
+        return true;
     }
 
     [DllImport("kernel32.dll")]

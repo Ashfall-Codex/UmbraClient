@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Logging;
 using UmbraSync.Services.Mediator;
-using PenumbraApi = global::Penumbra.Api.Helpers;
+using PenumbraApi = global::Luna;
 using PenumbraEnum = global::Penumbra.Api.Enums;
 using PenumbraIpc = global::Penumbra.Api.IpcSubscribers;
 namespace UmbraSync.Interop.Ipc.Penumbra;
@@ -93,6 +93,9 @@ public sealed class PenumbraModSettings : IDisposable
 
         return _core.DalamudUtil.RunOnFrameworkThread(() =>
         {
+            var modRoot = _core.ModDirectory;
+            if (string.IsNullOrEmpty(modRoot)) return null;
+
             var coll = new PenumbraIpc.GetCollection(_core.PluginInterface).Invoke(PenumbraEnum.ApiCollectionType.Current);
             if (coll == null) return null;
             var collId = coll.Value.Id;
@@ -108,12 +111,10 @@ public sealed class PenumbraModSettings : IDisposable
                 var settings = kv.Value;
                 var isEnabled = settings.Item1;
                 if (!isEnabled) continue;
-                var root = modDirName;
-                var lastSlash = root.LastIndexOf('\\');
-                if (lastSlash > 0)
-                    root = root[..lastSlash];
 
-                result.Add(root);
+                var abs = Path.Combine(modRoot, modDirName);
+                if (Directory.Exists(abs))
+                    result.Add(abs);
             }
 
             return result;

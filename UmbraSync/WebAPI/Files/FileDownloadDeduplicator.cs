@@ -4,55 +4,73 @@ using UmbraSync.Services.Mediator;
 
 namespace UmbraSync.WebAPI.Files;
 
-public readonly record struct DownloadClaim(bool IsOwner, Task<bool> Completion);
+/// <summary>
+/// Issue d'un téléchargement partagé. Released signifie que le propriétaire n'a pas tranché (annulation,
+/// déconnexion, expiration) : les waiters ne basculent pas sur le serveur principal et ne posent pas de cooldown.
+/// </summary>
+public enum DownloadClaimOutcome { Success, Failed, Released }
+
+public readonly record struct DownloadClaim(bool IsOwner, Task<DownloadClaimOutcome> Completion, long Generation);
 
 public sealed class FileDownloadDeduplicator : DisposableMediatorSubscriberBase
 {
     private static readonly TimeSpan ClaimTimeout = TimeSpan.FromMinutes(30);
-    private readonly ConcurrentDictionary<string, TaskCompletionSource<bool>> _inFlight = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, InFlightClaim> _inFlight = new(StringComparer.Ordinal);
+    private long _generation;
+
+    private sealed class InFlightClaim(long generation)
+    {
+        public long Generation { get; } = generation;
+        public TaskCompletionSource<DownloadClaimOutcome> Source { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    }
 
     public FileDownloadDeduplicator(ILogger<FileDownloadDeduplicator> logger, MareMediator mediator)
         : base(logger, mediator)
     {
-        Mediator.Subscribe<DisconnectedMessage>(this, _ => CompleteAll(false));
+        Mediator.Subscribe<DisconnectedMessage>(this, _ => CompleteAll(DownloadClaimOutcome.Released));
     }
 
     public DownloadClaim Claim(string hash)
     {
-        var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var existing = _inFlight.GetOrAdd(hash, tcs);
+        var candidate = new InFlightClaim(Interlocked.Increment(ref _generation));
+        var existing = _inFlight.GetOrAdd(hash, candidate);
 
-        if (ReferenceEquals(existing, tcs))
+        if (ReferenceEquals(existing, candidate))
         {
-            Logger.LogDebug("Download claim: IsOwner=true for hash {hash}", hash);
-            // Schedule automatic expiry so a stuck owner never blocks waiters forever
-            _ = ExpireClaimAsync(hash, tcs);
-            return new DownloadClaim(IsOwner: true, Completion: tcs.Task);
+            Logger.LogDebug("Download claim: IsOwner=true for hash {hash} (gen {gen})", hash, candidate.Generation);
+            // Expiration automatique : un propriétaire bloqué ne doit pas retenir les waiters indéfiniment
+            _ = ExpireClaimAsync(hash, candidate);
+            return new DownloadClaim(IsOwner: true, Completion: candidate.Source.Task, Generation: candidate.Generation);
         }
 
         Logger.LogDebug("Download claim: IsOwner=false for hash {hash}, waiting on existing download", hash);
-        return new DownloadClaim(IsOwner: false, Completion: existing.Task);
+        return new DownloadClaim(IsOwner: false, Completion: existing.Source.Task, Generation: existing.Generation);
     }
 
-    public bool Complete(string hash, bool success)
+    /// <summary>
+    /// Ne termine que le claim de la génération indiquée : après un CompleteAll (déconnexion), un
+    /// ancien propriétaire qui finit en retard ne doit pas libérer le claim de son successeur.
+    /// </summary>
+    public bool Complete(string hash, long generation, DownloadClaimOutcome outcome)
     {
-        if (_inFlight.TryRemove(hash, out var tcs))
+        if (_inFlight.TryGetValue(hash, out var entry) && entry.Generation == generation
+            && _inFlight.TryRemove(new KeyValuePair<string, InFlightClaim>(hash, entry)))
         {
-            Logger.LogDebug("Download complete: hash {hash}, success={success}", hash, success);
-            tcs.TrySetResult(success);
+            Logger.LogDebug("Download complete: hash {hash}, outcome={outcome}", hash, outcome);
+            entry.Source.TrySetResult(outcome);
             return true;
         }
         return false;
     }
 
-    public void CompleteAll(bool success)
+    public void CompleteAll(DownloadClaimOutcome outcome)
     {
-        Logger.LogDebug("Completing all in-flight downloads with success={success} (count={count})", success, _inFlight.Count);
+        Logger.LogDebug("Completing all in-flight downloads with outcome={outcome} (count={count})", outcome, _inFlight.Count);
         foreach (var kvp in _inFlight)
         {
-            if (_inFlight.TryRemove(kvp.Key, out var tcs))
+            if (_inFlight.TryRemove(kvp))
             {
-                tcs.TrySetResult(success);
+                kvp.Value.Source.TrySetResult(outcome);
             }
         }
     }
@@ -61,28 +79,30 @@ public sealed class FileDownloadDeduplicator : DisposableMediatorSubscriberBase
     {
         if (disposing)
         {
-            CompleteAll(false);
+            try
+            {
+                CompleteAll(DownloadClaimOutcome.Released);
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "Error while releasing download claims on dispose");
+            }
         }
         base.Dispose(disposing);
     }
 
-    private async Task ExpireClaimAsync(string hash, TaskCompletionSource<bool> tcs)
+    private async Task ExpireClaimAsync(string hash, InFlightClaim claim)
     {
         try
         {
-            await Task.Delay(ClaimTimeout).ConfigureAwait(false);
-            if (tcs.Task.IsCompleted) return;
-
+            // WaitAsync plutôt que Task.Delay : le timer est libéré dès que le claim se termine.
+            await claim.Source.Task.WaitAsync(ClaimTimeout).ConfigureAwait(false);
+        }
+        catch (TimeoutException)
+        {
             Logger.LogWarning("Download claim for hash {hash} expired after {timeout}, releasing waiters", hash, ClaimTimeout);
-            if (_inFlight.TryRemove(hash, out var current) && ReferenceEquals(current, tcs))
-            {
-                tcs.TrySetResult(false);
-            }
-            else if (current != null)
-            {
-                // Someone else replaced it, put it back
-                _inFlight.TryAdd(hash, current);
-            }
+            if (_inFlight.TryRemove(new KeyValuePair<string, InFlightClaim>(hash, claim)))
+                claim.Source.TrySetResult(DownloadClaimOutcome.Released);
         }
         catch (Exception ex)
         {

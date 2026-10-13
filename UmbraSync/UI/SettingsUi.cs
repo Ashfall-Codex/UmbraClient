@@ -28,6 +28,7 @@ using UmbraSync.WebAPI;
 using UmbraSync.WebAPI.Files;
 using UmbraSync.WebAPI.Files.Models;
 using UmbraSync.WebAPI.SignalR.Utils;
+using UmbraSync.UI.Components;
 
 namespace UmbraSync.UI;
 
@@ -49,6 +50,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
     private readonly PairManager _pairManager;
     private readonly GuiHookService _guiHookService;
     private readonly AutoDetectSuppressionService _autoDetectSuppressionService;
+    private readonly NearbyDiscoveryService _nearbyDiscoveryService;
     private readonly PerformanceCollectorService _performanceCollector;
     private readonly PlayerPerformanceConfigService _playerPerformanceConfigService;
     private readonly AccountRegistrationService _registerService;
@@ -61,11 +63,9 @@ public class SettingsUi : WindowMediatorSubscriberBase
     private bool _ashfallStatusLoading;
     private static readonly TimeSpan AshfallStatusTtl = TimeSpan.FromSeconds(30);
     private readonly RgpdDataService _rgpdDataService;
-    private readonly MareConfiguration.SyncshellConfigService _syncshellConfigService;
+    private readonly EstablishmentConfigService _establishmentConfigService;
     private readonly MareConfiguration.CharaDataConfigService _charaDataConfigService;
     private readonly NetworkDiagnosticService _networkDiagnostic;
-    private Dictionary<Guid, string>? _cachedPenumbraCollections;
-    private DateTime _lastCollectionRefresh = DateTime.MinValue;
     private bool _rgpdDeleteConfirmShown;
     private bool _rgpdServerDeleteConfirmShown;
     private bool _rgpdRevokeConfirmShown;
@@ -81,6 +81,8 @@ public class SettingsUi : WindowMediatorSubscriberBase
     private string _targetSoundGroupSearch = string.Empty;
     private string _lastTab = string.Empty;
     private int _activeSettingsTab;
+
+    public void ShowAutoDetectTab() => _activeSettingsTab = 4;
     private bool? _notesSuccessfullyApplied = null;
     private bool _overwriteExistingLabels = false;
     private bool _readClearCache = false;
@@ -100,12 +102,9 @@ public class SettingsUi : WindowMediatorSubscriberBase
     private readonly HashSet<int> _hoveredSecretKeys = [];
     private readonly PenumbraPrecacheService _precacheService;
     private const float SettingsSidebarWidth = 140f;
-    private const float SettingsSidebarAnimSpeed = 18f;
-    private readonly Dictionary<int, (Vector2 Min, Vector2 Max)> _settingsSidebarRects = new();
-    private Vector2 _settingsSidebarIndicatorPos;
-    private Vector2 _settingsSidebarIndicatorSize;
-    private bool _settingsSidebarIndicatorInit;
-    private Vector2 _settingsSidebarWindowPos;
+    private const int PrivacySettingsTab = 7;
+    private readonly SideRail _settingsRail = new();
+    private string _settingsSearch = string.Empty;
 
     private static readonly string[] SettingsLabelKeys = [
         "Settings.Section.General.Title",
@@ -152,10 +151,10 @@ public class SettingsUi : WindowMediatorSubscriberBase
         IpcManager ipcManager, IpcProvider ipcProvider, CacheMonitor cacheMonitor,
         DalamudUtilService dalamudUtilService, AccountRegistrationService registerService,
         AutoDetectSuppressionService autoDetectSuppressionService,
+        NearbyDiscoveryService nearbyDiscoveryService,
         PenumbraPrecacheService precacheService,
         ChatTypingDetectionService chatTypingDetectionService,
-        RgpdDataService gdprDataService,
-        MareConfiguration.SyncshellConfigService syncshellConfigService,
+        RgpdDataService gdprDataService, EstablishmentConfigService establishmentConfigService,
         MareConfiguration.CharaDataConfigService charaDataConfigService,
         UmbraSync.WebAPI.AshfallConnectService ashfallConnect,
         NetworkDiagnosticService networkDiagnostic) : base(logger, mediator, "Umbra Settings", performanceCollector)
@@ -178,12 +177,13 @@ public class SettingsUi : WindowMediatorSubscriberBase
         _dalamudUtilService = dalamudUtilService;
         _registerService = registerService;
         _autoDetectSuppressionService = autoDetectSuppressionService;
+        _nearbyDiscoveryService = nearbyDiscoveryService;
         _fileCompactor = fileCompactor;
         _uiShared = uiShared;
         _precacheService = precacheService;
         _chatTypingDetectionService = chatTypingDetectionService;
         _rgpdDataService = gdprDataService;
-        _syncshellConfigService = syncshellConfigService;
+        _establishmentConfigService = establishmentConfigService;
         _charaDataConfigService = charaDataConfigService;
         _networkDiagnostic = networkDiagnostic;
         AllowClickthrough = false;
@@ -295,155 +295,29 @@ public class SettingsUi : WindowMediatorSubscriberBase
         }
     }
 
-    private void DrawCollectionOverrides()
+    private async Task PushUidRequestsSettingAsync(bool allowed)
     {
-        _uiShared.BigText(Loc.Get("Settings.Transfer.CollectionOverride.Title"));
-        UiSharedService.ColorTextWrapped(Loc.Get("Settings.Transfer.CollectionOverride.Description"), ImGuiColors.DalamudGrey);
-
-        bool enableOverrides = _syncshellConfigService.Current.EnableCollectionOverrides;
-        if (ImGui.Checkbox(Loc.Get("Settings.Transfer.CollectionOverride.Enable"), ref enableOverrides))
+        try
         {
-            _syncshellConfigService.Current.EnableCollectionOverrides = enableOverrides;
-            _syncshellConfigService.Save();
+            if (_apiController.IsConnected)
+                await _apiController.UserSetPairRequestsAllowed(allowed).ConfigureAwait(false);
         }
-
-        if (!enableOverrides) return;
-
-        // Rafraîchir les collections Penumbra toutes les 10 secondes max
-        if ((_cachedPenumbraCollections == null || DateTime.UtcNow - _lastCollectionRefresh > TimeSpan.FromSeconds(10))
-            && _ipcManager.Initialized && _ipcManager.Penumbra.APIAvailable)
+        catch (Exception ex)
         {
-            _ = Task.Run(async () =>
-            {
-                var collections = await _ipcManager.Penumbra.GetAllCollectionsAsync().ConfigureAwait(false);
-                _cachedPenumbraCollections = collections;
-                _lastCollectionRefresh = DateTime.UtcNow;
-            });
-        }
-
-        if (_cachedPenumbraCollections == null || _cachedPenumbraCollections.Count == 0)
-        {
-            UiSharedService.ColorTextWrapped(Loc.Get("Settings.Transfer.CollectionOverride.NoPenumbra"), ImGuiColors.DalamudYellow);
-            return;
-        }
-
-        // Filtrer les collections temporaires UmbraSync
-        var userCollections = _cachedPenumbraCollections
-            .Where(c => !c.Value.StartsWith("UmbraSync_", StringComparison.Ordinal))
-            .OrderBy(c => c.Value, StringComparer.OrdinalIgnoreCase)
-            .ToList();
-
-        var groups = _pairManager.Groups;
-        var overrides = _syncshellConfigService.Current.GroupCollectionOverrides;
-        bool changed = false;
-        string? toRemove = null;
-
-        ImGui.Spacing();
-
-        // Afficher les overrides existants
-        foreach (var (gid, collectionId) in overrides)
-        {
-            // Trouver le nom du syncshell
-            var groupEntry = groups.FirstOrDefault(g => string.Equals(g.Key.GID, gid, StringComparison.Ordinal));
-            var groupName = groupEntry.Key != null
-                ? (!string.IsNullOrEmpty(groupEntry.Key.Alias) ? groupEntry.Key.Alias : groupEntry.Key.GID)
-                : gid;
-
-            // Trouver le nom de la collection
-            var collName = userCollections.FirstOrDefault(c => c.Key == collectionId).Value
-                ?? Loc.Get("Settings.Transfer.CollectionOverride.Unknown");
-
-            // Bouton supprimer
-            ImGui.PushID("removeOverride_" + gid);
-            if (_uiShared.IconButton(FontAwesomeIcon.Trash))
-            {
-                toRemove = gid;
-            }
-            ImGui.PopID();
-            ImGui.SameLine();
-
-            // Combo pour changer la collection
-            ImGui.SetNextItemWidth(MathF.Min(250 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X - 200 * ImGuiHelpers.GlobalScale));
-            if (ImGui.BeginCombo("##collOverride_" + gid, collName))
-            {
-                foreach (var (cId, cName) in userCollections)
-                {
-                    if (ImGui.Selectable(cName, cId == collectionId))
-                    {
-                        overrides[gid] = cId;
-                        changed = true;
-                    }
-                }
-                ImGui.EndCombo();
-            }
-
-            ImGui.SameLine();
-            ImGui.TextUnformatted(groupName);
-        }
-
-        // Supprimer l'entrée marquée
-        if (toRemove != null)
-        {
-            overrides.Remove(toRemove);
-            changed = true;
-        }
-
-        // Bouton "Ajouter une exception"
-        // Trouver les syncshells qui n'ont pas encore d'override
-        var availableGroups = groups
-            .Where(g => !overrides.ContainsKey(g.Key.GID))
-            .ToList();
-
-        if (availableGroups.Count > 0)
-        {
-            ImGui.Spacing();
-            if (_uiShared.IconTextButton(FontAwesomeIcon.Plus, Loc.Get("Settings.Transfer.CollectionOverride.AddException")))
-            {
-                ImGui.OpenPopup("##addCollOverridePopup");
-            }
-
-            if (ImGui.BeginPopup("##addCollOverridePopup"))
-            {
-                ImGui.TextUnformatted(Loc.Get("Settings.Transfer.CollectionOverride.SelectSyncshell"));
-                ImGui.Separator();
-
-                foreach (var (groupData, _) in availableGroups)
-                {
-                    var name = !string.IsNullOrEmpty(groupData.Alias) ? groupData.Alias : groupData.GID;
-                    if (ImGui.Selectable(name))
-                    {
-                        // Ajouter avec la première collection disponible
-                        if (userCollections.Count > 0)
-                        {
-                            overrides[groupData.GID] = userCollections[0].Key;
-                            changed = true;
-                        }
-                        ImGui.CloseCurrentPopup();
-                    }
-                }
-                ImGui.EndPopup();
-            }
-        }
-
-        if (changed)
-        {
-            _syncshellConfigService.Save();
+            // Hors ligne ou serveur sans la méthode : reposé à la prochaine connexion
+            _logger.LogDebug(ex, "Could not sync the UID pair request setting to the server");
         }
     }
 
     private void DrawBlockedTransfers()
     {
         _lastTab = "BlockedTransfers";
-        UiSharedService.ColorTextWrapped("Files that you attempted to upload or download that were forbidden to be transferred by their creators will appear here. " +
-                             "If you see file paths from your drive here, then those files were not allowed to be uploaded. If you see hashes, those files were not allowed to be downloaded. " +
-                             "Ask your paired friend to send you the mod in question through other means or acquire the mod yourself.",
-            ImGuiColors.DalamudGrey);
+        UiSharedService.ColorTextWrapped(Loc.Get("Settings.Transfer.Current.Blocked.Description"), ImGuiColors.DalamudGrey);
 
         if (ImGui.BeginTable("TransfersTable", 2, ImGuiTableFlags.SizingStretchProp))
         {
-            ImGui.TableSetupColumn(
-                $"Hash/Filename");
-            ImGui.TableSetupColumn($"Forbidden by");
+            ImGui.TableSetupColumn(Loc.Get("Settings.Transfer.Current.Blocked.Col.Hash"));
+            ImGui.TableSetupColumn(Loc.Get("Settings.Transfer.Current.Blocked.Col.ForbiddenBy"));
 
             ImGui.TableHeadersRow();
 
@@ -465,64 +339,14 @@ public class SettingsUi : WindowMediatorSubscriberBase
         }
     }
 
+    private enum UploadingTextMode { Off, Normal, Large }
+
     private void DrawCurrentTransfers()
     {
         _lastTab = "Transfers";
         DrawSectionHeader(3);
 
-        bool autoFetchMcdfOnConnect = _configService.Current.AutoFetchMcdfOnConnect;
-        if (ImGui.Checkbox(Loc.Get("Settings.Transfer.AutoFetchMcdfOnConnect"), ref autoFetchMcdfOnConnect))
-        {
-            _configService.Current.AutoFetchMcdfOnConnect = autoFetchMcdfOnConnect;
-            _configService.Save();
-        }
-        _uiShared.DrawHelpText(Loc.Get("Settings.Transfer.AutoFetchMcdfOnConnect.Help"));
-
-        ImGui.Separator();
-
-        bool enablePenumbraPrecache = _configService.Current.EnablePenumbraPrecache;
-        if (ImGui.Checkbox(Loc.Get("Settings.Transfer.Precache.Enable"), ref enablePenumbraPrecache))
-        {
-            _configService.Current.EnablePenumbraPrecache = enablePenumbraPrecache;
-            _configService.Save();
-        }
-        _uiShared.DrawHelpText(Loc.Get("Settings.Transfer.Precache.Enable.Help"));
-
-        using (ImRaii.Disabled(!enablePenumbraPrecache))
-        {
-            // Etat du pré-cache
-            var runningText = _precacheService.IsUploading
-                ? Loc.Get("Settings.Transfer.Precache.Status.Running")
-                : Loc.Get("Settings.Transfer.Precache.Status.Idle");
-            var bytesSoFar = _precacheService.BytesUploadedThisRun;
-            if (bytesSoFar > 0)
-            {
-                ImGui.TextUnformatted(string.Format(Loc.Get("Settings.Transfer.Precache.Status.WithBytes"), runningText, UiSharedService.ByteToString(bytesSoFar)));
-            }
-            else
-            {
-                ImGui.TextUnformatted(string.Format(Loc.Get("Settings.Transfer.Precache.Status"), runningText));
-            }
-
-            // Dernier lancement
-            if (_precacheService.LastRunEndUtc.HasValue || _precacheService.LastRunStartUtc.HasValue)
-            {
-                var last = (_precacheService.LastRunEndUtc ?? _precacheService.LastRunStartUtc)!.Value.ToLocalTime();
-                ImGui.TextUnformatted(string.Format(Loc.Get("Settings.Transfer.Precache.LastRun"), last.ToString("g", CultureInfo.CurrentCulture)));
-            }
-
-            // El famoso in progress
-            if (_precacheService.IsUploading && !string.IsNullOrEmpty(_precacheService.StatusText))
-            {
-                UiSharedService.ColorTextWrapped(_precacheService.StatusText, ImGuiColors.DalamudGrey);
-            }
-
-            if (ImGui.Button(Loc.Get("Settings.Transfer.Precache.RunNow")))
-            {
-                _precacheService.TriggerManualPrecache();
-            }
-            UiSharedService.AttachToolTip(Loc.Get("Settings.Transfer.Precache.RunNow.Help"));
-        }
+        UiSharedService.BeginSectionCard(Loc.Get("Settings.Transfer.Limits.Title"), FontAwesomeIcon.Download);
 
         int maxParallelDownloads = _configService.Current.ParallelDownloads;
         int downloadSpeedLimit = _configService.Current.DownloadSpeedLimitInBytes;
@@ -556,122 +380,100 @@ public class SettingsUi : WindowMediatorSubscriberBase
         ImGui.AlignTextToFramePadding();
         ImGui.TextUnformatted(Loc.Get("Settings.Transfer.SpeedLimit.NoLimit"));
         ImGui.SetNextItemWidth(MathF.Min(250 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X - 200 * ImGuiHelpers.GlobalScale));
-        if (ImGui.SliderInt(Loc.Get("Settings.Transfer.ParallelDownloads"), ref maxParallelDownloads, 1, 20))
+        using (ImRaii.Disabled(_playerPerformanceConfigService.Current.LowSpecProfileEnabled))
         {
-            _configService.Current.ParallelDownloads = maxParallelDownloads;
-            _configService.Save();
+            if (ThemedSlider.Int(Loc.Get("Settings.Transfer.ParallelDownloads"), ref maxParallelDownloads, 1, 20))
+            {
+                _configService.Current.ParallelDownloads = maxParallelDownloads;
+                _configService.Save();
+            }
         }
         UiSharedService.AttachToolTip(Loc.Get("Settings.Transfer.ParallelDownloads.Help"));
 
         var cpuCount = Environment.ProcessorCount;
         var autoValue = Math.Clamp(_configService.Current.ParallelDownloads, 1, Math.Min(cpuCount, 4));
-        bool isAutoDecomp = _configService.Current.MaxDecompressionThreads <= 0;
-        if (ImGui.Checkbox(Loc.Get("Settings.Transfer.DecompressionThreads.Auto"), ref isAutoDecomp))
+        int maxDecompThreads = Math.Max(0, _configService.Current.MaxDecompressionThreads);
+        ImGui.SetNextItemWidth(MathF.Min(250 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X - 200 * ImGuiHelpers.GlobalScale));
+        if (ThemedSlider.Int(Loc.Get("Settings.Transfer.DecompressionThreads"), ref maxDecompThreads, 0, cpuCount,
+                minText: Loc.Get("Settings.Transfer.DecompressionThreads.AutoValue", autoValue)))
         {
-            _configService.Current.MaxDecompressionThreads = isAutoDecomp ? 0 : autoValue;
+            _configService.Current.MaxDecompressionThreads = maxDecompThreads;
             _configService.Save();
         }
-        ImGui.SameLine();
-        ImGui.TextUnformatted(string.Format(CultureInfo.CurrentCulture, Loc.Get("Settings.Transfer.DecompressionThreads.AutoLabel"), autoValue));
-        if (!isAutoDecomp)
-        {
-            int maxDecompThreads = _configService.Current.MaxDecompressionThreads;
-            ImGui.SetNextItemWidth(MathF.Min(250 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X - 200 * ImGuiHelpers.GlobalScale));
-            if (ImGui.SliderInt(Loc.Get("Settings.Transfer.DecompressionThreads"), ref maxDecompThreads, 1, cpuCount))
-            {
-                _configService.Current.MaxDecompressionThreads = maxDecompThreads;
-                _configService.Save();
-            }
-            UiSharedService.AttachToolTip(Loc.Get("Settings.Transfer.DecompressionThreads.Help"));
-        }
+        UiSharedService.AttachToolTip(Loc.Get("Settings.Transfer.DecompressionThreads.Help"));
 
-        ImGui.Spacing();
-        _uiShared.BigText(Loc.Get("Settings.Transfer.PairProcessing.Title"));
-        UiSharedService.ColorTextWrapped(Loc.Get("Settings.Transfer.PairProcessing.Description"), ImGuiColors.DalamudGrey);
-        ImGuiHelpers.ScaledDummy(4f);
-
-        // Sous-bloc 1 : concurrence d'application GPU
+        // Pairs simultanés : la limite d'application GPU, rangée avec les autres limites de parallélisme
         int maxConcurrentPairApplications = _configService.Current.MaxConcurrentPairApplications;
-        ImGui.SetNextItemWidth(MathF.Min(200 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X - 200 * ImGuiHelpers.GlobalScale));
-        if (ImGui.SliderInt(Loc.Get("Settings.Transfer.PairProcessing.MaxConcurrent"), ref maxConcurrentPairApplications, 1, 16))
+        ImGui.SetNextItemWidth(MathF.Min(250 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X - 200 * ImGuiHelpers.GlobalScale));
+        if (ThemedSlider.Int(Loc.Get("Settings.Transfer.PairProcessing.MaxConcurrent"), ref maxConcurrentPairApplications, 1, 16))
         {
             _configService.Current.MaxConcurrentPairApplications = maxConcurrentPairApplications;
             _configService.Save();
             Mediator.Publish(new PairProcessingLimitChangedMessage());
         }
-        _uiShared.DrawHelpText(Loc.Get("Settings.Transfer.PairProcessing.MaxConcurrent.Help"));
+        _uiShared.DrawHelpText(Loc.Get("Settings.Transfer.PairProcessing.MaxConcurrent.Help")
+            + UiSharedService.TooltipSeparator
+            + Loc.Get("Settings.Transfer.PairProcessing.Description"));
 
-        ImGuiHelpers.ScaledDummy(6f);
+        UiSharedService.BeginSectionCard(Loc.Get("Settings.Transfer.Precache.Title"), FontAwesomeIcon.CloudUploadAlt);
 
-        // Sous-bloc 2 : coordination des redraws Penumbra
-        bool enableRedrawCoordination = _configService.Current.EnableRedrawCoordination;
-        if (ImGui.Checkbox(Loc.Get("Settings.Transfer.RedrawCoordination.Enable"), ref enableRedrawCoordination))
+        bool enablePenumbraPrecache = _configService.Current.EnablePenumbraPrecache;
+        if (ToggleSwitch.Draw(Loc.Get("Settings.Transfer.Precache.Enable"), ref enablePenumbraPrecache))
         {
-            _configService.Current.EnableRedrawCoordination = enableRedrawCoordination;
+            _configService.Current.EnablePenumbraPrecache = enablePenumbraPrecache;
             _configService.Save();
         }
-        _uiShared.DrawHelpText(Loc.Get("Settings.Transfer.RedrawCoordination.Enable.Help"));
+        _uiShared.DrawHelpText(Loc.Get("Settings.Transfer.Precache.Enable.Help"));
 
-        if (!enableRedrawCoordination) ImGui.BeginDisabled();
-        ImGui.Indent();
-        int minRedrawIntervalMs = _configService.Current.MinRedrawIntervalMs;
-        ImGui.SetNextItemWidth(MathF.Min(200 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X - 200 * ImGuiHelpers.GlobalScale));
-        if (ImGui.SliderInt(Loc.Get("Settings.Transfer.RedrawCoordination.MinInterval"), ref minRedrawIntervalMs, 50, 500))
+        using (ImRaii.Disabled(!enablePenumbraPrecache))
         {
-            _configService.Current.MinRedrawIntervalMs = minRedrawIntervalMs;
-            _configService.Save();
+            // Etat du pré-cache
+            var runningText = _precacheService.IsUploading
+                ? Loc.Get("Settings.Transfer.Precache.Status.Running")
+                : Loc.Get("Settings.Transfer.Precache.Status.Idle");
+            var bytesSoFar = _precacheService.BytesUploadedThisRun;
+            if (bytesSoFar > 0)
+            {
+                ImGui.TextUnformatted(string.Format(Loc.Get("Settings.Transfer.Precache.Status.WithBytes"), runningText, UiSharedService.ByteToString(bytesSoFar)));
+            }
+            else
+            {
+                ImGui.TextUnformatted(string.Format(Loc.Get("Settings.Transfer.Precache.Status"), runningText));
+            }
+
+            // Dernier lancement
+            if (_precacheService.LastRunEndUtc.HasValue || _precacheService.LastRunStartUtc.HasValue)
+            {
+                var last = (_precacheService.LastRunEndUtc ?? _precacheService.LastRunStartUtc)!.Value.ToLocalTime();
+                ImGui.TextUnformatted(string.Format(Loc.Get("Settings.Transfer.Precache.LastRun"), last.ToString("g", Loc.CurrentCulture)));
+            }
+
+            // El famoso in progress
+            if (!string.IsNullOrEmpty(_precacheService.StatusText))
+            {
+                UiSharedService.ColorTextWrapped(_precacheService.StatusText, ImGuiColors.DalamudGrey);
+            }
+
+            if (ImGui.Button(Loc.Get("Settings.Transfer.Precache.RunNow")))
+            {
+                _precacheService.TriggerManualPrecache();
+            }
+            UiSharedService.AttachToolTip(Loc.Get("Settings.Transfer.Precache.RunNow.Help"));
         }
-        _uiShared.DrawHelpText(Loc.Get("Settings.Transfer.RedrawCoordination.MinInterval.Help"));
-        ImGui.Unindent();
-        if (!enableRedrawCoordination) ImGui.EndDisabled();
 
-        ImGuiHelpers.ScaledDummy(6f);
-
-        // Sous-bloc 3 : expérimental — décision de redraw soft/hard
-        bool enableSoftRedraw = _configService.Current.EnableSoftRedraw;
-        if (ImGui.Checkbox("[Expérimental] Redraw intelligent (soft/hard)", ref enableSoftRedraw))
-        {
-            _configService.Current.EnableSoftRedraw = enableSoftRedraw;
-            _configService.Save();
-        }
-        _uiShared.DrawHelpText("Pour un changement de texture/material seul, réapplique l'apparence via Glamourer " +
-            "sans redraw complet (moins de flicker et de charge GPU). Les changements de géométrie (mdl, " +
-            "cheveux, visage, queue, manipulations) restent en redraw complet.\n\nExpérimental : si un mod " +
-            "n'apparaît pas correctement, décochez cette case (retour au comportement actuel, sans redémarrage).");
-
-        // Sous-bloc 4 : expérimental — visibilité événementielle
-        bool enableEventVisibility = _configService.Current.EnableEventVisibility;
-        if (ImGui.Checkbox("[Expérimental] Détection de visibilité événementielle", ref enableEventVisibility))
-        {
-            _configService.Current.EnableEventVisibility = enableEventVisibility;
-            _configService.Save();
-        }
-        _uiShared.DrawHelpText("Détecte l'apparition/disparition des joueurs via des hooks du jeu (réaction immédiate, " +
-            "moins de charge CPU) au lieu d'un scan périodique. Repli automatique sur le scan si les hooks échouent.\n\n" +
-            "Expérimental : ces hooks sont bas niveau ; en cas de souci, décochez (les hooks ne sont alors plus posés). " +
-            "Un changement de cet interrupteur prend effet à la prochaine reconnexion ou au redémarrage du plugin.");
-
-        ImGui.Separator();
-        DrawCollectionOverrides();
-
-        ImGui.Separator();
-        _uiShared.BigText("Transfer UI");
+        UiSharedService.BeginSectionCard(Loc.Get("Settings.Transfer.Ui.Title"), FontAwesomeIcon.WindowMaximize);
 
         bool showTransferWindow = _configService.Current.ShowTransferWindow;
-        if (ImGui.Checkbox("Show separate transfer window", ref showTransferWindow))
+        if (ToggleSwitch.Draw(Loc.Get("Settings.Transfer.Ui.ShowWindow"), ref showTransferWindow))
         {
             _configService.Current.ShowTransferWindow = showTransferWindow;
             _configService.Save();
         }
-        _uiShared.DrawHelpText($"The download window will show the current progress of outstanding downloads.{Environment.NewLine}{Environment.NewLine}" +
-            $"What do W/Q/P/D stand for?{Environment.NewLine}W = Waiting for Slot (see Maximum Parallel Downloads){Environment.NewLine}" +
-            $"Q = Queued on Server, waiting for queue ready signal{Environment.NewLine}" +
-            $"P = Processing download (aka downloading){Environment.NewLine}" +
-            $"D = Decompressing download");
+        _uiShared.DrawHelpText(Loc.Get("Settings.Transfer.Ui.ShowWindow.Help"));
         if (!_configService.Current.ShowTransferWindow) ImGui.BeginDisabled();
         ImGui.Indent();
         bool editTransferWindowPosition = _uiShared.EditTrackerPosition;
-        if (ImGui.Checkbox("Edit Transfer Window position", ref editTransferWindowPosition))
+        if (ToggleSwitch.Draw(Loc.Get("Settings.Transfer.Ui.EditPosition"), ref editTransferWindowPosition))
         {
             _uiShared.EditTrackerPosition = editTransferWindowPosition;
         }
@@ -679,79 +481,73 @@ public class SettingsUi : WindowMediatorSubscriberBase
         if (!_configService.Current.ShowTransferWindow) ImGui.EndDisabled();
 
         bool showTransferBars = _configService.Current.ShowTransferBars;
-        if (ImGui.Checkbox("Show transfer bars rendered below players", ref showTransferBars))
+        if (ToggleSwitch.Draw(Loc.Get("Settings.Transfer.Ui.ShowBars"), ref showTransferBars))
         {
             _configService.Current.ShowTransferBars = showTransferBars;
             _configService.Save();
         }
-        _uiShared.DrawHelpText("This will render a progress bar during the download at the feet of the player you are downloading from.");
+        _uiShared.DrawHelpText(Loc.Get("Settings.Transfer.Ui.ShowBars.Help"));
 
         if (!showTransferBars) ImGui.BeginDisabled();
         ImGui.Indent();
         bool transferBarShowText = _configService.Current.TransferBarsShowText;
-        if (ImGui.Checkbox("Show Download Text", ref transferBarShowText))
+        if (ToggleSwitch.Draw(Loc.Get("Settings.Transfer.Ui.ShowText"), ref transferBarShowText))
         {
             _configService.Current.TransferBarsShowText = transferBarShowText;
             _configService.Save();
         }
-        _uiShared.DrawHelpText("Shows download text (amount of MiB downloaded) in the transfer bars");
+        _uiShared.DrawHelpText(Loc.Get("Settings.Transfer.Ui.ShowText.Help"));
         int transferBarWidth = _configService.Current.TransferBarsWidth;
         ImGui.SetNextItemWidth(MathF.Min(250 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X - 200 * ImGuiHelpers.GlobalScale));
-        if (ImGui.SliderInt("Transfer Bar Width", ref transferBarWidth, 0, 500))
+        if (ThemedSlider.Int(Loc.Get("Settings.Transfer.Ui.BarWidth"), ref transferBarWidth, 0, 500))
         {
             if (transferBarWidth < 10)
                 transferBarWidth = 10;
             _configService.Current.TransferBarsWidth = transferBarWidth;
             _configService.Save();
         }
-        _uiShared.DrawHelpText("Width of the displayed transfer bars (will never be less wide than the displayed text)");
+        _uiShared.DrawHelpText(Loc.Get("Settings.Transfer.Ui.BarWidth.Help"));
         int transferBarHeight = _configService.Current.TransferBarsHeight;
         ImGui.SetNextItemWidth(MathF.Min(250 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X - 200 * ImGuiHelpers.GlobalScale));
-        if (ImGui.SliderInt("Transfer Bar Height", ref transferBarHeight, 0, 50))
+        if (ThemedSlider.Int(Loc.Get("Settings.Transfer.Ui.BarHeight"), ref transferBarHeight, 0, 50))
         {
             if (transferBarHeight < 2)
                 transferBarHeight = 2;
             _configService.Current.TransferBarsHeight = transferBarHeight;
             _configService.Save();
         }
-        _uiShared.DrawHelpText("Height of the displayed transfer bars (will never be less tall than the displayed text)");
-        bool showUploading = _configService.Current.ShowUploading;
-        if (ImGui.Checkbox("Show 'Uploading' text below players that are currently uploading", ref showUploading))
-        {
-            _configService.Current.ShowUploading = showUploading;
-            _configService.Save();
-        }
-        _uiShared.DrawHelpText("This will render an 'Uploading' text at the feet of the player that is in progress of uploading data.");
-
+        _uiShared.DrawHelpText(Loc.Get("Settings.Transfer.Ui.BarHeight.Help"));
         ImGui.Unindent();
-        if (!showUploading) ImGui.BeginDisabled();
-        ImGui.Indent();
-        bool showUploadingBigText = _configService.Current.ShowUploadingBigText;
-        if (ImGui.Checkbox("Large font for 'Uploading' text", ref showUploadingBigText))
-        {
-            _configService.Current.ShowUploadingBigText = showUploadingBigText;
-            _configService.Save();
-        }
-        _uiShared.DrawHelpText("This will render an 'Uploading' text in a larger font.");
-
-        ImGui.Unindent();
-
-        if (!showUploading) ImGui.EndDisabled();
         if (!showTransferBars) ImGui.EndDisabled();
 
-        ImGui.Separator();
-        _uiShared.BigText("Current Transfers");
+        // Texte « Envoi en cours » : un seul choix à trois états au lieu de deux interrupteurs imbriqués
+        var uploadingMode = !_configService.Current.ShowUploading ? UploadingTextMode.Off
+            : _configService.Current.ShowUploadingBigText ? UploadingTextMode.Large
+            : UploadingTextMode.Normal;
+        ImGui.SetNextItemWidth(MathF.Min(200 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X - 200 * ImGuiHelpers.GlobalScale));
+        _uiShared.DrawCombo(Loc.Get("Settings.Transfer.Ui.Uploading") + "##uploadingText",
+            [UploadingTextMode.Off, UploadingTextMode.Normal, UploadingTextMode.Large],
+            (m) => Loc.Get("Settings.Transfer.Ui.Uploading." + m),
+            (m) =>
+            {
+                _configService.Current.ShowUploading = m != UploadingTextMode.Off;
+                _configService.Current.ShowUploadingBigText = m == UploadingTextMode.Large;
+                _configService.Save();
+            }, uploadingMode);
+        _uiShared.DrawHelpText(Loc.Get("Settings.Transfer.Ui.Uploading.Help"));
+
+        UiSharedService.BeginSectionCard(Loc.Get("Settings.Transfer.Current.Title"), FontAwesomeIcon.ExchangeAlt);
 
         if (ImGui.BeginTabBar("TransfersTabBar"))
         {
-            if (ApiController.ServerState is ServerState.Connected && ImGui.BeginTabItem("Transfers"))
+            if (ApiController.ServerState is ServerState.Connected && ImGui.BeginTabItem(Loc.Get("Settings.Transfer.Current.Tab.Transfers") + "###transfersTabCurrent"))
             {
-                ImGui.TextUnformatted("Uploads");
+                ImGui.TextUnformatted(Loc.Get("Settings.Transfer.Current.Uploads"));
                 if (ImGui.BeginTable("UploadsTable", 3))
                 {
-                    ImGui.TableSetupColumn("File");
-                    ImGui.TableSetupColumn("Uploaded");
-                    ImGui.TableSetupColumn("Size");
+                    ImGui.TableSetupColumn(Loc.Get("Settings.Transfer.Current.Col.File"));
+                    ImGui.TableSetupColumn(Loc.Get("Settings.Transfer.Current.Col.Uploaded"));
+                    ImGui.TableSetupColumn(Loc.Get("Settings.Transfer.Current.Col.Size"));
                     ImGui.TableHeadersRow();
                     foreach (var transfer in _fileTransferManager.CurrentUploads.ToArray())
                     {
@@ -770,13 +566,13 @@ public class SettingsUi : WindowMediatorSubscriberBase
                     ImGui.EndTable();
                 }
                 ImGui.Separator();
-                ImGui.TextUnformatted("Downloads");
+                ImGui.TextUnformatted(Loc.Get("Settings.Transfer.Current.Downloads"));
                 if (ImGui.BeginTable("DownloadsTable", 4))
                 {
-                    ImGui.TableSetupColumn("User");
-                    ImGui.TableSetupColumn("Server");
-                    ImGui.TableSetupColumn("Files");
-                    ImGui.TableSetupColumn("Download");
+                    ImGui.TableSetupColumn(Loc.Get("Settings.Transfer.Current.Col.User"));
+                    ImGui.TableSetupColumn(Loc.Get("Settings.Transfer.Current.Col.Server"));
+                    ImGui.TableSetupColumn(Loc.Get("Settings.Transfer.Current.Col.Files"));
+                    ImGui.TableSetupColumn(Loc.Get("Settings.Transfer.Current.Col.Download"));
                     ImGui.TableHeadersRow();
 
                     foreach (var transfer in _currentDownloads.ToArray())
@@ -806,7 +602,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
                 ImGui.EndTabItem();
             }
 
-            if (ImGui.BeginTabItem("Blocked Transfers"))
+            if (ImGui.BeginTabItem(Loc.Get("Settings.Transfer.Current.Tab.Blocked") + "###transfersTabBlocked"))
             {
                 DrawBlockedTransfers();
                 ImGui.EndTabItem();
@@ -821,10 +617,10 @@ public class SettingsUi : WindowMediatorSubscriberBase
         _lastTab = "Chat";
         DrawSectionHeader(5);
 
-        _uiShared.BigText(Loc.Get("Settings.RpNamesHeader"));
+        UiSharedService.BeginSectionCard(Loc.Get("Settings.RpNamesHeader"), FontAwesomeIcon.IdBadge);
 
         var useRpNamesOnNameplates = _configService.Current.UseRpNamesOnNameplates;
-        if (ImGui.Checkbox(Loc.Get("Settings.RpNamesOnNameplates"), ref useRpNamesOnNameplates))
+        if (ToggleSwitch.Draw(Loc.Get("Settings.RpNamesOnNameplates"), ref useRpNamesOnNameplates))
         {
             _configService.Current.UseRpNamesOnNameplates = useRpNamesOnNameplates;
             _configService.Save();
@@ -836,7 +632,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
             using (ImRaii.PushIndent())
             {
                 var disableInDuty = _configService.Current.DisableNameplatesInDuty;
-                if (ImGui.Checkbox(Loc.Get("Settings.DisableInDuty") + "##Nameplates", ref disableInDuty))
+                if (ToggleSwitch.Draw(Loc.Get("Settings.DisableInDuty") + "##Nameplates", ref disableInDuty))
                 {
                     _configService.Current.DisableNameplatesInDuty = disableInDuty;
                     _configService.Save();
@@ -846,7 +642,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
         }
 
         var useRpNamesInChat = _configService.Current.UseRpNamesInChat;
-        if (ImGui.Checkbox(Loc.Get("Settings.RpNamesInChat"), ref useRpNamesInChat))
+        if (ToggleSwitch.Draw(Loc.Get("Settings.RpNamesInChat"), ref useRpNamesInChat))
         {
             _configService.Current.UseRpNamesInChat = useRpNamesInChat;
             _configService.Save();
@@ -857,7 +653,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
             using (ImRaii.PushIndent())
             {
                 var disableInDuty = _configService.Current.DisableRpNamesInChatInDuty;
-                if (ImGui.Checkbox(Loc.Get("Settings.DisableInDuty") + "##Chat", ref disableInDuty))
+                if (ToggleSwitch.Draw(Loc.Get("Settings.DisableInDuty") + "##Chat", ref disableInDuty))
                 {
                     _configService.Current.DisableRpNamesInChatInDuty = disableInDuty;
                     _configService.Save();
@@ -865,14 +661,14 @@ public class SettingsUi : WindowMediatorSubscriberBase
                 _uiShared.DrawHelpText(Loc.Get("Settings.DisableInDuty.Help"));
 
                 var useChatIconForSelf = _configService.Current.UseChatIconForSelf;
-                if (ImGui.Checkbox(Loc.Get("Settings.ChatIcon.Self"), ref useChatIconForSelf))
+                if (ToggleSwitch.Draw(Loc.Get("Settings.ChatIcon.Self"), ref useChatIconForSelf))
                 {
                     _configService.Current.UseChatIconForSelf = useChatIconForSelf;
                     _configService.Save();
                 }
 
                 var useChatIconForOthers = _configService.Current.UseChatIconForOthers;
-                if (ImGui.Checkbox(Loc.Get("Settings.ChatIcon.Others"), ref useChatIconForOthers))
+                if (ToggleSwitch.Draw(Loc.Get("Settings.ChatIcon.Others"), ref useChatIconForOthers))
                 {
                     _configService.Current.UseChatIconForOthers = useChatIconForOthers;
                     _configService.Save();
@@ -883,7 +679,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
                     using (ImRaii.PushIndent())
                     {
                         var disableChatIconInDuty = _configService.Current.DisableChatIconInDuty;
-                        if (ImGui.Checkbox(Loc.Get("Settings.DisableInDuty") + "##ChatIcon", ref disableChatIconInDuty))
+                        if (ToggleSwitch.Draw(Loc.Get("Settings.DisableInDuty") + "##ChatIcon", ref disableChatIconInDuty))
                         {
                             _configService.Current.DisableChatIconInDuty = disableChatIconInDuty;
                             _configService.Save();
@@ -895,7 +691,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
         }
 
         var useRpNameColors = _configService.Current.UseRpNameColors;
-        if (ImGui.Checkbox(Loc.Get("Settings.RpNameColors"), ref useRpNameColors))
+        if (ToggleSwitch.Draw(Loc.Get("Settings.RpNameColors"), ref useRpNameColors))
         {
             _configService.Current.UseRpNameColors = useRpNameColors;
             _configService.Save();
@@ -907,7 +703,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
             using (ImRaii.PushIndent())
             {
                 var disableInDuty = _configService.Current.DisableRpNameColorsInDuty;
-                if (ImGui.Checkbox(Loc.Get("Settings.DisableInDuty") + "##Colors", ref disableInDuty))
+                if (ToggleSwitch.Draw(Loc.Get("Settings.DisableInDuty") + "##Colors", ref disableInDuty))
                 {
                     _configService.Current.DisableRpNameColorsInDuty = disableInDuty;
                     _configService.Save();
@@ -917,7 +713,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
                 using (ImRaii.Disabled(!_uiShared.ExternalNameColorPluginExists))
                 {
                     var respectExternal = _configService.Current.RespectExternalNameColors;
-                    if (ImGui.Checkbox(Loc.Get("Settings.RespectExternalNameColors"), ref respectExternal))
+                    if (ToggleSwitch.Draw(Loc.Get("Settings.RespectExternalNameColors"), ref respectExternal))
                     {
                         _configService.Current.RespectExternalNameColors = respectExternal;
                         _configService.Save();
@@ -927,12 +723,10 @@ public class SettingsUi : WindowMediatorSubscriberBase
             }
         }
 
-        ImGui.Spacing();
-
-        _uiShared.BigText(Loc.Get("Settings.EmoteHighlight.Header"));
+        UiSharedService.BeginSectionCard(Loc.Get("Settings.EmoteHighlight.Header"), FontAwesomeIcon.Highlighter);
 
         var emoteHighlightEnabled = _configService.Current.EmoteHighlightEnabled;
-        if (ImGui.Checkbox(Loc.Get("Settings.EmoteHighlight.Enable"), ref emoteHighlightEnabled))
+        if (ToggleSwitch.Draw(Loc.Get("Settings.EmoteHighlight.Enable"), ref emoteHighlightEnabled))
         {
             _configService.Current.EmoteHighlightEnabled = emoteHighlightEnabled;
             _configService.Save();
@@ -944,28 +738,28 @@ public class SettingsUi : WindowMediatorSubscriberBase
             using (ImRaii.PushIndent())
             {
                 var asterisks = _configService.Current.EmoteHighlightAsterisks;
-                if (ImGui.Checkbox(Loc.Get("Settings.EmoteHighlight.Asterisks"), ref asterisks))
+                if (ToggleSwitch.Draw(Loc.Get("Settings.EmoteHighlight.Asterisks"), ref asterisks))
                 {
                     _configService.Current.EmoteHighlightAsterisks = asterisks;
                     _configService.Save();
                 }
 
                 var angleBrackets = _configService.Current.EmoteHighlightAngleBrackets;
-                if (ImGui.Checkbox(Loc.Get("Settings.EmoteHighlight.AngleBrackets"), ref angleBrackets))
+                if (ToggleSwitch.Draw(Loc.Get("Settings.EmoteHighlight.AngleBrackets"), ref angleBrackets))
                 {
                     _configService.Current.EmoteHighlightAngleBrackets = angleBrackets;
                     _configService.Save();
                 }
 
                 var squareBrackets = _configService.Current.EmoteHighlightSquareBrackets;
-                if (ImGui.Checkbox(Loc.Get("Settings.EmoteHighlight.SquareBrackets"), ref squareBrackets))
+                if (ToggleSwitch.Draw(Loc.Get("Settings.EmoteHighlight.SquareBrackets"), ref squareBrackets))
                 {
                     _configService.Current.EmoteHighlightSquareBrackets = squareBrackets;
                     _configService.Save();
                 }
 
                 var quotes = _configService.Current.EmoteHighlightQuotes;
-                if (ImGui.Checkbox(Loc.Get("Settings.EmoteHighlight.Quotes"), ref quotes))
+                if (ToggleSwitch.Draw(Loc.Get("Settings.EmoteHighlight.Quotes"), ref quotes))
                 {
                     _configService.Current.EmoteHighlightQuotes = quotes;
                     _configService.Save();
@@ -973,7 +767,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
                 _uiShared.DrawHelpText(Loc.Get("Settings.EmoteHighlight.Quotes.Help"));
 
                 var preserveYellShout = _configService.Current.EmoteHighlightPreserveYellShoutColor;
-                if (ImGui.Checkbox(Loc.Get("Settings.EmoteHighlight.PreserveYellShoutColor"), ref preserveYellShout))
+                if (ToggleSwitch.Draw(Loc.Get("Settings.EmoteHighlight.PreserveYellShoutColor"), ref preserveYellShout))
                 {
                     _configService.Current.EmoteHighlightPreserveYellShoutColor = preserveYellShout;
                     _configService.Save();
@@ -985,7 +779,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
                     using (ImRaii.PushIndent())
                     {
                         var customYellShout = _configService.Current.EmoteHighlightUseCustomYellShoutColor;
-                        if (ImGui.Checkbox(Loc.Get("Settings.EmoteHighlight.CustomYellShoutColor"), ref customYellShout))
+                        if (ToggleSwitch.Draw(Loc.Get("Settings.EmoteHighlight.CustomYellShoutColor"), ref customYellShout))
                         {
                             _configService.Current.EmoteHighlightUseCustomYellShoutColor = customYellShout;
                             _configService.Save();
@@ -1014,7 +808,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
                 ImGui.Spacing();
 
                 var parentheses = _configService.Current.EmoteHighlightParenthesesGray;
-                if (ImGui.Checkbox(Loc.Get("Settings.EmoteHighlight.Parentheses"), ref parentheses))
+                if (ToggleSwitch.Draw(Loc.Get("Settings.EmoteHighlight.Parentheses"), ref parentheses))
                 {
                     _configService.Current.EmoteHighlightParenthesesGray = parentheses;
                     _configService.Save();
@@ -1026,7 +820,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
                     using (ImRaii.PushIndent())
                     {
                         var doubleParentheses = _configService.Current.EmoteHighlightDoubleParentheses;
-                        if (ImGui.Checkbox(Loc.Get("Settings.EmoteHighlight.DoubleParentheses"), ref doubleParentheses))
+                        if (ToggleSwitch.Draw(Loc.Get("Settings.EmoteHighlight.DoubleParentheses"), ref doubleParentheses))
                         {
                             _configService.Current.EmoteHighlightDoubleParentheses = doubleParentheses;
                             _configService.Save();
@@ -1036,7 +830,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
                         using (ImRaii.Disabled(chatTwoActive))
                         {
                             var italic = !chatTwoActive && _configService.Current.EmoteHighlightParenthesesItalic;
-                            if (ImGui.Checkbox(Loc.Get("Settings.EmoteHighlight.Parentheses.Italic"), ref italic))
+                            if (ToggleSwitch.Draw(Loc.Get("Settings.EmoteHighlight.Parentheses.Italic"), ref italic))
                             {
                                 _configService.Current.EmoteHighlightParenthesesItalic = italic;
                                 _configService.Save();
@@ -1056,25 +850,18 @@ public class SettingsUi : WindowMediatorSubscriberBase
             }
         }
 
-        ImGui.Spacing();
-
         DrawChatTargetSoundSettings();
 
-        ImGui.Spacing();
-
-        _uiShared.BigText(Loc.Get("Settings.Typing.BubbleHeader"));
-        using (ImRaii.PushIndent())
-        {
-            DrawTypingSettings();
-        }
+        UiSharedService.BeginSectionCard(Loc.Get("Settings.Typing.BubbleHeader"), FontAwesomeIcon.CommentDots);
+        DrawTypingSettings();
     }
 
     private void DrawChatTargetSoundSettings()
     {
-        _uiShared.BigText(Loc.Get("Settings.ChatTargetSound.Header"));
+        UiSharedService.BeginSectionCard(Loc.Get("Settings.ChatTargetSound.Header"), FontAwesomeIcon.VolumeUp);
 
         var masterEnabled = _configService.Current.ChatTargetSoundMasterEnabled;
-        if (ImGui.Checkbox(Loc.Get("Settings.ChatTargetSound.MasterEnable"), ref masterEnabled))
+        if (ToggleSwitch.Draw(Loc.Get("Settings.ChatTargetSound.MasterEnable"), ref masterEnabled))
         {
             _configService.Current.ChatTargetSoundMasterEnabled = masterEnabled;
             _configService.Save();
@@ -1086,7 +873,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
         using (ImRaii.PushIndent())
         {
             var reverse = _configService.Current.ChatTargetSoundReverseEnabled;
-            if (ImGui.Checkbox(Loc.Get("Settings.ChatTargetSound.Reverse"), ref reverse))
+            if (ToggleSwitch.Draw(Loc.Get("Settings.ChatTargetSound.Reverse"), ref reverse))
             {
                 _configService.Current.ChatTargetSoundReverseEnabled = reverse;
                 _configService.Save();
@@ -1094,7 +881,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
             _uiShared.DrawHelpText(Loc.Get("Settings.ChatTargetSound.Reverse.Help"));
 
             var enabled = _configService.Current.ChatTargetSoundEnabled;
-            if (ImGui.Checkbox(Loc.Get("Settings.ChatTargetSound.Enable"), ref enabled))
+            if (ToggleSwitch.Draw(Loc.Get("Settings.ChatTargetSound.Enable"), ref enabled))
             {
                 _configService.Current.ChatTargetSoundEnabled = enabled;
                 _configService.Save();
@@ -1106,7 +893,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
             var soundIndex = _configService.Current.ChatTargetSoundIndex;
             ImGui.SetNextItemWidth(200 * ImGuiHelpers.GlobalScale);
             var preview = string.Format(Loc.Get("Settings.ChatTargetSound.SoundItem"), soundIndex);
-            using (var combo = ImRaii.Combo(Loc.Get("Settings.ChatTargetSound.SoundIndex"), preview))
+            using (var combo = UiSharedService.Combo(Loc.Get("Settings.ChatTargetSound.SoundIndex"), preview))
             {
                 if (combo)
                 {
@@ -1141,7 +928,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
     private void DrawTargetSoundPairOverrides()
     {
         var pairEnabled = _configService.Current.ChatTargetSoundPairOverridesEnabled;
-        if (ImGui.Checkbox(Loc.Get("Settings.ChatTargetSound.Override.EnablePair"), ref pairEnabled))
+        if (ToggleSwitch.Draw(Loc.Get("Settings.ChatTargetSound.Override.EnablePair"), ref pairEnabled))
         {
             _configService.Current.ChatTargetSoundPairOverridesEnabled = pairEnabled;
             _configService.Save();
@@ -1175,7 +962,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
                 : string.Format(CultureInfo.CurrentCulture, Loc.Get("Settings.ChatTargetSound.SoundItem"), currentSound);
 
             ImGui.SetNextItemWidth(150 * ImGuiHelpers.GlobalScale);
-            using (var combo = ImRaii.Combo("##sound", soundPreview))
+            using (var combo = UiSharedService.Combo("##sound", soundPreview))
             {
                 if (combo)
                 {
@@ -1221,7 +1008,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
         if (availablePairs.Count > 0)
         {
             ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X);
-            using var combo = ImRaii.Combo("##add_pair_override", Loc.Get("Settings.ChatTargetSound.Override.SelectPair"));
+            using var combo = UiSharedService.Combo("##add_pair_override", Loc.Get("Settings.ChatTargetSound.Override.SelectPair"));
             if (combo)
             {
                 ImGui.SetNextItemWidth(-1);
@@ -1264,7 +1051,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
     private void DrawTargetSoundGroupOverrides()
     {
         var groupEnabled = _configService.Current.ChatTargetSoundGroupOverridesEnabled;
-        if (ImGui.Checkbox(Loc.Get("Settings.ChatTargetSound.Override.EnableGroup"), ref groupEnabled))
+        if (ToggleSwitch.Draw(Loc.Get("Settings.ChatTargetSound.Override.EnableGroup"), ref groupEnabled))
         {
             _configService.Current.ChatTargetSoundGroupOverridesEnabled = groupEnabled;
             _configService.Save();
@@ -1295,7 +1082,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
                 : string.Format(CultureInfo.CurrentCulture, Loc.Get("Settings.ChatTargetSound.SoundItem"), currentSound);
 
             ImGui.SetNextItemWidth(150 * ImGuiHelpers.GlobalScale);
-            using (var combo = ImRaii.Combo("##sound", soundPreview))
+            using (var combo = UiSharedService.Combo("##sound", soundPreview))
             {
                 if (combo)
                 {
@@ -1341,7 +1128,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
         if (availableGroups.Count > 0)
         {
             ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X);
-            using var combo = ImRaii.Combo("##add_group_override", Loc.Get("Settings.ChatTargetSound.Override.SelectGroup"));
+            using var combo = UiSharedService.Combo("##add_group_override", Loc.Get("Settings.ChatTargetSound.Override.SelectGroup"));
             if (combo)
             {
                 ImGui.SetNextItemWidth(-1);
@@ -1479,6 +1266,16 @@ public class SettingsUi : WindowMediatorSubscriberBase
         }
     }
 
+    private static void DrawPrivacyOptionState(string key, bool enabled)
+    {
+        ImGui.Bullet();
+        ImGui.SameLine();
+        ImGui.TextUnformatted(Loc.Get(key));
+        ImGui.SameLine();
+        UiSharedService.ColorText(Loc.Get(enabled ? "Settings.Privacy.Optional.On" : "Settings.Privacy.Optional.Off"),
+            enabled ? ImGuiColors.HealerGreen : ImGuiColors.DalamudGrey3);
+    }
+
     private void DrawPrivacy()
     {
         _lastTab = "Privacy";
@@ -1511,9 +1308,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
         ImGui.Separator();
         ImGuiHelpers.ScaledDummy(4f);
 
-        // --- Consent status ---
-        UiSharedService.ColorTextWrapped(Loc.Get("Settings.Privacy.ConsentStatus"), UiSharedService.AccentColor);
-        ImGuiHelpers.ScaledDummy(2f);
+        UiSharedService.BeginSectionCard(Loc.Get("Settings.Privacy.ConsentStatus"), FontAwesomeIcon.UserCheck);
 
         if (_rgpdDataService.IsRgpdConsentValid)
         {
@@ -1526,16 +1321,18 @@ public class SettingsUi : WindowMediatorSubscriberBase
             }
             ImGuiHelpers.ScaledDummy(2f);
 
-            var details = new List<string>();
-            if (_configService.Current.RgpdConsentDataCollection) details.Add(Loc.Get("Settings.Privacy.ConsentDetail.Collection"));
-            if (_configService.Current.RgpdConsentDataSharing) details.Add(Loc.Get("Settings.Privacy.ConsentDetail.Sharing"));
-            if (_configService.Current.RgpdConsentThirdPartyPlugins) details.Add(Loc.Get("Settings.Privacy.ConsentDetail.ThirdParty"));
-            foreach (var d in details)
-            {
-                ImGui.Bullet();
-                ImGui.SameLine();
-                ImGui.TextUnformatted(d);
-            }
+            ImGui.Bullet();
+            ImGui.SameLine();
+            ImGui.TextUnformatted(Loc.Get("Settings.Privacy.ConsentDetail.Mandatory"));
+
+            ImGuiHelpers.ScaledDummy(4f);
+            UiSharedService.TextWrapped(Loc.Get("Settings.Privacy.Optional.Intro"));
+            ImGuiHelpers.ScaledDummy(2f);
+            var choices = _rgpdDataService.CurrentOptionalChoices;
+            DrawPrivacyOptionState("Rgpd.Consent.Optional.Nearby", choices.NearbyDiscovery);
+            DrawPrivacyOptionState("Rgpd.Consent.Optional.Position", choices.ProximityPosition);
+            DrawPrivacyOptionState("Rgpd.Consent.Optional.Typing", choices.TypingIndicator);
+            DrawPrivacyOptionState("Rgpd.Consent.Optional.Plugins", choices.PluginSharing);
         }
         else
         {
@@ -1545,13 +1342,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
         ImGuiHelpers.ScaledDummy(4f);
         UiSharedService.ColorTextWrapped(Loc.Get("Rgpd.Consent.Reassurance"), ImGuiColors.HealerGreen);
 
-        ImGuiHelpers.ScaledDummy(8f);
-        ImGui.Separator();
-        ImGuiHelpers.ScaledDummy(4f);
-
-        // --- Data export ---
-        UiSharedService.ColorTextWrapped(Loc.Get("Settings.Privacy.Export.Header"), UiSharedService.AccentColor);
-        ImGuiHelpers.ScaledDummy(2f);
+        UiSharedService.BeginSectionCard(Loc.Get("Settings.Privacy.Export.Header"), FontAwesomeIcon.FileExport);
         UiSharedService.TextWrapped(Loc.Get("Settings.Privacy.Export.Description"));
         ImGuiHelpers.ScaledDummy(4f);
 
@@ -1569,20 +1360,27 @@ public class SettingsUi : WindowMediatorSubscriberBase
                 _rgpdExportStatusMessage = Loc.Get("Settings.Privacy.Export.InProgress");
                 _ = Task.Run(async () =>
                 {
-                    var result = await _apiController.UserRgpdExportData().ConfigureAwait(false);
-                    if (result != null)
+                    try
                     {
+                        var result = await _apiController.UserRgpdExportData().ConfigureAwait(false);
+                        if (result == null)
+                        {
+                            _rgpdExportStatusMessage = Loc.Get("Settings.Privacy.Export.Failed");
+                            return;
+                        }
+
                         var exportDir = !string.IsNullOrEmpty(_configService.Current.ExportFolder)
                             ? _configService.Current.ExportFolder
                             : Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
                         Directory.CreateDirectory(exportDir);
                         var path = Path.Combine(exportDir, $"umbrasync_server_export_{DateTime.UtcNow:yyyyMMdd_HHmmss}.json");
                         var json = System.Text.Json.JsonSerializer.Serialize(result, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
-                        File.WriteAllText(path, json);
-                        _rgpdExportStatusMessage = string.Format(Loc.Get("Settings.Privacy.Export.Success"), path);
+                        await File.WriteAllTextAsync(path, json).ConfigureAwait(false);
+                        _rgpdExportStatusMessage = string.Format(CultureInfo.CurrentCulture, Loc.Get("Settings.Privacy.Export.Success"), path);
                     }
-                    else
+                    catch (Exception ex)
                     {
+                        _logger.LogWarning(ex, "RGPD server export failed");
                         _rgpdExportStatusMessage = Loc.Get("Settings.Privacy.Export.Failed");
                     }
                 });
@@ -1595,13 +1393,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
             UiSharedService.TextWrapped(_rgpdExportStatusMessage);
         }
 
-        ImGuiHelpers.ScaledDummy(8f);
-        ImGui.Separator();
-        ImGuiHelpers.ScaledDummy(4f);
-
-        // --- Data deletion ---
-        UiSharedService.ColorTextWrapped(Loc.Get("Settings.Privacy.Delete.Header"), UiSharedService.AccentColor);
-        ImGuiHelpers.ScaledDummy(2f);
+        UiSharedService.BeginSectionCard(Loc.Get("Settings.Privacy.Delete.Header"), FontAwesomeIcon.Trash);
         UiSharedService.TextWrapped(Loc.Get("Settings.Privacy.Delete.Description"));
         ImGuiHelpers.ScaledDummy(4f);
 
@@ -1638,13 +1430,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
             UiSharedService.TextWrapped(_rgpdDeleteStatusMessage);
         }
 
-        ImGuiHelpers.ScaledDummy(8f);
-        ImGui.Separator();
-        ImGuiHelpers.ScaledDummy(4f);
-
-        // --- Server-side erasure (RGPD art. 17) ---
-        UiSharedService.ColorTextWrapped(Loc.Get("Settings.Privacy.ServerDelete.Header"), UiSharedService.AccentColor);
-        ImGuiHelpers.ScaledDummy(2f);
+        UiSharedService.BeginSectionCard(Loc.Get("Settings.Privacy.ServerDelete.Header"), FontAwesomeIcon.Eraser);
         UiSharedService.TextWrapped(Loc.Get("Settings.Privacy.ServerDelete.Description"));
         ImGuiHelpers.ScaledDummy(2f);
         UiSharedService.ColorTextWrapped(Loc.Get("Rgpd.Consent.ConnectNotice"), ImGuiColors.DalamudGrey3);
@@ -1709,13 +1495,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
             ImGui.EndPopup();
         }
 
-        ImGuiHelpers.ScaledDummy(8f);
-        ImGui.Separator();
-        ImGuiHelpers.ScaledDummy(4f);
-
-        // --- Revoke consent ---
-        UiSharedService.ColorTextWrapped(Loc.Get("Settings.Privacy.Revoke.Header"), UiSharedService.AccentColor);
-        ImGuiHelpers.ScaledDummy(2f);
+        UiSharedService.BeginSectionCard(Loc.Get("Settings.Privacy.Revoke.Header"), FontAwesomeIcon.Ban);
         UiSharedService.TextWrapped(Loc.Get("Settings.Privacy.Revoke.Description"));
         ImGuiHelpers.ScaledDummy(4f);
 
@@ -1746,13 +1526,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
             ImGui.EndPopup();
         }
 
-        ImGuiHelpers.ScaledDummy(8f);
-        ImGui.Separator();
-        ImGuiHelpers.ScaledDummy(4f);
-
-        // --- Your rights ---
-        UiSharedService.ColorTextWrapped(Loc.Get("Settings.Privacy.Rights.Header"), UiSharedService.AccentColor);
-        ImGuiHelpers.ScaledDummy(2f);
+        UiSharedService.BeginSectionCard(Loc.Get("Settings.Privacy.Rights.Header"), FontAwesomeIcon.BalanceScale);
 
         string[] rightKeys = [
             "Settings.Privacy.Rights.Access",
@@ -1776,20 +1550,17 @@ public class SettingsUi : WindowMediatorSubscriberBase
         DrawSectionHeader(8);
 
         // --- Plugin Compatibility ---
-        _uiShared.BigText(Loc.Get("Settings.Advanced.PluginCompatibility"));
-        UiSharedService.DrawCard("plugins-card", () =>
+        UiSharedService.DrawSectionCard(Loc.Get("Settings.Advanced.PluginCompatibility"), FontAwesomeIcon.PuzzlePiece, () =>
         {
             _ = _uiShared.DrawOtherPluginState();
         });
 
-        ImGuiHelpers.ScaledDummy(4f);
-
         // --- Settings ---
-        UiSharedService.DrawCard("advanced-settings-card", () =>
+        UiSharedService.DrawSectionCard(Loc.Get("Settings.Advanced.Options.Title"), FontAwesomeIcon.Wrench, () =>
         {
             // Umbra API
             bool umbraApi = _configService.Current.UmbraAPI;
-            if (ImGui.Checkbox(Loc.Get("Settings.Advanced.UmbraApi"), ref umbraApi))
+            if (ToggleSwitch.Draw(Loc.Get("Settings.Advanced.UmbraApi"), ref umbraApi))
             {
                 _configService.Current.UmbraAPI = umbraApi;
                 _configService.Save();
@@ -1810,7 +1581,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
 
             // Log Events
             bool logEvents = _configService.Current.LogEvents;
-            if (ImGui.Checkbox(Loc.Get("Settings.Advanced.LogEvents"), ref logEvents))
+            if (ToggleSwitch.Draw(Loc.Get("Settings.Advanced.LogEvents"), ref logEvents))
             {
                 _configService.Current.LogEvents = logEvents;
                 _configService.Save();
@@ -1825,7 +1596,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
 
             // Hold combat
             bool holdCombatApplication = _configService.Current.HoldCombatApplication;
-            if (ImGui.Checkbox(Loc.Get("Settings.Advanced.HoldCombat"), ref holdCombatApplication))
+            if (ToggleSwitch.Draw(Loc.Get("Settings.Advanced.HoldCombat"), ref holdCombatApplication))
             {
                 if (!holdCombatApplication)
                     Mediator.Publish(new CombatOrPerformanceEndMessage());
@@ -1837,7 +1608,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
 
             // Serialized applications
             bool serializedApplications = _configService.Current.SerialApplication;
-            if (ImGui.Checkbox(Loc.Get("Settings.Advanced.SerialApply"), ref serializedApplications))
+            if (ToggleSwitch.Draw(Loc.Get("Settings.Advanced.SerialApply"), ref serializedApplications))
             {
                 _configService.Current.SerialApplication = serializedApplications;
                 _configService.Save();
@@ -1845,14 +1616,11 @@ public class SettingsUi : WindowMediatorSubscriberBase
             _uiShared.DrawHelpText(Loc.Get("Settings.Advanced.SerialApply.Help"));
         });
 
-        ImGuiHelpers.ScaledDummy(4f);
-
         // --- Character Data Settings ---
-        _uiShared.BigText(Loc.Get("Settings.Advanced.CharaData"));
-        UiSharedService.DrawCard("charadata-settings-card", () =>
+        UiSharedService.DrawSectionCard(Loc.Get("Settings.Advanced.CharaData"), FontAwesomeIcon.UserEdit, () =>
         {
             bool openInGpose = _charaDataConfigService.Current.OpenMareHubOnGposeStart;
-            if (ImGui.Checkbox(Loc.Get("Settings.Advanced.CharaData.OpenGpose"), ref openInGpose))
+            if (ToggleSwitch.Draw(Loc.Get("Settings.Advanced.CharaData.OpenGpose"), ref openInGpose))
             {
                 _charaDataConfigService.Current.OpenMareHubOnGposeStart = openInGpose;
                 _charaDataConfigService.Save();
@@ -1862,17 +1630,25 @@ public class SettingsUi : WindowMediatorSubscriberBase
             ImGuiHelpers.ScaledDummy(2f);
 
             bool downloadDataOnConnection = _charaDataConfigService.Current.DownloadMcdDataOnConnection;
-            if (ImGui.Checkbox(Loc.Get("Settings.Advanced.CharaData.DownloadOnConnect"), ref downloadDataOnConnection))
+            if (ToggleSwitch.Draw(Loc.Get("Settings.Advanced.CharaData.DownloadOnConnect"), ref downloadDataOnConnection))
             {
                 _charaDataConfigService.Current.DownloadMcdDataOnConnection = downloadDataOnConnection;
                 _charaDataConfigService.Save();
             }
             _uiShared.DrawHelpText(Loc.Get("Settings.Advanced.CharaData.DownloadOnConnect.Help"));
 
+            bool autoFetchMcdfOnConnect = _configService.Current.AutoFetchMcdfOnConnect;
+            if (ToggleSwitch.Draw(Loc.Get("Settings.Transfer.AutoFetchMcdfOnConnect"), ref autoFetchMcdfOnConnect))
+            {
+                _configService.Current.AutoFetchMcdfOnConnect = autoFetchMcdfOnConnect;
+                _configService.Save();
+            }
+            _uiShared.DrawHelpText(Loc.Get("Settings.Transfer.AutoFetchMcdfOnConnect.Help"));
+
             ImGuiHelpers.ScaledDummy(2f);
 
             bool showHelpTexts = _charaDataConfigService.Current.ShowHelpTexts;
-            if (ImGui.Checkbox(Loc.Get("Settings.Advanced.CharaData.ShowHelp"), ref showHelpTexts))
+            if (ToggleSwitch.Draw(Loc.Get("Settings.Advanced.CharaData.ShowHelp"), ref showHelpTexts))
             {
                 _charaDataConfigService.Current.ShowHelpTexts = showHelpTexts;
                 _charaDataConfigService.Save();
@@ -1881,7 +1657,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
             ImGuiHelpers.ScaledDummy(2f);
 
             bool abbreviateNames = _charaDataConfigService.Current.AbbreviateCharaNames;
-            if (ImGui.Checkbox(Loc.Get("Settings.Advanced.CharaData.AbbreviateNames"), ref abbreviateNames))
+            if (ToggleSwitch.Draw(Loc.Get("Settings.Advanced.CharaData.AbbreviateNames"), ref abbreviateNames))
             {
                 _charaDataConfigService.Current.AbbreviateCharaNames = abbreviateNames;
                 _charaDataConfigService.Save();
@@ -1904,11 +1680,28 @@ public class SettingsUi : WindowMediatorSubscriberBase
             _uiShared.DrawHelpText(Loc.Get("Settings.Advanced.CharaData.ClearExportFolder.Help"));
         });
 
-        ImGuiHelpers.ScaledDummy(4f);
-
         // --- Debug ---
-        _uiShared.BigText(Loc.Get("Settings.Advanced.Debug"));
-        UiSharedService.DrawCard("debug-card", () =>
+        // --- Expérimental ---
+        UiSharedService.DrawSectionCard(Loc.Get("Settings.Advanced.Experimental.Title"), FontAwesomeIcon.Flask, () =>
+        {
+            bool enableSoftRedraw = _configService.Current.EnableSoftRedraw;
+            if (ToggleSwitch.Draw(Loc.Get("Settings.Advanced.Experimental.SoftRedraw"), ref enableSoftRedraw))
+            {
+                _configService.Current.EnableSoftRedraw = enableSoftRedraw;
+                _configService.Save();
+            }
+            _uiShared.DrawHelpText(Loc.Get("Settings.Advanced.Experimental.SoftRedraw.Help"));
+
+            bool enableEventVisibility = _configService.Current.EnableEventVisibility;
+            if (ToggleSwitch.Draw(Loc.Get("Settings.Advanced.Experimental.EventVisibility"), ref enableEventVisibility))
+            {
+                _configService.Current.EnableEventVisibility = enableEventVisibility;
+                _configService.Save();
+            }
+            _uiShared.DrawHelpText(Loc.Get("Settings.Advanced.Experimental.EventVisibility.Help"));
+        });
+
+        UiSharedService.DrawSectionCard(Loc.Get("Settings.Advanced.Debug"), FontAwesomeIcon.Bug, () =>
         {
 #if DEBUG
             if (LastCreatedCharacterData != null && ImGui.TreeNode("Last created character data"))
@@ -1940,7 +1733,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
             ImGuiHelpers.ScaledDummy(2f);
 
             bool logPerformance = _configService.Current.LogPerformance;
-            if (ImGui.Checkbox(Loc.Get("Settings.Advanced.Debug.LogPerf"), ref logPerformance))
+            if (ToggleSwitch.Draw(Loc.Get("Settings.Advanced.Debug.LogPerf"), ref logPerformance))
             {
                 _configService.Current.LogPerformance = logPerformance;
                 _configService.Save();
@@ -1950,7 +1743,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
             ImGuiHelpers.ScaledDummy(2f);
 
             bool logPlayerNames = _configService.Current.LogPlayerNames;
-            if (ImGui.Checkbox(Loc.Get("Settings.Advanced.Debug.LogPlayerNames"), ref logPlayerNames))
+            if (ToggleSwitch.Draw(Loc.Get("Settings.Advanced.Debug.LogPlayerNames"), ref logPlayerNames))
             {
                 _configService.Current.LogPlayerNames = logPlayerNames;
                 _configService.Save();
@@ -1960,7 +1753,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
             ImGuiHelpers.ScaledDummy(2f);
 
             bool externalSyncReclaim = _configService.Current.ExperimentalExternalSyncReclaim;
-            if (ImGui.Checkbox(Loc.Get("Settings.Advanced.Debug.ExternalSyncReclaim"), ref externalSyncReclaim))
+            if (ToggleSwitch.Draw(Loc.Get("Settings.Advanced.Debug.ExternalSyncReclaim"), ref externalSyncReclaim))
             {
                 _configService.Current.ExperimentalExternalSyncReclaim = externalSyncReclaim;
                 _configService.Save();
@@ -1980,7 +1773,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
 
             // --- Network Diagnostic ---
             bool enableNetDiag = _configService.Current.EnableNetworkDiagnosticLog;
-            if (ImGui.Checkbox(Loc.Get("Settings.Advanced.Debug.NetworkDiag.Enable"), ref enableNetDiag))
+            if (ToggleSwitch.Draw(Loc.Get("Settings.Advanced.Debug.NetworkDiag.Enable"), ref enableNetDiag))
             {
                 _configService.Current.EnableNetworkDiagnosticLog = enableNetDiag;
                 _configService.Save();
@@ -2135,6 +1928,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
         _lastTab = "FileCache";
         DrawSectionHeader(2);
 
+        UiSharedService.BeginSectionCard(Loc.Get("Settings.Storage.Cache.Title"), FontAwesomeIcon.Hdd);
         UiSharedService.TextWrapped(Loc.Get("Settings.Storage.Intro"));
 
         _uiShared.DrawFileScanState();
@@ -2204,7 +1998,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
             UiSharedService.ColorTextWrapped(Loc.Get("Settings.Storage.Compactor.Hint"), ImGuiColors.DalamudYellow);
         }
         if (isLinux || !_cacheMonitor.StorageisNTFS) ImGui.BeginDisabled();
-        if (ImGui.Checkbox(Loc.Get("Settings.Storage.Compactor.Enable") + "##useFileCompactor", ref useFileCompactor))
+        if (ToggleSwitch.Draw(Loc.Get("Settings.Storage.Compactor.Enable") + "##useFileCompactor", ref useFileCompactor))
         {
             _configService.Current.UseCompactor = useFileCompactor;
             _configService.Save();
@@ -2242,9 +2036,8 @@ public class SettingsUi : WindowMediatorSubscriberBase
             ImGui.EndDisabled();
             ImGui.TextUnformatted(Loc.Get("Settings.Storage.Compactor.WindowsOnly"));
         }
-        ImGuiHelpers.ScaledDummy(new Vector2(10, 10));
 
-        ImGui.Separator();
+        UiSharedService.BeginSectionCard(Loc.Get("Settings.Storage.Validation.Title"), FontAwesomeIcon.CheckDouble);
         UiSharedService.TextWrapped(Loc.Get("Settings.Storage.Validation.Intro"));
         using (ImRaii.Disabled(_validationTask != null && !_validationTask.IsCompleted))
         {
@@ -2270,11 +2063,11 @@ public class SettingsUi : WindowMediatorSubscriberBase
         {
             using (ImRaii.PushIndent(20f))
             {
-                if (_validationTask.IsCompleted)
+                if (_validationTask.IsCompletedSuccessfully)
                 {
                     UiSharedService.TextWrapped(Loc.Get("Settings.Storage.Validation.Done", _validationTask.Result.Count));
                 }
-                else
+                else if (!_validationTask.IsCompleted)
                 {
 
                     UiSharedService.TextWrapped(Loc.Get("Settings.Storage.Validation.Running", _currentProgress.Item1, _currentProgress.Item2));
@@ -2282,10 +2075,9 @@ public class SettingsUi : WindowMediatorSubscriberBase
                 }
             }
         }
-        ImGui.Separator();
 
-        ImGuiHelpers.ScaledDummy(new Vector2(10, 10));
-        ImGui.TextUnformatted(Loc.Get("Settings.Storage.ClearIntro"));
+        UiSharedService.BeginSectionCard(Loc.Get("Settings.Storage.Clear.Title"), FontAwesomeIcon.Trash);
+        UiSharedService.TextWrapped(Loc.Get("Settings.Storage.ClearIntro"));
         ImGui.Indent();
         ImGui.Checkbox("##readClearCache", ref _readClearCache);
         ImGui.SameLine();
@@ -2305,15 +2097,12 @@ public class SettingsUi : WindowMediatorSubscriberBase
             ImGui.EndDisabled();
         ImGui.Unindent();
 
-        ImGuiHelpers.ScaledDummy(new Vector2(10, 10));
-        ImGui.Separator();
-        ImGuiHelpers.ScaledDummy(new Vector2(5, 5));
-        _uiShared.BigText(Loc.Get("CharaDataHub.Mcdf.Local.Title"));
+        UiSharedService.BeginSectionCard(Loc.Get("CharaDataHub.Mcdf.Local.Title"), FontAwesomeIcon.FolderOpen);
 
         UiSharedService.TextWrapped(Loc.Get("Settings.Storage.McdfFolderDesc"));
 
         var mcdfFolder = _charaDataConfigService.Current.McdfLocalFolder;
-        ImGui.SetNextItemWidth(400);
+        ImGui.SetNextItemWidth(MathF.Min(400 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X - 60 * ImGuiHelpers.GlobalScale));
         if (ImGui.InputTextWithHint("##mcdfLocalFolder", Loc.Get("CharaDataHub.Mcdf.Local.FolderPlaceholder"), ref mcdfFolder, 512))
         {
             _charaDataConfigService.Current.McdfLocalFolder = mcdfFolder;
@@ -2344,7 +2133,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
         _lastTab = "General";
         DrawSectionHeader(0);
 
-        _uiShared.BigText("Notes");
+        UiSharedService.BeginSectionCard(Loc.Get("Settings.General.Notes.Title"), FontAwesomeIcon.StickyNote);
         if (_uiShared.IconTextButton(FontAwesomeIcon.StickyNote, "Export all your user notes to clipboard"))
         {
             ImGui.SetClipboardText(UiSharedService.GetNotes(_pairManager.DirectPairs.UnionBy(_pairManager.GroupPairs.SelectMany(p => p.Value), p => p.UserData, UserDataComparer.Instance).ToList()));
@@ -2357,7 +2146,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
         }
 
         ImGui.SameLine();
-        ImGui.Checkbox("Overwrite existing notes", ref _overwriteExistingLabels);
+        ToggleSwitch.Draw("Overwrite existing notes", ref _overwriteExistingLabels);
         _uiShared.DrawHelpText("If this option is selected all already existing notes for UIDs will be overwritten by the imported notes.");
         if (_notesSuccessfullyApplied.HasValue && _notesSuccessfullyApplied.Value)
         {
@@ -2370,15 +2159,14 @@ public class SettingsUi : WindowMediatorSubscriberBase
 
         var openPopupOnAddition = _configService.Current.OpenPopupOnAdd;
 
-        if (ImGui.Checkbox("Open Notes Popup on user addition", ref openPopupOnAddition))
+        if (ToggleSwitch.Draw("Open Notes Popup on user addition", ref openPopupOnAddition))
         {
             _configService.Current.OpenPopupOnAdd = openPopupOnAddition;
             _configService.Save();
         }
         _uiShared.DrawHelpText("This will open a popup that allows you to set the notes for a user after successfully adding them to your individual pairs.");
 
-        ImGui.Separator();
-        _uiShared.BigText("UI");
+        UiSharedService.BeginSectionCard(Loc.Get("Settings.General.Language.Title"), FontAwesomeIcon.Language);
         var selectedLanguage = _configService.Current.UiLanguage;
         if (!Loc.IsLanguageAvailable(selectedLanguage))
         {
@@ -2388,8 +2176,9 @@ public class SettingsUi : WindowMediatorSubscriberBase
         }
 
         var languageLabel = Loc.GetLanguageDisplayName(selectedLanguage);
-        ImGui.SetNextItemWidth(MathF.Min(250 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X - 200 * ImGuiHelpers.GlobalScale));
-        if (ImGui.BeginCombo("Interface Language##uiLanguage", string.IsNullOrEmpty(languageLabel) ? selectedLanguage : languageLabel))
+        // Le titre de la section sert de libellé : pas de texte à droite du champ
+        ImGui.SetNextItemWidth(MathF.Min(260 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X - ImGui.GetFrameHeight() - ImGui.GetStyle().ItemSpacing.X));
+        if (UiSharedService.BeginCombo("##uiLanguage", string.IsNullOrEmpty(languageLabel) ? selectedLanguage : languageLabel))
         {
             foreach (var option in Loc.AvailableLanguages)
             {
@@ -2407,10 +2196,27 @@ public class SettingsUi : WindowMediatorSubscriberBase
                     ImGui.SetItemDefaultFocus();
                 }
             }
-            ImGui.EndCombo();
+            UiSharedService.EndCombo();
         }
-        _uiShared.DrawHelpText("Select the language used for Umbra's UI. Missing text falls back to English.");
-        ImGuiHelpers.ScaledDummy(3f);
+        _uiShared.DrawHelpText(Loc.Get("Settings.General.Language.Help"));
+
+        UiSharedService.BeginSectionCard(Loc.Get("Settings.General.Appearance"), FontAwesomeIcon.Palette);
+        ImGui.TextUnformatted(Loc.Get("Settings.General.UiGlass"));
+        var uiGlass = _configService.Current.UiGlass;
+        bool glassReleased = GlassSlider.Draw("##ui_glass", ref uiGlass, 260f * ImGuiHelpers.GlobalScale,
+            Loc.Get("Settings.General.UiGlass.Tooltip"));
+        _configService.Current.UiGlass = uiGlass;
+        if (glassReleased) _configService.Save();
+
+        var clearInGpose = _configService.Current.UiClearGlassInGpose;
+        if (ToggleSwitch.Draw(Loc.Get("Settings.General.ClearGlassInGpose"), ref clearInGpose))
+        {
+            _configService.Current.UiClearGlassInGpose = clearInGpose;
+            _configService.Save();
+        }
+        _uiShared.DrawHelpText(Loc.Get("Settings.General.ClearGlassInGpose.Help"));
+
+        UiSharedService.BeginSectionCard(Loc.Get("Settings.General.Display.Title"), FontAwesomeIcon.Desktop);
 
         var showCharacterNames = _configService.Current.ShowCharacterNames;
         var showVisibleSeparate = _configService.Current.ShowVisibleUsersSeparately;
@@ -2429,14 +2235,14 @@ public class SettingsUi : WindowMediatorSubscriberBase
         var dtrColorsNotConnected = _configService.Current.DtrColorsNotConnected;
         var dtrColorsPairsInRange = _configService.Current.DtrColorsPairsInRange;
 
-        if (ImGui.Checkbox("Enable Game Right Click Menu Entries", ref enableRightClickMenu))
+        if (ToggleSwitch.Draw("Enable Game Right Click Menu Entries", ref enableRightClickMenu))
         {
             _configService.Current.EnableRightClickMenus = enableRightClickMenu;
             _configService.Save();
         }
         _uiShared.DrawHelpText("This will add Umbra related right click menu entries in the game UI on paired players.");
 
-        if (ImGui.Checkbox("Display status and visible pair count in Server Info Bar", ref enableDtrEntry))
+        if (ToggleSwitch.Draw("Display status and visible pair count in Server Info Bar", ref enableDtrEntry))
         {
             _configService.Current.EnableDtrEntry = enableDtrEntry;
             _configService.Save();
@@ -2446,13 +2252,13 @@ public class SettingsUi : WindowMediatorSubscriberBase
         using (ImRaii.Disabled(!enableDtrEntry))
         {
             using var indent = ImRaii.PushIndent();
-            if (ImGui.Checkbox("Show visible character's UID in tooltip", ref showUidInDtrTooltip))
+            if (ToggleSwitch.Draw("Show visible character's UID in tooltip", ref showUidInDtrTooltip))
             {
                 _configService.Current.ShowUidInDtrTooltip = showUidInDtrTooltip;
                 _configService.Save();
             }
 
-            if (ImGui.Checkbox("Prefer notes over player names in tooltip", ref preferNoteInDtrTooltip))
+            if (ToggleSwitch.Draw("Prefer notes over player names in tooltip", ref preferNoteInDtrTooltip))
             {
                 _configService.Current.PreferNoteInDtrTooltip = preferNoteInDtrTooltip;
                 _configService.Save();
@@ -2460,7 +2266,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
 
             DrawDtrStyleCombo();
 
-            if (ImGui.Checkbox(Loc.Get("Settings.Dtr.ColorCode"), ref useColorsInDtr))
+            if (ToggleSwitch.Draw(Loc.Get("Settings.Dtr.ColorCode"), ref useColorsInDtr))
             {
                 _configService.Current.UseColorsInDtr = useColorsInDtr;
                 _configService.Save();
@@ -2509,7 +2315,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
         var useNameColors = _configService.Current.UseNameColors;
         var nameColors = _configService.Current.NameColors;
         var autoPausedNameColors = _configService.Current.BlockedNameColors;
-        if (ImGui.Checkbox("Coloriser les plaques de nom des paires", ref useNameColors))
+        if (ToggleSwitch.Draw("Coloriser les plaques de nom des paires", ref useNameColors))
         {
             _configService.Current.UseNameColors = useNameColors;
             _configService.Save();
@@ -2536,28 +2342,28 @@ public class SettingsUi : WindowMediatorSubscriberBase
             }
         }
 
-        if (ImGui.Checkbox("Show separate Visible group", ref showVisibleSeparate))
+        if (ToggleSwitch.Draw("Show separate Visible group", ref showVisibleSeparate))
         {
             _configService.Current.ShowVisibleUsersSeparately = showVisibleSeparate;
             _configService.Save();
         }
         _uiShared.DrawHelpText("This will show all currently visible users in a special 'Visible' group in the main UI.");
 
-        if (ImGui.Checkbox("Show separate Offline group", ref showOfflineSeparate))
+        if (ToggleSwitch.Draw("Show separate Offline group", ref showOfflineSeparate))
         {
             _configService.Current.ShowOfflineUsersSeparately = showOfflineSeparate;
             _configService.Save();
         }
         _uiShared.DrawHelpText("This will show all currently offline users in a special 'Offline' group in the main UI.");
 
-        if (ImGui.Checkbox("Show player names", ref showCharacterNames))
+        if (ToggleSwitch.Draw("Show player names", ref showCharacterNames))
         {
             _configService.Current.ShowCharacterNames = showCharacterNames;
             _configService.Save();
         }
         _uiShared.DrawHelpText("This will show character names instead of UIDs when possible");
 
-        if (ImGui.Checkbox("Show Profiles on Hover", ref showProfiles))
+        if (ToggleSwitch.Draw("Show Profiles on Hover", ref showProfiles))
         {
             Mediator.Publish(new ClearProfileDataMessage());
             _configService.Current.ProfilesShow = showProfiles;
@@ -2566,7 +2372,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
         _uiShared.DrawHelpText("This will show the configured user profile after a set delay");
         ImGui.Indent();
         if (!showProfiles) ImGui.BeginDisabled();
-        if (ImGui.Checkbox("Popout profiles on the right", ref profileOnRight))
+        if (ToggleSwitch.Draw("Popout profiles on the right", ref profileOnRight))
         {
             _configService.Current.ProfilePopoutRight = profileOnRight;
             _configService.Save();
@@ -2574,7 +2380,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
         }
         _uiShared.DrawHelpText("Will show profiles on the right side of the main UI");
         ImGui.SetNextItemWidth(MathF.Min(250 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X - 200 * ImGuiHelpers.GlobalScale));
-        if (ImGui.SliderFloat("Hover Delay", ref profileDelay, 1, 10))
+        if (ThemedSlider.Float("Hover Delay", ref profileDelay, 1, 10, step: 0.5f))
         {
             _configService.Current.ProfileDelay = profileDelay;
             _configService.Save();
@@ -2582,7 +2388,34 @@ public class SettingsUi : WindowMediatorSubscriberBase
         _uiShared.DrawHelpText("Delay until the profile should be displayed");
         if (!showProfiles) ImGui.EndDisabled();
         ImGui.Unindent();
-        if (ImGui.Checkbox("Show profiles marked as NSFW", ref showNsfwProfiles))
+        var showRpIdentity = _configService.Current.ShowRpIdentityInPairList;
+        if (ToggleSwitch.Draw(Loc.Get("Settings.RpIdentityInPairList"), ref showRpIdentity))
+        {
+            _configService.Current.ShowRpIdentityInPairList = showRpIdentity;
+            _configService.Save();
+        }
+        _uiShared.DrawHelpText(Loc.Get("Settings.RpIdentityInPairList.Help"));
+
+        var showTargetTooltip = _configService.Current.ShowTargetProfileTooltip;
+        if (ToggleSwitch.Draw(Loc.Get("Settings.TargetTooltip.Enable"), ref showTargetTooltip))
+        {
+            _configService.Current.ShowTargetProfileTooltip = showTargetTooltip;
+            _configService.Save();
+        }
+        _uiShared.DrawHelpText(Loc.Get("Settings.TargetTooltip.Enable.Help"));
+
+        var hideTooltipInDuty = _configService.Current.HideTargetProfileTooltipInDuty;
+        using (ImRaii.Disabled(!showTargetTooltip))
+        {
+            if (ToggleSwitch.Draw(Loc.Get("Settings.TargetTooltip.HideInDuty"), ref hideTooltipInDuty))
+            {
+                _configService.Current.HideTargetProfileTooltipInDuty = hideTooltipInDuty;
+                _configService.Save();
+            }
+        }
+        _uiShared.DrawHelpText(Loc.Get("Settings.TargetTooltip.HideInDuty.Help"));
+
+        if (ToggleSwitch.Draw("Show profiles marked as NSFW", ref showNsfwProfiles))
         {
             Mediator.Publish(new ClearProfileDataMessage());
             _configService.Current.ProfilesAllowNsfw = showNsfwProfiles;
@@ -2590,7 +2423,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
         }
         _uiShared.DrawHelpText("Will show profiles that have the NSFW tag enabled");
 
-        if (ImGui.Checkbox("Show RP profiles marked as NSFW", ref showRpNsfwProfiles))
+        if (ToggleSwitch.Draw("Show RP profiles marked as NSFW", ref showRpNsfwProfiles))
         {
             Mediator.Publish(new ClearProfileDataMessage());
             _configService.Current.ProfilesAllowRpNsfw = showRpNsfwProfiles;
@@ -2598,14 +2431,12 @@ public class SettingsUi : WindowMediatorSubscriberBase
         }
         _uiShared.DrawHelpText("Will show RP profiles that have the RP NSFW tag enabled");
 
-        ImGui.Separator();
-
         var disableOptionalPluginWarnings = _configService.Current.DisableOptionalPluginWarnings;
         var shareRpProfile = _configService.Current.ShareRpProfileWithPlugins;
         var onlineNotifs = _configService.Current.ShowOnlineNotifications;
         var onlineNotifsPairsOnly = _configService.Current.ShowOnlineNotificationsOnlyForIndividualPairs;
         var onlineNotifsNamedOnly = _configService.Current.ShowOnlineNotificationsOnlyForNamedPairs;
-        _uiShared.BigText("Notifications");
+        UiSharedService.BeginSectionCard(Loc.Get("Settings.General.Notifications.Title"), FontAwesomeIcon.Bell);
 
         ImGui.SetNextItemWidth(MathF.Min(250 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X - 200 * ImGuiHelpers.GlobalScale));
         _uiShared.DrawCombo("Info Notification Display##settingsUi", (NotificationLocation[])Enum.GetValues(typeof(NotificationLocation)), (i) => i.ToString(),
@@ -2646,14 +2477,14 @@ public class SettingsUi : WindowMediatorSubscriberBase
                               + Environment.NewLine + "'Toast' will show Error toast notifications in the bottom right corner"
                               + Environment.NewLine + "'Both' will show chat as well as the toast notification");
 
-        if (ImGui.Checkbox("Disable optional plugin warnings", ref disableOptionalPluginWarnings))
+        if (ToggleSwitch.Draw("Disable optional plugin warnings", ref disableOptionalPluginWarnings))
         {
             _configService.Current.DisableOptionalPluginWarnings = disableOptionalPluginWarnings;
             _configService.Save();
         }
         _uiShared.DrawHelpText("Enabling this will not show any \"Warning\" labeled messages for missing optional plugins.");
 
-        if (ImGui.Checkbox("Share RP profile with other Ashfall plugins", ref shareRpProfile))
+        if (ToggleSwitch.Draw("Share RP profile with other Ashfall plugins", ref shareRpProfile))
         {
             _configService.Current.ShareRpProfileWithPlugins = shareRpProfile;
             _configService.Save();
@@ -2663,7 +2494,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
                               + "Nothing leaves this machine, and nothing is revealed that UmbraSync does not already show to that pair."
                               + Environment.NewLine
                               + "Turning this off also brings back the \"Open profile\" entry in the game's context menu.");
-        if (ImGui.Checkbox("Enable online notifications", ref onlineNotifs))
+        if (ToggleSwitch.Draw("Enable online notifications", ref onlineNotifs))
         {
             _configService.Current.ShowOnlineNotifications = onlineNotifs;
             _configService.Save();
@@ -2673,13 +2504,13 @@ public class SettingsUi : WindowMediatorSubscriberBase
         using (ImRaii.Disabled(!onlineNotifs))
         {
             using var indent = ImRaii.PushIndent();
-            if (ImGui.Checkbox("Notify only for individual pairs", ref onlineNotifsPairsOnly))
+            if (ToggleSwitch.Draw("Notify only for individual pairs", ref onlineNotifsPairsOnly))
             {
                 _configService.Current.ShowOnlineNotificationsOnlyForIndividualPairs = onlineNotifsPairsOnly;
                 _configService.Save();
             }
             _uiShared.DrawHelpText("Enabling this will only show online notifications (type: Info) for individual pairs.");
-            if (ImGui.Checkbox("Notify only for named pairs", ref onlineNotifsNamedOnly))
+            if (ToggleSwitch.Draw("Notify only for named pairs", ref onlineNotifsNamedOnly))
             {
                 _configService.Current.ShowOnlineNotificationsOnlyForNamedPairs = onlineNotifsNamedOnly;
                 _configService.Save();
@@ -2690,6 +2521,94 @@ public class SettingsUi : WindowMediatorSubscriberBase
 
     private bool _perfUnapplied = false;
 
+    private void DrawRedrawSettings()
+    {
+        UiSharedService.BeginSectionCard(Loc.Get("Settings.Transfer.Redraw.Title"), FontAwesomeIcon.Redo);
+
+        // Sous-bloc 2 : coordination des redraws Penumbra
+        bool enableRedrawCoordination = _configService.Current.EnableRedrawCoordination;
+        if (ToggleSwitch.Draw(Loc.Get("Settings.Transfer.RedrawCoordination.Enable"), ref enableRedrawCoordination))
+        {
+            _configService.Current.EnableRedrawCoordination = enableRedrawCoordination;
+            _configService.Save();
+        }
+        _uiShared.DrawHelpText(Loc.Get("Settings.Transfer.RedrawCoordination.Enable.Help"));
+
+        if (!enableRedrawCoordination) ImGui.BeginDisabled();
+        ImGui.Indent();
+        int minRedrawIntervalMs = _configService.Current.MinRedrawIntervalMs;
+        ImGui.SetNextItemWidth(MathF.Min(200 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X - 200 * ImGuiHelpers.GlobalScale));
+        if (ThemedSlider.Int(Loc.Get("Settings.Transfer.RedrawCoordination.MinInterval"), ref minRedrawIntervalMs, 50, 500, step: 10f))
+        {
+            _configService.Current.MinRedrawIntervalMs = minRedrawIntervalMs;
+            _configService.Save();
+        }
+        _uiShared.DrawHelpText(Loc.Get("Settings.Transfer.RedrawCoordination.MinInterval.Help"));
+        ImGui.Unindent();
+        if (!enableRedrawCoordination) ImGui.EndDisabled();
+    }
+
+    private const int LowSpecVramMiB = 250;
+    private const int LowSpecTrisThousands = 200;
+    private const int LowSpecParallelDownloads = 4;
+
+    private void SetLowSpecProfile(bool enabled)
+    {
+        var perf = _playerPerformanceConfigService.Current;
+
+        if (!enabled)
+        {
+            var backup = perf.LowSpecPreviousSettings;
+            perf.LowSpecProfileEnabled = false;
+            perf.LowSpecPreviousSettings = null;
+
+            if (backup != null)
+            {
+                var shrinkChanged = perf.TextureShrinkMode != backup.TextureShrinkMode;
+                perf.AutoPausePlayersExceedingThresholds = backup.AutoPausePlayersExceedingThresholds;
+                perf.VRAMSizeAutoPauseThresholdMiB = backup.VRAMSizeAutoPauseThresholdMiB;
+                perf.TrisAutoPauseThresholdThousands = backup.TrisAutoPauseThresholdThousands;
+                perf.TextureShrinkMode = backup.TextureShrinkMode;
+                _configService.Current.ParallelDownloads = backup.ParallelDownloads;
+                _configService.Save();
+                if (shrinkChanged) _cacheMonitor.ClearSubstStorage();
+            }
+
+            _playerPerformanceConfigService.Save();
+            Mediator.Publish(new PairProcessingLimitChangedMessage());
+            _perfUnapplied = false;
+            return;
+        }
+
+        perf.LowSpecPreviousSettings ??= new UmbraSync.MareConfiguration.Configurations.LowSpecBackup
+        {
+            AutoPausePlayersExceedingThresholds = perf.AutoPausePlayersExceedingThresholds,
+            VRAMSizeAutoPauseThresholdMiB = perf.VRAMSizeAutoPauseThresholdMiB,
+            TrisAutoPauseThresholdThousands = perf.TrisAutoPauseThresholdThousands,
+            TextureShrinkMode = perf.TextureShrinkMode,
+            ParallelDownloads = _configService.Current.ParallelDownloads,
+        };
+        perf.LowSpecProfileEnabled = true;
+
+        var shrinkWillChange = perf.TextureShrinkMode != TextureShrinkMode.Always;
+
+        perf.AutoPausePlayersExceedingThresholds = true;
+        perf.VRAMSizeAutoPauseThresholdMiB = Math.Min(perf.VRAMSizeAutoPauseThresholdMiB, LowSpecVramMiB);
+        perf.TrisAutoPauseThresholdThousands = Math.Min(perf.TrisAutoPauseThresholdThousands, LowSpecTrisThousands);
+        perf.TextureShrinkMode = TextureShrinkMode.Always;
+        _playerPerformanceConfigService.Save();
+
+        if (_configService.Current.ParallelDownloads > LowSpecParallelDownloads)
+        {
+            _configService.Current.ParallelDownloads = LowSpecParallelDownloads;
+            _configService.Save();
+        }
+
+        if (shrinkWillChange) _cacheMonitor.ClearSubstStorage();
+        Mediator.Publish(new PairProcessingLimitChangedMessage());
+        _perfUnapplied = false;
+    }
+
     private void DrawPerformance()
     {
         DrawSectionHeader(1);
@@ -2697,10 +2616,32 @@ public class SettingsUi : WindowMediatorSubscriberBase
         bool recalculatePerformance = false;
         string? recalculatePerformanceUID = null;
 
-        _uiShared.BigText("Global Configuration");
+        bool lowSpec = _playerPerformanceConfigService.Current.LowSpecProfileEnabled;
+
+        UiSharedService.BeginSectionCard(Loc.Get("Settings.Performance.LowSpec.Title"), FontAwesomeIcon.Feather);
+        UiSharedService.DrawCard("lowspec-profile", () =>
+        {
+            UiSharedService.TextWrapped(Loc.Get("Settings.Performance.LowSpec.Desc"));
+            ImGuiHelpers.ScaledDummy(2f);
+            bool enableLowSpec = lowSpec;
+            if (ToggleSwitch.Draw(Loc.Get("Settings.Performance.LowSpec.Toggle"), ref enableLowSpec))
+            {
+                SetLowSpecProfile(enableLowSpec);
+                recalculatePerformance = true;
+            }
+            UiSharedService.AttachToolTip(string.Format(CultureInfo.CurrentCulture, Loc.Get("Settings.Performance.LowSpec.Help"),
+                LowSpecVramMiB, LowSpecTrisThousands, LowSpecParallelDownloads));
+            if (lowSpec)
+            {
+                ImGuiHelpers.ScaledDummy(2f);
+                UiSharedService.ColorTextWrapped(Loc.Get("Settings.Performance.LowSpec.ActiveNote"), UiSharedService.AccentColor);
+            }
+        }, background: UiSharedService.ThemeHighlightBg, border: UiSharedService.AccentColor);
+
+        UiSharedService.BeginSectionCard(Loc.Get("Settings.Performance.Global.Title"), FontAwesomeIcon.SlidersH);
 
         bool showSelfAnalysisWarnings = _playerPerformanceConfigService.Current.ShowSelfAnalysisWarnings;
-        if (ImGui.Checkbox("Display self-analysis warnings", ref showSelfAnalysisWarnings))
+        if (ToggleSwitch.Draw("Display self-analysis warnings", ref showSelfAnalysisWarnings))
         {
             _playerPerformanceConfigService.Current.ShowSelfAnalysisWarnings = showSelfAnalysisWarnings;
             _playerPerformanceConfigService.Save();
@@ -2710,9 +2651,9 @@ public class SettingsUi : WindowMediatorSubscriberBase
         bool alwaysShrinkTextures = _playerPerformanceConfigService.Current.TextureShrinkMode == TextureShrinkMode.Always;
         bool deleteOriginalTextures = _playerPerformanceConfigService.Current.TextureShrinkDeleteOriginal;
 
-        using (ImRaii.Disabled(deleteOriginalTextures))
+        using (ImRaii.Disabled(deleteOriginalTextures || lowSpec))
         {
-            if (ImGui.Checkbox("Shrink downloaded textures", ref alwaysShrinkTextures))
+            if (ToggleSwitch.Draw("Shrink downloaded textures", ref alwaysShrinkTextures))
             {
                 if (alwaysShrinkTextures)
                     _playerPerformanceConfigService.Current.TextureShrinkMode = TextureShrinkMode.Always;
@@ -2732,7 +2673,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
         using (ImRaii.Disabled(!alwaysShrinkTextures || _cacheMonitor.FileCacheSize < 0))
         {
             using var indent = ImRaii.PushIndent();
-            if (ImGui.Checkbox("Delete original textures from disk", ref deleteOriginalTextures))
+            if (ToggleSwitch.Draw("Delete original textures from disk", ref deleteOriginalTextures))
             {
                 _playerPerformanceConfigService.Current.TextureShrinkDeleteOriginal = deleteOriginalTextures;
                 _playerPerformanceConfigService.Save();
@@ -2748,7 +2689,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
 
         ImGui.Dummy(new Vector2(5));
         bool useBc7 = _playerPerformanceConfigService.Current.TextureCompressionMode != TextureCompressionMode.AlwaysSourceQuality;
-        if (ImGui.Checkbox(Loc.Get("Settings.Performance.Bc7.Use"), ref useBc7))
+        if (ToggleSwitch.Draw(Loc.Get("Settings.Performance.Bc7.Use"), ref useBc7))
         {
             _playerPerformanceConfigService.Current.TextureCompressionMode = useBc7
                 ? TextureCompressionMode.AlwaysCompressed
@@ -2850,14 +2791,16 @@ public class SettingsUi : WindowMediatorSubscriberBase
         using (ImRaii.PushColor(ImGuiCol.Text, UiSharedService.AccentColor, totalVramBytes >= 6.0 * 1024.0 * 1024.0 * 1024.0))
             ImGui.TextUnformatted($"{totalVramBytes / 1024.0 / 1024.0 / 1024.0:0.00} GiB");
 
-        ImGui.Separator();
-        _uiShared.BigText("Individual Limits");
+        UiSharedService.BeginSectionCard(Loc.Get("Settings.Performance.Limits.Title"), FontAwesomeIcon.TachometerAlt);
         bool autoPause = _playerPerformanceConfigService.Current.AutoPausePlayersExceedingThresholds;
-        if (ImGui.Checkbox("Automatically block players exceeding thresholds", ref autoPause))
+        using (ImRaii.Disabled(lowSpec))
         {
-            _playerPerformanceConfigService.Current.AutoPausePlayersExceedingThresholds = autoPause;
-            _playerPerformanceConfigService.Save();
-            recalculatePerformance = true;
+            if (ToggleSwitch.Draw("Automatically block players exceeding thresholds", ref autoPause))
+            {
+                _playerPerformanceConfigService.Current.AutoPausePlayersExceedingThresholds = autoPause;
+                _playerPerformanceConfigService.Save();
+                recalculatePerformance = true;
+            }
         }
         _uiShared.DrawHelpText("When enabled, it will automatically block the modded appearance of all players that exceed the thresholds defined below." + Environment.NewLine
             + "Will print a warning in chat when a player is blocked automatically.");
@@ -2866,18 +2809,19 @@ public class SettingsUi : WindowMediatorSubscriberBase
             using var indent = ImRaii.PushIndent();
             var notifyDirectPairs = _playerPerformanceConfigService.Current.NotifyAutoPauseDirectPairs;
             var notifyGroupPairs = _playerPerformanceConfigService.Current.NotifyAutoPauseGroupPairs;
-            if (ImGui.Checkbox("Display auto-block warnings for individual pairs", ref notifyDirectPairs))
+            if (ToggleSwitch.Draw("Display auto-block warnings for individual pairs", ref notifyDirectPairs))
             {
                 _playerPerformanceConfigService.Current.NotifyAutoPauseDirectPairs = notifyDirectPairs;
                 _playerPerformanceConfigService.Save();
             }
-            if (ImGui.Checkbox("Display auto-block warnings for syncshell pairs", ref notifyGroupPairs))
+            if (ToggleSwitch.Draw("Display auto-block warnings for syncshell pairs", ref notifyGroupPairs))
             {
                 _playerPerformanceConfigService.Current.NotifyAutoPauseGroupPairs = notifyGroupPairs;
                 _playerPerformanceConfigService.Save();
             }
             var vramAuto = _playerPerformanceConfigService.Current.VRAMSizeAutoPauseThresholdMiB;
             var trisAuto = _playerPerformanceConfigService.Current.TrisAutoPauseThresholdThousands;
+            using var lowSpecLock = ImRaii.Disabled(lowSpec);
             ImGui.SetNextItemWidth(MathF.Min(100 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X * 0.3f));
             if (ImGui.InputInt("Auto Block VRAM threshold", ref vramAuto))
             {
@@ -2911,10 +2855,11 @@ public class SettingsUi : WindowMediatorSubscriberBase
         }
 
         #region Whitelist
-        ImGui.Separator();
-        _uiShared.BigText("Whitelisted UIDs");
+        DrawRedrawSettings();
+
+        UiSharedService.BeginSectionCard(Loc.Get("Settings.Performance.Whitelist.Title"), FontAwesomeIcon.UserCheck);
         bool ignoreDirectPairs = _playerPerformanceConfigService.Current.IgnoreDirectPairs;
-        if (ImGui.Checkbox("Whitelist all individual pairs", ref ignoreDirectPairs))
+        if (ToggleSwitch.Draw("Whitelist all individual pairs", ref ignoreDirectPairs))
         {
             _playerPerformanceConfigService.Current.IgnoreDirectPairs = ignoreDirectPairs;
             _playerPerformanceConfigService.Save();
@@ -2987,8 +2932,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
         #endregion Whitelist
 
         #region Blacklist
-        ImGui.Separator();
-        _uiShared.BigText("Blacklisted UIDs");
+        UiSharedService.BeginSectionCard(Loc.Get("Settings.Performance.Blacklist.Title"), FontAwesomeIcon.UserSlash);
         UiSharedService.TextWrapped("The entries in the list below will never have their characters displayed.");
         var blacklistAvail = ImGui.GetContentRegionAvail().X;
         float blacklistRightCol = MathF.Min(240 * ImGuiHelpers.GlobalScale, blacklistAvail * 0.55f);
@@ -3192,7 +3136,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
                             string selectedKeyName = string.Empty;
                             if (selectedServer.SecretKeys.TryGetValue(item.SecretKeyIdx, out var selectedKey))
                                 selectedKeyName = selectedKey.FriendlyName;
-                            if (ImGui.BeginCombo($"##combo{i}", selectedKeyName))
+                            if (UiSharedService.BeginCombo($"##combo{i}", selectedKeyName))
                             {
                                 foreach (var key in selectedServer.SecretKeys)
                                 {
@@ -3203,7 +3147,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
                                         _serverConfigurationManager.Save();
                                     }
                                 }
-                                ImGui.EndCombo();
+                                UiSharedService.EndCombo();
                             }
 
                             // Delete button
@@ -3556,7 +3500,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
 
         using (Dalamud.Interface.Utility.Raii.ImRaii.PushColor(ImGuiCol.ChildBg, emberFaint))
         using (Dalamud.Interface.Utility.Raii.ImRaii.PushColor(ImGuiCol.Border, emberBorder))
-        using (Dalamud.Interface.Utility.Raii.ImRaii.PushStyle(ImGuiStyleVar.ChildRounding, 6f))
+        using (Dalamud.Interface.Utility.Raii.ImRaii.PushStyle(ImGuiStyleVar.ChildRounding, UiSharedService.RadiusCard * ImGuiHelpers.GlobalScale))
         using (Dalamud.Interface.Utility.Raii.ImRaii.PushStyle(ImGuiStyleVar.ChildBorderSize, 1f))
         using (Dalamud.Interface.Utility.Raii.ImRaii.PushStyle(ImGuiStyleVar.WindowPadding, new Vector2(12, 8)))
         {
@@ -3617,7 +3561,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
                     using (Dalamud.Interface.Utility.Raii.ImRaii.PushColor(ImGuiCol.Button, ember))
                     using (Dalamud.Interface.Utility.Raii.ImRaii.PushColor(ImGuiCol.ButtonHovered, emberBright))
                     using (Dalamud.Interface.Utility.Raii.ImRaii.PushColor(ImGuiCol.ButtonActive, ember))
-                    using (Dalamud.Interface.Utility.Raii.ImRaii.PushStyle(ImGuiStyleVar.FrameRounding, 4f))
+                    using (Dalamud.Interface.Utility.Raii.ImRaii.PushStyle(ImGuiStyleVar.FrameRounding, UiSharedService.RadiusControl * ImGuiHelpers.GlobalScale))
                     {
                         if (ImGui.Button("Générer un code de lien", new Vector2(btnW, btnH)))
                         {
@@ -3719,24 +3663,138 @@ public class SettingsUi : WindowMediatorSubscriberBase
         drawList.AddLine(separatorStart, separatorEnd, ImGui.GetColorU32(separatorColor), 1f * ImGuiHelpers.GlobalScale);
         ImGui.SetCursorPos(new Vector2(separatorX + 6f * ImGuiHelpers.GlobalScale, separatorY));
         ImGui.BeginChild("settings-content", Vector2.Zero, false);
-        switch (_activeSettingsTab)
+        if (_settingsSearch.Length > 0)
         {
-            case 0: DrawGeneral(); break;
-            case 1: DrawPerformance(); break;
-            case 2: DrawFileStorageSettings(); break;
-            case 3: DrawCurrentTransfers(); break;
-            case 4: DrawAutoDetect(); break;
-            case 5: DrawChatConfig(); break;
-            case 6:
-                ImGui.BeginDisabled(_registrationInProgress);
-                DrawServerConfiguration();
-                ImGui.EndDisabled();
-                break;
-            case 7: DrawPrivacy(); break;
-            case 8: DrawAdvanced(); break;
-            case 9: DrawAbout(); break;
+            DrawSettingsSearchResults();
         }
+        else
+        {
+            DrawSettingsBreadcrumb();
+            switch (_activeSettingsTab)
+            {
+                case 0: DrawGeneral(); break;
+                case 1: DrawPerformance(); break;
+                case 2: DrawFileStorageSettings(); break;
+                case 3: DrawCurrentTransfers(); break;
+                case 4: DrawAutoDetect(); break;
+                case 5: DrawChatConfig(); break;
+                case 6:
+                    ImGui.BeginDisabled(_registrationInProgress);
+                    DrawServerConfiguration();
+                    ImGui.EndDisabled();
+                    break;
+                case 7: DrawPrivacy(); break;
+                case 8: DrawAdvanced(); break;
+                case 9: DrawAbout(); break;
+            }
+        }
+        UiSharedService.EndSectionCard();
         ImGui.EndChild();
+    }
+
+    private void DrawSettingsBreadcrumb()
+    {
+        var section = Loc.Get(SettingsLabelKeys[_activeSettingsTab]).ToUpperInvariant();
+        ImGui.TextColored(UiSharedService.ThemeNavText,
+            $"{Loc.Get("Settings.Breadcrumb.Root").ToUpperInvariant()}  ›  {section}");
+        ImGuiHelpers.ScaledDummy(2f);
+    }
+
+    private void DrawSettingsSearchResults()
+    {
+        var results = SettingsCatalog.Search(_settingsSearch);
+
+        ImGui.TextColored(UiSharedService.ThemeNavText, Loc.Get("Settings.Search.Results", results.Count));
+        ImGuiHelpers.ScaledDummy(4f);
+
+        if (results.Count == 0)
+        {
+            ImGui.TextWrapped(Loc.Get("Settings.Search.Empty"));
+            return;
+        }
+
+        var availWidth = ImGui.GetContentRegionAvail().X;
+        for (var i = 0; i < results.Count; i++)
+        {
+            var entry = results[i];
+            var cursor = ImGui.GetCursorScreenPos();
+
+            if (ImGui.InvisibleButton($"##search_hit{i}", new Vector2(availWidth, ImGui.GetTextLineHeightWithSpacing() * 2f)))
+            {
+                _activeSettingsTab = entry.Section;
+                _settingsSearch = string.Empty;
+            }
+
+            var hovered = ImGui.IsItemHovered();
+            var dl = ImGui.GetWindowDrawList();
+            var max = cursor + new Vector2(availWidth, ImGui.GetTextLineHeightWithSpacing() * 2f);
+            dl.AddRectFilled(cursor, max,
+                ImGui.GetColorU32(hovered ? UiSharedService.ThemeButtonHovered : UiSharedService.ThemeHeaderBg),
+                UiSharedService.RadiusCard * ImGuiHelpers.GlobalScale);
+
+            var pad = 6f * ImGuiHelpers.GlobalScale;
+            DrawHighlightedLabel(dl, cursor + new Vector2(pad, pad * 0.5f), entry.Label, _settingsSearch);
+            dl.AddText(cursor + new Vector2(pad, pad * 0.5f + ImGui.GetTextLineHeight()),
+                ImGui.GetColorU32(UiSharedService.ThemeNavText),
+                Loc.Get(SettingsLabelKeys[entry.Section]).ToUpperInvariant());
+
+            ImGuiHelpers.ScaledDummy(2f);
+        }
+    }
+
+    private static void DrawHighlightedLabel(ImDrawListPtr dl, Vector2 pos, string label, string query)
+    {
+        var textColor = ImGui.GetColorU32(ImGuiCol.Text);
+        var index = SettingsCatalog.IndexOf(label, query.Trim(), out var length);
+        if (index < 0 || length <= 0)
+        {
+            dl.AddText(pos, textColor, label);
+            return;
+        }
+
+        var before = label[..index];
+        var match = label.Substring(index, length);
+        var after = label[(index + length)..];
+
+        var x = pos.X;
+        if (before.Length > 0)
+        {
+            dl.AddText(new Vector2(x, pos.Y), textColor, before);
+            x += ImGui.CalcTextSize(before).X;
+        }
+
+        var matchSize = ImGui.CalcTextSize(match);
+        dl.AddRectFilled(
+            new Vector2(x, pos.Y),
+            new Vector2(x + matchSize.X, pos.Y + matchSize.Y),
+            ImGui.GetColorU32(UiSharedService.AccentColor with { W = 0.35f }),
+            2f * ImGuiHelpers.GlobalScale);
+        dl.AddText(new Vector2(x, pos.Y), textColor, match);
+        x += matchSize.X;
+
+        if (after.Length > 0)
+            dl.AddText(new Vector2(x, pos.Y), textColor, after);
+    }
+
+    private void DrawSettingsSearchBox()
+    {
+        ImGuiHelpers.ScaledDummy(4f);
+
+        ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X);
+        var buffer = _settingsSearch;
+        if (ImGui.InputTextWithHint("##settings_search", Loc.Get("Settings.Search.Hint"), ref buffer, 64))
+            _settingsSearch = buffer;
+
+        if (_settingsSearch.Length > 0)
+        {
+            if (ImGui.IsItemHovered())
+                UiSharedService.AttachToolTip(Loc.Get("Settings.Search.Clear"));
+
+            if (ImGui.IsKeyPressed(ImGuiKey.Escape))
+                _settingsSearch = string.Empty;
+        }
+
+        ImGuiHelpers.ScaledDummy(2f);
     }
 
     private void DrawAbout()
@@ -3812,9 +3870,9 @@ public class SettingsUi : WindowMediatorSubscriberBase
         float btnWidth = (usableWidth - btnSpacing * 2f) / 3f;
 
         ImGui.SetCursorPosX(margin);
-        using (ImRaii.PushColor(ImGuiCol.Button, new Vector4(0x2A / 255f, 0x1F / 255f, 0x3D / 255f, 1f)))
-        using (ImRaii.PushColor(ImGuiCol.ButtonHovered, new Vector4(0x38 / 255f, 0x29 / 255f, 0x52 / 255f, 1f)))
-        using (ImRaii.PushColor(ImGuiCol.ButtonActive, new Vector4(0x4A / 255f, 0x36 / 255f, 0x68 / 255f, 1f)))
+        using (ImRaii.PushColor(ImGuiCol.Button, UiSharedService.ThemeButtonBg))
+        using (ImRaii.PushColor(ImGuiCol.ButtonHovered, UiSharedService.ThemeButtonHovered))
+        using (ImRaii.PushColor(ImGuiCol.ButtonActive, UiSharedService.ThemeButtonActive))
         {
             if (DrawAboutLinkButton(FontAwesomeIcon.Globe, "Discord", btnWidth))
                 Dalamud.Utility.Util.OpenLink(Constants.DiscordUrl);
@@ -4038,13 +4096,10 @@ public class SettingsUi : WindowMediatorSubscriberBase
 
         ImGuiHelpers.ScaledDummy(4f);
 
-        // Title — bold, centered
-        using (_uiShared.UidFont.Push())
-        {
-            var titleSz = ImGui.CalcTextSize(title);
-            ImGui.SetCursorPosX(ImGui.GetCursorPosX() + (availWidth - titleSz.X) / 2f);
-            ImGui.TextUnformatted(title);
-        }
+        // Title — accent color, body font size, centered
+        var titleSz = ImGui.CalcTextSize(title);
+        ImGui.SetCursorPosX(ImGui.GetCursorPosX() + (availWidth - titleSz.X) / 2f);
+        ImGui.TextColored(UiSharedService.AccentColor, title);
 
         ImGuiHelpers.ScaledDummy(2f);
 
@@ -4074,106 +4129,61 @@ public class SettingsUi : WindowMediatorSubscriberBase
 
     private void DrawSettingsSidebar()
     {
-        var drawList = ImGui.GetWindowDrawList();
-        drawList.ChannelsSplit(2);
-        drawList.ChannelsSetCurrent(1);
-        _settingsSidebarRects.Clear();
+        DrawSettingsSearchBox();
 
-        ImGuiHelpers.ScaledDummy(4f);
-
+        var entries = new List<SideRailEntry>(SettingsLabelKeys.Length);
         for (int i = 0; i < SettingsLabelKeys.Length; i++)
-        {
-            DrawSettingsSidebarButton(i);
-            ImGuiHelpers.ScaledDummy(1f);
-        }
+            entries.Add(new SideRailEntry(i, Loc.Get(SettingsLabelKeys[i]), SettingsIcons[i]));
 
-        drawList.ChannelsSetCurrent(0);
-        DrawSettingsSidebarIndicator(drawList);
-        drawList.ChannelsMerge();
+        _settingsRail.Draw(entries, ref _activeSettingsTab, collapsed: false,
+            _activeSettingsTab == PrivacySettingsTab ? UiSharedService.ThemePrivacyAccent : null);
     }
 
-    private void DrawSettingsSidebarButton(int tabIndex)
+    // Pastille d'état en tête de la carte : ce que les autres voient, en un coup d'œil.
+    private void DrawAutoDetectStatus(bool enabled, bool suppressed)
     {
-        using var id = ImRaii.PushId(tabIndex);
+        var (key, color, icon) = !enabled
+            ? ("Settings.AutoDetect.Status.Off", ImGuiColors.DalamudGrey, FontAwesomeIcon.EyeSlash)
+            : suppressed
+                ? ("Settings.AutoDetect.Status.Suppressed", ImGuiColors.DalamudOrange, FontAwesomeIcon.PauseCircle)
+                : _nearbyDiscoveryService.Visibility switch
+                {
+                    NearbyVisibility.HiddenAfk => ("Settings.AutoDetect.Status.HiddenAfk", ImGuiColors.DalamudYellow, FontAwesomeIcon.Moon),
+                    NearbyVisibility.HiddenNotRoleplaying => ("Settings.AutoDetect.Status.HiddenNotRoleplaying", ImGuiColors.DalamudYellow, FontAwesomeIcon.TheaterMasks),
+                    _ => ("Settings.AutoDetect.Status.Visible", ImGuiColors.HealerGreen, FontAwesomeIcon.Eye),
+                };
 
-        const float btnH = 24f;
-        const float iconTextGap = 6f;
-        const float paddingX = 8f;
-        float scaledBtnH = btnH * ImGuiHelpers.GlobalScale;
-        float availWidth = ImGui.GetContentRegionAvail().X;
+        var scale = ImGuiHelpers.GlobalScale;
+        var label = Loc.Get(key);
+        var pad = new Vector2(10f, 4f) * scale;
+        float gap = 7f * scale;
+        var iconText = icon.ToIconString();
+        Vector2 iconSize;
+        using (ImRaii.PushFont(UiBuilder.IconFont))
+            iconSize = ImGui.CalcTextSize(iconText);
+        var labelSize = ImGui.CalcTextSize(label);
+        float height = MathF.Max(iconSize.Y, labelSize.Y) + pad.Y * 2f;
+        var size = new Vector2(pad.X * 2f + iconSize.X + gap + labelSize.X, height);
 
-        bool isActive = _activeSettingsTab == tabIndex;
-
-        var p = ImGui.GetCursorScreenPos();
-        bool clicked = ImGui.InvisibleButton("##settingsSidebarBtn", new Vector2(availWidth, scaledBtnH));
-        bool hovered = ImGui.IsItemHovered();
-
-        _settingsSidebarRects[tabIndex] = (p, p + new Vector2(availWidth, scaledBtnH));
-
-        // Background: only draw on hover (indicator handles active state)
-        if (hovered && !isActive)
-        {
-            var hoverColor = new Vector4(0x30 / 255f, 0x19 / 255f, 0x46 / 255f, 1f);
-            var dl = ImGui.GetWindowDrawList();
-            float rounding = 6f * ImGuiHelpers.GlobalScale;
-            float padding = 2f * ImGuiHelpers.GlobalScale;
-            dl.AddRectFilled(p - new Vector2(padding), p + new Vector2(availWidth + padding, scaledBtnH + padding), ImGui.GetColorU32(hoverColor), rounding);
-        }
-
-        // Icon
-        var dl2 = ImGui.GetWindowDrawList();
-        string iconStr = SettingsIcons[tabIndex].ToIconString();
-        ImGui.PushFont(UiBuilder.IconFont);
-        var iconSz = ImGui.CalcTextSize(iconStr);
-        ImGui.PopFont();
-
-        var textColor = isActive ? new Vector4(1f, 1f, 1f, 1f) : hovered ? new Vector4(0.9f, 0.85f, 1f, 1f) : new Vector4(0.7f, 0.65f, 0.8f, 1f);
-        var textColorU32 = ImGui.GetColorU32(textColor);
-
-        float startX = p.X + paddingX * ImGuiHelpers.GlobalScale;
-
-        ImGui.PushFont(UiBuilder.IconFont);
-        dl2.AddText(new Vector2(startX, p.Y + (scaledBtnH - iconSz.Y) / 2f), textColorU32, iconStr);
-        ImGui.PopFont();
-
-        dl2.AddText(new Vector2(startX + iconSz.X + iconTextGap * ImGuiHelpers.GlobalScale, p.Y + (scaledBtnH - iconSz.Y) / 2f), textColorU32, Loc.Get(SettingsLabelKeys[tabIndex]));
-
-        if (hovered) ImGui.SetMouseCursor(ImGuiMouseCursor.Hand);
-        if (clicked) _activeSettingsTab = tabIndex;
+        var min = ImGui.GetCursorScreenPos();
+        var dl = ImGui.GetWindowDrawList();
+        dl.AddRectFilled(min, min + size, ImGui.GetColorU32(color with { W = 0.14f }), height / 2f);
+        dl.AddRect(min, min + size, ImGui.GetColorU32(color with { W = 0.45f }), height / 2f, ImDrawFlags.None, scale);
+        using (ImRaii.PushFont(UiBuilder.IconFont))
+            dl.AddText(min + new Vector2(pad.X, (height - iconSize.Y) / 2f), ImGui.GetColorU32(color), iconText);
+        dl.AddText(min + new Vector2(pad.X + iconSize.X + gap, (height - labelSize.Y) / 2f), ImGui.GetColorU32(color), label);
+        ImGui.Dummy(size);
+        if (suppressed && enabled)
+            UiSharedService.AttachToolTip(Loc.Get("Settings.AutoDetect.SuppressedTooltip"));
     }
 
-    private void DrawSettingsSidebarIndicator(ImDrawListPtr drawList)
+    private static void DrawSettingsSubgroupLabel(FontAwesomeIcon icon, string title)
     {
-        if (!_settingsSidebarRects.TryGetValue(_activeSettingsTab, out var rect))
-            return;
-
-        var windowPos = ImGui.GetWindowPos();
-        var targetPos = rect.Min;
-        var targetSize = rect.Max - rect.Min;
-
-        if (!_settingsSidebarIndicatorInit || _settingsSidebarWindowPos != windowPos)
-        {
-            _settingsSidebarIndicatorPos = targetPos;
-            _settingsSidebarIndicatorSize = targetSize;
-            _settingsSidebarIndicatorInit = true;
-            _settingsSidebarWindowPos = windowPos;
-        }
-        else
-        {
-            float dt = ImGui.GetIO().DeltaTime;
-            float lerpT = 1f - MathF.Exp(-SettingsSidebarAnimSpeed * dt);
-            _settingsSidebarIndicatorPos = Vector2.Lerp(_settingsSidebarIndicatorPos, targetPos, lerpT);
-            _settingsSidebarIndicatorSize = Vector2.Lerp(_settingsSidebarIndicatorSize, targetSize, lerpT);
-        }
-
-        float padding = 2f * ImGuiHelpers.GlobalScale;
-        var min = _settingsSidebarIndicatorPos - new Vector2(padding);
-        var max = _settingsSidebarIndicatorPos + _settingsSidebarIndicatorSize + new Vector2(padding);
-        float rounding = 6f * ImGuiHelpers.GlobalScale;
-        var indicatorColor = _activeSettingsTab == 7
-            ? new Vector4(0f, 0.2f, 0.6f, 1f) // EU Pantone blue #003399 for Privacy tab
-            : UiSharedService.AccentColor;
-        drawList.AddRectFilled(min, max, ImGui.GetColorU32(indicatorColor), rounding);
+        ImGuiHelpers.ScaledDummy(2f);
+        using (ImRaii.PushFont(UiBuilder.IconFont))
+            ImGui.TextColored(UiSharedService.ThemeTextAccent, icon.ToIconString());
+        ImGui.SameLine(0f, 6f * ImGuiHelpers.GlobalScale);
+        UiSharedService.ColorText(title.ToUpper(Loc.CurrentCulture), UiSharedService.ThemeTextAccent);
     }
 
     private void DrawAutoDetect()
@@ -4181,13 +4191,16 @@ public class SettingsUi : WindowMediatorSubscriberBase
         _lastTab = "AutoDetect";
         DrawSectionHeader(4);
 
-
+        UiSharedService.BeginSectionCard(Loc.Get("Settings.AutoDetect.Discovery.Title"), FontAwesomeIcon.BroadcastTower);
         bool isAutoDetectSuppressed = _autoDetectSuppressionService.IsSuppressed;
         bool enableDiscovery = _configService.Current.EnableAutoDetectDiscovery;
 
+        DrawAutoDetectStatus(enableDiscovery, isAutoDetectSuppressed);
+        ImGuiHelpers.ScaledDummy(4f);
+
         using (ImRaii.Disabled(isAutoDetectSuppressed))
         {
-            if (ImGui.Checkbox(Loc.Get("Settings.AutoDetect.Enable"), ref enableDiscovery))
+            if (ToggleSwitch.Draw(Loc.Get("Settings.AutoDetect.Enable"), ref enableDiscovery))
             {
                 _configService.Current.EnableAutoDetectDiscovery = enableDiscovery;
                 _configService.Save();
@@ -4217,8 +4230,31 @@ public class SettingsUi : WindowMediatorSubscriberBase
         // Tout le reste est grisé quand AutoDetect est OFF
         using (ImRaii.Disabled(isAutoDetectSuppressed || !enableDiscovery))
         {
+            DrawSettingsSubgroupLabel(FontAwesomeIcon.Eye, Loc.Get("Settings.AutoDetect.Group.Visibility"));
+            var subgroupIndent = 14f * ImGuiHelpers.GlobalScale;
+            ImGui.Indent(subgroupIndent);
+            bool publishWhenAfk = _configService.Current.AutoDetectPublishWhenAfk;
+            if (ToggleSwitch.Draw(Loc.Get("Settings.AutoDetect.PublishWhenAfk"), ref publishWhenAfk))
+            {
+                _configService.Current.AutoDetectPublishWhenAfk = publishWhenAfk;
+                _configService.Save();
+            }
+            _uiShared.DrawHelpText(Loc.Get("Settings.AutoDetect.PublishWhenAfkHelp"));
+
+            bool publishWhenNotRoleplaying = _configService.Current.AutoDetectPublishWhenNotRoleplaying;
+            if (ToggleSwitch.Draw(Loc.Get("Settings.AutoDetect.PublishWhenNotRoleplaying"), ref publishWhenNotRoleplaying))
+            {
+                _configService.Current.AutoDetectPublishWhenNotRoleplaying = publishWhenNotRoleplaying;
+                _configService.Save();
+            }
+            _uiShared.DrawHelpText(Loc.Get("Settings.AutoDetect.PublishWhenNotRoleplayingHelp"));
+            ImGui.Unindent(subgroupIndent);
+
+            ImGuiHelpers.ScaledDummy(4f);
+            DrawSettingsSubgroupLabel(FontAwesomeIcon.Envelope, Loc.Get("Settings.AutoDetect.Group.Invites"));
+            ImGui.Indent(subgroupIndent);
             bool allowRequests = _configService.Current.AllowAutoDetectPairRequests;
-            if (ImGui.Checkbox(Loc.Get("Settings.AutoDetect.AllowInvites"), ref allowRequests))
+            if (ToggleSwitch.Draw(Loc.Get("Settings.AutoDetect.AllowInvites"), ref allowRequests))
             {
                 _configService.Current.AllowAutoDetectPairRequests = allowRequests;
                 _configService.Save();
@@ -4238,11 +4274,12 @@ public class SettingsUi : WindowMediatorSubscriberBase
                 UiSharedService.AttachToolTip(Loc.Get("Settings.AutoDetect.SuppressedTooltip"));
             }
 
-            // Interactive popup for pair requests
+            // La popup n'a de sens que si les invitations sont acceptées : sous-option en retrait.
             using (ImRaii.Disabled(!_configService.Current.AllowAutoDetectPairRequests))
+            using (ImRaii.PushIndent(18f * ImGuiHelpers.GlobalScale, false))
             {
                 bool useInteractivePopup = _configService.Current.UseInteractivePairRequestPopup;
-                if (ImGui.Checkbox(Loc.Get("Settings.AutoDetect.UseInteractivePopup"), ref useInteractivePopup))
+                if (ToggleSwitch.Draw(Loc.Get("Settings.AutoDetect.UseInteractivePopup"), ref useInteractivePopup))
                 {
                     _configService.Current.UseInteractivePairRequestPopup = useInteractivePopup;
                     _configService.Save();
@@ -4250,13 +4287,18 @@ public class SettingsUi : WindowMediatorSubscriberBase
                 _uiShared.DrawHelpText(Loc.Get("Settings.AutoDetect.UseInteractivePopupHelp"));
             }
 
-            ImGuiHelpers.ScaledDummy(5f);
-            ImGui.Separator();
-            ImGuiHelpers.ScaledDummy(3f);
+            bool allowUidRequests = _configService.Current.AllowUidPairRequests;
+            if (ToggleSwitch.Draw(Loc.Get("Settings.AutoDetect.AllowUidInvites"), ref allowUidRequests))
+            {
+                _configService.Current.AllowUidPairRequests = allowUidRequests;
+                _configService.Save();
+                _ = PushUidRequestsSettingAsync(allowUidRequests);
+            }
+            _uiShared.DrawHelpText(Loc.Get("Settings.AutoDetect.AllowUidInvitesHelp"));
+            ImGui.Unindent(subgroupIndent);
 
             // --- Section Anti-spam ---
-            ImGui.TextColored(ImGuiColors.DalamudOrange, Loc.Get("Settings.AutoDetect.AntiSpam.Header"));
-            ImGuiHelpers.ScaledDummy(3f);
+            UiSharedService.BeginSectionCard(Loc.Get("Settings.AutoDetect.AntiSpam.Header"), FontAwesomeIcon.ShieldAlt);
 
             using (ImRaii.Disabled(!_configService.Current.AllowAutoDetectPairRequests))
             {
@@ -4271,7 +4313,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
             if (selectedIndex < 0) selectedIndex = 3; // fallback 10 min
 
             ImGui.SetNextItemWidth(120 * ImGuiHelpers.GlobalScale);
-            if (ImGui.Combo(Loc.Get("Settings.AutoDetect.DeclineCooldown"), ref selectedIndex, cooldownLabels, cooldownLabels.Length))
+            if (UiSharedService.Combo(Loc.Get("Settings.AutoDetect.DeclineCooldown"), ref selectedIndex, cooldownLabels, cooldownLabels.Length))
             {
                 _configService.Current.AutoDetectDeclineCooldownMinutes = cooldownOptions[selectedIndex];
                 _configService.Save();
@@ -4317,16 +4359,51 @@ public class SettingsUi : WindowMediatorSubscriberBase
 
         } // fin du using Disabled(!enableDiscovery)
 
-        ImGuiHelpers.ScaledDummy(5f);
-        ImGui.Separator();
-        ImGuiHelpers.ScaledDummy(3f);
+        UiSharedService.BeginSectionCard(Loc.Get("Settings.AutoDetect.Slots.Title"), FontAwesomeIcon.MapMarkerAlt);
         var enableSlotNotifications = _configService.Current.EnableSlotNotifications;
-        if (ImGui.Checkbox(Loc.Get("Settings.AutoDetect.EnableSlotNotifications"), ref enableSlotNotifications))
+        if (ToggleSwitch.Draw(Loc.Get("Settings.AutoDetect.EnableSlotNotifications"), ref enableSlotNotifications))
         {
             _configService.Current.EnableSlotNotifications = enableSlotNotifications;
             _configService.Save();
         }
         _uiShared.DrawHelpText(Loc.Get("Settings.AutoDetect.EnableSlotNotificationsHelp"));
+
+        var enableEstablishmentProximity = _establishmentConfigService.Current.EnableProximityNotifications;
+        if (ToggleSwitch.Draw(Loc.Get("Settings.AutoDetect.EnableEstablishmentProximity"), ref enableEstablishmentProximity))
+        {
+            _establishmentConfigService.Current.EnableProximityNotifications = enableEstablishmentProximity;
+            _establishmentConfigService.Save();
+        }
+        _uiShared.DrawHelpText(Loc.Get("Settings.AutoDetect.EnableEstablishmentProximityHelp"));
+
+        var establishmentConfig = _establishmentConfigService.Current;
+        var enableEventReminders = establishmentConfig.EnableEventReminders;
+        if (ToggleSwitch.Draw(Loc.Get("Settings.Establishment.EventReminders"), ref enableEventReminders))
+        {
+            establishmentConfig.EnableEventReminders = enableEventReminders;
+            _establishmentConfigService.Save();
+        }
+        _uiShared.DrawHelpText(Loc.Get("Settings.Establishment.EventRemindersHelp"));
+
+        using (ImRaii.Disabled(!enableEventReminders))
+        using (ImRaii.PushIndent(20f * ImGuiHelpers.GlobalScale, false))
+        {
+            var minutesBefore = establishmentConfig.EventReminderMinutesBefore;
+            ImGui.SetNextItemWidth(160f * ImGuiHelpers.GlobalScale);
+            if (ImGui.SliderInt(Loc.Get("Settings.Establishment.ReminderMinutes"), ref minutesBefore, 0, 60, "%d min"))
+            {
+                establishmentConfig.EventReminderMinutesBefore = Math.Clamp(minutesBefore, 0, 60);
+                _establishmentConfigService.Save();
+            }
+            _uiShared.DrawHelpText(Loc.Get("Settings.Establishment.ReminderMinutesHelp"));
+
+            var notifyOnStart = establishmentConfig.NotifyOnEventStart;
+            if (ToggleSwitch.Draw(Loc.Get("Settings.Establishment.NotifyOnStart"), ref notifyOnStart))
+            {
+                establishmentConfig.NotifyOnEventStart = notifyOnStart;
+                _establishmentConfigService.Save();
+            }
+        }
 
         if (isAutoDetectSuppressed)
         {
@@ -4340,7 +4417,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
         string previewText = styleIndex == 0 ? DtrDefaultPreviewText : DtrEntry.RenderDtrStyle(styleIndex, "123");
 
         ImGui.SetNextItemWidth(MathF.Min(250 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X - 200 * ImGuiHelpers.GlobalScale));
-        bool comboOpen = ImGui.BeginCombo("Server Info Bar style", previewText);
+        bool comboOpen = UiSharedService.BeginCombo("Server Info Bar style", previewText);
 
         if (comboOpen)
         {
@@ -4361,7 +4438,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
 
             }
 
-            ImGui.EndCombo();
+            UiSharedService.EndCombo();
         }
 
     }
@@ -4384,7 +4461,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
         var typingIndicatorPartyList = _configService.Current.TypingIndicatorShowOnPartyList;
         var typingShowSelf = _configService.Current.TypingIndicatorShowSelf;
 
-        if (ImGui.Checkbox(Loc.Get("Settings.Typing.EnableSystem"), ref typingEnabled))
+        if (ToggleSwitch.Draw(Loc.Get("Settings.Typing.EnableSystem"), ref typingEnabled))
         {
             _configService.Current.TypingIndicatorEnabled = typingEnabled;
             _configService.Save();
@@ -4394,7 +4471,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
 
         using (ImRaii.Disabled(!typingEnabled))
         {
-            if (ImGui.Checkbox(Loc.Get("Settings.Typing.ShowOnNameplates"), ref typingIndicatorNameplates))
+            if (ToggleSwitch.Draw(Loc.Get("Settings.Typing.ShowOnNameplates"), ref typingIndicatorNameplates))
             {
                 _configService.Current.TypingIndicatorShowOnNameplates = typingIndicatorNameplates;
                 _configService.Save();
@@ -4424,14 +4501,14 @@ public class SettingsUi : WindowMediatorSubscriberBase
                     _configService.Save();
                 }
 
-                if (ImGui.Checkbox(Loc.Get("Settings.Typing.LogPartyList"), ref typingIndicatorPartyList))
+                if (ToggleSwitch.Draw(Loc.Get("Settings.Typing.LogPartyList"), ref typingIndicatorPartyList))
                 {
                     _configService.Current.TypingIndicatorShowOnPartyList = typingIndicatorPartyList;
                     _configService.Save();
                 }
                 _uiShared.DrawHelpText(Loc.Get("Settings.Typing.LogPartyListHelp"));
 
-                if (ImGui.Checkbox(Loc.Get("Settings.Typing.ShowSelf"), ref typingShowSelf))
+                if (ToggleSwitch.Draw(Loc.Get("Settings.Typing.ShowSelf"), ref typingShowSelf))
                 {
                     _configService.Current.TypingIndicatorShowSelf = typingShowSelf;
                     _configService.Save();

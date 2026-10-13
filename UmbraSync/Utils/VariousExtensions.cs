@@ -11,6 +11,11 @@ namespace UmbraSync.Utils;
 
 public static class VariousExtensions
 {
+    public static void DisposeResultWhenCompleted<T>(this Task<T>? task) where T : IDisposable?
+    {
+        _ = task?.ContinueWith(static t => { if (t.IsCompletedSuccessfully) t.Result?.Dispose(); }, TaskScheduler.Default);
+    }
+
     public static string ToByteString(this int bytes, bool addSuffix = true)
     {
         string[] suffix = ["B", "KiB", "MiB", "GiB", "TiB"];

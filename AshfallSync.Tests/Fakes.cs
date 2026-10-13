@@ -15,9 +15,14 @@ internal sealed class FakeCachedFile : ICachedFile
 internal sealed class FakeFileCache : IFileCacheLookup
 {
     private readonly Dictionary<string, FakeCachedFile> _files = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, FakeCachedFile> _substFiles = new(StringComparer.Ordinal);
     private readonly HashSet<string> _missingOnDisk = new(StringComparer.Ordinal);
+    private int _failingLookups;
 
     public int FlushCount { get; private set; }
+
+    /// <summary>Nombre de prochains appels à GetByHash qui lèvent (index modifié en parallèle).</summary>
+    public int FailingLookups { set => _failingLookups = value; }
     public List<string> Removed { get; } = [];
 
     public FakeFileCache With(string hash, string path = "", bool existsOnDisk = true)
@@ -28,8 +33,21 @@ internal sealed class FakeFileCache : IFileCacheLookup
         return this;
     }
 
+    public FakeFileCache WithSubst(string hash, string path)
+    {
+        _substFiles[hash] = new FakeCachedFile { Hash = hash, PrefixedFilePath = $"{{subst}}/{hash}", ResolvedFilepath = path };
+        return this;
+    }
+
     public ICachedFile? GetByHash(string hash, bool preferSubst = false)
-        => _files.TryGetValue(hash, out var f) ? f : null;
+    {
+        if (Interlocked.Decrement(ref _failingLookups) >= 0)
+            throw new InvalidOperationException("Collection was modified");
+
+        if (preferSubst && _substFiles.TryGetValue(hash, out var subst))
+            return subst;
+        return _files.TryGetValue(hash, out var f) ? f : null;
+    }
 
     public ICachedFile MigrateToExtension(ICachedFile cachedFile, string extension)
     {

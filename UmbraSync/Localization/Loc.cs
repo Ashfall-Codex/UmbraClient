@@ -34,6 +34,7 @@ public static class Loc
 
     public static IReadOnlyList<KeyValuePair<string, string>> AvailableLanguages => LanguageOptions;
     public static string CurrentLanguage => _currentCulture.Name;
+    public static CultureInfo CurrentCulture => _currentCulture;
 
     public static void Initialize(string? preferredLanguage)
     {

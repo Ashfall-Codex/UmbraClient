@@ -80,11 +80,11 @@ public sealed class HonorificEditor
         ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X);
         ImGui.InputTextWithHint("##honorificTitle", Loc.Get("EditProfile.Honorific.TitleHint"), ref _title, 100);
 
-        ImGui.Checkbox(Loc.Get("EditProfile.Honorific.IsPrefix"), ref _isPrefix);
+        ToggleSwitch.Draw(Loc.Get("EditProfile.Honorific.IsPrefix"), ref _isPrefix);
         ImGui.SameLine();
         ImGuiHelpers.ScaledDummy(12f, 0);
         ImGui.SameLine();
-        ImGui.Checkbox(Loc.Get("EditProfile.Honorific.CustomColor"), ref _hasColor);
+        ToggleSwitch.Draw(Loc.Get("EditProfile.Honorific.CustomColor"), ref _hasColor);
         UiSharedService.AttachToolTip(Loc.Get("EditProfile.Honorific.CustomColorTip"));
         if (_hasColor)
         {
@@ -101,7 +101,7 @@ public sealed class HonorificEditor
         ImGui.SameLine();
         ImGuiHelpers.ScaledDummy(12f, 0);
         ImGui.SameLine();
-        ImGui.Checkbox(Loc.Get("EditProfile.Honorific.Glow"), ref _hasGlow);
+        ToggleSwitch.Draw(Loc.Get("EditProfile.Honorific.Glow"), ref _hasGlow);
         if (_hasGlow)
         {
             ImGui.SameLine();
@@ -300,7 +300,7 @@ public sealed class HonorificEditor
 
             var b64 = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(profile.HonorificBackupJson));
             await _ipcManager.Honorific.SetTitleAsync(ptr, b64).ConfigureAwait(false);
-            _logger.LogInformation("Restored Honorific title from backup for {char}@{world}", charName, worldId);
+            _logger.LogInformation("Restored Honorific title from backup for the current character");
             _restoreAttempted = true;
         }
         catch (Exception ex)
@@ -316,7 +316,7 @@ public sealed class HonorificEditor
         {
             if (!string.IsNullOrEmpty(profile.HonorificBackupJson))
             {
-                _logger.LogInformation("Clearing Honorific backup for {char}@{world}", charName, worldId);
+                _logger.LogInformation("Clearing Honorific backup for the current character");
                 profile.HonorificBackupJson = string.Empty;
                 profile.HonorificBackupTimestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
                 _rpConfigService.Save();

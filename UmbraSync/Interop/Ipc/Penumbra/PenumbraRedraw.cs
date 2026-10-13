@@ -3,7 +3,7 @@ using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
 using UmbraSync.PlayerData.Handlers;
 using UmbraSync.Services.Mediator;
-using PenumbraApi = global::Penumbra.Api.Helpers;
+using PenumbraApi = global::Luna;
 using PenumbraEnum = global::Penumbra.Api.Enums;
 using PenumbraIpc = global::Penumbra.Api.IpcSubscribers;
 
@@ -34,9 +34,14 @@ public sealed class PenumbraRedraw : IDisposable
     }
 
 
-    public async Task RedrawAsync(ILogger logger, GameObjectHandler handler, Guid applicationId, CancellationToken token)
+    public async Task RedrawAsync(ILogger logger, GameObjectHandler handler, Guid applicationId, CancellationToken token, Func<bool>? skipIfRedrawn = null)
     {
-        if (!_core.APIAvailable || _core.DalamudUtil.IsZoning) return;
+        if (!_core.APIAvailable) return;
+        if (_core.DalamudUtil.IsZoning)
+        {
+            logger.LogWarning("[{appid}] Redraw Penumbra écarté : joueur entre deux zones", applicationId);
+            return;
+        }
 
         var semaphoreAcquired = false;
         try
@@ -46,6 +51,7 @@ public sealed class PenumbraRedraw : IDisposable
 
             await _core.RedrawManager.PenumbraRedrawInternalAsync(logger, handler, applicationId, (chara) =>
             {
+                if (skipIfRedrawn?.Invoke() == true) return;
                 logger.LogDebug("[{appid}] Calling on IPC: PenumbraRedraw", applicationId);
                 _penumbraRedraw.Invoke(chara.ObjectIndex, setting: PenumbraEnum.RedrawType.Redraw);
 

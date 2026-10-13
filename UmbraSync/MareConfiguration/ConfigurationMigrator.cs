@@ -1,13 +1,16 @@
 ﻿using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using System.Text.Json;
+using UmbraSync.MareConfiguration.Configurations;
+using UmbraSync.UI;
 
 namespace UmbraSync.MareConfiguration;
 
-public class ConfigurationMigrator(ILogger<ConfigurationMigrator> logger, MareConfigService mareConfig) : IHostedService
+public class ConfigurationMigrator(ILogger<ConfigurationMigrator> logger, MareConfigService mareConfig, SyncshellConfigService syncshellConfig) : IHostedService
 {
     private readonly ILogger<ConfigurationMigrator> _logger = logger;
     private readonly MareConfigService _mareConfig = mareConfig;
+    private readonly SyncshellConfigService _syncshellConfig = syncshellConfig;
 
     public void Migrate()
     {
@@ -65,6 +68,18 @@ public class ConfigurationMigrator(ILogger<ConfigurationMigrator> logger, MareCo
                 _mareConfig.Current.MaxConcurrentPairApplications = 1;
                 changed = true;
             }
+            
+            if (!root.TryGetProperty("UiGlass", out _))
+            {
+                var config = _mareConfig.Current;
+                config.UiGlass = config.UiReduceTransparency
+                    ? 1f
+                    : root.TryGetProperty("UiOpacity", out _) && Math.Abs(config.UiOpacity - 0.88f) > 0.001f
+                        ? UiSharedService.GlassFromOpacity(config.UiOpacity)
+                        : MareConfig.DefaultGlass;
+                config.UiReduceTransparency = false;
+                changed = true;
+            }
 
             if (changed)
             {
@@ -75,6 +90,29 @@ public class ConfigurationMigrator(ILogger<ConfigurationMigrator> logger, MareCo
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Configuration migration failed");
+        }
+
+        MigrateSyncshellConfig();
+    }
+
+    private void MigrateSyncshellConfig()
+    {
+        try
+        {
+            var path = _syncshellConfig.ConfigurationPath;
+            if (!File.Exists(path)) return;
+
+            using var doc = JsonDocument.Parse(File.ReadAllText(path));
+            if (doc.RootElement.TryGetProperty("GroupCollectionOverrides", out _)
+                || doc.RootElement.TryGetProperty("EnableCollectionOverrides", out _))
+            {
+                _logger.LogInformation("Removed syncshell collection overrides from config");
+                _syncshellConfig.Save();
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Syncshell configuration migration failed");
         }
     }
 

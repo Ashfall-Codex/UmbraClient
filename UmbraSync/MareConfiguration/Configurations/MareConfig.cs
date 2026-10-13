@@ -14,13 +14,7 @@ public class MareConfig : IMareConfiguration
     public bool AcceptedAgreement { get; set; }
     public string CacheFolder { get; set; } = string.Empty;
     public bool DisableOptionalPluginWarnings { get; set; }
-
-    /// <summary>
-    /// Autorise les autres plugins Ashfall installés sur cette machine à lire le profil RP
-    /// d'une paire visible, et à présenter eux-mêmes la fiche. L'échange ne quitte pas le
-    /// poste et ne dévoile rien qu'UmbraSync ne montre déjà à cette paire.
-    /// </summary>
-    public bool ShareRpProfileWithPlugins { get; set; } = true;
+    public bool ShareRpProfileWithPlugins { get; set; }
     public bool EnableDtrEntry { get; set; } = true;
     public int DtrStyle { get; set; }
     public bool ShowUidInDtrTooltip { get; set; } = true;
@@ -93,6 +87,9 @@ public class MareConfig : IMareConfiguration
     public bool ProfilesAllowNsfw { get; set; }
     public bool ProfilesAllowRpNsfw { get; set; }
     public bool ProfilesShow { get; set; }
+    public bool ShowRpIdentityInPairList { get; set; } = true;
+    public bool ShowTargetProfileTooltip { get; set; } = true;
+    public bool HideTargetProfileTooltipInDuty { get; set; } = true;
     public bool ShowCharacterNames { get; set; } = true;
     public bool ShowOfflineUsersSeparately { get; set; } = true;
     public bool ShowSyncshellOfflineUsersSeparately { get; set; } = true;
@@ -106,7 +103,14 @@ public class MareConfig : IMareConfiguration
     public bool ShowUploadingBigText { get; set; } = true;
     public bool ShowVisibleUsersSeparately { get; set; } = true;
     public string UiLanguage { get; set; } = "fr";
+    public float UiOpacity { get; set; } = 0.88f;
+    public const float DefaultGlass = 0.5f;
+    public float UiGlass { get; set; } = DefaultGlass;
+    public bool UiReduceTransparency { get; set; }
+    public bool UiClearGlassInGpose { get; set; }
     public string LastChangelogVersionSeen { get; set; } = string.Empty;
+    // Version (major.minor) du dernier tour de nouveautés terminé ou ignoré ; vide tant qu'aucun n'a été vu.
+    public string WhatsNewTourSeen { get; set; } = string.Empty;
     public string LastTestBuildWarningVersionSeen { get; set; } = string.Empty;
     public Dictionary<string, string> LastSeenExternalPluginVersions { get; set; } = new(StringComparer.Ordinal);
     public HashSet<string> KnownDelegatedScenarios { get; set; } = new(StringComparer.Ordinal);
@@ -118,12 +122,18 @@ public class MareConfig : IMareConfiguration
     public string? ArrScenariosPathOverride { get; set; }
     public Dictionary<string, SyncOverrideEntry> PairSyncOverrides { get; set; } = new(StringComparer.Ordinal);
     public Dictionary<string, SyncOverrideEntry> GroupSyncOverrides { get; set; } = new(StringComparer.Ordinal);
-    public bool EnableAutoDetectDiscovery { get; set; } = true;
-    public bool AllowAutoDetectPairRequests { get; set; } = true;
+    public bool EnableAutoDetectDiscovery { get; set; }
+    public bool AllowAutoDetectPairRequests { get; set; }
+    public bool AutoDetectPublishWhenAfk { get; set; } = true;
+    public bool AutoDetectPublishWhenNotRoleplaying { get; set; } = true;
     public const int AutoDetectFixedMaxDistanceMeters = 50;
     public int AutoDetectMaxDistanceMeters { get; set; } = AutoDetectFixedMaxDistanceMeters;
     public int AutoDetectDeclineCooldownMinutes { get; set; } = 15;
     public List<string> AutoDetectBlockedUids { get; set; } = [];
+    public bool AutoDetectBlocksSyncedToServer { get; set; }
+    // Déblocages pas encore confirmés par le serveur : rejoués au connect, jamais réimportés depuis la liste serveur
+    public List<string> AutoDetectPendingServerUnblocks { get; set; } = [];
+    public bool AllowUidPairRequests { get; set; } = true;
     public bool UseInteractivePairRequestPopup { get; set; } = true;
     public bool AutoFetchMcdfOnConnect { get; set; } = false;
     public bool EnableNetworkDiagnosticLog { get; set; } = false;
@@ -140,7 +150,7 @@ public class MareConfig : IMareConfiguration
     public NotificationLocation WarningNotification { get; set; } = NotificationLocation.Both;
     public bool TypingIndicatorShowOnNameplates { get; set; } = true;
     public bool TypingIndicatorShowOnPartyList { get; set; } = true;
-    public bool TypingIndicatorEnabled { get; set; } = true;
+    public bool TypingIndicatorEnabled { get; set; }
     public bool TypingIndicatorShowSelf { get; set; } = true;
     public TypingIndicatorBubbleSize TypingIndicatorBubbleSize { get; set; } = TypingIndicatorBubbleSize.Large;
     public bool TypingIndicatorOnlyWhenNameplateVisible { get; set; } = true;
@@ -149,9 +159,10 @@ public class MareConfig : IMareConfiguration
     public float TypingIndicatorPartyOpacity { get; set; } = 0.9f;
     public bool UmbraAPI { get; set; } = true;
     public bool ExperimentalExternalSyncReclaim { get; set; } = false;
-    public bool EnableSlotNotifications { get; set; } = true;
+    public bool EnableSlotNotifications { get; set; }
     public float DefaultSlotRadius { get; set; } = 10f;
-    public const int ExpectedRgpdVersion = 2;
+    public const int ExpectedRgpdVersion = 3;
+    public const string CurrentWhatsNewTourVersion = "3.1";
     public bool RgpdConsentGiven { get; set; }
     public DateTime? RgpdConsentDate { get; set; }
     public int AcceptedRgpdVersion { get; set; }

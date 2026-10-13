@@ -14,36 +14,60 @@ public class OnlinePlayerManager : DisposableMediatorSubscriberBase
     private readonly DalamudUtilService _dalamudUtil;
     private readonly FileUploadManager _fileTransferManager;
     private readonly PairManager _pairManager;
-    private readonly CollectionOverrideResolver _collectionOverrideResolver;
+    private readonly Lock _stateLock = new();
     private CharacterData? _lastCreatedData;
-    private CharacterData? _uploadingCharacterData;
+    private long _dataGeneration;
     private readonly List<UserData> _previouslyVisiblePlayers = [];
     private readonly HashSet<UserData> _usersToPushDataTo = new(UserDataComparer.Instance);
     private readonly SemaphoreSlim _pushLock = new(1, 1);
-    private Task<CharacterData>? _fileUploadTask;
     private readonly CancellationTokenSource _runtimeCts = new();
-    private DateTime _lastUploadFailureUtc = DateTime.MinValue;
+    private int _pushRequested;
+    private int _consecutivePushFailures;
+    private DateTime _nextRetryUtc = DateTime.MinValue;
+    private DateTime _lastRebuildRequestUtc = DateTime.MinValue;
+    private bool _disposed;
     private static readonly TimeSpan UploadFailureCooldown = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan MissingFilesRetryDelay = TimeSpan.FromSeconds(2);
+    private static readonly TimeSpan MaxRetryDelay = TimeSpan.FromMinutes(2);
+    private static readonly TimeSpan RebuildRequestCooldown = TimeSpan.FromSeconds(30);
+    private const int MaxConsecutivePushFailures = 8;
+    // Au-delà de MaxConsecutivePushFailures : on ne lâche pas les destinataires, on espace simplement les essais
+    private static readonly TimeSpan SlowRetryDelay = TimeSpan.FromMinutes(5);
+    private readonly HashSet<string> _pendingReUploads = new(StringComparer.OrdinalIgnoreCase);
+    private int _reUploadScheduled;
+    private static readonly TimeSpan ReUploadDebounce = TimeSpan.FromSeconds(2);
+    private const int MaxReUploadHashes = 200;
 
     public OnlinePlayerManager(ILogger<OnlinePlayerManager> logger, ApiController apiController, DalamudUtilService dalamudUtil,
-        PairManager pairManager, MareMediator mediator, FileUploadManager fileTransferManager,
-        CollectionOverrideResolver collectionOverrideResolver) : base(logger, mediator)
+        PairManager pairManager, MareMediator mediator, FileUploadManager fileTransferManager) : base(logger, mediator)
     {
         _apiController = apiController;
         _dalamudUtil = dalamudUtil;
         _pairManager = pairManager;
         _fileTransferManager = fileTransferManager;
-        _collectionOverrideResolver = collectionOverrideResolver;
 
         Mediator.Subscribe<DelayedFrameworkUpdateMessage>(this, (_) => FrameworkOnUpdate());
         Mediator.Subscribe<CharacterDataCreatedMessage>(this, (msg) =>
         {
             var newData = msg.CharacterData;
-            if (_lastCreatedData == null || !string.Equals(newData.DataHash.Value, _lastCreatedData.DataHash.Value, StringComparison.Ordinal))
+            bool changed;
+            lock (_stateLock)
             {
-                _lastCreatedData = newData;
+                changed = _lastCreatedData == null || !string.Equals(newData.DataHash.Value, _lastCreatedData.DataHash.Value, StringComparison.Ordinal);
+                if (changed)
+                {
+                    _lastCreatedData = newData;
+                    _dataGeneration++;
+                    // Une nouvelle apparence sort du mode « relance lente » : on réessaie normalement
+                    if (_consecutivePushFailures > MaxConsecutivePushFailures)
+                        ResetRetryState();
+                }
+            }
+
+            if (changed)
+            {
                 Logger.LogTrace("Nouveau hash de données stocké: {hash}", newData.DataHash.Value);
-                PushToAllVisibleUsers(forced: true);
+                PushToAllVisibleUsers();
             }
             else
             {
@@ -51,46 +75,180 @@ public class OnlinePlayerManager : DisposableMediatorSubscriberBase
             }
         });
 
+        Mediator.Subscribe<FilesReUploadRequestedMessage>(this, (msg) => OnReUploadRequested(msg.Hashes));
         Mediator.Subscribe<PairOnlineMessage>(this, (msg) =>
         {
-            if (_lastCreatedData == null || !_apiController.IsConnected) return;
-            _usersToPushDataTo.Add(msg.User);
-            PushCharacterData(forced: true);
+            if (!_apiController.IsConnected) return;
+            lock (_stateLock)
+            {
+                if (_lastCreatedData == null) return;
+                _usersToPushDataTo.Add(msg.User);
+            }
+            PushCharacterData();
         });
-        Mediator.Subscribe<ConnectedMessage>(this, (_) => PushToAllVisibleUsers());
+        Mediator.Subscribe<ConnectedMessage>(this, (_) =>
+        {
+            lock (_stateLock)
+            {
+                ResetRetryState();
+            }
+            PushToAllVisibleUsers();
+        });
         Mediator.Subscribe<DisconnectedMessage>(this, (_) =>
         {
             _fileTransferManager.CancelUpload();
             _previouslyVisiblePlayers.Clear();
-            _usersToPushDataTo.Clear();
-            _uploadingCharacterData = null;
-            _fileUploadTask = null;
+            lock (_stateLock)
+            {
+                _usersToPushDataTo.Clear();
+                ResetRetryState();
+            }
         });
     }
 
     protected override void Dispose(bool disposing)
     {
-        if (disposing)
+        if (disposing && !_disposed)
         {
-            _runtimeCts.Cancel();
-            _runtimeCts.Dispose();
-            _pushLock.Dispose();
+            _disposed = true;
+            try
+            {
+                _runtimeCts.Cancel();
+                _runtimeCts.Dispose();
+            }
+            catch (Exception ex)
+            {
+                Logger.LogDebug(ex, "Erreur ignorée pendant le Dispose de OnlinePlayerManager");
+            }
+            // _pushLock n'est pas disposé : un push en vol peut encore le relâcher
         }
         base.Dispose(disposing);
     }
 
-    private void PushToAllVisibleUsers(bool forced = false)
+    // Le serveur signale des fichiers de notre apparence qu'il n'a plus : on les ré-uploade, sans
+    // re-push (le pair qui les attendait relance lui-même son téléchargement).
+    private void OnReUploadRequested(List<string> hashes)
     {
-        foreach (var user in GetVisibleUsers())
+        if (_disposed || hashes.Count == 0) return;
+
+        int added = 0;
+        lock (_stateLock)
         {
-            _usersToPushDataTo.Add(user);
+            if (_lastCreatedData == null) return;
+
+            // Jamais d'upload d'un fichier qui ne fait pas partie de notre apparence actuelle
+            Dictionary<string, string> current = new(StringComparer.OrdinalIgnoreCase);
+            foreach (var replacement in _lastCreatedData.FileReplacements.Values.SelectMany(v => v))
+            {
+                if (string.IsNullOrEmpty(replacement.FileSwapPath) && !string.IsNullOrEmpty(replacement.Hash))
+                    current.TryAdd(replacement.Hash, replacement.Hash);
+            }
+
+            foreach (var hash in hashes)
+            {
+                if (_pendingReUploads.Count >= MaxReUploadHashes) break;
+                if (current.TryGetValue(hash, out var ownHash) && _pendingReUploads.Add(ownHash))
+                    added++;
+            }
         }
 
-        if (_usersToPushDataTo.Count > 0)
+        Logger.LogDebug("Ré-upload demandé par le serveur : {added}/{requested} fichier(s) de l'apparence actuelle", added, hashes.Count);
+        if (added > 0)
+            ScheduleReUpload();
+    }
+
+    private void ScheduleReUpload()
+    {
+        if (Interlocked.Exchange(ref _reUploadScheduled, 1) == 1) return;
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                var token = _runtimeCts.Token;
+                await Task.Delay(ReUploadDebounce, token).ConfigureAwait(false);
+                await ReUploadPendingAsync(token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                // Arrêt du plugin ou déconnexion
+            }
+            catch (ObjectDisposedException)
+            {
+                // Arrêt du plugin
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "Erreur inattendue pendant le ré-upload demandé par le serveur");
+            }
+            finally
+            {
+                Interlocked.Exchange(ref _reUploadScheduled, 0);
+                bool more;
+                lock (_stateLock)
+                {
+                    more = _pendingReUploads.Count > 0;
+                }
+                if (more && !_disposed)
+                    ScheduleReUpload();
+            }
+        });
+    }
+
+    private async Task ReUploadPendingAsync(CancellationToken token)
+    {
+        if (!_apiController.IsConnected)
+        {
+            lock (_stateLock)
+            {
+                _pendingReUploads.Clear();
+            }
+            return;
+        }
+
+        // Jamais en même temps qu'un upload + push : ils partagent l'état de FileUploadManager
+        await _pushLock.WaitAsync(token).ConfigureAwait(false);
+        try
+        {
+            List<string> hashes;
+            lock (_stateLock)
+            {
+                hashes = [.. _pendingReUploads];
+                _pendingReUploads.Clear();
+            }
+            if (hashes.Count == 0) return;
+
+            var uploaded = await _fileTransferManager.ReUploadFiles(hashes, token).ConfigureAwait(false);
+            Logger.LogInformation("Ré-upload demandé par le serveur terminé : {uploaded}/{count} fichier(s) renvoyé(s)", uploaded, hashes.Count);
+        }
+        catch (FileUploadManager.MissingLocalUploadFilesException ex)
+        {
+            Logger.LogDebug("Ré-upload impossible pour {count} fichier(s) absents localement", ex.MissingHashes.Count);
+        }
+        finally
+        {
+            _pushLock.Release();
+        }
+    }
+
+    private void PushToAllVisibleUsers()
+    {
+        var visibleUsers = GetVisibleUsers();
+        int count;
+        lock (_stateLock)
+        {
+            foreach (var user in visibleUsers)
+            {
+                _usersToPushDataTo.Add(user);
+            }
+            count = _usersToPushDataTo.Count;
+        }
+
+        if (count > 0)
         {
             Logger.LogDebug("Push programmé pour {count} joueurs visibles (hash: {hash})",
-                _usersToPushDataTo.Count, _lastCreatedData?.DataHash.Value ?? "UNKNOWN");
-            PushCharacterData(forced);
+                count, _lastCreatedData?.DataHash.Value ?? "UNKNOWN");
+            PushCharacterData();
         }
     }
 
@@ -106,11 +264,20 @@ public class OnlinePlayerManager : DisposableMediatorSubscriberBase
 
         if (newVisibleUsers.Count == 0)
         {
-            if (_usersToPushDataTo.Count > 0 && _lastUploadFailureUtc > DateTime.MinValue
-                && DateTime.UtcNow - _lastUploadFailureUtc >= UploadFailureCooldown)
+            int pendingCount = 0;
+            lock (_stateLock)
             {
-                Logger.LogDebug("Nouvelle tentative de push après échec d'upload pour {count} joueurs", _usersToPushDataTo.Count);
-                PushCharacterData(forced: true);
+                if (_usersToPushDataTo.Count > 0 && _nextRetryUtc > DateTime.MinValue && DateTime.UtcNow >= _nextRetryUtc)
+                {
+                    pendingCount = _usersToPushDataTo.Count;
+                    _nextRetryUtc = DateTime.MinValue;
+                }
+            }
+
+            if (pendingCount > 0)
+            {
+                Logger.LogDebug("Nouvelle tentative de push après échec pour {count} joueurs", pendingCount);
+                PushCharacterData();
             }
             return;
         }
@@ -118,132 +285,222 @@ public class OnlinePlayerManager : DisposableMediatorSubscriberBase
         Logger.LogDebug("Nouveaux joueurs visibles détectés: {users}",
             string.Join(", ", newVisibleUsers.Select(k => k.AliasOrUID)));
 
-        foreach (var user in newVisibleUsers)
+        lock (_stateLock)
         {
-            _usersToPushDataTo.Add(user);
+            foreach (var user in newVisibleUsers)
+            {
+                _usersToPushDataTo.Add(user);
+            }
         }
         PushCharacterData();
     }
 
-    private void PushCharacterData(bool forced = false)
+    private void PushCharacterData()
     {
-        if (_lastCreatedData == null || _usersToPushDataTo.Count == 0) return;
-        _ = PushCharacterDataAsync(forced);
-    }
-
-    private async Task PushCharacterDataAsync(bool forced = false)
-    {
-        await _pushLock.WaitAsync(_runtimeCts.Token).ConfigureAwait(false);
-        try
+        if (_disposed) return;
+        lock (_stateLock)
         {
-            if (_lastCreatedData == null || _usersToPushDataTo.Count == 0)
-                return;
+            if (_lastCreatedData == null || _usersToPushDataTo.Count == 0) return;
+        }
 
-            // Cooldown après un échec d'upload pour éviter le spam serveur
-            if (_lastUploadFailureUtc > DateTime.MinValue)
-            {
-                var elapsed = DateTime.UtcNow - _lastUploadFailureUtc;
-                if (elapsed < UploadFailureCooldown)
-                {
-                    Logger.LogDebug("Upload en cooldown ({elapsed:F1}s / {cooldown}s), report du push",
-                        elapsed.TotalSeconds, UploadFailureCooldown.TotalSeconds);
-                    return;
-                }
-            }
+        // Un passage déjà en attente du verrou traitera aussi ces destinataires
+        if (Interlocked.Exchange(ref _pushRequested, 1) == 1) return;
 
-            var hashChanged = !string.Equals(_uploadingCharacterData?.DataHash.Value, _lastCreatedData.DataHash.Value, StringComparison.Ordinal);
-            forced |= hashChanged;
-
-            if (_fileUploadTask == null || _fileUploadTask.IsCompleted || forced)
-            {
-                _uploadingCharacterData = _lastCreatedData.DeepClone();
-                var uploadTargets = _usersToPushDataTo.ToList();
-
-                Logger.LogDebug("Démarrage upload (hash: {hash}). Raison: TaskNull={taskNull}, TaskCompleted={taskCpl}, Forced={forced}",
-                    _lastCreatedData.DataHash.Value,
-                    _fileUploadTask == null,
-                    _fileUploadTask?.IsCompleted ?? false,
-                    forced);
-
-                _fileUploadTask = _fileTransferManager.UploadFiles(_uploadingCharacterData, uploadTargets);
-            }
-
-            CharacterData dataToSend;
+        _ = Task.Run(async () =>
+        {
             try
             {
-                dataToSend = await _fileUploadTask.ConfigureAwait(false);
-                _lastUploadFailureUtc = DateTime.MinValue;
+                await PushCharacterDataAsync(_runtimeCts.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                Interlocked.Exchange(ref _pushRequested, 0);
+            }
+            catch (ObjectDisposedException)
+            {
+                Interlocked.Exchange(ref _pushRequested, 0);
             }
             catch (Exception ex)
             {
-                _lastUploadFailureUtc = DateTime.UtcNow;
-                Logger.LogWarning(ex, "Upload échoué, cooldown de {cooldown}s avant nouvelle tentative",
-                    UploadFailureCooldown.TotalSeconds);
-                return;
+                Interlocked.Exchange(ref _pushRequested, 0);
+                Logger.LogWarning(ex, "Erreur inattendue pendant le push des données");
             }
+        });
+    }
 
-            var users = _usersToPushDataTo.ToList();
-            if (users.Count == 0)
-                return;
-
-            // Séparer les utilisateurs par collection override
-            if (_collectionOverrideResolver.HasAnyCollectionOverride())
+    private async Task PushCharacterDataAsync(CancellationToken token)
+    {
+        await _pushLock.WaitAsync(token).ConfigureAwait(false);
+        Interlocked.Exchange(ref _pushRequested, 0);
+        try
+        {
+            // Boucle jusqu'à ce que chaque destinataire en attente ait reçu la dernière version construite
+            while (!token.IsCancellationRequested && _apiController.IsConnected)
             {
-                var (defaultUsers, overrideUsers) = _collectionOverrideResolver.SplitUsersByCollection(users);
-
-                // Envoi par défaut (collection courante)
-                if (defaultUsers.Count > 0)
+                CharacterData data;
+                long generation;
+                List<UserData> recipients;
+                lock (_stateLock)
                 {
-                    Logger.LogDebug("Push de {hash} (collection par défaut) vers {users}",
-                        dataToSend.DataHash.Value,
-                        string.Join(", ", defaultUsers.Select(k => k.AliasOrUID)));
-                    await _apiController.PushCharacterData(dataToSend, defaultUsers).ConfigureAwait(false);
+                    if (_lastCreatedData == null || _usersToPushDataTo.Count == 0)
+                        return;
+
+                    if (_nextRetryUtc > DateTime.MinValue && DateTime.UtcNow < _nextRetryUtc)
+                    {
+                        Logger.LogDebug("Push en attente après échec ({remaining:F1}s restantes)",
+                            (_nextRetryUtc - DateTime.UtcNow).TotalSeconds);
+                        return;
+                    }
+
+                    data = _lastCreatedData;
+                    generation = _dataGeneration;
+                    recipients = _usersToPushDataTo.ToList();
                 }
 
-                // Envoi par collection override
-                foreach (var (collectionId, collectionUsers) in overrideUsers)
-                {
-                    try
-                    {
-                        var alternativeData = await _collectionOverrideResolver.BuildAlternativeCharacterData(
-                            dataToSend, collectionId).ConfigureAwait(false);
-
-                        if (alternativeData != null)
-                        {
-                            Logger.LogDebug("Push de collection override {collId} vers {users}",
-                                collectionId,
-                                string.Join(", ", collectionUsers.Select(k => k.AliasOrUID)));
-                            await _apiController.PushCharacterData(alternativeData, collectionUsers).ConfigureAwait(false);
-                        }
-                        else
-                        {
-                            // Fallback: envoyer les données par défaut
-                            Logger.LogWarning("Fallback sur collection par défaut pour {collId}", collectionId);
-                            await _apiController.PushCharacterData(dataToSend, collectionUsers).ConfigureAwait(false);
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.LogWarning(ex, "Erreur lors du push avec collection override {collId}, fallback sur défaut", collectionId);
-                        await _apiController.PushCharacterData(dataToSend, collectionUsers).ConfigureAwait(false);
-                    }
-                }
+                if (!await UploadAndPushAsync(data, generation, recipients, token).ConfigureAwait(false))
+                    return;
             }
-            else
-            {
-                // Pas d'override: comportement standard
-                Logger.LogDebug("Push de {hash} vers {users}",
-                    dataToSend.DataHash.Value,
-                    string.Join(", ", users.Select(k => k.AliasOrUID)));
-                await _apiController.PushCharacterData(dataToSend, users).ConfigureAwait(false);
-            }
-
-            _usersToPushDataTo.Clear();
         }
         finally
         {
             _pushLock.Release();
         }
+    }
+
+    private async Task<bool> UploadAndPushAsync(CharacterData data, long generation, List<UserData> recipients, CancellationToken token)
+    {
+        CharacterData dataToSend;
+        try
+        {
+            Logger.LogDebug("Démarrage upload (hash: {hash}) pour {count} destinataires", data.DataHash.Value, recipients.Count);
+            dataToSend = await _fileTransferManager.UploadFiles(data.DeepClone(), recipients, token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            RegisterPushFailure(ex);
+            return false;
+        }
+
+        if (IsStale(generation))
+        {
+            Logger.LogDebug("Données modifiées pendant l'upload de {hash}, reprise avec la dernière version", data.DataHash.Value);
+            return true;
+        }
+
+        List<UserData> served = [];
+        Logger.LogDebug("Push de {hash} vers {users}",
+            dataToSend.DataHash.Value,
+            string.Join(", ", recipients.Select(k => k.AliasOrUID)));
+        bool allSucceeded = await PushToAsync(dataToSend, recipients, served, token).ConfigureAwait(false);
+
+        lock (_stateLock)
+        {
+            // Si une nouvelle version est arrivée pendant le push, tout le monde doit la recevoir
+            if (_dataGeneration == generation)
+            {
+                foreach (var user in served)
+                {
+                    _usersToPushDataTo.Remove(user);
+                }
+            }
+
+            if (allSucceeded)
+                ResetRetryState();
+        }
+
+        if (!allSucceeded)
+        {
+            RegisterPushFailure(null);
+            return false;
+        }
+
+        return true;
+    }
+
+    private async Task<bool> PushToAsync(CharacterData data, List<UserData> users, List<UserData> served, CancellationToken token)
+    {
+        if (!await _apiController.PushCharacterData(data, users, token).ConfigureAwait(false))
+            return false;
+
+        served.AddRange(users);
+        return true;
+    }
+
+    private bool IsStale(long generation)
+    {
+        lock (_stateLock)
+        {
+            return _dataGeneration != generation;
+        }
+    }
+
+    private void RegisterPushFailure(Exception? ex)
+    {
+        bool missingLocalFiles = ex is FileUploadManager.MissingLocalUploadFilesException;
+        bool requestRebuild = false;
+        bool slowMode = false;
+        bool enteringSlowMode = false;
+        int failures;
+        TimeSpan delay;
+        lock (_stateLock)
+        {
+            failures = ++_consecutivePushFailures;
+            if (failures > MaxConsecutivePushFailures)
+            {
+                // Les destinataires restent en attente : relance lente jusqu'au succès, à un changement de
+                // données ou à la déconnexion (qui vide la liste)
+                slowMode = true;
+                enteringSlowMode = failures == MaxConsecutivePushFailures + 1;
+                delay = SlowRetryDelay;
+                _nextRetryUtc = DateTime.UtcNow + delay;
+            }
+            else
+            {
+                var baseDelay = missingLocalFiles ? MissingFilesRetryDelay : UploadFailureCooldown;
+                delay = TimeSpan.FromTicks(Math.Min(MaxRetryDelay.Ticks, baseDelay.Ticks << Math.Min(failures - 1, 10)));
+                _nextRetryUtc = DateTime.UtcNow + delay;
+            }
+
+            if (missingLocalFiles && DateTime.UtcNow - _lastRebuildRequestUtc >= RebuildRequestCooldown)
+            {
+                _lastRebuildRequestUtc = DateTime.UtcNow;
+                requestRebuild = true;
+            }
+        }
+
+        if (slowMode)
+        {
+            if (enteringSlowMode)
+                Logger.LogWarning(ex, "Push en échec {count} fois de suite, nouvelle tentative toutes les {delay:F0} min", MaxConsecutivePushFailures, SlowRetryDelay.TotalMinutes);
+            else
+                Logger.LogDebug(ex, "Push toujours en échec ({failures} tentatives), prochaine dans {delay:F0} min", failures, SlowRetryDelay.TotalMinutes);
+        }
+        else if (missingLocalFiles)
+        {
+            Logger.LogWarning("Fichiers introuvables localement à l'upload ({count}), nouvelle tentative dans {delay:F0}s",
+                ((FileUploadManager.MissingLocalUploadFilesException)ex!).MissingHashes.Count, delay.TotalSeconds);
+        }
+        else
+        {
+            Logger.LogWarning(ex, "Upload ou push échoué ({failures}/{max}), nouvelle tentative dans {delay:F0}s",
+                failures, MaxConsecutivePushFailures, delay.TotalSeconds);
+        }
+
+        if (requestRebuild)
+        {
+            Logger.LogDebug("Reconstruction des données du joueur demandée suite à des fichiers manquants");
+            Mediator.Publish(new ForcePlayerCacheRecreationMessage());
+        }
+    }
+
+    private void ResetRetryState()
+    {
+        _consecutivePushFailures = 0;
+        _nextRetryUtc = DateTime.MinValue;
     }
 
     private List<UserData> GetVisibleUsers() => _pairManager.GetVisibleUsers();

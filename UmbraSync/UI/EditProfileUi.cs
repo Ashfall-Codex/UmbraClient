@@ -12,6 +12,7 @@ using Dalamud.Interface.Utility.Raii;
 using System.Numerics;
 using System.Text.RegularExpressions;
 using UmbraSync.API.Data;
+using UmbraSync.API.Data.Enum;
 using UmbraSync.API.Dto.User;
 using UmbraSync.Localization;
 using UmbraSync.MareConfiguration;
@@ -63,6 +64,13 @@ public class EditProfileUi : WindowMediatorSubscriberBase
     private byte[] _profileImage = [];
     private byte[] _rpProfileImage = [];
     private bool _showFileDialogError = false;
+    private byte[] _rpBannerImage = [];
+    private IDalamudTextureWrap? _rpBannerTexture;
+    private bool _showBannerError;
+    private bool _rpBannerDirty;
+    private volatile bool _bannerTextureStale;
+    private bool _cardPreviewOpen;
+    private volatile bool _previewRefreshPending;
     private bool _wasOpen;
     private bool _rpLoaded = false;
     private string _rpLoadedForKey = string.Empty;
@@ -73,6 +81,8 @@ public class EditProfileUi : WindowMediatorSubscriberBase
     private readonly ChatIconPicker _chatIconPicker;
     private byte _rpLevel;
     private byte _savedRpLevel;
+    private RpProfileVisibility _rpVisibility = RpProfileVisibility.PairsAndSyncshell;
+    private RpProfileVisibility _savedRpVisibility = RpProfileVisibility.PairsAndSyncshell;
     private DateTime _saveConfirmTime = DateTime.MinValue;
     private string _savedDescriptionText = string.Empty;
     private string _savedRpFirstNameText = string.Empty;
@@ -146,6 +156,9 @@ public class EditProfileUi : WindowMediatorSubscriberBase
                 _pfpTextureWrap = null;
                 _rpPfpTextureWrap?.Dispose();
                 _rpPfpTextureWrap = null;
+                _rpBannerTexture?.Dispose();
+                _rpBannerTexture = null;
+                _bannerTextureStale = true;
                 _rpLoaded = false;
                 _hrpLoaded = false;
             }
@@ -193,48 +206,136 @@ public class EditProfileUi : WindowMediatorSubscriberBase
         }
     }
 
+
+    private UmbraProfileData BuildPreviewProfileData()
+    {
+        var currentProfile = _rpConfigService.GetCurrentCharacterProfile();
+        var hrpImageBase64 = _profileImage.Length > 0 ? Convert.ToBase64String(_profileImage) : string.Empty;
+        return new UmbraProfileData(
+            IsFlagged: false,
+            IsNSFW: _apiController.IsProfileNsfw,
+            Base64ProfilePicture: hrpImageBase64,
+            Description: _descriptionText,
+            Base64RpProfilePicture: currentProfile.RpProfilePictureBase64,
+            RpDescription: _rpDescriptionText,
+            IsRpNSFW: currentProfile.IsRpNsfw,
+            RpFirstName: _rpFirstNameText,
+            RpLastName: _rpLastNameText,
+            RpTitle: _rpTitleText,
+            RpAge: _rpAgeText,
+            RpRace: _rpRaceText,
+            RpEthnicity: _rpEthnicityText,
+            RpHeight: _rpHeightText,
+            RpBuild: _rpBuildText,
+            RpResidence: _rpResidenceText,
+            RpOccupation: _rpOccupationText,
+            RpAffiliation: _rpAffiliationText,
+            RpAlignment: _rpAlignmentText,
+            RpAdditionalInfo: _rpAdditionalInfoText,
+            RpNameColor: UiSharedService.Vector4ToHex(new Vector4(_rpNameColorVec, 1f)),
+            RpCustomFields: _rpCustomFields.Count > 0 ? _rpCustomFields : null,
+            ChatIcon: _chatIconPicker.SelectedIcon,
+            RpLevel: _rpLevel,
+            Base64RpBanner: _rpBannerImage.Length > 0 ? Convert.ToBase64String(_rpBannerImage) : null
+        );
+    }
+    private void PushStandalonePreview()
+    {
+        var myUserData = new UserData(_apiController.UID, _apiController.DisplayName);
+        var pair = _pairManager.GetPairByUID(_apiController.UID) ?? _pairFactory.Create(myUserData);
+
+        SetProfilePreview();
+        Mediator.Publish(new ProfileOpenStandaloneMessage(pair));
+    }
+
+    public RpProfileVisibility GetRpVisibility() => _rpConfigService.GetCurrentCharacterProfile().RpVisibility;
+
+    // Réglage enregistré tout de suite, sans passer par « Sauvegarder le profil » : le reste de la fiche
+    // reprend les valeurs du serveur. Renvoie false si le personnage n'est pas encore résolu.
+    public bool SetRpVisibility(RpProfileVisibility visibility)
+    {
+        var charName = _dalamudUtil.GetPlayerName();
+        var worldId = _dalamudUtil.GetHomeWorldId();
+        if (string.IsNullOrEmpty(charName) || string.Equals(charName, "--", StringComparison.Ordinal) || worldId == 0)
+            return false;
+
+        var profile = _rpConfigService.GetCurrentCharacterProfile();
+        if (profile.RpVisibility == visibility) return true;
+        profile.RpVisibility = visibility;
+        _rpConfigService.Save();
+        _rpVisibility = visibility;
+        _savedRpVisibility = visibility;
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                var curProfile = await _apiController.UserGetProfile(new UserDto(new UserData(_apiController.UID, _apiController.DisplayName))).ConfigureAwait(false);
+                _logger.LogInformation("Setting RP visibility to {visibility} for {uid}", visibility, _apiController.UID);
+                await _apiController.UserSetProfile(new UserProfileDto(new UserData(_apiController.UID, _apiController.DisplayName), curProfile.Disabled, curProfile.IsNSFW, curProfile.ProfilePictureBase64, curProfile.Description)
+                {
+                    CharacterName = charName,
+                    WorldId = worldId,
+                    RpProfilePictureBase64 = curProfile.RpProfilePictureBase64,
+                    RpDescription = curProfile.RpDescription,
+                    IsRpNSFW = curProfile.IsRpNSFW,
+                    RpFirstName = curProfile.RpFirstName,
+                    RpLastName = curProfile.RpLastName,
+                    RpTitle = curProfile.RpTitle,
+                    RpAge = curProfile.RpAge,
+                    RpRace = curProfile.RpRace,
+                    RpEthnicity = curProfile.RpEthnicity,
+                    RpHeight = curProfile.RpHeight,
+                    RpBuild = curProfile.RpBuild,
+                    RpResidence = curProfile.RpResidence,
+                    RpOccupation = curProfile.RpOccupation,
+                    RpAffiliation = curProfile.RpAffiliation,
+                    RpAlignment = curProfile.RpAlignment,
+                    RpAdditionalInfo = curProfile.RpAdditionalInfo,
+                    RpNameColor = curProfile.RpNameColor,
+                    RpCustomFields = curProfile.RpCustomFields,
+                    MoodlesData = curProfile.MoodlesData,
+                    RpVisibility = visibility
+                }).ConfigureAwait(false);
+                Mediator.Publish(new ClearProfileDataMessage(new UserData(_apiController.UID), charName, worldId));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to save RP visibility");
+                Mediator.Publish(new NotificationMessage(Loc.Get("EditProfile.SaveErrorTitle"), Loc.Get("EditProfile.SaveErrorBody"), NotificationType.Error));
+            }
+        });
+        return true;
+    }
+
+    private void PushPreview()
+    {
+        var previewProfileData = SetProfilePreview();
+        Mediator.Publish(new TargetProfilePreviewMessage(previewProfileData));
+    }
+    
+    private UmbraProfileData SetProfilePreview()
+    {
+        var previewProfileData = BuildPreviewProfileData();
+        var myUserData = new UserData(_apiController.UID, _apiController.DisplayName);
+        var (charName, worldId) = _umbraProfileManager.ResolveCharacter(myUserData);
+        _umbraProfileManager.SetPreviewProfile(myUserData, charName, worldId, previewProfileData);
+        return previewProfileData;
+    }
+
     protected override void DrawInternal()
     {
+        if (_previewRefreshPending)
+        {
+            _previewRefreshPending = false;
+            if (_cardPreviewOpen) PushPreview();
+        }
+
         var accent = UiSharedService.AccentColor;
         if (accent.W <= 0f) accent = ImGuiColors.ParsedPurple;
 
         if (_uiSharedService.IconTextButton(FontAwesomeIcon.Eye, Loc.Get("EditProfile.PreviewButton")))
-        {
-            var myUserData = new UserData(_apiController.UID, _apiController.DisplayName);
-            var pair = _pairManager.GetPairByUID(_apiController.UID) ?? _pairFactory.Create(myUserData);
-
-            var currentProfile = _rpConfigService.GetCurrentCharacterProfile();
-            var hrpImageBase64 = _profileImage.Length > 0 ? Convert.ToBase64String(_profileImage) : string.Empty;
-            var previewProfileData = new UmbraProfileData(
-                IsFlagged: false,
-                IsNSFW: _apiController.IsProfileNsfw,
-                Base64ProfilePicture: hrpImageBase64,
-                Description: _descriptionText,
-                Base64RpProfilePicture: currentProfile.RpProfilePictureBase64,
-                RpDescription: _rpDescriptionText,
-                IsRpNSFW: currentProfile.IsRpNsfw,
-                RpFirstName: _rpFirstNameText,
-                RpLastName: _rpLastNameText,
-                RpTitle: _rpTitleText,
-                RpAge: _rpAgeText,
-                RpRace: _rpRaceText,
-                RpEthnicity: _rpEthnicityText,
-                RpHeight: _rpHeightText,
-                RpBuild: _rpBuildText,
-                RpResidence: _rpResidenceText,
-                RpOccupation: _rpOccupationText,
-                RpAffiliation: _rpAffiliationText,
-                RpAlignment: _rpAlignmentText,
-                RpAdditionalInfo: _rpAdditionalInfoText,
-                RpNameColor: UiSharedService.Vector4ToHex(new Vector4(_rpNameColorVec, 1f)),
-                RpCustomFields: _rpCustomFields.Count > 0 ? _rpCustomFields : null,
-                ChatIcon: _chatIconPicker.SelectedIcon,
-                RpLevel: _rpLevel
-            );
-
-            _umbraProfileManager.SetPreviewProfile(pair.UserData, pair.PlayerName, pair.WorldId, previewProfileData);
-            Mediator.Publish(new ProfileOpenStandaloneMessage(pair));
-        }
+            PushStandalonePreview();
         ImGui.SameLine();
         if (_uiSharedService.IconTextButton(FontAwesomeIcon.Tag, Loc.Get("EditProfile.SetCustomId.Button")))
         {
@@ -250,6 +351,21 @@ public class EditProfileUi : WindowMediatorSubscriberBase
             Dalamud.Utility.Util.OpenLink("https://connect.ashfall-codex.dev/account");
         }
         UiSharedService.AttachToolTip(Loc.Get("EditProfile.EnrichedProfile.Tooltip"));
+
+        var cardLabel = Loc.Get("EditProfile.Banner.Preview");
+        var cardButtonWidth = _uiSharedService.GetIconTextButtonSize(FontAwesomeIcon.IdCard, cardLabel);
+        var barRight = ImGui.GetWindowPos().X + ImGui.GetWindowContentRegionMax().X;
+        if (ImGui.GetItemRectMax().X + ImGui.GetStyle().ItemSpacing.X + cardButtonWidth <= barRight)
+            ImGui.SameLine();
+        if (_uiSharedService.IconTextButton(FontAwesomeIcon.IdCard, cardLabel))
+        {
+            _cardPreviewOpen = !_cardPreviewOpen;
+            if (_cardPreviewOpen)
+                PushPreview();
+            else
+                Mediator.Publish(new TargetProfilePreviewMessage(null));
+        }
+        UiSharedService.AttachToolTip(Loc.Get("EditProfile.Banner.Preview.Tooltip"));
 
         DrawVanityPopup();
 
@@ -294,7 +410,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
             p.RpHeight ?? "", p.RpBuild ?? "", p.RpResidence ?? "",
             p.RpOccupation ?? "", p.RpAffiliation ?? "", p.RpAlignment ?? "",
             p.RpAdditionalInfo ?? "", p.RpNameColor ?? "",
-            p.IsRpNSFW.ToString(), p.RpLevel.ToString(),
+            p.IsRpNSFW.ToString(), p.RpLevel.ToString(), p.RpVisibility?.ToString() ?? "",
             customJson);
     }
 
@@ -328,7 +444,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
                 RpAlignment: dto.RpAlignment, RpAdditionalInfo: dto.RpAdditionalInfo,
                 RpNameColor: dto.RpNameColor,
                 RpCustomFields: customFields,
-                ChatIcon: dto.ChatIcon ?? 0, RpLevel: dto.RpLevel ?? 0);
+                ChatIcon: dto.ChatIcon ?? 0, RpLevel: dto.RpLevel ?? 0, RpVisibility: dto.RpVisibility);
 
             var serverSnapshot = ComputeRpSnapshotFromProfile(pseudoProfile);
             if (!string.Equals(serverSnapshot, _hydratedRpSnapshot, StringComparison.Ordinal))
@@ -424,10 +540,12 @@ public class EditProfileUi : WindowMediatorSubscriberBase
                 configProfile.RpAlignment = _rpAlignmentText;
                 configProfile.RpAdditionalInfo = _rpAdditionalInfoText;
                 configProfile.RpNameColor = umbraProfile.RpNameColor ?? string.Empty;
+                if (umbraProfile.RpVisibility.HasValue) configProfile.RpVisibility = umbraProfile.RpVisibility.Value;
                 _rpConfigService.Save();
 
                 _chatIconPicker.SelectedIcon = umbraProfile.ChatIcon > 0 ? umbraProfile.ChatIcon : configProfile.ChatIcon;
                 _rpLevel = umbraProfile.RpLevel != 0 ? umbraProfile.RpLevel : configProfile.RpLevel;
+                _rpVisibility = configProfile.RpVisibility;
 
                 var nameColorHex = umbraProfile.RpNameColor ?? string.Empty;
                 if (!string.IsNullOrEmpty(nameColorHex))
@@ -453,6 +571,12 @@ public class EditProfileUi : WindowMediatorSubscriberBase
                     _logger.LogWarning(ex, "Failed to load RP profile image");
                     _rpProfileImage = [];
                     _rpPfpTextureWrap = null;
+                }
+
+                if (!_rpBannerDirty)
+                {
+                    _rpBannerImage = umbraProfile.RpBannerData.Value;
+                    _bannerTextureStale = true;
                 }
 
                 _rpLoaded = true;
@@ -490,6 +614,10 @@ public class EditProfileUi : WindowMediatorSubscriberBase
 
         var pfpTexture = isRp ? _rpPfpTextureWrap : _pfpTextureWrap;
         var pfpBytes = isRp ? _rpProfileImage : _profileImage;
+
+        UiSharedService.BeginSectionCard(
+            isRp ? Loc.Get("EditProfile.Card.Identity") : Loc.Get("PopoutProfile.DescriptionLabel"),
+            isRp ? FontAwesomeIcon.IdCard : FontAwesomeIcon.AlignLeft);
 
         var w = ImGui.GetContentRegionAvail().X;
         float imgSz = 150f * ImGuiHelpers.GlobalScale;
@@ -685,26 +813,27 @@ public class EditProfileUi : WindowMediatorSubscriberBase
 
         if (isRp)
         {
-            ImGuiHelpers.ScaledDummy(new Vector2(0f, 4f));
-            ImGui.Separator();
-            ImGuiHelpers.ScaledDummy(new Vector2(0f, 4f));
+            ImGuiHelpers.ScaledDummy(new Vector2(0f, 6f));
+            DrawBannerSection(w);
 
-            // Honorific title section
+            UiSharedService.BeginSectionCard(Loc.Get("EditProfile.Card.TitleChat"), FontAwesomeIcon.Crown);
+
             _honorificEditor.Draw();
 
-            ImGuiHelpers.ScaledDummy(new Vector2(0f, 4f));
-            ImGui.Separator();
-            ImGuiHelpers.ScaledDummy(new Vector2(0f, 4f));
+            ImGuiHelpers.ScaledDummy(new Vector2(0f, 6f));
 
             _chatIconPicker.Draw();
 
-            ImGuiHelpers.ScaledDummy(new Vector2(0f, 4f));
+            UiSharedService.BeginSectionCard(Loc.Get("EditProfile.Card.Visibility"), FontAwesomeIcon.SlidersH);
 
             DrawRpLevelSelector();
 
-            ImGuiHelpers.ScaledDummy(new Vector2(0f, 4f));
-            ImGui.Separator();
-            ImGuiHelpers.ScaledDummy(new Vector2(0f, 4f));
+            ImGuiHelpers.ScaledDummy(new Vector2(0f, 6f));
+
+            DrawRpVisibilitySelector();
+
+            UiSharedService.BeginSectionCard(Loc.Get("EditProfile.Card.Details"), FontAwesomeIcon.MapMarkerAlt);
+            w = ImGui.GetContentRegionAvail().X;
 
             DrawField(Loc.Get("UserProfile.RpResidence"), ref _rpResidenceText, 100, w);
             DrawField(Loc.Get("UserProfile.RpOccupation"), ref _rpOccupationText, 100, w);
@@ -715,20 +844,15 @@ public class EditProfileUi : WindowMediatorSubscriberBase
 
             DrawCustomFieldsSection(w);
 
-            ImGuiHelpers.ScaledDummy(new Vector2(0f, 4f));
-            ImGui.Separator();
-            ImGuiHelpers.ScaledDummy(new Vector2(0f, 4f));
+            UiSharedService.BeginSectionCard(Loc.Get("EditProfile.Card.Traits"), FontAwesomeIcon.Star);
 
             _moodlesEditor.DrawSection();
 
-            ImGuiHelpers.ScaledDummy(new Vector2(0f, 4f));
-            ImGui.Separator();
-            ImGuiHelpers.ScaledDummy(new Vector2(0f, 4f));
+            UiSharedService.BeginSectionCard(Loc.Get("UserProfile.RpAdditionalInfo"), FontAwesomeIcon.FeatherAlt);
+            w = ImGui.GetContentRegionAvail().X;
 
             using (_uiSharedService.GameFont.Push())
             {
-                ImGui.TextColored(ImGuiColors.DalamudGrey, Loc.Get("UserProfile.RpAdditionalInfo"));
-                ImGui.SameLine();
                 _bbCodeToolbar.Draw(ref _rpAdditionalInfoText);
                 ImGui.TextColored(ImGuiColors.DalamudGrey3, Loc.Get("UserProfile.RpAdditionalInfoWrapHint"));
 
@@ -737,6 +861,71 @@ public class EditProfileUi : WindowMediatorSubscriberBase
             }
         }
 
+        UiSharedService.EndSectionCard();
+    }
+
+    private void DrawBannerSection(float width)
+    {
+        if (_bannerTextureStale)
+        {
+            _bannerTextureStale = false;
+            _rpBannerTexture?.Dispose();
+            _rpBannerTexture = _rpBannerImage.Length > 0 ? _uiSharedService.LoadImage(_rpBannerImage) : null;
+        }
+
+        ImGui.TextColored(ImGuiColors.DalamudGrey, Loc.Get("EditProfile.Banner.Label"));
+        ImGui.TextColored(ImGuiColors.DalamudGrey3, Loc.Get("EditProfile.Banner.Recommended"));
+
+        if (_uiSharedService.IconTextButton(FontAwesomeIcon.FileImage, Loc.Get("EditProfile.Banner.Select")))
+            SelectBanner();
+
+        if (_rpBannerImage.Length > 0)
+        {
+            ImGui.SameLine();
+            if (_uiSharedService.IconTextButton(FontAwesomeIcon.Trash, Loc.Get("EditProfile.Banner.Remove")))
+            {
+                _rpBannerImage = [];
+                _rpBannerDirty = true;
+                _bannerTextureStale = true;
+                _previewRefreshPending = true;
+            }
+        }
+
+        ImGui.SameLine();
+        _uiSharedService.DrawHelpText(Loc.Get("EditProfile.Banner.Help"));
+
+        if (_showBannerError)
+            UiSharedService.ColorTextWrapped(Loc.Get("EditProfile.Banner.SizeError"), ImGuiColors.DalamudRed, width);
+    }
+
+    private void SelectBanner()
+    {
+        _showBannerError = false;
+        _fileDialogManager.OpenFileDialog(Loc.Get("EditProfile.Banner.Select"), "Image files{.png,.jpg,.jpeg}", (success, name) =>
+        {
+            if (!success) return;
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    var file = await File.ReadAllBytesAsync(name).ConfigureAwait(false);
+                    if (file.Length > ProfileBanner.MaxBytes)
+                    {
+                        _showBannerError = true;
+                        return;
+                    }
+
+                    _rpBannerImage = file;
+                    _rpBannerDirty = true;
+                    _bannerTextureStale = true;
+                    _previewRefreshPending = true;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to read profile banner");
+                }
+            });
+        });
     }
 
     private void DrawCustomFieldsSection(float availableWidth)
@@ -910,7 +1099,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
         {
             var profile = _rpConfigService.GetCurrentCharacterProfile();
             var isRpNsfw = profile.IsRpNsfw;
-            if (ImGui.Checkbox(Loc.Get("UserProfile.RpNsfw"), ref isRpNsfw))
+            if (ToggleSwitch.Draw(Loc.Get("UserProfile.RpNsfw"), ref isRpNsfw))
             {
                 var charName = _dalamudUtil.GetPlayerName();
                 var worldId = _dalamudUtil.GetHomeWorldId();
@@ -951,7 +1140,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
         else
         {
             var isNsfw = umbraProfile.IsNSFW;
-            if (ImGui.Checkbox(Loc.Get("EditProfile.ProfileIsNsfw"), ref isNsfw))
+            if (ToggleSwitch.Draw(Loc.Get("EditProfile.ProfileIsNsfw"), ref isNsfw))
             {
                 var charName = _dalamudUtil.GetPlayerName();
                 var worldId = _dalamudUtil.GetHomeWorldId();
@@ -1024,6 +1213,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
                     .ToList();
                 profile.ChatIcon = _chatIconPicker.SelectedIcon;
                 profile.RpLevel = _rpLevel;
+                profile.RpVisibility = _rpVisibility;
                 _rpConfigService.Save();
             }
 
@@ -1033,6 +1223,8 @@ public class EditProfileUi : WindowMediatorSubscriberBase
             var localRpProfile = _rpConfigService.GetCurrentCharacterProfile();
             var customFieldsJsonSnapshot = System.Text.Json.JsonSerializer.Serialize(_rpCustomFields);
             var moodlesDataSnapshot = _moodlesEditor.LocalMoodlesJson;
+            // null = bannière inchangée ; chaîne vide = bannière retirée.
+            var bannerSnapshot = isRp && _rpBannerDirty ? Convert.ToBase64String(_rpBannerImage) : null;
 
             _ = Task.Run(async () =>
             {
@@ -1040,7 +1232,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
                 {
                     var curProfile = await _apiController.UserGetProfile(new UserDto(new UserData(_apiController.UID, _apiController.DisplayName))).ConfigureAwait(false);
                     if (isRp)
-                        _logger.LogInformation("Saving RP profile for {uid}: {first} {last}", _apiController.UID, localRpProfile.RpFirstName, localRpProfile.RpLastName);
+                        _logger.LogInformation("Saving RP profile for {uid}", _apiController.UID);
                     else
                         _logger.LogInformation("Saving HRP profile for {uid}, keeping local RP data", _apiController.UID);
 
@@ -1073,9 +1265,12 @@ public class EditProfileUi : WindowMediatorSubscriberBase
                         RpCustomFields = customFieldsJsonSnapshot,
                         MoodlesData = moodlesDataSnapshot,
                         ChatIcon = isRp ? localRpProfile.ChatIcon : null,
-                        RpLevel = isRp ? localRpProfile.RpLevel : null
+                        RpLevel = isRp ? localRpProfile.RpLevel : null,
+                        RpVisibility = isRp ? localRpProfile.RpVisibility : null,
+                        RpBannerBase64 = bannerSnapshot
                     }).ConfigureAwait(false);
 
+                    if (bannerSnapshot != null) _rpBannerDirty = false;
                     Mediator.Publish(new ClearProfileDataMessage(new UserData(_apiController.UID), charName, worldId));
                     Mediator.Publish(new NotificationMessage(Loc.Get("EditProfile.SaveSuccessTitle"), Loc.Get("EditProfile.SaveSuccessBody"), NotificationType.Success));
                     SnapshotSavedState(isRp, customFieldsJsonSnapshot);
@@ -1134,6 +1329,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
             }
             _chatIconPicker.SnapshotSaved();
             _savedRpLevel = _rpLevel;
+            _savedRpVisibility = _rpVisibility;
             _honorificEditor.SnapshotSaved();
         }
         else
@@ -1165,7 +1361,9 @@ public class EditProfileUi : WindowMediatorSubscriberBase
                     _savedRpCustomFieldsJson, StringComparison.Ordinal)
                 || _honorificEditor.HasUnsavedChanges
                 || _chatIconPicker.HasUnsavedChanges
-                || _rpLevel != _savedRpLevel;
+                || _rpLevel != _savedRpLevel
+                || _rpVisibility != _savedRpVisibility
+                || _rpBannerDirty;
         }
         else
         {
@@ -1238,9 +1436,41 @@ public class EditProfileUi : WindowMediatorSubscriberBase
         UiSharedService.AttachToolTip(Loc.Get("UserProfile.RpLevel.Mentor.Tooltip"));
     }
 
+    private static readonly RpProfileVisibility[] RpVisibilityOrder =
+    [
+        RpProfileVisibility.Hidden,
+        RpProfileVisibility.PairsOnly,
+        RpProfileVisibility.PairsAndSyncshell,
+        RpProfileVisibility.Public,
+    ];
+
+    private void DrawRpVisibilitySelector()
+    {
+        ImGui.TextColored(ImGuiColors.DalamudGrey, Loc.Get("UserProfile.RpVisibility"));
+
+        string[] labels =
+        [
+            Loc.Get("UserProfile.RpVisibility.Hidden"),
+            Loc.Get("UserProfile.RpVisibility.PairsOnly"),
+            Loc.Get("UserProfile.RpVisibility.PairsAndSyncshell"),
+            Loc.Get("UserProfile.RpVisibility.Public"),
+        ];
+
+        int index = Array.IndexOf(RpVisibilityOrder, _rpVisibility);
+        if (index < 0) index = Array.IndexOf(RpVisibilityOrder, RpProfileVisibility.PairsAndSyncshell);
+
+        ImGui.SetNextItemWidth(280 * ImGuiHelpers.GlobalScale);
+        if (UiSharedService.Combo("##rpVisibility", ref index, labels, labels.Length))
+            _rpVisibility = RpVisibilityOrder[index];
+
+        _uiSharedService.DrawHelpText(Loc.Get("UserProfile.RpVisibility.Help"));
+    }
+
     protected override void Dispose(bool disposing)
     {
         base.Dispose(disposing);
         _pfpTextureWrap?.Dispose();
+        _rpBannerTexture?.Dispose();
+        _rpBannerTexture = null;
     }
 }

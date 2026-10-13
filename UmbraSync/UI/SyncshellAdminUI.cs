@@ -20,6 +20,7 @@ using UmbraSync.Services.AutoDetect;
 using UmbraSync.Services.Mediator;
 using UmbraSync.Services.Notification;
 using NotificationType = UmbraSync.MareConfiguration.Models.NotificationType;
+using UmbraSync.UI.Components;
 
 namespace UmbraSync.UI;
 
@@ -89,6 +90,8 @@ public class SyncshellAdminUI : WindowMediatorSubscriberBase
     private bool _profileSaving;
     private bool _profileLoaded;
     private string _profileDescription = string.Empty;
+    private string? _profileBorderColor;
+    private string? _savedProfileBorderColor;
     private List<string> _profileTags = [];
     private string _newTag = string.Empty;
     private bool _profileNsfw;
@@ -435,7 +438,7 @@ public class SyncshellAdminUI : WindowMediatorSubscriberBase
                         {
                             UiSharedService.ColorTextWrapped(Loc.Get("SyncshellAdmin.Cleanup.PruneCalculating"), ImGuiColors.DalamudYellow);
                         }
-                        else
+                        else if (_pruneTestTask.IsCompletedSuccessfully)
                         {
                             ImGui.AlignTextToFramePadding();
                             UiSharedService.TextWrapped(string.Format(CultureInfo.CurrentCulture, Loc.Get("SyncshellAdmin.Cleanup.PruneFound"), _pruneTestTask.Result, _pruneDays));
@@ -460,7 +463,7 @@ public class SyncshellAdminUI : WindowMediatorSubscriberBase
                         {
                             UiSharedService.ColorTextWrapped(Loc.Get("SyncshellAdmin.Cleanup.Pruning"), ImGuiColors.DalamudYellow);
                         }
-                        else
+                        else if (_pruneTask.IsCompletedSuccessfully)
                         {
                             UiSharedService.TextWrapped(string.Format(CultureInfo.CurrentCulture, Loc.Get("SyncshellAdmin.Cleanup.PrunedResult"), _pruneTask.Result));
                         }
@@ -839,7 +842,7 @@ public class SyncshellAdminUI : WindowMediatorSubscriberBase
 
             ImGuiHelpers.ScaledDummy(5);
             ImGui.TextUnformatted(Loc.Get("SyncshellAdmin.Slot.Radius"));
-            ImGui.SliderFloat("##slotradius", ref _slotRadius, 5f, 20f, "%.1f m");
+            ThemedSlider.Float("##slotradius", ref _slotRadius, 5f, 20f, "%.1f m", step: 0.5f);
             _uiSharedService.DrawHelpText(Loc.Get("SyncshellAdmin.Slot.RadiusHelp"));
 
             ImGuiHelpers.ScaledDummy(5);
@@ -1084,6 +1087,12 @@ public class SyncshellAdminUI : WindowMediatorSubscriberBase
 
         ImGuiHelpers.ScaledDummy(4);
 
+        // Couleur du contour de l'icône : vue par tous les membres dans leur liste de syncshells.
+        ImGui.TextUnformatted(Loc.Get("Syncshell.Cards.BorderColor"));
+        ColorSwatchPicker.Draw("syncshellBorderColor", ref _profileBorderColor, UiSharedService.AccentColor);
+
+        ImGuiHelpers.ScaledDummy(4);
+
         // Description
         ImGui.TextUnformatted(Loc.Get("SyncshellAdmin.Profile.Description"));
         ImGui.InputTextMultiline("##profile_desc", ref _profileDescription, 1500, new Vector2(-1, 80));
@@ -1117,9 +1126,9 @@ public class SyncshellAdminUI : WindowMediatorSubscriberBase
         ImGuiHelpers.ScaledDummy(4);
 
         // NSFW + Disabled
-        ImGui.Checkbox(Loc.Get("SyncshellAdmin.Profile.NSFW"), ref _profileNsfw);
+        ToggleSwitch.Draw(Loc.Get("SyncshellAdmin.Profile.NSFW"), ref _profileNsfw);
         _uiSharedService.DrawHelpText(Loc.Get("SyncshellAdmin.Profile.NSFWHelp"));
-        ImGui.Checkbox(Loc.Get("SyncshellAdmin.Profile.Disabled"), ref _profileDisabled);
+        ToggleSwitch.Draw(Loc.Get("SyncshellAdmin.Profile.Disabled"), ref _profileDisabled);
         _uiSharedService.DrawHelpText(Loc.Get("SyncshellAdmin.Profile.DisabledHelp"));
 
         ImGuiHelpers.ScaledDummy(6);
@@ -1165,11 +1174,12 @@ public class SyncshellAdminUI : WindowMediatorSubscriberBase
                 _profileTags = profile.Tags?.ToList() ?? [];
                 _profileNsfw = profile.IsNsfw;
                 _profileDisabled = profile.IsDisabled;
+                _profileBorderColor = string.IsNullOrEmpty(profile.BorderColor) ? null : profile.BorderColor;
 
                 if (!string.IsNullOrEmpty(profile.ProfileImageBase64))
                 {
                     _profileImageBytes = Convert.FromBase64String(profile.ProfileImageBase64);
-                    _profileTexture = _uiSharedService.LoadImage(_profileImageBytes);
+                    _profileTexture = await _uiSharedService.LoadImageOrEmptyAsync(_profileImageBytes).ConfigureAwait(false);
                 }
                 else
                 {
@@ -1180,7 +1190,7 @@ public class SyncshellAdminUI : WindowMediatorSubscriberBase
                 if (!string.IsNullOrEmpty(profile.BannerImageBase64))
                 {
                     _bannerImageBytes = Convert.FromBase64String(profile.BannerImageBase64);
-                    _bannerTexture = _uiSharedService.LoadImage(_bannerImageBytes);
+                    _bannerTexture = await _uiSharedService.LoadImageOrEmptyAsync(_bannerImageBytes).ConfigureAwait(false);
                 }
                 else
                 {
@@ -1218,6 +1228,8 @@ public class SyncshellAdminUI : WindowMediatorSubscriberBase
                 BannerImageBase64 = _bannerImageBytes.Length > 0 ? Convert.ToBase64String(_bannerImageBytes) : null,
                 IsNsfw = _profileNsfw,
                 IsDisabled = _profileDisabled,
+                // Chaîne vide = effacer la couleur : ici l'éditeur connaît l'état complet.
+                BorderColor = _profileBorderColor ?? string.Empty,
             };
 
             await _apiController.GroupSetProfile(dto).ConfigureAwait(false);
@@ -1263,7 +1275,7 @@ public class SyncshellAdminUI : WindowMediatorSubscriberBase
 
         using (ImRaii.Disabled(_autoDetectToggleInFlight || _autoDetectStateLoading))
         {
-            ImGui.Checkbox(Loc.Get("SyncshellAdmin.AutoDetect.CheckboxLabel"), ref _autoDetectDesiredVisibility);
+            ToggleSwitch.Draw(Loc.Get("SyncshellAdmin.AutoDetect.CheckboxLabel"), ref _autoDetectDesiredVisibility);
         }
         _uiSharedService.DrawHelpText(Loc.Get("SyncshellAdmin.AutoDetect.CheckboxHelp"));
 
@@ -1663,6 +1675,7 @@ public class SyncshellAdminUI : WindowMediatorSubscriberBase
         _savedProfileTags = [.. _profileTags];
         _savedProfileNsfw = _profileNsfw;
         _savedProfileDisabled = _profileDisabled;
+        _savedProfileBorderColor = _profileBorderColor;
         _savedProfileImageBytes = _profileImageBytes;
         _savedBannerImageBytes = _bannerImageBytes;
     }
@@ -1672,6 +1685,8 @@ public class SyncshellAdminUI : WindowMediatorSubscriberBase
         if (!string.Equals(_profileDescription, _savedProfileDescription, StringComparison.Ordinal))
             return true;
         if (_profileNsfw != _savedProfileNsfw || _profileDisabled != _savedProfileDisabled)
+            return true;
+        if (!string.Equals(_profileBorderColor, _savedProfileBorderColor, StringComparison.OrdinalIgnoreCase))
             return true;
         if (!_profileImageBytes.SequenceEqual(_savedProfileImageBytes))
             return true;
@@ -1694,6 +1709,7 @@ public class SyncshellAdminUI : WindowMediatorSubscriberBase
         ImGui.SetNextWindowSize(new Vector2(420, 500) * ImGuiHelpers.GlobalScale, ImGuiCond.FirstUseEver);
         if (ImGui.Begin(string.Format(CultureInfo.CurrentCulture, Loc.Get("SyncshellAdmin.Profile.PreviewTitle"), GroupFullInfo.GroupAliasOrGID), ref _showProfilePreview))
         {
+            UiSharedService.DrawWindowGlass();
             float availWidth = ImGui.GetContentRegionAvail().X;
 
             if (_bannerTexture != null && _bannerImageBytes.Length > 0)

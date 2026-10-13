@@ -30,13 +30,17 @@ public sealed class FileCacheManager : DisposableMediatorSubscriberBase, IHosted
     private readonly Lock _fileCachesLock = new();
     private readonly IpcManager _ipcManager;
     private readonly ILogger<FileCacheManager> _logger;
+    private readonly CacheLeaseRegistry _cacheLeases;
+    private readonly DateTime _startupUtc = DateTime.UtcNow;
     private bool _hasCheckedPenumbraOnLogin;
 
-    public FileCacheManager(ILogger<FileCacheManager> logger, IpcManager ipcManager, MareConfigService configService, MareMediator mareMediator)
+    public FileCacheManager(ILogger<FileCacheManager> logger, IpcManager ipcManager, MareConfigService configService, MareMediator mareMediator,
+        CacheLeaseRegistry cacheLeases)
         : base(logger, mareMediator)
     {
         _logger = logger;
         _ipcManager = ipcManager;
+        _cacheLeases = cacheLeases;
         _configService = configService;
         _mareMediator = mareMediator;
         _csvPath = Path.Combine(configService.ConfigurationDirectory, "FileCache.csv");
@@ -100,12 +104,28 @@ public sealed class FileCacheManager : DisposableMediatorSubscriberBase, IHosted
         return CreateFileCacheEntity(fi, prefixedPath);
     }
 
-    public List<FileCacheEntity> GetAllFileCaches() => _fileCaches.Values.SelectMany(v => v).ToList();
+    public List<FileCacheEntity> GetAllFileCaches()
+    {
+        lock (_fileCachesLock)
+        {
+            return _fileCaches.Values.SelectMany(v => v).ToList();
+        }
+    }
+
+    // Les listes sont modifiées sous _fileCachesLock : toute lecture passe par une copie prise sous ce verrou.
+    private List<FileCacheEntity>? SnapshotEntries(string hash)
+    {
+        lock (_fileCachesLock)
+        {
+            return _fileCaches.TryGetValue(hash, out var entries) ? entries.ToList() : null;
+        }
+    }
 
     public List<FileCacheEntity> GetAllFileCachesByHash(string hash, bool ignoreCacheEntries = false, bool validate = true)
     {
         List<FileCacheEntity> output = [];
-        if (_fileCaches.TryGetValue(hash, out var fileCacheEntities))
+        var fileCacheEntities = SnapshotEntries(hash);
+        if (fileCacheEntities != null)
         {
             var entries = fileCacheEntities.AsEnumerable();
             if (ignoreCacheEntries)
@@ -134,7 +154,7 @@ public sealed class FileCacheManager : DisposableMediatorSubscriberBase, IHosted
     {
         _mareMediator.Publish(new HaltScanMessage(nameof(ValidateLocalIntegrity)));
         _logger.LogInformation("Validating local storage");
-        var cacheEntries = _fileCaches.SelectMany(v => v.Value).Where(v => v.IsCacheEntry).ToList();
+        var cacheEntries = GetAllFileCaches().Where(v => v.IsCacheEntry).ToList();
         List<FileCacheEntity> brokenEntities = [];
         int i = 0;
         foreach (var fileCache in cacheEntries)
@@ -222,20 +242,36 @@ public sealed class FileCacheManager : DisposableMediatorSubscriberBase, IHosted
     public (FileCacheEntity? Penumbra, FileCacheEntity? Cache, FileCacheEntity? Subst) GetFileCachesByHash(string hash)
     {
         (FileCacheEntity? Penumbra, FileCacheEntity? Cache, FileCacheEntity? Subst) result = (null, null, null);
-        if (_fileCaches.TryGetValue(hash, out var hashes))
+        var hashes = SnapshotEntries(hash);
+        if (hashes != null)
         {
-            result.Penumbra = hashes.Where(p => p.PrefixedFilePath.StartsWith(PenumbraPrefix, StringComparison.Ordinal)).Select(GetValidatedFileCache).FirstOrDefault();
-            result.Cache = hashes.Where(p => p.PrefixedFilePath.StartsWith(CachePrefix, StringComparison.Ordinal)).Select(GetValidatedFileCache).FirstOrDefault();
-            result.Subst = hashes.Where(p => p.PrefixedFilePath.StartsWith(SubstPrefix, StringComparison.Ordinal)).Select(GetValidatedFileCache).FirstOrDefault();
+            // Validate peut invalider une entrée (null) ou réécrire son hash : on continue sur la suivante
+            // et on ne renvoie que ce qui correspond encore au hash demandé.
+            result.Penumbra = hashes.Where(p => p.PrefixedFilePath.StartsWith(PenumbraPrefix, StringComparison.Ordinal))
+                .Select(GetValidatedFileCache).FirstOrDefault(p => HasRequestedHash(p, hash));
+            result.Cache = hashes.Where(p => p.PrefixedFilePath.StartsWith(CachePrefix, StringComparison.Ordinal))
+                .Select(GetValidatedFileCache).FirstOrDefault(p => HasRequestedHash(p, hash));
+            result.Subst = hashes.Where(p => p.PrefixedFilePath.StartsWith(SubstPrefix, StringComparison.Ordinal))
+                .Select(GetValidatedFileCache).FirstOrDefault(p => HasRequestedHash(p, hash));
         }
         return result;
+    }
+
+    private static bool HasRequestedHash(FileCacheEntity? fileCache, string requestedHash)
+        => fileCache != null && string.Equals(fileCache.Hash, requestedHash, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Note l'usage d'un fichier résolu pour un pair (ordre d'éviction du cache).</summary>
+    public void MarkUsed(FileCacheEntity? fileCache)
+    {
+        if (fileCache == null || (!fileCache.IsCacheEntry && !fileCache.IsSubstEntry)) return;
+        _cacheLeases.MarkUsed(fileCache.ResolvedFilepath);
     }
 
     private FileCacheEntity? GetFileCacheByPath(string path)
     {
         var cleanedPath = path.Replace("/", "\\", StringComparison.OrdinalIgnoreCase).ToLowerInvariant()
             .Replace(_ipcManager.Penumbra.ModDirectory!.ToLowerInvariant(), "", StringComparison.OrdinalIgnoreCase);
-        var entry = _fileCaches.SelectMany(v => v.Value).FirstOrDefault(f => f.ResolvedFilepath.EndsWith(cleanedPath, StringComparison.OrdinalIgnoreCase));
+        var entry = GetAllFileCaches().FirstOrDefault(f => f.ResolvedFilepath.EndsWith(cleanedPath, StringComparison.OrdinalIgnoreCase));
 
         if (entry == null)
         {
@@ -269,7 +305,7 @@ public sealed class FileCacheManager : DisposableMediatorSubscriberBase, IHosted
             // race conditions or inconsistent state during updates. Prefer a manual fill with
             // overwrite semantics to avoid AggregateException(ArgumentException: same key added).
             var dict = new Dictionary<string, FileCacheEntity>(StringComparer.OrdinalIgnoreCase);
-            foreach (var d in _fileCaches.SelectMany(f => f.Value))
+            foreach (var d in GetAllFileCaches())
             {
                 // Overwrite semantics: the latest entry wins for identical prefixed paths.
                 // This mirrors how the cache treats updates and prevents duplicate-key crashes.
@@ -320,6 +356,105 @@ public sealed class FileCacheManager : DisposableMediatorSubscriberBase, IHosted
         }
     }
 
+    /// <summary>
+    /// Retire de l'index les entrées cache/subst qui pointent sur <paramref name="filePath"/>
+    /// (fichier supprimé par l'éviction). Renvoie le nombre d'entrées retirées.
+    /// </summary>
+    public int RemoveEntriesForFile(string hash, string filePath)
+    {
+        var entries = SnapshotEntries(hash);
+        if (entries == null) return 0;
+
+        string fullPath = NormalizeFullPath(filePath);
+        int removed = 0;
+        foreach (var entry in entries)
+        {
+            if (!entry.IsCacheEntry && !entry.IsSubstEntry) continue;
+            if (!string.Equals(NormalizeFullPath(ReplacePathPrefixes(entry).ResolvedFilepath), fullPath, StringComparison.OrdinalIgnoreCase)) continue;
+
+            RemoveHashedFile(entry.Hash, entry.PrefixedFilePath);
+            removed++;
+        }
+
+        return removed;
+    }
+
+    private static string NormalizeFullPath(string path)
+    {
+        try
+        {
+            return Path.GetFullPath(path);
+        }
+        catch
+        {
+            return path;
+        }
+    }
+
+    /// <summary>
+    /// Réconcilie l'index avec le contenu réel des dossiers de stockage, sans passer par le
+    /// FileSystemWatcher (événements perdus sous Wine/macOS) : ajoute les fichiers non indexés,
+    /// retire les entrées dont le fichier a disparu.
+    /// </summary>
+    public (int Added, int Removed) ReconcileStorageFolders(CancellationToken token)
+    {
+        string cacheFolder = _configService.Current.CacheFolder;
+        if (string.IsNullOrEmpty(cacheFolder) || !Directory.Exists(cacheFolder)) return (0, 0);
+
+        var indexed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var storageEntries = GetAllFileCaches().Where(e => e.IsCacheEntry || e.IsSubstEntry).ToList();
+        foreach (var entry in storageEntries)
+        {
+            indexed.Add(NormalizeFullPath(ReplacePathPrefixes(entry).ResolvedFilepath));
+        }
+
+        int added = 0;
+        int removed = 0;
+        string substFolder = SubstFolder;
+        var folders = new List<(string Folder, bool IsSubst)> { (cacheFolder, false) };
+        if (!string.IsNullOrEmpty(substFolder) && Directory.Exists(substFolder))
+            folders.Add((substFolder, true));
+
+        var onDisk = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (folder, isSubst) in folders)
+        {
+            foreach (var filePath in Directory.EnumerateFiles(folder, "*", SearchOption.TopDirectoryOnly))
+            {
+                token.ThrowIfCancellationRequested();
+                if (!CacheLeaseRegistry.TryGetHashFromCacheFileName(filePath, out _)) continue;
+
+                string fullPath = NormalizeFullPath(filePath);
+                onDisk.Add(fullPath);
+                if (indexed.Contains(fullPath)) continue;
+
+                try
+                {
+                    var entry = isSubst ? CreateSubstEntry(filePath) : CreateCacheEntry(filePath);
+                    if (entry != null) added++;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug(ex, "Could not index storage file {file} during reconciliation", filePath);
+                }
+            }
+        }
+
+        foreach (var entry in storageEntries)
+        {
+            token.ThrowIfCancellationRequested();
+            string fullPath = NormalizeFullPath(entry.ResolvedFilepath);
+            if (onDisk.Contains(fullPath) || File.Exists(fullPath)) continue;
+
+            RemoveHashedFile(entry.Hash, entry.PrefixedFilePath);
+            removed++;
+        }
+
+        if (removed > 0)
+            WriteOutFullCsv();
+
+        return (added, removed);
+    }
+
     public void UpdateHashedFile(FileCacheEntity fileCache, bool computeProperties = true)
     {
         _logger.LogTrace("Updating hash for {path}", fileCache.ResolvedFilepath);
@@ -345,7 +480,7 @@ public sealed class FileCacheManager : DisposableMediatorSubscriberBase, IHosted
         {
             return (FileState.RequireDeletion, fileCache);
         }
-        if (!string.Equals(fi.LastWriteTimeUtc.Ticks.ToString(CultureInfo.InvariantCulture), fileCache.LastModifiedDateTicks, StringComparison.Ordinal))
+        if (HasChangedOnDisk(fi, fileCache))
         {
             return (FileState.RequireUpdate, fileCache);
         }
@@ -358,7 +493,7 @@ public sealed class FileCacheManager : DisposableMediatorSubscriberBase, IHosted
         lock (_fileWriteLock)
         {
             StringBuilder sb = new();
-            foreach (var entry in _fileCaches.SelectMany(k => k.Value).OrderBy(f => f.PrefixedFilePath, StringComparer.OrdinalIgnoreCase))
+            foreach (var entry in GetAllFileCaches().OrderBy(f => f.PrefixedFilePath, StringComparer.OrdinalIgnoreCase))
             {
                 sb.AppendLine(entry.CsvEntry);
             }
@@ -482,12 +617,22 @@ public sealed class FileCacheManager : DisposableMediatorSubscriberBase, IHosted
             return null;
         }
 
-        if (!string.Equals(file.LastWriteTimeUtc.Ticks.ToString(CultureInfo.InvariantCulture), fileCache.LastModifiedDateTicks, StringComparison.Ordinal))
+        if (HasChangedOnDisk(file, fileCache))
         {
             UpdateHashedFile(fileCache);
         }
 
         return fileCache;
+    }
+
+    // Taille comparée en plus du mtime : un fichier tronqué peut garder le même mtime
+    // (copie qui préserve les dates, horloge Wine). Taille inconnue (-1/null) : mtime seul.
+    private static bool HasChangedOnDisk(FileInfo file, FileCacheEntity fileCache)
+    {
+        if (!string.Equals(file.LastWriteTimeUtc.Ticks.ToString(CultureInfo.InvariantCulture), fileCache.LastModifiedDateTicks, StringComparison.Ordinal))
+            return true;
+
+        return fileCache.Size is > 0 && file.Length != fileCache.Size.Value;
     }
 
     public Task StartAsync(CancellationToken cancellationToken)
@@ -624,7 +769,13 @@ public sealed class FileCacheManager : DisposableMediatorSubscriberBase, IHosted
             {
                 try
                 {
-                    var ext = Path.GetExtension(filePath);
+                    // Un temporaire créé depuis le démarrage appartient à un téléchargement en cours :
+                    // l'énumération d'un gros dossier sous Wine peut prendre plusieurs secondes.
+                    var fileInfo = new FileInfo(filePath);
+                    if (fileInfo.LastWriteTimeUtc >= _startupUtc || fileInfo.CreationTimeUtc >= _startupUtc)
+                        continue;
+
+                    var ext = fileInfo.Extension;
                     if (artifactExtensions.Contains(ext, StringComparer.OrdinalIgnoreCase))
                     {
                         File.Delete(filePath);
@@ -632,7 +783,7 @@ public sealed class FileCacheManager : DisposableMediatorSubscriberBase, IHosted
                         continue;
                     }
 
-                    if (new FileInfo(filePath).Length == 0)
+                    if (fileInfo.Length == 0)
                     {
                         File.Delete(filePath);
                         removedZeroByte++;

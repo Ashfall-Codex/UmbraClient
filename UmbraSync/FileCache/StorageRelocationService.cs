@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging;
 using UmbraSync.Interop.Ipc;
 using UmbraSync.MareConfiguration;
 using UmbraSync.MareConfiguration.Models;
+using UmbraSync.PlayerData.Pairs;
 using UmbraSync.Services.Mediator;
 
 namespace UmbraSync.FileCache;
@@ -27,13 +28,15 @@ public sealed class StorageRelocationService : IDisposable
     private readonly FileCacheManager _fileCacheManager;
     private readonly IpcManager _ipcManager;
     private readonly MareMediator _mediator;
+    private readonly PairManager _pairManager;
 #pragma warning disable S2930 // durée de vie volontairement liée au processus, pas au service
     private readonly CancellationTokenSource _shutdownCts = new();
 #pragma warning restore S2930
     private int _running;
 
     public StorageRelocationService(ILogger<StorageRelocationService> logger, MareConfigService configService,
-        CacheMonitor cacheMonitor, FileCacheManager fileCacheManager, IpcManager ipcManager, MareMediator mediator)
+        CacheMonitor cacheMonitor, FileCacheManager fileCacheManager, IpcManager ipcManager, MareMediator mediator,
+        PairManager pairManager)
     {
         _logger = logger;
         _configService = configService;
@@ -41,6 +44,7 @@ public sealed class StorageRelocationService : IDisposable
         _fileCacheManager = fileCacheManager;
         _ipcManager = ipcManager;
         _mediator = mediator;
+        _pairManager = pairManager;
     }
 
     public bool IsRunning => _running == 1;
@@ -120,21 +124,31 @@ public sealed class StorageRelocationService : IDisposable
         }
 
         string target = StorageFolderValidator.Normalize(targetFolder);
-        List<(string Source, string Target, long Size)> plan = BuildPlan(source, target, out List<string> temporaryFiles);
-        FilesTotal = plan.Count;
-        BytesTotal = plan.Sum(p => p.Size);
-
-        _logger.LogInformation("Relocating storage from {source} to {target}: {count} file(s), {bytes} bytes",
-            source, target, FilesTotal, BytesTotal);
 
         int moved = 0;
         int failed = 0;
         long movedBytes = 0;
+        bool planned = false;
 
         _cacheMonitor.HaltScan(HaltSource);
+        // Les collections Penumbra des pairs pointent vers l'ancien dossier et les téléchargements
+        // en cours y écriraient : on suspend pairs et téléchargements le temps du déplacement.
+        List<Pair> heldPairs = HoldPairs();
 
         try
         {
+            // Liste établie seulement une fois les téléchargements en cours arrêtés : plus rien n'écrit dans la source
+            WaitForPairDownloads(heldPairs, token);
+            if (token.IsCancellationRequested) return;
+
+            List<(string Source, string Target, long Size)> plan = BuildPlan(source, target, out List<string> temporaryFiles);
+            FilesTotal = plan.Count;
+            BytesTotal = plan.Sum(p => p.Size);
+            planned = true;
+
+            _logger.LogInformation("Relocating storage from {source} to {target}: {count} file(s), {bytes} bytes",
+                source, target, FilesTotal, BytesTotal);
+
             _cacheMonitor.StopMonitoring();
             Directory.CreateDirectory(target);
 
@@ -171,7 +185,7 @@ public sealed class StorageRelocationService : IDisposable
         }
         finally
         {
-            bool switched = moved > 0 || failed == 0;
+            bool switched = planned && (moved > 0 || failed == 0);
             if (switched)
             {
                 _configService.Current.CacheFolder = target;
@@ -196,6 +210,9 @@ public sealed class StorageRelocationService : IDisposable
                 RestartMonitoring();
             }
 
+            // Le déblocage réapplique les pairs visibles avec les nouveaux chemins.
+            ReleasePairs(heldPairs, skipApplication: token.IsCancellationRequested);
+
             bool sourceEmptied = IsSourceEmptied(source);
             LastResult = new StorageRelocationResult(switched && failed == 0, StorageFolderIssue.None,
                 moved, failed, movedBytes, source, target, sourceEmptied);
@@ -205,6 +222,73 @@ public sealed class StorageRelocationService : IDisposable
 
             if (!token.IsCancellationRequested)
                 Notify(switched && failed == 0);
+        }
+    }
+
+    private List<Pair> HoldPairs()
+    {
+        List<Pair> held = [];
+        foreach (Pair pair in _pairManager.GetOnlineUserPairs())
+        {
+            try
+            {
+                pair.HoldDownloads(HaltSource, maxValue: 1);
+                held.Add(pair);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Could not hold a pair during storage relocation");
+            }
+        }
+
+        return held;
+    }
+
+    private static readonly TimeSpan DownloadStopTimeout = TimeSpan.FromSeconds(30);
+
+    private void WaitForPairDownloads(List<Pair> heldPairs, CancellationToken token)
+    {
+        List<Task> downloads = [];
+        foreach (Pair pair in heldPairs)
+        {
+            try
+            {
+                downloads.Add(pair.CancelDownloadsAsync());
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Could not cancel the downloads of a pair during storage relocation");
+            }
+        }
+
+        try
+        {
+            // Les téléchargements annulés se terminent en OperationCanceledException : seul l'arrêt compte
+            if (!Task.WhenAll(downloads).ContinueWith(_ => { }, TaskScheduler.Default).Wait(DownloadStopTimeout, token))
+                _logger.LogWarning("Storage relocation: some downloads did not stop within {timeout}s", DownloadStopTimeout.TotalSeconds);
+        }
+        catch (OperationCanceledException)
+        {
+            // Déchargement du plugin : l'appelant abandonne le déplacement
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Waiting for the downloads to stop failed");
+        }
+    }
+
+    private void ReleasePairs(List<Pair> heldPairs, bool skipApplication)
+    {
+        foreach (Pair pair in heldPairs)
+        {
+            try
+            {
+                pair.UnholdDownloads(HaltSource, skipApplication);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Could not release a pair after storage relocation");
+            }
         }
     }
 

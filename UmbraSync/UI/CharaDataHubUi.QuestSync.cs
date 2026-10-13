@@ -39,13 +39,12 @@ public sealed partial class CharaDataHubUi
             ImGuiHelpers.ScaledDummy(5);
         }
 
-        _uiSharedService.BigText(Loc.Get("QuestSync.Title"));
+        UiSharedService.BeginSectionCard(Loc.Get("QuestSync.Title"), FontAwesomeIcon.Scroll);
         DrawHelpFoldout(Loc.Get("QuestSync.HelpText"));
 
         using var disabled = ImRaii.Disabled(!_uiSharedService.ApiController.IsConnected);
 
-        UiSharedService.DistanceSeparator();
-        _uiSharedService.BigText(Loc.Get("QuestSync.Controls"));
+        UiSharedService.BeginSectionCard(Loc.Get("QuestSync.Controls"), FontAwesomeIcon.SlidersH);
 
         if (string.IsNullOrEmpty(_questSessionCurrentId))
         {
@@ -85,9 +84,7 @@ public sealed partial class CharaDataHubUi
             UiSharedService.AttachToolTip(Loc.Get("QuestSync.LeaveSessionHint"));
         }
 
-        UiSharedService.DistanceSeparator();
-        ImGui.TextUnformatted(Loc.Get("QuestSync.Participants"));
-        ImGuiHelpers.ScaledDummy(3);
+        UiSharedService.BeginSectionCard(Loc.Get("QuestSync.Participants"), FontAwesomeIcon.Users);
 
         if (string.IsNullOrEmpty(_questSessionCurrentId) || _questSessionParticipants.Count == 0)
         {

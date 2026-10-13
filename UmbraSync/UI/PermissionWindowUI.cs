@@ -10,6 +10,7 @@ using UmbraSync.PlayerData.Pairs;
 using UmbraSync.Services;
 using UmbraSync.Services.Mediator;
 using UmbraSync.Utils;
+using UmbraSync.UI.Components;
 
 namespace UmbraSync.UI;
 
@@ -53,7 +54,7 @@ public class PermissionWindowUI : WindowMediatorSubscriberBase
         if (Pair.UserPair == null)
             return;
 
-        if (ImGui.Checkbox(Loc.Get("Permissions.Pause"), ref paused))
+        if (ToggleSwitch.Draw(Loc.Get("Permissions.Pause"), ref paused))
         {
             _ownPermissions.SetPaused(paused);
         }
@@ -78,7 +79,7 @@ public class PermissionWindowUI : WindowMediatorSubscriberBase
         ImGui.Separator();
         ImGuiHelpers.ScaledDummy(0.5f);
 
-        if (ImGui.Checkbox(Loc.Get("Permissions.DisableSounds"), ref disableSounds))
+        if (ToggleSwitch.Draw(Loc.Get("Permissions.DisableSounds"), ref disableSounds))
         {
             _ownPermissions.SetDisableSounds(disableSounds);
         }
@@ -92,7 +93,7 @@ public class PermissionWindowUI : WindowMediatorSubscriberBase
             ImGui.TextUnformatted(string.Format(System.Globalization.CultureInfo.CurrentCulture, Loc.Get("Permissions.Other.Sounds"), Pair.UserData.AliasOrUID, !otherDisableSounds ? Loc.Get("Permissions.Other.NotPrefix") : string.Empty));
         }
 
-        if (ImGui.Checkbox(Loc.Get("Permissions.DisableAnimations"), ref disableAnimations))
+        if (ToggleSwitch.Draw(Loc.Get("Permissions.DisableAnimations"), ref disableAnimations))
         {
             _ownPermissions.SetDisableAnimations(disableAnimations);
         }
@@ -106,7 +107,7 @@ public class PermissionWindowUI : WindowMediatorSubscriberBase
             ImGui.TextUnformatted(string.Format(System.Globalization.CultureInfo.CurrentCulture, Loc.Get("Permissions.Other.Animations"), Pair.UserData.AliasOrUID, !otherDisableAnimations ? Loc.Get("Permissions.Other.NotPrefix") : string.Empty));
         }
 
-        if (ImGui.Checkbox(Loc.Get("Permissions.DisableVfx"), ref disableVfx))
+        if (ToggleSwitch.Draw(Loc.Get("Permissions.DisableVfx"), ref disableVfx))
         {
             _ownPermissions.SetDisableVFX(disableVfx);
         }

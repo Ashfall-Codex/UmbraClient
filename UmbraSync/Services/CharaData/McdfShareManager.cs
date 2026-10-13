@@ -19,6 +19,8 @@ public sealed class McdfShareManager(ILogger<McdfShareManager> logger, ApiContro
     private readonly CharaDataManager _charaDataManager = charaDataManager;
     private readonly NotificationTracker _notificationTracker = notificationTracker;
     public MareMediator Mediator { get; } = mediator;
+    // Au-delà de 90 MiB l'envoi passe par le streaming du hub ; le serveur refuse au-delà de McdfMaxSizeInMiB (2048 par défaut)
+    private const int MaxUploadBytes = 2000 * 1024 * 1024;
     private readonly SemaphoreSlim _operationSemaphore = new(1, 1);
     private readonly List<McdfShareEntryDto> _ownShares = new();
     private readonly List<McdfShareEntryDto> _sharedWithMe = new();
@@ -147,7 +149,29 @@ public sealed class McdfShareManager(ILogger<McdfShareManager> logger, ApiContro
     
     private async Task UploadShareAsync(byte[] mcdfBytes, ShareRequest request, string origin, CancellationToken token)
     {
-        var shareId = Guid.NewGuid();
+        if (mcdfBytes.Length > MaxUploadBytes)
+        {
+            LastError = string.Format(CultureInfo.CurrentCulture, Loc.Get("CharaDataHub.Mcdf.Upload.TooLarge"),
+                mcdfBytes.Length / (1024 * 1024), MaxUploadBytes / (1024 * 1024));
+            _logger.LogWarning("MCDF upload refused: {Size} bytes exceeds the {Limit} bytes limit", mcdfBytes.Length, MaxUploadBytes);
+            return;
+        }
+
+        var description = request.Description.Trim();
+        var existing = _ownShares.FirstOrDefault(s => string.Equals((s.Description ?? string.Empty).Trim(), description, StringComparison.OrdinalIgnoreCase));
+        var shareId = existing?.Id ?? Guid.NewGuid();
+
+        // Remplacement : sans destinataires explicites, on conserve ceux du partage existant (le serveur reconstruit les listes depuis le DTO)
+        var individuals = request.AllowedIndividuals;
+        var syncshells = request.AllowedSyncshells;
+        var expiresAtUtc = request.ExpiresAtUtc;
+        if (existing != null && individuals.Count == 0 && syncshells.Count == 0)
+        {
+            individuals = existing.AllowedIndividuals;
+            syncshells = existing.AllowedSyncshells;
+            expiresAtUtc ??= existing.ExpiresAtUtc;
+        }
+
         byte[] salt = RandomNumberGenerator.GetBytes(16);
         byte[] nonce = RandomNumberGenerator.GetBytes(12);
         byte[] key = DeriveKey(shareId, salt);
@@ -168,12 +192,23 @@ public sealed class McdfShareManager(ILogger<McdfShareManager> logger, ApiContro
             Nonce = nonce,
             Salt = salt,
             Tag = tag,
-            ExpiresAtUtc = request.ExpiresAtUtc,
-            AllowedIndividuals = request.AllowedIndividuals.ToList(),
-            AllowedSyncshells = request.AllowedSyncshells.ToList()
+            ExpiresAtUtc = expiresAtUtc,
+            AllowedIndividuals = individuals.ToList(),
+            AllowedSyncshells = syncshells.ToList()
         };
 
-        await _apiController.McdfShareUpload(uploadDto).ConfigureAwait(false);
+        if (!_apiController.IsConnected)
+        {
+            LastError = Loc.Get("CharaDataHub.Mcdf.Upload.NotConnected");
+            return;
+        }
+
+        if (!await _apiController.McdfShareUpload(uploadDto).ConfigureAwait(false))
+        {
+            LastError = Loc.Get("CharaDataHub.Mcdf.Upload.Rejected");
+            return;
+        }
+
         await InternalRefreshAsync(token).ConfigureAwait(false);
 
         bool isShared = uploadDto.AllowedIndividuals.Count > 0 || uploadDto.AllowedSyncshells.Count > 0;
@@ -307,12 +342,23 @@ public sealed class McdfShareManager(ILogger<McdfShareManager> logger, ApiContro
             return null;
         }
 
+        var cipherData = payload.CipherData;
+        if (payload.CipherLength > cipherData.Length)
+        {
+            cipherData = await _apiController.McdfShareDownloadCipher(payload, token).ConfigureAwait(false);
+            if (cipherData == null)
+            {
+                LastError = "Échec du téléchargement du partage MCDF.";
+                return null;
+            }
+        }
+
         byte[] key = DeriveKey(payload.ShareId, payload.Salt);
-        byte[] plaintext = new byte[payload.CipherData.Length];
+        byte[] plaintext = new byte[cipherData.Length];
         try
         {
             using var aes = new AesGcm(key, 16);
-            aes.Decrypt(payload.Nonce, payload.CipherData, payload.Tag, plaintext);
+            aes.Decrypt(payload.Nonce, cipherData, payload.Tag, plaintext);
         }
         catch (CryptographicException ex)
         {

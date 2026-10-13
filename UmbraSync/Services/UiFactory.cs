@@ -39,7 +39,7 @@ public class UiFactory(
     {
         return new StandaloneProfileUi(loggerFactory.CreateLogger<StandaloneProfileUi>(), mareMediator,
             uiSharedService, serverConfigManager, mareConfigService, umbraProfileManager, apiController, pair, performanceCollectorService,
-            ipcManager, dalamudUtilService, pairManager);
+            ipcManager, dalamudUtilService);
     }
 
     public PermissionWindowUI CreatePermissionPopupUi(Pair pair)

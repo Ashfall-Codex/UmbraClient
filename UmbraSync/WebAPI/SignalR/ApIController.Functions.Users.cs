@@ -1,9 +1,13 @@
 ﻿using Microsoft.AspNetCore.SignalR.Client;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Logging;
 using System.Globalization;
 using System.Text;
+using System.Text.RegularExpressions;
 using UmbraSync.API.Data;
+using UmbraSync.API.Data.Enum;
 using UmbraSync.API.Dto.User;
+using UmbraSync.API.SignalR;
 
 namespace UmbraSync.WebAPI.SignalR;
 
@@ -11,29 +15,176 @@ public partial class ApiController
 {
     public bool IsProfileNsfw { get; set; }
 
-    public async Task PushCharacterData(CharacterData data, List<UserData> visibleCharacters)
+    public async Task<bool> PushCharacterData(CharacterData data, List<UserData> visibleCharacters, CancellationToken ct = default)
     {
-        if (!IsConnected) return;
+        if (!IsConnected) return false;
 
         try
         {
             Logger.LogDebug("Pushing Character data {hash} to {visible}", data.DataHash, string.Join(", ", visibleCharacters.Select(v => v.AliasOrUID)));
-            await PushCharacterDataInternal(data, [.. visibleCharacters]).ConfigureAwait(false);
+            return await PushCharacterDataInternal(SanitizeForPush(data), [.. visibleCharacters], ct).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
-            Logger.LogDebug("Upload operation was cancelled");
+            Logger.LogDebug("Push of character data was cancelled");
+            return false;
         }
         catch (Exception ex)
         {
-            Logger.LogWarning(ex, "Error during upload of files");
+            Logger.LogWarning(ex, "Error during push of character data");
+            return false;
         }
     }
 
+    // Même validation que le serveur (MareHub.User.UserPushData) : une seule entrée invalide
+    // y fait rejeter tout le push, on retire donc ici les entrées qu'il refuserait.
+    private CharacterData SanitizeForPush(CharacterData data)
+    {
+        bool changed = false;
+        Dictionary<ObjectKind, List<FileReplacementData>> sanitized = [];
+        foreach (var (kind, replacements) in data.FileReplacements)
+        {
+            List<FileReplacementData> kept = new(replacements.Count);
+            foreach (var replacement in replacements)
+            {
+                var validGamePaths = replacement.GamePaths.Where(IsValidPushGamePath).ToArray();
+                bool validHash = string.IsNullOrEmpty(replacement.Hash) || SafeIsMatch(PushHashRegex(), replacement.Hash);
+                bool validFileSwapPath = string.IsNullOrEmpty(replacement.FileSwapPath) || SafeIsMatch(PushGamePathRegex(), replacement.FileSwapPath);
+
+                if (validGamePaths.Length == replacement.GamePaths.Length && validHash && validFileSwapPath)
+                {
+                    kept.Add(replacement);
+                    continue;
+                }
+
+                changed = true;
+                LogInvalidPushEntry(replacement, validHash, validFileSwapPath);
+                if (validGamePaths.Length == 0 || !validHash || !validFileSwapPath) continue;
+
+                kept.Add(new FileReplacementData
+                {
+                    GamePaths = validGamePaths,
+                    Hash = replacement.Hash,
+                    FileSwapPath = replacement.FileSwapPath,
+                });
+            }
+
+            sanitized[kind] = kept;
+        }
+
+        if (!changed) return data;
+
+        return new CharacterData
+        {
+            FileReplacements = sanitized,
+            GlamourerData = data.GlamourerData,
+            ManipulationData = data.ManipulationData,
+            HeelsData = data.HeelsData,
+            CustomizePlusData = data.CustomizePlusData,
+            HonorificData = data.HonorificData,
+            PetNamesData = data.PetNamesData,
+            MoodlesData = data.MoodlesData,
+        };
+    }
+
+    private static bool IsValidPushGamePath(string gamePath)
+    {
+        return SafeIsMatch(PushGamePathRegex(), gamePath)
+            && PushAllowedExtensions.Any(e => gamePath.EndsWith(e, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool SafeIsMatch(Regex regex, string input)
+    {
+        try
+        {
+            return regex.IsMatch(input);
+        }
+        catch (RegexMatchTimeoutException)
+        {
+            return false;
+        }
+    }
+
+    private void LogInvalidPushEntry(FileReplacementData replacement, bool validHash, bool validFileSwapPath)
+    {
+        var key = string.Join('|', replacement.GamePaths) + "|" + replacement.Hash + "|" + replacement.FileSwapPath;
+        bool firstTime;
+        lock (_reportedInvalidPushEntries)
+        {
+            firstTime = _reportedInvalidPushEntries.Count < 1000 && _reportedInvalidPushEntries.Add(key);
+        }
+
+        var invalidPaths = string.Join(", ", replacement.GamePaths.Where(p => !IsValidPushGamePath(p)));
+        if (firstTime)
+        {
+            Logger.LogWarning("Entrée de mod refusée par le serveur, retirée du push : chemins invalides [{paths}], hash valide {validHash} ({hash}), swap valide {validSwap} ({swap})",
+                invalidPaths, validHash, replacement.Hash, validFileSwapPath, replacement.FileSwapPath);
+        }
+        else
+        {
+            Logger.LogDebug("Entrée de mod invalide retirée du push : [{paths}]", invalidPaths);
+        }
+    }
+
+    // InvokeAsync : l'appelant apprend l'échec (déconnexion, erreur serveur) au lieu d'annoncer un faux succès
     public async Task UserAddPair(UserDto user)
     {
-        if (!IsConnected) return;
-        await _mareHub!.SendAsync(nameof(UserAddPair), user).ConfigureAwait(false);
+        if (!IsConnected) throw new InvalidOperationException("Not connected");
+        await _mareHub!.InvokeAsync(nameof(UserAddPair), user).ConfigureAwait(false);
+    }
+
+    public async Task UserBlock(UserDto user)
+    {
+        if (!IsConnected) throw new InvalidOperationException("Not connected");
+        await _mareHub!.InvokeAsync(nameof(UserBlock), user).ConfigureAwait(false);
+    }
+
+    public async Task UserUnblock(UserDto user)
+    {
+        if (!IsConnected) throw new InvalidOperationException("Not connected");
+        await _mareHub!.InvokeAsync(nameof(UserUnblock), user).ConfigureAwait(false);
+    }
+
+    public async Task UserSetPairRequestsAllowed(bool allowed)
+    {
+        if (!IsConnected) throw new InvalidOperationException("Not connected");
+        await _mareHub!.InvokeAsync(nameof(UserSetPairRequestsAllowed), allowed).ConfigureAwait(false);
+    }
+
+    public static bool IsPairRequestsDisabledError(Exception ex)
+        => ex is HubException && ex.Message.Contains(IMareHub.ErrorPairRequestsDisabled, StringComparison.Ordinal);
+
+    public async Task<List<UserData>> UserGetBlockedUsers()
+    {
+        if (!IsConnected) throw new InvalidOperationException("Not connected");
+        return await _mareHub!.InvokeAsync<List<UserData>>(nameof(UserGetBlockedUsers)).ConfigureAwait(false);
+    }
+
+    // Serveur sans FilesReportMissing : inutile de réessayer jusqu'à la prochaine connexion
+    private volatile bool _filesReportMissingUnsupported;
+
+    public bool CanReportMissingFiles => IsConnected && !_filesReportMissingUnsupported;
+
+    public Task FilesReportMissing(UserDto owner, List<string> hashes) => TryReportMissingFiles(owner, hashes);
+
+    /// <summary>
+    /// Signale au serveur des fichiers de <paramref name="owner"/> absents du serveur, pour qu'il lui
+    /// demande de les ré-uploader. Renvoie false si le signalement n'a pas pu être fait.
+    /// </summary>
+    public async Task<bool> TryReportMissingFiles(UserDto owner, List<string> hashes)
+    {
+        if (!CanReportMissingFiles || hashes.Count == 0) return false;
+        try
+        {
+            await _mareHub!.InvokeAsync(nameof(FilesReportMissing), owner, hashes).ConfigureAwait(false);
+            return true;
+        }
+        catch (Exception ex) when (ex.Message.Contains("does not exist", StringComparison.OrdinalIgnoreCase))
+        {
+            _filesReportMissingUnsupported = true;
+            Logger.LogDebug("FilesReportMissing unavailable on this server, missing file reports disabled until reconnect");
+            return false;
+        }
     }
 
 
@@ -111,13 +262,22 @@ public partial class ApiController
 
     public async Task UserPushData(UserCharaDataMessageDto dto)
     {
+        await TryUserPushData(dto, CancellationToken.None).ConfigureAwait(false);
+    }
+
+    private async Task<bool> TryUserPushData(UserCharaDataMessageDto dto, CancellationToken ct)
+    {
+        if (_mareHub == null) return false;
+
         try
         {
-            await _mareHub!.InvokeAsync(nameof(UserPushData), dto).ConfigureAwait(false);
+            await _mareHub.InvokeAsync(nameof(UserPushData), dto, ct).ConfigureAwait(false);
+            return true;
         }
         catch (Exception ex)
         {
             Logger.LogWarning(ex, "Failed to Push character data");
+            return false;
         }
     }
 
@@ -148,7 +308,7 @@ public partial class ApiController
 
         try
         {
-            Logger.LogInformation("Sending UserSetAlias to server. Alias: {alias}", alias ?? "(null/clearing)");
+            Logger.LogInformation("Sending UserSetAlias to server ({action})", alias == null ? "clearing" : "setting");
             await _mareHub!.InvokeAsync(nameof(UserSetAlias), alias).ConfigureAwait(false);
             Logger.LogInformation("UserSetAlias successfully sent to server");
         }
@@ -169,8 +329,7 @@ public partial class ApiController
 
         try
         {
-            var json = System.Text.Json.JsonSerializer.Serialize(userDescription, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
-            Logger.LogInformation("Sending UserSetProfile to server for {uid}. Data: {json}", userDescription.User.UID, json);
+            Logger.LogInformation("Sending UserSetProfile to server for {uid}", userDescription.User.UID);
             await _mareHub!.InvokeAsync(nameof(UserSetProfile), userDescription).ConfigureAwait(false);
             Logger.LogInformation("UserSetProfile successfully sent to server");
         }
@@ -238,9 +397,9 @@ public partial class ApiController
         }
     }
 
-    private async Task PushCharacterDataInternal(CharacterData character, List<UserData> visibleCharacters)
+    private async Task<bool> PushCharacterDataInternal(CharacterData character, List<UserData> visibleCharacters, CancellationToken ct)
     {
-        Logger.LogInformation("Pushing character data for {hash} to {charas}", character.DataHash.Value, string.Join(", ", visibleCharacters.Select(c => c.AliasOrUID)));
+        Logger.LogInformation("Pushing character data for {hash} to {count} visible pair(s)", character.DataHash.Value, visibleCharacters.Count);
         StringBuilder sb = new();
         foreach (var kvp in character.FileReplacements.ToList())
         {
@@ -252,6 +411,15 @@ public partial class ApiController
         }
         Logger.LogDebug("Chara data contained: {nl} {data}", Environment.NewLine, sb.ToString());
 
-        await UserPushData(new(visibleCharacters, character)).ConfigureAwait(false);
+        return await TryUserPushData(new(visibleCharacters, character), ct).ConfigureAwait(false);
     }
+
+    private static readonly string[] PushAllowedExtensions = [".mdl", ".tex", ".mtrl", ".tmb", ".pap", ".avfx", ".atex", ".sklb", ".eid", ".phyb", ".pbd", ".scd", ".skp", ".shpk", ".kdb"];
+    private readonly HashSet<string> _reportedInvalidPushEntries = new(StringComparer.Ordinal);
+
+    [GeneratedRegex(@"^([a-z0-9_ '+&,\.\-\{\}]+\/)+([a-z0-9_ '+&,\.\-\{\}]+\.[a-z]{3,4})$", RegexOptions.IgnoreCase | RegexOptions.Compiled | RegexOptions.ECMAScript, matchTimeoutMilliseconds: 1000)]
+    private static partial Regex PushGamePathRegex();
+
+    [GeneratedRegex(@"^[A-Z0-9]{40}$", RegexOptions.IgnoreCase | RegexOptions.Compiled | RegexOptions.ECMAScript, matchTimeoutMilliseconds: 1000)]
+    private static partial Regex PushHashRegex();
 }

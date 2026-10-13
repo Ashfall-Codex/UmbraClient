@@ -5,9 +5,11 @@ using System.Globalization;
 using UmbraSync.Localization;
 using UmbraSync.MareConfiguration;
 using UmbraSync.PlayerData.Pairs;
+using UmbraSync.Services;
 using UmbraSync.Services.Mediator;
 using UmbraSync.Services.ServerConfiguration;
 using UmbraSync.UI.Components;
+using UmbraSync.Utils;
 
 namespace UmbraSync.UI.Handlers;
 
@@ -23,10 +25,17 @@ public class UidDisplayHandler
     private string _lastMouseOverUid = string.Empty;
     private bool _popupShown = false;
     private DateTime? _popupTime;
+    private readonly UmbraProfileManager _profileManager;
+    private readonly UiSharedService _uiSharedService;
+    private readonly Dictionary<string, (byte[] Data, Task<Dalamud.Interface.Textures.TextureWraps.IDalamudTextureWrap> Task)> _avatarTasks = new(StringComparer.Ordinal);
+    private DateTime _lastProfileRequestUtc = DateTime.MinValue;
 
     public UidDisplayHandler(MareMediator mediator, PairManager pairManager,
-        ServerConfigurationManager serverManager, MareConfigService mareConfigService)
+        ServerConfigurationManager serverManager, MareConfigService mareConfigService,
+        UmbraProfileManager profileManager, UiSharedService uiSharedService)
     {
+        _profileManager = profileManager;
+        _uiSharedService = uiSharedService;
         _mediator = mediator;
         _pairManager = pairManager;
         _serverManager = serverManager;
@@ -35,26 +44,22 @@ public class UidDisplayHandler
 
     public static void RenderPairList(IEnumerable<DrawPairBase> pairs)
     {
-        var textHeight = ImGui.GetFontSize();
-        var style = ImGui.GetStyle();
-        var framePadding = style.FramePadding;
-        var spacing = style.ItemSpacing;
-        var lineHeight = textHeight + framePadding.Y * 2 + spacing.Y;
         var startY = ImGui.GetCursorStartPos().Y;
         var cursorY = ImGui.GetCursorPosY();
         var contentHeight = UiSharedService.GetWindowContentRegionHeight();
 
         foreach (var entry in pairs)
         {
-            if ((startY + cursorY) < -lineHeight || (startY + cursorY) > contentHeight)
+            var rowHeight = entry.GetRowTotalHeight();
+            if ((startY + cursorY) < -rowHeight || (startY + cursorY) > contentHeight)
             {
-                cursorY += lineHeight;
+                cursorY += rowHeight;
                 ImGui.SetCursorPosY(cursorY);
                 continue;
             }
 
             using (ImRaii.PushId(entry.ImGuiID)) entry.DrawPairedClient();
-            cursorY += lineHeight;
+            cursorY += rowHeight;
         }
     }
 
@@ -62,9 +67,24 @@ public class UidDisplayHandler
     {
         ImGui.SetCursorPosX(textPosX);
         (bool textIsUid, string playerText) = GetPlayerText(pair);
+        UmbraProfileData? rpIdentity = null;
         if (!string.Equals(_editNickEntry, pair.UserData.UID, StringComparison.Ordinal))
         {
             ImGui.SetCursorPosY(originalY);
+
+            if (_mareConfigService.Current.ShowRpIdentityInPairList)
+            {
+                rpIdentity = GetRpIdentity(pair);
+                var rpName = rpIdentity == null ? null : $"{rpIdentity.RpFirstName} {rpIdentity.RpLastName}".Trim();
+                // Un surnom choisi par l'utilisateur, ou l'affichage de l'UID demandé d'un clic, restent prioritaires.
+                bool userChoseName = !string.IsNullOrEmpty(_serverManager.GetNoteForUid(pair.UserData.UID))
+                                     || _showUidForEntry.TryGetValue(pair.UserData.UID, out var forcedUid) && forcedUid;
+                if (!string.IsNullOrEmpty(rpName) && !userChoseName)
+                {
+                    playerText = rpName;
+                    textIsUid = false;
+                }
+            }
 
             using (ImRaii.PushFont(UiBuilder.MonoFont, textIsUid)) ImGui.TextUnformatted(playerText);
 
@@ -153,6 +173,91 @@ public class UidDisplayHandler
         }
     }
 
+    private UmbraProfileData? GetRpIdentity(Pair pair)
+    {
+        if (_profileManager.TryGetKnownProfile(pair.UserData, out var known))
+            return known;
+
+        // Pour les paires visibles seulement, et au rythme d'une requête toutes les demi-secondes :
+        // la liste se remplit peu à peu sans produire de rafale à l'ouverture.
+        if (pair.IsVisible && DateTime.UtcNow - _lastProfileRequestUtc > TimeSpan.FromMilliseconds(500))
+        {
+            _lastProfileRequestUtc = DateTime.UtcNow;
+            _profileManager.GetUmbraProfile(pair.UserData);
+        }
+
+        return null;
+    }
+
+    public static float AvatarSize => ImGui.GetFrameHeight() * 1.3f;
+    
+    public bool TryGetPresenceAvatar(Pair pair, out UmbraProfileData profile)
+    {
+        profile = null!;
+        if (!_mareConfigService.Current.ShowRpIdentityInPairList || !pair.IsVisible) return false;
+        var known = GetRpIdentity(pair);
+        if (known == null || known.RpImageData.Value.Length == 0) return false;
+        profile = known;
+        return true;
+    }
+
+    public bool WantsTallRow(Pair pair)
+        => _mareConfigService.Current.ShowRpIdentityInPairList && pair.IsVisible;
+
+    public void DrawPresenceAvatar(Pair pair, UmbraProfileData profile, System.Numerics.Vector2 pos, float size)
+    {
+        var rpName = $"{profile.RpFirstName} {profile.RpLastName}".Trim();
+        DrawMiniAvatar(pair, profile, rpName, pos, size);
+    }
+
+    private void DrawMiniAvatar(Pair pair, UmbraProfileData profile, string rpName, System.Numerics.Vector2 pos, float size)
+    {
+        var dl = ImGui.GetWindowDrawList();
+        var rounding = size * 0.3f;
+        var max = pos + new System.Numerics.Vector2(size);
+        var color = !string.IsNullOrEmpty(profile.RpNameColor) && _mareConfigService.Current.UseRpNameColors
+            ? UiSharedService.HexToVector4(profile.RpNameColor)
+            : UiSharedService.AccentColor;
+
+        Dalamud.Interface.Textures.TextureWraps.IDalamudTextureWrap? texture = null;
+        var data = profile.RpImageData.Value;
+        if (data.Length > 0)
+        {
+            var key = pair.UserData.UID;
+            if (!_avatarTasks.TryGetValue(key, out var cached)
+                || (!ReferenceEquals(data, cached.Data) && !data.AsSpan().SequenceEqual(cached.Data)))
+            {
+                if (cached.Task != null)
+                    cached.Task.DisposeResultWhenCompleted();
+                cached = (data, Task.Run(() => _uiSharedService.LoadImageAsync(data)));
+                _avatarTasks[key] = cached;
+            }
+            if (cached.Task.IsCompletedSuccessfully) texture = cached.Task.Result;
+        }
+
+        if (texture != null && texture.Handle != IntPtr.Zero)
+        {
+            dl.AddImageRounded(texture.Handle, pos, max, System.Numerics.Vector2.Zero, System.Numerics.Vector2.One,
+                ImGui.GetColorU32(System.Numerics.Vector4.One), rounding);
+        }
+        else
+        {
+            dl.AddRectFilled(pos, max, ImGui.GetColorU32(color with { W = 0.2f }), rounding);
+            var initials = UiSharedService.GetInitials(rpName);
+            if (initials.Length > 0)
+            {
+                var textSize = ImGui.CalcTextSize(initials);
+                dl.AddText(pos + (new System.Numerics.Vector2(size) - textSize) / 2f, ImGui.GetColorU32(color with { W = 0.9f }), initials);
+            }
+        }
+
+        dl.AddRect(pos, max, ImGui.GetColorU32(color with { W = 0.5f }), rounding, ImDrawFlags.None, 1f);
+    }
+
+    // Tri des listes : linguistique, insensible à la casse et aux accents (« Abéhys » avec les A).
+    public static StringComparer NameComparer { get; } =
+        StringComparer.Create(CultureInfo.InvariantCulture, CompareOptions.IgnoreCase | CompareOptions.IgnoreNonSpace);
+
     public (bool isUid, string text) GetPlayerText(Pair pair)
     {
         bool showUidInsteadOfName = ShowUidInsteadOfName(pair);
@@ -161,6 +266,15 @@ public class UidDisplayHandler
             return (true, pair.UserData.UID);
         }
 
+        return GetDisplayName(pair);
+    }
+
+    // Nom tel qu'affiché dans les listes, sans la bascule temporaire vers l'UID : une ligne
+    // ne doit pas changer de place quand on clique dessus pour voir l'UID.
+    public string GetSortName(Pair pair) => GetDisplayName(pair).text;
+
+    private (bool isUid, string text) GetDisplayName(Pair pair)
+    {
         var textIsUid = true;
         string? playerText = _serverManager.GetNoteForUid(pair.UserData.UID);
         if (playerText != null)
@@ -199,6 +313,9 @@ public class UidDisplayHandler
 
     internal void Clear()
     {
+        foreach (var pending in _avatarTasks.Values)
+            pending.Task.DisposeResultWhenCompleted();
+        _avatarTasks.Clear();
         _editNickEntry = string.Empty;
         _editUserComment = string.Empty;
     }

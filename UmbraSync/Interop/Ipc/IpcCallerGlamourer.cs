@@ -179,7 +179,10 @@ public sealed class IpcCallerGlamourer : DisposableMediatorSubscriberBase, IIpcC
             }
             _shownGlamourerUnavailable = _shownGlamourerUnavailable && !apiAvailable;
 
+            bool becameAvailable = apiAvailable && !APIAvailable;
             APIAvailable = apiAvailable;
+            if (becameAvailable)
+                _mareMediator.Publish(new AppearanceIpcReadyMessage("Glamourer"));
 
             // Alerte posée pendant que Glamourer démarrait : elle n'a plus lieu d'être une fois
             // qu'il répond. Sans ce retrait elle restait dans le centre de notifications pour de bon.
@@ -198,7 +201,12 @@ public sealed class IpcCallerGlamourer : DisposableMediatorSubscriberBase, IIpcC
 
     public async Task<GlamourerApiEc?> ApplyAllAsync(ILogger logger, GameObjectHandler handler, string? customization, Guid applicationId, CancellationToken token, bool allowImmediate = false)
     {
-        if (!APIAvailable || string.IsNullOrEmpty(customization) || _dalamudUtil.IsZoning) return null;
+        if (!APIAvailable || string.IsNullOrEmpty(customization)) return null;
+        if (_dalamudUtil.IsZoning)
+        {
+            logger.LogWarning("[{appid}] Application Glamourer écartée : joueur entre deux zones", applicationId);
+            return null;
+        }
 
         GlamourerApiEc? result = null;
         var semaphoreAcquired = false;

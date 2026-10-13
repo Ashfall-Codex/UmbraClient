@@ -20,6 +20,7 @@ public sealed class PairVisibilityGrace
     private readonly IpcManager _ipcManager;
     private readonly Func<string> _describeForLog;
     private readonly Func<bool> _isVisible;
+    private readonly Action _onCollectionRemoved;
 
     private readonly Lock _gate = new();
     private CancellationTokenSource? _graceCts;
@@ -27,7 +28,7 @@ public sealed class PairVisibilityGrace
     private DateTime? _evictionDueAtUtc;
 
     public PairVisibilityGrace(ILogger logger, Pair pair, PairAppliedState state, IpcManager ipcManager,
-        Func<string> describeForLog, Func<bool> isVisible)
+        Func<string> describeForLog, Func<bool> isVisible, Action onCollectionRemoved)
     {
         _logger = logger;
         _pair = pair;
@@ -35,6 +36,7 @@ public sealed class PairVisibilityGrace
         _ipcManager = ipcManager;
         _describeForLog = describeForLog;
         _isVisible = isVisible;
+        _onCollectionRemoved = onCollectionRemoved;
     }
 
     public bool ScheduledForDeletion { get; set; }
@@ -76,6 +78,7 @@ public sealed class PairVisibilityGrace
                         await _ipcManager.Penumbra.RemoveTemporaryCollectionAsync(_logger, applicationId, _state.Penumbra.Collection).ConfigureAwait(false);
                         _state.Penumbra.Collection = Guid.Empty;
                         _state.Penumbra.AssignedObjectIndex = -1;
+                        _onCollectionRemoved();
                         _logger.LogDebug("[{applicationId}] Removed temporary collection after visibility grace timeout", applicationId);
                     }
                     catch (Exception ex)

@@ -20,6 +20,7 @@ using UmbraSync.Services.Mediator;
 using UmbraSync.Services.ServerConfiguration;
 using UmbraSync.UI.Handlers;
 using NotificationType = UmbraSync.MareConfiguration.Models.NotificationType;
+using UmbraSync.Utils;
 
 namespace UmbraSync.UI.Components;
 
@@ -81,6 +82,8 @@ internal sealed class GroupPanel
     private readonly Dictionary<string, DrawGroupPair> _drawGroupPairCache = new(StringComparer.Ordinal);
     private readonly Dictionary<string, List<Pair>> _sortedPairsCache = new(StringComparer.Ordinal);
     private readonly Dictionary<string, long> _sortedPairsLastUpdate = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, (long Tick, List<DrawGroupPair> Pairs)> _drawPairsCache = new(StringComparer.Ordinal);
+    private const long DrawPairsCacheMs = 1000;
     private string? _membersWindowGid = null;
     private bool _membersLeaveConfirm = false;
     private string _syncshellFilter = string.Empty;
@@ -88,6 +91,7 @@ internal sealed class GroupPanel
     private bool _membersSortByType = false;
     private readonly SyncshellConfigService _syncshellConfig;
     private readonly SlotService _slotService;
+    private readonly UmbraProfileManager _profileManager;
     private readonly Dictionary<string, bool> _favoriteMembersExpanded = new(StringComparer.Ordinal);
     private string? _profileWindowGid = null;
     private bool _profileLoading = false;
@@ -98,8 +102,10 @@ internal sealed class GroupPanel
     public GroupPanel(ILogger logger, CompactUi mainUi, UiSharedService uiShared, PairManager pairManager,
         UidDisplayHandler uidDisplayHandler, ServerConfigurationManager serverConfigurationManager,
         CharaDataManager charaDataManager, AutoDetectRequestService autoDetectRequestService,
-        MareConfigService mareConfig, SyncshellConfigService syncshellConfig, SlotService slotService)
+        MareConfigService mareConfig, SyncshellConfigService syncshellConfig, SlotService slotService,
+        UmbraProfileManager profileManager)
     {
+        _profileManager = profileManager;
         _logger = logger;
         _mainUi = mainUi;
         _uiShared = uiShared;
@@ -115,11 +121,22 @@ internal sealed class GroupPanel
 
     private ApiController ApiController => _uiShared.ApiController;
 
+    private readonly Dictionary<string, (string? Source, Task<IDalamudTextureWrap?> Task)> _shellIconTasks = new(StringComparer.Ordinal);
+    private readonly HashSet<string> _shellProfileRequests = new(StringComparer.Ordinal);
+    private DateTime _lastShellProfileRequestUtc = DateTime.MinValue;
+    private bool _shellProfileCachePruned;
+
     public void ClearCache()
     {
+        foreach (var pending in _shellIconTasks.Values)
+            pending.Task.DisposeResultWhenCompleted();
+        _shellIconTasks.Clear();
+        _shellProfileRequests.Clear();
+        _shellProfileCachePruned = false;
         _drawGroupPairCache.Clear();
         _sortedPairsCache.Clear();
         _sortedPairsLastUpdate.Clear();
+        _drawPairsCache.Clear();
     }
 
     /// <summary>
@@ -494,7 +511,7 @@ internal sealed class GroupPanel
             }
             else
             {
-                var buttonSizes = _uiShared.GetIconButtonSize(FontAwesomeIcon.Bars).X + _uiShared.GetIconButtonSize(FontAwesomeIcon.LockOpen).X;
+                var buttonSizes = _uiShared.GetIconButtonSize(FontAwesomeIcon.EllipsisH).X + _uiShared.GetIconButtonSize(FontAwesomeIcon.LockOpen).X;
                 ImGui.SetNextItemWidth(UiSharedService.GetWindowContentRegionWidth() - ImGui.GetCursorPosX() - buttonSizes - ImGui.GetStyle().ItemSpacing.X * 2);
                 if (ImGui.InputTextWithHint("", Loc.Get("Syncshell.Card.CommentPlaceholder"), ref _editGroupComment, 255, ImGuiInputTextFlags.EnterReturnsTrue))
                 {
@@ -615,7 +632,7 @@ internal sealed class GroupPanel
                 if (_bulkOneTimeInvites.Count == 0)
                 {
                     ImGui.SetNextItemWidth(-1);
-                    ImGui.SliderInt("Amount##bulkinvites", ref _bulkInviteCount, 1, 100);
+                    ThemedSlider.Int("Amount##bulkinvites", ref _bulkInviteCount, 1, 100);
                     using (ImRaii.Disabled(_bulkInvitesTask != null))
                     {
                         if (_uiShared.IconTextButton(FontAwesomeIcon.MailBulk, "Create invites"))
@@ -649,7 +666,7 @@ internal sealed class GroupPanel
                         .OrderByDescending(u => string.Equals(u.UserData.UID, groupDto.OwnerUID, StringComparison.Ordinal))
                         .ThenByDescending(u => u.GroupPair[groupDto].GroupPairStatusInfo.IsModerator())
                         .ThenByDescending(u => u.GroupPair[groupDto].GroupPairStatusInfo.IsPinned())
-                        .ThenBy(u => u.GetPairSortKey(), StringComparer.OrdinalIgnoreCase)
+                        .ThenBy(u => _uidDisplayHandler.GetSortName(u), UidDisplayHandler.NameComparer)
                         .ToList();
                     _sortedPairsCache[groupDto.GID] = sortedPairs;
                     _sortedPairsLastUpdate[groupDto.GID] = Environment.TickCount64;
@@ -728,7 +745,7 @@ internal sealed class GroupPanel
         var userVFXIcon = userVFXDisabled ? FontAwesomeIcon.TimesCircle : FontAwesomeIcon.Sun;
 
         var iconSize = UiSharedService.GetIconSize(infoIcon);
-        var barbuttonSize = _uiShared.GetIconButtonSize(FontAwesomeIcon.Bars);
+        var barbuttonSize = _uiShared.GetIconButtonSize(FontAwesomeIcon.EllipsisH);
         var isOwner = string.Equals(groupDto.OwnerUID, ApiController.UID, StringComparison.Ordinal);
 
         var spacingX = ImGui.GetStyle().ItemSpacing.X;
@@ -834,7 +851,7 @@ internal sealed class GroupPanel
         ImGui.SameLine();
 
         ImGui.SetCursorPosY(buttonLineY);
-        if (_uiShared.IconButton(FontAwesomeIcon.Bars))
+        if (_uiShared.IconButton(FontAwesomeIcon.EllipsisH))
         {
             ImGui.OpenPopup("ShellPopup");
         }
@@ -937,7 +954,7 @@ internal sealed class GroupPanel
                 : string.Format(CultureInfo.CurrentCulture, Loc.Get("Settings.ChatTargetSound.SoundItem"), currentValue);
 
         ImGui.SetNextItemWidth(200 * ImGuiHelpers.GlobalScale);
-        if (ImGui.BeginCombo(Loc.Get("Settings.ChatTargetSound.Override.Label") + "##shell_sound_" + gid, previewLabel))
+        if (UiSharedService.BeginCombo(Loc.Get("Settings.ChatTargetSound.Override.Label") + "##shell_sound_" + gid, previewLabel))
         {
             if (ImGui.Selectable(Loc.Get("Settings.ChatTargetSound.Override.Default"), !hasOverride))
             {
@@ -958,7 +975,7 @@ internal sealed class GroupPanel
                     _mareConfig.Save();
                 }
             }
-            ImGui.EndCombo();
+            UiSharedService.EndCombo();
         }
     }
 
@@ -996,7 +1013,7 @@ internal sealed class GroupPanel
         var favorites = _syncshellConfig.Current.FavoriteSyncshells;
         var groups = _pairManager.GroupPairs
             .OrderByDescending(g => favorites.Contains(g.Key.GID))
-            .ThenBy(g => g.Key.Group.AliasOrGID, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(g => g.Key.Group.AliasOrGID, UidDisplayHandler.NameComparer)
             .ToList();
 
         if (!string.IsNullOrEmpty(_syncshellFilter))
@@ -1010,490 +1027,629 @@ internal sealed class GroupPanel
 
         if (groups.Count == 0) return;
 
-        float availableWidth = ImGui.GetContentRegionAvail().X;
-        float cardSpacing = 8f * ImGuiHelpers.GlobalScale;
-        float minCardSize = 100f * ImGuiHelpers.GlobalScale;
-        float borderThickness = 2f * ImGuiHelpers.GlobalScale;
-        float rounding = 8f * ImGuiHelpers.GlobalScale;
-        float buttonSize = 23f * ImGuiHelpers.GlobalScale;
-        float buttonSpacing = 6f * ImGuiHelpers.GlobalScale;
-        float padding = 8f * ImGuiHelpers.GlobalScale;
-        const int maxCardsPerRow = 4;
-        int cardsPerRow = maxCardsPerRow;
-        
-        float cardSize = (availableWidth - (cardsPerRow - 1) * cardSpacing) / cardsPerRow;
-        
-        while (cardSize < minCardSize && cardsPerRow > 1)
+        if (!_shellProfileCachePruned)
         {
-            cardsPerRow--;
-            cardSize = (availableWidth - (cardsPerRow - 1) * cardSpacing) / cardsPerRow;
+            // Une fois par session : retire du disque les profils de syncshells que l'on a quittées.
+            _shellProfileCachePruned = true;
+            _profileManager.PruneGroupProfileCache(_pairManager.GroupPairs.Keys.Select(k => k.GID).ToList());
         }
-        
-        cardSize = Math.Max(cardSize, minCardSize);
 
-        float startX = ImGui.GetCursorPosX();
-        float startY = ImGui.GetCursorPosY();
-        var windowPos = ImGui.GetWindowPos();
-        var scrollY = ImGui.GetScrollY();
-        
-        int totalRows = (groups.Count + cardsPerRow - 1) / cardsPerRow;
-        
-        float totalHeight = totalRows * cardSize + (totalRows - 1) * cardSpacing;
-        ImGui.Dummy(new Vector2(availableWidth, totalHeight));
-        
+        float scale = ImGuiHelpers.GlobalScale;
+        float cardSpacing = 6f * scale;
+        float pad = 10f * scale;
+        float tileSize = 48f * scale;
+        float cardHeight = tileSize + pad * 2f;
+        float rounding = 8f * scale;
+        float buttonSize = 24f * scale;
+        float buttonSpacing = 4f * scale;
         var drawList = ImGui.GetWindowDrawList();
-        int cardIndex = 0;
+        var viewTop = ImGui.GetWindowPos().Y;
+        var viewBottom = viewTop + ImGui.GetWindowHeight();
+        bool favoritesTitleDrawn = false;
+        bool othersTitleDrawn = false;
 
         foreach (var entry in groups)
         {
             var groupDto = entry.Key;
             var pairsInGroup = entry.Value;
-            var groupName = _serverConfigurationManager.GetNoteForGid(groupDto.GID);
-            if (string.IsNullOrEmpty(groupName))
+
+            // Favoris en tête, chacun suivi de ses membres ; les autres syncshells après un intertitre.
+            bool isFavorite = favorites.Contains(groupDto.GID);
+            if (isFavorite && !favoritesTitleDrawn)
             {
-                groupName = groupDto.Group.Alias ?? groupDto.GID;
+                DrawCardsSectionTitle(FontAwesomeIcon.Star, Loc.Get("Syncshell.Cards.Section.Favorites"));
+                favoritesTitleDrawn = true;
+            }
+            else if (!isFavorite && favoritesTitleDrawn && !othersTitleDrawn)
+            {
+                ImGuiHelpers.ScaledDummy(6f);
+                DrawCardsSectionTitle(FontAwesomeIcon.Users, Loc.Get("Syncshell.Cards.Section.Others"));
+                othersTitleDrawn = true;
+            }
+            var cardMin = ImGui.GetCursorScreenPos();
+            float cardWidth = ImGui.GetContentRegionAvail().X;
+            var cardMax = cardMin + new Vector2(cardWidth, cardHeight);
+
+            // Hors de la zone visible : on réserve la place sans rien dessiner.
+            if (cardMax.Y < viewTop || cardMin.Y > viewBottom)
+            {
+                ImGui.Dummy(new Vector2(cardWidth, cardHeight + cardSpacing));
+                if (isFavorite)
+                    DrawFavoriteMembersBlock(groupDto, pairsInGroup, cardSpacing);
+                continue;
             }
 
-            var maxNameLength = 14;
-            var displayName = groupName.Length > maxNameLength 
-                ? groupName.Substring(0, maxNameLength - 3) + "..." 
-                : groupName;
+            var groupName = _serverConfigurationManager.GetNoteForGid(groupDto.GID);
+            if (string.IsNullOrEmpty(groupName))
+                groupName = groupDto.Group.Alias ?? groupDto.GID;
 
-            var totalMembers = pairsInGroup.Count + 1;
-            var connectedMembers = pairsInGroup.Count(p => p.IsOnline) + 1;
-            var memberText = $"{connectedMembers}/{totalMembers}";
+            int totalMembers = pairsInGroup.Count + 1;
+            int connectedMembers = pairsInGroup.Count(p => p.IsOnline) + 1;
+            int visibleMembers = pairsInGroup.Count(p => p.IsVisible);
+            int maxMembers = groupDto.MaxUserCount > 0 ? groupDto.MaxUserCount : ApiController.ServerInfo.MaxGroupUserCount;
 
             bool isPaused = groupDto.GroupUserPermissions.IsPaused();
-            bool isVfxDisabled = groupDto.GroupUserPermissions.IsDisableVFX();
-            bool isSoundDisabled = groupDto.GroupUserPermissions.IsDisableSounds();
-            bool isAnimDisabled = groupDto.GroupUserPermissions.IsDisableAnimations();
-            bool isHousingDisabled = groupDto.GroupUserPermissions.IsDisableHousing();
             bool isActiveSlot = string.Equals(_slotService.ActiveSlotGid, groupDto.GID, StringComparison.Ordinal);
             bool isSlotLeaving = isActiveSlot && _slotService.IsLeaveTimerRunning;
+            bool isOwner = string.Equals(groupDto.OwnerUID, ApiController.UID, StringComparison.Ordinal);
+            bool isModerator = groupDto.GroupUserInfo.IsModerator();
+            bool isAdmin = isOwner || isModerator;
 
-            int col = cardIndex % cardsPerRow;
-            int row = cardIndex / cardsPerRow;
-
-            var cardMin = new Vector2(
-                windowPos.X + startX + col * (cardSize + cardSpacing),
-                windowPos.Y + startY + row * (cardSize + cardSpacing) - scrollY);
-            var cardMax = new Vector2(cardMin.X + cardSize, cardMin.Y + cardSize);
-            var bgColor = new Vector4(0x1C / 255f, 0x1C / 255f, 0x1C / 255f, 1f);
             var pausedColor = ImGuiColors.DalamudOrange;
+            var accent = UiSharedService.AccentColor;
+            var shellProfile = GetShellProfile(groupDto);
+            var tint = GetSyncshellColor(groupDto.GID, shellProfile);
             var slotActiveColor = new Vector4(0.3f, 0.85f, 0.3f, 0.9f);
             var slotLeavingColor = new Vector4(0.9f, 0.25f, 0.25f, 0.9f);
-            var cardBorderColor = new Vector4(0x4A / 255f, 0x36 / 255f, 0x68 / 255f, 0.70f);
+
+            // Zone cliquable de toute la carte : un clic ouvre la liste des membres.
+            bool cardClicked = ImGui.InvisibleButton($"##card-{groupDto.GID}", new Vector2(cardWidth, cardHeight));
+            ImGui.SetItemAllowOverlap();
+            bool cardHovered = ImGui.IsItemHovered();
+            if (cardHovered) ImGui.SetMouseCursor(ImGuiMouseCursor.Hand);
+            if (cardClicked)
+                _membersWindowGid = string.Equals(_membersWindowGid, groupDto.GID, StringComparison.Ordinal) ? null : groupDto.GID;
+            if (cardClicked && string.Equals(_membersWindowGid, groupDto.GID, StringComparison.Ordinal))
+                _membersFilter = string.Empty;
+
+            // Pas d'infobulle de carte au-dessus des boutons d'action : ils ont la leur, et les deux se superposaient.
+            float actionsZoneStart = cardMax.X - pad * 2f - (buttonSize * 4 + buttonSpacing * 3);
+            if (cardHovered && ImGui.GetMousePos().X < actionsZoneStart)
+                DrawSyncshellTooltip(groupDto, groupName, connectedMembers, totalMembers, isPaused);
+
             var borderColor = isSlotLeaving ? slotLeavingColor
                 : isActiveSlot ? slotActiveColor
                 : isPaused ? pausedColor with { W = 0.8f }
-                : cardBorderColor;
-            var nameColor = isPaused ? pausedColor : new Vector4(0x9B / 255f, 0x82 / 255f, 0xC0 / 255f, 1f);
+                : UiSharedService.ThemeCardBorder;
+            drawList.AddRectFilled(cardMin, cardMax, ImGui.GetColorU32(UiSharedService.ThemeHeaderBg with { W = cardHovered ? 1f : 0.9f }), rounding);
+            drawList.AddRectFilled(cardMin, cardMax, ImGui.GetColorU32(accent with { W = cardHovered ? 0.14f : 0.07f }), rounding);
+            drawList.AddRect(cardMin, cardMax, ImGui.GetColorU32(borderColor), rounding, ImDrawFlags.None, 1.5f * scale);
 
-            drawList.AddRectFilled(cardMin, cardMax, ImGui.ColorConvertFloat4ToU32(bgColor), rounding);
-            drawList.AddRect(cardMin, cardMax, ImGui.ColorConvertFloat4ToU32(borderColor), rounding, ImDrawFlags.None, borderThickness);
+            // Pastille d'initiales, teintée d'après le nom : stable d'une session à l'autre.
+            var tileMin = cardMin + new Vector2(pad, pad);
+            var tileMax = tileMin + new Vector2(tileSize);
+            float tileRounding = 10f * scale;
+            drawList.AddRectFilled(tileMin, tileMax, ImGui.GetColorU32(tint with { W = isPaused ? 0.12f : 0.22f }), tileRounding);
+            drawList.AddRect(tileMin, tileMax, ImGui.GetColorU32(tint with { W = isPaused ? 0.35f : 0.65f }), tileRounding, ImDrawFlags.None, scale);
+            var icon = GetSyncshellIcon(groupDto.GID, shellProfile);
+            if (icon != null && icon.Handle != IntPtr.Zero)
+            {
+                drawList.AddImageRounded(icon.Handle, tileMin, tileMax, Vector2.Zero, Vector2.One,
+                    ImGui.GetColorU32(new Vector4(1f, 1f, 1f, isPaused ? 0.5f : 1f)), tileRounding);
+                drawList.AddRect(tileMin, tileMax, ImGui.GetColorU32(tint with { W = isPaused ? 0.35f : 0.65f }), tileRounding, ImDrawFlags.None, scale);
+            }
+            else
+            {
+                // Pas (encore) d'image de profil : les initiales font office d'icône.
+                var initials = GetSyncshellInitials(groupName);
+                using (_uiShared.UidFont.Push())
+                {
+                    var initialsSize = ImGui.CalcTextSize(initials);
+                    drawList.AddText(tileMin + (new Vector2(tileSize) - initialsSize) / 2f,
+                        ImGui.GetColorU32(isPaused ? ImGuiColors.DalamudGrey : tint with { W = 1f }), initials);
+                }
+            }
 
             if (isActiveSlot)
             {
                 var dotColor = isSlotLeaving ? slotLeavingColor with { W = 1f } : slotActiveColor with { W = 1f };
-                var tooltipKey = isSlotLeaving ? "Syncshell.Cards.LeavingSlotZone" : "Syncshell.Cards.InSlotZone";
-                float dotRadius = 5f * ImGuiHelpers.GlobalScale;
-                var dotCenter = new Vector2(cardMax.X - padding - dotRadius, cardMin.Y + padding + dotRadius);
-                drawList.AddCircleFilled(dotCenter, dotRadius, ImGui.ColorConvertFloat4ToU32(dotColor));
-
+                float dotRadius = 5f * scale;
+                var dotCenter = new Vector2(tileMax.X - dotRadius * 0.6f, tileMin.Y + dotRadius * 0.6f);
+                drawList.AddCircleFilled(dotCenter, dotRadius, ImGui.GetColorU32(dotColor));
+                drawList.AddCircle(dotCenter, dotRadius, ImGui.GetColorU32(UiSharedService.ThemeHeaderBg), 0, 1.5f * scale);
                 ImGui.SetCursorScreenPos(dotCenter - new Vector2(dotRadius + 2, dotRadius + 2));
                 using (ImRaii.PushId($"slot-indicator-{groupDto.GID}"))
                 {
                     ImGui.InvisibleButton("##slotDot", new Vector2((dotRadius + 2) * 2, (dotRadius + 2) * 2));
-                    UiSharedService.AttachToolTip(Loc.Get(tooltipKey));
+                    UiSharedService.AttachToolTip(Loc.Get(isSlotLeaving ? "Syncshell.Cards.LeavingSlotZone" : "Syncshell.Cards.InSlotZone"));
                 }
             }
 
-            var nameSize = ImGui.CalcTextSize(displayName);
-            var namePos = new Vector2(
-                cardMin.X + (cardSize - nameSize.X) / 2f,
-                cardMin.Y + padding);
-            drawList.AddText(namePos, ImGui.ColorConvertFloat4ToU32(nameColor), displayName);
+            // Actions à droite, centrées verticalement : favori, pause, membres, menu.
+            int actionCount = 4;
+            float actionsWidth = buttonSize * actionCount + buttonSpacing * (actionCount - 1);
+            float actionsX = cardMax.X - pad - actionsWidth;
+            float actionsY = cardMin.Y + (cardHeight - buttonSize) / 2f;
 
-            float nextLineY = cardMin.Y + padding + nameSize.Y + 4f * ImGuiHelpers.GlobalScale;
+            DrawSyncshellActionButton($"fav-{groupDto.GID}", FontAwesomeIcon.Star, new Vector2(actionsX, actionsY), buttonSize,
+                isFavorite ? ImGuiColors.ParsedGold : Vector4.One,
+                Loc.Get(isFavorite ? "Syncshell.Cards.RemoveFavorite" : "Syncshell.Cards.AddFavorite"), () =>
+                {
+                    if (isFavorite) favorites.Remove(groupDto.GID);
+                    else favorites.Add(groupDto.GID);
+                    _syncshellConfig.Save();
+                });
+
+            var pauseActionText = isPaused ? Loc.Get("Syncshell.Cards.Resume") : Loc.Get("Syncshell.Cards.Pause");
+            DrawSyncshellActionButton($"pause-{groupDto.GID}", isPaused ? FontAwesomeIcon.Play : FontAwesomeIcon.Pause,
+                new Vector2(actionsX + (buttonSize + buttonSpacing), actionsY), buttonSize,
+                isPaused ? pausedColor : Vector4.One,
+                string.Format(CultureInfo.CurrentCulture, Loc.Get("Syncshell.Cards.PauseTooltip"), pauseActionText), () =>
+                {
+                    var userPerm = groupDto.GroupUserPermissions ^ GroupUserPermissions.Paused;
+                    _ = ApiController.GroupChangeIndividualPermissionState(new GroupPairUserPermissionDto(groupDto.Group, new UserData(ApiController.UID), userPerm));
+                });
+
+            bool membersOpen = string.Equals(_membersWindowGid, groupDto.GID, StringComparison.Ordinal);
+            DrawSyncshellActionButton($"members-{groupDto.GID}", FontAwesomeIcon.Users,
+                new Vector2(actionsX + (buttonSize + buttonSpacing) * 2, actionsY), buttonSize,
+                membersOpen ? accent : Vector4.One, Loc.Get("Syncshell.Cards.ShowMembers"), () =>
+                {
+                    if (membersOpen)
+                    {
+                        _membersWindowGid = null;
+                    }
+                    else
+                    {
+                        _membersWindowGid = groupDto.GID;
+                        _membersFilter = string.Empty;
+                    }
+                });
+
+            var menuId = $"syncshell-menu-{groupDto.GID}";
+            if (DrawSyncshellActionButton($"menu-{groupDto.GID}", FontAwesomeIcon.EllipsisH,
+                    new Vector2(actionsX + (buttonSize + buttonSpacing) * 3, actionsY), buttonSize,
+                    Vector4.One, Loc.Get("Syncshell.Cards.Menu")))
+                ImGui.OpenPopup(menuId);
+            DrawSyncshellMenu(menuId, groupDto, groupName, totalMembers, isAdmin);
+
+            float textX = tileMax.X + pad;
+            float textWidth = MathF.Max(40f * scale, actionsX - textX - pad);
+            float lineHeight = ImGui.GetTextLineHeight();
+            float barHeight = 5f * scale;
+            float blockHeight = lineHeight * 2f + barHeight + 8f * scale;
+            float textY = cardMin.Y + (cardHeight - blockHeight) / 2f;
+            string? roleLabel = isOwner ? Loc.Get("GroupPair.Owner") : isModerator ? Loc.Get("GroupPair.Moderator") : null;
+            float roleWidth = roleLabel == null ? 0f : ImGui.CalcTextSize(roleLabel).X + 12f * scale;
+            float nameMax = textWidth - (roleLabel != null && textWidth > 200f * scale ? roleWidth + 6f * scale : 0f);
+            var shownName = UiSharedService.TruncateToWidth(groupName, nameMax);
+            var nameColor = isPaused ? pausedColor : UiSharedService.ThemeTextAccent;
+            drawList.AddText(new Vector2(textX, textY), ImGui.GetColorU32(nameColor), shownName);
+            if (roleLabel != null && textWidth > 200f * scale)
+            {
+                var nameSize = ImGui.CalcTextSize(shownName);
+                var pillMin = new Vector2(textX + nameSize.X + 8f * scale, textY);
+                var pillMax = pillMin + new Vector2(roleWidth, lineHeight);
+                drawList.AddRectFilled(pillMin, pillMax, ImGui.GetColorU32(accent with { W = 0.25f }), lineHeight / 2f);
+                drawList.AddText(pillMin + new Vector2(6f * scale, 0f), ImGui.GetColorU32(Vector4.One with { W = 0.9f }), roleLabel);
+            }
+
+            string details = $"{totalMembers}/{maxMembers} · " + string.Format(CultureInfo.CurrentCulture, Loc.Get("Syncshell.Cards.DetailsOnline"), connectedMembers);
+            if (visibleMembers > 0)
+                details += " · " + string.Format(CultureInfo.CurrentCulture, Loc.Get("Syncshell.Cards.DetailsVisible"), visibleMembers);
             if (isPaused)
-            {
-                var pausedText = Loc.Get("Syncshell.Cards.Paused");
-                var pausedTextSize = ImGui.CalcTextSize(pausedText);
-                var pausedTextPos = new Vector2(
-                    cardMin.X + (cardSize - pausedTextSize.X) / 2f,
-                    nextLineY);
-                drawList.AddText(pausedTextPos, ImGui.ColorConvertFloat4ToU32(pausedColor), pausedText);
-                nextLineY += pausedTextSize.Y + 4f * ImGuiHelpers.GlobalScale;
-            }
+                details = Loc.Get("Syncshell.Cards.Paused") + " · " + details;
+            drawList.AddText(new Vector2(textX, textY + lineHeight + 3f * scale),
+                ImGui.GetColorU32(isPaused ? pausedColor with { W = 0.9f } : ImGuiColors.DalamudGrey), UiSharedService.TruncateToWidth(details, textWidth));
 
-            var memberSize = ImGui.CalcTextSize(memberText);
+            float barWidth = MathF.Min(textWidth, 170f * scale);
+            float barY = textY + lineHeight * 2f + 8f * scale;
+            float fill = maxMembers > 0 ? Math.Clamp(totalMembers / (float)maxMembers, 0f, 1f) : 0f;
+            drawList.AddRectFilled(new Vector2(textX, barY), new Vector2(textX + barWidth, barY + barHeight),
+                ImGui.GetColorU32(new Vector4(1f, 1f, 1f, 0.08f)), barHeight / 2f);
+            if (fill > 0f)
+                drawList.AddRectFilled(new Vector2(textX, barY), new Vector2(textX + MathF.Max(barHeight, barWidth * fill), barY + barHeight),
+                    ImGui.GetColorU32(fill > 0.9f ? ImGuiColors.DalamudOrange : tint with { W = 0.9f }), barHeight / 2f);
 
-            // Info button sizing
-            float infoBtnSize = memberSize.Y + 2f * ImGuiHelpers.GlobalScale;
-            float infoSpacing = 4f * ImGuiHelpers.GlobalScale;
-            float totalMemberLineWidth = memberSize.X + infoSpacing + infoBtnSize;
+            DrawDisabledPermissionBadges(groupDto, new Vector2(textX + barWidth + 10f * scale, barY + barHeight / 2f), textX + textWidth);
 
-            float memberLineStartX = cardMin.X + (cardSize - totalMemberLineWidth) / 2f;
-            var memberPos = new Vector2(memberLineStartX, nextLineY);
-            drawList.AddText(memberPos, ImGui.ColorConvertFloat4ToU32(new Vector4(0.7f, 0.7f, 0.7f, 1f)), memberText);
-
-            // Info button
-            float infoButtonX = memberLineStartX + memberSize.X + infoSpacing;
-            float infoButtonY = nextLineY + (memberSize.Y - infoBtnSize) / 2f;
-            ImGui.SetCursorScreenPos(new Vector2(infoButtonX, infoButtonY));
-            using (ImRaii.PushId($"info-{groupDto.GID}"))
-            {
-                using (ImRaii.PushColor(ImGuiCol.Button, Vector4.Zero))
-                using (ImRaii.PushColor(ImGuiCol.ButtonHovered, new Vector4(0.3f, 0.3f, 0.35f, 0.5f)))
-                using (ImRaii.PushColor(ImGuiCol.ButtonActive, new Vector4(0.25f, 0.25f, 0.3f, 0.5f)))
-                using (ImRaii.PushColor(ImGuiCol.Text, new Vector4(0.7f, 0.7f, 0.7f, 1f)))
-                using (ImRaii.PushStyle(ImGuiStyleVar.FrameRounding, 3f * ImGuiHelpers.GlobalScale))
-                {
-                    if (_uiShared.IconButtonCentered(FontAwesomeIcon.InfoCircle, infoBtnSize, square: true))
-                    {
-                        if (string.Equals(_profileWindowGid, groupDto.GID, StringComparison.Ordinal))
-                        {
-                            _profileWindowGid = null;
-                            _currentProfile = null;
-                            _profileTexture?.Dispose();
-                            _profileTexture = null;
-                            _bannerTexture?.Dispose();
-                            _bannerTexture = null;
-                        }
-                        else
-                        {
-                            _profileWindowGid = groupDto.GID;
-                            _profileLoading = true;
-                            _currentProfile = null;
-                            _profileTexture?.Dispose();
-                            _profileTexture = null;
-                            _bannerTexture?.Dispose();
-                            _bannerTexture = null;
-                            _ = LoadGroupProfileAsync(groupDto);
-                        }
-                    }
-                }
-                UiSharedService.AttachToolTip(Loc.Get("Syncshell.Cards.ShowProfile"));
-            }
-
-            float bottomRowY = cardMax.Y - padding - buttonSize;
-            float topRowY = bottomRowY - buttonSize - buttonSpacing;
-            float topRowButtonsWidth = buttonSize * 4 + buttonSpacing * 3;
-            float topRowStartX = cardMin.X + (cardSize - topRowButtonsWidth) / 2f;
-            
-            ImGui.SetCursorScreenPos(new Vector2(topRowStartX, topRowY));
-            using (ImRaii.PushId($"sound-{groupDto.GID}"))
-            {
-                var soundIcon = FontAwesomeIcon.VolumeUp;
-                var soundColor = isSoundDisabled ? ImGuiColors.DalamudRed : new Vector4(0.4f, 0.9f, 0.4f, 1f);
-                using (ImRaii.PushColor(ImGuiCol.Button, new Vector4(0.2f, 0.2f, 0.25f, 1f)))
-                using (ImRaii.PushColor(ImGuiCol.ButtonHovered, new Vector4(0.3f, 0.3f, 0.35f, 1f)))
-                using (ImRaii.PushColor(ImGuiCol.ButtonActive, new Vector4(0.25f, 0.25f, 0.3f, 1f)))
-                using (ImRaii.PushColor(ImGuiCol.Text, soundColor))
-                using (ImRaii.PushStyle(ImGuiStyleVar.FrameRounding, 4f * ImGuiHelpers.GlobalScale))
-                {
-                    if (_uiShared.IconButtonCentered(soundIcon, buttonSize, square: true))
-                    {
-                        var perm = groupDto.GroupUserPermissions;
-                        var newState = !perm.IsDisableSounds();
-                        perm.SetDisableSounds(newState);
-                        _mainUi.Mediator.Publish(new GroupSyncOverrideChanged(groupDto.Group.GID, perm.IsDisableSounds(), null, null));
-                        _ = ApiController.GroupChangeIndividualPermissionState(new GroupPairUserPermissionDto(groupDto.Group, new UserData(ApiController.UID), perm));
-                        
-                        // Send notification
-                        var notifTitle = string.Format(CultureInfo.CurrentCulture, Loc.Get("Syncshell.Cards.Notification.Title"), groupName);
-                        var notifBody = string.Format(CultureInfo.CurrentCulture, Loc.Get(newState ? "Syncshell.Cards.Notification.SoundDisabled" : "Syncshell.Cards.Notification.SoundEnabled"), totalMembers);
-                        _mainUi.Mediator.Publish(new DualNotificationMessage(notifTitle, notifBody, NotificationType.Success));
-                    }
-                }
-                UiSharedService.AttachToolTip(Loc.Get(isSoundDisabled ? "Syncshell.Cards.SoundDisabled" : "Syncshell.Cards.SoundEnabled"));
-            }
-            
-            ImGui.SetCursorScreenPos(new Vector2(topRowStartX + buttonSize + buttonSpacing, topRowY));
-            using (ImRaii.PushId($"anim-{groupDto.GID}"))
-            {
-                var animIcon = FontAwesomeIcon.Running;
-                var animColor = isAnimDisabled ? ImGuiColors.DalamudRed : new Vector4(0.4f, 0.9f, 0.4f, 1f);
-                using (ImRaii.PushColor(ImGuiCol.Button, new Vector4(0.2f, 0.2f, 0.25f, 1f)))
-                using (ImRaii.PushColor(ImGuiCol.ButtonHovered, new Vector4(0.3f, 0.3f, 0.35f, 1f)))
-                using (ImRaii.PushColor(ImGuiCol.ButtonActive, new Vector4(0.25f, 0.25f, 0.3f, 1f)))
-                using (ImRaii.PushColor(ImGuiCol.Text, animColor))
-                using (ImRaii.PushStyle(ImGuiStyleVar.FrameRounding, 4f * ImGuiHelpers.GlobalScale))
-                {
-                    if (_uiShared.IconButtonCentered(animIcon, buttonSize, square: true))
-                    {
-                        var perm = groupDto.GroupUserPermissions;
-                        var newState = !perm.IsDisableAnimations();
-                        perm.SetDisableAnimations(newState);
-                        _mainUi.Mediator.Publish(new GroupSyncOverrideChanged(groupDto.Group.GID, null, perm.IsDisableAnimations(), null));
-                        _ = ApiController.GroupChangeIndividualPermissionState(new GroupPairUserPermissionDto(groupDto.Group, new UserData(ApiController.UID), perm));
-                        
-                        var notifTitle = string.Format(CultureInfo.CurrentCulture, Loc.Get("Syncshell.Cards.Notification.Title"), groupName);
-                        var notifBody = string.Format(CultureInfo.CurrentCulture, Loc.Get(newState ? "Syncshell.Cards.Notification.AnimDisabled" : "Syncshell.Cards.Notification.AnimEnabled"), totalMembers);
-                        _mainUi.Mediator.Publish(new DualNotificationMessage(notifTitle, notifBody, NotificationType.Success));
-                    }
-                }
-                UiSharedService.AttachToolTip(Loc.Get(isAnimDisabled ? "Syncshell.Cards.AnimDisabled" : "Syncshell.Cards.AnimEnabled"));
-            }
-            
-            ImGui.SetCursorScreenPos(new Vector2(topRowStartX + (buttonSize + buttonSpacing) * 2, topRowY));
-            using (ImRaii.PushId($"vfx-{groupDto.GID}"))
-            {
-                var vfxIcon = FontAwesomeIcon.Sun;
-                var vfxColor = isVfxDisabled ? ImGuiColors.DalamudRed : new Vector4(0.4f, 0.9f, 0.4f, 1f);
-                using (ImRaii.PushColor(ImGuiCol.Button, new Vector4(0.2f, 0.2f, 0.25f, 1f)))
-                using (ImRaii.PushColor(ImGuiCol.ButtonHovered, new Vector4(0.3f, 0.3f, 0.35f, 1f)))
-                using (ImRaii.PushColor(ImGuiCol.ButtonActive, new Vector4(0.25f, 0.25f, 0.3f, 1f)))
-                using (ImRaii.PushColor(ImGuiCol.Text, vfxColor))
-                using (ImRaii.PushStyle(ImGuiStyleVar.FrameRounding, 4f * ImGuiHelpers.GlobalScale))
-                {
-                    if (_uiShared.IconButtonCentered(vfxIcon, buttonSize, square: true))
-                    {
-                        var perm = groupDto.GroupUserPermissions;
-                        var newState = !perm.IsDisableVFX();
-                        perm.SetDisableVFX(newState);
-                        _mainUi.Mediator.Publish(new GroupSyncOverrideChanged(groupDto.Group.GID, null, null, perm.IsDisableVFX()));
-                        _ = ApiController.GroupChangeIndividualPermissionState(new GroupPairUserPermissionDto(groupDto.Group, new UserData(ApiController.UID), perm));
-                        
-                        var notifTitle = string.Format(CultureInfo.CurrentCulture, Loc.Get("Syncshell.Cards.Notification.Title"), groupName);
-                        var notifBody = string.Format(CultureInfo.CurrentCulture, Loc.Get(newState ? "Syncshell.Cards.Notification.VfxDisabled" : "Syncshell.Cards.Notification.VfxEnabled"), totalMembers);
-                        _mainUi.Mediator.Publish(new DualNotificationMessage(notifTitle, notifBody, NotificationType.Success));
-                    }
-                }
-                UiSharedService.AttachToolTip(Loc.Get(isVfxDisabled ? "Syncshell.Cards.VfxDisabled" : "Syncshell.Cards.VfxEnabled"));
-            }
-
-            ImGui.SetCursorScreenPos(new Vector2(topRowStartX + (buttonSize + buttonSpacing) * 3, topRowY));
-            using (ImRaii.PushId($"housing-{groupDto.GID}"))
-            {
-                var housingIcon = FontAwesomeIcon.Home;
-                var housingColor = isHousingDisabled ? ImGuiColors.DalamudRed : new Vector4(0.4f, 0.9f, 0.4f, 1f);
-                using (ImRaii.PushColor(ImGuiCol.Button, new Vector4(0.2f, 0.2f, 0.25f, 1f)))
-                using (ImRaii.PushColor(ImGuiCol.ButtonHovered, new Vector4(0.3f, 0.3f, 0.35f, 1f)))
-                using (ImRaii.PushColor(ImGuiCol.ButtonActive, new Vector4(0.25f, 0.25f, 0.3f, 1f)))
-                using (ImRaii.PushColor(ImGuiCol.Text, housingColor))
-                using (ImRaii.PushStyle(ImGuiStyleVar.FrameRounding, 4f * ImGuiHelpers.GlobalScale))
-                {
-                    if (_uiShared.IconButtonCentered(housingIcon, buttonSize, square: true))
-                    {
-                        var perm = groupDto.GroupUserPermissions;
-                        var newState = !perm.IsDisableHousing();
-                        perm.SetDisableHousing(newState);
-                        _mainUi.Mediator.Publish(new GroupSyncOverrideChanged(groupDto.Group.GID, null, null, null, perm.IsDisableHousing()));
-                        _ = ApiController.GroupChangeIndividualPermissionState(new GroupPairUserPermissionDto(groupDto.Group, new UserData(ApiController.UID), perm));
-
-                        var notifTitle = string.Format(CultureInfo.CurrentCulture, Loc.Get("Syncshell.Cards.Notification.Title"), groupName);
-                        var notifBody = string.Format(CultureInfo.CurrentCulture, Loc.Get(newState ? "Syncshell.Cards.Notification.HousingDisabled" : "Syncshell.Cards.Notification.HousingEnabled"), totalMembers);
-                        _mainUi.Mediator.Publish(new DualNotificationMessage(notifTitle, notifBody, NotificationType.Success));
-                    }
-                }
-                UiSharedService.AttachToolTip(Loc.Get(isHousingDisabled ? "Syncshell.Cards.HousingDisabled" : "Syncshell.Cards.HousingEnabled"));
-            }
-
-            bool isAdmin = string.Equals(groupDto.OwnerUID, ApiController.UID, StringComparison.Ordinal)
-                           || groupDto.GroupUserInfo.IsModerator();
-            bool isFavorite = favorites.Contains(groupDto.GID);
-            int bottomBtnCount = isAdmin ? 4 : 3;
-            float bottomRowButtonsWidth = buttonSize * bottomBtnCount + buttonSpacing * (bottomBtnCount - 1);
-            float bottomRowStartX = cardMin.X + (cardSize - bottomRowButtonsWidth) / 2f;
-
-            ImGui.SetCursorScreenPos(new Vector2(bottomRowStartX, bottomRowY));
-            using (ImRaii.PushId($"pause-{groupDto.GID}"))
-            {
-                var pauseIcon = isPaused ? FontAwesomeIcon.Play : FontAwesomeIcon.Pause;
-                var pauseColor = isPaused ? ImGuiColors.DalamudOrange : new Vector4(1f, 1f, 1f, 1f);
-                using (ImRaii.PushColor(ImGuiCol.Button, new Vector4(0.2f, 0.2f, 0.25f, 1f)))
-                using (ImRaii.PushColor(ImGuiCol.ButtonHovered, new Vector4(0.3f, 0.3f, 0.35f, 1f)))
-                using (ImRaii.PushColor(ImGuiCol.ButtonActive, new Vector4(0.25f, 0.25f, 0.3f, 1f)))
-                using (ImRaii.PushColor(ImGuiCol.Text, pauseColor))
-                using (ImRaii.PushStyle(ImGuiStyleVar.FrameRounding, 4f * ImGuiHelpers.GlobalScale))
-                {
-                    if (_uiShared.IconButtonCentered(pauseIcon, buttonSize, square: true))
-                    {
-                        var userPerm = groupDto.GroupUserPermissions ^ GroupUserPermissions.Paused;
-                        _ = ApiController.GroupChangeIndividualPermissionState(new GroupPairUserPermissionDto(groupDto.Group, new UserData(ApiController.UID), userPerm));
-                    }
-                }
-                var pauseActionText = isPaused ? Loc.Get("Syncshell.Cards.Resume") : Loc.Get("Syncshell.Cards.Pause");
-                UiSharedService.AttachToolTip(string.Format(CultureInfo.CurrentCulture, Loc.Get("Syncshell.Cards.PauseTooltip"), pauseActionText));
-            }
-
-            int btnIdx = 1;
-            ImGui.SetCursorScreenPos(new Vector2(bottomRowStartX + (buttonSize + buttonSpacing) * btnIdx, bottomRowY));
-            using (ImRaii.PushId($"fav-{groupDto.GID}"))
-            {
-                var starColor = isFavorite ? ImGuiColors.ParsedGold : new Vector4(1f, 1f, 1f, 1f);
-                using (ImRaii.PushColor(ImGuiCol.Button, new Vector4(0.2f, 0.2f, 0.25f, 1f)))
-                using (ImRaii.PushColor(ImGuiCol.ButtonHovered, new Vector4(0.3f, 0.3f, 0.35f, 1f)))
-                using (ImRaii.PushColor(ImGuiCol.ButtonActive, new Vector4(0.25f, 0.25f, 0.3f, 1f)))
-                using (ImRaii.PushColor(ImGuiCol.Text, starColor))
-                using (ImRaii.PushStyle(ImGuiStyleVar.FrameRounding, 4f * ImGuiHelpers.GlobalScale))
-                {
-                    if (_uiShared.IconButtonCentered(FontAwesomeIcon.Star, buttonSize, square: true))
-                    {
-                        if (isFavorite)
-                            favorites.Remove(groupDto.GID);
-                        else
-                            favorites.Add(groupDto.GID);
-                        _syncshellConfig.Save();
-                    }
-                }
-                UiSharedService.AttachToolTip(Loc.Get(isFavorite ? "Syncshell.Cards.RemoveFavorite" : "Syncshell.Cards.AddFavorite"));
-            }
-
-            btnIdx++;
-            ImGui.SetCursorScreenPos(new Vector2(bottomRowStartX + (buttonSize + buttonSpacing) * btnIdx, bottomRowY));
-            using (ImRaii.PushId($"members-{groupDto.GID}"))
-            {
-                using (ImRaii.PushColor(ImGuiCol.Button, new Vector4(0.2f, 0.2f, 0.25f, 1f)))
-                using (ImRaii.PushColor(ImGuiCol.ButtonHovered, new Vector4(0.3f, 0.3f, 0.35f, 1f)))
-                using (ImRaii.PushColor(ImGuiCol.ButtonActive, new Vector4(0.25f, 0.25f, 0.3f, 1f)))
-                using (ImRaii.PushColor(ImGuiCol.Text, new Vector4(1f, 1f, 1f, 1f)))
-                using (ImRaii.PushStyle(ImGuiStyleVar.FrameRounding, 4f * ImGuiHelpers.GlobalScale))
-                {
-                    if (_uiShared.IconButtonCentered(FontAwesomeIcon.Users, buttonSize, square: true))
-                    {
-                        if (string.Equals(_membersWindowGid, groupDto.GID, StringComparison.Ordinal))
-                        {
-                            _membersWindowGid = null;
-                        }
-                        else
-                        {
-                            _membersWindowGid = groupDto.GID;
-                            _membersFilter = string.Empty;
-                        }
-                    }
-                }
-                UiSharedService.AttachToolTip(Loc.Get("Syncshell.Cards.ShowMembers"));
-            }
-
-            if (isAdmin)
-            {
-                btnIdx++;
-                ImGui.SetCursorScreenPos(new Vector2(bottomRowStartX + (buttonSize + buttonSpacing) * btnIdx, bottomRowY));
-                using (ImRaii.PushId($"admin-{groupDto.GID}"))
-                {
-                    using (ImRaii.PushColor(ImGuiCol.Button, new Vector4(0.2f, 0.2f, 0.25f, 1f)))
-                    using (ImRaii.PushColor(ImGuiCol.ButtonHovered, new Vector4(0.3f, 0.3f, 0.35f, 1f)))
-                    using (ImRaii.PushColor(ImGuiCol.ButtonActive, new Vector4(0.25f, 0.25f, 0.3f, 1f)))
-                    using (ImRaii.PushColor(ImGuiCol.Text, new Vector4(1f, 1f, 1f, 1f)))
-                    using (ImRaii.PushStyle(ImGuiStyleVar.FrameRounding, 4f * ImGuiHelpers.GlobalScale))
-                    {
-                        if (_uiShared.IconButtonCentered(FontAwesomeIcon.Crown, buttonSize, square: true))
-                        {
-                            _mainUi.Mediator.Publish(new OpenSyncshellAdminPanel(groupDto));
-                        }
-                    }
-                    UiSharedService.AttachToolTip(Loc.Get("Syncshell.Cards.OpenAdmin"));
-                }
-            }
-
-            var hoverAreaMax = new Vector2(cardMax.X, topRowY - buttonSpacing);
-            if (ImGui.IsMouseHoveringRect(cardMin, hoverAreaMax) && ImGui.IsWindowHovered(ImGuiHoveredFlags.ChildWindows))
-            {
-                ImGui.BeginTooltip();
-                ImGui.TextUnformatted(groupName);
-                ImGui.TextUnformatted(string.Format(CultureInfo.CurrentCulture, Loc.Get("Syncshell.Cards.OnlineMembers"), connectedMembers, totalMembers));
-                var cardMaxCapacity = groupDto.MaxUserCount > 0 ? groupDto.MaxUserCount : ApiController.ServerInfo.MaxGroupUserCount;
-                ImGui.TextUnformatted(string.Format(CultureInfo.CurrentCulture, Loc.Get("Syncshell.Cards.MaxCapacity"), cardMaxCapacity));
-                if (!string.IsNullOrEmpty(groupDto.Group.Alias) && !string.Equals(groupDto.Group.Alias, groupName, StringComparison.Ordinal))
-                {
-                    ImGui.TextUnformatted($"ID: {groupDto.GID}");
-                }
-                if (isPaused)
-                {
-                    UiSharedService.ColorText(Loc.Get("Syncshell.Cards.Paused"), ImGuiColors.DalamudOrange);
-                }
-                ImGui.EndTooltip();
-            }
-
-            cardIndex++;
+            ImGui.SetCursorScreenPos(new Vector2(cardMin.X, cardMax.Y + cardSpacing));
+            if (isFavorite)
+                DrawFavoriteMembersBlock(groupDto, pairsInGroup, cardSpacing);
         }
-
-        // Inline members for favorite syncshells
-        DrawFavoriteMembersInline(groups, favorites);
 
         DrawMembersWindow();
         DrawProfileWindow();
     }
 
-    private void DrawFavoriteMembersInline(List<KeyValuePair<GroupFullInfoDto, List<Pair>>> groups, HashSet<string> favorites)
+
+    private GroupProfileDto? GetShellProfile(GroupFullInfoDto groupDto)
     {
-        var favoriteGroups = groups.Where(g => favorites.Contains(g.Key.GID)).ToList();
-        if (favoriteGroups.Count == 0) return;
+        // Profil confirmé par le serveur cette session (requête ou mise à jour poussée).
+        var live = _profileManager.GetGroupProfile(groupDto.GID);
+        if (live != null) return live;
 
-        ImGuiHelpers.ScaledDummy(8f);
+        // En attendant la confirmation : la copie gardée sur le disque, affichée aussitôt. Si l'image a changé
+        // entre-temps, la relecture ci-dessous la remplace ; sinon rien ne bouge à l'écran.
+        var fromDisk = _profileManager.GetCachedGroupProfile(groupDto.GID);
 
-        // Separator violet between cards and favorite members
-        var separatorColor = new Vector4(0x4A / 255f, 0x36 / 255f, 0x68 / 255f, 0.70f);
-        var cursorScreenPos = ImGui.GetCursorScreenPos();
-        var availWidth = ImGui.GetContentRegionAvail().X;
-        ImGui.GetWindowDrawList().AddLine(
-            cursorScreenPos,
-            new Vector2(cursorScreenPos.X + availWidth, cursorScreenPos.Y),
-            ImGui.ColorConvertFloat4ToU32(separatorColor),
-            2f * ImGuiHelpers.GlobalScale);
-        ImGuiHelpers.ScaledDummy(6f);
-
-        foreach (var entry in favoriteGroups)
+        if (DateTime.UtcNow - _lastShellProfileRequestUtc >= TimeSpan.FromMilliseconds(400)
+            && _shellProfileRequests.Add(groupDto.GID))
         {
-            var groupDto = entry.Key;
-            var pairsInGroup = entry.Value;
-            var groupName = _serverConfigurationManager.GetNoteForGid(groupDto.GID);
-            if (string.IsNullOrEmpty(groupName))
-            {
-                groupName = groupDto.Group.Alias ?? groupDto.GID;
-            }
+            _lastShellProfileRequestUtc = DateTime.UtcNow;
+            _ = FetchShellProfileAsync(groupDto);
+        }
 
-            if (!_favoriteMembersExpanded.TryGetValue(groupDto.GID, out var expanded))
-            {
-                expanded = true;
-                _favoriteMembersExpanded[groupDto.GID] = expanded;
-            }
+        return fromDisk;
+    }
 
-            var headerLabel = string.Format(CultureInfo.CurrentCulture, Loc.Get("Syncshell.Cards.FavoriteMembers"), groupName, pairsInGroup.Count + 1);
-            var headerExpanded = expanded;
-            UiSharedService.DrawArrowToggle(ref headerExpanded, $"##fav-members-toggle-{groupDto.GID}");
-            if (headerExpanded != expanded)
-            {
-                _favoriteMembersExpanded[groupDto.GID] = headerExpanded;
-            }
-            ImGui.SameLine(0f, 6f * ImGuiHelpers.GlobalScale);
-            UiSharedService.ColorText(headerLabel, new Vector4(0x9B / 255f, 0x82 / 255f, 0xC0 / 255f, 1f));
-
-            // Bouton de tri par type sur la ligne du header
-            var favSortIcon = _membersSortByType ? FontAwesomeIcon.UserFriends : FontAwesomeIcon.Signal;
-            var favSortTooltip = _membersSortByType
-                ? Loc.Get("Syncshell.Members.SortByStatus")
-                : Loc.Get("Syncshell.Members.SortByType");
-            ImGui.SameLine(ImGui.GetContentRegionAvail().X - _uiShared.GetIconButtonSize(favSortIcon).X);
-            ImGui.PushID($"fav-sort-{groupDto.GID}");
-            if (_uiShared.IconButton(favSortIcon))
-            {
-                _membersSortByType = !_membersSortByType;
-            }
-            ImGui.PopID();
-            UiSharedService.AttachToolTip(favSortTooltip);
-
-            if (headerExpanded)
-            {
-                ImGui.Indent(20);
-                DrawMembersList(groupDto, pairsInGroup);
-                ImGui.Unindent(20);
-            }
-
-            ImGuiHelpers.ScaledDummy(4f);
+    private async Task FetchShellProfileAsync(GroupFullInfoDto groupDto)
+    {
+        try
+        {
+            var profile = await ApiController.GroupGetProfile(new GroupDto(groupDto.Group)).ConfigureAwait(false);
+            if (profile != null)
+                _profileManager.SetGroupProfile(groupDto.GID, profile);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Profil de syncshell indisponible pour {gid}", groupDto.GID);
         }
     }
 
-    private List<DrawGroupPair> BuildDrawPairs(GroupFullInfoDto groupDto, IEnumerable<Pair> pairs)
+    private IDalamudTextureWrap? GetSyncshellIcon(string gid, GroupProfileDto? profile)
+    {
+        // Une syncshell NSFW n'affiche pas son image tant que l'utilisateur n'a pas choisi de les voir.
+        string? source = profile is { IsDisabled: false } && !(profile.IsNsfw && !_mareConfig.Current.ProfilesAllowNsfw)
+            ? profile.ProfileImageBase64
+            : null;
+
+        if (string.IsNullOrEmpty(source))
+        {
+            if (_shellIconTasks.Remove(gid, out var stale))
+                stale.Task.DisposeResultWhenCompleted();
+            return null;
+        }
+
+        if (_shellIconTasks.TryGetValue(gid, out var entry) && string.Equals(entry.Source, source, StringComparison.Ordinal))
+            return entry.Task.IsCompletedSuccessfully ? entry.Task.Result : null;
+
+        // Nouvelle image (première fois, ou le propriétaire vient de la changer) : on remplace l'ancienne.
+        if (entry.Task != null)
+            entry.Task.DisposeResultWhenCompleted();
+        _shellIconTasks[gid] = (source, LoadSyncshellIconAsync(source));
+        return null;
+    }
+
+    private async Task<IDalamudTextureWrap?> LoadSyncshellIconAsync(string imageBase64)
+    {
+        try
+        {
+            return await _uiShared.LoadImageAsync(Convert.FromBase64String(imageBase64)).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Image de syncshell illisible");
+            return null;
+        }
+    }
+
+    internal static Vector4 GetSyncshellColor(string gid, GroupProfileDto? profile)
+        => ColorSwatchPicker.TryParse(profile?.BorderColor, out var chosen) ? chosen : GetSyncshellTint(gid);
+
+    internal static Vector4 GetSyncshellTint(string gid)
+    {
+        uint hash = 2166136261;
+        foreach (var c in gid)
+            hash = (hash ^ c) * 16777619;
+        float hue = (hash % 360) / 360f;
+        float r = 0f, g = 0f, b = 0f;
+        ImGui.ColorConvertHSVtoRGB(hue, 0.5f, 0.95f, ref r, ref g, ref b);
+        return new Vector4(r, g, b, 1f);
+    }
+
+    internal static string GetSyncshellInitials(string name)
+    {
+        var parts = name.Split([' ', '-', '\'', '_', '[', ']'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var words = parts.Where(p => p.Any(char.IsLetterOrDigit)).ToArray();
+        if (words.Length == 0) return "?";
+        if (words.Length == 1)
+        {
+            var letters = words[0].Where(char.IsLetterOrDigit).Take(2).ToArray();
+            return new string(letters).ToUpperInvariant();
+        }
+
+        return new string(words.Take(2).Select(w => char.ToUpperInvariant(w.First(char.IsLetterOrDigit))).ToArray());
+    }
+
+    private bool DrawSyncshellActionButton(string id, FontAwesomeIcon icon, Vector2 screenPos, float size, Vector4 iconColor, string tooltip, Action? onClick = null)
+    {
+        bool clicked = false;
+        ImGui.SetCursorScreenPos(screenPos);
+        using (ImRaii.PushId(id))
+        {
+            using (ImRaii.PushColor(ImGuiCol.Button, new Vector4(0.2f, 0.2f, 0.25f, 1f)))
+            using (ImRaii.PushColor(ImGuiCol.ButtonHovered, new Vector4(0.3f, 0.3f, 0.35f, 1f)))
+            using (ImRaii.PushColor(ImGuiCol.ButtonActive, new Vector4(0.25f, 0.25f, 0.3f, 1f)))
+            using (ImRaii.PushColor(ImGuiCol.Text, iconColor))
+            using (ImRaii.PushStyle(ImGuiStyleVar.FrameRounding, 6f * ImGuiHelpers.GlobalScale))
+            {
+                if (_uiShared.IconButtonCentered(icon, size, square: true))
+                {
+                    clicked = true;
+                    onClick?.Invoke();
+                }
+            }
+            UiSharedService.AttachToolTip(tooltip);
+        }
+
+        return clicked;
+    }
+
+    private void DrawSyncshellTooltip(GroupFullInfoDto groupDto, string groupName, int connectedMembers, int totalMembers, bool isPaused)
+    {
+        using var tooltipStyle = UiSharedService.PushTooltipStyle();
+        ImGui.BeginTooltip();
+        ImGui.TextUnformatted(groupName);
+        ImGui.TextUnformatted(string.Format(CultureInfo.CurrentCulture, Loc.Get("Syncshell.Cards.OnlineMembers"), connectedMembers, totalMembers));
+        var capacity = groupDto.MaxUserCount > 0 ? groupDto.MaxUserCount : ApiController.ServerInfo.MaxGroupUserCount;
+        ImGui.TextUnformatted(string.Format(CultureInfo.CurrentCulture, Loc.Get("Syncshell.Cards.MaxCapacity"), capacity));
+        if (!string.IsNullOrEmpty(groupDto.Group.Alias) && !string.Equals(groupDto.Group.Alias, groupName, StringComparison.Ordinal))
+            ImGui.TextUnformatted($"ID: {groupDto.GID}");
+        if (isPaused)
+            UiSharedService.ColorText(Loc.Get("Syncshell.Cards.Paused"), ImGuiColors.DalamudOrange);
+        ImGui.EndTooltip();
+    }
+
+    private void DrawSyncshellMenu(string menuId, GroupFullInfoDto groupDto, string groupName, int totalMembers, bool isAdmin)
+    {
+        using var style = PopupMenu.PushStyle();
+        if (!ImGui.BeginPopup(menuId)) return;
+
+        if (PopupMenu.Row(FontAwesomeIcon.IdCard, Loc.Get("Syncshell.Cards.ShowProfile"), $"{menuId}-profile"))
+        {
+            ToggleGroupProfileWindow(groupDto);
+            ImGui.CloseCurrentPopup();
+        }
+
+        if (isAdmin && PopupMenu.Row(FontAwesomeIcon.Crown, Loc.Get("Syncshell.Cards.OpenAdmin"), $"{menuId}-admin"))
+        {
+            _mainUi.Mediator.Publish(new OpenSyncshellAdminPanel(groupDto));
+            ImGui.CloseCurrentPopup();
+        }
+
+        PopupMenu.Section(Loc.Get("Syncshell.Cards.Perm.Header"));
+        var perm = groupDto.GroupUserPermissions;
+        if (PopupMenu.ToggleRow(FontAwesomeIcon.VolumeUp, Loc.Get("Syncshell.Cards.Perm.Sound"), !perm.IsDisableSounds(), $"{menuId}-sound"))
+            ToggleShellPermission(groupDto, ShellPermission.Sound, groupName, totalMembers);
+        if (PopupMenu.ToggleRow(FontAwesomeIcon.Running, Loc.Get("Syncshell.Cards.Perm.Anim"), !perm.IsDisableAnimations(), $"{menuId}-anim"))
+            ToggleShellPermission(groupDto, ShellPermission.Animations, groupName, totalMembers);
+        if (PopupMenu.ToggleRow(FontAwesomeIcon.Sun, Loc.Get("Syncshell.Cards.Perm.Vfx"), !perm.IsDisableVFX(), $"{menuId}-vfx"))
+            ToggleShellPermission(groupDto, ShellPermission.Vfx, groupName, totalMembers);
+        if (PopupMenu.ToggleRow(FontAwesomeIcon.Home, Loc.Get("Syncshell.Cards.Perm.Housing"), !perm.IsDisableHousing(), $"{menuId}-housing"))
+            ToggleShellPermission(groupDto, ShellPermission.Housing, groupName, totalMembers);
+
+        ImGui.EndPopup();
+    }
+
+    private enum ShellPermission { Sound, Animations, Vfx, Housing }
+
+    private void ToggleShellPermission(GroupFullInfoDto groupDto, ShellPermission kind, string groupName, int totalMembers)
+    {
+        var perm = groupDto.GroupUserPermissions;
+        bool newState;
+        string notificationKey;
+        switch (kind)
+        {
+            case ShellPermission.Sound:
+                newState = !perm.IsDisableSounds();
+                perm.SetDisableSounds(newState);
+                _mainUi.Mediator.Publish(new GroupSyncOverrideChanged(groupDto.Group.GID, perm.IsDisableSounds(), null, null));
+                notificationKey = newState ? "Syncshell.Cards.Notification.SoundDisabled" : "Syncshell.Cards.Notification.SoundEnabled";
+                break;
+            case ShellPermission.Animations:
+                newState = !perm.IsDisableAnimations();
+                perm.SetDisableAnimations(newState);
+                _mainUi.Mediator.Publish(new GroupSyncOverrideChanged(groupDto.Group.GID, null, perm.IsDisableAnimations(), null));
+                notificationKey = newState ? "Syncshell.Cards.Notification.AnimDisabled" : "Syncshell.Cards.Notification.AnimEnabled";
+                break;
+            case ShellPermission.Vfx:
+                newState = !perm.IsDisableVFX();
+                perm.SetDisableVFX(newState);
+                _mainUi.Mediator.Publish(new GroupSyncOverrideChanged(groupDto.Group.GID, null, null, perm.IsDisableVFX()));
+                notificationKey = newState ? "Syncshell.Cards.Notification.VfxDisabled" : "Syncshell.Cards.Notification.VfxEnabled";
+                break;
+            default:
+                newState = !perm.IsDisableHousing();
+                perm.SetDisableHousing(newState);
+                _mainUi.Mediator.Publish(new GroupSyncOverrideChanged(groupDto.Group.GID, null, null, null, perm.IsDisableHousing()));
+                notificationKey = newState ? "Syncshell.Cards.Notification.HousingDisabled" : "Syncshell.Cards.Notification.HousingEnabled";
+                break;
+        }
+
+        _ = ApiController.GroupChangeIndividualPermissionState(new GroupPairUserPermissionDto(groupDto.Group, new UserData(ApiController.UID), perm));
+        var notifTitle = string.Format(CultureInfo.CurrentCulture, Loc.Get("Syncshell.Cards.Notification.Title"), groupName);
+        var notifBody = string.Format(CultureInfo.CurrentCulture, Loc.Get(notificationKey), totalMembers);
+        _mainUi.Mediator.Publish(new DualNotificationMessage(notifTitle, notifBody, NotificationType.Success));
+    }
+
+    private void DrawDisabledPermissionBadges(GroupFullInfoDto groupDto, Vector2 centerLeft, float maxX)
+    {
+        var perm = groupDto.GroupUserPermissions;
+        var disabled = new List<FontAwesomeIcon>(4);
+        if (perm.IsDisableSounds()) disabled.Add(FontAwesomeIcon.VolumeMute);
+        if (perm.IsDisableAnimations()) disabled.Add(FontAwesomeIcon.Running);
+        if (perm.IsDisableVFX()) disabled.Add(FontAwesomeIcon.Sun);
+        if (perm.IsDisableHousing()) disabled.Add(FontAwesomeIcon.Home);
+        if (disabled.Count == 0) return;
+
+        var dl = ImGui.GetWindowDrawList();
+        var x = centerLeft.X;
+        using (ImRaii.PushFont(UiBuilder.IconFont))
+        {
+            foreach (var icon in disabled)
+            {
+                var text = icon.ToIconString();
+                var size = ImGui.CalcTextSize(text);
+                if (x + size.X > maxX) break;
+                dl.AddText(new Vector2(x, centerLeft.Y - size.Y / 2f), ImGui.GetColorU32(ImGuiColors.DalamudRed with { W = 0.85f }), text);
+                x += size.X + 6f * ImGuiHelpers.GlobalScale;
+            }
+        }
+    }
+
+    private void ToggleGroupProfileWindow(GroupFullInfoDto groupDto)
+    {
+        bool closing = string.Equals(_profileWindowGid, groupDto.GID, StringComparison.Ordinal);
+        _profileTexture?.Dispose();
+        _profileTexture = null;
+        _bannerTexture?.Dispose();
+        _bannerTexture = null;
+        _currentProfile = null;
+        if (closing)
+        {
+            _profileWindowGid = null;
+            return;
+        }
+
+        _profileWindowGid = groupDto.GID;
+        _profileLoading = true;
+        _ = LoadGroupProfileAsync(groupDto);
+    }
+
+    private static void DrawCardsSectionTitle(FontAwesomeIcon icon, string title)
+    {
+        using (ImRaii.PushFont(UiBuilder.IconFont))
+            ImGui.TextColored(UiSharedService.AccentColor, icon.ToIconString());
+        ImGui.SameLine();
+        UiSharedService.ColorText(title.ToUpper(Loc.CurrentCulture), UiSharedService.ThemeTextAccent);
+        ImGuiHelpers.ScaledDummy(2f);
+    }
+
+    // Membres d'une syncshell favorite : un tiroir accroché sous sa carte (même liseré, coins bas
+    // arrondis), avec un en-tête résumé « Membres · 20 · ● 6 en ligne » et le tri à droite.
+    private void DrawFavoriteMembersBlock(GroupFullInfoDto groupDto, List<Pair> pairsInGroup, float cardSpacing)
+    {
+        var scale = ImGuiHelpers.GlobalScale;
+        if (!_favoriteMembersExpanded.TryGetValue(groupDto.GID, out var expanded))
+        {
+            expanded = true;
+            _favoriteMembersExpanded[groupDto.GID] = expanded;
+        }
+
+        float drawerInset = 8f * scale;
+        float innerPad = 10f * scale;
+        float rounding = 8f * scale;
+
+        // Le tiroir part du bas de la carte : on remonte l'espacement entre cartes.
+        ImGui.SetCursorScreenPos(ImGui.GetCursorScreenPos() - new Vector2(0f, cardSpacing));
+        var origin = ImGui.GetCursorScreenPos();
+        var panelMin = new Vector2(origin.X + drawerInset, origin.Y);
+        float panelRight = origin.X + ImGui.GetContentRegionAvail().X - drawerInset;
+
+        var dl = ImGui.GetWindowDrawList();
+        dl.ChannelsSplit(2);
+        dl.ChannelsSetCurrent(1);
+
+        float contentIndent = drawerInset + innerPad;
+        using (ImRaii.PushId($"fav-members-{groupDto.GID}"))
+        {
+            ImGuiHelpers.ScaledDummy(6f);
+            ImGui.Indent(contentIndent);
+
+            // En-tête : la carte affiche déjà les effectifs, on ne garde que le libellé (cliquable
+            // pour replier) et le choix de regroupement à droite.
+            var headerExpanded = expanded;
+            var segmentLabels = new[] { Loc.Get("Syncshell.Members.ViewStatus"), Loc.Get("Syncshell.Members.ViewType") };
+            float segmentWidth = MeasureSegmented(segmentLabels);
+            float headerHeight = ImGui.GetFrameHeight();
+            var headerMin = ImGui.GetCursorScreenPos();
+            float toggleWidth = MathF.Max(40f * scale, panelRight - innerPad - segmentWidth - 8f * scale - headerMin.X);
+            if (ImGui.InvisibleButton("##fav-members-toggle", new Vector2(toggleWidth, headerHeight)))
+            {
+                headerExpanded = !headerExpanded;
+                _favoriteMembersExpanded[groupDto.GID] = headerExpanded;
+            }
+            bool headerHovered = ImGui.IsItemHovered();
+            if (headerHovered) ImGui.SetMouseCursor(ImGuiMouseCursor.Hand);
+
+            var textY = headerMin.Y + (headerHeight - ImGui.GetTextLineHeight()) / 2f;
+            var labelColor = headerHovered ? UiSharedService.ThemeNavTextActive : UiSharedService.ThemeTextAccent;
+            float x = headerMin.X;
+            using (ImRaii.PushFont(UiBuilder.IconFont))
+            {
+                var chevron = (headerExpanded ? FontAwesomeIcon.ChevronDown : FontAwesomeIcon.ChevronRight).ToIconString();
+                var chevronSize = ImGui.CalcTextSize(chevron);
+                dl.AddText(new Vector2(x + (12f * scale - chevronSize.X) / 2f, headerMin.Y + (headerHeight - chevronSize.Y) / 2f),
+                    ImGui.GetColorU32(labelColor), chevron);
+                x += 18f * scale;
+                var usersIcon = FontAwesomeIcon.Users.ToIconString();
+                dl.AddText(new Vector2(x, headerMin.Y + (headerHeight - ImGui.CalcTextSize(usersIcon).Y) / 2f),
+                    ImGui.GetColorU32(UiSharedService.AccentColor), usersIcon);
+                x += ImGui.CalcTextSize(usersIcon).X + 7f * scale;
+            }
+            dl.AddText(new Vector2(x, textY), ImGui.GetColorU32(labelColor), Loc.Get("Syncshell.Cards.MembersLabel").ToUpper(Loc.CurrentCulture));
+
+            ImGui.SameLine(0f, 0f);
+            ImGui.SetCursorScreenPos(new Vector2(panelRight - innerPad - segmentWidth, headerMin.Y));
+            int view = _membersSortByType ? 1 : 0;
+            if (DrawSegmented("##fav-members-view", segmentLabels, ref view,
+                    [Loc.Get("Syncshell.Members.SortByStatus"), Loc.Get("Syncshell.Members.SortByType")]))
+                _membersSortByType = view == 1;
+
+            if (headerExpanded)
+            {
+                // Filet sous l'en-tête, aux marges du tiroir.
+                ImGuiHelpers.ScaledDummy(2f);
+                var lineY = ImGui.GetCursorScreenPos().Y;
+                dl.AddLine(new Vector2(panelMin.X + innerPad, lineY), new Vector2(panelRight - innerPad, lineY),
+                    ImGui.GetColorU32(UiSharedService.ThemeSeparator), scale);
+                ImGuiHelpers.ScaledDummy(4f);
+                using (DrawPairBase.PushRowRightLimit(panelRight - innerPad))
+                    DrawMembersList(groupDto, pairsInGroup);
+            }
+
+            ImGui.Unindent(contentIndent);
+        }
+
+        // Le curseur plutôt que le dernier item : les lignes hors écran ne font qu'avancer le curseur.
+        float panelBottom = ImGui.GetCursorScreenPos().Y - ImGui.GetStyle().ItemSpacing.Y + 8f * scale;
+        dl.ChannelsSetCurrent(0);
+        var panelMax = new Vector2(panelRight, panelBottom);
+        dl.AddRectFilled(panelMin, panelMax, ImGui.GetColorU32(UiSharedService.ThemeCardBg), rounding, ImDrawFlags.RoundCornersBottom);
+        dl.AddRect(panelMin, panelMax, ImGui.GetColorU32(UiSharedService.ThemeCardBorder with { W = 0.3f }), rounding, ImDrawFlags.RoundCornersBottom, scale);
+        dl.ChannelsMerge();
+
+        ImGui.SetCursorScreenPos(new Vector2(origin.X, panelBottom + cardSpacing + 2f * scale));
+        ImGui.Dummy(Vector2.Zero);
+    }
+
+    /// <summary>
+    /// Le tri complet des membres (clés sur un dictionnaire à clé record, plus allocation des clés de
+    /// tri) refait à chaque frame pour des centaines de membres faisait dépasser la frame à l'ouverture
+    /// de la liste des syncshells. Le résultat est donc gardé une seconde ; l'état visible/en ligne,
+    /// lui, reste lu en direct au moment de répartir les sections.
+    /// </summary>
+    private List<DrawGroupPair> BuildDrawPairs(GroupFullInfoDto groupDto, IEnumerable<Pair> pairs, string cacheScope)
+    {
+        var key = groupDto.GID + "|" + cacheScope;
+        var now = Environment.TickCount64;
+        if (_drawPairsCache.TryGetValue(key, out var cached) && now - cached.Tick < DrawPairsCacheMs)
+            return cached.Pairs;
+
+        var built = BuildDrawPairsUncached(groupDto, pairs);
+        _drawPairsCache[key] = (now, built);
+        return built;
+    }
+
+    private List<DrawGroupPair> BuildDrawPairsUncached(GroupFullInfoDto groupDto, IEnumerable<Pair> pairs)
     {
         var sortedPairs = pairs
             .OrderByDescending(u => string.Equals(u.UserData.UID, groupDto.OwnerUID, StringComparison.Ordinal))
             .ThenByDescending(u => u.GroupPair[groupDto].GroupPairStatusInfo.IsModerator())
             .ThenByDescending(u => u.GroupPair[groupDto].GroupPairStatusInfo.IsPinned())
             .ThenByDescending(u => u.IsOnline)
-            .ThenBy(u => u.GetPairSortKey(), StringComparer.OrdinalIgnoreCase)
+            .ThenBy(u => _uidDisplayHandler.GetSortName(u), UidDisplayHandler.NameComparer)
             .ToList();
 
         var result = new List<DrawGroupPair>();
@@ -1542,7 +1698,7 @@ internal sealed class GroupPanel
 
     private void DrawMembersList(GroupFullInfoDto groupDto, List<Pair> pairsInGroup)
     {
-        var drawPairs = BuildDrawPairs(groupDto, pairsInGroup);
+        var drawPairs = BuildDrawPairs(groupDto, pairsInGroup, "fav");
 
         if (_membersSortByType)
         {
@@ -1715,39 +1871,69 @@ internal sealed class GroupPanel
         ImGui.SetNextWindowSize(new Vector2(450f * ImGuiHelpers.GlobalScale, 500f * ImGuiHelpers.GlobalScale), ImGuiCond.FirstUseEver);
         if (ImGui.Begin(windowTitle, ref isOpen, ImGuiWindowFlags.NoCollapse))
         {
+            UiSharedService.DrawWindowGlass();
+            var scale = ImGuiHelpers.GlobalScale;
             var totalMembers = pairsInGroup.Count + 1;
             var connectedMembers = pairsInGroup.Count(p => p.IsOnline) + 1;
-            ImGui.TextUnformatted(string.Format(CultureInfo.CurrentCulture, Loc.Get("Syncshell.Members.OnlineTotal"), connectedMembers, totalMembers));
-
             var leavePopupId = $"##leave-confirm-{groupDto.GID}";
+            var dl = ImGui.GetWindowDrawList();
 
-            // Bouton de tri + bouton quitter alignés à droite
-            var sortIcon = _membersSortByType ? FontAwesomeIcon.UserFriends : FontAwesomeIcon.Signal;
-            var sortTooltip = _membersSortByType
-                ? Loc.Get("Syncshell.Members.SortByStatus")
-                : Loc.Get("Syncshell.Members.SortByType");
-            var leaveButtonSize = _uiShared.GetIconTextButtonSize(FontAwesomeIcon.SignOutAlt, Loc.Get("Syncshell.Members.Leave"));
-            var sortButtonSize = _uiShared.GetIconButtonSize(sortIcon);
-            var spacing = ImGui.GetStyle().ItemSpacing.X;
-
-            ImGui.SameLine(ImGui.GetContentRegionAvail().X - leaveButtonSize - sortButtonSize.X - spacing);
-            if (_uiShared.IconButton(sortIcon))
+            // En-tête : « 👥 MEMBRES [24] ● 4 en ligne » à gauche, regroupement et départ à droite.
+            float rowHeight = ImGui.GetFrameHeight();
+            var rowMin = ImGui.GetCursorScreenPos();
+            float textY = rowMin.Y + (rowHeight - ImGui.GetTextLineHeight()) / 2f;
+            float x = rowMin.X;
+            using (ImRaii.PushFont(UiBuilder.IconFont))
             {
-                _membersSortByType = !_membersSortByType;
+                var usersIcon = FontAwesomeIcon.Users.ToIconString();
+                dl.AddText(new Vector2(x, rowMin.Y + (rowHeight - ImGui.CalcTextSize(usersIcon).Y) / 2f),
+                    ImGui.GetColorU32(UiSharedService.AccentColor), usersIcon);
+                x += ImGui.CalcTextSize(usersIcon).X + 7f * scale;
             }
-            UiSharedService.AttachToolTip(sortTooltip);
+            var membersLabel = Loc.Get("Syncshell.Cards.MembersLabel").ToUpper(Loc.CurrentCulture);
+            dl.AddText(new Vector2(x, textY), ImGui.GetColorU32(UiSharedService.ThemeTextAccent), membersLabel);
+            x += ImGui.CalcTextSize(membersLabel).X + 7f * scale;
 
-            ImGui.SameLine();
-            using (ImRaii.PushColor(ImGuiCol.Button, new Vector4(0.6f, 0.15f, 0.15f, 1f)))
-            using (ImRaii.PushColor(ImGuiCol.ButtonHovered, new Vector4(0.8f, 0.2f, 0.2f, 1f)))
-            using (ImRaii.PushColor(ImGuiCol.ButtonActive, new Vector4(0.5f, 0.1f, 0.1f, 1f)))
+            var totalText = totalMembers.ToString(CultureInfo.CurrentCulture);
+            var pillPad = new Vector2(6f, 0f) * scale;
+            var pillSize = ImGui.CalcTextSize(totalText) + pillPad * 2f;
+            var pillMin = new Vector2(x, textY);
+            dl.AddRectFilled(pillMin, pillMin + pillSize, ImGui.GetColorU32(UiSharedService.AccentColor with { W = 0.22f }), pillSize.Y / 2f);
+            dl.AddText(pillMin + pillPad, ImGui.GetColorU32(UiSharedService.ThemeNavTextActive), totalText);
+            x += pillSize.X + 10f * scale;
+
+            dl.AddCircleFilled(new Vector2(x + 3f * scale, rowMin.Y + rowHeight / 2f), 3f * scale, ImGui.GetColorU32(ImGuiColors.HealerGreen));
+            x += 11f * scale;
+            dl.AddText(new Vector2(x, textY), ImGui.GetColorU32(ImGuiColors.DalamudGrey),
+                string.Format(CultureInfo.CurrentCulture, Loc.Get("Syncshell.Cards.DetailsOnline"), connectedMembers));
+
+            var segmentLabels = new[] { Loc.Get("Syncshell.Members.ViewStatus"), Loc.Get("Syncshell.Members.ViewType") };
+            float segmentWidth = MeasureSegmented(segmentLabels);
+            var leaveLabel = Loc.Get("Syncshell.Members.Leave");
+            float leaveWidth = _uiShared.GetIconTextButtonSize(FontAwesomeIcon.SignOutAlt, leaveLabel);
+            var spacing = ImGui.GetStyle().ItemSpacing.X;
+            float rightEdge = ImGui.GetWindowPos().X + ImGui.GetWindowContentRegionMax().X;
+
+            ImGui.SetCursorScreenPos(new Vector2(rightEdge - leaveWidth - spacing - segmentWidth, rowMin.Y));
+            int view = _membersSortByType ? 1 : 0;
+            if (DrawSegmented("##members-view", segmentLabels, ref view,
+                    [Loc.Get("Syncshell.Members.SortByStatus"), Loc.Get("Syncshell.Members.SortByType")]))
+                _membersSortByType = view == 1;
+
+            ImGui.SameLine(0f, spacing);
+            ImGui.SetCursorScreenPos(new Vector2(rightEdge - leaveWidth, rowMin.Y));
+            using (ImRaii.PushColor(ImGuiCol.Button, ImGuiColors.DalamudRed with { W = 0.25f }))
+            using (ImRaii.PushColor(ImGuiCol.ButtonHovered, ImGuiColors.DalamudRed with { W = 0.55f }))
+            using (ImRaii.PushColor(ImGuiCol.ButtonActive, ImGuiColors.DalamudRed with { W = 0.75f }))
+            using (ImRaii.PushColor(ImGuiCol.Text, ImGuiColors.DalamudRed))
             {
-                if (_uiShared.IconTextButton(FontAwesomeIcon.SignOutAlt, Loc.Get("Syncshell.Members.Leave")))
+                if (_uiShared.IconTextButton(FontAwesomeIcon.SignOutAlt, leaveLabel))
                 {
                     _membersLeaveConfirm = true;
                     ImGui.OpenPopup(leavePopupId);
                 }
             }
+            ImGuiHelpers.ScaledDummy(2f);
 
             if (ImGui.BeginPopupModal(leavePopupId, ref _membersLeaveConfirm, UiSharedService.PopupWindowFlags))
             {
@@ -1780,8 +1966,6 @@ internal sealed class GroupPanel
                 ImGui.EndPopup();
             }
 
-            ImGui.Separator();
-
             ImGui.SetNextItemWidth(-1);
             ImGui.InputTextWithHint("##membersfilter", Loc.Get("Syncshell.Members.Filter.Placeholder"), ref _membersFilter, 255);
             ImGuiHelpers.ScaledDummy(4f);
@@ -1795,9 +1979,15 @@ internal sealed class GroupPanel
                     (p.PlayerName?.Contains(_membersFilter, StringComparison.OrdinalIgnoreCase) ?? false));
             }
 
-            var drawPairs = BuildDrawPairs(groupDto, filteredPairs);
+            var drawPairs = BuildDrawPairs(groupDto, filteredPairs, "members|" + _membersFilter);
 
-            if (ImGui.BeginChild("MembersList", Vector2.Zero, false))
+            // La liste repose sur une carte opaque : le fond flouté de la fenêtre nuisait à la lecture.
+            using var listBg = ImRaii.PushColor(ImGuiCol.ChildBg, UiSharedService.ThemeWindowBg with { W = 0.92f })
+                .Push(ImGuiCol.Border, UiSharedService.ThemeCardBorder with { W = 0.35f });
+            using var listStyle = ImRaii.PushStyle(ImGuiStyleVar.ChildRounding, UiSharedService.RadiusCard * scale)
+                .Push(ImGuiStyleVar.ChildBorderSize, scale)
+                .Push(ImGuiStyleVar.WindowPadding, new Vector2(8f, 8f) * scale);
+            if (ImGui.BeginChild("MembersList", Vector2.Zero, true, ImGuiWindowFlags.AlwaysUseWindowPadding))
             {
                 if (_membersSortByType)
                 {
@@ -1818,11 +2008,77 @@ internal sealed class GroupPanel
         }
     }
 
+    // Les libellés existants portent le compteur sous la forme « … (N) » : on le sépare pour la pastille.
     private static void DrawMembersSectionHeader(string label, Vector4 color, ref bool expanded, string id)
     {
-        UiSharedService.DrawArrowToggle(ref expanded, id);
-        ImGui.SameLine(0f, 6f * ImGuiHelpers.GlobalScale);
-        UiSharedService.ColorText(label, color);
+        string title = label;
+        string? count = null;
+        int open = label.LastIndexOf(" (", StringComparison.Ordinal);
+        if (open > 0 && label.EndsWith(')'))
+        {
+            title = label[..open];
+            count = label[(open + 2)..^1];
+        }
+
+        UiSharedService.DrawCollapsibleHeader(id, title, count, color, ref expanded,
+            ImGui.GetContentRegionAvail().X - 8f * ImGuiHelpers.GlobalScale);
+    }
+
+    private static float MeasureSegmented(string[] labels)
+    {
+        float padX = 9f * ImGuiHelpers.GlobalScale;
+        float width = 0f;
+        foreach (var label in labels)
+            width += ImGui.CalcTextSize(label).X + padX * 2f;
+        return width;
+    }
+
+    // Choix exclusif en pastilles accolées ; renvoie vrai quand la sélection change.
+    private static bool DrawSegmented(string id, string[] labels, ref int selected, string[] tooltips)
+    {
+        var scale = ImGuiHelpers.GlobalScale;
+        float padX = 9f * scale;
+        float height = ImGui.GetFrameHeight();
+        float rounding = height / 2f;
+        var dl = ImGui.GetWindowDrawList();
+        var origin = ImGui.GetCursorScreenPos();
+        float total = MeasureSegmented(labels);
+
+        dl.AddRectFilled(origin, origin + new Vector2(total, height), ImGui.GetColorU32(UiSharedService.ThemeFrameBg), rounding);
+        bool changed = false;
+        float x = origin.X;
+        using (ImRaii.PushId(id))
+        {
+            for (int i = 0; i < labels.Length; i++)
+            {
+                var textSize = ImGui.CalcTextSize(labels[i]);
+                float w = textSize.X + padX * 2f;
+                ImGui.SetCursorScreenPos(new Vector2(x, origin.Y));
+                if (ImGui.InvisibleButton($"##seg{i}", new Vector2(w, height)) && selected != i)
+                {
+                    selected = i;
+                    changed = true;
+                }
+                bool hovered = ImGui.IsItemHovered();
+                if (hovered)
+                {
+                    ImGui.SetMouseCursor(ImGuiMouseCursor.Hand);
+                    UiSharedService.AttachToolTip(tooltips[i]);
+                }
+
+                var segMin = new Vector2(x, origin.Y);
+                var segMax = segMin + new Vector2(w, height);
+                if (selected == i)
+                    dl.AddRectFilled(segMin, segMax, ImGui.GetColorU32(UiSharedService.AccentColor with { W = 0.85f }), rounding);
+                else if (hovered)
+                    dl.AddRectFilled(segMin, segMax, ImGui.GetColorU32(UiSharedService.ThemeFrameBgHovered), rounding);
+                dl.AddText(new Vector2(x + padX, origin.Y + (height - textSize.Y) / 2f),
+                    ImGui.GetColorU32(selected == i ? UiSharedService.ThemeNavTextActive : UiSharedService.ThemeNavText), labels[i]);
+                x += w;
+            }
+        }
+        dl.AddRect(origin, origin + new Vector2(total, height), ImGui.GetColorU32(UiSharedService.ThemeCardBorder with { W = 0.35f }), rounding, ImDrawFlags.None, scale);
+        return changed;
     }
 
     private async Task LoadGroupProfileAsync(GroupFullInfoDto groupDto)
@@ -1837,7 +2093,7 @@ internal sealed class GroupPanel
                 try
                 {
                     var bytes = Convert.FromBase64String(profileImg);
-                    _profileTexture = _uiShared.LoadImage(bytes);
+                    _profileTexture = await _uiShared.LoadImageOrEmptyAsync(bytes).ConfigureAwait(false);
                 }
                 catch { /* ignore invalid image */ }
             }
@@ -1847,7 +2103,7 @@ internal sealed class GroupPanel
                 try
                 {
                     var bytes = Convert.FromBase64String(bannerImg);
-                    _bannerTexture = _uiShared.LoadImage(bytes);
+                    _bannerTexture = await _uiShared.LoadImageOrEmptyAsync(bytes).ConfigureAwait(false);
                 }
                 catch { /* ignore invalid image */ }
             }
@@ -1888,6 +2144,7 @@ internal sealed class GroupPanel
         ImGui.SetNextWindowSize(new Vector2(420f * ImGuiHelpers.GlobalScale, 450f * ImGuiHelpers.GlobalScale), ImGuiCond.FirstUseEver);
         if (ImGui.Begin(windowTitle, ref isOpen, ImGuiWindowFlags.NoCollapse))
         {
+            UiSharedService.DrawWindowGlass();
             if (_profileLoading)
             {
                 ImGui.TextUnformatted(Loc.Get("SyncshellAdmin.Profile.Loading"));

@@ -192,7 +192,7 @@ public class SlotPopupHandler : IPopupHandler
 
             var checkboxColor = new Vector4(0.9f, 0.9f, 0.9f, 1.0f);
             ImGui.PushStyleColor(ImGuiCol.Text, checkboxColor);
-            ImGui.Checkbox(Loc.Get("SlotPopup.JoinPermanentlyCheckbox"), ref _joinPermanently);
+            ToggleSwitch.Draw(Loc.Get("SlotPopup.JoinPermanentlyCheckbox"), ref _joinPermanently);
             ImGui.PopStyleColor();
 
             if (ImGui.IsItemHovered())

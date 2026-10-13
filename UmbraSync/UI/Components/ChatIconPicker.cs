@@ -40,7 +40,7 @@ public sealed class ChatIconPicker
             : AvailableIcons.FirstOrDefault(i => i.Value == SelectedIcon).Name ?? $"#{SelectedIcon}";
 
         ImGui.SetNextItemWidth(280f);
-        if (ImGui.BeginCombo("##chatIconPick", preview))
+        if (UiSharedService.BeginCombo("##chatIconPick", preview))
         {
             ImGui.SetNextItemWidth(-1);
             ImGui.InputTextWithHint("##chatIconSearch", Loc.Get("Profile.ChatIcon.Search"), ref _searchText, 64);
@@ -60,7 +60,7 @@ public sealed class ChatIconPicker
                     SelectedIcon = value;
             }
 
-            ImGui.EndCombo();
+            UiSharedService.EndCombo();
         }
 
         ImGui.SameLine();

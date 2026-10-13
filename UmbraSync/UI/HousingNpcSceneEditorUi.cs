@@ -13,6 +13,7 @@ using UmbraSync.Services;
 using UmbraSync.Services.Housing;
 using UmbraSync.Services.Mediator;
 using UmbraSync.Localization;
+using UmbraSync.UI.Components;
 
 namespace UmbraSync.UI;
 
@@ -107,7 +108,7 @@ public sealed class HousingNpcSceneEditorUi : WindowMediatorSubscriberBase
             using var id = ImRaii.PushId("scene-" + scene.Id);
 
             var enabled = scene.Enabled;
-            if (ImGui.Checkbox("##enabled", ref enabled)) { scene.Enabled = enabled; dirty = true; }
+            if (ToggleSwitch.Draw("##enabled", ref enabled)) { scene.Enabled = enabled; dirty = true; }
             UiSharedService.AttachToolTip(Loc.Get("HousingNpc.Editor.SceneToggleTip"));
             ImGui.SameLine();
 
@@ -255,14 +256,14 @@ public sealed class HousingNpcSceneEditorUi : WindowMediatorSubscriberBase
 
                 var rot = entry.Rotation;
                 ImGui.SetNextItemWidth(160 * ImGuiHelpers.GlobalScale);
-                if (ImGui.SliderFloat(Loc.Get("HousingNpc.Editor.Rotation"), ref rot, -3.14159f, 3.14159f)) { entry.Rotation = rot; dirty = true; }
+                if (ThemedSlider.Float(Loc.Get("HousingNpc.Editor.Rotation"), ref rot, -3.14159f, 3.14159f, step: 0.0872665f)) { entry.Rotation = rot; dirty = true; }
 
                 var face = entry.FacePlayer;
-                if (ImGui.Checkbox(Loc.Get("HousingNpc.Editor.FacePlayer"), ref face)) { entry.FacePlayer = face; dirty = true; }
+                if (ToggleSwitch.Draw(Loc.Get("HousingNpc.Editor.FacePlayer"), ref face)) { entry.FacePlayer = face; dirty = true; }
                 UiSharedService.AttachToolTip(Loc.Get("HousingNpc.Editor.FacePlayerTip"));
 
                 var hideWeapon = entry.Appearance.HideWeapon;
-                if (ImGui.Checkbox(Loc.Get("HousingNpc.Editor.HideWeapon"), ref hideWeapon)) { entry.Appearance.HideWeapon = hideWeapon; dirty = true; }
+                if (ToggleSwitch.Draw(Loc.Get("HousingNpc.Editor.HideWeapon"), ref hideWeapon)) { entry.Appearance.HideWeapon = hideWeapon; dirty = true; }
                 UiSharedService.AttachToolTip(Loc.Get("HousingNpc.Editor.HideWeaponTip"));
 
                 if (DrawBasePose(entry)) dirty = true;
@@ -644,7 +645,7 @@ public sealed class HousingNpcSceneEditorUi : WindowMediatorSubscriberBase
             : PoseVariantLabel(current);
 
         ImGui.SetNextItemWidth(220 * ImGuiHelpers.GlobalScale);
-        using var combo = ImRaii.Combo(Loc.Get("HousingNpc.Editor.PoseVariant") + "##posevar" + entry.Id, label);
+        using var combo = UiSharedService.Combo(Loc.Get("HousingNpc.Editor.PoseVariant") + "##posevar" + entry.Id, label);
         UiSharedService.AttachToolTip(Loc.Get("HousingNpc.Editor.PoseVariantTip"));
         if (!combo) return false;
 
@@ -701,7 +702,7 @@ public sealed class HousingNpcSceneEditorUi : WindowMediatorSubscriberBase
         float scale = ImGuiHelpers.GlobalScale;
 
         var looping = entry.Looping;
-        if (ImGui.Checkbox(Loc.Get("HousingNpc.Editor.LoopSeq"), ref looping)) { entry.Looping = looping; changed = true; }
+        if (ToggleSwitch.Draw(Loc.Get("HousingNpc.Editor.LoopSeq"), ref looping)) { entry.Looping = looping; changed = true; }
         UiSharedService.AttachToolTip(Loc.Get("HousingNpc.Editor.LoopSeqTip"));
         if (entry.Looping)
         {
@@ -722,7 +723,7 @@ public sealed class HousingNpcSceneEditorUi : WindowMediatorSubscriberBase
             using var aid = ImRaii.PushId("act" + i);
 
             var en = action.Enabled;
-            if (ImGui.Checkbox("##en", ref en)) { action.Enabled = en; changed = true; }
+            if (ToggleSwitch.Draw("##en", ref en)) { action.Enabled = en; changed = true; }
             ImGui.SameLine();
             ImGui.TextColored(ImGuiColors.DalamudGrey, (i + 1) + ".");
             ImGui.SameLine();
@@ -771,11 +772,11 @@ public sealed class HousingNpcSceneEditorUi : WindowMediatorSubscriberBase
                 if (ec) { e.Emote = em; changed = true; }
                 ImGui.SameLine();
                 var loop = e.Loop;
-                if (ImGui.Checkbox(Loc.Get("HousingNpc.Editor.Loop"), ref loop)) { e.Loop = loop; changed = true; }
+                if (ToggleSwitch.Draw(Loc.Get("HousingNpc.Editor.Loop"), ref loop)) { e.Loop = loop; changed = true; }
                 UiSharedService.AttachToolTip(Loc.Get("HousingNpc.Editor.LoopTip"));
                 ImGui.SameLine();
                 var stay = e.StayInPose;
-                if (ImGui.Checkbox(Loc.Get("HousingNpc.Editor.StayPose"), ref stay)) { e.StayInPose = stay; changed = true; }
+                if (ToggleSwitch.Draw(Loc.Get("HousingNpc.Editor.StayPose"), ref stay)) { e.StayInPose = stay; changed = true; }
                 UiSharedService.AttachToolTip(Loc.Get("HousingNpc.Editor.StayPoseTip"));
                 ImGui.SameLine();
                 var ed = e.Duration;
@@ -827,7 +828,7 @@ public sealed class HousingNpcSceneEditorUi : WindowMediatorSubscriberBase
             {
                 var rr = r.TargetRotation;
                 ImGui.SetNextItemWidth(160 * scale);
-                if (ImGui.SliderFloat(Loc.Get("HousingNpc.Editor.Rotation"), ref rr, -3.14159f, 3.14159f)) { r.TargetRotation = rr; changed = true; }
+                if (ThemedSlider.Float(Loc.Get("HousingNpc.Editor.Rotation"), ref rr, -3.14159f, 3.14159f, step: 0.0872665f)) { r.TargetRotation = rr; changed = true; }
                 ImGui.SameLine();
                 if (_uiShared.IconTextButton(FontAwesomeIcon.LocationArrow, Loc.Get("HousingNpc.Editor.UseMyFacing")))
                     _ = _service.SetActionRotationToPlayerAsync(sceneId, entry.Id, index);
@@ -843,7 +844,7 @@ public sealed class HousingNpcSceneEditorUi : WindowMediatorSubscriberBase
             case NpcVisibilityAction v:
             {
                 var visible = v.Visible;
-                if (ImGui.Checkbox(Loc.Get("HousingNpc.Editor.Visible"), ref visible)) { v.Visible = visible; changed = true; }
+                if (ToggleSwitch.Draw(Loc.Get("HousingNpc.Editor.Visible"), ref visible)) { v.Visible = visible; changed = true; }
                 UiSharedService.AttachToolTip(Loc.Get("HousingNpc.Editor.VisibleTip"));
                 break;
             }
@@ -891,7 +892,7 @@ public sealed class HousingNpcSceneEditorUi : WindowMediatorSubscriberBase
             Loc.Get("HousingNpc.Editor.ActSync"),
         };
         ImGui.SetNextItemWidth(150 * ImGuiHelpers.GlobalScale);
-        if (ImGui.Combo("##addkind", ref kind, names, names.Length)) _addActionKind[entry.Id] = kind;
+        if (UiSharedService.Combo("##addkind", ref kind, names, names.Length)) _addActionKind[entry.Id] = kind;
         ImGui.SameLine();
         if (_uiShared.IconTextButton(FontAwesomeIcon.Plus, Loc.Get("HousingNpc.Editor.AddAction")))
         {
@@ -916,13 +917,13 @@ public sealed class HousingNpcSceneEditorUi : WindowMediatorSubscriberBase
         changed = false;
         var result = current;
         ImGui.SetNextItemWidth(100 * ImGuiHelpers.GlobalScale);
-        if (ImGui.BeginCombo("##spd" + id, SpeedName(current)))
+        if (UiSharedService.BeginCombo("##spd" + id, SpeedName(current)))
         {
             foreach (var s in new[] { NpcMoveSpeed.Walk, NpcMoveSpeed.Run, NpcMoveSpeed.Custom })
             {
                 if (ImGui.Selectable(SpeedName(s), s == current)) { result = s; changed = true; }
             }
-            ImGui.EndCombo();
+            UiSharedService.EndCombo();
         }
         return result;
     }
@@ -1022,7 +1023,7 @@ public sealed class HousingNpcSceneEditorUi : WindowMediatorSubscriberBase
     {
         ushort result = 0;
         ImGui.SetNextItemWidth(150 * ImGuiHelpers.GlobalScale);
-        using var combo = ImRaii.Combo(Loc.Get("HousingNpc.Editor.TimelineFind") + "##tlp" + id, string.Empty);
+        using var combo = UiSharedService.Combo(Loc.Get("HousingNpc.Editor.TimelineFind") + "##tlp" + id, string.Empty);
         if (!combo) return 0;
 
         ImGui.SetNextItemWidth(-1);
@@ -1077,7 +1078,7 @@ public sealed class HousingNpcSceneEditorUi : WindowMediatorSubscriberBase
         changed = false;
         ushort result = current;
         ImGui.SetNextItemWidth(220 * ImGuiHelpers.GlobalScale);
-        using var combo = ImRaii.Combo((label ?? Loc.Get("HousingNpc.Editor.Emote")) + "##" + id, EmoteName(current));
+        using var combo = UiSharedService.Combo((label ?? Loc.Get("HousingNpc.Editor.Emote")) + "##" + id, EmoteName(current));
         if (combo)
         {
             ImGui.SetNextItemWidth(-1);

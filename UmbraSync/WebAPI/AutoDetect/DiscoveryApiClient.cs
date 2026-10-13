@@ -80,13 +80,14 @@ public class DiscoveryApiClient
         }
     }
 
-    public async Task<bool> SendRequestAsync(string endpoint, string? token, string? targetUid, string? displayName, CancellationToken ct)
+    // Le serveur n'identifie la cible que par le jeton obtenu via query : pas d'UID dans la requête
+    public async Task<bool> SendRequestAsync(string endpoint, string token, string? displayName, CancellationToken ct)
     {
         try
         {
-            if (string.IsNullOrEmpty(token) && string.IsNullOrEmpty(targetUid))
+            if (string.IsNullOrEmpty(token))
             {
-                _logger.LogWarning("Discovery request aborted: no token or targetUid provided");
+                _logger.LogWarning("Discovery request aborted: no token provided");
                 return false;
             }
 
@@ -94,34 +95,21 @@ public class DiscoveryApiClient
             if (string.IsNullOrEmpty(jwt)) return false;
             using var req = new HttpRequestMessage(HttpMethod.Post, endpoint);
             req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", jwt);
-            var body = JsonSerializer.Serialize(new RequestPayload(token, targetUid, displayName));
+            var body = JsonSerializer.Serialize(new RequestPayload(token, displayName));
             req.Content = new StringContent(body, Encoding.UTF8, "application/json");
-            var resp = await _httpClient.SendAsync(req, ct).ConfigureAwait(false);
+            using var resp = await _httpClient.SendAsync(req, ct).ConfigureAwait(false);
             if (resp.StatusCode == System.Net.HttpStatusCode.Unauthorized)
             {
                 var jwt2 = await _tokenProvider.ForceRefreshToken(ct).ConfigureAwait(false);
                 if (string.IsNullOrEmpty(jwt2)) return false;
                 using var req2 = new HttpRequestMessage(HttpMethod.Post, endpoint);
                 req2.Headers.Authorization = new AuthenticationHeaderValue("Bearer", jwt2);
-                var body2 = JsonSerializer.Serialize(new RequestPayload(token, targetUid, displayName));
+                var body2 = JsonSerializer.Serialize(new RequestPayload(token, displayName));
                 req2.Content = new StringContent(body2, Encoding.UTF8, "application/json");
-                resp = await _httpClient.SendAsync(req2, ct).ConfigureAwait(false);
+                using var resp2 = await _httpClient.SendAsync(req2, ct).ConfigureAwait(false);
+                return await HandleRequestResponseAsync(resp2, ct).ConfigureAwait(false);
             }
-            if (!resp.IsSuccessStatusCode)
-            {
-                string txt = string.Empty;
-                try
-                {
-                    txt = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
-                }
-                catch (Exception readEx)
-                {
-                    _logger.LogDebug(readEx, "Failed to read discovery request error response");
-                }
-                _logger.LogWarning("Discovery request failed: {code} {reason} {body}", (int)resp.StatusCode, resp.ReasonPhrase, txt);
-                return false;
-            }
-            return true;
+            return await HandleRequestResponseAsync(resp, ct).ConfigureAwait(false);
         }
         catch (OperationCanceledException oce) when (LogCancellation(oce, ct, "Discovery send request"))
         {
@@ -134,11 +122,26 @@ public class DiscoveryApiClient
         }
     }
 
+    private async Task<bool> HandleRequestResponseAsync(HttpResponseMessage resp, CancellationToken ct)
+    {
+        if (resp.IsSuccessStatusCode) return true;
+
+        string txt = string.Empty;
+        try
+        {
+            txt = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+        }
+        catch (Exception readEx)
+        {
+            _logger.LogDebug(readEx, "Failed to read discovery request error response");
+        }
+        _logger.LogWarning("Discovery request failed: {code} {reason} {body}", (int)resp.StatusCode, resp.ReasonPhrase, txt);
+        return false;
+    }
+
     private sealed record RequestPayload(
-        [property: JsonPropertyName("token"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        string? Token,
-        [property: JsonPropertyName("targetUid"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        string? TargetUid,
+        [property: JsonPropertyName("token")]
+        string Token,
         [property: JsonPropertyName("displayName"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         string? DisplayName);
 
@@ -183,40 +186,6 @@ public class DiscoveryApiClient
         }
     }
 
-    public async Task<bool> SendAcceptAsync(string endpoint, string targetUid, string? displayName, CancellationToken ct)
-    {
-        try
-        {
-            var jwt = await _tokenProvider.GetOrUpdateToken(ct).ConfigureAwait(false);
-            if (string.IsNullOrEmpty(jwt)) return false;
-            using var req = new HttpRequestMessage(HttpMethod.Post, endpoint);
-            req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", jwt);
-            var bodyObj = new { targetUid, displayName };
-            var body = JsonSerializer.Serialize(bodyObj);
-            req.Content = new StringContent(body, Encoding.UTF8, "application/json");
-            var resp = await _httpClient.SendAsync(req, ct).ConfigureAwait(false);
-            if (resp.StatusCode == System.Net.HttpStatusCode.Unauthorized)
-            {
-                var jwt2 = await _tokenProvider.ForceRefreshToken(ct).ConfigureAwait(false);
-                if (string.IsNullOrEmpty(jwt2)) return false;
-                using var req2 = new HttpRequestMessage(HttpMethod.Post, endpoint);
-                req2.Headers.Authorization = new AuthenticationHeaderValue("Bearer", jwt2);
-                var body2 = JsonSerializer.Serialize(bodyObj);
-                req2.Content = new StringContent(body2, Encoding.UTF8, "application/json");
-                resp = await _httpClient.SendAsync(req2, ct).ConfigureAwait(false);
-            }
-            return resp.IsSuccessStatusCode;
-        }
-        catch (OperationCanceledException oce) when (LogCancellation(oce, ct, "Discovery accept notify"))
-        {
-            return false;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Discovery accept notify failed");
-            return false;
-        }
-    }
     public async Task DisableAsync(string endpoint, CancellationToken ct)
     {
         try

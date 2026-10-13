@@ -59,6 +59,7 @@ public class PlayerAnalysisUI : WindowMediatorSubscriberBase
         Mediator.Publish(new RemoveWindowMessage(this));
     }
 
+
     protected override void DrawInternal()
     {
         if (PairAnalyzer == null) return;

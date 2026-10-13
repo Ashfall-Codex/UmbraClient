@@ -12,6 +12,7 @@ using UmbraSync.MareConfiguration;
 using UmbraSync.Localization;
 using UmbraSync.Services;
 using UmbraSync.Services.Mediator;
+using UmbraSync.UI.Components;
 
 namespace UmbraSync.UI;
 
@@ -169,7 +170,7 @@ internal class EstablishmentDirectoryUi : WindowMediatorSubscriberBase
         ImGui.SetNextItemWidth(140);
         var categoryPreview = _selectedCategory >= 0 && _selectedCategory < CategoryNames.Length
             ? CategoryNames[_selectedCategory] : Loc.Get("Establishment.Directory.AllCategories");
-        using (var combo = ImRaii.Combo("##category", categoryPreview))
+        using (var combo = UiSharedService.Combo("##category", categoryPreview))
         {
             if (combo)
             {
@@ -691,7 +692,7 @@ internal class EstablishmentDirectoryUi : WindowMediatorSubscriberBase
 
     private void DrawWildRpListSection()
     {
-        if (ImGui.Checkbox(Loc.Get("WildRp.FilterWorld"), ref _wildRpFilterCurrentWorld))
+        if (ToggleSwitch.Draw(Loc.Get("WildRp.FilterWorld"), ref _wildRpFilterCurrentWorld))
         {
             _wildRpPage = 0;
             _ = RefreshWildRpList();

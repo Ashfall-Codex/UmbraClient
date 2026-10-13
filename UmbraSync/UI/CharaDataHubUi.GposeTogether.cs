@@ -28,13 +28,12 @@ public sealed partial class CharaDataHubUi
             ImGuiHelpers.ScaledDummy(5);
         }
 
-        _uiSharedService.BigText(Loc.Get("CharaDataHub.Tab.GposeTogether"));
+        UiSharedService.BeginSectionCard(Loc.Get("CharaDataHub.Tab.GposeTogether"), FontAwesomeIcon.Camera);
         DrawHelpFoldout(Loc.Get("CharaDataHub.GposeTogether.Help"));
 
         using var disabled = ImRaii.Disabled(!_charaDataManager.BrioAvailable || !_uiSharedService.ApiController.IsConnected);
 
-        UiSharedService.DistanceSeparator();
-        _uiSharedService.BigText(Loc.Get("CharaDataHub.GposeTogether.LobbyControls"));
+        UiSharedService.BeginSectionCard(Loc.Get("CharaDataHub.GposeTogether.LobbyControls"), FontAwesomeIcon.DoorOpen);
         if (string.IsNullOrEmpty(_charaDataGposeTogetherManager.CurrentGPoseLobbyId))
         {
             if (_uiSharedService.IconTextButton(FontAwesomeIcon.Plus, Loc.Get("CharaDataHub.GposeTogether.CreateLobby")))
@@ -89,7 +88,7 @@ public sealed partial class CharaDataHubUi
                 ImGuiHelpers.ScaledDummy(5);
                 UiSharedService.DrawGroupedCenteredColorText(Loc.Get("CharaDataHub.GposeTogether.AssignRequiresGpose"), UiSharedService.AccentColor, 300);
             }
-            UiSharedService.DistanceSeparator();
+            UiSharedService.EndSectionCard();
             ImGui.TextUnformatted(Loc.Get("CharaDataHub.GposeTogether.UsersInLobby"));
             var gposeCharas = _dalamudUtilService.GetGposeCharactersFromObjectTable().ToList();
             var self = _dalamudUtilService.GetPlayerCharacter();
@@ -187,7 +186,7 @@ public sealed partial class CharaDataHubUi
             using (ImRaii.Disabled(!_uiSharedService.IsInGpose))
             {
                 ImGui.SetNextItemWidth(200);
-                using (var combo = ImRaii.Combo("##character", string.IsNullOrEmpty(user.AssociatedCharaName) ? Loc.Get("CharaDataHub.GposeTogether.NoCharacter") : CharaName(user.AssociatedCharaName)))
+                using (var combo = UiSharedService.Combo("##character", string.IsNullOrEmpty(user.AssociatedCharaName) ? Loc.Get("CharaDataHub.GposeTogether.NoCharacter") : CharaName(user.AssociatedCharaName)))
                 {
                     if (combo)
                     {

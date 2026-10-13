@@ -667,22 +667,54 @@ public class DalamudUtilService : IHostedService, IMediatorSubscriber
         }
     }
 
-    public async Task WaitForFullyLoadedAsync(GameObjectHandler handler, CancellationToken cancellationToken = default)
+    public enum ActorLoadWaitResult
     {
-        if (!_clientState.IsLoggedIn) return;
-        if (handler.Address == IntPtr.Zero) return;
+        Loaded,
+        AddressLost,
+        NotDrawn,
+        TimedOut,
+    }
+
+    /// <summary>
+    /// Attend que l'acteur ait un draw object et que ses modèles soient chargés, sans dépasser
+    /// <paramref name="timeout"/>. Si l'acteur est recréé (nouvelle adresse), l'attente suit la nouvelle
+    /// adresse ; si l'adresse tombe à zéro, on sort tout de suite.
+    /// </summary>
+    public async Task<ActorLoadWaitResult> WaitForFullyLoadedAsync(GameObjectHandler handler, TimeSpan timeout, CancellationToken cancellationToken = default)
+    {
+        if (!_clientState.IsLoggedIn) return ActorLoadWaitResult.Loaded;
+
+        const int pollMs = 250;
+        var deadline = DateTime.UtcNow + timeout;
+        bool hasDrawObject = false;
 
         while (true)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var isLoaded = await RunOnFrameworkThread(() => IsObjectFullyLoaded(handler.Address)).ConfigureAwait(false);
-            if (!IsZoning && isLoaded)
-                return;
+            var state = await RunOnFrameworkThread(() =>
+            {
+                var address = handler.Address;
+                if (address == nint.Zero) return (Present: false, Drawn: false, Loaded: false);
+                return (Present: true, Drawn: HasDrawObject(address), Loaded: IsObjectFullyLoaded(address));
+            }).ConfigureAwait(false);
 
-            await Task.Delay(100, cancellationToken).ConfigureAwait(false);
+            if (!state.Present)
+                return ActorLoadWaitResult.AddressLost;
+
+            hasDrawObject = state.Drawn;
+            if (!IsZoning && state.Loaded)
+                return ActorLoadWaitResult.Loaded;
+
+            if (DateTime.UtcNow >= deadline)
+                return hasDrawObject ? ActorLoadWaitResult.TimedOut : ActorLoadWaitResult.NotDrawn;
+
+            await Task.Delay(pollMs, cancellationToken).ConfigureAwait(false);
         }
     }
+
+    private static unsafe bool HasDrawObject(nint address)
+        => address != nint.Zero && ((GameObject*)address)->DrawObject != null;
 
     private static unsafe bool IsObjectFullyLoaded(nint address)
     {

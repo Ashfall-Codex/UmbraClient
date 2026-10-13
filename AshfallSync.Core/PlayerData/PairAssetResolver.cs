@@ -59,12 +59,44 @@ public sealed class PairAssetResolver
         return _compressionSettings.Mode;
     }
 
+    private const int MaxResolveAttempts = 3;
+
+    /// <summary>
+    /// Résout les redirections. Une exception pendant le calcul (index du cache modifié en parallèle,
+    /// par exemple) relance le calcul complet ; après plusieurs échecs elle remonte à l'appelant :
+    /// une résolution partielle appliquerait le pair en vanilla sans réapplication.
+    /// </summary>
     public Resolution Resolve(Guid applicationBase, CharacterData charaData, TextureCompressionMode compressedUsage, CancellationToken token)
+    {
+        for (int attempt = 1; ; attempt++)
+        {
+            try
+            {
+                return ResolveOnce(applicationBase, charaData, compressedUsage, token);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex) when (attempt < MaxResolveAttempts)
+            {
+                _logger.LogWarning(ex, "[BASE-{appBase}] Replacement calculation failed (attempt {attempt}/{max}), retrying",
+                    applicationBase, attempt, MaxResolveAttempts);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[BASE-{appBase}] Something went wrong during calculation replacements", applicationBase);
+                throw new InvalidOperationException("Replacement calculation failed after " + MaxResolveAttempts + " attempts", ex);
+            }
+        }
+    }
+
+    private Resolution ResolveOnce(Guid applicationBase, CharacterData charaData, TextureCompressionMode compressedUsage, CancellationToken token)
     {
         Stopwatch st = Stopwatch.StartNew();
         ConcurrentBag<FileReplacementData> missingFiles = [];
-        var moddedDictionary = new Dictionary<(string GamePath, string? Hash), string>();
-        var locallyPresentFiles = new HashSet<string>(StringComparer.Ordinal);
+        Dictionary<(string GamePath, string? Hash), string> moddedDictionary;
+        HashSet<string> locallyPresentFiles;
         ConcurrentDictionary<(string GamePath, string? Hash), string> outputDict = new();
         var locallyPresentFileSet = new ConcurrentDictionary<string, byte>(StringComparer.Ordinal);
         bool hasMigrationChanges = false;
@@ -170,15 +202,10 @@ public sealed class PairAssetResolver
                 }
             }
         }
-        catch (OperationCanceledException)
+        finally
         {
-            throw;
+            if (hasMigrationChanges) _fileCache.Flush();
         }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "[BASE-{appBase}] Something went wrong during calculation replacements", applicationBase);
-        }
-        if (hasMigrationChanges) _fileCache.Flush();
         st.Stop();
         _logger.LogDebug("[BASE-{appBase}] ModdedPaths calculated in {time}ms, missing files: {count}, total files: {total}", applicationBase, st.ElapsedMilliseconds, missingFiles.Count, moddedDictionary.Keys.Count);
 
@@ -201,7 +228,8 @@ public sealed class PairAssetResolver
             if (string.IsNullOrWhiteSpace(hash) || !seen.Add(hash))
                 continue;
 
-            var fileCache = _fileCache.GetByHash(hash);
+            // preferSubst : avec TextureShrinkDeleteOriginal, seule la version réduite reste sur disque.
+            var fileCache = _fileCache.GetByHash(hash, preferSubst: true);
             if (fileCache is null || !_fileCache.Exists(fileCache))
             {
                 if (fileCache is not null)

@@ -14,6 +14,7 @@ using UmbraSync.PlayerData.Pairs;
 using UmbraSync.Localization;
 using UmbraSync.Services;
 using UmbraSync.Services.Mediator;
+using UmbraSync.UI.Components;
 
 namespace UmbraSync.UI;
 
@@ -167,9 +168,7 @@ internal class EstablishmentRegistrationUi : WindowMediatorSubscriberBase
         ImGuiHelpers.ScaledDummy(2f);
 
         ImGui.TextColored(ImGuiColors.DalamudGrey, Loc.Get("Establishment.Field.Description"));
-        ImGui.SetNextItemWidth(-1);
-        ImGui.InputTextMultiline("##desc", ref _description, 2000,
-            new Vector2(-1, 60 * ImGuiHelpers.GlobalScale));
+        ResizableTextArea.Draw("##desc", ref _description, 2000, defaultHeight: 140f);
         ImGuiHelpers.ScaledDummy(2f);
 
         var availW = ImGui.GetContentRegionAvail().X;
@@ -178,7 +177,7 @@ internal class EstablishmentRegistrationUi : WindowMediatorSubscriberBase
         ImGui.BeginGroup();
         ImGui.TextColored(ImGuiColors.DalamudGrey, Loc.Get("Establishment.Field.Category"));
         ImGui.SetNextItemWidth(halfW);
-        ImGui.Combo("##category", ref _category, CategoryNames, CategoryNames.Length);
+        UiSharedService.Combo("##category", ref _category, CategoryNames, CategoryNames.Length);
         ImGui.EndGroup();
 
         ImGui.SameLine();
@@ -196,7 +195,7 @@ internal class EstablishmentRegistrationUi : WindowMediatorSubscriberBase
         ImGui.InputTextWithHint("##faction", Loc.Get("Establishment.Field.Optional"), ref _factionTag, 50);
         ImGuiHelpers.ScaledDummy(2f);
 
-        ImGui.Checkbox(Loc.Get("Establishment.Field.PublicDirectory"), ref _isPublic);
+        ToggleSwitch.Draw(Loc.Get("Establishment.Field.PublicDirectory"), ref _isPublic);
         UiSharedService.AttachToolTip(Loc.Get("Establishment.Field.PublicDirectoryTooltip"));
     }
 
@@ -435,7 +434,7 @@ internal class EstablishmentRegistrationUi : WindowMediatorSubscriberBase
         var previewName = _selectedWorldId != 0 && _uiSharedService.WorldData.TryGetValue(_selectedWorldId, out var wn)
             ? wn : Loc.Get("Establishment.Location.ServerChoose");
         ImGui.SetNextItemWidth(halfW);
-        using (var combo = ImRaii.Combo("##server", previewName))
+        using (var combo = UiSharedService.Combo("##server", previewName))
         {
             if (combo)
             {
@@ -471,7 +470,7 @@ internal class EstablishmentRegistrationUi : WindowMediatorSubscriberBase
         ImGui.BeginGroup();
         ImGui.TextColored(ImGuiColors.DalamudGrey, Loc.Get("Establishment.Location.District"));
         ImGui.SetNextItemWidth(halfW);
-        ImGui.Combo("##district", ref _selectedDistrictIndex, DistrictNames, DistrictNames.Length);
+        UiSharedService.Combo("##district", ref _selectedDistrictIndex, DistrictNames, DistrictNames.Length);
         ImGui.EndGroup();
 
         ImGuiHelpers.ScaledDummy(2f);
@@ -514,7 +513,7 @@ internal class EstablishmentRegistrationUi : WindowMediatorSubscriberBase
 
         ImGui.BeginGroup();
         ImGui.TextColored(ImGuiColors.DalamudGrey, Loc.Get("Establishment.Location.Annex"));
-        ImGui.Checkbox("##annexe", ref _isSubdivision);
+        ToggleSwitch.Draw("##annexe", ref _isSubdivision);
         UiSharedService.AttachToolTip(Loc.Get("Establishment.Location.AnnexTooltip"));
         ImGui.EndGroup();
     }
@@ -543,7 +542,7 @@ internal class EstablishmentRegistrationUi : WindowMediatorSubscriberBase
 
         var preview = _linkedSyncshellGid != null ? _linkedSyncshellDisplay : Loc.Get("Establishment.Syncshell.None");
         ImGui.SetNextItemWidth(-1);
-        using (var combo = ImRaii.Combo("##syncslotLink", preview))
+        using (var combo = UiSharedService.Combo("##syncslotLink", preview))
         {
             if (combo)
             {

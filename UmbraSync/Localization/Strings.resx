@@ -253,33 +253,6 @@
   </data>
 
   <!-- Collection Override per Syncshell -->
-  <data name="Settings.Transfer.CollectionOverride.Title" xml:space="preserve">
-    <value>Collection per Syncshell</value>
-  </data>
-  <data name="Settings.Transfer.CollectionOverride.Description" xml:space="preserve">
-    <value>Choose a specific Penumbra collection to send to each syncshell. By default, your current collection is used.</value>
-  </data>
-  <data name="Settings.Transfer.CollectionOverride.NoPenumbra" xml:space="preserve">
-    <value>Penumbra is not available. Connect Penumbra to configure collection overrides.</value>
-  </data>
-  <data name="Settings.Transfer.CollectionOverride.NoSyncshell" xml:space="preserve">
-    <value>No syncshell available. Join a syncshell to configure collection overrides.</value>
-  </data>
-  <data name="Settings.Transfer.CollectionOverride.Enable" xml:space="preserve">
-    <value>Enable collection overrides per syncshell</value>
-  </data>
-  <data name="Settings.Transfer.CollectionOverride.Default" xml:space="preserve">
-    <value>Default (current collection)</value>
-  </data>
-  <data name="Settings.Transfer.CollectionOverride.Unknown" xml:space="preserve">
-    <value>(unknown collection)</value>
-  </data>
-  <data name="Settings.Transfer.CollectionOverride.AddException" xml:space="preserve">
-    <value>Add an exception</value>
-  </data>
-  <data name="Settings.Transfer.CollectionOverride.SelectSyncshell" xml:space="preserve">
-    <value>Select a syncshell</value>
-  </data>
 
   <!-- AutoDetect notifications -->
   <data name="AutoDetect.Notification.IncomingTitle" xml:space="preserve">
@@ -1217,13 +1190,16 @@ Click to change.</value>
     <value>You are leaving {0}</value>
   </data>
   <data name="Slot.Toast.AutoLeaveStarting" xml:space="preserve">
-    <value>You are leaving the vicinity of {0}. You will be removed from the Syncshell in 5 minutes if you do not return to the area.</value>
+    <value>You are no longer near "{0}", which you joined temporarily. You will be removed from its Syncshell in 5 minutes unless you go back there.</value>
   </data>
   <data name="Slot.Toast.Joined" xml:space="preserve">
     <value>You have joined the Syncshell of {0}</value>
   </data>
   <data name="Slot.Toast.JoinFailed" xml:space="preserve">
     <value>Failed to join the Syncshell of {0}. Please try again.</value>
+  </data>
+  <data name="Slot.Toast.MaxGroupsReached" xml:space="preserve">
+    <value>Cannot join the Syncshell of {0}: you have reached the limit of {1} syncshells. Leave one to join this SyncSlot.</value>
   </data>
   <data name="Slot.Toast.BackInRange" xml:space="preserve">
     <value>You are back in the area of {0}. The auto-leave countdown has been cancelled.</value>
@@ -1497,9 +1473,6 @@ Click to change.</value>
   </data>
   <data name="AutoDetectUi.Syncshell.NotificationTitle" xml:space="preserve">
     <value>AutoDetect Syncshell</value>
-  </data>
-  <data name="AutoDetectUi.Syncshell.RefreshButton" xml:space="preserve">
-    <value>Refresh list</value>
   </data>
   <data name="AutoDetectUi.Syncshell.Refreshing" xml:space="preserve">
     <value>Refreshing...</value>
@@ -2669,6 +2642,15 @@ Note: Weapons will not be displayed correctly unless using the same job as the s
   <data name="CharaDataHub.Mcdf.Upload.EmptyFile" xml:space="preserve">
     <value>MCDF file is empty.</value>
   </data>
+  <data name="CharaDataHub.Mcdf.Upload.TooLarge" xml:space="preserve">
+    <value>This MCDF is too large to be uploaded ({0} MiB, limit {1} MiB). Reduce your character's size (textures, mods) and try again.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Upload.Rejected" xml:space="preserve">
+    <value>The server refused the MCDF upload.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Upload.NotConnected" xml:space="preserve">
+    <value>Not connected to the server, the MCDF was not uploaded.</value>
+  </data>
   <data name="CharaDataHub.Mcdf.Local.Title" xml:space="preserve">
     <value>Local MCDF Files</value>
   </data>
@@ -2805,13 +2787,13 @@ Note: Weapons will not be displayed correctly unless using the same job as the s
     <value>Delete this MCDF from the server</value>
   </data>
   <data name="DataAnalysis.AndMore" xml:space="preserve">
-    <value>(and {0} more)</value>
+    <value>and {0} more</value>
   </data>
   <data name="DataAnalysis.Analyzing" xml:space="preserve">
     <value>Analyzing {0}/{1}</value>
   </data>
   <data name="DataAnalysis.Bc7.Enable" xml:space="preserve">
-    <value>Enable BC7 Conversion Mode</value>
+    <value>Enable BC7 conversion mode</value>
   </data>
   <data name="DataAnalysis.Bc7.Start" xml:space="preserve">
     <value>Start conversion of {0} texture(s)</value>
@@ -2823,22 +2805,22 @@ Note: Weapons will not be displayed correctly unless using the same job as the s
     <value>Converting textures to BC7 is irreversible!</value>
   </data>
   <data name="DataAnalysis.Bc7.WarningTitle" xml:space="preserve">
-    <value>WARNING BC7 CONVERSION:</value>
+    <value>BC7 CONVERSION WARNING:</value>
   </data>
   <data name="DataAnalysis.CancelAnalysis" xml:space="preserve">
     <value>Cancel analysis</value>
   </data>
   <data name="DataAnalysis.GamePath" xml:space="preserve">
-    <value>Used by game path:</value>
+    <value>Game path</value>
   </data>
   <data name="DataAnalysis.Intro" xml:space="preserve">
-    <value>This window shows you all files and their sizes that are currently in use through your character and associated entities</value>
+    <value>All files currently used by your character and its associated entities, with their size.</value>
   </data>
   <data name="DataAnalysis.LocalPath" xml:space="preserve">
-    <value>Local file path:</value>
+    <value>Local file</value>
   </data>
   <data name="DataAnalysis.MissingEntriesWarning" xml:space="preserve">
-    <value>Some entries in the analysis have file size not determined yet, press the button below to analyze your current data</value>
+    <value>Some files don't have their size computed yet. Start the analysis to complete the data.</value>
   </data>
   <data name="DataAnalysis.Modal.Cancel" xml:space="preserve">
     <value>Cancel conversion</value>
@@ -2847,25 +2829,13 @@ Note: Weapons will not be displayed correctly unless using the same job as the s
     <value>Current file: {0}</value>
   </data>
   <data name="DataAnalysis.Modal.Progress" xml:space="preserve">
-    <value>BC7 Conversion in progress: {0}/{1}</value>
+    <value>BC7 conversion in progress: {0}/{1}</value>
   </data>
   <data name="DataAnalysis.Modal.Title" xml:space="preserve">
     <value>BC7 Conversion in Progress</value>
   </data>
-  <data name="DataAnalysis.ObjectSizeActual" xml:space="preserve">
-    <value>{0} size (actual):</value>
-  </data>
-  <data name="DataAnalysis.ObjectSizeDownload" xml:space="preserve">
-    <value>{0} size (download size):</value>
-  </data>
-  <data name="DataAnalysis.ObjectTriangles" xml:space="preserve">
-    <value>{0} modded model triangles: {1}</value>
-  </data>
-  <data name="DataAnalysis.ObjectVram" xml:space="preserve">
-    <value>{0} VRAM usage:</value>
-  </data>
   <data name="DataAnalysis.SelectedFile" xml:space="preserve">
-    <value>Selected file:</value>
+    <value>Selected file</value>
   </data>
   <data name="DataAnalysis.StartAll" xml:space="preserve">
     <value>Start analysis (recalculate all entries)</value>
@@ -2877,19 +2847,19 @@ Note: Weapons will not be displayed correctly unless using the same job as the s
     <value>Convert to BC7</value>
   </data>
   <data name="DataAnalysis.Table.DownloadSize" xml:space="preserve">
-    <value>Download Size</value>
+    <value>Download</value>
   </data>
   <data name="DataAnalysis.Table.FileSize" xml:space="preserve">
-    <value>File Size</value>
+    <value>Size</value>
   </data>
   <data name="DataAnalysis.Table.Filepaths" xml:space="preserve">
-    <value>Filepaths</value>
+    <value>Local paths</value>
   </data>
   <data name="DataAnalysis.Table.Format" xml:space="preserve">
     <value>Format</value>
   </data>
   <data name="DataAnalysis.Table.Gamepaths" xml:space="preserve">
-    <value>Gamepaths</value>
+    <value>Game paths</value>
   </data>
   <data name="DataAnalysis.Table.Hash" xml:space="preserve">
     <value>Hash</value>
@@ -2897,35 +2867,11 @@ Note: Weapons will not be displayed correctly unless using the same job as the s
   <data name="DataAnalysis.Table.Triangles" xml:space="preserve">
     <value>Triangles</value>
   </data>
-  <data name="DataAnalysis.TotalFiles" xml:space="preserve">
-    <value>Total files:</value>
-  </data>
-  <data name="DataAnalysis.TotalSizeActual" xml:space="preserve">
-    <value>Total size (actual):</value>
-  </data>
-  <data name="DataAnalysis.TotalSizeDownload" xml:space="preserve">
-    <value>Total size (download size):</value>
-  </data>
   <data name="DataAnalysis.TotalSizeTooltip" xml:space="preserve">
-    <value>Click "Start analysis" to calculate download size</value>
-  </data>
-  <data name="DataAnalysis.TotalTriangles" xml:space="preserve">
-    <value>Total modded model triangles: {0}</value>
-  </data>
-  <data name="DataAnalysis.FileGroup.Files" xml:space="preserve">
-    <value>{0} files</value>
-  </data>
-  <data name="DataAnalysis.FileGroup.SizeActual" xml:space="preserve">
-    <value>{0} files size (actual):</value>
-  </data>
-  <data name="DataAnalysis.FileGroup.SizeDownload" xml:space="preserve">
-    <value>{0} files size (download size):</value>
+    <value>Start the analysis to calculate the download size</value>
   </data>
   <data name="DataAnalysis.FileTypeSummary" xml:space="preserve">
     <value>{0}: {1} files, size: {2}, compressed: {3}</value>
-  </data>
-  <data name="DataAnalysis.FilesFor" xml:space="preserve">
-    <value>Files for {0}</value>
   </data>
   <data name="DataAnalysis.WindowTitle" xml:space="preserve">
     <value>Character Data Analysis</value>
@@ -3077,6 +3023,39 @@ Note: Weapons will not be displayed correctly unless using the same job as the s
   <data name="Settings.AutoDetect.Enable" xml:space="preserve">
     <value>Enable AutoDetect</value>
   </data>
+  <data name="Settings.AutoDetect.PublishWhenAfk" xml:space="preserve">
+    <value>Stay visible while AFK</value>
+  </data>
+  <data name="Settings.AutoDetect.PublishWhenAfkHelp" xml:space="preserve">
+    <value>When disabled, you are hidden from other players while your status is Away from Keyboard. Detection works both ways: while hidden, you do not see anyone nearby either.</value>
+  </data>
+  <data name="Settings.AutoDetect.PublishWhenNotRoleplaying" xml:space="preserve">
+    <value>Stay visible when not in roleplaying mode</value>
+  </data>
+  <data name="Settings.AutoDetect.PublishWhenNotRoleplayingHelp" xml:space="preserve">
+    <value>When disabled, you are only visible while your status is Roleplaying (/roleplaying). In any other status you are hidden. Detection works both ways: while hidden, you do not see anyone nearby either.</value>
+  </data>
+  <data name="Settings.AutoDetect.Visibility.Visible" xml:space="preserve">
+    <value>Currently visible to other players.</value>
+  </data>
+  <data name="Settings.AutoDetect.Visibility.HiddenAfk" xml:space="preserve">
+    <value>Currently hidden: you are AFK.</value>
+  </data>
+  <data name="Settings.AutoDetect.Visibility.HiddenNotRoleplaying" xml:space="preserve">
+    <value>Currently hidden: you are not in roleplaying mode.</value>
+  </data>
+  <data name="EmptyState.Nearby.HiddenAfk.Title" xml:space="preserve">
+    <value>You are hidden while AFK</value>
+  </data>
+  <data name="EmptyState.Nearby.HiddenAfk.Hint" xml:space="preserve">
+    <value>Detection works both ways: while you are hidden, you cannot see anyone nearby either. Come back from AFK, or enable "Stay visible while AFK" in the settings.</value>
+  </data>
+  <data name="EmptyState.Nearby.HiddenNotRoleplaying.Title" xml:space="preserve">
+    <value>You are hidden outside roleplaying mode</value>
+  </data>
+  <data name="EmptyState.Nearby.HiddenNotRoleplaying.Hint" xml:space="preserve">
+    <value>Detection works both ways: while you are hidden, you cannot see anyone nearby either. Switch to roleplaying (/roleplaying), or enable "Stay visible when not in roleplaying mode" in the settings.</value>
+  </data>
   <data name="Settings.AutoDetect.InvitesDisabled" xml:space="preserve">
     <value>Incoming invitations disabled: others cannot invite you.</value>
   </data>
@@ -3088,6 +3067,12 @@ Note: Weapons will not be displayed correctly unless using the same job as the s
   </data>
   <data name="Settings.AutoDetect.EnableSlotNotificationsHelp" xml:space="preserve">
     <value>If enabled, you will be prompted to join a Syncshell when approaching a registered housing location (Slot).</value>
+  </data>
+  <data name="Settings.AutoDetect.EnableEstablishmentProximityHelp" xml:space="preserve">
+    <value>If enabled, your position is sent to the server as you move, to find RP establishments close to you.</value>
+  </data>
+  <data name="Settings.AutoDetect.EnableEstablishmentProximity" xml:space="preserve">
+    <value>Report nearby establishments</value>
   </data>
   <data name="Settings.AutoDetect.AntiSpam.Header" xml:space="preserve">
     <value>Anti-spam</value>
@@ -4552,6 +4537,24 @@ Note: Weapons will not be displayed correctly unless using the same job as the s
   <data name="UserProfile.RpLevel.Mentor.Tooltip" xml:space="preserve">
     <value>Experienced player, willing to help and guide newcomers.</value>
   </data>
+  <data name="UserProfile.RpVisibility" xml:space="preserve">
+    <value>RP profile visibility</value>
+  </data>
+  <data name="UserProfile.RpVisibility.Hidden" xml:space="preserve">
+    <value>Hidden</value>
+  </data>
+  <data name="UserProfile.RpVisibility.PairsOnly" xml:space="preserve">
+    <value>Pairs only</value>
+  </data>
+  <data name="UserProfile.RpVisibility.PairsAndSyncshell" xml:space="preserve">
+    <value>Pairs and syncshells</value>
+  </data>
+  <data name="UserProfile.RpVisibility.Public" xml:space="preserve">
+    <value>Public (nearby players)</value>
+  </data>
+  <data name="UserProfile.RpVisibility.Help" xml:space="preserve">
+    <value>Who can see the RP profile of this character. Hidden: nobody. Pairs only: your direct pairs. Pairs and syncshells: your pairs and the members of your syncshells (default). Public: Umbra players who come across you can see it too. This setting applies to this character only.</value>
+  </data>
   <data name="Profile.ChatIcon.Label" xml:space="preserve">
     <value>Chat icon (displayed before the name)</value>
   </data>
@@ -4938,6 +4941,9 @@ Note: Weapons will not be displayed correctly unless using the same job as the s
   <data name="Notification.Nearby.Blocked.Body" xml:space="preserve">
     <value>Enable 'Allow pair requests' in Settings to send requests.</value>
   </data>
+  <data name="Notification.Nearby.Hidden.Body" xml:space="preserve">
+    <value>You are hidden from nearby discovery. Become visible to send requests.</value>
+  </data>
   <data name="Notification.Nearby.AlreadyPaired.Title" xml:space="preserve">
     <value>Already paired</value>
   </data>
@@ -4965,11 +4971,14 @@ Note: Weapons will not be displayed correctly unless using the same job as the s
   <data name="Notification.Nearby.Cooldown.Body" xml:space="preserve">
     <value>Request already sent. Please wait about {0} before retrying.</value>
   </data>
+  <data name="Notification.AddPair.Failed.Body" xml:space="preserve">
+    <value>Could not add this player. Check your connection and the UID you entered.</value>
+  </data>
   <data name="Notification.Nearby.Locked.Title" xml:space="preserve">
     <value>Nearby request locked</value>
   </data>
   <data name="Notification.Nearby.Locked.Body" xml:space="preserve">
-    <value>Request locked after multiple refusals. Retry in {0}.</value>
+    <value>Request locked after several failed attempts. Retry in {0}.</value>
   </data>
   <data name="Settings.Section.General.Desc" xml:space="preserve">
     <value>Customize the interface, notes, notifications and display preferences.</value>
@@ -5587,20 +5596,11 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
   <data name="Settings.Privacy.ConsentExpired" xml:space="preserve">
     <value>Consent expired or missing ! Please renew via the introduction screen.</value>
   </data>
-  <data name="Settings.Privacy.ConsentDetail.Collection" xml:space="preserve">
-    <value>Data collection (identifier, appearance, mods)</value>
-  </data>
-  <data name="Settings.Privacy.ConsentDetail.Sharing" xml:space="preserve">
-    <value>Sharing with paired players</value>
-  </data>
-  <data name="Settings.Privacy.ConsentDetail.ThirdParty" xml:space="preserve">
-    <value>Third-party plugins (Customize+, Honorific, etc.)</value>
-  </data>
   <data name="Settings.Privacy.Export.Header" xml:space="preserve">
     <value>Export Your Data (GDPR Art. 20)</value>
   </data>
   <data name="Settings.Privacy.Export.Description" xml:space="preserve">
-    <value>Export a copy of your personal data as JSON. The local export contains your RP profiles, your notes about pairs, your groups, blocked players, favourites and settings; the server export summarises what the server keeps about your account.</value>
+    <value>Export a copy of your personal data as JSON. The local export contains your RP sheets, notes, groups, blocked players, favorites, per-pair settings, notifications and the list of files kept on your machine. The server export summarizes what the server keeps about your account. Your secret keys are never part of an export.</value>
   </data>
   <data name="Settings.Privacy.Export.LocalButton" xml:space="preserve">
     <value>Export (local)</value>
@@ -5621,7 +5621,7 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
     <value>Delete Local Data (GDPR Art. 17)</value>
   </data>
   <data name="Settings.Privacy.Delete.Description" xml:space="preserve">
-    <value>Erases the personal data kept on your machine: RP profiles, notes about pairs, groups, blocked players, syncshell and MCDF favourites, saved establishments, network diagnostic logs and previous exports, configuration backups included. Consent is reset. The mod cache and server-side data are not affected.</value>
+    <value>Erases the personal data kept on your machine: RP sheets, notes and names of players you met, groups, blocked players, per-pair settings, favorites, saved establishments, notifications, cached sheets of other players, event log, network diagnostic logs and previous exports, configuration backups included. Consent is reset and you are disconnected. Your secret keys, your NPC scenes, the mod cache and server data are not affected.</value>
   </data>
   <data name="Settings.Privacy.Delete.LocalButton" xml:space="preserve">
     <value>Delete local data</value>
@@ -5645,7 +5645,7 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
     <value>Server-side data erasure</value>
   </data>
   <data name="Settings.Privacy.ServerDelete.Description" xml:space="preserve">
-    <value>Permanently deletes your account and everything kept on the server: RP profiles, pairings, syncshell memberships, MCDF and housing shares, establishments and uploaded mod files. Secondary accounts attached to yours are deleted as well.</value>
+    <value>Permanently deletes your account and all data kept on the server: profiles and RP sheets, pairings, permissions, syncshell memberships, MCDF and housing shares, NPC scenarios, establishments, announcements and uploaded mod files. Secondary accounts attached to yours are deleted as well. Technical logs expire on their own after 30 days.</value>
   </data>
   <data name="Settings.Privacy.ServerDelete.Button" xml:space="preserve">
     <value>Delete my server-side data</value>
@@ -5681,7 +5681,7 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
     <value>Revoke Consent</value>
   </data>
   <data name="Settings.Privacy.Revoke.Description" xml:space="preserve">
-    <value>Revoke your GDPR consent. You will be disconnected and returned to the introduction screen.</value>
+    <value>Withdraw your consent. The connection to the server is closed immediately and the consent screen comes back. Your data stays on the server until you delete your account.</value>
   </data>
   <data name="Settings.Privacy.Revoke.Button" xml:space="preserve">
     <value>Revoke my consent</value>
@@ -5711,7 +5711,7 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
     <value>Right to data portability : Export your data in a readable format (JSON).</value>
   </data>
   <data name="Settings.Privacy.Rights.Opposition" xml:space="preserve">
-    <value>Right to object : Withdraw your consent at any time.</value>
+    <value>Right to object: Withdraw your consent or turn off any optional processing at any time.</value>
   </data>
   <data name="Settings.Privacy.Rights.Limitation" xml:space="preserve">
     <value>Right to restriction : Pause processing through the service's pause options.</value>
@@ -5720,46 +5720,79 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
     <value>Data Protection (GDPR)</value>
   </data>
   <data name="Rgpd.Consent.Intro" xml:space="preserve">
-    <value>In accordance with the General Data Protection Regulation (GDPR), UmbraSync needs your explicit consent before processing your personal data.</value>
+    <value>UmbraSync processes personal data to synchronize your appearance with the players you choose. This page describes what is processed, by whom, and for how long. Nothing is sent to the server until you accept.</value>
   </data>
   <data name="Rgpd.Consent.Reassurance" xml:space="preserve">
-    <value>This data is collected solely for the proper functioning of the plugin. No data is sold or shared with third parties for commercial purposes.</value>
+    <value>No data is sold, or used for advertising or profiling.</value>
   </data>
   <data name="Rgpd.Consent.DataCollected.Header" xml:space="preserve">
     <value>Data collected:</value>
   </data>
   <data name="Rgpd.Consent.DataCollected.Details" xml:space="preserve">
-    <value>• Unique identifier (UID), last login date and IP address for the duration of the session&#x0A;• Appearance data: Penumbra mods, Glamourer states and mod files uploaded for synchronization&#x0A;• RP profiles: first name, last name, title, description, picture and custom fields, per character&#x0A;• Pairing list, notes you write about your pairs and syncshell memberships&#x0A;• Shares you publish: MCDF, housing layouts and NPC scenarios&#x0A;• RP establishments you create: name, logo, banner, housing location and events&#x0A;• "Wild RP" announcements: character name, world, zone and residential ward, visible in the directory&#x0A;• Typing indicator: signal sent to your pairs while you type&#x0A;• Ashfall Connect, if you link your account: name and world of your characters sent to connect.ashfall-codex.dev, along with the Discord or XIVAuth identity you associate with it</value>
+    <value>• Account: unique identifier (UID), custom ID, last login date, and your Discord account if you linked one&#x0A;• Character identification: a technical fingerprint derived from its name and world, sent on every connection and visible to your pairs&#x0A;• Appearance data: Penumbra mods, Glamourer states, Customize+, Heels, Honorific, Moodles, pet names, and mod files uploaded for synchronization&#x0A;• Visible players: each time your appearance is sent, the list of your pairs present around you&#x0A;• Profiles: description and picture, and for each character its RP sheet (name, world, first name, last name, title, description, picture, custom fields)&#x0A;• Viewed sheets: the name and world of the character whose profile you open&#x0A;• Pairing list, permissions, notes you write and syncshell memberships&#x0A;• Shares you publish: MCDF, housing layouts and NPC scenarios, with the housing address and the list of allowed people&#x0A;• RP establishments you create: name, logo, banner, location, events, and if you choose so the name of their manager&#x0A;• "Wild RP" announcements: character name, world, zone and residential ward, visible in the directory for two hours&#x0A;• GPose sessions and shared quests, when you join one: pose, position and progress, relayed to participants&#x0A;• Server technical logs: IP address, UID and connection time, kept 30 days for security purposes&#x0A;• Ashfall Connect, only if you link your account: name and world of your characters, and the Discord or XIVAuth identity you associate with it</value>
   </data>
   <data name="Rgpd.Consent.Outdated" xml:space="preserve">
     <value>The scope of the data being processed has changed since you last gave consent. Please read this page again and confirm your agreement.</value>
   </data>
   <data name="Rgpd.Consent.Controller" xml:space="preserve">
-    <value>Data controller: the Ashfall Codex team, publisher of UmbraSync and of the umbra-sync.net server. For any request regarding your data, contact us through the Ashfall Codex Discord server.</value>
+    <value>Data controller: the Ashfall Codex team, publisher of UmbraSync and of the umbra-sync.net server. For any request about your data, including if your account is suspended and you can no longer connect, contact us from the Ashfall Codex Discord server. You may also lodge a complaint with your country's data protection authority.</value>
   </data>
   <data name="Rgpd.Consent.Retention" xml:space="preserve">
-    <value>Retention: your data is kept as long as your account stays active. An account left unused beyond the period set by the server administrator is deleted automatically, along with the files attached to it. Uploaded mod files are kept for as long as they need to be distributed to your pairs.</value>
+    <value>Retention: your data is kept as long as your account stays active. An account left unused for 12 months is deleted automatically, along with everything attached to it. Uploaded mod files are kept for as long as they are used for synchronization. Technical logs are kept 30 days. On your machine, other players' sheets are erased 30 days after they were last viewed.</value>
+  </data>
+  <data name="Settings.Privacy.Optional.Off" xml:space="preserve">
+    <value>disabled</value>
+  </data>
+  <data name="Settings.Privacy.Optional.On" xml:space="preserve">
+    <value>enabled</value>
+  </data>
+  <data name="Settings.Privacy.Optional.Intro" xml:space="preserve">
+    <value>Optional processing, adjustable in the matching settings tabs:</value>
+  </data>
+  <data name="Settings.Privacy.ConsentDetail.Mandatory" xml:space="preserve">
+    <value>Processing required for synchronization</value>
+  </data>
+  <data name="Rgpd.Consent.Optional.Plugins.Detail" xml:space="preserve">
+    <value>Other plugins installed on this computer can read the RP sheet of your visible pairs. Nothing leaves your machine.</value>
+  </data>
+  <data name="Rgpd.Consent.Optional.Plugins" xml:space="preserve">
+    <value>RP sheets readable by other plugins</value>
+  </data>
+  <data name="Rgpd.Consent.Optional.Typing.Detail" xml:space="preserve">
+    <value>Your pairs see that you are typing, and in which channel. The content of your messages is never sent.</value>
+  </data>
+  <data name="Rgpd.Consent.Optional.Typing" xml:space="preserve">
+    <value>Typing indicator</value>
+  </data>
+  <data name="Rgpd.Consent.Optional.Position.Detail" xml:space="preserve">
+    <value>Your in-game position is sent to the server as you move, to suggest nearby syncshells and establishments. It is not stored.</value>
+  </data>
+  <data name="Rgpd.Consent.Optional.Position" xml:space="preserve">
+    <value>Nearby slots and establishments</value>
+  </data>
+  <data name="Rgpd.Consent.Optional.Nearby.Detail" xml:space="preserve">
+    <value>Your character name is sent to the server so other users can recognize you. To find those around you, a hashed fingerprint of every player within 50 m is sent, including players who do not use UmbraSync. These fingerprints are used for comparison and are not stored.</value>
+  </data>
+  <data name="Rgpd.Consent.Optional.Nearby" xml:space="preserve">
+    <value>Nearby player detection</value>
+  </data>
+  <data name="Rgpd.Consent.Optional.Intro" xml:space="preserve">
+    <value>All disabled by default. You can turn them on or off at any time in the settings, with no effect on synchronization.</value>
+  </data>
+  <data name="Rgpd.Consent.Optional.Header" xml:space="preserve">
+    <value>Optional processing</value>
+  </data>
+  <data name="Rgpd.Consent.Mandatory.Detail" xml:space="preserve">
+    <value>Essential to the service: without it, UmbraSync does not connect.</value>
+  </data>
+  <data name="Rgpd.Consent.Mandatory" xml:space="preserve">
+    <value>I accept the processing of my data required for synchronization</value>
+  </data>
+  <data name="Rgpd.Consent.ThirdParties" xml:space="preserve">
+    <value>Hosting: server at OVH (Germany), mod files at Scaleway (European Union). Profile reports are forwarded to the moderation team on Discord, profile picture included. Share contents are stored encrypted, but the server is technically able to decrypt them.</value>
   </data>
   <data name="Rgpd.Consent.ConnectNotice" xml:space="preserve">
-    <value>Ashfall Connect is a separate service. Deleting your UmbraSync account does not erase the RP profile hosted on Connect: deletion must be requested there separately from your Connect account.</value>
-  </data>
-  <data name="Rgpd.Consent.DataCollection" xml:space="preserve">
-    <value>I consent to data collection (required)</value>
-  </data>
-  <data name="Rgpd.Consent.DataCollection.Detail" xml:space="preserve">
-    <value>Required for the synchronization service to function.</value>
-  </data>
-  <data name="Rgpd.Consent.DataSharing" xml:space="preserve">
-    <value>I consent to sharing with paired players (required)</value>
-  </data>
-  <data name="Rgpd.Consent.DataSharing.Detail" xml:space="preserve">
-    <value>Your appearance data is shared with players you choose to pair with.</value>
-  </data>
-  <data name="Rgpd.Consent.ThirdParty" xml:space="preserve">
-    <value>I consent to third-party plugin sharing (optional)</value>
-  </data>
-  <data name="Rgpd.Consent.ThirdParty.Detail" xml:space="preserve">
-    <value>Customize+, Honorific, Moodles, etc. may exchange additional data.</value>
+    <value>Ashfall Connect is a separate service. Deleting your UmbraSync account does not erase what is hosted on Connect: deletion there is requested separately, from the Ashfall Codex team.</value>
   </data>
   <data name="Rgpd.Consent.Rights" xml:space="preserve">
     <value>Your rights:</value>
@@ -5771,7 +5804,7 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
     <value>I accept and continue</value>
   </data>
   <data name="Rgpd.Consent.MandatoryWarning" xml:space="preserve">
-    <value>Collection and sharing consent are required to use the service.</value>
+    <value>This acceptance is required to use the service. Optional processing remains your choice.</value>
   </data>
   <data name="HousingShare.Progress.Hashing" xml:space="preserve">
     <value>Hashing files...</value>
@@ -7098,6 +7131,21 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
   <data name="Settings.Storage.Move.NotificationFailed" xml:space="preserve">
     <value>The storage move did not finish cleanly: {0} file(s) stayed in {1}. See the log for details.</value>
   </data>
+  <data name="Settings.Breadcrumb.Root" xml:space="preserve">
+    <value>Settings</value>
+  </data>
+  <data name="Settings.Search.Hint" xml:space="preserve">
+    <value>Search...</value>
+  </data>
+  <data name="Settings.Search.Results" xml:space="preserve">
+    <value>{0} result(s)</value>
+  </data>
+  <data name="Settings.Search.Empty" xml:space="preserve">
+    <value>No setting matches this search.</value>
+  </data>
+  <data name="Settings.Search.Clear" xml:space="preserve">
+    <value>Press Escape to clear the search</value>
+  </data>
   <data name="Settings.Section.General.Title" xml:space="preserve">
     <value>General</value>
   </data>
@@ -7296,10 +7344,1106 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
   <data name="SyncshellAdmin.Slot.SaveErrorMessage" xml:space="preserve">
     <value>The slot could not be saved. Try again in a moment.</value>
   </data>
+  <data name="Settings.General.Appearance" xml:space="preserve">
+    <value>Appearance</value>
+  </data>
+  <data name="Settings.General.UiGlass" xml:space="preserve">
+    <value>Transparency effect</value>
+  </data>
+  <data name="Settings.General.UiGlass.Tooltip" xml:space="preserve">
+    <value>Left: clear glass that lets the scenery show through almost sharp. Moving right, the glass gets tinted and frosted, up to a fully opaque background at the far right. Only backgrounds are affected: text, buttons and tabs stay opaque.</value>
+  </data>
+  <data name="Settings.General.ClearGlassInGpose" xml:space="preserve">
+    <value>More transparent interface in GPose</value>
+  </data>
+  <data name="Settings.General.ClearGlassInGpose.Help" xml:space="preserve">
+    <value>Makes windows noticeably more transparent during group poses, to clear the view on the scene. No effect outside GPose, and ignored when the opaque interface is on.</value>
+  </data>
   <data name="PluginRestart.Title" xml:space="preserve">
     <value>Restart UmbraSync</value>
   </data>
   <data name="PluginRestart.Body" xml:space="preserve">
     <value>{0} was just reloaded or updated. Disable then re-enable UmbraSync in /xlplugins to restore synchronisation.</value>
+  </data>
+  <data name="Settings.General.Notes.Title" xml:space="preserve">
+    <value>Notes</value>
+  </data>
+  <data name="Settings.General.Language.Help" xml:space="preserve">
+    <value>Language used for Umbra's interface. Missing text falls back to English.</value>
+  </data>
+  <data name="Settings.General.Language.Title" xml:space="preserve">
+    <value>Language</value>
+  </data>
+  <data name="Settings.General.Display.Title" xml:space="preserve">
+    <value>Display</value>
+  </data>
+  <data name="Settings.General.Notifications.Title" xml:space="preserve">
+    <value>Notifications</value>
+  </data>
+  <data name="Settings.Performance.Global.Title" xml:space="preserve">
+    <value>Global configuration</value>
+  </data>
+  <data name="Settings.Performance.LowSpec.Title" xml:space="preserve">
+    <value>Low-spec profile</value>
+  </data>
+  <data name="Settings.Performance.LowSpec.Toggle" xml:space="preserve">
+    <value>Enable low-spec profile</value>
+  </data>
+  <data name="Settings.Performance.LowSpec.ActiveNote" xml:space="preserve">
+    <value>Profile active: the settings it manages (texture shrinking, automatic blocking, VRAM and triangle thresholds, parallel downloads) are locked. Disable the profile to change them and get your previous settings back.</value>
+  </data>
+  <data name="Settings.Performance.LowSpec.Desc" xml:space="preserve">
+    <value>For low-spec computers (laptops, graphics cards with 6 GB of VRAM or less). This profile limits how much video memory and processing nearby players can use: appearances that are too heavy are blocked automatically, textures are shrunk and simultaneous downloads are capped. This helps prevent stutter and crashes in crowds.</value>
+  </data>
+  <data name="Settings.Performance.LowSpec.Help" xml:space="preserve">
+    <value>Per-player VRAM threshold: {0} MiB at most
+Triangle threshold: {1}k at most
+Shrink downloaded textures: enabled
+Parallel downloads: {2} at most
+Simultaneous player applications: 2 at most
+
+A lower threshold you already set is kept. Your previous settings are restored when you disable the profile. The individual pairs whitelist is not changed.</value>
+  </data>
+  <data name="Startup.OutOfMemory.Title" xml:space="preserve">
+    <value>Not enough memory</value>
+  </data>
+  <data name="Startup.OutOfMemory.Message" xml:space="preserve">
+    <value>Umbra Sync could not start because the system ran out of memory. Free up disk space, close background applications and disable unused sync plugins, then restart the game.</value>
+  </data>
+  <data name="Settings.Performance.Limits.Title" xml:space="preserve">
+    <value>Individual limits</value>
+  </data>
+  <data name="Settings.Performance.Whitelist.Title" xml:space="preserve">
+    <value>Whitelisted UIDs</value>
+  </data>
+  <data name="Settings.Performance.Blacklist.Title" xml:space="preserve">
+    <value>Blacklisted UIDs</value>
+  </data>
+  <data name="Settings.Transfer.Downloads.Title" xml:space="preserve">
+    <value>Downloads</value>
+  </data>
+  <data name="Settings.Transfer.Precache.Title" xml:space="preserve">
+    <value>Penumbra pre-cache</value>
+  </data>
+  <data name="Settings.Transfer.Redraw.Title" xml:space="preserve">
+    <value>Redraws</value>
+  </data>
+  <data name="Settings.Transfer.Limits.Title" xml:space="preserve">
+    <value>Limits</value>
+  </data>
+  <data name="Settings.Transfer.DecompressionThreads.AutoValue" xml:space="preserve">
+    <value>Auto ({0})</value>
+  </data>
+  <data name="Settings.Transfer.Ui.ShowWindow" xml:space="preserve">
+    <value>Separate transfer window</value>
+  </data>
+  <data name="Settings.Transfer.Ui.ShowWindow.Help" xml:space="preserve">
+    <value>The transfer window shows the progress of outstanding downloads.
+
+What do W/Q/P/D stand for?
+W = waiting for a slot (see Maximum parallel downloads)
+Q = queued on the server, waiting for the queue ready signal
+P = processing the download (downloading)
+D = decompressing the download</value>
+  </data>
+  <data name="Settings.Transfer.Ui.EditPosition" xml:space="preserve">
+    <value>Edit transfer window position</value>
+  </data>
+  <data name="Settings.Transfer.Ui.ShowBars" xml:space="preserve">
+    <value>Transfer bars below players</value>
+  </data>
+  <data name="Settings.Transfer.Ui.ShowBars.Help" xml:space="preserve">
+    <value>Renders a progress bar at the feet of the player you are downloading from.</value>
+  </data>
+  <data name="Settings.Transfer.Ui.ShowText" xml:space="preserve">
+    <value>Show download text</value>
+  </data>
+  <data name="Settings.Transfer.Ui.ShowText.Help" xml:space="preserve">
+    <value>Shows the amount downloaded (in MiB) in the transfer bars.</value>
+  </data>
+  <data name="Settings.Transfer.Ui.BarWidth" xml:space="preserve">
+    <value>Transfer bar width</value>
+  </data>
+  <data name="Settings.Transfer.Ui.BarWidth.Help" xml:space="preserve">
+    <value>Width of the displayed transfer bars (never narrower than the displayed text).</value>
+  </data>
+  <data name="Settings.Transfer.Ui.BarHeight" xml:space="preserve">
+    <value>Transfer bar height</value>
+  </data>
+  <data name="Settings.Transfer.Ui.BarHeight.Help" xml:space="preserve">
+    <value>Height of the displayed transfer bars (never shorter than the displayed text).</value>
+  </data>
+  <data name="Settings.Transfer.Ui.Uploading" xml:space="preserve">
+    <value>"Uploading" text</value>
+  </data>
+  <data name="Settings.Transfer.Ui.Uploading.Help" xml:space="preserve">
+    <value>Renders an "Uploading" text at the feet of the player who is uploading data: off, normal size or large font.</value>
+  </data>
+  <data name="Settings.Transfer.Ui.Uploading.Off" xml:space="preserve">
+    <value>Off</value>
+  </data>
+  <data name="Settings.Transfer.Ui.Uploading.Normal" xml:space="preserve">
+    <value>Normal</value>
+  </data>
+  <data name="Settings.Transfer.Ui.Uploading.Large" xml:space="preserve">
+    <value>Large font</value>
+  </data>
+  <data name="Settings.Advanced.Experimental.Title" xml:space="preserve">
+    <value>Experimental</value>
+  </data>
+  <data name="Settings.Advanced.Experimental.SoftRedraw" xml:space="preserve">
+    <value>Smart redraw (soft/hard)</value>
+  </data>
+  <data name="Settings.Advanced.Experimental.SoftRedraw.Help" xml:space="preserve">
+    <value>For a texture or material change alone, reapplies the appearance through Glamourer without a full redraw (less flicker and GPU load). Geometry changes (mdl, hair, face, tail, manipulations) still use a full redraw.
+
+Experimental: if a mod does not show up correctly, turn this off (back to the usual behavior, no restart needed).</value>
+  </data>
+  <data name="Settings.Advanced.Experimental.EventVisibility" xml:space="preserve">
+    <value>Event-based visibility detection</value>
+  </data>
+  <data name="Settings.Advanced.Experimental.EventVisibility.Help" xml:space="preserve">
+    <value>Detects players appearing and disappearing through game hooks (immediate reaction, less CPU load) instead of a periodic scan. Automatically falls back to the scan if the hooks fail.
+
+Experimental: these hooks are low level; if anything goes wrong, turn this off (the hooks are then no longer installed). A change takes effect at the next reconnect or plugin restart.</value>
+  </data>
+  <data name="Settings.Transfer.Current.Tab.Transfers" xml:space="preserve">
+    <value>Transfers</value>
+  </data>
+  <data name="Settings.Transfer.Current.Tab.Blocked" xml:space="preserve">
+    <value>Blocked transfers</value>
+  </data>
+  <data name="Settings.Transfer.Current.Uploads" xml:space="preserve">
+    <value>Uploads</value>
+  </data>
+  <data name="Settings.Transfer.Current.Downloads" xml:space="preserve">
+    <value>Downloads</value>
+  </data>
+  <data name="Settings.Transfer.Current.Col.File" xml:space="preserve">
+    <value>File</value>
+  </data>
+  <data name="Settings.Transfer.Current.Col.Uploaded" xml:space="preserve">
+    <value>Uploaded</value>
+  </data>
+  <data name="Settings.Transfer.Current.Col.Size" xml:space="preserve">
+    <value>Size</value>
+  </data>
+  <data name="Settings.Transfer.Current.Col.User" xml:space="preserve">
+    <value>User</value>
+  </data>
+  <data name="Settings.Transfer.Current.Col.Server" xml:space="preserve">
+    <value>Server</value>
+  </data>
+  <data name="Settings.Transfer.Current.Col.Files" xml:space="preserve">
+    <value>Files</value>
+  </data>
+  <data name="Settings.Transfer.Current.Col.Download" xml:space="preserve">
+    <value>Download</value>
+  </data>
+  <data name="Settings.Transfer.Current.Blocked.Description" xml:space="preserve">
+    <value>Files that you attempted to upload or download that were forbidden to be transferred by their creators will appear here. If you see file paths from your drive here, then those files were not allowed to be uploaded. If you see hashes, those files were not allowed to be downloaded. Ask your paired friend to send you the mod in question through other means or acquire the mod yourself.</value>
+  </data>
+  <data name="Settings.Transfer.Current.Blocked.Col.Hash" xml:space="preserve">
+    <value>Hash / Filename</value>
+  </data>
+  <data name="Settings.Transfer.Current.Blocked.Col.ForbiddenBy" xml:space="preserve">
+    <value>Forbidden by</value>
+  </data>
+  <data name="Settings.Transfer.Ui.Title" xml:space="preserve">
+    <value>Transfer UI</value>
+  </data>
+  <data name="Settings.Transfer.Current.Title" xml:space="preserve">
+    <value>Current transfers</value>
+  </data>
+  <data name="Settings.Storage.Cache.Title" xml:space="preserve">
+    <value>Local storage</value>
+  </data>
+  <data name="Settings.Storage.Validation.Title" xml:space="preserve">
+    <value>Integrity check</value>
+  </data>
+  <data name="Settings.Storage.Clear.Title" xml:space="preserve">
+    <value>Clear storage</value>
+  </data>
+  <data name="Settings.Advanced.Options.Title" xml:space="preserve">
+    <value>Advanced options</value>
+  </data>
+  <data name="Settings.AutoDetect.Discovery.Title" xml:space="preserve">
+    <value>Nearby detection</value>
+  </data>
+  <data name="Settings.AutoDetect.Slots.Title" xml:space="preserve">
+    <value>Slots</value>
+  </data>
+  <data name="CharaDataHub.Nav.Group.Together" xml:space="preserve">
+    <value>Play together</value>
+  </data>
+  <data name="CharaDataHub.Nav.Group.Apply" xml:space="preserve">
+    <value>Apply</value>
+  </data>
+  <data name="CharaDataHub.Nav.Group.Data" xml:space="preserve">
+    <value>My data</value>
+  </data>
+  <data name="CharaDataHub.Nav.Group.Community" xml:space="preserve">
+    <value>Community</value>
+  </data>
+  <data name="CharaDataHub.Nav.Library" xml:space="preserve">
+    <value>Library</value>
+  </data>
+  <data name="CharaDataHub.Nav.LiveData" xml:space="preserve">
+    <value>Live data</value>
+  </data>
+  <data name="CharaDataHub.Nav.Furniture" xml:space="preserve">
+    <value>Furniture</value>
+  </data>
+  <data name="CharaDataHub.Nav.Npc" xml:space="preserve">
+    <value>NPCs</value>
+  </data>
+  <data name="CharaDataHub.Library.All" xml:space="preserve">
+    <value>All</value>
+  </data>
+  <data name="CharaDataHub.Library.Empty" xml:space="preserve">
+    <value>Nothing to show.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Share.TitleFor" xml:space="preserve">
+    <value>Share: {0}</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Share.Cancel" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Share.ActionTooltip" xml:space="preserve">
+    <value>Share with pairs or syncshells</value>
+  </data>
+  <data name="AutoDetectUi.Syncshell.Search" xml:space="preserve">
+    <value>Search a syncshell, owner or tag…</value>
+  </data>
+  <data name="Settings.TargetTooltip.Enable" xml:space="preserve">
+    <value>Show a profile card when targeting a paired player</value>
+  </data>
+  <data name="Settings.TargetTooltip.Enable.Help" xml:space="preserve">
+    <value>Displays a small card with the RP profile of the targeted paired player (the character you are actually targeting, not their other characters).</value>
+  </data>
+  <data name="StandaloneProfile.CharacterNote.Hint" xml:space="preserve">
+    <value>Private note about this character...</value>
+  </data>
+  <data name="StandaloneProfile.CharacterNote.Tooltip" xml:space="preserve">
+    <value>Only you can see this note. It is specific to this character, not to the whole account.</value>
+  </data>
+  <data name="Settings.TargetTooltip.HideInDuty" xml:space="preserve">
+    <value>Hide the profile card in instances (dungeons, raids, trials…)</value>
+  </data>
+  <data name="Settings.TargetTooltip.HideInDuty.Help" xml:space="preserve">
+    <value>The card is also always hidden during combat and cutscenes.</value>
+  </data>
+  <data name="Settings.RpIdentityInPairList" xml:space="preserve">
+    <value>Show RP avatar and name in the pair list</value>
+  </data>
+  <data name="Settings.RpIdentityInPairList.Help" xml:space="preserve">
+    <value>Replaces the character name with the RP name, and adds a small avatar. A nickname you set yourself always takes priority.</value>
+  </data>
+  <data name="CompactUi.Social.Nav.Group.Contacts" xml:space="preserve">
+    <value>My contacts</value>
+  </data>
+  <data name="CompactUi.Social.Nav.Group.Discover" xml:space="preserve">
+    <value>Discover</value>
+  </data>
+  <data name="CompactUi.Social.Nav.Invitations" xml:space="preserve">
+    <value>Invitations</value>
+  </data>
+  <data name="CompactUi.Social.Nav.Directory" xml:space="preserve">
+    <value>Directory</value>
+  </data>
+  <data name="CompactUi.Sidebar.SocialPending" xml:space="preserve">
+    <value>Social — {0} pending invitation(s)</value>
+  </data>
+  <data name="EmptyState.Invitations.Title" xml:space="preserve">
+    <value>No invitations</value>
+  </data>
+  <data name="EmptyState.Invitations.Hint" xml:space="preserve">
+    <value>Requests you receive and the ones you send show up here.</value>
+  </data>
+  <data name="EmptyState.Nearby.Disabled.Title" xml:space="preserve">
+    <value>Detection disabled</value>
+  </data>
+  <data name="EmptyState.Nearby.Disabled.Hint" xml:space="preserve">
+    <value>Turn it on to see the UmbraSync players around you.</value>
+  </data>
+  <data name="EmptyState.Nearby.Disabled.Button" xml:space="preserve">
+    <value>Open settings</value>
+  </data>
+  <data name="EmptyState.Nearby.Empty.Title" xml:space="preserve">
+    <value>Nobody around you</value>
+  </data>
+  <data name="EmptyState.Nearby.Empty.Hint" xml:space="preserve">
+    <value>The list updates by itself.</value>
+  </data>
+  <data name="EmptyState.SyncFinder.Title" xml:space="preserve">
+    <value>No syncshell visible</value>
+  </data>
+  <data name="EmptyState.Favorites.Title" xml:space="preserve">
+    <value>No favorites</value>
+  </data>
+  <data name="EmptyState.Favorites.Hint" xml:space="preserve">
+    <value>Click a venue's star to find it here.</value>
+  </data>
+  <data name="EmptyState.Favorites.Button" xml:space="preserve">
+    <value>Browse the directory</value>
+  </data>
+  <data name="EmptyState.Owned.Title" xml:space="preserve">
+    <value>No registered venue</value>
+  </data>
+  <data name="EmptyState.Owned.Hint" xml:space="preserve">
+    <value>Register your venue so it shows up in the directory.</value>
+  </data>
+  <data name="EmptyState.Upcoming.Title" xml:space="preserve">
+    <value>Nothing planned this week</value>
+  </data>
+  <data name="EmptyState.Upcoming.Hint" xml:space="preserve">
+    <value>Evenings from directory venues will show up here.</value>
+  </data>
+  <data name="Syncshell.Cards.Menu" xml:space="preserve">
+    <value>More options</value>
+  </data>
+  <data name="Syncshell.Cards.Perm.Header" xml:space="preserve">
+    <value>Sync for this syncshell</value>
+  </data>
+  <data name="Syncshell.Cards.Perm.Sound" xml:space="preserve">
+    <value>Sounds</value>
+  </data>
+  <data name="Syncshell.Cards.Perm.Anim" xml:space="preserve">
+    <value>Animations</value>
+  </data>
+  <data name="Syncshell.Cards.Perm.Vfx" xml:space="preserve">
+    <value>Visual effects (VFX)</value>
+  </data>
+  <data name="Syncshell.Cards.Perm.Housing" xml:space="preserve">
+    <value>Housing</value>
+  </data>
+  <data name="Syncshell.Cards.DetailsOnline" xml:space="preserve">
+    <value>{0} online</value>
+  </data>
+  <data name="Syncshell.Cards.DetailsVisible" xml:space="preserve">
+    <value>{0} visible</value>
+  </data>
+  <data name="CompactUi.Social.DefaultSettings" xml:space="preserve">
+    <value>Default sync settings</value>
+  </data>
+  <data name="DrawUserPair.Menu.SyncHeader" xml:space="preserve">
+    <value>Sync with this person</value>
+  </data>
+  <data name="DrawUserPair.Menu.PermScenarios" xml:space="preserve">
+    <value>NPC scenarios</value>
+  </data>
+  <data name="Syncshell.Cards.BorderColor" xml:space="preserve">
+    <value>Border color</value>
+  </data>
+  <data name="Syncshell.Cards.BorderColor.Auto" xml:space="preserve">
+    <value>Automatic color</value>
+  </data>
+  <data name="Syncshell.Cards.BorderColor.Custom" xml:space="preserve">
+    <value>Pick a color</value>
+  </data>
+  <data name="Ui.TextArea.ResizeHint" xml:space="preserve">
+    <value>Drag to resize</value>
+  </data>
+  <data name="Establishment.Detail.Section.About" xml:space="preserve">
+    <value>About</value>
+  </data>
+  <data name="Establishment.Detail.Fact.Address" xml:space="preserve">
+    <value>Address</value>
+  </data>
+  <data name="Establishment.Detail.Fact.NextEvent" xml:space="preserve">
+    <value>Next event</value>
+  </data>
+  <data name="Establishment.Detail.Fact.Faction" xml:space="preserve">
+    <value>Faction</value>
+  </data>
+  <data name="Establishment.Detail.Fact.Languages" xml:space="preserve">
+    <value>Languages</value>
+  </data>
+  <data name="Establishment.Detail.Fact.HappeningNow" xml:space="preserve">
+    <value>Happening now</value>
+  </data>
+  <data name="Establishment.Detail.CopyAddress" xml:space="preserve">
+    <value>Click to copy the address</value>
+  </data>
+  <data name="Establishment.Detail.AddressCopied" xml:space="preserve">
+    <value>Address copied</value>
+  </data>
+  <data name="Establishment.Detail.ViewRpProfile" xml:space="preserve">
+    <value>View RP profile</value>
+  </data>
+  <data name="Establishment.Reminder.Title" xml:space="preserve">
+    <value>Upcoming event</value>
+  </data>
+  <data name="Establishment.Reminder.Soon" xml:space="preserve">
+    <value>{0}: &quot;{1}&quot; starts in {2} min ({3})</value>
+  </data>
+  <data name="Establishment.Reminder.Started" xml:space="preserve">
+    <value>{0}: &quot;{1}&quot; has started</value>
+  </data>
+  <data name="Settings.Establishment.EventReminders" xml:space="preserve">
+    <value>Reminders for my favorites' events</value>
+  </data>
+  <data name="Settings.Establishment.EventRemindersHelp" xml:space="preserve">
+    <value>Warns you before events of your favorite establishments begin, as a notification and in chat.</value>
+  </data>
+  <data name="Settings.Establishment.ReminderMinutes" xml:space="preserve">
+    <value>Warn before start</value>
+  </data>
+  <data name="Settings.Establishment.ReminderMinutesHelp" xml:space="preserve">
+    <value>0 disables the early reminder.</value>
+  </data>
+  <data name="Settings.Establishment.NotifyOnStart" xml:space="preserve">
+    <value>Also notify when it starts</value>
+  </data>
+  <data name="Syncshell.Cards.Section.Favorites" xml:space="preserve">
+    <value>Favorites</value>
+  </data>
+  <data name="Syncshell.Cards.Section.Others" xml:space="preserve">
+    <value>Other syncshells</value>
+  </data>
+  <data name="Syncshell.Cards.MembersLabel" xml:space="preserve">
+    <value>Members</value>
+  </data>
+  <data name="Syncshell.Members.ViewStatus" xml:space="preserve">
+    <value>Status</value>
+  </data>
+  <data name="Syncshell.Members.ViewType" xml:space="preserve">
+    <value>Type</value>
+  </data>
+  <data name="GroupPair.Menu.ModerationHeader" xml:space="preserve">
+    <value>Moderation</value>
+  </data>
+  <data name="GroupPair.Menu.Pin" xml:space="preserve">
+    <value>Pin</value>
+  </data>
+  <data name="GroupPair.Menu.Unpin" xml:space="preserve">
+    <value>Unpin</value>
+  </data>
+  <data name="GroupPair.Menu.PinTooltip" xml:space="preserve">
+    <value>Pinned members are not removed by a manual Syncshell cleanup.</value>
+  </data>
+  <data name="GroupPair.Menu.Promote" xml:space="preserve">
+    <value>Make moderator</value>
+  </data>
+  <data name="GroupPair.Menu.Demote" xml:space="preserve">
+    <value>Remove moderator</value>
+  </data>
+  <data name="GroupPair.Menu.ModTooltip" xml:space="preserve">
+    <value>Hold CTRL and click to change the moderator status of {0}.
+Moderators can kick, ban and pin members and clean up the Syncshell.</value>
+  </data>
+  <data name="GroupPair.Menu.Remove" xml:space="preserve">
+    <value>Remove from Syncshell</value>
+  </data>
+  <data name="GroupPair.Menu.RemoveTooltip" xml:space="preserve">
+    <value>Hold CTRL and click to remove {0} from the Syncshell.</value>
+  </data>
+  <data name="GroupPair.Menu.Ban" xml:space="preserve">
+    <value>Ban</value>
+  </data>
+  <data name="GroupPair.Menu.BanTooltip" xml:space="preserve">
+    <value>Ban this member from the Syncshell.</value>
+  </data>
+  <data name="GroupPair.Menu.Transfer" xml:space="preserve">
+    <value>Transfer ownership</value>
+  </data>
+  <data name="GroupPair.Menu.TransferTooltip" xml:space="preserve">
+    <value>Hold CTRL+SHIFT and click to transfer ownership of the Syncshell to {0}.
+WARNING: this cannot be undone.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Server.Title" xml:space="preserve">
+    <value>On the server</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Server.Summary" xml:space="preserve">
+    <value>{0} MCDF · {1}</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Server.Help" xml:space="preserve">
+    <value>MCDF files uploaded to the server. Those with the group icon are shared with pairs or Syncshells; the others are only visible to you.
+"Generate MCDF" captures your current appearance and uploads it straight to the server.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.NoResults" xml:space="preserve">
+    <value>No results for this search.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Row.Downloads" xml:space="preserve">
+    <value>{0} DL</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Row.Expires" xml:space="preserve">
+    <value>expires {0}</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Local.CardTitle" xml:space="preserve">
+    <value>On my computer</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Local.Summary" xml:space="preserve">
+    <value>{0} file(s) · {1}</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Export.Tooltip" xml:space="preserve">
+    <value>Save your current appearance to a .mcdf file</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Import.Tooltip" xml:space="preserve">
+    <value>Load a .mcdf file you received from someone</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Export.Title" xml:space="preserve">
+    <value>Export my appearance</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Export.Help" xml:space="preserve">
+    <value>Packs your character into an MCDF file that you can send to other people yourself. MCDF files are imported during GPose. Unofficial exporters may be able to extract the data it contains.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Export.Consent" xml:space="preserve">
+    <value>I understand that by exporting my character data to a file and sending it to other people, I irrevocably give away my character's current appearance. The people I share my data with can share it further without any limitation.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Export.DescriptionHint" xml:space="preserve">
+    <value>Description shown when the file is loaded</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Export.Button" xml:space="preserve">
+    <value>Export as MCDF</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Export.DialogTitle" xml:space="preserve">
+    <value>Export character to file</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Export.Note" xml:space="preserve">
+    <value>For best results, wear the intended appearance with all its mods enabled, then redraw your character before exporting.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Delete.ServerConfirm" xml:space="preserve">
+    <value>Delete "{0}" from the server? The people it is shared with will lose access to it.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Delete.LocalConfirm" xml:space="preserve">
+    <value>Delete the file "{0}" from your computer?</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Share.Add" xml:space="preserve">
+    <value>Add</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Share.Remove" xml:space="preserve">
+    <value>Remove</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Share.RevokeAll" xml:space="preserve">
+    <value>Remove all access</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Share.RevokeAllTooltip" xml:space="preserve">
+    <value>The MCDF stays on the server, but no pair or Syncshell can access it anymore.</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Action.Export" xml:space="preserve">
+    <value>Export my appearance</value>
+  </data>
+  <data name="CharaDataHub.Mcdf.Action.Import" xml:space="preserve">
+    <value>Import an MCDF file</value>
+  </data>
+  <data name="Settings.AutoDetect.Group.Visibility" xml:space="preserve">
+    <value>Visibility</value>
+  </data>
+  <data name="Settings.AutoDetect.Group.Invites" xml:space="preserve">
+    <value>Invitations</value>
+  </data>
+  <data name="Settings.AutoDetect.Status.Visible" xml:space="preserve">
+    <value>Visible to other players</value>
+  </data>
+  <data name="Settings.AutoDetect.Status.HiddenAfk" xml:space="preserve">
+    <value>Hidden: you are AFK</value>
+  </data>
+  <data name="Settings.AutoDetect.Status.HiddenNotRoleplaying" xml:space="preserve">
+    <value>Hidden: not in RP mode</value>
+  </data>
+  <data name="Settings.AutoDetect.Status.Off" xml:space="preserve">
+    <value>Detection disabled</value>
+  </data>
+  <data name="Settings.AutoDetect.Status.Suppressed" xml:space="preserve">
+    <value>Paused in this area</value>
+  </data>
+  <data name="DataAnalysis.Bc7.SelectHint" xml:space="preserve">
+    <value>Tick the textures to convert in the “Convert to BC7” column.</value>
+  </data>
+  <data name="DataAnalysis.SelectedFile.None" xml:space="preserve">
+    <value>Select a file in the list to see its paths.</value>
+  </data>
+  <data name="DataAnalysis.Table.File" xml:space="preserve">
+    <value>File</value>
+  </data>
+  <data name="DataAnalysis.Empty.Title" xml:space="preserve">
+    <value>No analysis yet</value>
+  </data>
+  <data name="DataAnalysis.Empty.Hint" xml:space="preserve">
+    <value>Your character data hasn't been built yet. The analysis will show up as soon as it is.</value>
+  </data>
+  <data name="DataAnalysis.Tile.Files" xml:space="preserve">
+    <value>Files</value>
+  </data>
+  <data name="DataAnalysis.Tile.SizeActual" xml:space="preserve">
+    <value>Actual size</value>
+  </data>
+  <data name="DataAnalysis.Tile.SizeDownload" xml:space="preserve">
+    <value>Download size</value>
+  </data>
+  <data name="DataAnalysis.Tile.Vram" xml:space="preserve">
+    <value>VRAM</value>
+  </data>
+  <data name="DataAnalysis.Tile.VramTooltip" xml:space="preserve">
+    <value>Video memory used by textures</value>
+  </data>
+  <data name="DataAnalysis.Tile.Triangles" xml:space="preserve">
+    <value>Triangles</value>
+  </data>
+  <data name="DataAnalysis.Tile.TrianglesTooltip" xml:space="preserve">
+    <value>Triangles of modded models</value>
+  </data>
+  <data name="DataAnalysis.Objects.Title" xml:space="preserve">
+    <value>Objects</value>
+  </data>
+  <data name="DataAnalysis.Object.Player" xml:space="preserve">
+    <value>Character</value>
+  </data>
+  <data name="DataAnalysis.Object.MinionOrMount" xml:space="preserve">
+    <value>Minion / mount</value>
+  </data>
+  <data name="DataAnalysis.Object.Companion" xml:space="preserve">
+    <value>Companion</value>
+  </data>
+  <data name="DataAnalysis.Object.Pet" xml:space="preserve">
+    <value>Pet</value>
+  </data>
+  <data name="DataAnalysis.Files.Title" xml:space="preserve">
+    <value>Files by type</value>
+  </data>
+  <data name="DataAnalysis.Summary" xml:space="preserve">
+    <value>{0} files · {1} actual · {2} download</value>
+  </data>
+  <data name="DataAnalysis.FileGroup.NeedsAnalysis" xml:space="preserve">
+    <value>Some of these files haven't been analyzed yet</value>
+  </data>
+  <data name="EditProfile.Card.Identity" xml:space="preserve">
+    <value>Identity</value>
+  </data>
+  <data name="EditProfile.Card.TitleChat" xml:space="preserve">
+    <value>Title and chat icon</value>
+  </data>
+  <data name="EditProfile.Card.Visibility" xml:space="preserve">
+    <value>Level and visibility</value>
+  </data>
+  <data name="EditProfile.Card.Details" xml:space="preserve">
+    <value>Character details</value>
+  </data>
+  <data name="EditProfile.Card.Traits" xml:space="preserve">
+    <value>Character traits</value>
+  </data>
+  <data name="EditProfile.Banner.Label" xml:space="preserve">
+    <value>Profile banner</value>
+  </data>
+  <data name="EditProfile.Banner.Select" xml:space="preserve">
+    <value>Choose a banner</value>
+  </data>
+  <data name="EditProfile.Banner.Remove" xml:space="preserve">
+    <value>Remove</value>
+  </data>
+  <data name="EditProfile.Banner.Help" xml:space="preserve">
+    <value>Shown behind your RP profile card, faded at the edges. The centre stays the most visible: put your subject there. Taller images are cropped automatically.</value>
+  </data>
+  <data name="EditProfile.Banner.SizeError" xml:space="preserve">
+    <value>Image too large: 1.5 MB maximum.</value>
+  </data>
+  <data name="EditProfile.Banner.Recommended" xml:space="preserve">
+    <value>Recommended: 1200 × 250 px (5:1 ratio), under 500 KB — maximum 1.5 MB, PNG or JPEG.</value>
+  </data>
+  <data name="EditProfile.Banner.Preview" xml:space="preserve">
+    <value>Card preview</value>
+  </data>
+  <data name="EditProfile.Banner.Preview.Tooltip" xml:space="preserve">
+    <value>Shows the card that appears when you are targeted, with your banner. Click again to close it.</value>
+  </data>
+  <data name="EditProfile.CardPreview.Close" xml:space="preserve">
+    <value>Close preview</value>
+  </data>
+  <data name="WhatsNew.WindowTitle" xml:space="preserve">
+    <value>UmbraSync 3.1: what's new</value>
+  </data>
+  <data name="WhatsNew.Nav.Previous" xml:space="preserve">
+    <value>Previous</value>
+  </data>
+  <data name="WhatsNew.Nav.Next" xml:space="preserve">
+    <value>Next</value>
+  </data>
+  <data name="WhatsNew.Nav.Skip" xml:space="preserve">
+    <value>Skip</value>
+  </data>
+  <data name="WhatsNew.Nav.Finish" xml:space="preserve">
+    <value>Finish</value>
+  </data>
+  <data name="WhatsNew.Nav.RgpdRequired" xml:space="preserve">
+    <value>Accept the processing of your data to continue.</value>
+  </data>
+  <data name="WhatsNew.Welcome.Title" xml:space="preserve">
+    <value>Welcome to UmbraSync 3.1</value>
+  </data>
+  <data name="WhatsNew.Welcome.Subtitle" xml:space="preserve">
+    <value>A quick tour of what's new, about a minute</value>
+  </data>
+  <data name="WhatsNew.Welcome.Intro" xml:space="preserve">
+    <value>A reworked interface, more reliable synchronization and new RP features.</value>
+  </data>
+  <data name="WhatsNew.Welcome.RgpdNotice" xml:space="preserve">
+    <value>The scope of the data we process has changed: the next page asks you to confirm your consent before you keep using UmbraSync.</value>
+  </data>
+  <data name="WhatsNew.Welcome.Profiles.Title" xml:space="preserve">
+    <value>RP profiles</value>
+  </data>
+  <data name="WhatsNew.Welcome.Profiles.Desc" xml:space="preserve">
+    <value>Custom banner, card preview, one profile per character.</value>
+  </data>
+  <data name="WhatsNew.Welcome.Meetings.Title" xml:space="preserve">
+    <value>Meetings</value>
+  </data>
+  <data name="WhatsNew.Welcome.Meetings.Desc" xml:space="preserve">
+    <value>Pair requests accepted without a second confirmation, blocking handled by the server.</value>
+  </data>
+  <data name="WhatsNew.Welcome.Sync.Title" xml:space="preserve">
+    <value>Synchronization</value>
+  </data>
+  <data name="WhatsNew.Welcome.Sync.Desc" xml:space="preserve">
+    <value>More reliable uploads, downloads and cache, re-upload of missing files.</value>
+  </data>
+  <data name="WhatsNew.Welcome.Housing.Title" xml:space="preserve">
+    <value>Housing and MCDF</value>
+  </data>
+  <data name="WhatsNew.Welcome.Housing.Desc" xml:space="preserve">
+    <value>Targeted furniture reloads, large MCDF shares streamed.</value>
+  </data>
+  <data name="WhatsNew.Welcome.Interface.Title" xml:space="preserve">
+    <value>Interface</value>
+  </data>
+  <data name="WhatsNew.Welcome.Interface.Desc" xml:space="preserve">
+    <value>New style, adjustable background blur and transparency.</value>
+  </data>
+  <data name="WhatsNew.Rgpd.Title" xml:space="preserve">
+    <value>Your data</value>
+  </data>
+  <data name="WhatsNew.Rgpd.Subtitle" xml:space="preserve">
+    <value>What changed and what you choose</value>
+  </data>
+  <data name="WhatsNew.Rgpd.Accepted" xml:space="preserve">
+    <value>Your consent is recorded.</value>
+  </data>
+  <data name="WhatsNew.Rgpd.AcceptedHint" xml:space="preserve">
+    <value>You can review this information, export your data or change your choices at any time in Settings, « Privacy » tab.</value>
+  </data>
+  <data name="WhatsNew.Profiles.Title" xml:space="preserve">
+    <value>RP profiles</value>
+  </data>
+  <data name="WhatsNew.Profiles.Subtitle" xml:space="preserve">
+    <value>More personal profiles</value>
+  </data>
+  <data name="WhatsNew.Profiles.Banner.Title" xml:space="preserve">
+    <value>Custom banner</value>
+  </data>
+  <data name="WhatsNew.Profiles.Banner.Desc" xml:space="preserve">
+    <value>Add an image at the top of your profile (1200 × 250 px recommended, PNG or JPEG). It shows on the profile and in the target tooltip.</value>
+  </data>
+  <data name="WhatsNew.Profiles.Preview.Title" xml:space="preserve">
+    <value>Card preview</value>
+  </data>
+  <data name="WhatsNew.Profiles.Preview.Desc" xml:space="preserve">
+    <value>See how your saved profile looks. In the editor, the preview also shows your changes before you save.</value>
+  </data>
+  <data name="WhatsNew.Profiles.PerCharacter.Title" xml:space="preserve">
+    <value>One profile per character</value>
+  </data>
+  <data name="WhatsNew.Profiles.PerCharacter.Desc" xml:space="preserve">
+    <value>A profile now shows a single character, with its own title and Moodles.</value>
+  </data>
+  <data name="WhatsNew.Profiles.Visibility.Title" xml:space="preserve">
+    <value>Visibility</value>
+  </data>
+  <data name="WhatsNew.Profiles.Visibility.Desc" xml:space="preserve">
+    <value>Who can see this character's RP profile. The change is saved right away.</value>
+  </data>
+  <data name="WhatsNew.Meetings.Title" xml:space="preserve">
+    <value>Meetings and pair requests</value>
+  </data>
+  <data name="WhatsNew.Meetings.Subtitle" xml:space="preserve">
+    <value>Fewer clicks, more control</value>
+  </data>
+  <data name="WhatsNew.Meetings.Accept.Title" xml:space="preserve">
+    <value>Direct acceptance</value>
+  </data>
+  <data name="WhatsNew.Meetings.Accept.Desc" xml:space="preserve">
+    <value>When your request is accepted, the pair is created right away, without a second confirmation.</value>
+  </data>
+  <data name="WhatsNew.Meetings.Block.Title" xml:space="preserve">
+    <value>Blocking</value>
+  </data>
+  <data name="WhatsNew.Meetings.Block.Desc" xml:space="preserve">
+    <value>Blocking a player goes through the server. Your local blocks are imported there on first connection.</value>
+  </data>
+  <data name="WhatsNew.Meetings.Nearby.Title" xml:space="preserve">
+    <value>Nearby detection</value>
+  </data>
+  <data name="WhatsNew.Meetings.Nearby.Desc" xml:space="preserve">
+    <value>It stays optional and is set in Settings, « Privacy » tab.</value>
+  </data>
+  <data name="WhatsNew.Sync.Title" xml:space="preserve">
+    <value>Synchronization and shares</value>
+  </data>
+  <data name="WhatsNew.Sync.Subtitle" xml:space="preserve">
+    <value>A more solid foundation</value>
+  </data>
+  <data name="WhatsNew.Sync.Reliable.Title" xml:space="preserve">
+    <value>Reworked synchronization chain</value>
+  </data>
+  <data name="WhatsNew.Sync.Reliable.Desc" xml:space="preserve">
+    <value>Upload, download, application and cache have been made more reliable.</value>
+  </data>
+  <data name="WhatsNew.Sync.Reupload.Title" xml:space="preserve">
+    <value>On-demand re-upload</value>
+  </data>
+  <data name="WhatsNew.Sync.Reupload.Desc" xml:space="preserve">
+    <value>A file missing from the server is sent again when another player needs it.</value>
+  </data>
+  <data name="WhatsNew.Sync.Mcdf.Title" xml:space="preserve">
+    <value>MCDF</value>
+  </data>
+  <data name="WhatsNew.Sync.Mcdf.Desc" xml:space="preserve">
+    <value>Large shares are uploaded and downloaded as a stream, with full file and folder management.</value>
+  </data>
+  <data name="WhatsNew.Sync.Housing.Title" xml:space="preserve">
+    <value>Housing</value>
+  </data>
+  <data name="WhatsNew.Sync.Housing.Desc" xml:space="preserve">
+    <value>Only the affected furniture is reloaded: wall coverings and wallpapers no longer reset.</value>
+  </data>
+  <data name="WhatsNew.Interface.Title" xml:space="preserve">
+    <value>Interface</value>
+  </data>
+  <data name="WhatsNew.Interface.Subtitle" xml:space="preserve">
+    <value>A redesigned look</value>
+  </data>
+  <data name="WhatsNew.Interface.Style.Title" xml:space="preserve">
+    <value>New style</value>
+  </data>
+  <data name="WhatsNew.Interface.Style.Desc" xml:space="preserve">
+    <value>Sidebar, toggles, sliders and selectors harmonized across the interface.</value>
+  </data>
+  <data name="WhatsNew.Interface.Glass.Title" xml:space="preserve">
+    <value>Transparency and blur</value>
+  </data>
+  <data name="WhatsNew.Interface.Glass.Desc" xml:space="preserve">
+    <value>Adjustable background blur and transparency level, with a « clear glass » mode in GPose.</value>
+  </data>
+  <data name="WhatsNew.Interface.Settings.Title" xml:space="preserve">
+    <value>Settings</value>
+  </data>
+  <data name="WhatsNew.Interface.Settings.Desc" xml:space="preserve">
+    <value>Settings gain a search box and breadcrumbs.</value>
+  </data>
+  <data name="WhatsNew.Done.Title" xml:space="preserve">
+    <value>You're all set</value>
+  </data>
+  <data name="WhatsNew.Done.Subtitle" xml:space="preserve">
+    <value>Enjoy 3.1</value>
+  </data>
+  <data name="WhatsNew.Done.Intro" xml:space="preserve">
+    <value>The full list of changes is available in the changelog.</value>
+  </data>
+  <data name="WhatsNew.Done.Changelog" xml:space="preserve">
+    <value>See the full list of changes</value>
+  </data>
+  <data name="WhatsNew.Done.Settings" xml:space="preserve">
+    <value>Open settings</value>
+  </data>
+  <data name="WhatsNew.Done.Hint" xml:space="preserve">
+    <value>The changelog stays available from the settings.</value>
+  </data>
+  <data name="Rgpd.Consent.Optional.Prefilled" xml:space="preserve">
+    <value>The switches reflect your current settings. Check them before accepting: they only take effect when you click « Accept ».</value>
+  </data>
+  <data name="WhatsNew.Profiles.OpenEditor" xml:space="preserve">
+    <value>Open the profile editor</value>
+  </data>
+  <data name="WhatsNew.Sync.Precache.Title" xml:space="preserve">
+    <value>Update your files on the server</value>
+  </data>
+  <data name="WhatsNew.Sync.Precache.Desc" xml:space="preserve">
+    <value>Sends your Penumbra files that are missing from the server right now, instead of as you meet people. Depending on your mods the volume can be large: avoid it on a limited connection.</value>
+  </data>
+  <data name="WhatsNew.Sync.Precache.NeedsConnection" xml:space="preserve">
+    <value>Available once connected to the server.</value>
+  </data>
+  <data name="WhatsNew.Sync.Precache.AutoOn" xml:space="preserve">
+    <value>Automatic pre-cache is enabled: your files are sent on their own.</value>
+  </data>
+  <data name="WhatsNew.Sync.Precache.AutoOff" xml:space="preserve">
+    <value>Automatic pre-cache is disabled: this upload is one-off and does not change your settings.</value>
+  </data>
+  <data name="WhatsNew.Done.Recap.Title" xml:space="preserve">
+    <value>Summary</value>
+  </data>
+  <data name="WhatsNew.Done.Recap.Consent" xml:space="preserve">
+    <value>Your consent to data processing is recorded</value>
+  </data>
+  <data name="WhatsNew.Done.Recap.Connected" xml:space="preserve">
+    <value>Connected to the server</value>
+  </data>
+  <data name="WhatsNew.Done.Recap.Connecting" xml:space="preserve">
+    <value>Connecting to the server…</value>
+  </data>
+  <data name="WhatsNew.Done.Recap.Visibility" xml:space="preserve">
+    <value>RP profile visibility: {0}</value>
+  </data>
+  <data name="WhatsNew.Done.Next.Title" xml:space="preserve">
+    <value>Going further</value>
+  </data>
+  <data name="WhatsNew.Done.Settings.Desc" xml:space="preserve">
+    <value>Interface, privacy, transfers: everything is set in the settings.</value>
+  </data>
+  <data name="ChangelogUi.Tagline" xml:space="preserve">
+    <value>A reworked interface, more reliable synchronization and richer RP profiles.</value>
+  </data>
+  <data name="ChangelogUi.CurrentTag" xml:space="preserve">
+    <value>current version</value>
+  </data>
+  <data name="ChangelogUi.Section.New" xml:space="preserve">
+    <value>New</value>
+  </data>
+  <data name="ChangelogUi.Section.Improve" xml:space="preserve">
+    <value>Improvements</value>
+  </data>
+  <data name="ChangelogUi.Section.Fix" xml:space="preserve">
+    <value>Fixes</value>
+  </data>
+  <data name="ChangelogUi.Section.Other" xml:space="preserve">
+    <value>Other changes</value>
+  </data>
+  <data name="Wizard.Nav.Previous" xml:space="preserve">
+    <value>Back</value>
+  </data>
+  <data name="Wizard.Nav.Continue" xml:space="preserve">
+    <value>Continue</value>
+  </data>
+  <data name="Wizard.Nav.Start" xml:space="preserve">
+    <value>Get started</value>
+  </data>
+  <data name="Wizard.Hint.Prereq" xml:space="preserve">
+    <value>Install Penumbra and Glamourer from the plugin installer (/xlplugins). This page updates on its own.</value>
+  </data>
+  <data name="Wizard.Hint.Terms" xml:space="preserve">
+    <value>Read the terms, then click « I agree » to continue.</value>
+  </data>
+  <data name="Wizard.Hint.Data" xml:space="preserve">
+    <value>Tick the required box, then click « Accept » at the bottom of the page.</value>
+  </data>
+  <data name="Wizard.Hint.Storage" xml:space="preserve">
+    <value>Pick a storage folder, then start the scan.</value>
+  </data>
+  <data name="Wizard.Hint.StorageScanning" xml:space="preserve">
+    <value>Scan in progress, this can take a few minutes. You will be able to continue afterwards.</value>
+  </data>
+  <data name="Wizard.Hint.Account" xml:space="preserve">
+    <value>Create an account or enter your key, then connect to continue.</value>
+  </data>
+  <data name="Wizard.Welcome.Subtitle" xml:space="preserve">
+    <value>A few steps are all it takes to set everything up</value>
+  </data>
+  <data name="Wizard.Welcome.Card.What" xml:space="preserve">
+    <value>What UmbraSync does</value>
+  </data>
+  <data name="Wizard.Welcome.Card.Note" xml:space="preserve">
+    <value>Good to know</value>
+  </data>
+  <data name="Wizard.Welcome.Card.Steps" xml:space="preserve">
+    <value>What's next</value>
+  </data>
+  <data name="Wizard.Welcome.Steps" xml:space="preserve">
+    <value>We will check your plugins, show you the terms, pick where files are stored, then create or find your account. It takes a few minutes.</value>
+  </data>
+  <data name="Wizard.Prereq.Title" xml:space="preserve">
+    <value>Requirements</value>
+  </data>
+  <data name="Wizard.Prereq.Subtitle" xml:space="preserve">
+    <value>UmbraSync relies on two plugins</value>
+  </data>
+  <data name="Wizard.Prereq.Ready" xml:space="preserve">
+    <value>Everything is in place, you can continue.</value>
+  </data>
+  <data name="Wizard.Prereq.Missing" xml:space="preserve">
+    <value>A required plugin is missing. Open the plugin installer (/xlplugins), install it and come back: this page updates on its own.</value>
+  </data>
+  <data name="Wizard.Prereq.AllPlugins" xml:space="preserve">
+    <value>See all detected plugins</value>
+  </data>
+  <data name="Wizard.Terms.Subtitle" xml:space="preserve">
+    <value>Please read before continuing</value>
+  </data>
+  <data name="Wizard.Terms.Accepted" xml:space="preserve">
+    <value>Terms accepted</value>
+  </data>
+  <data name="Wizard.Data.Subtitle" xml:space="preserve">
+    <value>What is processed and what you choose</value>
+  </data>
+  <data name="Wizard.Storage.Subtitle" xml:space="preserve">
+    <value>Where UmbraSync keeps the files it receives</value>
+  </data>
+  <data name="Wizard.Storage.Card.Penumbra" xml:space="preserve">
+    <value>Penumbra is not ready</value>
+  </data>
+  <data name="Wizard.Storage.Card.Folder" xml:space="preserve">
+    <value>Storage folder</value>
+  </data>
+  <data name="Wizard.Storage.Card.Scan" xml:space="preserve">
+    <value>Initial scan</value>
+  </data>
+  <data name="Wizard.Storage.Card.Compactor" xml:space="preserve">
+    <value>Cache compression</value>
+  </data>
+  <data name="Wizard.Storage.ScanDone" xml:space="preserve">
+    <value>Scan complete.</value>
+  </data>
+  <data name="Wizard.Account.Subtitle" xml:space="preserve">
+    <value>Create an account or use your key</value>
+  </data>
+  <data name="Wizard.Account.Card.Register" xml:space="preserve">
+    <value>New to UmbraSync?</value>
+  </data>
+  <data name="Wizard.Account.Card.Key" xml:space="preserve">
+    <value>Your secret key</value>
+  </data>
+  <data name="Wizard.Account.Advanced" xml:space="preserve">
+    <value>Advanced: choose another service</value>
+  </data>
+  <data name="Wizard.Account.CopyKey" xml:space="preserve">
+    <value>Copy key</value>
+  </data>
+  <data name="Wizard.Account.KeepKey" xml:space="preserve">
+    <value>Keep this key somewhere safe: it identifies your account.</value>
+  </data>
+  <data name="Wizard.Done.Title" xml:space="preserve">
+    <value>All set</value>
+  </data>
+  <data name="Wizard.Done.Subtitle" xml:space="preserve">
+    <value>UmbraSync is set up and connected</value>
+  </data>
+  <data name="Wizard.Done.Recap.Title" xml:space="preserve">
+    <value>Your setup</value>
+  </data>
+  <data name="Wizard.Done.Recap.Consent" xml:space="preserve">
+    <value>Consent to data processing recorded</value>
+  </data>
+  <data name="Wizard.Done.Recap.Storage" xml:space="preserve">
+    <value>Storage: {0}</value>
+  </data>
+  <data name="Wizard.Done.Recap.Account" xml:space="preserve">
+    <value>Connected as {0}</value>
+  </data>
+  <data name="Wizard.Done.Next.Title" xml:space="preserve">
+    <value>What now?</value>
+  </data>
+  <data name="Wizard.Done.Next.Pair" xml:space="preserve">
+    <value>Add a friend or join a syncshell from the main window: your appearances sync as soon as you meet.</value>
+  </data>
+  <data name="Wizard.Done.Next.Settings" xml:space="preserve">
+    <value>You can adjust everything later in the settings.</value>
+  </data>
+  <data name="Settings.AutoDetect.AllowUidInvites" xml:space="preserve">
+    <value>Accept friend requests by UID</value>
+  </data>
+  <data name="Settings.AutoDetect.AllowUidInvitesHelp" xml:space="preserve">
+    <value>Off: requests sent by entering your UID are refused by the server and the sender is told. You receive nothing. Nearby requests follow the invitation setting above.</value>
+  </data>
+  <data name="Notification.AddPair.RequestsDisabled.Body" xml:space="preserve">
+    <value>This player does not accept friend requests by UID.</value>
   </data>
 </root>

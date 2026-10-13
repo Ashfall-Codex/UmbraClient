@@ -52,6 +52,13 @@ public sealed class AshfallConnectAutoSyncService : DisposableMediatorSubscriber
                 if (token.IsCancellationRequested) return;
                 using var scope = _scopeFactory.CreateScope();
                 var connectService = scope.ServiceProvider.GetRequiredService<AshfallConnectService>();
+                var status = await connectService.GetMyStatusAsync(token).ConfigureAwait(false);
+                if (status is not { Linked: true })
+                {
+                    Logger.LogDebug("Ashfall Connect : compte non lié, aucune synchronisation");
+                    return;
+                }
+
                 var result = await connectService.SyncCharactersAsync(token).ConfigureAwait(false);
                 if (result == AshfallConnectService.SyncResult.Synced)
                     Logger.LogDebug("Ashfall Connect : metadata synchronisée");
