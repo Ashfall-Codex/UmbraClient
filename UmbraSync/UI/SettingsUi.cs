@@ -2416,6 +2416,25 @@ public class SettingsUi : WindowMediatorSubscriberBase
         }
         _uiShared.DrawHelpText(Loc.Get("Settings.TargetTooltip.Enable.Help"));
 
+        using (ImRaii.Disabled(!showTargetTooltip))
+        using (ImRaii.PushIndent())
+        {
+            var trigger = _configService.Current.TargetProfileTooltipTrigger;
+            if (ImGui.RadioButton(Loc.Get("Settings.TargetTooltip.Trigger.OnTarget"), trigger == TargetProfileTooltipTrigger.OnTarget))
+            {
+                _configService.Current.TargetProfileTooltipTrigger = TargetProfileTooltipTrigger.OnTarget;
+                _configService.Save();
+            }
+            _uiShared.DrawHelpText(Loc.Get("Settings.TargetTooltip.Trigger.OnTarget.Help"));
+
+            if (ImGui.RadioButton(Loc.Get("Settings.TargetTooltip.Trigger.OnTargetBarHover"), trigger == TargetProfileTooltipTrigger.OnTargetBarHover))
+            {
+                _configService.Current.TargetProfileTooltipTrigger = TargetProfileTooltipTrigger.OnTargetBarHover;
+                _configService.Save();
+            }
+            _uiShared.DrawHelpText(Loc.Get("Settings.TargetTooltip.Trigger.OnTargetBarHover.Help"));
+        }
+
         var hideTooltipInDuty = _configService.Current.HideTargetProfileTooltipInDuty;
         using (ImRaii.Disabled(!showTargetTooltip))
         {

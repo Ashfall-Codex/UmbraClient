@@ -90,6 +90,7 @@ public class MareConfig : IMareConfiguration
     public bool ShowRpIdentityInPairList { get; set; } = true;
     public bool ShowTargetProfileTooltip { get; set; } = true;
     public bool HideTargetProfileTooltipInDuty { get; set; } = true;
+    public TargetProfileTooltipTrigger TargetProfileTooltipTrigger { get; set; } = TargetProfileTooltipTrigger.OnTarget;
     public bool ShowCharacterNames { get; set; } = true;
     public bool ShowOfflineUsersSeparately { get; set; } = true;
     public bool ShowSyncshellOfflineUsersSeparately { get; set; } = true;

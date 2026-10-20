@@ -5,10 +5,12 @@ using Dalamud.Interface.Colors;
 using Dalamud.Interface.Textures.TextureWraps;
 using Dalamud.Interface.Utility;
 using Dalamud.Plugin.Services;
+using FFXIVClientStructs.FFXIV.Component.GUI;
 using Microsoft.Extensions.Logging;
 using System.Numerics;
 using UmbraSync.Localization;
 using UmbraSync.MareConfiguration;
+using UmbraSync.MareConfiguration.Models;
 using UmbraSync.PlayerData.Pairs;
 using UmbraSync.Services;
 using UmbraSync.Services.Mediator;
@@ -30,6 +32,10 @@ public sealed class TargetProfileTooltipUi : WindowMediatorSubscriberBase
     private readonly UiSharedService _uiSharedService;
     private readonly ServerConfigurationManager _serverManager;
     private readonly DalamudUtilService _dalamudUtil;
+    private readonly IGameGui _gameGui;
+
+    private static readonly string[] TargetBarAddons = ["_TargetInfoMainTarget", "_TargetInfo"];
+    private string? _dismissedTargetKey;
 
     private volatile TargetInfo? _target;
     private byte[] _lastPictureData = [];
@@ -38,12 +44,15 @@ public sealed class TargetProfileTooltipUi : WindowMediatorSubscriberBase
     private Task<IDalamudTextureWrap>? _bannerTask;
     private volatile UmbraProfileData? _preview;
 
-    private sealed record TargetInfo(Pair Pair, string CharName, uint WorldId);
+    private sealed record TargetInfo(Pair Pair, string CharName, uint WorldId)
+    {
+        public string Key => $"{Pair.UserData.UID}|{CharName}|{WorldId}";
+    }
 
     public TargetProfileTooltipUi(ILogger<TargetProfileTooltipUi> logger, MareMediator mediator,
         ITargetManager targetManager, PairManager pairManager, UmbraProfileManager profileManager,
         MareConfigService configService, UiSharedService uiSharedService,
-        ServerConfigurationManager serverManager, DalamudUtilService dalamudUtil,
+        ServerConfigurationManager serverManager, DalamudUtilService dalamudUtil, IGameGui gameGui,
         PerformanceCollectorService performanceCollectorService)
         : base(logger, mediator, "###UmbraSyncTargetProfileTooltip", performanceCollectorService)
     {
@@ -54,10 +63,11 @@ public sealed class TargetProfileTooltipUi : WindowMediatorSubscriberBase
         _uiSharedService = uiSharedService;
         _serverManager = serverManager;
         _dalamudUtil = dalamudUtil;
+        _gameGui = gameGui;
 
         Flags = ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoResize
                 | ImGuiWindowFlags.NoCollapse | ImGuiWindowFlags.NoFocusOnAppearing | ImGuiWindowFlags.NoNav
-                | ImGuiWindowFlags.NoSavedSettings | ImGuiWindowFlags.AlwaysAutoResize;
+                | ImGuiWindowFlags.AlwaysAutoResize;
         RespectCloseHotkey = false;
         IsOpen = false;
 
@@ -112,6 +122,17 @@ public sealed class TargetProfileTooltipUi : WindowMediatorSubscriberBase
                     if (current == null || !ReferenceEquals(current.Pair, pair)
                         || !string.Equals(current.CharName, name, StringComparison.Ordinal) || current.WorldId != world)
                         _target = new TargetInfo(pair, name, world);
+
+                    if (_dismissedTargetKey != null)
+                    {
+                        if (string.Equals(_dismissedTargetKey, _target!.Key, StringComparison.Ordinal))
+                        {
+                            IsOpen = false;
+                            return;
+                        }
+                        _dismissedTargetKey = null;
+                    }
+
                     var profile = _profileManager.GetUmbraProfile(pair.UserData, name, world);
                     IsOpen = !string.IsNullOrWhiteSpace(profile.RpFirstName) || !string.IsNullOrWhiteSpace(profile.RpLastName);
                     return;
@@ -119,6 +140,7 @@ public sealed class TargetProfileTooltipUi : WindowMediatorSubscriberBase
             }
 
             _target = null;
+            _dismissedTargetKey = null;
             IsOpen = false;
         }
         catch (Exception ex)
@@ -144,6 +166,34 @@ public sealed class TargetProfileTooltipUi : WindowMediatorSubscriberBase
     {
         base.PostDraw();
         UiSharedService.EndProfileAccent();
+    }
+
+    public override bool DrawConditions()
+        => _preview != null
+           || !IsTargetBarHoverMode
+           || IsMouseOverTargetBar();
+
+    private bool IsTargetBarHoverMode
+        => _configService.Current.TargetProfileTooltipTrigger == TargetProfileTooltipTrigger.OnTargetBarHover;
+
+    private unsafe bool IsMouseOverTargetBar()
+    {
+        foreach (var addonName in TargetBarAddons)
+        {
+            var unit = (AtkUnitBase*)_gameGui.GetAddonByName(addonName, 1).Address;
+            if (unit == null || !unit->IsVisible || unit->RootNode == null) continue;
+
+            var min = new Vector2(unit->X, unit->Y);
+            var max = min + new Vector2(unit->RootNode->Width * unit->Scale, unit->RootNode->Height * unit->Scale);
+            if (IsMouseInside(min, max)) return true;
+        }
+        return false;
+    }
+
+    private static bool IsMouseInside(Vector2 min, Vector2 max)
+    {
+        var mouse = ImGui.GetIO().MousePos;
+        return mouse.X >= min.X && mouse.X <= max.X && mouse.Y >= min.Y && mouse.Y <= max.Y;
     }
 
     private UmbraProfileData? ResolveProfile()
@@ -256,15 +306,24 @@ public sealed class TargetProfileTooltipUi : WindowMediatorSubscriberBase
             ImGui.PopTextWrapPos();
         }
 
-        ImGuiHelpers.ScaledDummy(4f);
         if (preview != null)
         {
+            ImGuiHelpers.ScaledDummy(4f);
             if (DrawGhostButton(accent, Loc.Get("EditProfile.CardPreview.Close"), FontAwesomeIcon.Times, "##closeCardPreview"))
                 Mediator.Publish(new TargetProfilePreviewMessage(null));
         }
-        else if (DrawGhostButton(accent, Loc.Get("Settings.ProfileBrowser.OpenProfile"), FontAwesomeIcon.ExternalLinkAlt, "##openTargetProfile"))
+        else if (!IsTargetBarHoverMode)
         {
-            Mediator.Publish(new ProfileOpenStandaloneMessage(target!.Pair, target.CharName, target.WorldId));
+            ImGuiHelpers.ScaledDummy(4f);
+            float half = (ImGui.GetContentRegionAvail().X - ImGui.GetStyle().ItemSpacing.X) / 2f;
+            if (DrawGhostButton(accent, Loc.Get("Settings.ProfileBrowser.OpenProfile"), FontAwesomeIcon.ExternalLinkAlt, "##openTargetProfile", half))
+                Mediator.Publish(new ProfileOpenStandaloneMessage(target!.Pair, target.CharName, target.WorldId));
+            ImGui.SameLine();
+            if (DrawGhostButton(accent, Loc.Get("TargetCard.Close"), FontAwesomeIcon.Times, "##closeTargetCard", half))
+            {
+                _dismissedTargetKey = target!.Key;
+                IsOpen = false;
+            }
         }
 
         DrawBanner(windowDraw, profile.RpBannerData.Value, cardStyle);
@@ -297,10 +356,10 @@ public sealed class TargetProfileTooltipUi : WindowMediatorSubscriberBase
         drawList.ChannelsSetCurrent(1);
     }
 
-    private static bool DrawGhostButton(Vector4 accent, string label, FontAwesomeIcon fontIcon, string id)
+    private static bool DrawGhostButton(Vector4 accent, string label, FontAwesomeIcon fontIcon, string id, float? width = null)
     {
         var scale = ImGuiHelpers.GlobalScale;
-        var size = new Vector2(ImGui.GetContentRegionAvail().X, 22f * scale);
+        var size = new Vector2(width ?? ImGui.GetContentRegionAvail().X, 22f * scale);
         var pos = ImGui.GetCursorScreenPos();
         bool clicked = ImGui.InvisibleButton(id, size);
         bool hovered = ImGui.IsItemHovered();

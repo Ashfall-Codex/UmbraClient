@@ -7648,6 +7648,18 @@ Experimental: these hooks are low level; if anything goes wrong, turn this off (
   <data name="Settings.TargetTooltip.Enable.Help" xml:space="preserve">
     <value>Displays a small card with the RP profile of the targeted paired player (the character you are actually targeting, not their other characters).</value>
   </data>
+  <data name="Settings.TargetTooltip.Trigger.OnTarget" xml:space="preserve">
+    <value>Show on click</value>
+  </data>
+  <data name="Settings.TargetTooltip.Trigger.OnTarget.Help" xml:space="preserve">
+    <value>The card appears as soon as you target a player who has an RP profile.</value>
+  </data>
+  <data name="Settings.TargetTooltip.Trigger.OnTargetBarHover" xml:space="preserve">
+    <value>Show while the cursor is on the status bar</value>
+  </data>
+  <data name="Settings.TargetTooltip.Trigger.OnTargetBarHover.Help" xml:space="preserve">
+    <value>Target a player, then leave the cursor on their target bar (name and HP at the top of the screen): the card stays visible as long as the cursor is on the bar.</value>
+  </data>
   <data name="StandaloneProfile.CharacterNote.Hint" xml:space="preserve">
     <value>Private note about this character...</value>
   </data>
@@ -8073,6 +8085,9 @@ WARNING: this cannot be undone.</value>
   </data>
   <data name="EditProfile.CardPreview.Close" xml:space="preserve">
     <value>Close preview</value>
+  </data>
+  <data name="TargetCard.Close" xml:space="preserve">
+    <value>Close card</value>
   </data>
   <data name="EditProfile.Card.ProfileCard" xml:space="preserve">
     <value>Profile card</value>

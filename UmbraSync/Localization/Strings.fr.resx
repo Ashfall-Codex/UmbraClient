@@ -3063,10 +3063,10 @@ Note : Les armes ne s'afficheront pas correctement sauf si vous utilisez le m&#x
     <value>Afficher les noms RP dans le chat</value>
   </data>
   <data name="Settings.ChatIcon.Self" xml:space="preserve">
-    <value>Afficher mon icône RP dans le tchat</value>
+    <value>Afficher mon icône RP dans le chat</value>
   </data>
   <data name="Settings.ChatIcon.Others" xml:space="preserve">
-    <value>Afficher l'icône RP des autres dans le tchat</value>
+    <value>Afficher l'icône RP des autres dans le chat</value>
   </data>
   <data name="Settings.RpNameColors" xml:space="preserve">
     <value>Afficher les couleurs des noms RP</value>
@@ -4457,7 +4457,7 @@ Note : Les armes ne s'afficheront pas correctement sauf si vous utilisez le m&#x
     <value>Qui peut voir le profil RP de ce personnage. Masqué : personne. Paires uniquement : vos paires directes. Paires et syncshells : vos paires et les membres de vos syncshells (par défaut). Public : les joueurs Umbra que vous croisez peuvent aussi le voir. Ce réglage ne concerne que ce personnage.</value>
   </data>
   <data name="Profile.ChatIcon.Label" xml:space="preserve">
-    <value>Icône affichée dans le tchat (avant le nom)</value>
+    <value>Icône affichée dans le chat (avant le nom)</value>
   </data>
   <data name="Profile.ChatIcon.None" xml:space="preserve">
     <value>Aucune</value>
@@ -7558,6 +7558,18 @@ Expérimental : ces hooks sont bas niveau ; en cas de souci, désactivez l'optio
   <data name="Settings.TargetTooltip.Enable.Help" xml:space="preserve">
     <value>Affiche une petite carte avec la fiche RP du joueur apparié que vous ciblez (le personnage réellement ciblé, pas ses autres personnages).</value>
   </data>
+  <data name="Settings.TargetTooltip.Trigger.OnTarget" xml:space="preserve">
+    <value>Afficher en cliquant</value>
+  </data>
+  <data name="Settings.TargetTooltip.Trigger.OnTarget.Help" xml:space="preserve">
+    <value>La carte s'affiche dès que vous ciblez un joueur qui a une fiche RP.</value>
+  </data>
+  <data name="Settings.TargetTooltip.Trigger.OnTargetBarHover" xml:space="preserve">
+    <value>Afficher en laissant le curseur sur la barre d'état</value>
+  </data>
+  <data name="Settings.TargetTooltip.Trigger.OnTargetBarHover.Help" xml:space="preserve">
+    <value>Ciblez un joueur, puis laissez le curseur sur sa barre de cible (son nom et ses PV en haut de l'écran) : la carte reste visible tant que le curseur est sur la barre.</value>
+  </data>
   <data name="StandaloneProfile.CharacterNote.Hint" xml:space="preserve">
     <value>Note privée sur ce personnage.</value>
   </data>
@@ -7949,7 +7961,7 @@ ATTENTION : cette action est irréversible.</value>
     <value>Identité</value>
   </data>
   <data name="EditProfile.Card.TitleChat" xml:space="preserve">
-    <value>Titre et icône de tchat</value>
+    <value>Titre et icône de chat</value>
   </data>
   <data name="EditProfile.Card.Visibility" xml:space="preserve">
     <value>Niveau et visibilité</value>
@@ -7983,6 +7995,9 @@ ATTENTION : cette action est irréversible.</value>
   </data>
   <data name="EditProfile.CardPreview.Close" xml:space="preserve">
     <value>Fermer l'aperçu</value>
+  </data>
+  <data name="TargetCard.Close" xml:space="preserve">
+    <value>Fermer la carte</value>
   </data>
   <data name="EditProfile.Card.ProfileCard" xml:space="preserve">
     <value>Carte de profil</value>

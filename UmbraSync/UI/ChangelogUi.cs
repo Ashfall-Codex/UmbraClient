@@ -525,7 +525,7 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
             }),
             new(new Version(2, 5, 0, 4025), "2.5.0.4025", new List<ChangelogLine>
             {
-                new("Nouveauté : Possibilité de définir une icône qui s'affiche dans le tchat avant le nom RP. Configurable dans l'éditeur de profil RP."),
+                new("Nouveauté : Possibilité de définir une icône qui s'affiche dans le chat avant le nom RP. Configurable dans l'éditeur de profil RP."),
                 new("Nouveauté : Niveau de RP affiché sur le profil et dans les annonces de RP libre. Permet aux joueurs de signaler leur expérience RP et leur disponibilité pour aider les autres."),
                 new("Amélioration : Possibilité d'éditer un trait Moodles sans devoir le supprimer."),
                 new("Amélioration : Possibilité d'ajouter une couleur de texte pour la description d'un trait Moodles."),

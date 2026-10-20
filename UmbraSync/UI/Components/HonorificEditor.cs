@@ -128,8 +128,15 @@ public sealed class HonorificEditor
             _logger.LogWarning(ex, "Error refreshing Honorific data");
         }
     }
-
+    
     public void RefreshFromData(string b64Data)
+    {
+        if (_loaded && HasUnsavedChanges) return;
+        ApplyData(b64Data);
+        SnapshotSaved();
+    }
+
+    private void ApplyData(string b64Data)
     {
         _loaded = true;
         if (string.IsNullOrEmpty(b64Data))

@@ -241,6 +241,12 @@ public sealed class ChatIconPicker
         { BitmapFontIcon.CrossWorldPartyLeader, "Chef d'équipe inter-monde" },
         { BitmapFontIcon.CrossWorldPartyMember, "Membre d'équipe inter-monde" },
         { BitmapFontIcon.EventTutorial, "Tutoriel d'événement" },
+        { BitmapFontIcon.Beastmaster, "Dresseur" },
+        { BitmapFontIcon.RedStar, "Étoile rouge" },
+        { BitmapFontIcon.BluntDamage, "Type de dégâts : contondant" },
+        { BitmapFontIcon.PiercingDamage, "Type de dégâts : perforant" },
+        { BitmapFontIcon.SlashingDamage, "Type de dégâts : tranchant" },
+        { BitmapFontIcon.MagicalDamage, "Type de dégâts : magique" },
     };
 
     private static readonly (ushort Value, string Name)[] AvailableIcons = BuildAvailableIcons();
