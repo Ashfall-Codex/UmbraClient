@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-API <code>v5001</code> &middot; C# 13 / .NET 10 &middot; Dalamud SDK 15.0
+Version <code>3.1.0.1013</code> &middot; API <code>v5001</code> &middot; C# 13 / .NET 10 &middot; Dalamud SDK 15.0
 </p>
 <p align="center">
 <a href="https://github.com/Ashfall-Codex/UmbraClient/actions/workflows/build.yml"><img src="https://github.com/Ashfall-Codex/UmbraClient/actions/workflows/build.yml/badge.svg" alt="Build Status" /></a>

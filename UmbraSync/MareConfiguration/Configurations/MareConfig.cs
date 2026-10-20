@@ -110,8 +110,6 @@ public class MareConfig : IMareConfiguration
     public bool UiReduceTransparency { get; set; }
     public bool UiClearGlassInGpose { get; set; }
     public string LastChangelogVersionSeen { get; set; } = string.Empty;
-    // Version (major.minor) du dernier tour de nouveautés terminé ou ignoré ; vide tant qu'aucun n'a été vu.
-    public string WhatsNewTourSeen { get; set; } = string.Empty;
     public string LastTestBuildWarningVersionSeen { get; set; } = string.Empty;
     public Dictionary<string, string> LastSeenExternalPluginVersions { get; set; } = new(StringComparer.Ordinal);
     public HashSet<string> KnownDelegatedScenarios { get; set; } = new(StringComparer.Ordinal);
@@ -163,7 +161,6 @@ public class MareConfig : IMareConfiguration
     public bool EnableSlotNotifications { get; set; }
     public float DefaultSlotRadius { get; set; } = 10f;
     public const int ExpectedRgpdVersion = 3;
-    public const string CurrentWhatsNewTourVersion = "3.1";
     public bool RgpdConsentGiven { get; set; }
     public DateTime? RgpdConsentDate { get; set; }
     public int AcceptedRgpdVersion { get; set; }

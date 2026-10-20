@@ -15,7 +15,6 @@ using UmbraSync.API.Dto.Account;
 using UmbraSync.FileCache;
 using UmbraSync.Localization;
 using UmbraSync.MareConfiguration;
-using UmbraSync.MareConfiguration.Configurations;
 using UmbraSync.MareConfiguration.Models;
 using UmbraSync.Services;
 using UmbraSync.Services.Mediator;
@@ -108,9 +107,6 @@ public partial class IntroUi : WindowMediatorSubscriberBase
         });
         Mediator.Subscribe<SwitchToIntroUiMessage>(this, (_) =>
         {
-            // Consentement retiré avant d'avoir vu le tour : c'est lui qui présente la page de consentement.
-            if (_configService.Current.HasPendingWhatsNewTour() && !_rgpdDataService.IsRgpdConsentValid) return;
-
             // Installation déjà configurée (consentement retiré) : seule la page de consentement est utile.
             if (_configService.Current.HasValidSetup() && _serverConfigurationManager.HasValidConfig())
             {
@@ -279,7 +275,6 @@ public partial class IntroUi : WindowMediatorSubscriberBase
 
         if (_freshInstall)
         {
-            _configService.Current.WhatsNewTourSeen = MareConfig.CurrentWhatsNewTourVersion;
             var version = Assembly.GetExecutingAssembly().GetName().Version;
             if (version != null)
                 _configService.Current.LastChangelogVersionSeen = version.ToString();

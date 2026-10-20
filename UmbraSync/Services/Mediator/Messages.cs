@@ -188,7 +188,6 @@ public record RgpdDataExportReadyMessage(string? ExportPath) : MessageBase;
 public record RgpdLocalDataDeletionRequestMessage : MessageBase;
 public record RgpdLocalDataDeletionCompleteMessage : MessageBase;
 public record SwitchToRgpdConsentUiMessage : MessageBase;
-public record SwitchToWhatsNewUiMessage(bool ServicesPending) : MessageBase;
 public record EstablishmentEnteredMessage(UmbraSync.API.Dto.Establishment.EstablishmentDto Establishment) : MessageBase;
 public record EstablishmentLeftMessage : MessageBase;
 public record OpenEstablishmentDetailMessage(Guid EstablishmentId) : MessageBase;
