@@ -63,6 +63,11 @@ public sealed class TargetProfileTooltipUi : WindowMediatorSubscriberBase
 
         Mediator.Subscribe<DelayedFrameworkUpdateMessage>(this, _ => RefreshTarget());
         Mediator.Subscribe<DisconnectedMessage>(this, _ => _target = null);
+        Mediator.Subscribe<GposeStartMessage>(this, _ =>
+        {
+            _target = null;
+            IsOpen = false;
+        });
         Mediator.Subscribe<TargetProfilePreviewMessage>(this, msg =>
         {
             _preview = msg.Profile;
@@ -74,6 +79,13 @@ public sealed class TargetProfileTooltipUi : WindowMediatorSubscriberBase
     {
         try
         {
+            if (_dalamudUtil.IsInGpose)
+            {
+                _target = null;
+                IsOpen = false;
+                return;
+            }
+
             if (_preview != null)
             {
                 IsOpen = true;
@@ -119,12 +131,27 @@ public sealed class TargetProfileTooltipUi : WindowMediatorSubscriberBase
 
     public override void PreDraw()
     {
+        UiSharedService.BeginProfileAccent(ResolveProfile()?.CardStyle.Value.AccentColor);
         base.PreDraw();
         var viewport = ImGui.GetMainViewport();
         var margin = 30f * ImGuiHelpers.GlobalScale;
         ImGui.SetNextWindowPos(new Vector2(viewport.WorkPos.X + viewport.WorkSize.X - TooltipWidth - margin,
             viewport.WorkPos.Y + viewport.WorkSize.Y - 260f * ImGuiHelpers.GlobalScale - margin), ImGuiCond.FirstUseEver);
         ImGui.SetNextWindowSizeConstraints(new Vector2(TooltipWidth, 0), new Vector2(TooltipWidth, 600f * ImGuiHelpers.GlobalScale));
+    }
+
+    public override void PostDraw()
+    {
+        base.PostDraw();
+        UiSharedService.EndProfileAccent();
+    }
+
+    private UmbraProfileData? ResolveProfile()
+    {
+        var preview = _preview;
+        if (preview != null) return preview;
+        var target = _target;
+        return target == null ? null : _profileManager.GetUmbraProfile(target.Pair.UserData, target.CharName, target.WorldId);
     }
 
     protected override void DrawInternal()
@@ -163,8 +190,12 @@ public sealed class TargetProfileTooltipUi : WindowMediatorSubscriberBase
         ImGui.Dummy(portraitSize);
         var portraitDraw = ImGui.GetWindowDrawList();
         if (_textureTask is { IsCompletedSuccessfully: true })
-            portraitDraw.AddImageRounded(_textureTask.Result.Handle, portraitMin, portraitMin + portraitSize,
-                Vector2.Zero, Vector2.One, ImGui.ColorConvertFloat4ToU32(Vector4.One), portraitRounding);
+        {
+            var portrait = _textureTask.Result;
+            var (uv0, uv1) = Components.ProfileBanner.CoverUv(portrait.Width, portrait.Height, portraitSize.X, portraitSize.Y);
+            portraitDraw.AddImageRounded(portrait.Handle, portraitMin, portraitMin + portraitSize,
+                uv0, uv1, ImGui.ColorConvertFloat4ToU32(Vector4.One), portraitRounding);
+        }
         else
             portraitDraw.AddRectFilled(portraitMin, portraitMin + portraitSize,
                 ImGui.GetColorU32(new Vector4(1f, 1f, 1f, 0.06f)), portraitRounding);
@@ -182,8 +213,10 @@ public sealed class TargetProfileTooltipUi : WindowMediatorSubscriberBase
             : accent;
         using (_uiSharedService.UidFont.Push())
             UiSharedService.ColorText(rpName, nameColor);
+        var cardStyle = profile.CardStyle.Value;
+        var infoColor = UiSharedService.ProfileCardTextColor(cardStyle.TextColor);
         if (!string.IsNullOrEmpty(profile.RpTitle))
-            ImGui.TextColored(ImGuiColors.DalamudGrey, profile.RpTitle);
+            ImGui.TextColored(infoColor, profile.RpTitle);
 
         var pronouns = profile.RpCustomFields?.FirstOrDefault(f =>
                 f.Name.Contains("pronom", StringComparison.OrdinalIgnoreCase)
@@ -191,16 +224,16 @@ public sealed class TargetProfileTooltipUi : WindowMediatorSubscriberBase
         var identity = string.Join(" · ", new[] { profile.RpRace, profile.RpEthnicity, profile.RpAge, pronouns }
             .Where(v => !string.IsNullOrWhiteSpace(v)));
         if (!string.IsNullOrEmpty(identity))
-            ImGui.TextColored(ImGuiColors.DalamudGrey, identity);
+            ImGui.TextColored(infoColor, identity);
         if (!string.IsNullOrWhiteSpace(profile.RpOccupation))
-            ImGui.TextColored(ImGuiColors.DalamudGrey, profile.RpOccupation);
+            ImGui.TextColored(infoColor, profile.RpOccupation);
         if (!string.IsNullOrWhiteSpace(profile.RpAffiliation))
-            ImGui.TextColored(ImGuiColors.DalamudGrey, $"<{profile.RpAffiliation}>");
+            ImGui.TextColored(infoColor, $"<{profile.RpAffiliation}>");
         if (!string.IsNullOrWhiteSpace(profile.RpResidence))
         {
-            _uiSharedService.IconText(FontAwesomeIcon.Home, ImGuiColors.DalamudGrey);
+            _uiSharedService.IconText(FontAwesomeIcon.Home, infoColor);
             ImGui.SameLine();
-            ImGui.TextColored(ImGuiColors.DalamudGrey, profile.RpResidence);
+            ImGui.TextColored(infoColor, profile.RpResidence);
         }
 
         var privateNote = target == null ? null
@@ -234,12 +267,12 @@ public sealed class TargetProfileTooltipUi : WindowMediatorSubscriberBase
             Mediator.Publish(new ProfileOpenStandaloneMessage(target!.Pair, target.CharName, target.WorldId));
         }
 
-        DrawBanner(windowDraw, profile.RpBannerData.Value);
+        DrawBanner(windowDraw, profile.RpBannerData.Value, cardStyle);
         windowDraw.ChannelsMerge();
     }
 
     // Bannière derrière tout le contenu, estompée sur les bords comme la carte héros du profil.
-    private void DrawBanner(ImDrawListPtr drawList, byte[] bannerData)
+    private void DrawBanner(ImDrawListPtr drawList, byte[] bannerData, ProfileCardStyle style)
     {
         if (!ReferenceEquals(bannerData, _lastBannerData) && !bannerData.AsSpan().SequenceEqual(_lastBannerData))
         {
@@ -260,7 +293,7 @@ public sealed class TargetProfileTooltipUi : WindowMediatorSubscriberBase
 
         drawList.ChannelsSetCurrent(0);
         Components.ProfileBanner.Draw(drawList, _bannerTask.Result, min, max, background,
-            MathF.Max(ImGui.GetStyle().WindowRounding - inset, 0f));
+            MathF.Max(ImGui.GetStyle().WindowRounding - inset, 0f), style);
         drawList.ChannelsSetCurrent(1);
     }
 

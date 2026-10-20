@@ -1,3 +1,5 @@
+using Dalamud.Interface.Utility.Raii;
+using Dalamud.Interface;
 using System.Numerics;
 using Dalamud.Bindings.ImGui;
 using Dalamud.Interface.Colors;
@@ -77,6 +79,10 @@ public sealed class HonorificEditor
             _ = RefreshFromIpcAsync();
 
         ImGui.TextColored(ImGuiColors.DalamudGrey, Loc.Get("EditProfile.Honorific.Section"));
+        ImGui.SameLine();
+        using (ImRaii.PushFont(UiBuilder.IconFont))
+            ImGui.TextDisabled(FontAwesomeIcon.QuestionCircle.ToIconString());
+        UiSharedService.AttachToolTip(Loc.Get("EditProfile.Help.HonorificTitle"));
         ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X);
         ImGui.InputTextWithHint("##honorificTitle", Loc.Get("EditProfile.Honorific.TitleHint"), ref _title, 100);
 

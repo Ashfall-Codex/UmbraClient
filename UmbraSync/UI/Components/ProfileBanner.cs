@@ -1,6 +1,7 @@
 using Dalamud.Bindings.ImGui;
 using Dalamud.Interface.Textures.TextureWraps;
 using System.Numerics;
+using UmbraSync.Services;
 
 namespace UmbraSync.UI.Components;
 
@@ -11,23 +12,20 @@ public static class ProfileBanner
 
     private const int Cols = 28;
     private const int Rows = 8;
-    private const float ImageOpacity = 0.55f;
-    private const float ClearRadius = 0.5f;
     private const float VerticalBias = 0.35f;
-
     private static readonly uint[] ShadeGrid = new uint[(Cols + 1) * (Rows + 1)];
-
     public static void Draw(ImDrawListPtr drawList, IDalamudTextureWrap texture,
-        Vector2 min, Vector2 max, Vector4 background, float rounding)
+        Vector2 min, Vector2 max, Vector4 background, float rounding, ProfileCardStyle style)
     {
         var size = max - min;
         if (size.X <= 1f || size.Y <= 1f || texture.Width == 0 || texture.Height == 0) return;
 
         var (uv0, uv1) = CoverUv(texture.Width, texture.Height, size.X, size.Y);
-        var tint = ImGui.GetColorU32(new Vector4(1f, 1f, 1f, ImageOpacity));
+        var tint = ImGui.GetColorU32(new Vector4(1f, 1f, 1f, style.BannerOpacity));
         drawList.AddImageRounded(texture.Handle, min, max, uv0, uv1, tint, rounding);
 
-        FadeEdges(drawList, min, size, background with { W = 1f }, rounding);
+        if (style.FadeEdges)
+            FadeEdges(drawList, min, size, background with { W = 1f }, rounding, style.FadeRadius);
     }
 
     public static (Vector2 Uv0, Vector2 Uv1) CoverUv(float texWidth, float texHeight, float boxWidth, float boxHeight)
@@ -47,13 +45,13 @@ public static class ProfileBanner
         return (new Vector2(0f, offsetV), new Vector2(1f, offsetV + visibleV));
     }
 
-    private static void FadeEdges(ImDrawListPtr drawList, Vector2 pos, Vector2 size, Vector4 background, float rounding)
+    private static void FadeEdges(ImDrawListPtr drawList, Vector2 pos, Vector2 size, Vector4 background, float rounding, float clearRadius)
     {
         var half = size * 0.5f;
         if (half.X <= rounding + 2f || half.Y <= rounding + 2f) return;
 
         var solidRadius = MathF.Min(1f - (rounding / half.X), 1f - (rounding / half.Y));
-        if (solidRadius <= ClearRadius) return;
+        if (solidRadius <= clearRadius) return;
 
         var center = pos + half;
         var inner = pos + new Vector2(rounding, rounding);
@@ -66,7 +64,7 @@ public static class ProfileBanner
                 var point = inner + new Vector2(innerSize.X * c / Cols, innerSize.Y * r / Rows);
                 var offset = point - center;
                 var distance = new Vector2(offset.X / half.X, offset.Y / half.Y).Length();
-                var t = Math.Clamp((distance - ClearRadius) / (solidRadius - ClearRadius), 0f, 1f);
+                var t = Math.Clamp((distance - clearRadius) / (solidRadius - clearRadius), 0f, 1f);
                 var opacity = t * t * (3f - 2f * t);
                 ShadeGrid[(r * (Cols + 1)) + c] = ImGui.GetColorU32(background with { W = opacity });
             }

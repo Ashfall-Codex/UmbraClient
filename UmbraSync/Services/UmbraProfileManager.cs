@@ -433,7 +433,8 @@ public class UmbraProfileManager : MediatorSubscriberBase
                 effectiveChatIcon,
                 effectiveRpLevel,
                 profile.RpVisibility,
-                profile.RpBannerBase64);
+                profile.RpBannerBase64,
+                profile.RpCardStyle);
 
             if (_apiController.IsConnected && isSelf && charName != null && worldId != null)
             {
@@ -459,6 +460,7 @@ public class UmbraProfileManager : MediatorSubscriberBase
                 if (localRpProfile.IsRpNsfw != profileData.IsRpNSFW) { localRpProfile.IsRpNsfw = profileData.IsRpNSFW; changed = true; }
                 if (ShouldReplace(localRpProfile.RpProfilePictureBase64, profileData.Base64RpProfilePicture)) { localRpProfile.RpProfilePictureBase64 = profileData.Base64RpProfilePicture!; changed = true; }
                 if (ShouldReplace(localRpProfile.RpNameColor, profileData.RpNameColor)) { localRpProfile.RpNameColor = profileData.RpNameColor!; changed = true; }
+                if (ShouldReplace(localRpProfile.RpCardStyle, profileData.RpCardStyle)) { localRpProfile.RpCardStyle = profileData.RpCardStyle!; changed = true; }
                 var serverCustomFields = profileData.RpCustomFields ?? new List<RpCustomField>();
                 if (localRpProfile.RpCustomFields.Count == 0 && serverCustomFields.Count > 0) { localRpProfile.RpCustomFields = serverCustomFields; changed = true; }
 
@@ -571,7 +573,8 @@ public class UmbraProfileManager : MediatorSubscriberBase
                 profile.MoodlesData,
                 profile.ChatIcon ?? 0,
                 profile.RpLevel ?? 0,
-                Base64RpBanner: profile.RpBannerBase64);
+                Base64RpBanner: profile.RpBannerBase64,
+                RpCardStyle: profile.RpCardStyle);
 
             if (!isSelf)
             {

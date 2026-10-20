@@ -745,10 +745,10 @@ Veuillez conserver une copie de votre clé secrète au cas où vous auriez besoi
     <value>Synchro housing désactivée avec {0}</value>
   </data>
   <data name="DrawUserPair.Permissions.StatusLine" xml:space="preserve">
-    <value>Toi : {0}, Lui/Elle : {1}</value>
+    <value>Vous : {0}, Lui/Elle : {1}</value>
   </data>
   <data name="DrawUserPair.SharedDataHint" xml:space="preserve">
-    <value>Clique pour ouvrir le Hub de données perso et afficher les entrées.</value>
+    <value>Cliquez pour ouvrir le Hub de données perso et afficher les entrées.</value>
   </data>
   <data name="DrawUserPair.Menu.Target" xml:space="preserve">
     <value>Cibler le joueur</value>
@@ -1783,40 +1783,40 @@ Veuillez conserver une copie de votre clé secrète au cas où vous auriez besoi
     <value>Sur invitation</value>
   </data>
   <data name="CharaDataHub.Mcd.Access.Mode.InvitationDesc" xml:space="preserve">
-    <value>Seules les personnes que tu ajoutes à la liste peuvent accéder à ce Live (via le code de partage).</value>
+    <value>Seules les personnes que vous ajoutez à la liste peuvent accéder à ce Live (via le code de partage).</value>
   </data>
   <data name="CharaDataHub.Mcd.Access.Mode.Pairs" xml:space="preserve">
     <value>Mes paires</value>
   </data>
   <data name="CharaDataHub.Mcd.Access.Mode.PairsDesc" xml:space="preserve">
-    <value>Toutes tes paires synchronisées directes peuvent voir et appliquer ce Live sans code.</value>
+    <value>Toutes vos paires synchronisées directes peuvent voir et appliquer ce Live sans code.</value>
   </data>
   <data name="CharaDataHub.Mcd.Access.Mode.AllPairs" xml:space="preserve">
     <value>Toutes les paires</value>
   </data>
   <data name="CharaDataHub.Mcd.Access.Mode.AllPairsDesc" xml:space="preserve">
-    <value>Tes paires directes ET leurs paires peuvent voir et appliquer ce Live sans code.</value>
+    <value>Vos paires directes ET leurs paires peuvent voir et appliquer ce Live sans code.</value>
   </data>
   <data name="CharaDataHub.Mcd.Access.Mode.Public" xml:space="preserve">
     <value>Public</value>
   </data>
   <data name="CharaDataHub.Mcd.Access.Mode.PublicDesc" xml:space="preserve">
-    <value>N'importe qui avec ton code de partage peut accéder à ce Live.</value>
+    <value>N'importe qui avec votre code de partage peut accéder à ce Live.</value>
   </data>
   <data name="CharaDataHub.Mcd.Access.Mode.Syncshell" xml:space="preserve">
     <value>Syncshell</value>
   </data>
   <data name="CharaDataHub.Mcd.Access.Mode.SyncshellDesc" xml:space="preserve">
-    <value>Les membres de tes Syncshells peuvent acc&#xE9;der &#xE0; ce Live.</value>
+    <value>Les membres de vos Syncshells peuvent accéder à ce Live.</value>
   </data>
   <data name="CharaDataHub.Mcd.Online.CopyCode" xml:space="preserve">
     <value>Copier le code de partage dans le presse-papier</value>
   </data>
   <data name="CharaDataHub.Edit.Appearance.NoData" xml:space="preserve">
-    <value>Aucune apparence enregistrée — capture ton apparence actuelle ci-dessous.</value>
+    <value>Aucune apparence enregistrée — capturez votre apparence actuelle ci-dessous.</value>
   </data>
   <data name="CharaDataHub.Edit.Appearance.Unsaved" xml:space="preserve">
-    <value>Nouvelle apparence capturée — sauvegarde pour l'envoyer sur le serveur.</value>
+    <value>Nouvelle apparence capturée — sauvegardez pour l'envoyer sur le serveur.</value>
   </data>
   <data name="CharaDataHub.Edit.Appearance.UpToDate" xml:space="preserve">
     <value>Apparence synchronisée avec le serveur.</value>
@@ -2544,7 +2544,7 @@ Note : Les armes ne s'afficheront pas correctement sauf si vous utilisez le m&#x
     <value>Le fichier MCDF est vide.</value>
   </data>
   <data name="CharaDataHub.Mcdf.Upload.TooLarge" xml:space="preserve">
-    <value>Ce MCDF est trop volumineux pour être envoyé ({0} Mio, limite {1} Mio). Réduis le poids de ton personnage (textures, mods) puis réessaie.</value>
+    <value>Ce MCDF est trop volumineux pour être envoyé ({0} Mio, limite {1} Mio). Réduisez le poids de votre personnage (textures, mods) puis réessayez.</value>
   </data>
   <data name="CharaDataHub.Mcdf.Upload.Rejected" xml:space="preserve">
     <value>Le serveur a refusé l'envoi du MCDF.</value>
@@ -5042,6 +5042,15 @@ Note : Les armes ne s'afficheront pas correctement sauf si vous utilisez le m&#x
   </data>
   <data name="Settings.Account.Keys.DeleteHelp" xml:space="preserve">
     <value>Maintenez CTRL pour supprimer cette clé secrète</value>
+  </data>
+  <data name="Settings.Account.CustomId.Title" xml:space="preserve">
+    <value>ID personnalisé</value>
+  </data>
+  <data name="Settings.Account.CustomId.None" xml:space="preserve">
+    <value>non défini</value>
+  </data>
+  <data name="Settings.Account.CustomId.Desc" xml:space="preserve">
+    <value>Alias public que les autres peuvent utiliser pour vous trouver, à la place de votre UID.</value>
   </data>
   <data name="Settings.Account.Keys.InUseWarning" xml:space="preserve">
     <value>Cette clé est actuellement assignée à un personnage et ne peut pas être modifiée ou supprimée.</value>
@@ -7951,32 +7960,131 @@ ATTENTION : cette action est irréversible.</value>
   <data name="EditProfile.Card.Traits" xml:space="preserve">
     <value>Traits du personnage</value>
   </data>
-  <data name="EditProfile.Banner.Label" xml:space="preserve">
-    <value>Bannière du profil</value>
-  </data>
   <data name="EditProfile.Banner.Select" xml:space="preserve">
     <value>Choisir une bannière</value>
   </data>
   <data name="EditProfile.Banner.Remove" xml:space="preserve">
     <value>Retirer</value>
   </data>
-  <data name="EditProfile.Banner.Help" xml:space="preserve">
-    <value>Affichée en fond de ta carte de profil RP, estompée sur les bords. Le centre de l'image reste le plus visible : place-y le sujet. Les images plus hautes sont recadrées automatiquement.</value>
-  </data>
   <data name="EditProfile.Banner.SizeError" xml:space="preserve">
     <value>Image trop lourde : 1,5 Mo maximum.</value>
   </data>
   <data name="EditProfile.Banner.Recommended" xml:space="preserve">
-    <value>Recommandé : 1200 × 250 px (ratio 5:1), moins de 500 Ko — maximum 1,5 Mo, PNG ou JPEG.</value>
+    <value>Format : PNG ou JPEG&#x0A;Taille : 1,5 Mo maximum&#x0A;Dimensions : 1200 × 250 px</value>
+  </data>
+  <data name="EditProfile.Portrait.Recommended" xml:space="preserve">
+    <value>Format : PNG ou JPEG&#x0A;Taille : 5 Mo maximum&#x0A;Dimensions : 512 × 512 px</value>
   </data>
   <data name="EditProfile.Banner.Preview" xml:space="preserve">
     <value>Aperçu de la carte</value>
   </data>
   <data name="EditProfile.Banner.Preview.Tooltip" xml:space="preserve">
-    <value>Affiche la carte qui apparaît quand on te cible, avec ta bannière. Un second clic la ferme.</value>
+    <value>Affiche la carte qui apparaît quand on vous cible, avec votre bannière. Un second clic la ferme.</value>
   </data>
   <data name="EditProfile.CardPreview.Close" xml:space="preserve">
     <value>Fermer l'aperçu</value>
+  </data>
+  <data name="EditProfile.Card.ProfileCard" xml:space="preserve">
+    <value>Carte de profil</value>
+  </data>
+  <data name="EditProfile.CardTextColor" xml:space="preserve">
+    <value>Couleur du texte</value>
+  </data>
+  <data name="EditProfile.CardTextColor.Tooltip" xml:space="preserve">
+    <value>Couleur du titre, de la race, de l'occupation, de l'affiliation et du lieu de vie sur votre carte et en haut de votre fiche.</value>
+  </data>
+  <data name="EditProfile.CardTextColor.Help" xml:space="preserve">
+    <value>Utile avec une bannière claire : choisissez une couleur qui reste lisible dessus. Le bandeau au-dessus montre le résultat ; « Aperçu de la carte » ouvre la carte complète.</value>
+  </data>
+  <data name="EditProfile.Banner.Dimming" xml:space="preserve">
+    <value>Assombrissement</value>
+  </data>
+  <data name="EditProfile.Banner.Dimming.Tooltip" xml:space="preserve">
+    <value>À quel point la bannière est assombrie derrière le texte. 0 % : l'image telle quelle.</value>
+  </data>
+  <data name="EditProfile.Banner.Fade" xml:space="preserve">
+    <value>Fondu vers les bords</value>
+  </data>
+  <data name="EditProfile.Banner.Fade.Tooltip" xml:space="preserve">
+    <value>La bannière se fond progressivement dans le fond de la carte vers les bords. Désactivé : l'image s'arrête net aux bords.</value>
+  </data>
+  <data name="EditProfile.Banner.FadeRadius" xml:space="preserve">
+    <value>Zone nette</value>
+  </data>
+  <data name="EditProfile.Banner.FadeRadius.Tooltip" xml:space="preserve">
+    <value>Taille de la zone centrale qui reste nette avant que le fondu commence. Plus la valeur est haute, plus l'image reste visible jusqu'aux bords.</value>
+  </data>
+  <data name="EditProfile.Banner.RenderingNeedsBanner" xml:space="preserve">
+    <value>Choisissez une bannière pour régler son assombrissement et son fondu.</value>
+  </data>
+  <data name="EditProfile.CardStyle.Reset" xml:space="preserve">
+    <value>Rétablir l'apparence par défaut</value>
+  </data>
+  <data name="EditProfile.CardStrip.Tooltip" xml:space="preserve">
+    <value>Rendu de vos lignes d'infos sur votre bannière. La carte complète s'ouvre avec « Aperçu de la carte ».</value>
+  </data>
+  <data name="EditProfile.CardStrip.NoBanner" xml:space="preserve">
+    <value>Aucune bannière</value>
+  </data>
+  <data name="EditProfile.CardStrip.Sample" xml:space="preserve">
+    <value>Titre · Race · Occupation</value>
+  </data>
+  <data name="EditProfile.ProfileAccent" xml:space="preserve">
+    <value>Couleur du profil</value>
+  </data>
+  <data name="EditProfile.ProfileAccent.Tooltip" xml:space="preserve">
+    <value>Couleur principale de votre fiche et de votre carte : bordures, titres, onglets, boutons.</value>
+  </data>
+  <data name="EditProfile.ProfileAccent.Help" xml:space="preserve">
+    <value>Les autres joueurs voient votre fiche, votre carte et votre profil au survol dans cette couleur. Par défaut : le violet d'Umbra.</value>
+  </data>
+  <data name="EditProfile.Page.Identity" xml:space="preserve">
+    <value>Identité</value>
+  </data>
+  <data name="EditProfile.Page.Appearance" xml:space="preserve">
+    <value>Apparence</value>
+  </data>
+  <data name="EditProfile.Page.ChatVisibility" xml:space="preserve">
+    <value>Chat et visibilité</value>
+  </data>
+  <data name="EditProfile.Page.Story" xml:space="preserve">
+    <value>Histoire</value>
+  </data>
+  <data name="EditProfile.SaveButton.Tooltip" xml:space="preserve">
+    <value>Raccourci : Ctrl+S</value>
+  </data>
+  <data name="EditProfile.RpNsfw.Help" xml:space="preserve">
+    <value>Votre fiche RP est masquée pour les joueurs qui n'affichent pas les profils NSFW.</value>
+  </data>
+  <data name="EditProfile.SaveCard.UpToDate" xml:space="preserve">
+    <value>Fiche à jour</value>
+  </data>
+  <data name="EditProfile.SaveCard.Unsaved.Desc" xml:space="preserve">
+    <value>Personne ne voit ces changements avant la sauvegarde.</value>
+  </data>
+  <data name="EditProfile.PreviewButton.Tooltip" xml:space="preserve">
+    <value>Ouvre votre fiche telle que les autres la voient, modifications non sauvegardées comprises. Un second clic la ferme.</value>
+  </data>
+  <data name="EditProfile.PreviewButton.Close" xml:space="preserve">
+    <value>Fermer la prévisualisation</value>
+  </data>
+  <data name="EditProfile.Story.Write" xml:space="preserve">
+    <value>Écrire</value>
+  </data>
+  <data name="EditProfile.Story.Preview" xml:space="preserve">
+    <value>Aperçu</value>
+  </data>
+  <data name="EditProfile.Story.PreviewEmpty" xml:space="preserve">
+    <value>Rien à afficher pour l'instant.</value>
+  </data>
+  <data name="EditProfile.Help.Title" xml:space="preserve">
+    <value>Affiché sous votre nom sur votre carte de cible, et devant votre nom en haut de votre fiche. Exemple : Baron.</value>
+  </data>
+  <data name="EditProfile.Help.HonorificTitle" xml:space="preserve">
+    <value>Titre affiché sur votre plaque de nom en jeu par le plugin Honorific, avant ou après votre nom selon « Préfixe ». Indépendant du titre de votre fiche.</value>
+  </data>
+  <data name="EditProfile.Help.Occupation" xml:space="preserve">
+    <value>Affichée sur votre carte de cible et dans les détails de votre fiche.</value>
   </data>
   <data name="WhatsNew.WindowTitle" xml:space="preserve">
     <value>UmbraSync 3.1 : les nouveautés</value>

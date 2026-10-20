@@ -5133,6 +5133,15 @@ Note: Weapons will not be displayed correctly unless using the same job as the s
   <data name="Settings.Account.Keys.DeleteHelp" xml:space="preserve">
     <value>Hold CTRL to delete this secret key entry</value>
   </data>
+  <data name="Settings.Account.CustomId.Title" xml:space="preserve">
+    <value>Custom ID</value>
+  </data>
+  <data name="Settings.Account.CustomId.None" xml:space="preserve">
+    <value>not set</value>
+  </data>
+  <data name="Settings.Account.CustomId.Desc" xml:space="preserve">
+    <value>Public alias others can use to find you, instead of your UID.</value>
+  </data>
   <data name="Settings.Account.Keys.InUseWarning" xml:space="preserve">
     <value>This key is currently assigned to a character and cannot be edited or deleted.</value>
   </data>
@@ -8041,23 +8050,20 @@ WARNING: this cannot be undone.</value>
   <data name="EditProfile.Card.Traits" xml:space="preserve">
     <value>Character traits</value>
   </data>
-  <data name="EditProfile.Banner.Label" xml:space="preserve">
-    <value>Profile banner</value>
-  </data>
   <data name="EditProfile.Banner.Select" xml:space="preserve">
     <value>Choose a banner</value>
   </data>
   <data name="EditProfile.Banner.Remove" xml:space="preserve">
     <value>Remove</value>
   </data>
-  <data name="EditProfile.Banner.Help" xml:space="preserve">
-    <value>Shown behind your RP profile card, faded at the edges. The centre stays the most visible: put your subject there. Taller images are cropped automatically.</value>
-  </data>
   <data name="EditProfile.Banner.SizeError" xml:space="preserve">
     <value>Image too large: 1.5 MB maximum.</value>
   </data>
   <data name="EditProfile.Banner.Recommended" xml:space="preserve">
-    <value>Recommended: 1200 × 250 px (5:1 ratio), under 500 KB — maximum 1.5 MB, PNG or JPEG.</value>
+    <value>Format: PNG or JPEG&#x0A;Size: 1.5 MB maximum&#x0A;Dimensions: 1200 × 250 px</value>
+  </data>
+  <data name="EditProfile.Portrait.Recommended" xml:space="preserve">
+    <value>Format: PNG or JPEG&#x0A;Size: 5 MB maximum&#x0A;Dimensions: 512 × 512 px</value>
   </data>
   <data name="EditProfile.Banner.Preview" xml:space="preserve">
     <value>Card preview</value>
@@ -8067,6 +8073,108 @@ WARNING: this cannot be undone.</value>
   </data>
   <data name="EditProfile.CardPreview.Close" xml:space="preserve">
     <value>Close preview</value>
+  </data>
+  <data name="EditProfile.Card.ProfileCard" xml:space="preserve">
+    <value>Profile card</value>
+  </data>
+  <data name="EditProfile.CardTextColor" xml:space="preserve">
+    <value>Text color</value>
+  </data>
+  <data name="EditProfile.CardTextColor.Tooltip" xml:space="preserve">
+    <value>Color of the title, race, occupation, affiliation and residence on your card and at the top of your profile.</value>
+  </data>
+  <data name="EditProfile.CardTextColor.Help" xml:space="preserve">
+    <value>Useful with a light banner: pick a color that stays readable on it. The strip above shows the result; “Card preview” opens the full card.</value>
+  </data>
+  <data name="EditProfile.Banner.Dimming" xml:space="preserve">
+    <value>Dimming</value>
+  </data>
+  <data name="EditProfile.Banner.Dimming.Tooltip" xml:space="preserve">
+    <value>How much the banner is darkened behind the text. 0%: the image as it is.</value>
+  </data>
+  <data name="EditProfile.Banner.Fade" xml:space="preserve">
+    <value>Fade at the edges</value>
+  </data>
+  <data name="EditProfile.Banner.Fade.Tooltip" xml:space="preserve">
+    <value>The banner gradually blends into the card background towards the edges. Off: the image stops sharply at the edges.</value>
+  </data>
+  <data name="EditProfile.Banner.FadeRadius" xml:space="preserve">
+    <value>Sharp area</value>
+  </data>
+  <data name="EditProfile.Banner.FadeRadius.Tooltip" xml:space="preserve">
+    <value>Size of the central area that stays sharp before the fade starts. The higher the value, the more of the image stays visible up to the edges.</value>
+  </data>
+  <data name="EditProfile.Banner.RenderingNeedsBanner" xml:space="preserve">
+    <value>Choose a banner to adjust its dimming and fade.</value>
+  </data>
+  <data name="EditProfile.CardStyle.Reset" xml:space="preserve">
+    <value>Restore default appearance</value>
+  </data>
+  <data name="EditProfile.CardStrip.Tooltip" xml:space="preserve">
+    <value>How your info lines look on your banner. The full card opens with “Card preview”.</value>
+  </data>
+  <data name="EditProfile.CardStrip.NoBanner" xml:space="preserve">
+    <value>No banner</value>
+  </data>
+  <data name="EditProfile.CardStrip.Sample" xml:space="preserve">
+    <value>Title · Race · Occupation</value>
+  </data>
+  <data name="EditProfile.ProfileAccent" xml:space="preserve">
+    <value>Profile color</value>
+  </data>
+  <data name="EditProfile.ProfileAccent.Tooltip" xml:space="preserve">
+    <value>Main color of your profile and card: borders, titles, tabs, buttons.</value>
+  </data>
+  <data name="EditProfile.ProfileAccent.Help" xml:space="preserve">
+    <value>Other players see your profile, your card and your hover profile in this color. Default: Umbra purple.</value>
+  </data>
+  <data name="EditProfile.Page.Identity" xml:space="preserve">
+    <value>Identity</value>
+  </data>
+  <data name="EditProfile.Page.Appearance" xml:space="preserve">
+    <value>Appearance</value>
+  </data>
+  <data name="EditProfile.Page.ChatVisibility" xml:space="preserve">
+    <value>Chat &amp; visibility</value>
+  </data>
+  <data name="EditProfile.Page.Story" xml:space="preserve">
+    <value>Story</value>
+  </data>
+  <data name="EditProfile.SaveButton.Tooltip" xml:space="preserve">
+    <value>Shortcut: Ctrl+S</value>
+  </data>
+  <data name="EditProfile.RpNsfw.Help" xml:space="preserve">
+    <value>Your RP profile is hidden from players who don't show NSFW profiles.</value>
+  </data>
+  <data name="EditProfile.SaveCard.UpToDate" xml:space="preserve">
+    <value>Profile up to date</value>
+  </data>
+  <data name="EditProfile.SaveCard.Unsaved.Desc" xml:space="preserve">
+    <value>Nobody sees these changes until you save.</value>
+  </data>
+  <data name="EditProfile.PreviewButton.Tooltip" xml:space="preserve">
+    <value>Opens your profile as other players see it, with your unsaved changes. Click again to close it.</value>
+  </data>
+  <data name="EditProfile.PreviewButton.Close" xml:space="preserve">
+    <value>Close preview</value>
+  </data>
+  <data name="EditProfile.Story.Write" xml:space="preserve">
+    <value>Write</value>
+  </data>
+  <data name="EditProfile.Story.Preview" xml:space="preserve">
+    <value>Preview</value>
+  </data>
+  <data name="EditProfile.Story.PreviewEmpty" xml:space="preserve">
+    <value>Nothing to show yet.</value>
+  </data>
+  <data name="EditProfile.Help.Title" xml:space="preserve">
+    <value>Shown under your name on your target card, and before your name at the top of your profile. Example: Baron.</value>
+  </data>
+  <data name="EditProfile.Help.HonorificTitle" xml:space="preserve">
+    <value>Title shown on your in-game nameplate by the Honorific plugin, before or after your name depending on “Prefix”. Independent from the title on your profile.</value>
+  </data>
+  <data name="EditProfile.Help.Occupation" xml:space="preserve">
+    <value>Shown on your target card and in the details of your profile.</value>
   </data>
   <data name="WhatsNew.WindowTitle" xml:space="preserve">
     <value>UmbraSync 3.1: what's new</value>

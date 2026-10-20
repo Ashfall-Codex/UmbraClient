@@ -40,45 +40,46 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
 
     public const float ContentFontScale = 0.92f;
 
-    public static Vector4 AccentColor => WarningTint(new(0x96 / 255f, 0x45 / 255f, 0xE6 / 255f, 1f));
+    public static readonly Vector4 DefaultAccentColor = new(0x96 / 255f, 0x45 / 255f, 0xE6 / 255f, 1f);
+    public static Vector4 AccentColor => ProfileAccent is { } accent ? accent.Rgb : WarningTint(DefaultAccentColor);
     public static Vector4 AccentHoverColor => ThemeButtonHovered;
     public static Vector4 AccentActiveColor => AccentHoverColor;
     public static readonly Vector4 ThemeWindowBg = new(0.11f, 0.11f, 0.11f, 1f);
     public static readonly Vector4 ThemeChildBg = new(0f, 0f, 0f, 0f);
-    public static Vector4 ThemeBorder => WarningTint(new(0x38 / 255f, 0x29 / 255f, 0x52 / 255f, 1f));
-    public static Vector4 ThemeTitleBar => WarningTint(new(0x2A / 255f, 0x1F / 255f, 0x3D / 255f, 1f));
-    public static Vector4 ThemeSeparator => WarningTint(new(0x38 / 255f, 0x29 / 255f, 0x52 / 255f, 0.60f));
-    public static Vector4 ThemeFrameBg => WarningTint(new(0.16f, 0.15f, 0.18f, 1f));
-    public static Vector4 ThemeFrameBgHovered => WarningTint(new(0x38 / 255f, 0x29 / 255f, 0x52 / 255f, 0.7f));
-    public static Vector4 ThemeFrameBgActive => WarningTint(new(0x4A / 255f, 0x36 / 255f, 0x68 / 255f, 1f));
-    public static Vector4 ThemeButtonBg => WarningTint(new(0x2A / 255f, 0x1F / 255f, 0x3D / 255f, 1f));
-    public static Vector4 ThemeButtonHovered => WarningTint(new(0x38 / 255f, 0x29 / 255f, 0x52 / 255f, 1f));
-    public static Vector4 ThemeButtonActive => WarningTint(new(0x4A / 255f, 0x36 / 255f, 0x68 / 255f, 1f));
+    public static Vector4 ThemeBorder => ThemeTint(new(0x38 / 255f, 0x29 / 255f, 0x52 / 255f, 1f));
+    public static Vector4 ThemeTitleBar => ThemeTint(new(0x2A / 255f, 0x1F / 255f, 0x3D / 255f, 1f));
+    public static Vector4 ThemeSeparator => ThemeTint(new(0x38 / 255f, 0x29 / 255f, 0x52 / 255f, 0.60f));
+    public static Vector4 ThemeFrameBg => ThemeTint(new(0.16f, 0.15f, 0.18f, 1f));
+    public static Vector4 ThemeFrameBgHovered => ThemeTint(new(0x38 / 255f, 0x29 / 255f, 0x52 / 255f, 0.7f));
+    public static Vector4 ThemeFrameBgActive => ThemeTint(new(0x4A / 255f, 0x36 / 255f, 0x68 / 255f, 1f));
+    public static Vector4 ThemeButtonBg => ThemeTint(new(0x2A / 255f, 0x1F / 255f, 0x3D / 255f, 1f));
+    public static Vector4 ThemeButtonHovered => ThemeTint(new(0x38 / 255f, 0x29 / 255f, 0x52 / 255f, 1f));
+    public static Vector4 ThemeButtonActive => ThemeTint(new(0x4A / 255f, 0x36 / 255f, 0x68 / 255f, 1f));
     public static readonly Vector4 ThemeHeaderBg = new(0x1C / 255f, 0x1C / 255f, 0x1C / 255f, 1f);
-    public static Vector4 ThemeHeaderHovered => WarningTint(new(0x38 / 255f, 0x29 / 255f, 0x52 / 255f, 0.7f));
-    public static Vector4 ThemeHeaderActive => WarningTint(new(0x4A / 255f, 0x36 / 255f, 0x68 / 255f, 1f));
+    public static Vector4 ThemeHeaderHovered => ThemeTint(new(0x38 / 255f, 0x29 / 255f, 0x52 / 255f, 0.7f));
+    public static Vector4 ThemeHeaderActive => ThemeTint(new(0x4A / 255f, 0x36 / 255f, 0x68 / 255f, 1f));
     public static readonly Vector4 ThemeScrollbarBg = new(0.08f, 0.08f, 0.08f, 0.50f);
-    public static Vector4 ThemeScrollbarGrab => WarningTint(new(0x38 / 255f, 0x29 / 255f, 0x52 / 255f, 1f));
-    public static Vector4 ThemeScrollbarHover => WarningTint(new(0x4A / 255f, 0x36 / 255f, 0x68 / 255f, 1f));
-    public static Vector4 ThemeScrollbarActive => WarningTint(new(0x5E / 255f, 0x45 / 255f, 0x80 / 255f, 1f));
+    public static Vector4 ThemeScrollbarGrab => ThemeTint(new(0x38 / 255f, 0x29 / 255f, 0x52 / 255f, 1f));
+    public static Vector4 ThemeScrollbarHover => ThemeTint(new(0x4A / 255f, 0x36 / 255f, 0x68 / 255f, 1f));
+    public static Vector4 ThemeScrollbarActive => ThemeTint(new(0x5E / 255f, 0x45 / 255f, 0x80 / 255f, 1f));
     public static readonly Vector4 ThemeTabNormal = new(0x1C / 255f, 0x1C / 255f, 0x1C / 255f, 0.90f);
-    public static Vector4 ThemeTabHovered => WarningTint(new(0x38 / 255f, 0x29 / 255f, 0x52 / 255f, 1f));
-    public static Vector4 ThemeTabActive => WarningTint(new(0x4A / 255f, 0x36 / 255f, 0x68 / 255f, 1f));
-    public static Vector4 ThemeHighlightBg => WarningTint(new(0x96 / 255f, 0x45 / 255f, 0xE6 / 255f, 0.14f));
-    public static Vector4 ThemePopupBg => WarningTint(new(0.13f, 0.12f, 0.15f, 0.98f));
-    public static Vector4 ThemeSelectedBg => WarningTint(new(0x96 / 255f, 0x45 / 255f, 0xE6 / 255f, 0.32f));
-    public static Vector4 ThemeTextAccent => WarningTint(new(0x9B / 255f, 0x82 / 255f, 0xC0 / 255f, 1f));
-    public static Vector4 ThemeRailHovered => WarningTint(new(0x30 / 255f, 0x19 / 255f, 0x46 / 255f, 1f));
+    public static Vector4 ThemeTabHovered => ThemeTint(new(0x38 / 255f, 0x29 / 255f, 0x52 / 255f, 1f));
+    public static Vector4 ThemeTabActive => ThemeTint(new(0x4A / 255f, 0x36 / 255f, 0x68 / 255f, 1f));
+    public static Vector4 ThemeHighlightBg => ThemeTint(new(0x96 / 255f, 0x45 / 255f, 0xE6 / 255f, 0.14f));
+    public static Vector4 ThemePopupBg => ThemeTint(new(0.13f, 0.12f, 0.15f, 0.98f));
+    public static Vector4 ThemeSelectedBg => ThemeTint(new(0x96 / 255f, 0x45 / 255f, 0xE6 / 255f, 0.32f));
+    public static Vector4 ThemeTextAccent => ThemeTint(new(0x9B / 255f, 0x82 / 255f, 0xC0 / 255f, 1f));
+    public static Vector4 ThemeRailHovered => ThemeTint(new(0x30 / 255f, 0x19 / 255f, 0x46 / 255f, 1f));
     public static readonly Vector4 ThemePrivacyAccent = new(0f, 0.2f, 0.6f, 1f);
-    public static Vector4 ThemeNavText => WarningTint(new(0.70f, 0.65f, 0.80f, 1f));
-    public static Vector4 ThemeNavTextHovered => WarningTint(new(0.90f, 0.85f, 1f, 1f));
+    public static Vector4 ThemeNavText => ThemeTint(new(0.70f, 0.65f, 0.80f, 1f));
+    public static Vector4 ThemeNavTextHovered => ThemeTint(new(0.90f, 0.85f, 1f, 1f));
     public static readonly Vector4 ThemeNavTextActive = new(1f, 1f, 1f, 1f);
-    public static Vector4 ThemeRailActive => WarningTint(new(0x50 / 255f, 0x17 / 255f, 0x83 / 255f, 1f));
-    public static Vector4 ThemeSliderGrab => WarningTint(new(0x96 / 255f, 0x45 / 255f, 0xE6 / 255f, 1f));
-    public static Vector4 ThemeSliderGrabActive => WarningTint(new(0xB4 / 255f, 0x6B / 255f, 0xFF / 255f, 1f));
-    public static Vector4 ThemeCheckMark => WarningTint(new(0xB4 / 255f, 0x6B / 255f, 0xFF / 255f, 1f));
-    public static Vector4 ThemePresence => WarningTint(new(0.63f, 0.25f, 1f, 1f));
-    public static Vector4 ThemeAccentSoft => WarningTint(new(0.75f, 0.5f, 1f, 1f));
+    public static Vector4 ThemeRailActive => ThemeTint(new(0x50 / 255f, 0x17 / 255f, 0x83 / 255f, 1f));
+    public static Vector4 ThemeSliderGrab => ThemeTint(new(0x96 / 255f, 0x45 / 255f, 0xE6 / 255f, 1f));
+    public static Vector4 ThemeSliderGrabActive => ThemeTint(new(0xB4 / 255f, 0x6B / 255f, 0xFF / 255f, 1f));
+    public static Vector4 ThemeCheckMark => ThemeTint(new(0xB4 / 255f, 0x6B / 255f, 0xFF / 255f, 1f));
+    public static Vector4 ThemePresence => ThemeTint(new(0.63f, 0.25f, 1f, 1f));
+    public static Vector4 ThemeAccentSoft => ThemeTint(new(0.75f, 0.5f, 1f, 1f));
     public static readonly Vector4 ThemeSwitchKnobOn = new(1f, 0.98f, 1f, 1f);
     public static readonly Vector4 ThemeSwitchKnobOff = new(0.70f, 0.68f, 0.74f, 1f);
     public static Vector4 ThemeCardBorder => WithAlpha(AccentColor, 0.45f);
@@ -94,6 +95,96 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
     private const float WarningDarken = 0.88f;
     private const float WarningPeriodMs = 2000f;
     private static bool OffMainServer { get; set; }
+    
+    [StructLayout(LayoutKind.Auto)]
+    private readonly record struct ProfileAccentState(Vector4 Rgb, float Hue, float SaturationFactor, int Frame);
+
+    private static ProfileAccentState? ProfileAccentValue { get; set; }
+
+    private static ProfileAccentState? ProfileAccent
+        => ProfileAccentValue is { } accent && accent.Frame == ImGui.GetFrameCount() ? accent : null;
+
+    public static void BeginProfileAccent(string? hex)
+    {
+        if (!TryHexToVector4(hex, out var color))
+        {
+            ProfileAccentValue = null;
+            return;
+        }
+
+        float max = MathF.Max(color.X, MathF.Max(color.Y, color.Z));
+        float min = MathF.Min(color.X, MathF.Min(color.Y, color.Z));
+        float delta = max - min;
+        float hue = 0f, saturation = 0f, value = 0f;
+        ImGui.ColorConvertRGBtoHSV(color.X, color.Y, color.Z, ref hue, ref saturation, ref value);
+        float factor = delta < 0.0001f ? 0f : saturation / DefaultAccentSaturation;
+        ProfileAccentValue = new ProfileAccentState(color, hue, factor, ImGui.GetFrameCount());
+    }
+
+    public static void EndProfileAccent() => ProfileAccentValue = null;
+
+    public static ProfileAccentScope PushProfileAccent(string? hex) => new(hex);
+
+    public readonly struct ProfileAccentScope : IDisposable
+    {
+        private readonly ProfileAccentState? _previous;
+
+        internal ProfileAccentScope(string? hex)
+        {
+            _previous = ProfileAccentValue;
+            BeginProfileAccent(hex);
+        }
+
+        public void Dispose() => ProfileAccentValue = _previous;
+    }
+
+    private static float DefaultAccentSaturation
+    {
+        get
+        {
+            float max = MathF.Max(DefaultAccentColor.X, MathF.Max(DefaultAccentColor.Y, DefaultAccentColor.Z));
+            float min = MathF.Min(DefaultAccentColor.X, MathF.Min(DefaultAccentColor.Y, DefaultAccentColor.Z));
+            return (max - min) / max;
+        }
+    }
+    
+    public static ImRaii.ColorDisposable PushThemeContentColors()
+        => ImRaii.PushColor(ImGuiCol.Border, ThemeBorder)
+            .Push(ImGuiCol.Separator, ThemeSeparator)
+            .Push(ImGuiCol.FrameBg, ThemeFrameBg)
+            .Push(ImGuiCol.FrameBgHovered, ThemeFrameBgHovered)
+            .Push(ImGuiCol.FrameBgActive, ThemeFrameBgActive)
+            .Push(ImGuiCol.Button, ThemeButtonBg)
+            .Push(ImGuiCol.ButtonHovered, ThemeButtonHovered)
+            .Push(ImGuiCol.ButtonActive, ThemeButtonActive)
+            .Push(ImGuiCol.Header, ThemeHeaderBg)
+            .Push(ImGuiCol.HeaderHovered, ThemeHeaderHovered)
+            .Push(ImGuiCol.HeaderActive, ThemeHeaderActive)
+            .Push(ImGuiCol.ScrollbarGrab, ThemeScrollbarGrab)
+            .Push(ImGuiCol.ScrollbarGrabHovered, ThemeScrollbarHover)
+            .Push(ImGuiCol.ScrollbarGrabActive, ThemeScrollbarActive)
+            .Push(ImGuiCol.SliderGrab, ThemeSliderGrab)
+            .Push(ImGuiCol.SliderGrabActive, ThemeSliderGrabActive)
+            .Push(ImGuiCol.CheckMark, ThemeCheckMark)
+            .Push(ImGuiCol.Tab, ThemeTabNormal)
+            .Push(ImGuiCol.TabHovered, ThemeTabHovered)
+            .Push(ImGuiCol.TabActive, ThemeTabActive);
+
+    private static Vector4 ThemeTint(Vector4 color)
+        => ProfileAccent is { } accent ? RecolorToAccent(color, accent) : WarningTint(color);
+
+    private static Vector4 RecolorToAccent(Vector4 color, ProfileAccentState accent)
+    {
+        float max = MathF.Max(color.X, MathF.Max(color.Y, color.Z));
+        float min = MathF.Min(color.X, MathF.Min(color.Y, color.Z));
+        float delta = max - min;
+        if (delta < 0.0001f) return color;
+
+        float saturation = Math.Clamp(delta / max * accent.SaturationFactor, 0f, 1f);
+        float r = 0f, g = 0f, b = 0f;
+        ImGui.ColorConvertHSVtoRGB(accent.Hue, saturation, max, ref r, ref g, ref b);
+        return new Vector4(r, g, b, color.W);
+    }
 
     private static Vector4 WarningTint(Vector4 color)
     {
@@ -110,7 +201,6 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
         return edge * edge * (3f - (2f * edge));
     }
 
-    // Remplace la teinte ; saturation et luminosité gardent la hiérarchie repos/survol/actif.
     private static Vector4 ToWarningHue(Vector4 color)
     {
         float max = MathF.Max(color.X, MathF.Max(color.Y, color.Z));
@@ -118,7 +208,6 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
         float delta = max - min;
         if (delta < 0.0001f) return color;
 
-        // Les gris à peine violacés (champs, popups, texte de navigation) gardent leur luminosité.
         float sourceSaturation = delta / max;
         float saturation = MathF.Min(1f, sourceSaturation * WarningSaturationBoost);
         float value = sourceSaturation >= 0.3f ? max * WarningDarken : max;
@@ -603,14 +692,24 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
     }
 
     public static Vector4 HexToVector4(string hex)
+        => TryHexToVector4(hex, out var color) ? color : AccentColor;
+
+    public static bool TryHexToVector4(string? hex, out Vector4 color)
     {
-        if (string.IsNullOrEmpty(hex)) return AccentColor;
+        color = default;
+        if (string.IsNullOrEmpty(hex)) return false;
         var span = hex.AsSpan();
         if (span[0] == '#') span = span[1..];
         if (span.Length != 6 || !uint.TryParse(span, System.Globalization.NumberStyles.HexNumber, null, out var rgb))
-            return AccentColor;
-        return new Vector4(((rgb >> 16) & 0xFF) / 255f, ((rgb >> 8) & 0xFF) / 255f, (rgb & 0xFF) / 255f, 1f);
+            return false;
+        color = new Vector4(((rgb >> 16) & 0xFF) / 255f, ((rgb >> 8) & 0xFF) / 255f, (rgb & 0xFF) / 255f, 1f);
+        return true;
     }
+
+    // Lignes d'infos d'une carte de profil posées sur la bannière : couleur choisie par le joueur, gris sinon
+    // (valeur absente ou invalide, puisqu'elle vient du profil d'un autre joueur).
+    public static Vector4 ProfileCardTextColor(string? hex)
+        => TryHexToVector4(hex, out var color) ? color : ImGuiColors.DalamudGrey;
 
     public static string Vector4ToHex(Vector4 color)
     {

@@ -173,6 +173,7 @@ public static class SettingsCatalog
         new(Advanced, "Settings.Advanced.Debug.ActiveBlocks"),
 
         new(Account, "Settings.Section.Account.Title", "Settings.Section.Account.Desc"),
+        new(Account, "Settings.Account.CustomId.Title", "Settings.Account.CustomId.Desc"),
     ];
 
     public static List<SettingsEntry> Search(string query)

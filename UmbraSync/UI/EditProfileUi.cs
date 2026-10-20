@@ -75,8 +75,6 @@ public class EditProfileUi : WindowMediatorSubscriberBase
     private bool _rpLoaded = false;
     private string _rpLoadedForKey = string.Empty;
     private bool _hrpLoaded = false;
-    private bool _vanityModalOpen = false;
-    private string _vanityInput = string.Empty;
     private int _activeTab;
     private readonly ChatIconPicker _chatIconPicker;
     private byte _rpLevel;
@@ -100,11 +98,30 @@ public class EditProfileUi : WindowMediatorSubscriberBase
     private string _savedRpAdditionalInfoText = string.Empty;
     private Vector3 _rpNameColorVec;
     private string _savedRpNameColorHex = string.Empty;
+    private Vector3 _rpCardTextColorVec = new(ImGuiColors.DalamudGrey.X, ImGuiColors.DalamudGrey.Y, ImGuiColors.DalamudGrey.Z);
+    private Vector3 _rpAccentColorVec = new(UiSharedService.DefaultAccentColor.X, UiSharedService.DefaultAccentColor.Y, UiSharedService.DefaultAccentColor.Z);
+    private ProfileCardStyle _cardStyle = ProfileCardStyle.Default;
+    private ProfileCardStyle _savedCardStyle = ProfileCardStyle.Default;
+    private bool _standalonePreviewShown;
+    private DateTime _lastPreviewPushUtc = DateTime.MinValue;
+    private static readonly TimeSpan PreviewRefreshInterval = TimeSpan.FromMilliseconds(200);
     private string _savedRpCustomFieldsJson = string.Empty;
     private string _hydratedRpSnapshot = string.Empty;
     private bool _serverHasNewerVersion = false;
     private DateTime _lastRpPollUtc = DateTime.MinValue;
     private readonly BbCodeToolbar _bbCodeToolbar;
+    private enum RpPage { Identity, Appearance, ChatVisibility, Story }
+    private int _rpPage;
+    private bool _additionalInfoPreview;
+    private bool _rpNsfw;
+    private bool _savedRpNsfw;
+    private bool _hrpNsfw;
+    private bool _savedHrpNsfw;
+    private bool _rpPortraitDirty;
+    private bool _hrpPortraitDirty;
+    private volatile bool _rpPortraitStale;
+    private volatile bool _hrpPortraitStale;
+    private readonly Dictionary<string, (byte[] Source, string Base64)> _base64Cache = new(StringComparer.Ordinal);
     public EditProfileUi(ILogger<EditProfileUi> logger, MareMediator mediator,
         ApiController apiController, UiSharedService uiSharedService, FileDialogManager fileDialogManager,
         UmbraProfileManager umbraProfileManager, PairManager pairManager, PairFactory pairFactory,
@@ -163,6 +180,15 @@ public class EditProfileUi : WindowMediatorSubscriberBase
                 _hrpLoaded = false;
             }
         });
+        Mediator.Subscribe<RemoveWindowMessage>(this, (msg) =>
+        {
+            if (msg.Window is StandaloneProfileUi ui && string.Equals(ui.Pair.UserData.UID, _apiController.UID, StringComparison.Ordinal))
+                _standalonePreviewShown = false;
+        });
+        Mediator.Subscribe<TargetProfilePreviewMessage>(this, (msg) =>
+        {
+            if (msg.Profile == null) _cardPreviewOpen = false;
+        });
         Mediator.Subscribe<MoodlesMessage>(this, (msg) => _ = Task.Run(_moodlesEditor.RefreshAsync));
         Mediator.Subscribe<MoodlesReadyMessage>(this, (msg) => _ = Task.Run(_moodlesEditor.RunRestoreLoopAsync));
         Mediator.Subscribe<ZoneSwitchEndMessage>(this, (msg) =>
@@ -192,9 +218,6 @@ public class EditProfileUi : WindowMediatorSubscriberBase
         _hrpLoaded = false;
         var charName = _dalamudUtil.GetPlayerName();
         var worldId = _dalamudUtil.GetHomeWorldId();
-        // Ne pas fetch tant que LocalPlayer n'est pas prêt : un nom "--"/monde 0 partirait sans
-        // contexte perso et le serveur renverrait le profil d'un autre alt. Le draw relancera le
-        // fetch via GetUmbraProfile une fois le perso résolu.
         if (!string.IsNullOrEmpty(_apiController.UID)
             && !string.IsNullOrEmpty(charName) && !string.Equals(charName, "--", StringComparison.Ordinal)
             && worldId > 0)
@@ -209,16 +232,14 @@ public class EditProfileUi : WindowMediatorSubscriberBase
 
     private UmbraProfileData BuildPreviewProfileData()
     {
-        var currentProfile = _rpConfigService.GetCurrentCharacterProfile();
-        var hrpImageBase64 = _profileImage.Length > 0 ? Convert.ToBase64String(_profileImage) : string.Empty;
         return new UmbraProfileData(
             IsFlagged: false,
-            IsNSFW: _apiController.IsProfileNsfw,
-            Base64ProfilePicture: hrpImageBase64,
+            IsNSFW: _hrpNsfw,
+            Base64ProfilePicture: CachedBase64("hrp", _profileImage),
             Description: _descriptionText,
-            Base64RpProfilePicture: currentProfile.RpProfilePictureBase64,
+            Base64RpProfilePicture: _rpProfileImage.Length > 0 ? CachedBase64("rp", _rpProfileImage) : null,
             RpDescription: _rpDescriptionText,
-            IsRpNSFW: currentProfile.IsRpNsfw,
+            IsRpNSFW: _rpNsfw,
             RpFirstName: _rpFirstNameText,
             RpLastName: _rpLastNameText,
             RpTitle: _rpTitleText,
@@ -236,8 +257,18 @@ public class EditProfileUi : WindowMediatorSubscriberBase
             RpCustomFields: _rpCustomFields.Count > 0 ? _rpCustomFields : null,
             ChatIcon: _chatIconPicker.SelectedIcon,
             RpLevel: _rpLevel,
-            Base64RpBanner: _rpBannerImage.Length > 0 ? Convert.ToBase64String(_rpBannerImage) : null
+            Base64RpBanner: _rpBannerImage.Length > 0 ? CachedBase64("banner", _rpBannerImage) : null,
+            RpCardStyle: _cardStyle.Serialize()
         );
+    }
+
+    private string CachedBase64(string key, byte[] data)
+    {
+        if (data.Length == 0) return string.Empty;
+        if (_base64Cache.TryGetValue(key, out var cached) && ReferenceEquals(cached.Source, data)) return cached.Base64;
+        var base64 = Convert.ToBase64String(data);
+        _base64Cache[key] = (data, base64);
+        return base64;
     }
     private void PushStandalonePreview()
     {
@@ -245,6 +276,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
         var pair = _pairManager.GetPairByUID(_apiController.UID) ?? _pairFactory.Create(myUserData);
 
         SetProfilePreview();
+        _standalonePreviewShown = true;
         Mediator.Publish(new ProfileOpenStandaloneMessage(pair));
     }
 
@@ -293,6 +325,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
                     RpAlignment = curProfile.RpAlignment,
                     RpAdditionalInfo = curProfile.RpAdditionalInfo,
                     RpNameColor = curProfile.RpNameColor,
+                    RpCardStyle = curProfile.RpCardStyle,
                     RpCustomFields = curProfile.RpCustomFields,
                     MoodlesData = curProfile.MoodlesData,
                     RpVisibility = visibility
@@ -323,51 +356,33 @@ public class EditProfileUi : WindowMediatorSubscriberBase
         return previewProfileData;
     }
 
+    public override void PreDraw()
+    {
+        UiSharedService.BeginProfileAccent(_cardStyle.AccentColor);
+        base.PreDraw();
+    }
+
+    public override void PostDraw()
+    {
+        base.PostDraw();
+        UiSharedService.EndProfileAccent();
+    }
+
     protected override void DrawInternal()
     {
-        if (_previewRefreshPending)
+
+        using var profileAccent = UiSharedService.PushProfileAccent(_cardStyle.AccentColor);
+        using var profileColors = UiSharedService.PushThemeContentColors();
+        if (_previewRefreshPending && DateTime.UtcNow - _lastPreviewPushUtc >= PreviewRefreshInterval)
         {
             _previewRefreshPending = false;
+            _lastPreviewPushUtc = DateTime.UtcNow;
             if (_cardPreviewOpen) PushPreview();
+            else if (_standalonePreviewShown) SetProfilePreview();
         }
 
         var accent = UiSharedService.AccentColor;
         if (accent.W <= 0f) accent = ImGuiColors.ParsedPurple;
-
-        if (_uiSharedService.IconTextButton(FontAwesomeIcon.Eye, Loc.Get("EditProfile.PreviewButton")))
-            PushStandalonePreview();
-        ImGui.SameLine();
-        if (_uiSharedService.IconTextButton(FontAwesomeIcon.Tag, Loc.Get("EditProfile.SetCustomId.Button")))
-        {
-            _vanityInput = string.Empty;
-            _vanityModalOpen = true;
-            ImGui.OpenPopup(Loc.Get("EditProfile.SetCustomId.Title"));
-        }
-        UiSharedService.AttachToolTip(Loc.Get("EditProfile.SetCustomId.Tooltip"));
-
-        ImGui.SameLine();
-        if (_uiSharedService.IconTextButton(FontAwesomeIcon.ExternalLinkAlt, Loc.Get("EditProfile.EnrichedProfile.Button")))
-        {
-            Dalamud.Utility.Util.OpenLink("https://connect.ashfall-codex.dev/account");
-        }
-        UiSharedService.AttachToolTip(Loc.Get("EditProfile.EnrichedProfile.Tooltip"));
-
-        var cardLabel = Loc.Get("EditProfile.Banner.Preview");
-        var cardButtonWidth = _uiSharedService.GetIconTextButtonSize(FontAwesomeIcon.IdCard, cardLabel);
-        var barRight = ImGui.GetWindowPos().X + ImGui.GetWindowContentRegionMax().X;
-        if (ImGui.GetItemRectMax().X + ImGui.GetStyle().ItemSpacing.X + cardButtonWidth <= barRight)
-            ImGui.SameLine();
-        if (_uiSharedService.IconTextButton(FontAwesomeIcon.IdCard, cardLabel))
-        {
-            _cardPreviewOpen = !_cardPreviewOpen;
-            if (_cardPreviewOpen)
-                PushPreview();
-            else
-                Mediator.Publish(new TargetProfilePreviewMessage(null));
-        }
-        UiSharedService.AttachToolTip(Loc.Get("EditProfile.Banner.Preview.Tooltip"));
-
-        DrawVanityPopup();
 
         DrawProfileTabButtons(accent);
     }
@@ -390,6 +405,12 @@ public class EditProfileUi : WindowMediatorSubscriberBase
             RefreshFromServer();
         }
         UiSharedService.AttachToolTip("Recharger le profil depuis le serveur");
+
+        ImGui.SameLine();
+        if (_uiSharedService.IconTextButton(FontAwesomeIcon.ExternalLinkAlt, Loc.Get("EditProfile.EnrichedProfile.Button")))
+            Dalamud.Utility.Util.OpenLink("https://connect.ashfall-codex.dev/account");
+        UiSharedService.AttachToolTip(Loc.Get("EditProfile.EnrichedProfile.Tooltip"));
+
         if (_serverHasNewerVersion)
         {
             ImGui.SameLine();
@@ -409,7 +430,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
             p.RpAge ?? "", p.RpRace ?? "", p.RpEthnicity ?? "",
             p.RpHeight ?? "", p.RpBuild ?? "", p.RpResidence ?? "",
             p.RpOccupation ?? "", p.RpAffiliation ?? "", p.RpAlignment ?? "",
-            p.RpAdditionalInfo ?? "", p.RpNameColor ?? "",
+            p.RpAdditionalInfo ?? "", p.RpNameColor ?? "", p.RpCardStyle ?? "",
             p.IsRpNSFW.ToString(), p.RpLevel.ToString(), p.RpVisibility?.ToString() ?? "",
             customJson);
     }
@@ -444,7 +465,8 @@ public class EditProfileUi : WindowMediatorSubscriberBase
                 RpAlignment: dto.RpAlignment, RpAdditionalInfo: dto.RpAdditionalInfo,
                 RpNameColor: dto.RpNameColor,
                 RpCustomFields: customFields,
-                ChatIcon: dto.ChatIcon ?? 0, RpLevel: dto.RpLevel ?? 0, RpVisibility: dto.RpVisibility);
+                ChatIcon: dto.ChatIcon ?? 0, RpLevel: dto.RpLevel ?? 0, RpVisibility: dto.RpVisibility,
+                RpCardStyle: dto.RpCardStyle);
 
             var serverSnapshot = ComputeRpSnapshotFromProfile(pseudoProfile);
             if (!string.Equals(serverSnapshot, _hydratedRpSnapshot, StringComparison.Ordinal))
@@ -479,9 +501,20 @@ public class EditProfileUi : WindowMediatorSubscriberBase
         }
 
         _uiSharedService.BigText(isRp ? "Profil RP" : "Profil HRP");
-        ImGui.SameLine();
-        if (isRp) DrawRefreshControl();
-        DrawHeaderButtons(isRp, umbraProfile);
+        if (isRp)
+        {
+            ImGui.SameLine();
+            DrawRefreshControl();
+        }
+        else
+        {
+            var (icon, label) = ProfilePreviewButtonContent();
+            SameLineRightAligned(_uiSharedService.GetIconTextButtonSize(icon, label));
+            DrawProfilePreviewButton(icon, label);
+        }
+        if (!isRp) DrawNsfwToggle(false);
+        ImGuiHelpers.ScaledDummy(2f);
+        DrawSaveCard(isRp);
         ImGuiHelpers.ScaledDummy(new Vector2(0f, ImGui.GetStyle().ItemSpacing.Y / 2));
 
         if (isRp)
@@ -540,6 +573,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
                 configProfile.RpAlignment = _rpAlignmentText;
                 configProfile.RpAdditionalInfo = _rpAdditionalInfoText;
                 configProfile.RpNameColor = umbraProfile.RpNameColor ?? string.Empty;
+                configProfile.RpCardStyle = umbraProfile.RpCardStyle ?? string.Empty;
                 if (umbraProfile.RpVisibility.HasValue) configProfile.RpVisibility = umbraProfile.RpVisibility.Value;
                 _rpConfigService.Save();
 
@@ -559,18 +593,25 @@ public class EditProfileUi : WindowMediatorSubscriberBase
                     _rpNameColorVec = new Vector3(accent.X, accent.Y, accent.Z);
                 }
 
-                try
+                SetCardStyle(umbraProfile.CardStyle.Value);
+
+                _rpNsfw = umbraProfile.IsRpNSFW;
+
+                if (!_rpPortraitDirty)
                 {
-                    _rpProfileImage = !string.IsNullOrEmpty(umbraProfile.Base64RpProfilePicture) ? Convert.FromBase64String(umbraProfile.Base64RpProfilePicture) : [];
-                    _rpPfpTextureWrap?.Dispose();
-                    _rpPfpTextureWrap = _rpProfileImage.Length > 0 ? _uiSharedService.LoadImage(_rpProfileImage) : null;
-                    _logger.LogDebug("Loaded RP profile image, size: {size}", _rpProfileImage.Length);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Failed to load RP profile image");
-                    _rpProfileImage = [];
-                    _rpPfpTextureWrap = null;
+                    try
+                    {
+                        _rpProfileImage = !string.IsNullOrEmpty(umbraProfile.Base64RpProfilePicture) ? Convert.FromBase64String(umbraProfile.Base64RpProfilePicture) : [];
+                        _rpPfpTextureWrap?.Dispose();
+                        _rpPfpTextureWrap = _rpProfileImage.Length > 0 ? _uiSharedService.LoadImage(_rpProfileImage) : null;
+                        _logger.LogDebug("Loaded RP profile image, size: {size}", _rpProfileImage.Length);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to load RP profile image");
+                        _rpProfileImage = [];
+                        _rpPfpTextureWrap = null;
+                    }
                 }
 
                 if (!_rpBannerDirty)
@@ -592,19 +633,23 @@ public class EditProfileUi : WindowMediatorSubscriberBase
             if (!_hrpLoaded && !string.Equals(umbraProfile.Description, "Loading Data from server...", StringComparison.Ordinal))
             {
                 _descriptionText = umbraProfile.Description;
+                _hrpNsfw = umbraProfile.IsNSFW;
 
-                try
+                if (!_hrpPortraitDirty)
                 {
-                    _profileImage = umbraProfile.ImageData.Value;
-                    _pfpTextureWrap?.Dispose();
-                    _pfpTextureWrap = _profileImage.Length > 0 ? _uiSharedService.LoadImage(_profileImage) : null;
-                    _logger.LogDebug("Loaded HRP profile image, size: {size}", _profileImage.Length);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Failed to load HRP profile image");
-                    _profileImage = [];
-                    _pfpTextureWrap = null;
+                    try
+                    {
+                        _profileImage = umbraProfile.ImageData.Value;
+                        _pfpTextureWrap?.Dispose();
+                        _pfpTextureWrap = _profileImage.Length > 0 ? _uiSharedService.LoadImage(_profileImage) : null;
+                        _logger.LogDebug("Loaded HRP profile image, size: {size}", _profileImage.Length);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to load HRP profile image");
+                        _profileImage = [];
+                        _pfpTextureWrap = null;
+                    }
                 }
 
                 _hrpLoaded = true;
@@ -612,6 +657,51 @@ public class EditProfileUi : WindowMediatorSubscriberBase
             }
         }
 
+        if (isRp)
+        {
+            UnderlineTabs.Draw("rpPages",
+                [Loc.Get("EditProfile.Page.Identity"), Loc.Get("EditProfile.Page.Appearance"),
+                 Loc.Get("EditProfile.Page.ChatVisibility"), Loc.Get("EditProfile.Page.Story")],
+                [FontAwesomeIcon.IdCard, FontAwesomeIcon.Palette, FontAwesomeIcon.Comments, FontAwesomeIcon.BookOpen],
+                ref _rpPage);
+            ImGuiHelpers.ScaledDummy(2f);
+        }
+
+        RefreshPortraitTextures();
+        
+        string bodyId = isRp ? $"##profileBody{_rpPage}" : "##profileBodyHrp";
+        using (var body = ImRaii.Child(bodyId, Vector2.Zero))
+        {
+            if (body)
+            {
+                if (!isRp)
+                    DrawIdentityCard(false);
+                else
+                {
+                    switch ((RpPage)_rpPage)
+                    {
+                        case RpPage.Identity:
+                            DrawIdentityCard(true);
+                            break;
+                        case RpPage.Appearance:
+                            UiSharedService.BeginSectionCard(Loc.Get("EditProfile.Card.ProfileCard"), FontAwesomeIcon.Image);
+                            DrawProfileCardSection();
+                            break;
+                        case RpPage.ChatVisibility:
+                            DrawChatVisibilityPage();
+                            break;
+                        default:
+                            DrawStoryPage();
+                            break;
+                    }
+                }
+                UiSharedService.EndSectionCard();
+            }
+        }
+    }
+
+    private void DrawIdentityCard(bool isRp)
+    {
         var pfpTexture = isRp ? _rpPfpTextureWrap : _pfpTextureWrap;
         var pfpBytes = isRp ? _rpProfileImage : _profileImage;
 
@@ -659,92 +749,8 @@ public class EditProfileUi : WindowMediatorSubscriberBase
         }
 
         if (_uiSharedService.IconTextButton(FontAwesomeIcon.FileImage, Loc.Get("EditProfile.SelectImageButton"), imgSz))
-        {
-            _fileDialogManager.OpenFileDialog(Loc.Get("EditProfile.SelectImageButton"), "Image files{.png,.jpg,.jpeg}", (success, name) =>
-            {
-                if (!success) return;
-                var rpProfile = isRp ? _rpConfigService.GetCurrentCharacterProfile() : null;
-                var charName = _dalamudUtil.GetPlayerName();
-                var worldId = _dalamudUtil.GetHomeWorldId();
-                _ = Task.Run(async () =>
-                {
-                    try
-                    {
-                        var file = await File.ReadAllBytesAsync(name).ConfigureAwait(false);
-                        if (file.Length > 5 * 1024 * 1024)
-                        {
-                            _showFileDialogError = true;
-                            return;
-                        }
-
-                        var curProfile = await _apiController.UserGetProfile(new UserDto(new UserData(_apiController.UID, _apiController.DisplayName))).ConfigureAwait(false);
-                        if (isRp && rpProfile != null)
-                        {
-                            rpProfile.RpProfilePictureBase64 = Convert.ToBase64String(file);
-                            _rpConfigService.Save();
-                            _logger.LogInformation("Uploading RP image for {uid}", _apiController.UID);
-                            await _apiController.UserSetProfile(new UserProfileDto(new UserData(_apiController.UID, _apiController.DisplayName), curProfile.Disabled, curProfile.IsNSFW, curProfile.ProfilePictureBase64, curProfile.Description)
-                            {
-                                CharacterName = charName,
-                                WorldId = worldId,
-                                RpProfilePictureBase64 = rpProfile.RpProfilePictureBase64,
-                                RpDescription = rpProfile.RpDescription,
-                                IsRpNSFW = rpProfile.IsRpNsfw,
-                                RpFirstName = rpProfile.RpFirstName,
-                                RpLastName = rpProfile.RpLastName,
-                                RpTitle = rpProfile.RpTitle,
-                                RpAge = rpProfile.RpAge,
-                                RpRace = rpProfile.RpRace,
-                                RpEthnicity = rpProfile.RpEthnicity,
-                                RpHeight = rpProfile.RpHeight,
-                                RpBuild = rpProfile.RpBuild,
-                                RpResidence = rpProfile.RpResidence,
-                                RpOccupation = rpProfile.RpOccupation,
-                                RpAffiliation = rpProfile.RpAffiliation,
-                                RpAlignment = rpProfile.RpAlignment,
-                                RpAdditionalInfo = rpProfile.RpAdditionalInfo,
-                                RpNameColor = rpProfile.RpNameColor,
-                                RpCustomFields = rpProfile.RpCustomFields.Count > 0 ? System.Text.Json.JsonSerializer.Serialize(rpProfile.RpCustomFields) : null,
-                                MoodlesData = curProfile.MoodlesData
-                            }).ConfigureAwait(false);
-                        }
-                        else
-                        {
-                            _logger.LogInformation("Uploading HRP image for {uid}", _apiController.UID);
-                            await _apiController.UserSetProfile(new UserProfileDto(new UserData(_apiController.UID, _apiController.DisplayName), curProfile.Disabled, _apiController.IsProfileNsfw, Convert.ToBase64String(file), _descriptionText)
-                            {
-                                CharacterName = charName,
-                                WorldId = worldId,
-                                RpProfilePictureBase64 = curProfile.RpProfilePictureBase64,
-                                RpDescription = curProfile.RpDescription,
-                                IsRpNSFW = curProfile.IsRpNSFW,
-                                RpFirstName = curProfile.RpFirstName,
-                                RpLastName = curProfile.RpLastName,
-                                RpTitle = curProfile.RpTitle,
-                                RpAge = curProfile.RpAge,
-                                RpHeight = curProfile.RpHeight,
-                                RpBuild = curProfile.RpBuild,
-                                RpOccupation = curProfile.RpOccupation,
-                                RpAffiliation = curProfile.RpAffiliation,
-                                RpAlignment = curProfile.RpAlignment,
-                                RpAdditionalInfo = curProfile.RpAdditionalInfo,
-                                RpNameColor = curProfile.RpNameColor,
-                                RpCustomFields = curProfile.RpCustomFields,
-                                MoodlesData = curProfile.MoodlesData
-                            }).ConfigureAwait(false);
-                        }
-                        Mediator.Publish(new ClearProfileDataMessage(new UserData(_apiController.UID), charName, worldId));
-                        Mediator.Publish(new NotificationMessage(Loc.Get("EditProfile.SaveSuccessTitle"), Loc.Get("EditProfile.SaveSuccessBody"), NotificationType.Success));
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning(ex, "Failed to upload profile image");
-                        Mediator.Publish(new NotificationMessage(Loc.Get("EditProfile.SaveErrorTitle"), Loc.Get("EditProfile.SaveErrorBody"), NotificationType.Error));
-                        _notificationTracker.Upsert(NotificationEntry.ProfileSaveFailed());
-                    }
-                });
-            });
-        }
+            SelectPortrait(isRp);
+        UiSharedService.AttachToolTip(Loc.Get("EditProfile.Portrait.Recommended"));
         if (_showFileDialogError)
         {
             UiSharedService.ColorTextWrapped(Loc.Get("EditProfile.ImageSizeError"), ImGuiColors.DalamudRed, imgSz);
@@ -756,16 +762,10 @@ public class EditProfileUi : WindowMediatorSubscriberBase
         var fieldW = w - imgSz - spacing - 12f * ImGuiHelpers.GlobalScale;
         var halfFieldW = (fieldW - ImGui.GetStyle().ItemSpacing.X) / 2;
 
-        void DrawField(string label, ref string text, int maxLength, float inputWidth)
-        {
-            ImGui.TextColored(ImGuiColors.DalamudGrey, label);
-            ImGui.SetNextItemWidth(inputWidth);
-            ImGui.InputText("##" + label, ref text, maxLength);
-        }
-
-        void DrawFieldPair(string label1, ref string text1, int max1, string label2, ref string text2, int max2)
+        void DrawFieldPair(string label1, ref string text1, int max1, string label2, ref string text2, int max2, string? help1 = null)
         {
             ImGui.TextColored(ImGuiColors.DalamudGrey, label1);
+            if (help1 != null) _uiSharedService.DrawHelpText(help1);
             ImGui.SameLine(halfFieldW + ImGui.GetStyle().ItemSpacing.X);
             ImGui.TextColored(ImGuiColors.DalamudGrey, label2);
             ImGui.SetNextItemWidth(halfFieldW);
@@ -786,15 +786,8 @@ public class EditProfileUi : WindowMediatorSubscriberBase
                 UiSharedService.ColorTextWrapped(string.Format(Loc.Get("EditProfile.RpFirstNameMismatch"), vanillaFirstName), ImGuiColors.DalamudRed);
             }
 
-            // Color picker for RP name
-            ImGui.TextColored(ImGuiColors.DalamudGrey, Loc.Get("EditProfile.NameColor"));
-            ImGui.SameLine();
-            ImGui.SetNextItemWidth(24f * ImGuiHelpers.GlobalScale);
-            if (ImGui.ColorEdit3("##rpNameColor", ref _rpNameColorVec, ImGuiColorEditFlags.NoInputs | ImGuiColorEditFlags.NoLabel))
-            { /* value read from ref */ }
-            UiSharedService.AttachToolTip(Loc.Get("EditProfile.NameColor.Tooltip"));
-
-            DrawFieldPair(Loc.Get("UserProfile.RpTitle"), ref _rpTitleText, 100, Loc.Get("UserProfile.RpAge"), ref _rpAgeText, 50);
+            DrawFieldPair(Loc.Get("UserProfile.RpTitle"), ref _rpTitleText, 100, Loc.Get("UserProfile.RpAge"), ref _rpAgeText, 50,
+                Loc.Get("EditProfile.Help.Title"));
             DrawFieldPair(Loc.Get("UserProfile.RpRace"), ref _rpRaceText, 50, Loc.Get("UserProfile.RpEthnicity"), ref _rpEthnicityText, 50);
             DrawFieldPair(Loc.Get("UserProfile.RpHeight"), ref _rpHeightText, 50, Loc.Get("UserProfile.RpBuild"), ref _rpBuildText, 100);
         }
@@ -810,61 +803,147 @@ public class EditProfileUi : WindowMediatorSubscriberBase
             }
         }
         ImGui.EndGroup();
-
-        if (isRp)
-        {
-            ImGuiHelpers.ScaledDummy(new Vector2(0f, 6f));
-            DrawBannerSection(w);
-
-            UiSharedService.BeginSectionCard(Loc.Get("EditProfile.Card.TitleChat"), FontAwesomeIcon.Crown);
-
-            _honorificEditor.Draw();
-
-            ImGuiHelpers.ScaledDummy(new Vector2(0f, 6f));
-
-            _chatIconPicker.Draw();
-
-            UiSharedService.BeginSectionCard(Loc.Get("EditProfile.Card.Visibility"), FontAwesomeIcon.SlidersH);
-
-            DrawRpLevelSelector();
-
-            ImGuiHelpers.ScaledDummy(new Vector2(0f, 6f));
-
-            DrawRpVisibilitySelector();
-
-            UiSharedService.BeginSectionCard(Loc.Get("EditProfile.Card.Details"), FontAwesomeIcon.MapMarkerAlt);
-            w = ImGui.GetContentRegionAvail().X;
-
-            DrawField(Loc.Get("UserProfile.RpResidence"), ref _rpResidenceText, 100, w);
-            DrawField(Loc.Get("UserProfile.RpOccupation"), ref _rpOccupationText, 100, w);
-            DrawField(Loc.Get("UserProfile.RpAffiliation"), ref _rpAffiliationText, 100, w);
-            DrawField(Loc.Get("UserProfile.RpAlignment"), ref _rpAlignmentText, 100, w);
-
-            ImGuiHelpers.ScaledDummy(new Vector2(0f, 4f));
-
-            DrawCustomFieldsSection(w);
-
-            UiSharedService.BeginSectionCard(Loc.Get("EditProfile.Card.Traits"), FontAwesomeIcon.Star);
-
-            _moodlesEditor.DrawSection();
-
-            UiSharedService.BeginSectionCard(Loc.Get("UserProfile.RpAdditionalInfo"), FontAwesomeIcon.FeatherAlt);
-            w = ImGui.GetContentRegionAvail().X;
-
-            using (_uiSharedService.GameFont.Push())
-            {
-                _bbCodeToolbar.Draw(ref _rpAdditionalInfoText);
-                ImGui.TextColored(ImGuiColors.DalamudGrey3, Loc.Get("UserProfile.RpAdditionalInfoWrapHint"));
-
-                ImGui.InputTextMultiline("##additional_info", ref _rpAdditionalInfoText, 3000,
-                    new Vector2(w, 150 * ImGuiHelpers.GlobalScale));
-            }
-        }
-
-        UiSharedService.EndSectionCard();
     }
 
-    private void DrawBannerSection(float width)
+    private void RefreshPortraitTextures()
+    {
+        if (_rpPortraitStale)
+        {
+            _rpPortraitStale = false;
+            _rpPfpTextureWrap?.Dispose();
+            _rpPfpTextureWrap = _rpProfileImage.Length > 0 ? _uiSharedService.LoadImage(_rpProfileImage) : null;
+        }
+        if (_hrpPortraitStale)
+        {
+            _hrpPortraitStale = false;
+            _pfpTextureWrap?.Dispose();
+            _pfpTextureWrap = _profileImage.Length > 0 ? _uiSharedService.LoadImage(_profileImage) : null;
+        }
+    }
+
+    private void SelectPortrait(bool isRp)
+    {
+        _fileDialogManager.OpenFileDialog(Loc.Get("EditProfile.SelectImageButton"), "Image files{.png,.jpg,.jpeg}", (success, name) =>
+        {
+            if (!success) return;
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    var file = await File.ReadAllBytesAsync(name).ConfigureAwait(false);
+                    if (file.Length > 5 * 1024 * 1024)
+                    {
+                        _showFileDialogError = true;
+                        return;
+                    }
+
+                    _showFileDialogError = false;
+                    if (isRp)
+                    {
+                        _rpProfileImage = file;
+                        _rpPortraitDirty = true;
+                        _rpPortraitStale = true;
+                    }
+                    else
+                    {
+                        _profileImage = file;
+                        _hrpPortraitDirty = true;
+                        _hrpPortraitStale = true;
+                    }
+                    _previewRefreshPending = true;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to read profile image");
+                }
+            });
+        });
+    }
+
+    private void DrawChatVisibilityPage()
+    {
+        UiSharedService.BeginSectionCard(Loc.Get("EditProfile.Card.TitleChat"), FontAwesomeIcon.Crown);
+
+        _honorificEditor.Draw();
+
+        ImGuiHelpers.ScaledDummy(new Vector2(0f, 6f));
+
+        _chatIconPicker.Draw();
+
+        UiSharedService.BeginSectionCard(Loc.Get("EditProfile.Card.Visibility"), FontAwesomeIcon.SlidersH);
+
+        DrawRpLevelSelector();
+
+        ImGuiHelpers.ScaledDummy(new Vector2(0f, 6f));
+
+        DrawRpVisibilitySelector();
+
+        ImGuiHelpers.ScaledDummy(new Vector2(0f, 6f));
+
+        DrawNsfwToggle(true);
+    }
+
+    private void DrawStoryPage()
+    {
+        UiSharedService.BeginSectionCard(Loc.Get("EditProfile.Card.Details"), FontAwesomeIcon.MapMarkerAlt);
+        var w = ImGui.GetContentRegionAvail().X;
+
+        DrawStoryField(Loc.Get("UserProfile.RpResidence"), ref _rpResidenceText, w);
+        DrawStoryField(Loc.Get("UserProfile.RpOccupation"), ref _rpOccupationText, w, Loc.Get("EditProfile.Help.Occupation"));
+        DrawStoryField(Loc.Get("UserProfile.RpAffiliation"), ref _rpAffiliationText, w);
+        DrawStoryField(Loc.Get("UserProfile.RpAlignment"), ref _rpAlignmentText, w);
+
+        ImGuiHelpers.ScaledDummy(new Vector2(0f, 4f));
+
+        DrawCustomFieldsSection(w);
+
+        UiSharedService.BeginSectionCard(Loc.Get("EditProfile.Card.Traits"), FontAwesomeIcon.Star);
+
+        _moodlesEditor.DrawSection();
+
+        UiSharedService.BeginSectionCard(Loc.Get("UserProfile.RpAdditionalInfo"), FontAwesomeIcon.FeatherAlt);
+        DrawAdditionalInfo();
+    }
+
+    private void DrawStoryField(string label, ref string text, float width, string? help = null)
+    {
+        ImGui.TextColored(ImGuiColors.DalamudGrey, label);
+        if (help != null) _uiSharedService.DrawHelpText(help);
+        ImGui.SetNextItemWidth(width);
+        ImGui.InputText("##" + label, ref text, 100);
+    }
+
+    // Écrire en BBCode, ou voir le rendu final tel que sur la fiche.
+    private void DrawAdditionalInfo()
+    {
+        var accent = UiSharedService.AccentColor with { W = 0.35f };
+        if (_uiSharedService.IconTextButton(FontAwesomeIcon.PenNib, Loc.Get("EditProfile.Story.Write"),
+                buttonColor: _additionalInfoPreview ? null : accent))
+            _additionalInfoPreview = false;
+        ImGui.SameLine();
+        if (_uiSharedService.IconTextButton(FontAwesomeIcon.Eye, Loc.Get("EditProfile.Story.Preview"),
+                buttonColor: _additionalInfoPreview ? accent : null))
+            _additionalInfoPreview = true;
+        ImGuiHelpers.ScaledDummy(2f);
+
+        using (_uiSharedService.GameFont.Push())
+        {
+            if (_additionalInfoPreview)
+            {
+                if (string.IsNullOrWhiteSpace(_rpAdditionalInfoText))
+                    ImGui.TextColored(ImGuiColors.DalamudGrey3, Loc.Get("EditProfile.Story.PreviewEmpty"));
+                else
+                    BbCodeRenderer.Render(_rpAdditionalInfoText, ImGui.GetContentRegionAvail().X - (4f * ImGuiHelpers.GlobalScale));
+                return;
+            }
+
+            _bbCodeToolbar.Draw(ref _rpAdditionalInfoText);
+            ImGui.TextColored(ImGuiColors.DalamudGrey3, Loc.Get("UserProfile.RpAdditionalInfoWrapHint"));
+            ResizableTextArea.Draw("##additional_info", ref _rpAdditionalInfoText, 3000, defaultHeight: 260f, minHeight: 120f, maxHeight: 900f);
+        }
+    }
+
+    private void DrawProfileCardSection()
     {
         if (_bannerTextureStale)
         {
@@ -873,8 +952,8 @@ public class EditProfileUi : WindowMediatorSubscriberBase
             _rpBannerTexture = _rpBannerImage.Length > 0 ? _uiSharedService.LoadImage(_rpBannerImage) : null;
         }
 
-        ImGui.TextColored(ImGuiColors.DalamudGrey, Loc.Get("EditProfile.Banner.Label"));
-        ImGui.TextColored(ImGuiColors.DalamudGrey3, Loc.Get("EditProfile.Banner.Recommended"));
+        DrawCardStrip();
+        ImGuiHelpers.ScaledDummy(2f);
 
         if (_uiSharedService.IconTextButton(FontAwesomeIcon.FileImage, Loc.Get("EditProfile.Banner.Select")))
             SelectBanner();
@@ -892,10 +971,245 @@ public class EditProfileUi : WindowMediatorSubscriberBase
         }
 
         ImGui.SameLine();
-        _uiSharedService.DrawHelpText(Loc.Get("EditProfile.Banner.Help"));
+        _uiSharedService.DrawHelpText(Loc.Get("EditProfile.Banner.Recommended"));
+
+        DrawPreviewButtons();
 
         if (_showBannerError)
-            UiSharedService.ColorTextWrapped(Loc.Get("EditProfile.Banner.SizeError"), ImGuiColors.DalamudRed, width);
+            UiSharedService.ColorTextWrapped(Loc.Get("EditProfile.Banner.SizeError"), ImGuiColors.DalamudRed);
+
+        ImGuiHelpers.ScaledDummy(4f);
+        DrawCardAppearance();
+    }
+    
+    private void DrawCardStrip()
+    {
+        using var accent = UiSharedService.PushProfileAccent(_cardStyle.AccentColor);
+        var scale = ImGuiHelpers.GlobalScale;
+        var width = ImGui.GetContentRegionAvail().X;
+        var height = Math.Clamp(width / 5f, 72f * scale, 112f * scale);
+        var min = ImGui.GetCursorScreenPos();
+        var max = min + new Vector2(width, height);
+        ImGui.Dummy(new Vector2(width, height));
+        UiSharedService.AttachToolTip(Loc.Get("EditProfile.CardStrip.Tooltip"));
+
+        var drawList = ImGui.GetWindowDrawList();
+        var rounding = UiSharedService.RadiusCard * scale;
+        var background = UiSharedService.ThemeWindowBg;
+        drawList.AddRectFilled(min, max, ImGui.GetColorU32(background), rounding);
+        if (_rpBannerTexture != null)
+            ProfileBanner.Draw(drawList, _rpBannerTexture, min, max, background, rounding, _cardStyle);
+
+        var padding = 10f * scale;
+        drawList.PushClipRect(min, max, true);
+
+        var textX = min.X + padding;
+        if (_rpPfpTextureWrap != null && _rpProfileImage.Length > 0)
+        {
+            var side = height - (padding * 2f);
+            var portraitMin = new Vector2(min.X + padding, min.Y + padding);
+            var (uv0, uv1) = ProfileBanner.CoverUv(_rpPfpTextureWrap.Width, _rpPfpTextureWrap.Height, side, side);
+            drawList.AddImageRounded(_rpPfpTextureWrap.Handle, portraitMin, portraitMin + new Vector2(side),
+                uv0, uv1, ImGui.GetColorU32(Vector4.One), rounding);
+            textX = portraitMin.X + side + padding;
+        }
+
+        var y = min.Y + padding;
+        var name = $"{_rpFirstNameText} {_rpLastNameText}".Trim();
+        if (name.Length > 0)
+        {
+            using (_uiSharedService.UidFont.Push())
+            {
+                drawList.AddText(new Vector2(textX, y), ImGui.GetColorU32(new Vector4(_rpNameColorVec, 1f)), name);
+                y += ImGui.GetTextLineHeight();
+            }
+        }
+
+        var infoColor = ImGui.GetColorU32(UiSharedService.ProfileCardTextColor(_cardStyle.TextColor));
+        var identity = string.Join(" · ", new[] { _rpRaceText, _rpEthnicityText, _rpAgeText }.Where(v => !string.IsNullOrWhiteSpace(v)));
+        bool anyLine = false;
+        foreach (var line in new[] { _rpTitleText, identity, _rpOccupationText })
+        {
+            if (string.IsNullOrWhiteSpace(line)) continue;
+            drawList.AddText(new Vector2(textX, y), infoColor, line);
+            y += ImGui.GetTextLineHeight();
+            anyLine = true;
+        }
+        if (!anyLine)
+            drawList.AddText(new Vector2(textX, y), infoColor, Loc.Get("EditProfile.CardStrip.Sample"));
+
+        if (_rpBannerTexture == null)
+        {
+            var hint = Loc.Get("EditProfile.CardStrip.NoBanner");
+            drawList.AddText(max - ImGui.CalcTextSize(hint) - new Vector2(padding), ImGui.GetColorU32(ImGuiColors.DalamudGrey3), hint);
+        }
+
+        drawList.PopClipRect();
+        drawList.AddRect(min, max, ImGui.GetColorU32(UiSharedService.ThemeCardBorder), rounding, ImDrawFlags.None, 1f * scale);
+    }
+
+    private void DrawPreviewButtons()
+    {
+        var (profileIcon, profileLabel) = ProfilePreviewButtonContent();
+        var cardIcon = _cardPreviewOpen ? FontAwesomeIcon.EyeSlash : FontAwesomeIcon.IdCard;
+        var cardLabel = Loc.Get(_cardPreviewOpen ? "EditProfile.CardPreview.Close" : "EditProfile.Banner.Preview");
+        float width = _uiSharedService.GetIconTextButtonSize(profileIcon, profileLabel)
+            + ImGui.GetStyle().ItemSpacing.X
+            + _uiSharedService.GetIconTextButtonSize(cardIcon, cardLabel);
+
+        SameLineRightAligned(width);
+        DrawProfilePreviewButton(profileIcon, profileLabel);
+        ImGui.SameLine();
+        if (_uiSharedService.IconTextButton(cardIcon, cardLabel))
+            ToggleCardPreview();
+        UiSharedService.AttachToolTip(Loc.Get("EditProfile.Banner.Preview.Tooltip"));
+    }
+
+    private (FontAwesomeIcon Icon, string Label) ProfilePreviewButtonContent()
+        => _standalonePreviewShown
+            ? (FontAwesomeIcon.EyeSlash, Loc.Get("EditProfile.PreviewButton.Close"))
+            : (FontAwesomeIcon.Eye, Loc.Get("EditProfile.PreviewButton"));
+
+    private void DrawProfilePreviewButton(FontAwesomeIcon icon, string label)
+    {
+        if (_uiSharedService.IconTextButton(icon, label))
+            ToggleStandalonePreview();
+        UiSharedService.AttachToolTip(Loc.Get("EditProfile.PreviewButton.Tooltip"));
+    }
+
+    private void ToggleStandalonePreview()
+    {
+        if (_standalonePreviewShown)
+        {
+            _standalonePreviewShown = false;
+            Mediator.Publish(new ProfileCloseStandaloneMessage(_apiController.UID));
+        }
+        else
+        {
+            PushStandalonePreview();
+        }
+    }
+    
+    private static void SameLineRightAligned(float width)
+    {
+        ImGui.SameLine();
+        var avail = ImGui.GetContentRegionAvail().X;
+        if (avail < width)
+        {
+            ImGui.NewLine();
+            avail = ImGui.GetContentRegionAvail().X;
+        }
+        if (avail > width)
+            ImGui.SetCursorPosX(ImGui.GetCursorPosX() + avail - width);
+    }
+
+    private void ToggleCardPreview()
+    {
+        _cardPreviewOpen = !_cardPreviewOpen;
+        if (_cardPreviewOpen)
+            PushPreview();
+        else
+            Mediator.Publish(new TargetProfilePreviewMessage(null));
+    }
+
+    private void DrawCardAppearance()
+    {
+        var scale = ImGuiHelpers.GlobalScale;
+        string accentLabel = Loc.Get("EditProfile.ProfileAccent");
+        string nameLabel = Loc.Get("EditProfile.NameColor");
+        string colorLabel = Loc.Get("EditProfile.CardTextColor");
+        string dimLabel = Loc.Get("EditProfile.Banner.Dimming");
+        string fadeLabel = Loc.Get("EditProfile.Banner.Fade");
+        string radiusLabel = Loc.Get("EditProfile.Banner.FadeRadius");
+        float labelWidth = new[] { accentLabel, nameLabel, colorLabel, dimLabel, fadeLabel, radiusLabel }
+            .Max(label => ImGui.CalcTextSize(label).X) + (12f * scale);
+        float sliderWidth = MathF.Min(240f * scale, MathF.Max(ImGui.GetContentRegionAvail().X - labelWidth, 80f * scale));
+
+        DrawAppearanceLabel(accentLabel, labelWidth);
+        ImGui.SetNextItemWidth(24f * scale);
+        if (ImGui.ColorEdit3("##rpAccentColor", ref _rpAccentColorVec, ImGuiColorEditFlags.NoInputs | ImGuiColorEditFlags.NoLabel))
+            UpdateCardStyle(_cardStyle with { AccentColor = UiSharedService.Vector4ToHex(new Vector4(_rpAccentColorVec, 1f)) });
+        UiSharedService.AttachToolTip(Loc.Get("EditProfile.ProfileAccent.Tooltip"));
+        ImGui.SameLine();
+        _uiSharedService.DrawHelpText(Loc.Get("EditProfile.ProfileAccent.Help"));
+        
+        var resetLabel = Loc.Get("EditProfile.CardStyle.Reset");
+        SameLineRightAligned(_uiSharedService.GetIconTextButtonSize(FontAwesomeIcon.Undo, resetLabel));
+        using (ImRaii.Disabled(_cardStyle.IsDefault))
+        {
+            if (_uiSharedService.IconTextButton(FontAwesomeIcon.Undo, resetLabel))
+                UpdateCardStyle(ProfileCardStyle.Default);
+        }
+
+        DrawAppearanceLabel(nameLabel, labelWidth);
+        ImGui.SetNextItemWidth(24f * scale);
+        if (ImGui.ColorEdit3("##rpNameColor", ref _rpNameColorVec, ImGuiColorEditFlags.NoInputs | ImGuiColorEditFlags.NoLabel))
+            _previewRefreshPending = true;
+        UiSharedService.AttachToolTip(Loc.Get("EditProfile.NameColor.Tooltip"));
+
+        DrawAppearanceLabel(colorLabel, labelWidth);
+        ImGui.SetNextItemWidth(24f * scale);
+        if (ImGui.ColorEdit3("##rpCardTextColor", ref _rpCardTextColorVec, ImGuiColorEditFlags.NoInputs | ImGuiColorEditFlags.NoLabel))
+            UpdateCardStyle(_cardStyle with { TextColor = UiSharedService.Vector4ToHex(new Vector4(_rpCardTextColorVec, 1f)) });
+        UiSharedService.AttachToolTip(Loc.Get("EditProfile.CardTextColor.Tooltip"));
+        ImGui.SameLine();
+        _uiSharedService.DrawHelpText(Loc.Get("EditProfile.CardTextColor.Help"));
+
+        bool hasBanner = _rpBannerImage.Length > 0;
+        using (ImRaii.Disabled(!hasBanner))
+        {
+            DrawAppearanceLabel(dimLabel, labelWidth);
+            int dimming = (int)MathF.Round((1f - _cardStyle.BannerOpacity) * 100f);
+            int maxDimming = (int)MathF.Round((1f - ProfileCardStyle.MinBannerOpacity) * 100f);
+            ImGui.SetNextItemWidth(sliderWidth);
+            ThemedSlider.AlignWithFramePaddedLabel();
+            if (ThemedSlider.Int("##bannerDimming", ref dimming, 0, maxDimming, "%d %"))
+                UpdateCardStyle(_cardStyle with { BannerOpacity = 1f - (dimming / 100f) });
+            UiSharedService.AttachToolTip(Loc.Get("EditProfile.Banner.Dimming.Tooltip"));
+
+            DrawAppearanceLabel(fadeLabel, labelWidth);
+            bool fade = _cardStyle.FadeEdges;
+            if (ToggleSwitch.Draw("##bannerFade", ref fade))
+                UpdateCardStyle(_cardStyle with { FadeEdges = fade });
+            UiSharedService.AttachToolTip(Loc.Get("EditProfile.Banner.Fade.Tooltip"));
+
+            using (ImRaii.Disabled(!_cardStyle.FadeEdges))
+            {
+                DrawAppearanceLabel(radiusLabel, labelWidth);
+                int radius = (int)MathF.Round(_cardStyle.FadeRadius * 100f);
+                ImGui.SetNextItemWidth(sliderWidth);
+                ThemedSlider.AlignWithFramePaddedLabel();
+                if (ThemedSlider.Int("##bannerFadeRadius", ref radius, (int)(ProfileCardStyle.MinFadeRadius * 100f),
+                        (int)MathF.Round(ProfileCardStyle.MaxFadeRadius * 100f), "%d %"))
+                    UpdateCardStyle(_cardStyle with { FadeRadius = radius / 100f });
+                UiSharedService.AttachToolTip(Loc.Get("EditProfile.Banner.FadeRadius.Tooltip"));
+            }
+        }
+        if (!hasBanner)
+            UiSharedService.ColorTextWrapped(Loc.Get("EditProfile.Banner.RenderingNeedsBanner"), ImGuiColors.DalamudGrey3);
+    }
+
+    private static void DrawAppearanceLabel(string label, float labelWidth)
+    {
+        float startX = ImGui.GetCursorPosX();
+        ImGui.AlignTextToFramePadding();
+        ImGui.TextColored(ImGuiColors.DalamudGrey, label);
+        ImGui.SameLine(startX + labelWidth);
+    }
+
+    private void UpdateCardStyle(ProfileCardStyle style)
+    {
+        SetCardStyle(style.Normalized());
+        _previewRefreshPending = true;
+    }
+
+    private void SetCardStyle(ProfileCardStyle style)
+    {
+        _cardStyle = style;
+        var color = UiSharedService.ProfileCardTextColor(style.TextColor);
+        _rpCardTextColorVec = new Vector3(color.X, color.Y, color.Z);
+        var accent = UiSharedService.TryHexToVector4(style.AccentColor, out var custom) ? custom : UiSharedService.DefaultAccentColor;
+        _rpAccentColorVec = new Vector3(accent.X, accent.Y, accent.Z);
     }
 
     private void SelectBanner()
@@ -1064,241 +1378,213 @@ public class EditProfileUi : WindowMediatorSubscriberBase
         return list;
     }
 
-    private void DrawVanityPopup()
-    {
-        if (_vanityModalOpen && ImGui.BeginPopupModal(Loc.Get("EditProfile.SetCustomId.Title"), ref _vanityModalOpen, ImGuiWindowFlags.AlwaysAutoResize))
-        {
-            ImGui.TextWrapped(Loc.Get("EditProfile.SetCustomId.FormatHint"));
-            ImGuiHelpers.ScaledDummy(new Vector2(0f, 5f));
-
-            ImGui.SetNextItemWidth(400 * ImGuiHelpers.GlobalScale);
-            ImGui.InputTextWithHint("##customId", Loc.Get("EditProfile.SetCustomId.Placeholder"), ref _vanityInput, 64);
-
-            ImGuiHelpers.ScaledDummy(new Vector2(0f, 5f));
-            UiSharedService.ColorTextWrapped(Loc.Get("EditProfile.SetCustomId.ReconnectWarning"), ImGuiColors.DalamudYellow);
-
-            ImGuiHelpers.ScaledDummy(new Vector2(0f, ImGui.GetStyle().ItemSpacing.Y));
-            if (ImGui.Button(Loc.Get("EditProfile.SetCustomId.Confirm")))
-            {
-                _ = SubmitVanityAsync(_vanityInput);
-            }
-            ImGui.SameLine();
-            if (ImGui.Button(Loc.Get("Common.Cancel")))
-            {
-                _vanityModalOpen = false;
-                ImGui.CloseCurrentPopup();
-            }
-
-            ImGui.EndPopup();
-        }
-    }
-
-    private void DrawHeaderButtons(bool isRp, UmbraProfileData umbraProfile)
+    private void DrawNsfwToggle(bool isRp)
     {
         if (isRp)
         {
-            var profile = _rpConfigService.GetCurrentCharacterProfile();
-            var isRpNsfw = profile.IsRpNsfw;
-            if (ToggleSwitch.Draw(Loc.Get("UserProfile.RpNsfw"), ref isRpNsfw))
-            {
-                var charName = _dalamudUtil.GetPlayerName();
-                var worldId = _dalamudUtil.GetHomeWorldId();
-                _ = Task.Run(async () =>
-                {
-                    var curProfile = await _apiController.UserGetProfile(new UserDto(new UserData(_apiController.UID, _apiController.DisplayName))).ConfigureAwait(false);
-                    _logger.LogInformation("Setting RP NSFW flag to {flag} for {uid}", isRpNsfw, _apiController.UID);
-                    profile.IsRpNsfw = isRpNsfw;
-                    _rpConfigService.Save();
-                    await _apiController.UserSetProfile(new UserProfileDto(new UserData(_apiController.UID, _apiController.DisplayName), curProfile.Disabled, curProfile.IsNSFW, curProfile.ProfilePictureBase64, curProfile.Description)
-                    {
-                        CharacterName = charName,
-                        WorldId = worldId,
-                        RpProfilePictureBase64 = curProfile.RpProfilePictureBase64,
-                        RpDescription = curProfile.RpDescription,
-                        IsRpNSFW = isRpNsfw,
-                        RpFirstName = curProfile.RpFirstName,
-                        RpLastName = curProfile.RpLastName,
-                        RpTitle = curProfile.RpTitle,
-                        RpAge = curProfile.RpAge,
-                        RpRace = curProfile.RpRace,
-                        RpEthnicity = curProfile.RpEthnicity,
-                        RpHeight = curProfile.RpHeight,
-                        RpBuild = curProfile.RpBuild,
-                        RpResidence = curProfile.RpResidence,
-                        RpOccupation = curProfile.RpOccupation,
-                        RpAffiliation = curProfile.RpAffiliation,
-                        RpAlignment = curProfile.RpAlignment,
-                        RpAdditionalInfo = curProfile.RpAdditionalInfo,
-                        RpNameColor = curProfile.RpNameColor,
-                        RpCustomFields = curProfile.RpCustomFields,
-                        MoodlesData = curProfile.MoodlesData
-                    }).ConfigureAwait(false);
-                    Mediator.Publish(new ClearProfileDataMessage(new UserData(_apiController.UID), charName, worldId));
-                });
-            }
+            if (ToggleSwitch.Draw(Loc.Get("UserProfile.RpNsfw"), ref _rpNsfw))
+                _previewRefreshPending = true;
+            _uiSharedService.DrawHelpText(Loc.Get("EditProfile.RpNsfw.Help"));
         }
         else
         {
-            var isNsfw = umbraProfile.IsNSFW;
-            if (ToggleSwitch.Draw(Loc.Get("EditProfile.ProfileIsNsfw"), ref isNsfw))
-            {
-                var charName = _dalamudUtil.GetPlayerName();
-                var worldId = _dalamudUtil.GetHomeWorldId();
-                _ = Task.Run(async () =>
-                {
-                    var curProfile = await _apiController.UserGetProfile(new UserDto(new UserData(_apiController.UID, _apiController.DisplayName))).ConfigureAwait(false);
-                    _logger.LogInformation("Setting global NSFW flag to {flag} for {uid}", isNsfw, _apiController.UID);
-                    await _apiController.UserSetProfile(new UserProfileDto(new UserData(_apiController.UID, _apiController.DisplayName), curProfile.Disabled, isNsfw, curProfile.ProfilePictureBase64, curProfile.Description)
-                    {
-                        CharacterName = charName,
-                        WorldId = worldId,
-                        RpProfilePictureBase64 = curProfile.RpProfilePictureBase64,
-                        RpDescription = curProfile.RpDescription,
-                        IsRpNSFW = curProfile.IsRpNSFW,
-                        RpFirstName = curProfile.RpFirstName,
-                        RpLastName = curProfile.RpLastName,
-                        RpTitle = curProfile.RpTitle,
-                        RpAge = curProfile.RpAge,
-                        RpRace = curProfile.RpRace,
-                        RpEthnicity = curProfile.RpEthnicity,
-                        RpHeight = curProfile.RpHeight,
-                        RpBuild = curProfile.RpBuild,
-                        RpResidence = curProfile.RpResidence,
-                        RpOccupation = curProfile.RpOccupation,
-                        RpAffiliation = curProfile.RpAffiliation,
-                        RpAlignment = curProfile.RpAlignment,
-                        RpAdditionalInfo = curProfile.RpAdditionalInfo,
-                        RpNameColor = curProfile.RpNameColor,
-                        RpCustomFields = curProfile.RpCustomFields,
-                        MoodlesData = curProfile.MoodlesData
-                    }).ConfigureAwait(false);
-                    Mediator.Publish(new ClearProfileDataMessage(new UserData(_apiController.UID), charName, worldId));
-                });
-            }
+            if (ToggleSwitch.Draw(Loc.Get("EditProfile.ProfileIsNsfw"), ref _hrpNsfw))
+                _previewRefreshPending = true;
             _uiSharedService.DrawHelpText(Loc.Get("EditProfile.ProfileIsNsfwHelp"));
         }
+    }
+    private void DrawSaveCard(bool isRp)
+    {
+        var scale = ImGuiHelpers.GlobalScale;
+        bool justSaved = (DateTime.UtcNow - _saveConfirmTime).TotalSeconds < 4;
+        bool unsaved = !justSaved && HasUnsavedChanges(isRp);
 
-        ImGui.SameLine();
-        if (_uiSharedService.IconTextButton(FontAwesomeIcon.Save, Loc.Get("EditProfile.SaveButton")))
+        FontAwesomeIcon statusIcon = FontAwesomeIcon.CheckCircle;
+        Vector4 statusColor = ImGuiColors.HealerGreen;
+        string title = Loc.Get("EditProfile.SaveCard.UpToDate");
+        if (unsaved)
         {
-            if (isRp)
-            {
-                var vanillaFirst = GetVanillaFirstName();
-                if (vanillaFirst != null && !string.IsNullOrEmpty(_rpFirstNameText)
-                    && !RpFirstNameContainsVanilla(_rpFirstNameText, vanillaFirst))
-                {
-                    Mediator.Publish(new NotificationMessage(Loc.Get("EditProfile.SaveErrorTitle"),
-                        string.Format(Loc.Get("EditProfile.RpFirstNameMismatch"), vanillaFirst), NotificationType.Error));
-                    return;
-                }
+            statusIcon = FontAwesomeIcon.ExclamationCircle;
+            statusColor = ImGuiColors.DalamudYellow;
+            title = Loc.Get("EditProfile.UnsavedChanges");
+        }
+        else if (justSaved)
+        {
+            title = Loc.Get("EditProfile.SaveConfirm");
+        }
 
-                var profile = _rpConfigService.GetCurrentCharacterProfile();
-                profile.RpDescription = _rpDescriptionText;
-                profile.RpFirstName = _rpFirstNameText;
-                profile.RpLastName = _rpLastNameText;
-                profile.RpTitle = _rpTitleText;
-                profile.RpAge = _rpAgeText;
-                profile.RpRace = _rpRaceText;
-                profile.RpEthnicity = _rpEthnicityText;
-                profile.RpHeight = _rpHeightText;
-                profile.RpBuild = _rpBuildText;
-                profile.RpResidence = _rpResidenceText;
-                profile.RpOccupation = _rpOccupationText;
-                profile.RpAffiliation = _rpAffiliationText;
-                profile.RpAlignment = _rpAlignmentText;
-                profile.RpAdditionalInfo = _rpAdditionalInfoText;
-                profile.RpNameColor = UiSharedService.Vector4ToHex(new Vector4(_rpNameColorVec, 1f));
-                profile.RpCustomFields = _rpCustomFields
-                    .Select(f => new RpCustomField { Name = f.Name, Value = f.Value, Order = f.Order })
-                    .ToList();
-                profile.ChatIcon = _chatIconPicker.SelectedIcon;
-                profile.RpLevel = _rpLevel;
-                profile.RpVisibility = _rpVisibility;
-                _rpConfigService.Save();
+        var accent = UiSharedService.AccentColor;
+        var padding = new Vector2(12f, 8f) * scale;
+        float height = (padding.Y * 2f) + ImGui.GetFrameHeight() + scale;
+
+        using (ImRaii.PushColor(ImGuiCol.ChildBg, accent with { W = 0.07f }).Push(ImGuiCol.Border, accent with { W = 0.45f }))
+        using (ImRaii.PushStyle(ImGuiStyleVar.ChildRounding, UiSharedService.RadiusCard * scale)
+                   .Push(ImGuiStyleVar.ChildBorderSize, scale)
+                   .Push(ImGuiStyleVar.WindowPadding, padding))
+        using (var card = ImRaii.Child("##profileSaveCard", new Vector2(-1f, height), true,
+                   ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse))
+        {
+            if (card)
+            {
+                ImGui.AlignTextToFramePadding();
+                _uiSharedService.IconText(statusIcon, statusColor);
+                ImGui.SameLine();
+                ImGui.TextColored(statusColor, title);
+                if (unsaved)
+                    UiSharedService.AttachToolTip(Loc.Get("EditProfile.SaveCard.Unsaved.Desc"));
+
+                string label = Loc.Get("EditProfile.SaveButton");
+                float buttonWidth = _uiSharedService.GetIconTextButtonSize(FontAwesomeIcon.Save, label);
+                ImGui.SameLine(MathF.Max(ImGui.GetCursorPosX(), ImGui.GetWindowContentRegionMax().X - buttonWidth));
+                DrawSaveButton(isRp, label, emphasized: unsaved);
+            }
+        }
+
+        if (ImGui.GetIO().KeyCtrl && ImGui.IsKeyPressed(ImGuiKey.S, false)
+            && ImGui.IsWindowFocused(ImGuiFocusedFlags.RootAndChildWindows))
+            SaveProfile(isRp);
+    }
+    
+    private void DrawSaveButton(bool isRp, string label, bool emphasized)
+    {
+        if (!emphasized)
+        {
+            if (_uiSharedService.IconTextButton(FontAwesomeIcon.Save, label))
+                SaveProfile(isRp);
+            UiSharedService.AttachToolTip(Loc.Get("EditProfile.SaveButton.Tooltip"));
+            return;
+        }
+
+        var accent = UiSharedService.AccentColor;
+        float luminance = (0.2126f * accent.X) + (0.7152f * accent.Y) + (0.0722f * accent.Z);
+        var textColor = luminance > 0.6f ? UiSharedService.ThemeWindowBg : UiSharedService.ThemeNavTextActive;
+        using (ImRaii.PushColor(ImGuiCol.ButtonHovered, Vector4.Lerp(accent, UiSharedService.ThemeNavTextActive, 0.15f))
+                   .Push(ImGuiCol.ButtonActive, Vector4.Lerp(accent, UiSharedService.ThemeWindowBg, 0.2f))
+                   .Push(ImGuiCol.Text, textColor))
+        {
+            if (_uiSharedService.IconTextButton(FontAwesomeIcon.Save, label, isInPopup: true, buttonColor: accent))
+                SaveProfile(isRp);
+        }
+        UiSharedService.AttachToolTip(Loc.Get("EditProfile.SaveButton.Tooltip"));
+    }
+
+    private void SaveProfile(bool isRp)
+    {
+        if (isRp)
+        {
+            var vanillaFirst = GetVanillaFirstName();
+            if (vanillaFirst != null && !string.IsNullOrEmpty(_rpFirstNameText)
+                && !RpFirstNameContainsVanilla(_rpFirstNameText, vanillaFirst))
+            {
+                Mediator.Publish(new NotificationMessage(Loc.Get("EditProfile.SaveErrorTitle"),
+                    string.Format(Loc.Get("EditProfile.RpFirstNameMismatch"), vanillaFirst), NotificationType.Error));
+                return;
             }
 
-            var charName = _dalamudUtil.GetPlayerName();
-            var worldId = _dalamudUtil.GetHomeWorldId();
-            _moodlesEditor.PersistBackupForCharacter(charName, worldId);
-            var localRpProfile = _rpConfigService.GetCurrentCharacterProfile();
-            var customFieldsJsonSnapshot = System.Text.Json.JsonSerializer.Serialize(_rpCustomFields);
-            var moodlesDataSnapshot = _moodlesEditor.LocalMoodlesJson;
-            // null = bannière inchangée ; chaîne vide = bannière retirée.
-            var bannerSnapshot = isRp && _rpBannerDirty ? Convert.ToBase64String(_rpBannerImage) : null;
+            var profile = _rpConfigService.GetCurrentCharacterProfile();
+            profile.RpDescription = _rpDescriptionText;
+            profile.IsRpNsfw = _rpNsfw;
+            if (_rpPortraitDirty)
+                profile.RpProfilePictureBase64 = Convert.ToBase64String(_rpProfileImage);
+            profile.RpFirstName = _rpFirstNameText;
+            profile.RpLastName = _rpLastNameText;
+            profile.RpTitle = _rpTitleText;
+            profile.RpAge = _rpAgeText;
+            profile.RpRace = _rpRaceText;
+            profile.RpEthnicity = _rpEthnicityText;
+            profile.RpHeight = _rpHeightText;
+            profile.RpBuild = _rpBuildText;
+            profile.RpResidence = _rpResidenceText;
+            profile.RpOccupation = _rpOccupationText;
+            profile.RpAffiliation = _rpAffiliationText;
+            profile.RpAlignment = _rpAlignmentText;
+            profile.RpAdditionalInfo = _rpAdditionalInfoText;
+            profile.RpNameColor = UiSharedService.Vector4ToHex(new Vector4(_rpNameColorVec, 1f));
+            profile.RpCardStyle = _cardStyle.Serialize();
+            profile.RpCustomFields = _rpCustomFields
+                .Select(f => new RpCustomField { Name = f.Name, Value = f.Value, Order = f.Order })
+                .ToList();
+            profile.ChatIcon = _chatIconPicker.SelectedIcon;
+            profile.RpLevel = _rpLevel;
+            profile.RpVisibility = _rpVisibility;
+            _rpConfigService.Save();
+        }
 
-            _ = Task.Run(async () =>
+        var charName = _dalamudUtil.GetPlayerName();
+        var worldId = _dalamudUtil.GetHomeWorldId();
+        _moodlesEditor.PersistBackupForCharacter(charName, worldId);
+        var localRpProfile = _rpConfigService.GetCurrentCharacterProfile();
+        var customFieldsJsonSnapshot = System.Text.Json.JsonSerializer.Serialize(_rpCustomFields);
+        var moodlesDataSnapshot = _moodlesEditor.LocalMoodlesJson;
+        var bannerSnapshot = isRp && _rpBannerDirty ? Convert.ToBase64String(_rpBannerImage) : null;
+        var hrpPortraitSnapshot = !isRp && _hrpPortraitDirty ? Convert.ToBase64String(_profileImage) : null;
+        var rpPortraitSaved = isRp && _rpPortraitDirty;
+        var hrpNsfw = _hrpNsfw;
+
+        _ = Task.Run(async () =>
+        {
+            try
             {
-                try
+                var curProfile = await _apiController.UserGetProfile(new UserDto(new UserData(_apiController.UID, _apiController.DisplayName))).ConfigureAwait(false);
+                if (isRp)
+                    _logger.LogInformation("Saving RP profile for {uid}", _apiController.UID);
+                else
+                    _logger.LogInformation("Saving HRP profile for {uid}, keeping local RP data", _apiController.UID);
+
+                await _apiController.UserSetProfile(new UserProfileDto(
+                    new UserData(_apiController.UID, _apiController.DisplayName),
+                    curProfile.Disabled,
+                    isRp ? curProfile.IsNSFW : hrpNsfw,
+                    hrpPortraitSnapshot ?? curProfile.ProfilePictureBase64,
+                    isRp ? curProfile.Description : _descriptionText)
                 {
-                    var curProfile = await _apiController.UserGetProfile(new UserDto(new UserData(_apiController.UID, _apiController.DisplayName))).ConfigureAwait(false);
-                    if (isRp)
-                        _logger.LogInformation("Saving RP profile for {uid}", _apiController.UID);
-                    else
-                        _logger.LogInformation("Saving HRP profile for {uid}, keeping local RP data", _apiController.UID);
+                    CharacterName = charName,
+                    WorldId = worldId,
+                    RpProfilePictureBase64 = localRpProfile.RpProfilePictureBase64,
+                    RpDescription = localRpProfile.RpDescription,
+                    IsRpNSFW = localRpProfile.IsRpNsfw,
+                    RpFirstName = localRpProfile.RpFirstName,
+                    RpLastName = localRpProfile.RpLastName,
+                    RpTitle = localRpProfile.RpTitle,
+                    RpAge = localRpProfile.RpAge,
+                    RpRace = localRpProfile.RpRace,
+                    RpEthnicity = localRpProfile.RpEthnicity,
+                    RpHeight = localRpProfile.RpHeight,
+                    RpBuild = localRpProfile.RpBuild,
+                    RpResidence = localRpProfile.RpResidence,
+                    RpOccupation = localRpProfile.RpOccupation,
+                    RpAffiliation = localRpProfile.RpAffiliation,
+                    RpAlignment = localRpProfile.RpAlignment,
+                    RpAdditionalInfo = localRpProfile.RpAdditionalInfo,
+                    RpNameColor = localRpProfile.RpNameColor,
+                    RpCardStyle = localRpProfile.RpCardStyle,
+                    RpCustomFields = customFieldsJsonSnapshot,
+                    MoodlesData = moodlesDataSnapshot,
+                    ChatIcon = isRp ? localRpProfile.ChatIcon : null,
+                    RpLevel = isRp ? localRpProfile.RpLevel : null,
+                    RpVisibility = isRp ? localRpProfile.RpVisibility : null,
+                    RpBannerBase64 = bannerSnapshot
+                }).ConfigureAwait(false);
 
-                    await _apiController.UserSetProfile(new UserProfileDto(
-                        new UserData(_apiController.UID, _apiController.DisplayName),
-                        curProfile.Disabled,
-                        isRp ? curProfile.IsNSFW : _apiController.IsProfileNsfw,
-                        curProfile.ProfilePictureBase64,
-                        isRp ? curProfile.Description : _descriptionText)
-                    {
-                        CharacterName = charName,
-                        WorldId = worldId,
-                        RpProfilePictureBase64 = localRpProfile.RpProfilePictureBase64,
-                        RpDescription = localRpProfile.RpDescription,
-                        IsRpNSFW = localRpProfile.IsRpNsfw,
-                        RpFirstName = localRpProfile.RpFirstName,
-                        RpLastName = localRpProfile.RpLastName,
-                        RpTitle = localRpProfile.RpTitle,
-                        RpAge = localRpProfile.RpAge,
-                        RpRace = localRpProfile.RpRace,
-                        RpEthnicity = localRpProfile.RpEthnicity,
-                        RpHeight = localRpProfile.RpHeight,
-                        RpBuild = localRpProfile.RpBuild,
-                        RpResidence = localRpProfile.RpResidence,
-                        RpOccupation = localRpProfile.RpOccupation,
-                        RpAffiliation = localRpProfile.RpAffiliation,
-                        RpAlignment = localRpProfile.RpAlignment,
-                        RpAdditionalInfo = localRpProfile.RpAdditionalInfo,
-                        RpNameColor = localRpProfile.RpNameColor,
-                        RpCustomFields = customFieldsJsonSnapshot,
-                        MoodlesData = moodlesDataSnapshot,
-                        ChatIcon = isRp ? localRpProfile.ChatIcon : null,
-                        RpLevel = isRp ? localRpProfile.RpLevel : null,
-                        RpVisibility = isRp ? localRpProfile.RpVisibility : null,
-                        RpBannerBase64 = bannerSnapshot
-                    }).ConfigureAwait(false);
+                if (bannerSnapshot != null) _rpBannerDirty = false;
+                if (rpPortraitSaved) _rpPortraitDirty = false;
+                if (hrpPortraitSnapshot != null) _hrpPortraitDirty = false;
+                Mediator.Publish(new ClearProfileDataMessage(new UserData(_apiController.UID), charName, worldId));
+                Mediator.Publish(new NotificationMessage(Loc.Get("EditProfile.SaveSuccessTitle"), Loc.Get("EditProfile.SaveSuccessBody"), NotificationType.Success));
+                SnapshotSavedState(isRp, customFieldsJsonSnapshot);
 
-                    if (bannerSnapshot != null) _rpBannerDirty = false;
-                    Mediator.Publish(new ClearProfileDataMessage(new UserData(_apiController.UID), charName, worldId));
-                    Mediator.Publish(new NotificationMessage(Loc.Get("EditProfile.SaveSuccessTitle"), Loc.Get("EditProfile.SaveSuccessBody"), NotificationType.Success));
-                    SnapshotSavedState(isRp, customFieldsJsonSnapshot);
-
-                    // Apply Honorific title if changed
-                    if (isRp && _ipcManager.Honorific.APIAvailable)
-                        _ = _honorificEditor.ApplyAsync();
-                    _saveConfirmTime = DateTime.UtcNow;
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Failed to save profile");
-                    Mediator.Publish(new NotificationMessage(Loc.Get("EditProfile.SaveErrorTitle"), Loc.Get("EditProfile.SaveErrorBody"), NotificationType.Error));
-                    _notificationTracker.Upsert(NotificationEntry.ProfileSaveFailed());
-                }
-            });
-        }
-
-        // Status message next to save button
-        ImGui.SameLine();
-        if ((DateTime.UtcNow - _saveConfirmTime).TotalSeconds < 4)
-        {
-            ImGui.TextColored(ImGuiColors.HealerGreen, Loc.Get("EditProfile.SaveConfirm"));
-        }
-        else if (HasUnsavedChanges(isRp))
-        {
-            ImGui.TextColored(new Vector4(0.85f, 0.75f, 0.20f, 1f), Loc.Get("EditProfile.UnsavedChanges"));
-        }
+                // Apply Honorific title if changed
+                if (isRp && _ipcManager.Honorific.APIAvailable)
+                    _ = _honorificEditor.ApplyAsync();
+                _saveConfirmTime = DateTime.UtcNow;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to save profile");
+                Mediator.Publish(new NotificationMessage(Loc.Get("EditProfile.SaveErrorTitle"), Loc.Get("EditProfile.SaveErrorBody"), NotificationType.Error));
+                _notificationTracker.Upsert(NotificationEntry.ProfileSaveFailed());
+            }
+        });
     }
 
     private void SnapshotSavedState(bool isRp, string? customFieldsJson = null)
@@ -1319,6 +1605,8 @@ public class EditProfileUi : WindowMediatorSubscriberBase
             _savedRpAlignmentText = _rpAlignmentText;
             _savedRpAdditionalInfoText = _rpAdditionalInfoText;
             _savedRpNameColorHex = UiSharedService.Vector4ToHex(new Vector4(_rpNameColorVec, 1f));
+            _savedRpNsfw = _rpNsfw;
+            _savedCardStyle = _cardStyle;
             if (customFieldsJson != null)
             {
                 _savedRpCustomFieldsJson = customFieldsJson;
@@ -1335,6 +1623,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
         else
         {
             _savedDescriptionText = _descriptionText;
+            _savedHrpNsfw = _hrpNsfw;
         }
     }
 
@@ -1356,6 +1645,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
                 || !string.Equals(_rpAlignmentText, _savedRpAlignmentText, StringComparison.Ordinal)
                 || !string.Equals(_rpAdditionalInfoText, _savedRpAdditionalInfoText, StringComparison.Ordinal)
                 || !string.Equals(UiSharedService.Vector4ToHex(new Vector4(_rpNameColorVec, 1f)), _savedRpNameColorHex, StringComparison.Ordinal)
+                || !_cardStyle.Equals(_savedCardStyle)
                 || !string.Equals(
                     System.Text.Json.JsonSerializer.Serialize(_rpCustomFields),
                     _savedRpCustomFieldsJson, StringComparison.Ordinal)
@@ -1363,11 +1653,15 @@ public class EditProfileUi : WindowMediatorSubscriberBase
                 || _chatIconPicker.HasUnsavedChanges
                 || _rpLevel != _savedRpLevel
                 || _rpVisibility != _savedRpVisibility
-                || _rpBannerDirty;
+                || _rpBannerDirty
+                || _rpNsfw != _savedRpNsfw
+                || _rpPortraitDirty;
         }
         else
         {
-            return !string.Equals(_descriptionText, _savedDescriptionText, StringComparison.Ordinal);
+            return !string.Equals(_descriptionText, _savedDescriptionText, StringComparison.Ordinal)
+                || _hrpNsfw != _savedHrpNsfw
+                || _hrpPortraitDirty;
         }
     }
 
@@ -1387,27 +1681,6 @@ public class EditProfileUi : WindowMediatorSubscriberBase
                 return true;
         }
         return false;
-    }
-
-    private async Task SubmitVanityAsync(string input)
-    {
-        try
-        {
-            await _apiController.UserSetAlias(string.IsNullOrWhiteSpace(input) ? null : input).ConfigureAwait(false);
-            Mediator.Publish(new NotificationMessage(Loc.Get("EditProfile.SetCustomId.SentTitle"), Loc.Get("EditProfile.SetCustomId.SentBody"), NotificationType.Success));
-        }
-        catch (Exception ex)
-        {
-            var fullMessage = ex.InnerException?.Message ?? ex.Message;
-            var errorBody = fullMessage.Contains("DbUpdateException", StringComparison.OrdinalIgnoreCase)
-                ? Loc.Get("EditProfile.SetCustomId.ErrorAlreadyTaken")
-                : Loc.Get("EditProfile.SetCustomId.ErrorBody");
-            Mediator.Publish(new NotificationMessage(Loc.Get("EditProfile.SetCustomId.ErrorTitle"), errorBody, NotificationType.Error));
-        }
-        finally
-        {
-            _vanityModalOpen = false;
-        }
     }
 
     private void DrawRpLevelSelector()

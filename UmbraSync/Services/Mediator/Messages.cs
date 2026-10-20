@@ -89,6 +89,7 @@ public record ProfilePopoutToggle(Pair? Pair) : MessageBase;
 public record CompactUiChange(Vector2 Size, Vector2 Position) : MessageBase;
 public record TargetProfilePreviewMessage(UmbraProfileData? Profile) : MessageBase;
 public record ProfileOpenStandaloneMessage(Pair Pair, string? CharName = null, uint? WorldId = null) : MessageBase;
+public record ProfileCloseStandaloneMessage(string Uid) : MessageBase;
 public record RemoveWindowMessage(WindowMediatorSubscriberBase Window) : MessageBase;
 public record PlayerVisibilityMessage(string Ident, bool IsVisible, bool Invalidate = false) : KeyedMessage(Ident, SameThread: true);
 public record GlamourerResetMessage(nint Address) : MessageBase;
@@ -187,8 +188,6 @@ public record RgpdDataExportReadyMessage(string? ExportPath) : MessageBase;
 public record RgpdLocalDataDeletionRequestMessage : MessageBase;
 public record RgpdLocalDataDeletionCompleteMessage : MessageBase;
 public record SwitchToRgpdConsentUiMessage : MessageBase;
-// ServicesPending : MarePlugin n'a pas lancé les services (consentement manquant) ; le tour doit publier
-// SwitchToMainUiMessage une fois le consentement donné et la connexion établie.
 public record SwitchToWhatsNewUiMessage(bool ServicesPending) : MessageBase;
 public record EstablishmentEnteredMessage(UmbraSync.API.Dto.Establishment.EstablishmentDto Establishment) : MessageBase;
 public record EstablishmentLeftMessage : MessageBase;

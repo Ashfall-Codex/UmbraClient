@@ -87,6 +87,19 @@ public class PopoutProfileUi : WindowMediatorSubscriberBase
         IsOpen = false;
     }
 
+    public override void PreDraw()
+    {
+        var pair = _pair;
+        UiSharedService.BeginProfileAccent(pair == null ? null : _umbraProfileManager.GetUmbraProfile(pair.UserData).CardStyle.Value.AccentColor);
+        base.PreDraw();
+    }
+
+    public override void PostDraw()
+    {
+        base.PostDraw();
+        UiSharedService.EndProfileAccent();
+    }
+
     protected override void DrawInternal()
     {
         if (_pair == null) return;
