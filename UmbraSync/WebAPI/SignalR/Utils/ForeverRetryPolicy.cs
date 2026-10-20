@@ -2,6 +2,7 @@
 using UmbraSync.MareConfiguration.Models;
 using UmbraSync.Services.Mediator;
 using UmbraSync.Services.Notification;
+using UmbraSync.Localization;
 
 namespace UmbraSync.WebAPI.SignalR.Utils;
 
@@ -31,7 +32,7 @@ public class ForeverRetryPolicy : IRetryPolicy
         {
             if (!_sentDisconnected)
             {
-                _mediator.Publish(new NotificationMessage("Connection lost", "Connection lost to server", NotificationType.Warning, TimeSpan.FromSeconds(10)));
+                _mediator.Publish(new NotificationMessage(Loc.Get("Notification.Connection.Lost.Title"), Loc.Get("Notification.Connection.Lost.Body"), NotificationType.Warning, TimeSpan.FromSeconds(10)));
                 _notificationTracker.Upsert(NotificationEntry.ConnectionLost());
                 _mediator.Publish(new DisconnectedMessage());
             }

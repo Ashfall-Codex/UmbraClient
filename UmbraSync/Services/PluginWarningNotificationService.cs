@@ -8,6 +8,7 @@ using UmbraSync.PlayerData.Pairs;
 using UmbraSync.Services.Mediator;
 using UmbraSync.Services.Notification;
 using PlayerChanges = UmbraSync.PlayerData.Data.PlayerChanges;
+using UmbraSync.Localization;
 
 namespace UmbraSync.Services;
 
@@ -74,8 +75,8 @@ public class PluginWarningNotificationService
 
         if (missingPluginsForData.Any())
         {
-            _mediator.Publish(new NotificationMessage("Missing plugins for " + playerName,
-                $"Received data for {playerName} that contained information for plugins you have not installed. Install {string.Join(", ", missingPluginsForData)} to experience their character fully.",
+            _mediator.Publish(new NotificationMessage(Loc.Get("Notification.PluginIntegration.MissingPlugins.Title", playerName),
+                Loc.Get("Notification.PluginIntegration.MissingPlugins.Body", string.Join(", ", missingPluginsForData)),
                 NotificationType.Warning, TimeSpan.FromSeconds(10)));
             _notificationTracker.Upsert(NotificationEntry.MissingPlugins(playerName, missingPluginsForData));
         }

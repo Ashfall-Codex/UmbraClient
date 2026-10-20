@@ -332,6 +332,21 @@
   <data name="CompactUi.General.ConnectToServerNotice" xml:space="preserve">
     <value>Connect to the server to access this section.</value>
   </data>
+  <data name="CompactUi.Connecting.Title" xml:space="preserve">
+    <value>Connecting to {0}...</value>
+  </data>
+  <data name="CompactUi.Connecting.Reconnect" xml:space="preserve">
+    <value>Reconnecting to {0}...</value>
+  </data>
+  <data name="CompactUi.Connecting.Slow" xml:space="preserve">
+    <value>This is taking longer than expected. Check your internet connection: UmbraSync keeps trying.</value>
+  </data>
+  <data name="CompactUi.Connecting.Cancel" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="CompactUi.Connecting.Cancel.Tooltip" xml:space="preserve">
+    <value>Stops connecting. You can start again with the connection button at the top of the sidebar.</value>
+  </data>
   <data name="CompactUi.IntroUi.Agreement.AccountRemoval" xml:space="preserve">
     <value>Inactive accounts are deleted after 90 days for storage and privacy reasons.</value>
   </data>
@@ -633,6 +648,54 @@ Please keep a copy of your secret key in case you need to reset your plugins, or
   <data name="CompactUi.SelfAnalysis.UncomputedWarning" xml:space="preserve">
     <value>Some entries do not have a calculated size yet. Run the analysis to complete the data.</value>
   </data>
+  <data name="CompactUi.Status.Disconnected.Title" xml:space="preserve">
+    <value>Disconnected from {0}</value>
+  </data>
+  <data name="CompactUi.Status.Disconnected.Paused" xml:space="preserve">
+    <value>Sync is paused. Connect to get your pairs and their appearances back.</value>
+  </data>
+  <data name="CompactUi.Status.Disconnected.Interrupted" xml:space="preserve">
+    <value>The connection to the server was interrupted.</value>
+  </data>
+  <data name="CompactUi.Status.Disconnected.Consent" xml:space="preserve">
+    <value>Your agreement to data processing is required before connecting.</value>
+  </data>
+  <data name="CompactUi.Status.Consent" xml:space="preserve">
+    <value>Give my agreement</value>
+  </data>
+  <data name="CompactUi.Status.Disconnecting.Title" xml:space="preserve">
+    <value>Disconnecting from {0}...</value>
+  </data>
+  <data name="CompactUi.Status.Connect" xml:space="preserve">
+    <value>Connect</value>
+  </data>
+  <data name="CompactUi.Status.Retry" xml:space="preserve">
+    <value>Try again</value>
+  </data>
+  <data name="CompactUi.Status.LoggedOut.Title" xml:space="preserve">
+    <value>No character logged in</value>
+  </data>
+  <data name="CompactUi.Status.LoggedOut.Body" xml:space="preserve">
+    <value>UmbraSync will connect as soon as you are in game with a character.</value>
+  </data>
+  <data name="CompactUi.Status.Offline.Title" xml:space="preserve">
+    <value>Server unreachable</value>
+  </data>
+  <data name="CompactUi.Status.Unauthorized.Title" xml:space="preserve">
+    <value>Connection refused</value>
+  </data>
+  <data name="CompactUi.Status.Unauthorized.Body" xml:space="preserve">
+    <value>The server refused the connection.</value>
+  </data>
+  <data name="CompactUi.Status.VersionMismatch.Title" xml:space="preserve">
+    <value>Update required</value>
+  </data>
+  <data name="CompactUi.Status.RateLimited.Title" xml:space="preserve">
+    <value>Too many attempts</value>
+  </data>
+  <data name="CompactUi.Status.MultiChara.Title" xml:space="preserve">
+    <value>Duplicate character</value>
+  </data>
   <data name="CompactUi.ServerErrors.AttemptingToConnect" xml:space="preserve">
     <value>Attempting to connect to the server.</value>
   </data>
@@ -643,7 +706,7 @@ Please keep a copy of your secret key in case you need to reset your plugins, or
     <value>Disconnecting from the server</value>
   </data>
   <data name="CompactUi.ServerErrors.MultiChara" xml:space="preserve">
-    <value>Your configuration contains multiple characters with the same name and world. You cannot connect until this is fixed. Remove duplicates in Settings → Service Settings → Character Management.</value>
+    <value>Your configuration contains multiple characters with the same name and world. You cannot connect until this is fixed. Remove duplicates in Settings → Account → Character assignments.</value>
   </data>
   <data name="CompactUi.ServerErrors.NoSecretKey" xml:space="preserve">
     <value>You have no secret key set for this character. Use the button below or open settings to set one. You can reuse the same secret key across characters.</value>
@@ -4409,6 +4472,45 @@ Note: Weapons will not be displayed correctly unless using the same job as the s
   </data>
 
   <!-- Connection Notifications -->
+  <data name="Notification.Chat.ErrorPrefix" xml:space="preserve">
+    <value>Error: </value>
+  </data>
+  <data name="Notification.Chat.InfoPrefix" xml:space="preserve">
+    <value>Info: </value>
+  </data>
+  <data name="Notification.Chat.WarningPrefix" xml:space="preserve">
+    <value>Warning: </value>
+  </data>
+  <data name="Notification.Toggle.Disconnecting.Title" xml:space="preserve">
+    <value>Disconnecting</value>
+  </data>
+  <data name="Notification.Toggle.Disconnecting.Body" xml:space="preserve">
+    <value>You cannot use /usync toggle while UmbraSync is still disconnecting. Wait a few seconds.</value>
+  </data>
+  <data name="Notification.PairOnline.Title" xml:space="preserve">
+    <value>Pair online</value>
+  </data>
+  <data name="Notification.PairOnline.Body" xml:space="preserve">
+    <value>{0} is now online</value>
+  </data>
+  <data name="Notification.InvalidSkeleton.Title" xml:space="preserve">
+    <value>Invalid skeleton setup</value>
+  </data>
+  <data name="Notification.InvalidSkeleton.Body" xml:space="preserve">
+    <value>{0} animation files contain invalid bone data and were removed from your sent data. Check that you are using the correct skeleton for those animations (details in /xllog).</value>
+  </data>
+  <data name="Notification.PenumbraMissing.Title" xml:space="preserve">
+    <value>Penumbra not connected</value>
+  </data>
+  <data name="Notification.PenumbraMissing.Body" xml:space="preserve">
+    <value>Could not load the local file cache: Penumbra is not enabled or not set up. Enable and configure Penumbra, then reload UmbraSync from the plugin installer.</value>
+  </data>
+  <data name="Notification.AbnormalLogLevel.Title" xml:space="preserve">
+    <value>Abnormal log level</value>
+  </data>
+  <data name="Notification.AbnormalLogLevel.Body" xml:space="preserve">
+    <value>Your log level is set to '{0}', which is not recommended for normal use. Unless instructed otherwise, set it back to '{1}' in Settings → Advanced → Debug.</value>
+  </data>
   <data name="Notification.Connection.Lost.Title" xml:space="preserve">
     <value>Connection Lost</value>
   </data>

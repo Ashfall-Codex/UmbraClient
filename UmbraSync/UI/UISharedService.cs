@@ -822,6 +822,29 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
         drawList.AddCircle(center, 5f + pulse * 2f, Color(200, 160, 255, 75), 48, 2f);
     }
 
+   public static void DrawSpinner(Vector2 center, float radius, Vector4 color)
+    {
+        const int spokes = 8;
+        var drawList = ImGui.GetWindowDrawList();
+        int head = (int)(ImGui.GetTime() * spokes) % spokes;
+        float inner = radius * 0.45f;
+        float thickness = MathF.Max(1.5f, radius * 0.24f);
+        var background = ThemeWindowBg with { W = 1f };
+        for (int i = 0; i < spokes; i++)
+        {
+            float angle = (i / (float)spokes * MathF.Tau) - (MathF.PI / 2f);
+            var direction = new Vector2(MathF.Cos(angle), MathF.Sin(angle));
+            int age = ((head - i) + spokes) % spokes;
+            float intensity = 1f - (age / (float)spokes * 0.8f);
+            uint spokeColor = ImGui.GetColorU32(Vector4.Lerp(background, color with { W = 1f }, intensity));
+            var start = center + (direction * inner);
+            var end = center + (direction * radius);
+            drawList.AddLine(start, end, spokeColor, thickness);
+            drawList.AddCircleFilled(start, thickness / 2f, spokeColor, 8);
+            drawList.AddCircleFilled(end, thickness / 2f, spokeColor, 8);
+        }
+    }
+
     public static bool CtrlPressed() => (GetKeyState(0xA2) & 0x8000) != 0 || (GetKeyState(0xA3) & 0x8000) != 0;
 
     public static bool TryConsumeUiTask<T>(ref Task<T>? task, ILogger? logger, out T? result)
