@@ -18,7 +18,7 @@ namespace UmbraSync.UI.Components;
 
 public class DrawUserPair : DrawPairBase
 {
-    private static readonly Vector4 Violet = new(0.63f, 0.25f, 1f, 1f);
+    private static Vector4 Violet => UiSharedService.ThemePresence;
     protected readonly MareMediator _mediator;
     private readonly SelectGroupForPairUi _selectGroupForPairUi;
     private readonly CharaDataManager _charaDataManager;

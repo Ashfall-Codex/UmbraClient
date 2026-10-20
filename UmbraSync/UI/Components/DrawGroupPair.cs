@@ -156,7 +156,7 @@ public class DrawGroupPair : DrawPairBase
         var entryIsOwner = string.Equals(_pair.UserData.UID, _group.OwnerUID, StringComparison.Ordinal);
         var entryIsPinned = _fullInfoDto.GroupPairStatusInfo.IsPinned();
         var presenceIcon = _pair.IsVisible ? FontAwesomeIcon.Eye : FontAwesomeIcon.CloudMoon;
-        var presenceColor = (_pair.IsOnline || _pair.IsVisible) ? new Vector4(0.63f, 0.25f, 1f, 1f) : ImGuiColors.DalamudGrey;
+        var presenceColor = (_pair.IsOnline || _pair.IsVisible) ? UiSharedService.ThemePresence : ImGuiColors.DalamudGrey;
         var presenceText = string.Format(CultureInfo.CurrentCulture, Loc.Get("GroupPair.Offline"), entryUID);
 
         ImGui.SetCursorPosY(textPosY);
@@ -176,7 +176,7 @@ public class DrawGroupPair : DrawPairBase
         else
         {
             bool individuallyPaired = _pair.UserPair != null;
-            var violet = new Vector4(0.63f, 0.25f, 1f, 1f);
+            var violet = UiSharedService.ThemePresence;
             if (individuallyPaired && (_pair.IsOnline || _pair.IsVisible))
             {
                 ImGui.PushFont(UiBuilder.IconFont);

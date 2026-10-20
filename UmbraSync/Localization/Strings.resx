@@ -5223,6 +5223,24 @@ Note: Weapons will not be displayed correctly unless using the same job as the s
   <data name="Settings.Advanced.SerialApply.Help" xml:space="preserve">
     <value>Experimental - May reduce issues in crowded areas</value>
   </data>
+  <data name="Settings.Advanced.DevServer.Title" xml:space="preserve">
+    <value>Server (dev mode)</value>
+  </data>
+  <data name="Settings.Advanced.DevServer.Warning" xml:space="preserve">
+    <value>Connecting to another server disconnects you from production. Pairs, notes and tags are specific to each server.</value>
+  </data>
+  <data name="Settings.Advanced.Server.Select" xml:space="preserve">
+    <value>Service</value>
+  </data>
+  <data name="Settings.Advanced.Server.CurrentEntry" xml:space="preserve">
+    <value>{0} [Current]</value>
+  </data>
+  <data name="Settings.Advanced.Server.Connect" xml:space="preserve">
+    <value>Connect</value>
+  </data>
+  <data name="Settings.Advanced.Server.Reconnect" xml:space="preserve">
+    <value>Reconnect</value>
+  </data>
   <data name="Settings.Advanced.CharaData" xml:space="preserve">
     <value>Character Data</value>
   </data>

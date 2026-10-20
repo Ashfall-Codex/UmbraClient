@@ -91,7 +91,7 @@ public sealed class BbCodeToolbar
     {
         if (!ImGui.BeginPopup("bbcode_help_popup")) return;
 
-        ImGui.TextColored(new Vector4(0.59f, 0.27f, 0.90f, 1f), "Formatage BBCode");
+        ImGui.TextColored(UiSharedService.AccentColor, "Formatage BBCode");
         ImGui.Separator();
         ImGui.Spacing();
 

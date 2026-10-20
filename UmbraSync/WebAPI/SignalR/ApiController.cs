@@ -23,8 +23,10 @@ namespace UmbraSync.WebAPI.SignalR;
 #pragma warning disable MA0040
 public sealed partial class ApiController : DisposableMediatorSubscriberBase, IMareHubClient
 {
-    public const string UmbraServer = "UmbraSync Main Server";
+    public const string UmbraServer = "UmbraSync";
     public const string UmbraServiceUri = "wss://umbra-sync.net/";
+    public const string UmbraDevServer = "UmbraSync Dev";
+    public const string UmbraDevServiceUri = "ws://srv02-atrama/";
     public const string UmbraServiceApiUri = "wss://umbra-sync.net/";
     public const string UmbraServiceHubUri = "wss://umbra-sync.net/mare";
 

@@ -1814,7 +1814,7 @@ internal sealed class GroupPanel
         var dirExpanded = _favoriteMembersExpanded[dirKey];
         DrawMembersSectionHeader(
             string.Format(CultureInfo.CurrentCulture, Loc.Get("Syncshell.Members.DirectPairsSection"), directPairs.Count),
-            new Vector4(0.63f, 0.25f, 1f, 1f),
+            UiSharedService.ThemePresence,
             ref dirExpanded,
             $"##{subPrefix}-direct-{gid}");
         _favoriteMembersExpanded[dirKey] = dirExpanded;
