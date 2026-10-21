@@ -1,0 +1,39 @@
+<Project>
+  <!--
+    Réglages locaux pour les projets des submodules externes (Pictomancy, Penumbra.Api,
+    Glamourer.Api, OtterGui). On les consomme par ProjectReference, jamais par leur nupkg.
+
+    - GeneratePackageOnBuild : Pictomancy produit un paquet NuGet à chaque build. Inutile ici,
+      et le pack est la source documentée du NU1012 quand la version de plateforme du TFM
+      (net10.0-windows -> 7.0) n'est pas résolue, ce que fait le moteur de build de Rider.
+    - RestoreLockedMode : le Directory.Build.props de la racine l'active pour tout l'arbre,
+      submodules compris. Leurs lock files ne nous appartiennent pas ; en mode verrouillé, le
+      moindre écart de TFM devient un NU1004 fatal.
+  -->
+  <PropertyGroup Condition="$(MSBuildProjectDirectory.Contains('ffxiv_pictomancy'))
+                            or $(MSBuildProjectDirectory.Contains('Penumbra.Api'))
+                            or $(MSBuildProjectDirectory.Contains('Glamourer.Api'))
+                            or $(MSBuildProjectDirectory.Contains('OtterGui'))">
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+    <RestoreLockedMode>false</RestoreLockedMode>
+  </PropertyGroup>
+
+  <!--
+    Filet pour NU1012 : la CLI déduit seule la version de plateforme du TFM (net10.0-windows
+    -> Windows 7.0), le moteur de build de Rider la laisse vide et NuGet refuse le projet.
+    Sans effet en ligne de commande, où la propriété vaut déjà 7.0 à ce stade.
+  -->
+  <PropertyGroup Condition="'$(TargetPlatformVersion)' == '' and $(TargetFramework.Contains('-windows'))">
+    <TargetPlatformVersion>7.0</TargetPlatformVersion>
+    <TargetPlatformMoniker Condition="'$(TargetPlatformMoniker)' == ''">Windows,Version=7.0</TargetPlatformMoniker>
+  </PropertyGroup>
+
+  <!--
+    Dalamud 15.0.3.8 (#3015) ajoute Dalamud.Interface.Utility.Rectangle. Pictomancy importe aussi
+    System.Drawing : « Rectangle » devient ambigu (CS0104 dans PctDrawList.cs). L'alias global
+    tranche pour System.Drawing sans toucher au submodule. À retirer quand Pictomancy aura corrigé.
+  -->
+  <ItemGroup Condition="$(MSBuildProjectDirectory.Contains('ffxiv_pictomancy'))">
+    <Using Include="System.Drawing.Rectangle" Alias="Rectangle" />
+  </ItemGroup>
+</Project>

@@ -21,7 +21,6 @@ UmbraServer_extracted/
 NuGet.config
 Directory.Build.props
 Directory.Build.props.disabled
-Directory.Build.targets
 
 # Projet de tests local (hors dépôt)
 UmbraSync.Tests/
