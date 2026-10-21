@@ -368,3 +368,6 @@ MigrationBackup/
 # Ionide (cross platform F# VS Code tools) working folder
 .ionide/
 UmbraServer
+
+# Script de release local (hors dépôt)
+release.sh

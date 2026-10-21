@@ -1,0 +1,99 @@
+name: Publication d'une release
+
+# Déclenché par un tag signé vX.Y.Z poussé sur un commit de main.
+# Le zip est compilé ici à partir du tag : la release ne dépend d'aucun fichier local.
+# Le dépôt de plugins récupère ensuite latest.zip depuis la release.
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Compilation et publication
+    runs-on: ubuntu-latest
+    env:
+      DOTNET_NOLOGO: true
+      DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+      DOTNET_CLI_TELEMETRY_OPTOUT: true
+      PACKAGE: UmbraSync/bin/x64/Release/UmbraSync/latest.zip
+      MANIFEST: UmbraSync/bin/x64/Release/UmbraSync/UmbraSync.json
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Le tag doit pointer sur un commit de main
+        run: |
+          git fetch -q origin main
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main \
+            || { echo "::error::$GITHUB_REF_NAME ne pointe pas sur un commit de main"; exit 1; }
+
+      - name: Initialisation des submodules
+        run: |
+          git -c "url.https://github.com/.insteadOf=https://x-access-token:${{ github.token }}@github.com/" \
+              submodule update --init --recursive
+
+      - name: Configuration .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      # Canal stable de Dalamud, celui des joueurs (la CI de build.yml utilise staging pour voir venir)
+      - name: Préparation de l'environnement Dalamud
+        run: |
+          DALAMUD_PATH="$HOME/.xlcore/dalamud/Hooks/dev"
+          mkdir -p "$DALAMUD_PATH"
+          curl -fsSL https://goatcorp.github.io/dalamud-distrib/latest.zip -o dalamud.zip
+          unzip -q -o dalamud.zip -d "$DALAMUD_PATH"
+          rm -f dalamud.zip
+
+      - name: Restauration des dépendances
+        run: dotnet restore UmbraSync.sln --locked-mode
+
+      - name: Compilation
+        run: dotnet build UmbraSync.sln --no-restore --configuration Release --nologo -p:ContinuousIntegrationBuild=true
+
+      - name: Vérification du paquet et du patchnote
+        id: check
+        run: |
+          test -f "$PACKAGE" || { echo "::error::$PACKAGE absent"; exit 1; }
+          entries=$(unzip -Z1 "$PACKAGE")
+          for f in UmbraSync.json UmbraSync.dll; do
+            grep -Fxq "$f" <<< "$entries" || { echo "::error::$f absent de latest.zip"; exit 1; }
+          done
+
+          version=$(unzip -p "$PACKAGE" UmbraSync.json | jq -er '.AssemblyVersion')
+          [ "$version" = "$(jq -er '.AssemblyVersion' "$MANIFEST")" ] \
+            || { echo "::error::le manifeste du zip et celui du build diffèrent"; exit 1; }
+          short=$(cut -d. -f1-3 <<< "$version")
+          [ "v$short" = "$GITHUB_REF_NAME" ] \
+            || { echo "::error::le tag $GITHUB_REF_NAME ne correspond pas à la version compilée $version"; exit 1; }
+
+          notes="release-notes/$short.md"
+          test -f "$notes" || { echo "::error::$notes absent du commit tagué"; exit 1; }
+          grep -q "$version" "$notes" || { echo "::error::$notes ne mentionne pas le build $version"; exit 1; }
+          if grep -q '{' "$notes"; then echo "::error::$notes contient encore des champs {…}"; exit 1; fi
+
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "short=$short" >> "$GITHUB_OUTPUT"
+          echo "notes=$notes" >> "$GITHUB_OUTPUT"
+          echo "Build $version, API Dalamud $(jq -r '.DalamudApiLevel' "$MANIFEST"), $(du -h "$PACKAGE" | cut -f1)"
+
+      - name: Publication sur GitHub
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" "$PACKAGE" \
+            --verify-tag \
+            --title "V${{ steps.check.outputs.short }}" \
+            --notes-file "${{ steps.check.outputs.notes }}" \
+            --latest
