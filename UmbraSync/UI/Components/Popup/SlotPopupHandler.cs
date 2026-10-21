@@ -45,7 +45,7 @@ public class SlotPopupHandler : IPopupHandler
     {
         if (_slotInfo == null) return;
 
-        var titleColor = new Vector4(0.75f, 0.5f, 1.0f, 1.0f);
+        var titleColor = UiSharedService.ThemeAccentSoft;
         ImGui.PushStyleVar(ImGuiStyleVar.ItemSpacing, new Vector2(0, 8));
         var originalFontScale = ImGui.GetFont().Scale;
         ImGui.SetWindowFontScale(1.3f);
@@ -58,7 +58,7 @@ public class SlotPopupHandler : IPopupHandler
         var cursorScreenPos = ImGui.GetCursorScreenPos();
         var rectTopLeft = new Vector2(cursorScreenPos.X + rectPosX, cursorScreenPos.Y);
         var rectBottomRight = new Vector2(rectTopLeft.X + rectSize.X, rectTopLeft.Y + rectSize.Y);
-        var rectColor = ImGui.GetColorU32(new Vector4(0.75f, 0.5f, 1.0f, 1.0f)); // Violet opaque
+        var rectColor = ImGui.GetColorU32(UiSharedService.ThemeAccentSoft);
 
         ImGui.GetWindowDrawList().AddRect(rectTopLeft, rectBottomRight, rectColor, 8.0f, ImDrawFlags.None, 2.5f);
 

@@ -332,6 +332,21 @@
   <data name="CompactUi.General.ConnectToServerNotice" xml:space="preserve">
     <value>Connect to the server to access this section.</value>
   </data>
+  <data name="CompactUi.Connecting.Title" xml:space="preserve">
+    <value>Connecting to {0}...</value>
+  </data>
+  <data name="CompactUi.Connecting.Reconnect" xml:space="preserve">
+    <value>Reconnecting to {0}...</value>
+  </data>
+  <data name="CompactUi.Connecting.Slow" xml:space="preserve">
+    <value>This is taking longer than expected. Check your internet connection: UmbraSync keeps trying.</value>
+  </data>
+  <data name="CompactUi.Connecting.Cancel" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="CompactUi.Connecting.Cancel.Tooltip" xml:space="preserve">
+    <value>Stops connecting. You can start again with the connection button at the top of the sidebar.</value>
+  </data>
   <data name="CompactUi.IntroUi.Agreement.AccountRemoval" xml:space="preserve">
     <value>Inactive accounts are deleted after 90 days for storage and privacy reasons.</value>
   </data>
@@ -633,6 +648,54 @@ Please keep a copy of your secret key in case you need to reset your plugins, or
   <data name="CompactUi.SelfAnalysis.UncomputedWarning" xml:space="preserve">
     <value>Some entries do not have a calculated size yet. Run the analysis to complete the data.</value>
   </data>
+  <data name="CompactUi.Status.Disconnected.Title" xml:space="preserve">
+    <value>Disconnected from {0}</value>
+  </data>
+  <data name="CompactUi.Status.Disconnected.Paused" xml:space="preserve">
+    <value>Sync is paused. Connect to get your pairs and their appearances back.</value>
+  </data>
+  <data name="CompactUi.Status.Disconnected.Interrupted" xml:space="preserve">
+    <value>The connection to the server was interrupted.</value>
+  </data>
+  <data name="CompactUi.Status.Disconnected.Consent" xml:space="preserve">
+    <value>Your agreement to data processing is required before connecting.</value>
+  </data>
+  <data name="CompactUi.Status.Consent" xml:space="preserve">
+    <value>Give my agreement</value>
+  </data>
+  <data name="CompactUi.Status.Disconnecting.Title" xml:space="preserve">
+    <value>Disconnecting from {0}...</value>
+  </data>
+  <data name="CompactUi.Status.Connect" xml:space="preserve">
+    <value>Connect</value>
+  </data>
+  <data name="CompactUi.Status.Retry" xml:space="preserve">
+    <value>Try again</value>
+  </data>
+  <data name="CompactUi.Status.LoggedOut.Title" xml:space="preserve">
+    <value>No character logged in</value>
+  </data>
+  <data name="CompactUi.Status.LoggedOut.Body" xml:space="preserve">
+    <value>UmbraSync will connect as soon as you are in game with a character.</value>
+  </data>
+  <data name="CompactUi.Status.Offline.Title" xml:space="preserve">
+    <value>Server unreachable</value>
+  </data>
+  <data name="CompactUi.Status.Unauthorized.Title" xml:space="preserve">
+    <value>Connection refused</value>
+  </data>
+  <data name="CompactUi.Status.Unauthorized.Body" xml:space="preserve">
+    <value>The server refused the connection.</value>
+  </data>
+  <data name="CompactUi.Status.VersionMismatch.Title" xml:space="preserve">
+    <value>Update required</value>
+  </data>
+  <data name="CompactUi.Status.RateLimited.Title" xml:space="preserve">
+    <value>Too many attempts</value>
+  </data>
+  <data name="CompactUi.Status.MultiChara.Title" xml:space="preserve">
+    <value>Duplicate character</value>
+  </data>
   <data name="CompactUi.ServerErrors.AttemptingToConnect" xml:space="preserve">
     <value>Attempting to connect to the server.</value>
   </data>
@@ -643,7 +706,7 @@ Please keep a copy of your secret key in case you need to reset your plugins, or
     <value>Disconnecting from the server</value>
   </data>
   <data name="CompactUi.ServerErrors.MultiChara" xml:space="preserve">
-    <value>Your configuration contains multiple characters with the same name and world. You cannot connect until this is fixed. Remove duplicates in Settings → Service Settings → Character Management.</value>
+    <value>Your configuration contains multiple characters with the same name and world. You cannot connect until this is fixed. Remove duplicates in Settings → Account → Character assignments.</value>
   </data>
   <data name="CompactUi.ServerErrors.NoSecretKey" xml:space="preserve">
     <value>You have no secret key set for this character. Use the button below or open settings to set one. You can reuse the same secret key across characters.</value>
@@ -4409,6 +4472,45 @@ Note: Weapons will not be displayed correctly unless using the same job as the s
   </data>
 
   <!-- Connection Notifications -->
+  <data name="Notification.Chat.ErrorPrefix" xml:space="preserve">
+    <value>Error: </value>
+  </data>
+  <data name="Notification.Chat.InfoPrefix" xml:space="preserve">
+    <value>Info: </value>
+  </data>
+  <data name="Notification.Chat.WarningPrefix" xml:space="preserve">
+    <value>Warning: </value>
+  </data>
+  <data name="Notification.Toggle.Disconnecting.Title" xml:space="preserve">
+    <value>Disconnecting</value>
+  </data>
+  <data name="Notification.Toggle.Disconnecting.Body" xml:space="preserve">
+    <value>You cannot use /usync toggle while UmbraSync is still disconnecting. Wait a few seconds.</value>
+  </data>
+  <data name="Notification.PairOnline.Title" xml:space="preserve">
+    <value>Pair online</value>
+  </data>
+  <data name="Notification.PairOnline.Body" xml:space="preserve">
+    <value>{0} is now online</value>
+  </data>
+  <data name="Notification.InvalidSkeleton.Title" xml:space="preserve">
+    <value>Invalid skeleton setup</value>
+  </data>
+  <data name="Notification.InvalidSkeleton.Body" xml:space="preserve">
+    <value>{0} animation files contain invalid bone data and were removed from your sent data. Check that you are using the correct skeleton for those animations (details in /xllog).</value>
+  </data>
+  <data name="Notification.PenumbraMissing.Title" xml:space="preserve">
+    <value>Penumbra not connected</value>
+  </data>
+  <data name="Notification.PenumbraMissing.Body" xml:space="preserve">
+    <value>Could not load the local file cache: Penumbra is not enabled or not set up. Enable and configure Penumbra, then reload UmbraSync from the plugin installer.</value>
+  </data>
+  <data name="Notification.AbnormalLogLevel.Title" xml:space="preserve">
+    <value>Abnormal log level</value>
+  </data>
+  <data name="Notification.AbnormalLogLevel.Body" xml:space="preserve">
+    <value>Your log level is set to '{0}', which is not recommended for normal use. Unless instructed otherwise, set it back to '{1}' in Settings → Advanced → Debug.</value>
+  </data>
   <data name="Notification.Connection.Lost.Title" xml:space="preserve">
     <value>Connection Lost</value>
   </data>
@@ -5133,6 +5235,15 @@ Note: Weapons will not be displayed correctly unless using the same job as the s
   <data name="Settings.Account.Keys.DeleteHelp" xml:space="preserve">
     <value>Hold CTRL to delete this secret key entry</value>
   </data>
+  <data name="Settings.Account.CustomId.Title" xml:space="preserve">
+    <value>Custom ID</value>
+  </data>
+  <data name="Settings.Account.CustomId.None" xml:space="preserve">
+    <value>not set</value>
+  </data>
+  <data name="Settings.Account.CustomId.Desc" xml:space="preserve">
+    <value>Public alias others can use to find you, instead of your UID.</value>
+  </data>
   <data name="Settings.Account.Keys.InUseWarning" xml:space="preserve">
     <value>This key is currently assigned to a character and cannot be edited or deleted.</value>
   </data>
@@ -5222,6 +5333,24 @@ Note: Weapons will not be displayed correctly unless using the same job as the s
   </data>
   <data name="Settings.Advanced.SerialApply.Help" xml:space="preserve">
     <value>Experimental - May reduce issues in crowded areas</value>
+  </data>
+  <data name="Settings.Advanced.DevServer.Title" xml:space="preserve">
+    <value>Server (dev mode)</value>
+  </data>
+  <data name="Settings.Advanced.DevServer.Warning" xml:space="preserve">
+    <value>Connecting to another server disconnects you from production. Pairs, notes and tags are specific to each server.</value>
+  </data>
+  <data name="Settings.Advanced.Server.Select" xml:space="preserve">
+    <value>Service</value>
+  </data>
+  <data name="Settings.Advanced.Server.CurrentEntry" xml:space="preserve">
+    <value>{0} [Current]</value>
+  </data>
+  <data name="Settings.Advanced.Server.Connect" xml:space="preserve">
+    <value>Connect</value>
+  </data>
+  <data name="Settings.Advanced.Server.Reconnect" xml:space="preserve">
+    <value>Reconnect</value>
   </data>
   <data name="Settings.Advanced.CharaData" xml:space="preserve">
     <value>Character Data</value>
@@ -7621,6 +7750,18 @@ Experimental: these hooks are low level; if anything goes wrong, turn this off (
   <data name="Settings.TargetTooltip.Enable.Help" xml:space="preserve">
     <value>Displays a small card with the RP profile of the targeted paired player (the character you are actually targeting, not their other characters).</value>
   </data>
+  <data name="Settings.TargetTooltip.Trigger.OnTarget" xml:space="preserve">
+    <value>Show on click</value>
+  </data>
+  <data name="Settings.TargetTooltip.Trigger.OnTarget.Help" xml:space="preserve">
+    <value>The card appears as soon as you target a player who has an RP profile.</value>
+  </data>
+  <data name="Settings.TargetTooltip.Trigger.OnTargetBarHover" xml:space="preserve">
+    <value>Show while the cursor is on the status bar</value>
+  </data>
+  <data name="Settings.TargetTooltip.Trigger.OnTargetBarHover.Help" xml:space="preserve">
+    <value>Target a player, then leave the cursor on their target bar (name and HP at the top of the screen): the card stays visible as long as the cursor is on the bar.</value>
+  </data>
   <data name="StandaloneProfile.CharacterNote.Hint" xml:space="preserve">
     <value>Private note about this character...</value>
   </data>
@@ -8023,23 +8164,20 @@ WARNING: this cannot be undone.</value>
   <data name="EditProfile.Card.Traits" xml:space="preserve">
     <value>Character traits</value>
   </data>
-  <data name="EditProfile.Banner.Label" xml:space="preserve">
-    <value>Profile banner</value>
-  </data>
   <data name="EditProfile.Banner.Select" xml:space="preserve">
     <value>Choose a banner</value>
   </data>
   <data name="EditProfile.Banner.Remove" xml:space="preserve">
     <value>Remove</value>
   </data>
-  <data name="EditProfile.Banner.Help" xml:space="preserve">
-    <value>Shown behind your RP profile card, faded at the edges. The centre stays the most visible: put your subject there. Taller images are cropped automatically.</value>
-  </data>
   <data name="EditProfile.Banner.SizeError" xml:space="preserve">
     <value>Image too large: 1.5 MB maximum.</value>
   </data>
   <data name="EditProfile.Banner.Recommended" xml:space="preserve">
-    <value>Recommended: 1200 × 250 px (5:1 ratio), under 500 KB — maximum 1.5 MB, PNG or JPEG.</value>
+    <value>Format: PNG or JPEG&#x0A;Size: 1.5 MB maximum&#x0A;Dimensions: 1200 × 250 px</value>
+  </data>
+  <data name="EditProfile.Portrait.Recommended" xml:space="preserve">
+    <value>Format: PNG or JPEG&#x0A;Size: 5 MB maximum&#x0A;Dimensions: 512 × 512 px</value>
   </data>
   <data name="EditProfile.Banner.Preview" xml:space="preserve">
     <value>Card preview</value>
@@ -8050,71 +8188,110 @@ WARNING: this cannot be undone.</value>
   <data name="EditProfile.CardPreview.Close" xml:space="preserve">
     <value>Close preview</value>
   </data>
-  <data name="WhatsNew.WindowTitle" xml:space="preserve">
-    <value>UmbraSync 3.1: what's new</value>
+  <data name="TargetCard.Close" xml:space="preserve">
+    <value>Close card</value>
   </data>
-  <data name="WhatsNew.Nav.Previous" xml:space="preserve">
-    <value>Previous</value>
+  <data name="EditProfile.Card.ProfileCard" xml:space="preserve">
+    <value>Profile card</value>
   </data>
-  <data name="WhatsNew.Nav.Next" xml:space="preserve">
-    <value>Next</value>
+  <data name="EditProfile.CardTextColor" xml:space="preserve">
+    <value>Text color</value>
   </data>
-  <data name="WhatsNew.Nav.Skip" xml:space="preserve">
-    <value>Skip</value>
+  <data name="EditProfile.CardTextColor.Tooltip" xml:space="preserve">
+    <value>Color of the title, race, occupation, affiliation and residence on your card and at the top of your profile.</value>
   </data>
-  <data name="WhatsNew.Nav.Finish" xml:space="preserve">
-    <value>Finish</value>
+  <data name="EditProfile.CardTextColor.Help" xml:space="preserve">
+    <value>Useful with a light banner: pick a color that stays readable on it. The strip above shows the result; “Card preview” opens the full card.</value>
   </data>
-  <data name="WhatsNew.Nav.RgpdRequired" xml:space="preserve">
-    <value>Accept the processing of your data to continue.</value>
+  <data name="EditProfile.Banner.Dimming" xml:space="preserve">
+    <value>Dimming</value>
   </data>
-  <data name="WhatsNew.Welcome.Title" xml:space="preserve">
-    <value>Welcome to UmbraSync 3.1</value>
+  <data name="EditProfile.Banner.Dimming.Tooltip" xml:space="preserve">
+    <value>How much the banner is darkened behind the text. 0%: the image as it is.</value>
   </data>
-  <data name="WhatsNew.Welcome.Subtitle" xml:space="preserve">
-    <value>A quick tour of what's new, about a minute</value>
+  <data name="EditProfile.Banner.Fade" xml:space="preserve">
+    <value>Fade at the edges</value>
   </data>
-  <data name="WhatsNew.Welcome.Intro" xml:space="preserve">
-    <value>A reworked interface, more reliable synchronization and new RP features.</value>
+  <data name="EditProfile.Banner.Fade.Tooltip" xml:space="preserve">
+    <value>The banner gradually blends into the card background towards the edges. Off: the image stops sharply at the edges.</value>
   </data>
-  <data name="WhatsNew.Welcome.RgpdNotice" xml:space="preserve">
-    <value>The scope of the data we process has changed: the next page asks you to confirm your consent before you keep using UmbraSync.</value>
+  <data name="EditProfile.Banner.FadeRadius" xml:space="preserve">
+    <value>Sharp area</value>
   </data>
-  <data name="WhatsNew.Welcome.Profiles.Title" xml:space="preserve">
-    <value>RP profiles</value>
+  <data name="EditProfile.Banner.FadeRadius.Tooltip" xml:space="preserve">
+    <value>Size of the central area that stays sharp before the fade starts. The higher the value, the more of the image stays visible up to the edges.</value>
   </data>
-  <data name="WhatsNew.Welcome.Profiles.Desc" xml:space="preserve">
-    <value>Custom banner, card preview, one profile per character.</value>
+  <data name="EditProfile.Banner.RenderingNeedsBanner" xml:space="preserve">
+    <value>Choose a banner to adjust its dimming and fade.</value>
   </data>
-  <data name="WhatsNew.Welcome.Meetings.Title" xml:space="preserve">
-    <value>Meetings</value>
+  <data name="EditProfile.CardStyle.Reset" xml:space="preserve">
+    <value>Restore default appearance</value>
   </data>
-  <data name="WhatsNew.Welcome.Meetings.Desc" xml:space="preserve">
-    <value>Pair requests accepted without a second confirmation, blocking handled by the server.</value>
+  <data name="EditProfile.CardStrip.Tooltip" xml:space="preserve">
+    <value>How your info lines look on your banner. The full card opens with “Card preview”.</value>
   </data>
-  <data name="WhatsNew.Welcome.Sync.Title" xml:space="preserve">
-    <value>Synchronization</value>
+  <data name="EditProfile.CardStrip.NoBanner" xml:space="preserve">
+    <value>No banner</value>
   </data>
-  <data name="WhatsNew.Welcome.Sync.Desc" xml:space="preserve">
-    <value>More reliable uploads, downloads and cache, re-upload of missing files.</value>
+  <data name="EditProfile.CardStrip.Sample" xml:space="preserve">
+    <value>Title · Race · Occupation</value>
   </data>
-  <data name="WhatsNew.Welcome.Housing.Title" xml:space="preserve">
-    <value>Housing and MCDF</value>
+  <data name="EditProfile.ProfileAccent" xml:space="preserve">
+    <value>Profile color</value>
   </data>
-  <data name="WhatsNew.Welcome.Housing.Desc" xml:space="preserve">
-    <value>Targeted furniture reloads, large MCDF shares streamed.</value>
+  <data name="EditProfile.ProfileAccent.Tooltip" xml:space="preserve">
+    <value>Main color of your profile and card: borders, titles, tabs, buttons.</value>
   </data>
-  <data name="WhatsNew.Welcome.Interface.Title" xml:space="preserve">
-    <value>Interface</value>
+  <data name="EditProfile.ProfileAccent.Help" xml:space="preserve">
+    <value>Other players see your profile, your card and your hover profile in this color. Default: Umbra purple.</value>
   </data>
-  <data name="WhatsNew.Welcome.Interface.Desc" xml:space="preserve">
-    <value>New style, adjustable background blur and transparency.</value>
+  <data name="EditProfile.Page.Identity" xml:space="preserve">
+    <value>Identity</value>
   </data>
-  <data name="WhatsNew.Rgpd.Title" xml:space="preserve">
-    <value>Your data</value>
+  <data name="EditProfile.Page.Appearance" xml:space="preserve">
+    <value>Appearance</value>
   </data>
-  <data name="WhatsNew.Rgpd.Subtitle" xml:space="preserve">
-    <value>What changed and what you choose</value>
+  <data name="EditProfile.Page.ChatVisibility" xml:space="preserve">
+    <value>Chat &amp; visibility</value>
+  </data>
+  <data name="EditProfile.Page.Story" xml:space="preserve">
+    <value>Story</value>
+  </data>
+  <data name="EditProfile.SaveButton.Tooltip" xml:space="preserve">
+    <value>Shortcut: Ctrl+S</value>
+  </data>
+  <data name="EditProfile.RpNsfw.Help" xml:space="preserve">
+    <value>Your RP profile is hidden from players who don't show NSFW profiles.</value>
+  </data>
+  <data name="EditProfile.SaveCard.UpToDate" xml:space="preserve">
+    <value>Profile up to date</value>
+  </data>
+  <data name="EditProfile.SaveCard.Unsaved.Desc" xml:space="preserve">
+    <value>Nobody sees these changes until you save.</value>
+  </data>
+  <data name="EditProfile.PreviewButton.Tooltip" xml:space="preserve">
+    <value>Opens your profile as other players see it, with your unsaved changes. Click again to close it.</value>
+  </data>
+  <data name="EditProfile.PreviewButton.Close" xml:space="preserve">
+    <value>Close preview</value>
+  </data>
+  <data name="EditProfile.Story.Write" xml:space="preserve">
+    <value>Write</value>
+  </data>
+  <data name="EditProfile.Story.Preview" xml:space="preserve">
+    <value>Preview</value>
+  </data>
+  <data name="EditProfile.Story.PreviewEmpty" xml:space="preserve">
+    <value>Nothing to show yet.</value>
+  </data>
+  <data name="EditProfile.Help.Title" xml:space="preserve">
+    <value>Shown under your name on your target card, and before your name at the top of your profile. Example: Baron.</value>
+  </data>
+  <data name="EditProfile.Help.HonorificTitle" xml:space="preserve">
+    <value>Title shown on your in-game nameplate by the Honorific plugin, before or after your name depending on “Prefix”. Independent from the title on your profile.</value>
+  </data>
+  <data name="EditProfile.Help.Occupation" xml:space="preserve">
+    <value>Shown on your target card and in the details of your profile.</value>
   </data>
   <data name="WhatsNew.Rgpd.Accepted" xml:space="preserve">
     <value>Your consent is recorded.</value>
@@ -8122,173 +8299,8 @@ WARNING: this cannot be undone.</value>
   <data name="WhatsNew.Rgpd.AcceptedHint" xml:space="preserve">
     <value>You can review this information, export your data or change your choices at any time in Settings, « Privacy » tab.</value>
   </data>
-  <data name="WhatsNew.Profiles.Title" xml:space="preserve">
-    <value>RP profiles</value>
-  </data>
-  <data name="WhatsNew.Profiles.Subtitle" xml:space="preserve">
-    <value>More personal profiles</value>
-  </data>
-  <data name="WhatsNew.Profiles.Banner.Title" xml:space="preserve">
-    <value>Custom banner</value>
-  </data>
-  <data name="WhatsNew.Profiles.Banner.Desc" xml:space="preserve">
-    <value>Add an image at the top of your profile (1200 × 250 px recommended, PNG or JPEG). It shows on the profile and in the target tooltip.</value>
-  </data>
-  <data name="WhatsNew.Profiles.Preview.Title" xml:space="preserve">
-    <value>Card preview</value>
-  </data>
-  <data name="WhatsNew.Profiles.Preview.Desc" xml:space="preserve">
-    <value>See how your saved profile looks. In the editor, the preview also shows your changes before you save.</value>
-  </data>
-  <data name="WhatsNew.Profiles.PerCharacter.Title" xml:space="preserve">
-    <value>One profile per character</value>
-  </data>
-  <data name="WhatsNew.Profiles.PerCharacter.Desc" xml:space="preserve">
-    <value>A profile now shows a single character, with its own title and Moodles.</value>
-  </data>
-  <data name="WhatsNew.Profiles.Visibility.Title" xml:space="preserve">
-    <value>Visibility</value>
-  </data>
-  <data name="WhatsNew.Profiles.Visibility.Desc" xml:space="preserve">
-    <value>Who can see this character's RP profile. The change is saved right away.</value>
-  </data>
-  <data name="WhatsNew.Meetings.Title" xml:space="preserve">
-    <value>Meetings and pair requests</value>
-  </data>
-  <data name="WhatsNew.Meetings.Subtitle" xml:space="preserve">
-    <value>Fewer clicks, more control</value>
-  </data>
-  <data name="WhatsNew.Meetings.Accept.Title" xml:space="preserve">
-    <value>Direct acceptance</value>
-  </data>
-  <data name="WhatsNew.Meetings.Accept.Desc" xml:space="preserve">
-    <value>When your request is accepted, the pair is created right away, without a second confirmation.</value>
-  </data>
-  <data name="WhatsNew.Meetings.Block.Title" xml:space="preserve">
-    <value>Blocking</value>
-  </data>
-  <data name="WhatsNew.Meetings.Block.Desc" xml:space="preserve">
-    <value>Blocking a player goes through the server. Your local blocks are imported there on first connection.</value>
-  </data>
-  <data name="WhatsNew.Meetings.Nearby.Title" xml:space="preserve">
-    <value>Nearby detection</value>
-  </data>
-  <data name="WhatsNew.Meetings.Nearby.Desc" xml:space="preserve">
-    <value>It stays optional and is set in Settings, « Privacy » tab.</value>
-  </data>
-  <data name="WhatsNew.Sync.Title" xml:space="preserve">
-    <value>Synchronization and shares</value>
-  </data>
-  <data name="WhatsNew.Sync.Subtitle" xml:space="preserve">
-    <value>A more solid foundation</value>
-  </data>
-  <data name="WhatsNew.Sync.Reliable.Title" xml:space="preserve">
-    <value>Reworked synchronization chain</value>
-  </data>
-  <data name="WhatsNew.Sync.Reliable.Desc" xml:space="preserve">
-    <value>Upload, download, application and cache have been made more reliable.</value>
-  </data>
-  <data name="WhatsNew.Sync.Reupload.Title" xml:space="preserve">
-    <value>On-demand re-upload</value>
-  </data>
-  <data name="WhatsNew.Sync.Reupload.Desc" xml:space="preserve">
-    <value>A file missing from the server is sent again when another player needs it.</value>
-  </data>
-  <data name="WhatsNew.Sync.Mcdf.Title" xml:space="preserve">
-    <value>MCDF</value>
-  </data>
-  <data name="WhatsNew.Sync.Mcdf.Desc" xml:space="preserve">
-    <value>Large shares are uploaded and downloaded as a stream, with full file and folder management.</value>
-  </data>
-  <data name="WhatsNew.Sync.Housing.Title" xml:space="preserve">
-    <value>Housing</value>
-  </data>
-  <data name="WhatsNew.Sync.Housing.Desc" xml:space="preserve">
-    <value>Only the affected furniture is reloaded: wall coverings and wallpapers no longer reset.</value>
-  </data>
-  <data name="WhatsNew.Interface.Title" xml:space="preserve">
-    <value>Interface</value>
-  </data>
-  <data name="WhatsNew.Interface.Subtitle" xml:space="preserve">
-    <value>A redesigned look</value>
-  </data>
-  <data name="WhatsNew.Interface.Style.Title" xml:space="preserve">
-    <value>New style</value>
-  </data>
-  <data name="WhatsNew.Interface.Style.Desc" xml:space="preserve">
-    <value>Sidebar, toggles, sliders and selectors harmonized across the interface.</value>
-  </data>
-  <data name="WhatsNew.Interface.Glass.Title" xml:space="preserve">
-    <value>Transparency and blur</value>
-  </data>
-  <data name="WhatsNew.Interface.Glass.Desc" xml:space="preserve">
-    <value>Adjustable background blur and transparency level, with a « clear glass » mode in GPose.</value>
-  </data>
-  <data name="WhatsNew.Interface.Settings.Title" xml:space="preserve">
-    <value>Settings</value>
-  </data>
-  <data name="WhatsNew.Interface.Settings.Desc" xml:space="preserve">
-    <value>Settings gain a search box and breadcrumbs.</value>
-  </data>
-  <data name="WhatsNew.Done.Title" xml:space="preserve">
-    <value>You're all set</value>
-  </data>
-  <data name="WhatsNew.Done.Subtitle" xml:space="preserve">
-    <value>Enjoy 3.1</value>
-  </data>
-  <data name="WhatsNew.Done.Intro" xml:space="preserve">
-    <value>The full list of changes is available in the changelog.</value>
-  </data>
-  <data name="WhatsNew.Done.Changelog" xml:space="preserve">
-    <value>See the full list of changes</value>
-  </data>
-  <data name="WhatsNew.Done.Settings" xml:space="preserve">
-    <value>Open settings</value>
-  </data>
-  <data name="WhatsNew.Done.Hint" xml:space="preserve">
-    <value>The changelog stays available from the settings.</value>
-  </data>
   <data name="Rgpd.Consent.Optional.Prefilled" xml:space="preserve">
     <value>The switches reflect your current settings. Check them before accepting: they only take effect when you click « Accept ».</value>
-  </data>
-  <data name="WhatsNew.Profiles.OpenEditor" xml:space="preserve">
-    <value>Open the profile editor</value>
-  </data>
-  <data name="WhatsNew.Sync.Precache.Title" xml:space="preserve">
-    <value>Update your files on the server</value>
-  </data>
-  <data name="WhatsNew.Sync.Precache.Desc" xml:space="preserve">
-    <value>Sends your Penumbra files that are missing from the server right now, instead of as you meet people. Depending on your mods the volume can be large: avoid it on a limited connection.</value>
-  </data>
-  <data name="WhatsNew.Sync.Precache.NeedsConnection" xml:space="preserve">
-    <value>Available once connected to the server.</value>
-  </data>
-  <data name="WhatsNew.Sync.Precache.AutoOn" xml:space="preserve">
-    <value>Automatic pre-cache is enabled: your files are sent on their own.</value>
-  </data>
-  <data name="WhatsNew.Sync.Precache.AutoOff" xml:space="preserve">
-    <value>Automatic pre-cache is disabled: this upload is one-off and does not change your settings.</value>
-  </data>
-  <data name="WhatsNew.Done.Recap.Title" xml:space="preserve">
-    <value>Summary</value>
-  </data>
-  <data name="WhatsNew.Done.Recap.Consent" xml:space="preserve">
-    <value>Your consent to data processing is recorded</value>
-  </data>
-  <data name="WhatsNew.Done.Recap.Connected" xml:space="preserve">
-    <value>Connected to the server</value>
-  </data>
-  <data name="WhatsNew.Done.Recap.Connecting" xml:space="preserve">
-    <value>Connecting to the server…</value>
-  </data>
-  <data name="WhatsNew.Done.Recap.Visibility" xml:space="preserve">
-    <value>RP profile visibility: {0}</value>
-  </data>
-  <data name="WhatsNew.Done.Next.Title" xml:space="preserve">
-    <value>Going further</value>
-  </data>
-  <data name="WhatsNew.Done.Settings.Desc" xml:space="preserve">
-    <value>Interface, privacy, transfers: everything is set in the settings.</value>
   </data>
   <data name="ChangelogUi.Tagline" xml:space="preserve">
     <value>A reworked interface, more reliable synchronization and richer RP profiles.</value>

@@ -45,6 +45,7 @@ public partial class CompactUi : WindowMediatorSubscriberBase
     private readonly CharacterAnalyzer _characterAnalyzer;
     private readonly UidDisplayHandler _uidDisplayHandler;
     private readonly UiSharedService _uiSharedService;
+    private DateTime? _connectingSinceUtc;
     private readonly EditProfileUi _editProfileUi;
     private readonly SettingsUi _settingsUi;
     private readonly AutoDetectUi _autoDetectUi;
@@ -230,13 +231,20 @@ public partial class CompactUi : WindowMediatorSubscriberBase
             ImGui.Separator();
         }
 
-        if (_apiController.ServerState is not ServerState.Connected)
+        bool connecting = IsConnecting;
+        if (!connecting) _connectingSinceUtc = null;
+        else _connectingSinceUtc ??= DateTime.UtcNow;
+
+        if (_apiController.ServerState is ServerState.NoSecretKey)
         {
             UiSharedService.ColorTextWrapped(GetServerError(), GetUidColor());
-            if (_apiController.ServerState is ServerState.NoSecretKey)
-            {
-                DrawAddCharacter();
-            }
+            DrawAddCharacter();
+            DrawAccentSeparator();
+        }
+        else if (_apiController.ServerState is not ServerState.Connected && !RequiresServerConnection(_activeSection))
+        {
+            // Les sections utilisables hors connexion gardent leur contenu, sous une ligne d'état discrète.
+            DrawStatusInline(GetStatusContent());
             DrawAccentSeparator();
         }
 
@@ -304,7 +312,10 @@ public partial class CompactUi : WindowMediatorSubscriberBase
         bool requiresConnection = RequiresServerConnection(_activeSection);
         if (requiresConnection && _apiController.ServerState is not ServerState.Connected)
         {
-            UiSharedService.ColorTextWrapped(Loc.Get("CompactUi.General.ConnectToServerNotice"), ImGuiColors.DalamudGrey3);
+            if (_apiController.ServerState is ServerState.NoSecretKey)
+                UiSharedService.ColorTextWrapped(Loc.Get("CompactUi.General.ConnectToServerNotice"), ImGuiColors.DalamudGrey3);
+            else
+                DrawStatusPanel(GetStatusContent());
             DrawNewUserNoteModal();
             return;
         }
@@ -521,6 +532,199 @@ public partial class CompactUi : WindowMediatorSubscriberBase
         UiSharedService.ColorTextWrapped(
             string.Format(CultureInfo.CurrentCulture, Loc.Get("CompactUi.UnsupportedVersion.Message"), version),
             UiSharedService.AccentColor);
+    }
+
+    private bool IsConnecting => _apiController.ServerState is ServerState.Connecting or ServerState.Reconnecting;
+
+    private sealed record StatusAction(string Label, Action Run, string? Tooltip = null, bool Primary = false);
+
+    private sealed record StatusContent(FontAwesomeIcon Icon, string Title, string? Body,
+        StatusAction? Action = null, bool Spinner = false, bool Warning = false);
+
+    private StatusContent GetStatusContent()
+    {
+        bool hasServer = _serverManager.HasServers;
+        string serverName = hasServer ? _serverManager.CurrentServer.ServerName : string.Empty;
+        var retry = new StatusAction(Loc.Get("CompactUi.Status.Retry"), RetryConnection);
+
+        switch (_apiController.ServerState)
+        {
+            case ServerState.Connecting:
+            case ServerState.Reconnecting:
+                // L'annulation reste visible pendant toute la boucle de tentatives, qui alterne entre les deux états.
+                string key = _apiController.ServerState is ServerState.Reconnecting ? "CompactUi.Connecting.Reconnect" : "CompactUi.Connecting.Title";
+                return new(FontAwesomeIcon.Link, Loc.Get(key, serverName), null,
+                    hasServer ? new StatusAction(Loc.Get("CompactUi.Connecting.Cancel"), ToggleConnection, Loc.Get("CompactUi.Connecting.Cancel.Tooltip")) : null,
+                    Spinner: true);
+            case ServerState.Disconnecting:
+                return new(FontAwesomeIcon.Unlink, Loc.Get("CompactUi.Status.Disconnecting.Title", serverName), null, Spinner: true);
+            case ServerState.Disconnected:
+                string title = Loc.Get("CompactUi.Status.Disconnected.Title", serverName);
+                if (!_configService.Current.HasValidRgpdConsent())
+                    return new(FontAwesomeIcon.UserCheck, title, Loc.Get("CompactUi.Status.Disconnected.Consent"),
+                        new StatusAction(Loc.Get("CompactUi.Status.Consent"), () => Mediator.Publish(new SwitchToRgpdConsentUiMessage()), Primary: true));
+                if (hasServer && _serverManager.CurrentServer.FullPause)
+                    return new(FontAwesomeIcon.PauseCircle, title, Loc.Get("CompactUi.Status.Disconnected.Paused"),
+                        new StatusAction(Loc.Get("CompactUi.Status.Connect"), ToggleConnection, Primary: true));
+                return new(FontAwesomeIcon.Unlink, title, Loc.Get("CompactUi.Status.Disconnected.Interrupted"),
+                    hasServer ? retry with { Primary = true } : null);
+            case ServerState.Offline when !_dalamudUtilService.IsLoggedIn:
+                return new(FontAwesomeIcon.UserSlash, Loc.Get("CompactUi.Status.LoggedOut.Title"), Loc.Get("CompactUi.Status.LoggedOut.Body"));
+            case ServerState.Offline:
+                return new(FontAwesomeIcon.Server, Loc.Get("CompactUi.Status.Offline.Title"), GetServerError(), hasServer ? retry : null);
+            case ServerState.Unauthorized:
+                string reason = string.IsNullOrWhiteSpace(_apiController.AuthFailureMessage)
+                    ? Loc.Get("CompactUi.Status.Unauthorized.Body")
+                    : GetServerError();
+                return new(FontAwesomeIcon.Lock, Loc.Get("CompactUi.Status.Unauthorized.Title"), reason, hasServer ? retry : null, Warning: true);
+            case ServerState.VersionMisMatch:
+                return new(FontAwesomeIcon.ArrowCircleUp, Loc.Get("CompactUi.Status.VersionMismatch.Title"), GetServerError(), Warning: true);
+            case ServerState.RateLimited:
+                return new(FontAwesomeIcon.HourglassHalf, Loc.Get("CompactUi.Status.RateLimited.Title"), GetServerError(), Warning: true);
+            case ServerState.MultiChara:
+                return new(FontAwesomeIcon.UserFriends, Loc.Get("CompactUi.Status.MultiChara.Title"), GetServerError(), Warning: true);
+            default:
+                return new(FontAwesomeIcon.Unlink, GetServerError(), null);
+        }
+    }
+
+    private void RetryConnection() => _ = RetryConnectionAsync();
+
+    private async Task RetryConnectionAsync()
+    {
+        try
+        {
+            await _apiController.CreateConnections().ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Manual reconnection attempt failed");
+        }
+    }
+
+    // Écran d'état centré, à la manière des écrans vides d'Apple : un symbole (ou un indicateur en mouvement),
+    // un titre bref, une explication en couleur secondaire, et l'action utile quand il y en a une.
+    private void DrawStatusPanel(StatusContent content)
+    {
+        var scale = ImGuiHelpers.GlobalScale;
+        var avail = ImGui.GetContentRegionAvail();
+        float startX = ImGui.GetCursorPosX();
+        float lineHeight = ImGui.GetTextLineHeightWithSpacing();
+        float wrapWidth = MathF.Max(80f * scale, MathF.Min(avail.X - (24f * scale), 290f * scale));
+        float symbolBlock = 64f * scale;
+        bool slow = content.Spinner && _connectingSinceUtc is { } since && DateTime.UtcNow - since >= TimeSpan.FromSeconds(20);
+        string? body = slow ? Loc.Get("CompactUi.Connecting.Slow") : content.Body;
+        List<string> bodyLines = string.IsNullOrEmpty(body) ? [] : WrapLines(body, wrapWidth);
+        float bodyHeight = MathF.Max(content.Spinner ? 3 : 0, bodyLines.Count) * lineHeight;
+        float actionHeight = content.Action != null ? ImGui.GetFrameHeightWithSpacing() + (10f * scale) : 0f;
+
+        float blockHeight = symbolBlock + (lineHeight * 1.4f) + (4f * scale) + bodyHeight + actionHeight;
+        ImGui.SetCursorPosY(ImGui.GetCursorPosY() + MathF.Max(0f, (avail.Y - blockHeight) * 0.42f));
+
+        var symbolCenter = ImGui.GetCursorScreenPos() + new Vector2(avail.X / 2f, (symbolBlock / 2f) - (6f * scale));
+        if (content.Spinner)
+        {
+            UiSharedService.DrawSpinner(symbolCenter, 16f * scale, UiSharedService.AccentColor);
+        }
+        else
+        {
+            string icon = content.Icon.ToIconString();
+            var iconColor = content.Warning ? ImGuiColors.DalamudOrange : ImGuiColors.DalamudGrey3;
+            using (_uiSharedService.LargeIconFont.Push())
+            {
+                var iconSize = ImGui.CalcTextSize(icon);
+                ImGui.GetWindowDrawList().AddText(symbolCenter - (iconSize / 2f), ImGui.GetColorU32(iconColor), icon);
+            }
+        }
+        ImGui.Dummy(new Vector2(avail.X, symbolBlock));
+
+        using (UiSharedService.PushFontScale(1.1f))
+            DrawCenteredText(content.Title, UiSharedService.ThemeNavTextActive, startX, avail.X);
+        ImGuiHelpers.ScaledDummy(4f);
+
+        float bodyTop = ImGui.GetCursorPosY();
+        foreach (var line in bodyLines)
+            DrawCenteredText(line, ImGuiColors.DalamudGrey, startX, avail.X);
+        ImGui.SetCursorPosY(bodyTop + bodyHeight);
+
+        if (content.Action is { } action)
+        {
+            ImGuiHelpers.ScaledDummy(10f);
+            var style = ImGui.GetStyle();
+            float buttonWidth = MathF.Max(120f * scale, ImGui.CalcTextSize(action.Label).X + (style.FramePadding.X * 4f));
+            ImGui.SetCursorPosX(startX + MathF.Max(0f, (avail.X - buttonWidth) / 2f));
+            var accent = UiSharedService.AccentColor;
+            using (ImRaii.PushColor(ImGuiCol.Button, accent, action.Primary)
+                       .Push(ImGuiCol.ButtonHovered, Vector4.Lerp(accent, UiSharedService.ThemeNavTextActive, 0.15f), action.Primary)
+                       .Push(ImGuiCol.ButtonActive, Vector4.Lerp(accent, UiSharedService.ThemeWindowBg, 0.2f), action.Primary))
+            {
+                if (ImGui.Button(action.Label, new Vector2(buttonWidth, 0f)))
+                    action.Run();
+            }
+            if (action.Tooltip != null)
+                UiSharedService.AttachToolTip(action.Tooltip);
+        }
+    }
+
+    // Ligne d'état en tête des sections utilisables sans connexion (profil, réglages…).
+    private void DrawStatusInline(StatusContent content)
+    {
+        var scale = ImGuiHelpers.GlobalScale;
+        if (content.Spinner)
+        {
+            float radius = 6f * scale;
+            float lineHeight = ImGui.GetTextLineHeight();
+            UiSharedService.DrawSpinner(ImGui.GetCursorScreenPos() + new Vector2(radius + scale, lineHeight / 2f), radius, UiSharedService.AccentColor);
+            ImGui.Dummy(new Vector2((radius * 2f) + (2f * scale), lineHeight));
+        }
+        else
+        {
+            _uiSharedService.IconText(content.Icon, content.Warning ? ImGuiColors.DalamudOrange : ImGuiColors.DalamudGrey3);
+        }
+        ImGui.SameLine();
+        ImGui.TextColored(ImGuiColors.DalamudGrey, content.Title);
+        if (content.Body != null)
+            UiSharedService.AttachToolTip(content.Body);
+
+        if (content.Action is { } action)
+        {
+            ImGui.SameLine();
+            if (ImGui.SmallButton(action.Label))
+                action.Run();
+            if (action.Tooltip != null)
+                UiSharedService.AttachToolTip(action.Tooltip);
+        }
+    }
+
+    // ImGui ne centre pas un texte renvoyé à la ligne : on découpe soi-même pour centrer chaque ligne.
+    private static List<string> WrapLines(string text, float maxWidth)
+    {
+        var lines = new List<string>();
+        foreach (var paragraph in text.Split('\n'))
+        {
+            string current = string.Empty;
+            foreach (var word in paragraph.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+            {
+                string candidate = current.Length == 0 ? word : current + " " + word;
+                if (current.Length > 0 && ImGui.CalcTextSize(candidate).X > maxWidth)
+                {
+                    lines.Add(current);
+                    current = word;
+                }
+                else
+                {
+                    current = candidate;
+                }
+            }
+            lines.Add(current);
+        }
+        return lines;
+    }
+
+    private static void DrawCenteredText(string text, Vector4 color, float startX, float width)
+    {
+        ImGui.SetCursorPosX(startX + MathF.Max(0f, (width - ImGui.CalcTextSize(text).X) / 2f));
+        ImGui.TextColored(color, text);
     }
 
     private static bool RequiresServerConnection(CompactUiSection section)

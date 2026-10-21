@@ -10,6 +10,7 @@ namespace UmbraSync.UI.Components;
 public static partial class ThemedSlider
 {
     private const int MaxNotches = 41;
+    private const float KnobRadius = 7f;
     private const int MajorEvery = 4;
     private static readonly float[] NiceSteps = [1f, 2f, 5f, 10f, 20f, 25f, 50f, 100f, 200f, 250f, 500f, 1000f];
 
@@ -26,6 +27,14 @@ public static partial class ThemedSlider
 
     public static bool Float(string label, ref float value, float min, float max, string format = "%.3f", float? step = null)
         => Draw(label, ref value, min, max, format, integer: false, step ?? (max - min) / (MaxNotches - 1), null);
+    
+    public static void AlignWithFramePaddedLabel()
+    {
+        float knobRadius = KnobRadius * ImGuiHelpers.GlobalScale;
+        float offset = ImGui.GetStyle().FramePadding.Y - (knobRadius - (ImGui.GetTextLineHeight() / 2f));
+        if (offset > 0f)
+            ImGui.SetCursorPosY(ImGui.GetCursorPosY() + offset);
+    }
 
     private static float AutoIntStep(int steps)
     {
@@ -42,7 +51,7 @@ public static partial class ThemedSlider
         int hashAt = label.IndexOf("##", StringComparison.Ordinal);
         string visibleLabel = hashAt >= 0 ? label[..hashAt] : label;
 
-        var knobRadius = 7f * scale;
+        var knobRadius = KnobRadius * scale;
         var trackThickness = 4f * scale;
         var tickGap = 6f * scale;
         var height = knobRadius * 2f + tickGap + 3f * scale;

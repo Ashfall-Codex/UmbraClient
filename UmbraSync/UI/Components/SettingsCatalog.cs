@@ -46,6 +46,9 @@ public static class SettingsCatalog
         new(General, "Hover Delay"),
         new(General, "Show profiles marked as NSFW"),
         new(General, "Show RP profiles marked as NSFW"),
+        new(General, "Settings.TargetTooltip.Enable", "Settings.TargetTooltip.Enable.Help"),
+        new(General, "Settings.TargetTooltip.Trigger.OnTarget", "Settings.TargetTooltip.Trigger.OnTarget.Help"),
+        new(General, "Settings.TargetTooltip.Trigger.OnTargetBarHover", "Settings.TargetTooltip.Trigger.OnTargetBarHover.Help"),
         new(General, "Settings.General.Notifications.Title"),
         new(General, "Info Notification Display"),
         new(General, "Warning Notification Display"),
@@ -173,6 +176,7 @@ public static class SettingsCatalog
         new(Advanced, "Settings.Advanced.Debug.ActiveBlocks"),
 
         new(Account, "Settings.Section.Account.Title", "Settings.Section.Account.Desc"),
+        new(Account, "Settings.Account.CustomId.Title", "Settings.Account.CustomId.Desc"),
     ];
 
     public static List<SettingsEntry> Search(string query)

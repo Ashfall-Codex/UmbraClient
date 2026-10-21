@@ -467,10 +467,11 @@ public sealed class PairManager : DisposableMediatorSubscriberBase
             || !_configurationService.Current.ShowOnlineNotificationsOnlyForNamedPairs))
         {
             string? note = pair.GetNoteOrName();
-            var msg = !string.IsNullOrEmpty(note)
-                ? $"{note} ({pair.UserData.AliasOrUID}) is now online"
-                : $"{pair.UserData.AliasOrUID} is now online";
-            Mediator.Publish(new NotificationMessage("User online", msg, NotificationType.Info, TimeSpan.FromSeconds(5)));
+            var who = !string.IsNullOrEmpty(note)
+                ? $"{note} ({pair.UserData.AliasOrUID})"
+                : pair.UserData.AliasOrUID;
+            Mediator.Publish(new NotificationMessage(Loc.Get("Notification.PairOnline.Title"), Loc.Get("Notification.PairOnline.Body", who),
+                NotificationType.Info, TimeSpan.FromSeconds(5)));
         }
 
         pair.ApplyLastReceivedData(forced: true);

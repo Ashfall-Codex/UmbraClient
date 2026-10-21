@@ -7,6 +7,7 @@ using UmbraSync.MareConfiguration.Models;
 using UmbraSync.Services.Mediator;
 using UmbraSync.Services.ServerConfiguration;
 using UmbraSync.UI;
+using UmbraSync.Localization;
 
 namespace UmbraSync.Services;
 
@@ -69,7 +70,7 @@ public sealed class CommandManagerService : IDisposable
         {
             if (_apiController.ServerState == WebAPI.SignalR.Utils.ServerState.Disconnecting)
             {
-                _mediator.Publish(new NotificationMessage("Umbra disconnecting", "Cannot use /toggle while Umbra is still disconnecting",
+                _mediator.Publish(new NotificationMessage(Loc.Get("Notification.Toggle.Disconnecting.Title"), Loc.Get("Notification.Toggle.Disconnecting.Body"),
                     NotificationType.Error));
             }
 

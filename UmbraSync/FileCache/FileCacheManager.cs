@@ -9,6 +9,7 @@ using UmbraSync.Interop.Ipc;
 using UmbraSync.MareConfiguration;
 using UmbraSync.Services.Mediator;
 using UmbraSync.Utils;
+using UmbraSync.Localization;
 
 namespace UmbraSync.FileCache;
 
@@ -57,8 +58,8 @@ public sealed class FileCacheManager : DisposableMediatorSubscriberBase, IHosted
 
         if (!_ipcManager.Penumbra.APIAvailable || string.IsNullOrEmpty(_ipcManager.Penumbra.ModDirectory))
         {
-            Mediator.Publish(new NotificationMessage("Penumbra not connected",
-                "Could not load local file cache data. Penumbra is not connected or not properly set up. Please enable and/or configure Penumbra properly to use Umbra. After, reload Umbra in the Plugin installer.",
+            Mediator.Publish(new NotificationMessage(Loc.Get("Notification.PenumbraMissing.Title"),
+                Loc.Get("Notification.PenumbraMissing.Body"),
                 MareConfiguration.Models.NotificationType.Error));
         }
     }

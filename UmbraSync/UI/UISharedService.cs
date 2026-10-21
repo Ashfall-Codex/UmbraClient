@@ -40,45 +40,46 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
 
     public const float ContentFontScale = 0.92f;
 
-    public static readonly Vector4 AccentColor = new(0x96 / 255f, 0x45 / 255f, 0xE6 / 255f, 1f);
+    public static readonly Vector4 DefaultAccentColor = new(0x96 / 255f, 0x45 / 255f, 0xE6 / 255f, 1f);
+    public static Vector4 AccentColor => ProfileAccent is { } accent ? accent.Rgb : WarningTint(DefaultAccentColor);
     public static Vector4 AccentHoverColor => ThemeButtonHovered;
     public static Vector4 AccentActiveColor => AccentHoverColor;
-
-    // --- Thème UmbraSync "Royal Smoke" — #6A0DAD accent, #1C1C1C fond, chrome désaturé ---
     public static readonly Vector4 ThemeWindowBg = new(0.11f, 0.11f, 0.11f, 1f);
     public static readonly Vector4 ThemeChildBg = new(0f, 0f, 0f, 0f);
-    public static readonly Vector4 ThemeBorder = new(0x38 / 255f, 0x29 / 255f, 0x52 / 255f, 1f);
-    public static readonly Vector4 ThemeTitleBar = new(0x2A / 255f, 0x1F / 255f, 0x3D / 255f, 1f);
-    public static readonly Vector4 ThemeSeparator = new(0x38 / 255f, 0x29 / 255f, 0x52 / 255f, 0.60f);
-    public static readonly Vector4 ThemeFrameBg = new(0.16f, 0.15f, 0.18f, 1f);
-    public static readonly Vector4 ThemeFrameBgHovered = new(0x38 / 255f, 0x29 / 255f, 0x52 / 255f, 0.7f);
-    public static readonly Vector4 ThemeFrameBgActive = new(0x4A / 255f, 0x36 / 255f, 0x68 / 255f, 1f);
-    public static readonly Vector4 ThemeButtonBg = new(0x2A / 255f, 0x1F / 255f, 0x3D / 255f, 1f);
-    public static readonly Vector4 ThemeButtonHovered = new(0x38 / 255f, 0x29 / 255f, 0x52 / 255f, 1f);
-    public static readonly Vector4 ThemeButtonActive = new(0x4A / 255f, 0x36 / 255f, 0x68 / 255f, 1f);
+    public static Vector4 ThemeBorder => ThemeTint(new(0x38 / 255f, 0x29 / 255f, 0x52 / 255f, 1f));
+    public static Vector4 ThemeTitleBar => ThemeTint(new(0x2A / 255f, 0x1F / 255f, 0x3D / 255f, 1f));
+    public static Vector4 ThemeSeparator => ThemeTint(new(0x38 / 255f, 0x29 / 255f, 0x52 / 255f, 0.60f));
+    public static Vector4 ThemeFrameBg => ThemeTint(new(0.16f, 0.15f, 0.18f, 1f));
+    public static Vector4 ThemeFrameBgHovered => ThemeTint(new(0x38 / 255f, 0x29 / 255f, 0x52 / 255f, 0.7f));
+    public static Vector4 ThemeFrameBgActive => ThemeTint(new(0x4A / 255f, 0x36 / 255f, 0x68 / 255f, 1f));
+    public static Vector4 ThemeButtonBg => ThemeTint(new(0x2A / 255f, 0x1F / 255f, 0x3D / 255f, 1f));
+    public static Vector4 ThemeButtonHovered => ThemeTint(new(0x38 / 255f, 0x29 / 255f, 0x52 / 255f, 1f));
+    public static Vector4 ThemeButtonActive => ThemeTint(new(0x4A / 255f, 0x36 / 255f, 0x68 / 255f, 1f));
     public static readonly Vector4 ThemeHeaderBg = new(0x1C / 255f, 0x1C / 255f, 0x1C / 255f, 1f);
-    public static readonly Vector4 ThemeHeaderHovered = new(0x38 / 255f, 0x29 / 255f, 0x52 / 255f, 0.7f);
-    public static readonly Vector4 ThemeHeaderActive = new(0x4A / 255f, 0x36 / 255f, 0x68 / 255f, 1f);
+    public static Vector4 ThemeHeaderHovered => ThemeTint(new(0x38 / 255f, 0x29 / 255f, 0x52 / 255f, 0.7f));
+    public static Vector4 ThemeHeaderActive => ThemeTint(new(0x4A / 255f, 0x36 / 255f, 0x68 / 255f, 1f));
     public static readonly Vector4 ThemeScrollbarBg = new(0.08f, 0.08f, 0.08f, 0.50f);
-    public static readonly Vector4 ThemeScrollbarGrab = new(0x38 / 255f, 0x29 / 255f, 0x52 / 255f, 1f);
-    public static readonly Vector4 ThemeScrollbarHover = new(0x4A / 255f, 0x36 / 255f, 0x68 / 255f, 1f);
-    public static readonly Vector4 ThemeScrollbarActive = new(0x5E / 255f, 0x45 / 255f, 0x80 / 255f, 1f);
+    public static Vector4 ThemeScrollbarGrab => ThemeTint(new(0x38 / 255f, 0x29 / 255f, 0x52 / 255f, 1f));
+    public static Vector4 ThemeScrollbarHover => ThemeTint(new(0x4A / 255f, 0x36 / 255f, 0x68 / 255f, 1f));
+    public static Vector4 ThemeScrollbarActive => ThemeTint(new(0x5E / 255f, 0x45 / 255f, 0x80 / 255f, 1f));
     public static readonly Vector4 ThemeTabNormal = new(0x1C / 255f, 0x1C / 255f, 0x1C / 255f, 0.90f);
-    public static readonly Vector4 ThemeTabHovered = new(0x38 / 255f, 0x29 / 255f, 0x52 / 255f, 1f);
-    public static readonly Vector4 ThemeTabActive = new(0x4A / 255f, 0x36 / 255f, 0x68 / 255f, 1f);
-    public static readonly Vector4 ThemeHighlightBg = new(0x96 / 255f, 0x45 / 255f, 0xE6 / 255f, 0.14f);
-    public static readonly Vector4 ThemePopupBg = new(0.13f, 0.12f, 0.15f, 0.98f);
-    public static readonly Vector4 ThemeSelectedBg = new(0x96 / 255f, 0x45 / 255f, 0xE6 / 255f, 0.32f);
-    public static readonly Vector4 ThemeTextAccent = new(0x9B / 255f, 0x82 / 255f, 0xC0 / 255f, 1f);
-    public static readonly Vector4 ThemeRailHovered = new(0x30 / 255f, 0x19 / 255f, 0x46 / 255f, 1f);
+    public static Vector4 ThemeTabHovered => ThemeTint(new(0x38 / 255f, 0x29 / 255f, 0x52 / 255f, 1f));
+    public static Vector4 ThemeTabActive => ThemeTint(new(0x4A / 255f, 0x36 / 255f, 0x68 / 255f, 1f));
+    public static Vector4 ThemeHighlightBg => ThemeTint(new(0x96 / 255f, 0x45 / 255f, 0xE6 / 255f, 0.14f));
+    public static Vector4 ThemePopupBg => ThemeTint(new(0.13f, 0.12f, 0.15f, 0.98f));
+    public static Vector4 ThemeSelectedBg => ThemeTint(new(0x96 / 255f, 0x45 / 255f, 0xE6 / 255f, 0.32f));
+    public static Vector4 ThemeTextAccent => ThemeTint(new(0x9B / 255f, 0x82 / 255f, 0xC0 / 255f, 1f));
+    public static Vector4 ThemeRailHovered => ThemeTint(new(0x30 / 255f, 0x19 / 255f, 0x46 / 255f, 1f));
     public static readonly Vector4 ThemePrivacyAccent = new(0f, 0.2f, 0.6f, 1f);
-    public static readonly Vector4 ThemeNavText = new(0.70f, 0.65f, 0.80f, 1f);
-    public static readonly Vector4 ThemeNavTextHovered = new(0.90f, 0.85f, 1f, 1f);
+    public static Vector4 ThemeNavText => ThemeTint(new(0.70f, 0.65f, 0.80f, 1f));
+    public static Vector4 ThemeNavTextHovered => ThemeTint(new(0.90f, 0.85f, 1f, 1f));
     public static readonly Vector4 ThemeNavTextActive = new(1f, 1f, 1f, 1f);
-    public static readonly Vector4 ThemeRailActive = new(0x50 / 255f, 0x17 / 255f, 0x83 / 255f, 1f);
-    public static readonly Vector4 ThemeSliderGrab = new(0x96 / 255f, 0x45 / 255f, 0xE6 / 255f, 1f);
-    public static readonly Vector4 ThemeSliderGrabActive = new(0xB4 / 255f, 0x6B / 255f, 0xFF / 255f, 1f);
-    public static readonly Vector4 ThemeCheckMark = new(0xB4 / 255f, 0x6B / 255f, 0xFF / 255f, 1f);
+    public static Vector4 ThemeRailActive => ThemeTint(new(0x50 / 255f, 0x17 / 255f, 0x83 / 255f, 1f));
+    public static Vector4 ThemeSliderGrab => ThemeTint(new(0x96 / 255f, 0x45 / 255f, 0xE6 / 255f, 1f));
+    public static Vector4 ThemeSliderGrabActive => ThemeTint(new(0xB4 / 255f, 0x6B / 255f, 0xFF / 255f, 1f));
+    public static Vector4 ThemeCheckMark => ThemeTint(new(0xB4 / 255f, 0x6B / 255f, 0xFF / 255f, 1f));
+    public static Vector4 ThemePresence => ThemeTint(new(0.63f, 0.25f, 1f, 1f));
+    public static Vector4 ThemeAccentSoft => ThemeTint(new(0.75f, 0.5f, 1f, 1f));
     public static readonly Vector4 ThemeSwitchKnobOn = new(1f, 0.98f, 1f, 1f);
     public static readonly Vector4 ThemeSwitchKnobOff = new(0.70f, 0.68f, 0.74f, 1f);
     public static Vector4 ThemeCardBorder => WithAlpha(AccentColor, 0.45f);
@@ -89,6 +90,131 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
     public const float RadiusWindow = 10f;
     public const float RadiusCard = 6f;
     public const float RadiusControl = 4f;
+    private const float WarningHue = 25f / 360f;
+    private const float WarningSaturationBoost = 1.15f;
+    private const float WarningDarken = 0.88f;
+    private const float WarningPeriodMs = 2000f;
+    private static bool OffMainServer { get; set; }
+    
+    [StructLayout(LayoutKind.Auto)]
+    private readonly record struct ProfileAccentState(Vector4 Rgb, float Hue, float SaturationFactor, int Frame);
+
+    private static ProfileAccentState? ProfileAccentValue { get; set; }
+
+    private static ProfileAccentState? ProfileAccent
+        => ProfileAccentValue is { } accent && accent.Frame == ImGui.GetFrameCount() ? accent : null;
+
+    public static void BeginProfileAccent(string? hex)
+    {
+        if (!TryHexToVector4(hex, out var color))
+        {
+            ProfileAccentValue = null;
+            return;
+        }
+
+        float max = MathF.Max(color.X, MathF.Max(color.Y, color.Z));
+        float min = MathF.Min(color.X, MathF.Min(color.Y, color.Z));
+        float delta = max - min;
+        float hue = 0f, saturation = 0f, value = 0f;
+        ImGui.ColorConvertRGBtoHSV(color.X, color.Y, color.Z, ref hue, ref saturation, ref value);
+        float factor = delta < 0.0001f ? 0f : saturation / DefaultAccentSaturation;
+        ProfileAccentValue = new ProfileAccentState(color, hue, factor, ImGui.GetFrameCount());
+    }
+
+    public static void EndProfileAccent() => ProfileAccentValue = null;
+
+    public static ProfileAccentScope PushProfileAccent(string? hex) => new(hex);
+
+    public readonly struct ProfileAccentScope : IDisposable
+    {
+        private readonly ProfileAccentState? _previous;
+
+        internal ProfileAccentScope(string? hex)
+        {
+            _previous = ProfileAccentValue;
+            BeginProfileAccent(hex);
+        }
+
+        public void Dispose() => ProfileAccentValue = _previous;
+    }
+
+    private static float DefaultAccentSaturation
+    {
+        get
+        {
+            float max = MathF.Max(DefaultAccentColor.X, MathF.Max(DefaultAccentColor.Y, DefaultAccentColor.Z));
+            float min = MathF.Min(DefaultAccentColor.X, MathF.Min(DefaultAccentColor.Y, DefaultAccentColor.Z));
+            return (max - min) / max;
+        }
+    }
+    
+    public static ImRaii.ColorDisposable PushThemeContentColors()
+        => ImRaii.PushColor(ImGuiCol.Border, ThemeBorder)
+            .Push(ImGuiCol.Separator, ThemeSeparator)
+            .Push(ImGuiCol.FrameBg, ThemeFrameBg)
+            .Push(ImGuiCol.FrameBgHovered, ThemeFrameBgHovered)
+            .Push(ImGuiCol.FrameBgActive, ThemeFrameBgActive)
+            .Push(ImGuiCol.Button, ThemeButtonBg)
+            .Push(ImGuiCol.ButtonHovered, ThemeButtonHovered)
+            .Push(ImGuiCol.ButtonActive, ThemeButtonActive)
+            .Push(ImGuiCol.Header, ThemeHeaderBg)
+            .Push(ImGuiCol.HeaderHovered, ThemeHeaderHovered)
+            .Push(ImGuiCol.HeaderActive, ThemeHeaderActive)
+            .Push(ImGuiCol.ScrollbarGrab, ThemeScrollbarGrab)
+            .Push(ImGuiCol.ScrollbarGrabHovered, ThemeScrollbarHover)
+            .Push(ImGuiCol.ScrollbarGrabActive, ThemeScrollbarActive)
+            .Push(ImGuiCol.SliderGrab, ThemeSliderGrab)
+            .Push(ImGuiCol.SliderGrabActive, ThemeSliderGrabActive)
+            .Push(ImGuiCol.CheckMark, ThemeCheckMark)
+            .Push(ImGuiCol.Tab, ThemeTabNormal)
+            .Push(ImGuiCol.TabHovered, ThemeTabHovered)
+            .Push(ImGuiCol.TabActive, ThemeTabActive);
+
+    private static Vector4 ThemeTint(Vector4 color)
+        => ProfileAccent is { } accent ? RecolorToAccent(color, accent) : WarningTint(color);
+
+    private static Vector4 RecolorToAccent(Vector4 color, ProfileAccentState accent)
+    {
+        float max = MathF.Max(color.X, MathF.Max(color.Y, color.Z));
+        float min = MathF.Min(color.X, MathF.Min(color.Y, color.Z));
+        float delta = max - min;
+        if (delta < 0.0001f) return color;
+
+        float saturation = Math.Clamp(delta / max * accent.SaturationFactor, 0f, 1f);
+        float r = 0f, g = 0f, b = 0f;
+        ImGui.ColorConvertHSVtoRGB(accent.Hue, saturation, max, ref r, ref g, ref b);
+        return new Vector4(r, g, b, color.W);
+    }
+
+    private static Vector4 WarningTint(Vector4 color)
+    {
+        if (!OffMainServer) return color;
+        float blend = WarningBlend();
+        return blend <= 0f ? color : Vector4.Lerp(color, ToWarningHue(color), blend);
+    }
+
+    private static float WarningBlend()
+    {
+        float phase = (Environment.TickCount64 % (long)WarningPeriodMs) / WarningPeriodMs;
+        float wave = 0.5f - (0.5f * MathF.Cos(phase * MathF.Tau));
+        float edge = Math.Clamp((wave - 0.35f) / 0.3f, 0f, 1f);
+        return edge * edge * (3f - (2f * edge));
+    }
+
+    private static Vector4 ToWarningHue(Vector4 color)
+    {
+        float max = MathF.Max(color.X, MathF.Max(color.Y, color.Z));
+        float min = MathF.Min(color.X, MathF.Min(color.Y, color.Z));
+        float delta = max - min;
+        if (delta < 0.0001f) return color;
+
+        float sourceSaturation = delta / max;
+        float saturation = MathF.Min(1f, sourceSaturation * WarningSaturationBoost);
+        float value = sourceSaturation >= 0.3f ? max * WarningDarken : max;
+        float r = 0f, g = 0f, b = 0f;
+        ImGui.ColorConvertHSVtoRGB(WarningHue, saturation, value, ref r, ref g, ref b);
+        return new Vector4(r, g, b, color.W);
+    }
 
     public enum GlassLevel
     {
@@ -234,9 +360,7 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
 
     private bool _customizePlusExists;
 
-    private string _customServerName = "";
-
-    private string _customServerUri = "";
+    private readonly IDalamudPluginInterface _pluginInterface;
 
     private bool _glamourerExists;
 
@@ -273,10 +397,12 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
         _dalamudUtil = dalamudUtil;
         _textureProvider = textureProvider;
         _serverConfigurationManager = serverManager;
+        _pluginInterface = pluginInterface;
 
         Mediator.Subscribe<DelayedFrameworkUpdateMessage>(this, (_) =>
         {
             ClearGlassContextActive = _dalamudUtil.IsInGpose;
+            OffMainServer = !ServerConfigurationManager.IsMainServer(_serverConfigurationManager.CurrentServer);
             _penumbraExists = _ipcManager.Penumbra.APIAvailable;
             _glamourerExists = _ipcManager.Glamourer.APIAvailable;
             _customizePlusExists = _ipcManager.CustomizePlus.APIAvailable;
@@ -303,6 +429,9 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
     }
 
     public ApiController ApiController => _apiController;
+
+    // Plugin chargé comme dev plugin. Volontairement pas IsTesting : le canal testing, ce sont de vrais joueurs sur la prod.
+    public bool IsDevBuild => _pluginInterface.IsDev;
 
     public bool EditTrackerPosition { get; set; }
 
@@ -563,14 +692,24 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
     }
 
     public static Vector4 HexToVector4(string hex)
+        => TryHexToVector4(hex, out var color) ? color : AccentColor;
+
+    public static bool TryHexToVector4(string? hex, out Vector4 color)
     {
-        if (string.IsNullOrEmpty(hex)) return AccentColor;
+        color = default;
+        if (string.IsNullOrEmpty(hex)) return false;
         var span = hex.AsSpan();
         if (span[0] == '#') span = span[1..];
         if (span.Length != 6 || !uint.TryParse(span, System.Globalization.NumberStyles.HexNumber, null, out var rgb))
-            return AccentColor;
-        return new Vector4(((rgb >> 16) & 0xFF) / 255f, ((rgb >> 8) & 0xFF) / 255f, (rgb & 0xFF) / 255f, 1f);
+            return false;
+        color = new Vector4(((rgb >> 16) & 0xFF) / 255f, ((rgb >> 8) & 0xFF) / 255f, (rgb & 0xFF) / 255f, 1f);
+        return true;
     }
+
+    // Lignes d'infos d'une carte de profil posées sur la bannière : couleur choisie par le joueur, gris sinon
+    // (valeur absente ou invalide, puisqu'elle vient du profil d'un autre joueur).
+    public static Vector4 ProfileCardTextColor(string? hex)
+        => TryHexToVector4(hex, out var color) ? color : ImGuiColors.DalamudGrey;
 
     public static string Vector4ToHex(Vector4 color)
     {
@@ -681,6 +820,29 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
         var center = new Vector2((barStart.X + barEnd.X) / 2f, (barStart.Y + barEnd.Y) / 2f);
         drawList.AddCircleFilled(center, 3f + pulse, Color(255, 245, 220, 170));
         drawList.AddCircle(center, 5f + pulse * 2f, Color(200, 160, 255, 75), 48, 2f);
+    }
+
+   public static void DrawSpinner(Vector2 center, float radius, Vector4 color)
+    {
+        const int spokes = 8;
+        var drawList = ImGui.GetWindowDrawList();
+        int head = (int)(ImGui.GetTime() * spokes) % spokes;
+        float inner = radius * 0.45f;
+        float thickness = MathF.Max(1.5f, radius * 0.24f);
+        var background = ThemeWindowBg with { W = 1f };
+        for (int i = 0; i < spokes; i++)
+        {
+            float angle = (i / (float)spokes * MathF.Tau) - (MathF.PI / 2f);
+            var direction = new Vector2(MathF.Cos(angle), MathF.Sin(angle));
+            int age = ((head - i) + spokes) % spokes;
+            float intensity = 1f - (age / (float)spokes * 0.8f);
+            uint spokeColor = ImGui.GetColorU32(Vector4.Lerp(background, color with { W = 1f }, intensity));
+            var start = center + (direction * inner);
+            var end = center + (direction * radius);
+            drawList.AddLine(start, end, spokeColor, thickness);
+            drawList.AddCircleFilled(start, thickness / 2f, spokeColor, 8);
+            drawList.AddCircleFilled(end, thickness / 2f, spokeColor, 8);
+        }
     }
 
     public static bool CtrlPressed() => (GetKeyState(0xA2) & 0x8000) != 0 || (GetKeyState(0xA3) & 0x8000) != 0;
@@ -2005,28 +2167,39 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
 
     public int DrawServiceSelection(bool selectOnChange = false, bool intro = false)
     {
-        string[] comboEntries = _serverConfigurationManager.GetServerNames();
+        IReadOnlyList<int> selectable = _serverConfigurationManager.GetSelectableServerIndices();
+        int currentIndex = _serverConfigurationManager.CurrentServerIndex;
+        if (selectable.Count == 0)
+            return currentIndex;
 
         if (_serverSelectionIndex == -1)
         {
-            _serverSelectionIndex = Array.IndexOf(_serverConfigurationManager.GetServerApiUrls(), _serverConfigurationManager.CurrentApiUrl);
+            _serverSelectionIndex = currentIndex;
         }
-        if (_serverSelectionIndex == -1 || _serverSelectionIndex >= comboEntries.Length)
+        if (!selectable.Contains(_serverSelectionIndex))
         {
-            _serverSelectionIndex = 0;
+            _serverSelectionIndex = selectable[0];
         }
-        for (int i = 0; i < comboEntries.Length; i++)
+
+        string ServerLabel(int i)
         {
-            if (string.Equals(_serverConfigurationManager.CurrentServer?.ServerName, comboEntries[i], StringComparison.OrdinalIgnoreCase))
-                comboEntries[i] += " [Current]";
+            string name = _serverConfigurationManager.GetServerByIndex(i).ServerName;
+            return i == currentIndex
+                ? string.Format(CultureInfo.CurrentCulture, Loc.Get("Settings.Advanced.Server.CurrentEntry"), name)
+                : name;
         }
-        ImGui.SetNextItemWidth(MathF.Min(250 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X - 200 * ImGuiHelpers.GlobalScale));
-        if (UiSharedService.BeginCombo("Select Service", comboEntries[_serverSelectionIndex]))
+
+        ImGui.AlignTextToFramePadding();
+        ImGui.TextUnformatted(Loc.Get("Settings.Advanced.Server.Select"));
+        ImGui.SameLine();
+        ImGui.SetNextItemWidth(MathF.Min(250 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X));
+        if (UiSharedService.BeginCombo("##serviceSelection", ServerLabel(_serverSelectionIndex)))
         {
-            for (int i = 0; i < comboEntries.Length; i++)
+            foreach (int i in selectable)
             {
+                using var id = ImRaii.PushId(i);
                 bool isSelected = _serverSelectionIndex == i;
-                if (ImGui.Selectable(comboEntries[i], isSelected))
+                if (ImGui.Selectable(ServerLabel(i), isSelected))
                 {
                     _serverSelectionIndex = i;
                     if (selectOnChange)
@@ -2048,37 +2221,28 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
             return _serverSelectionIndex;
 
         ImGui.SameLine();
-        var text = "Connect";
-        if (_serverSelectionIndex == _serverConfigurationManager.CurrentServerIndex) text = "Reconnect";
-        if (IconTextButton(FontAwesomeIcon.Link, text))
+        string connectLabel = _serverSelectionIndex == currentIndex
+            ? Loc.Get("Settings.Advanced.Server.Reconnect")
+            : Loc.Get("Settings.Advanced.Server.Connect");
+        if (IconTextButton(FontAwesomeIcon.Link, connectLabel))
         {
             _serverConfigurationManager.SelectServer(_serverSelectionIndex);
-            _ = _apiController.CreateConnections();
-        }
-
-        if (ImGui.TreeNode("Add Custom Service"))
-        {
-            ImGui.SetNextItemWidth(MathF.Min(250 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X - 200 * ImGuiHelpers.GlobalScale));
-            ImGui.InputText("Custom Service URI", ref _customServerUri, 255);
-            ImGui.SetNextItemWidth(MathF.Min(250 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X - 200 * ImGuiHelpers.GlobalScale));
-            ImGui.InputText("Custom Service Name", ref _customServerName, 255);
-            if (IconTextButton(FontAwesomeIcon.Plus, "Add Custom Service")
-                && !string.IsNullOrEmpty(_customServerUri)
-                && !string.IsNullOrEmpty(_customServerName))
-            {
-                _serverConfigurationManager.AddServer(new ServerStorage()
-                {
-                    ServerName = _customServerName,
-                    ServerUri = _customServerUri,
-                });
-                _customServerName = string.Empty;
-                _customServerUri = string.Empty;
-                _configService.Save();
-            }
-            ImGui.TreePop();
+            _ = ConnectToCurrentServerAsync();
         }
 
         return _serverSelectionIndex;
+    }
+
+    private async Task ConnectToCurrentServerAsync()
+    {
+        try
+        {
+            await _apiController.CreateConnections().ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Connexion au serveur sélectionné impossible");
+        }
     }
 
     public Vector2 GetIconButtonSize(FontAwesomeIcon icon)

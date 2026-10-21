@@ -59,13 +59,13 @@ public class NotificationService : DisposableMediatorSubscriberBase, IHostedServ
 
     private void PrintErrorChat(string? message)
     {
-        SeStringBuilder se = new SeStringBuilder().AddText("[UmbraSync] Error: " + message);
+        SeStringBuilder se = new SeStringBuilder().AddText("[UmbraSync] " + Loc.Get("Notification.Chat.ErrorPrefix") + message);
         _chatGui.PrintError(se.BuiltString);
     }
 
     private void PrintInfoChat(string? message)
     {
-        var se = new SeStringBuilder().AddText("[UmbraSync] Info: ");
+        var se = new SeStringBuilder().AddText("[UmbraSync] " + Loc.Get("Notification.Chat.InfoPrefix"));
         var chatTwoActive = PluginWatcherService.GetInitialPluginState(_pluginInterface, "ChatTwo")?.IsLoaded == true;
         if (chatTwoActive)
             se.AddText(message ?? string.Empty);
@@ -76,7 +76,7 @@ public class NotificationService : DisposableMediatorSubscriberBase, IHostedServ
 
     private void PrintWarnChat(string? message)
     {
-        SeStringBuilder se = new SeStringBuilder().AddText("[UmbraSync] ").AddUiForeground("Warning: " + (message ?? string.Empty), 31).AddUiForegroundOff();
+        SeStringBuilder se = new SeStringBuilder().AddText("[UmbraSync] ").AddUiForeground(Loc.Get("Notification.Chat.WarningPrefix") + (message ?? string.Empty), 31).AddUiForegroundOff();
         _chatGui.Print(se.BuiltString);
     }
 

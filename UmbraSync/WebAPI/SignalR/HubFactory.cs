@@ -115,7 +115,7 @@ public class HubFactory : MediatorSubscriberBase
                     _ => apiUrl.Scheme
                 };
 
-                var wellKnownUrl = $"{httpScheme}://{apiUrl.Host}/.well-known/Umbra/client";
+                var wellKnownUrl = $"{httpScheme}://{apiUrl.Authority}/.well-known/Umbra/client";
                 Logger.LogTrace("Fetching hub config for {uri} via {wk}", _serverConfigurationManager.CurrentApiUrl, wellKnownUrl);
 
                 using var httpClient = new HttpClient(

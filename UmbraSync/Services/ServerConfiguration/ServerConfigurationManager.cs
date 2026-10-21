@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using Dalamud.Plugin;
+using Microsoft.Extensions.Logging;
 using System.Diagnostics;
 using UmbraSync.MareConfiguration;
 using UmbraSync.MareConfiguration.Models;
@@ -17,10 +18,12 @@ public class ServerConfigurationManager
     private HashSet<string>? _cachedWhitelistedUIDs = null;
     private HashSet<string>? _cachedBlacklistedUIDs = null;
     private string? _realApiUrl = null;
+    private readonly bool _isDev;
+    private const string LegacyMainServerName = "UmbraSync Main Server";
 
     public ServerConfigurationManager(ILogger<ServerConfigurationManager> logger, ServerConfigService configService,
         ServerTagConfigService serverTagConfig, NotesConfigService notesConfig,
-        ServerBlockConfigService blockConfig, DalamudUtilService dalamudUtil)
+        ServerBlockConfigService blockConfig, DalamudUtilService dalamudUtil, IDalamudPluginInterface pluginInterface)
     {
         _logger = logger;
         _configService = configService;
@@ -28,7 +31,11 @@ public class ServerConfigurationManager
         _notesConfig = notesConfig;
         _blockConfig = blockConfig;
         _dalamudUtil = dalamudUtil;
+        _isDev = pluginInterface.IsDev;
         EnsureMainExists();
+        RenameLegacyMainServer();
+        if (_isDev) EnsureDevExists();
+        EnsureAllowedServerSelected();
     }
 
     public string CurrentApiUrl => CurrentServer.ServerUri;
@@ -42,6 +49,10 @@ public class ServerConfigurationManager
     public bool HasServers => _configService.Current.ServerStorage.Count > 0;
 
     public ServerStorage CurrentServer => _configService.Current.ServerStorage[CurrentServerIndex];
+
+    public int MainServerIndex => _configService.Current.ServerStorage.FindIndex(IsMainServer);
+
+    public int DevServerIndex => _configService.Current.ServerStorage.FindIndex(IsDevServer);
 
     public IReadOnlyList<string> Whitelist => CurrentBlockStorage().Whitelist;
     public IReadOnlyList<string> Blacklist => CurrentBlockStorage().Blacklist;
@@ -151,8 +162,30 @@ public class ServerConfigurationManager
     public void SelectServer(int idx)
     {
         _configService.Current.CurrentServer = idx;
+        // Les listes blanche/noire en cache appartiennent au serveur précédent.
+        _cachedWhitelistedUIDs = null;
+        _cachedBlacklistedUIDs = null;
+        _realApiUrl = null;
         CurrentServer.FullPause = false;
         Save();
+    }
+
+    public static bool IsMainServer(ServerStorage server)
+        => server.ServerUri.Equals(ApiController.UmbraServiceUri, StringComparison.OrdinalIgnoreCase);
+    public static bool IsDevServer(ServerStorage server)
+        => string.Equals(server.ServerUri.TrimEnd('/'), ApiController.UmbraDevServiceUri.TrimEnd('/'), StringComparison.OrdinalIgnoreCase);
+    
+    public IReadOnlyList<int> GetSelectableServerIndices()
+    {
+        var indices = new List<int>(2);
+        int main = MainServerIndex;
+        if (main >= 0) indices.Add(main);
+        if (_isDev)
+        {
+            int dev = DevServerIndex;
+            if (dev >= 0) indices.Add(dev);
+        }
+        return indices;
     }
 
     internal void AddCurrentCharacterToServer(int serverSelectionIndex = -1, bool save = true)
@@ -564,6 +597,56 @@ public class ServerConfigurationManager
             if (_configService.Current.CurrentServer >= 0)
                 _configService.Current.CurrentServer++;
         }
+        Save();
+    }
+
+    private void RenameLegacyMainServer()
+    {
+        int mainIdx = MainServerIndex;
+        if (mainIdx < 0) return;
+
+        var main = _configService.Current.ServerStorage[mainIdx];
+        if (!string.Equals(main.ServerName, LegacyMainServerName, StringComparison.Ordinal)) return;
+
+        main.ServerName = ApiController.UmbraServer;
+        Save();
+    }
+
+    private void EnsureDevExists()
+    {
+        var servers = _configService.Current.ServerStorage;
+        int devIdx = DevServerIndex;
+        if (devIdx < 0)
+        {
+            servers.Add(new ServerStorage() { ServerUri = ApiController.UmbraDevServiceUri, ServerName = ApiController.UmbraDevServer });
+            _logger.LogInformation("Serveur {name} ajouté ({uri})", ApiController.UmbraDevServer, ApiController.UmbraDevServiceUri);
+            Save();
+            return;
+        }
+
+        if (!string.Equals(servers[devIdx].ServerName, ApiController.UmbraDevServer, StringComparison.Ordinal))
+        {
+            servers[devIdx].ServerName = ApiController.UmbraDevServer;
+            Save();
+        }
+    }
+
+    private void EnsureAllowedServerSelected()
+    {
+        int mainIdx = MainServerIndex;
+        if (mainIdx < 0) return;
+
+        var servers = _configService.Current.ServerStorage;
+        int current = _configService.Current.CurrentServer;
+        bool inRange = current >= 0 && current < servers.Count;
+        if (inRange && (IsMainServer(servers[current]) || (_isDev && IsDevServer(servers[current]))))
+            return;
+
+        string previous = inRange ? servers[current].ServerUri : $"index {current}";
+        _logger.LogWarning("Serveur courant {previous} non autorisé ({mode}), retour au serveur principal {main}",
+            previous, _isDev ? "mode dev" : "hors mode dev", ApiController.UmbraServiceUri);
+
+        _configService.Current.CurrentServer = mainIdx;
         Save();
     }
 

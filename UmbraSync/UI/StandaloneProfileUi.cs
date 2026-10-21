@@ -147,6 +147,23 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
 
     public Pair Pair { get; init; }
 
+    private UmbraProfileData ResolveProfile()
+        => (_selectedAltCharName != null && _selectedAltWorldId != null)
+            ? _umbraProfileManager.GetUmbraProfile(Pair.UserData, _selectedAltCharName, _selectedAltWorldId)
+            : _umbraProfileManager.GetUmbraProfile(Pair.UserData);
+
+    public override void PreDraw()
+    {
+        UiSharedService.BeginProfileAccent(ResolveProfile().CardStyle.Value.AccentColor);
+        base.PreDraw();
+    }
+
+    public override void PostDraw()
+    {
+        base.PostDraw();
+        UiSharedService.EndProfileAccent();
+    }
+
     protected override void DrawInternal()
     {
         try
@@ -171,9 +188,7 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
                 _lastRpBanner = null;
             }
 
-            var umbraProfile = (_selectedAltCharName != null && _selectedAltWorldId != null)
-                ? _umbraProfileManager.GetUmbraProfile(Pair.UserData, _selectedAltCharName, _selectedAltWorldId)
-                : _umbraProfileManager.GetUmbraProfile(Pair.UserData);
+            var umbraProfile = ResolveProfile();
 
             var accent = UiSharedService.AccentColor;
             if (accent.W <= 0f) accent = ImGuiColors.ParsedPurple;
@@ -208,9 +223,13 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
                 var bannerData = umbraProfile.RpBannerData.Value;
                 if (!ReferenceEquals(bannerData, _lastRpBanner))
                 {
-                    _rpBannerTexture?.Dispose();
+                    // Une prévisualisation rafraîchie recrée le tableau : ne recharger la texture que si l'image change.
+                    if (!bannerData.AsSpan().SequenceEqual(_lastRpBanner))
+                    {
+                        _rpBannerTexture?.Dispose();
+                        _rpBannerTexture = bannerData.Length > 0 ? _uiSharedService.LoadImage(bannerData) : null;
+                    }
                     _lastRpBanner = bannerData;
-                    _rpBannerTexture = bannerData.Length > 0 ? _uiSharedService.LoadImage(bannerData) : null;
                 }
             }
 
@@ -263,9 +282,9 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
         var availWidth = ImGui.GetContentRegionAvail().X;
         var btnW = (availWidth - btnSpacing * (labels.Length - 1)) / labels.Length;
 
-        var borderColor = new Vector4(0.29f, 0.21f, 0.41f, 0.7f);
-        var bgColor = new Vector4(0.11f, 0.11f, 0.11f, 0.9f);
-        var hoverBg = new Vector4(0.17f, 0.13f, 0.22f, 1f);
+        var borderColor = UiSharedService.ThemeButtonActive;
+        var bgColor = UiSharedService.WithAlpha(UiSharedService.ThemeWindowBg, 0.9f);
+        var hoverBg = UiSharedService.ThemeButtonBg;
 
         for (int i = 0; i < labels.Length; i++)
         {
@@ -290,7 +309,7 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
             var totalW = iconSz.X + iconTextGap + labelSz.X;
             var startX = p.X + (btnW - totalW) / 2f;
 
-            var textColor = isActive ? new Vector4(1f, 1f, 1f, 1f) : hovered ? new Vector4(0.9f, 0.85f, 1f, 1f) : new Vector4(0.7f, 0.65f, 0.8f, 1f);
+            var textColor = isActive ? UiSharedService.ThemeNavTextActive : hovered ? UiSharedService.ThemeNavTextHovered : UiSharedService.ThemeNavText;
             var textColorU32 = ImGui.GetColorU32(textColor);
 
             ImGui.PushFont(UiBuilder.IconFont);
@@ -702,7 +721,7 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
                 ? $"{race} · {ethnicity}"
                 : !string.IsNullOrEmpty(race) ? race : ethnicity;
             if (!string.IsNullOrEmpty(raceEthnicity))
-                ImGui.TextColored(ImGuiColors.DalamudGrey, raceEthnicity);
+                ImGui.TextColored(UiSharedService.ProfileCardTextColor(profile.CardStyle.Value.TextColor), raceEthnicity);
 
             // Status
             ImGuiHelpers.ScaledDummy(2f);
@@ -727,7 +746,7 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
 
             ImGui.EndGroup();
         }, stretchWidth: true, backgroundOverlay: _rpBannerTexture is { } banner
-            ? (min, max, rounding, background) => ProfileBanner.Draw(ImGui.GetWindowDrawList(), banner, min, max, background, rounding)
+            ? (min, max, rounding, background) => ProfileBanner.Draw(ImGui.GetWindowDrawList(), banner, min, max, background, rounding, profile.CardStyle.Value)
             : null);
 
         // Draw moodles AFTER card (on top), right-aligned on same line as name

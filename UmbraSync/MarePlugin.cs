@@ -10,6 +10,7 @@ using UmbraSync.PlayerData.Services;
 using UmbraSync.Services;
 using UmbraSync.Services.Mediator;
 using UmbraSync.Services.ServerConfiguration;
+using UmbraSync.Localization;
 
 namespace UmbraSync;
 
@@ -118,25 +119,13 @@ public class MarePlugin : MediatorSubscriberBase, IHostedService
                 return;
             }
 
-            var whatsNewPending = _mareConfigService.Current.HasPendingWhatsNewTour();
             if (!_rgpdDataService.IsRgpdConsentValid)
             {
-                if (whatsNewPending)
-                {
-                    // Le tour de la version embarque la page de consentement.
-                    Logger.LogInformation("RGPD consent missing or expired, showing what's new tour");
-                    Mediator.Publish(new SwitchToWhatsNewUiMessage(ServicesPending: true));
-                }
-                else
-                {
-                    Logger.LogInformation("RGPD consent missing or expired, showing consent screen");
-                    Mediator.Publish(new SwitchToRgpdConsentUiMessage());
-                }
+                Logger.LogInformation("RGPD consent missing or expired, showing consent screen");
+                Mediator.Publish(new SwitchToRgpdConsentUiMessage());
                 return;
             }
 
-            if (whatsNewPending)
-                Mediator.Publish(new SwitchToWhatsNewUiMessage(ServicesPending: false));
             _runtimeServiceScope.ServiceProvider.GetRequiredService<CacheCreationService>();
             _runtimeServiceScope.ServiceProvider.GetRequiredService<TransientResourceManager>();
             _runtimeServiceScope.ServiceProvider.GetRequiredService<OnlinePlayerManager>();
@@ -157,8 +146,8 @@ public class MarePlugin : MediatorSubscriberBase, IHostedService
 #if !DEBUG
             if (_mareConfigService.Current.LogLevel != LogLevel.Information)
             {
-                Mediator.Publish(new NotificationMessage("Abnormal Log Level",
-                    $"Your log level is set to '{_mareConfigService.Current.LogLevel}' which is not recommended for normal usage. Set it to '{LogLevel.Information}' in \"Umbra Settings -> Debug\" unless instructed otherwise.",
+                Mediator.Publish(new NotificationMessage(Loc.Get("Notification.AbnormalLogLevel.Title"),
+                    Loc.Get("Notification.AbnormalLogLevel.Body", _mareConfigService.Current.LogLevel, LogLevel.Information),
                     MareConfiguration.Models.NotificationType.Error, TimeSpan.FromSeconds(15000)));
             }
 #endif

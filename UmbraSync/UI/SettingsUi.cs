@@ -35,6 +35,8 @@ namespace UmbraSync.UI;
 public class SettingsUi : WindowMediatorSubscriberBase
 {
     private readonly ApiController _apiController;
+    private bool _vanityModalOpen;
+    private string _vanityInput = string.Empty;
     private readonly IpcManager _ipcManager;
     private readonly IpcProvider _ipcProvider;
     private readonly CacheMonitor _cacheMonitor;
@@ -1614,6 +1616,16 @@ public class SettingsUi : WindowMediatorSubscriberBase
                 _configService.Save();
             }
             _uiShared.DrawHelpText(Loc.Get("Settings.Advanced.SerialApply.Help"));
+            if (_uiShared.IsDevBuild)
+            {
+                ImGuiHelpers.ScaledDummy(4f);
+                ImGui.Separator();
+                ImGuiHelpers.ScaledDummy(2f);
+                UiSharedService.DrawCardTitle(FontAwesomeIcon.Server, Loc.Get("Settings.Advanced.DevServer.Title"));
+                UiSharedService.ColorTextWrapped(Loc.Get("Settings.Advanced.DevServer.Warning"), ImGuiColors.DalamudYellow);
+                ImGuiHelpers.ScaledDummy(2f);
+                _ = _uiShared.DrawServiceSelection(selectOnChange: false, intro: false);
+            }
         });
 
         // --- Character Data Settings ---
@@ -2404,6 +2416,25 @@ public class SettingsUi : WindowMediatorSubscriberBase
         }
         _uiShared.DrawHelpText(Loc.Get("Settings.TargetTooltip.Enable.Help"));
 
+        using (ImRaii.Disabled(!showTargetTooltip))
+        using (ImRaii.PushIndent())
+        {
+            var trigger = _configService.Current.TargetProfileTooltipTrigger;
+            if (ImGui.RadioButton(Loc.Get("Settings.TargetTooltip.Trigger.OnTarget"), trigger == TargetProfileTooltipTrigger.OnTarget))
+            {
+                _configService.Current.TargetProfileTooltipTrigger = TargetProfileTooltipTrigger.OnTarget;
+                _configService.Save();
+            }
+            _uiShared.DrawHelpText(Loc.Get("Settings.TargetTooltip.Trigger.OnTarget.Help"));
+
+            if (ImGui.RadioButton(Loc.Get("Settings.TargetTooltip.Trigger.OnTargetBarHover"), trigger == TargetProfileTooltipTrigger.OnTargetBarHover))
+            {
+                _configService.Current.TargetProfileTooltipTrigger = TargetProfileTooltipTrigger.OnTargetBarHover;
+                _configService.Save();
+            }
+            _uiShared.DrawHelpText(Loc.Get("Settings.TargetTooltip.Trigger.OnTargetBarHover.Help"));
+        }
+
         var hideTooltipInDuty = _configService.Current.HideTargetProfileTooltipInDuty;
         using (ImRaii.Disabled(!showTargetTooltip))
         {
@@ -3037,6 +3068,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
         DrawSectionHeader(6);
 
         DrawAshfallConnectSection();
+        DrawCustomIdSection();
 
         var idx = _serverConfigurationManager.CurrentServerIndex;
         var playerName = _dalamudUtilService.GetPlayerName();
@@ -3060,9 +3092,9 @@ public class SettingsUi : WindowMediatorSubscriberBase
             var availWidth = ImGui.GetContentRegionAvail().X;
             var btnW = (availWidth - btnSpacing * (labels.Length - 1)) / labels.Length;
 
-            var borderColor = new Vector4(0.29f, 0.21f, 0.41f, 0.7f);
-            var bgColor = new Vector4(0.11f, 0.11f, 0.11f, 0.9f);
-            var hoverBg = new Vector4(0.17f, 0.13f, 0.22f, 1f);
+            var borderColor = UiSharedService.ThemeButtonActive;
+            var bgColor = UiSharedService.WithAlpha(UiSharedService.ThemeWindowBg, 0.9f);
+            var hoverBg = UiSharedService.ThemeButtonBg;
 
             for (int t = 0; t < labels.Length; t++)
             {
@@ -3087,7 +3119,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
                 var totalW = iconSz.X + iconTextGap + labelSz.X;
                 var startX = p.X + (btnW - totalW) / 2f;
 
-                var textColor = isActive ? new Vector4(1f, 1f, 1f, 1f) : hovered ? new Vector4(0.9f, 0.85f, 1f, 1f) : new Vector4(0.7f, 0.65f, 0.8f, 1f);
+                var textColor = isActive ? UiSharedService.ThemeNavTextActive : hovered ? UiSharedService.ThemeNavTextHovered : UiSharedService.ThemeNavText;
                 var textColorU32 = ImGui.GetColorU32(textColor);
 
                 ImGui.PushFont(UiBuilder.IconFont);
@@ -3580,6 +3612,103 @@ public class SettingsUi : WindowMediatorSubscriberBase
             }
         }
         ImGui.Spacing();
+    }
+
+    private void DrawCustomIdSection()
+    {
+        var scale = ImGuiHelpers.GlobalScale;
+        var accent = UiSharedService.AccentColor;
+        var padding = new Vector2(12f, 8f) * scale;
+        float height = (padding.Y * 2f) + ImGui.GetFrameHeight() + ImGui.GetStyle().ItemSpacing.Y + ImGui.GetTextLineHeight() + scale;
+
+        using (ImRaii.PushColor(ImGuiCol.ChildBg, accent with { W = 0.07f }).Push(ImGuiCol.Border, accent with { W = 0.45f }))
+        using (ImRaii.PushStyle(ImGuiStyleVar.ChildRounding, UiSharedService.RadiusCard * scale)
+                   .Push(ImGuiStyleVar.ChildBorderSize, scale)
+                   .Push(ImGuiStyleVar.WindowPadding, padding))
+        using (var card = ImRaii.Child("##custom-id-section", new Vector2(-1f, height), true,
+                   ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse))
+        {
+            if (card)
+            {
+                ImGui.AlignTextToFramePadding();
+                _uiShared.IconText(FontAwesomeIcon.Tag, accent);
+                ImGui.SameLine();
+                ImGui.TextColored(accent, Loc.Get("Settings.Account.CustomId.Title"));
+                ImGui.SameLine();
+                var displayName = _apiController.DisplayName;
+                if (string.IsNullOrEmpty(displayName) || string.Equals(displayName, _apiController.UID, StringComparison.Ordinal))
+                    ImGui.TextDisabled("· " + Loc.Get("Settings.Account.CustomId.None"));
+                else
+                    ImGui.TextUnformatted("· " + displayName);
+
+                string label = Loc.Get("EditProfile.SetCustomId.Button");
+                float buttonWidth = _uiShared.GetIconTextButtonSize(FontAwesomeIcon.Pen, label);
+                ImGui.SameLine(MathF.Max(ImGui.GetCursorPosX(), ImGui.GetWindowContentRegionMax().X - buttonWidth));
+                if (_uiShared.IconTextButton(FontAwesomeIcon.Pen, label))
+                {
+                    _vanityInput = string.Empty;
+                    _vanityModalOpen = true;
+                    ImGui.OpenPopup(Loc.Get("EditProfile.SetCustomId.Title"));
+                }
+                UiSharedService.AttachToolTip(Loc.Get("EditProfile.SetCustomId.Tooltip"));
+
+                ImGui.TextDisabled(Loc.Get("Settings.Account.CustomId.Desc"));
+                DrawVanityPopup();
+            }
+        }
+        ImGui.Spacing();
+    }
+
+    private void DrawVanityPopup()
+    {
+        if (_vanityModalOpen && ImGui.BeginPopupModal(Loc.Get("EditProfile.SetCustomId.Title"), ref _vanityModalOpen, ImGuiWindowFlags.AlwaysAutoResize))
+        {
+            ImGui.TextWrapped(Loc.Get("EditProfile.SetCustomId.FormatHint"));
+            ImGuiHelpers.ScaledDummy(new Vector2(0f, 5f));
+
+            ImGui.SetNextItemWidth(400 * ImGuiHelpers.GlobalScale);
+            ImGui.InputTextWithHint("##customId", Loc.Get("EditProfile.SetCustomId.Placeholder"), ref _vanityInput, 64);
+
+            ImGuiHelpers.ScaledDummy(new Vector2(0f, 5f));
+            UiSharedService.ColorTextWrapped(Loc.Get("EditProfile.SetCustomId.ReconnectWarning"), ImGuiColors.DalamudYellow);
+
+            ImGuiHelpers.ScaledDummy(new Vector2(0f, ImGui.GetStyle().ItemSpacing.Y));
+            if (ImGui.Button(Loc.Get("EditProfile.SetCustomId.Confirm")))
+            {
+                _ = SubmitVanityAsync(_vanityInput);
+            }
+            ImGui.SameLine();
+            if (ImGui.Button(Loc.Get("Common.Cancel")))
+            {
+                _vanityModalOpen = false;
+                ImGui.CloseCurrentPopup();
+            }
+
+            ImGui.EndPopup();
+        }
+    }
+
+    private async Task SubmitVanityAsync(string input)
+    {
+        try
+        {
+            await _apiController.UserSetAlias(string.IsNullOrWhiteSpace(input) ? null : input).ConfigureAwait(false);
+            Mediator.Publish(new NotificationMessage(Loc.Get("EditProfile.SetCustomId.SentTitle"), Loc.Get("EditProfile.SetCustomId.SentBody"),
+                UmbraSync.MareConfiguration.Models.NotificationType.Success));
+        }
+        catch (Exception ex)
+        {
+            var fullMessage = ex.InnerException?.Message ?? ex.Message;
+            var errorBody = fullMessage.Contains("DbUpdateException", StringComparison.OrdinalIgnoreCase)
+                ? Loc.Get("EditProfile.SetCustomId.ErrorAlreadyTaken")
+                : Loc.Get("EditProfile.SetCustomId.ErrorBody");
+            Mediator.Publish(new NotificationMessage(Loc.Get("EditProfile.SetCustomId.ErrorTitle"), errorBody,
+                UmbraSync.MareConfiguration.Models.NotificationType.Error));
+        }
+        finally
+        {
+            _vanityModalOpen = false;
+        }
     }
 
     private void LoadAshfallStatusIfNeeded()
