@@ -8077,6 +8077,9 @@ ATTENTION : cette action est irréversible.</value>
   <data name="EditProfile.Card.Traits" xml:space="preserve">
     <value>Traits du personnage</value>
   </data>
+  <data name="EditProfile.Traits.MoodlesRequired" xml:space="preserve">
+    <value>Les traits du personnage nécessitent le plugin Moodles. Installez-le et activez-le pour pouvoir en ajouter.</value>
+  </data>
   <data name="EditProfile.Banner.Select" xml:space="preserve">
     <value>Choisir une bannière</value>
   </data>
@@ -8136,6 +8139,87 @@ ATTENTION : cette action est irréversible.</value>
   </data>
   <data name="EditProfile.Banner.RenderingNeedsBanner" xml:space="preserve">
     <value>Choisissez une bannière pour régler son assombrissement et son fondu.</value>
+  </data>
+  <data name="EditProfile.Background" xml:space="preserve">
+    <value>Fond de fiche</value>
+  </data>
+  <data name="EditProfile.Background.None" xml:space="preserve">
+    <value>Aucun</value>
+  </data>
+  <data name="EditProfile.Background.Help" xml:space="preserve">
+    <value>Un fond tiré des plaques d'aventurier du jeu, affiché derrière votre fiche RP.</value>
+  </data>
+  <data name="EditProfile.Background.Dimming" xml:space="preserve">
+    <value>Assombrissement</value>
+  </data>
+  <data name="EditProfile.Background.Dimming.Tooltip" xml:space="preserve">
+    <value>À quel point l'image du fond est assombrie derrière le texte. 0 % : l'image telle quelle.</value>
+  </data>
+  <data name="EditProfile.Background.Fade" xml:space="preserve">
+    <value>Fondu</value>
+  </data>
+  <data name="EditProfile.Background.Fade.Tooltip" xml:space="preserve">
+    <value>Teinte l'image et assombrit ses bords pour garder le texte lisible. Désactivé : ni teinte ni bords assombris.</value>
+  </data>
+  <data name="EditProfile.Background.Veil" xml:space="preserve">
+    <value>Intensité</value>
+  </data>
+  <data name="EditProfile.Background.Veil.Tooltip" xml:space="preserve">
+    <value>Force du fondu : plus la valeur est haute, plus l'image est assombrie.</value>
+  </data>
+  <data name="EditProfile.Card.Banner" xml:space="preserve">
+    <value>Bannière</value>
+  </data>
+  <data name="EditProfile.Background.Image" xml:space="preserve">
+    <value>Image</value>
+  </data>
+  <data name="EditProfile.Background.Family.Parchment" xml:space="preserve">
+    <value>Parchemins</value>
+  </data>
+  <data name="EditProfile.Background.Family.Illustrated" xml:space="preserve">
+    <value>Parchemins illustrés</value>
+  </data>
+  <data name="EditProfile.Background.Family.Wood" xml:space="preserve">
+    <value>Bois</value>
+  </data>
+  <data name="EditProfile.Background.WondrousWhimsy" xml:space="preserve">
+    <value>Carnet de croquis</value>
+  </data>
+  <data name="EditProfile.Background.ExplorerNotebook" xml:space="preserve">
+    <value>Carnet d'explorateur</value>
+  </data>
+  <data name="EditProfile.Background.SharlayanAgora" xml:space="preserve">
+    <value>Papier marbré</value>
+  </data>
+  <data name="EditProfile.Background.SolidBeige" xml:space="preserve">
+    <value>Beige uni</value>
+  </data>
+  <data name="EditProfile.Background.UltimaOmega" xml:space="preserve">
+    <value>Ultima et Oméga</value>
+  </data>
+  <data name="EditProfile.Background.Shantotto" xml:space="preserve">
+    <value>Shantotto</value>
+  </data>
+  <data name="EditProfile.Background.Halone" xml:space="preserve">
+    <value>Bénédiction de Halone</value>
+  </data>
+  <data name="EditProfile.Background.Menphina" xml:space="preserve">
+    <value>Bénédiction de Menphina</value>
+  </data>
+  <data name="EditProfile.Background.Azeyma" xml:space="preserve">
+    <value>Bénédiction d'Azeyma</value>
+  </data>
+  <data name="EditProfile.Background.Nophica" xml:space="preserve">
+    <value>Bénédiction de Nophica</value>
+  </data>
+  <data name="EditProfile.Background.LightWood" xml:space="preserve">
+    <value>Bois clair</value>
+  </data>
+  <data name="EditProfile.Background.DarkWood" xml:space="preserve">
+    <value>Bois sombre</value>
+  </data>
+  <data name="EditProfile.Background.WoodPanels" xml:space="preserve">
+    <value>Planches de bois</value>
   </data>
   <data name="EditProfile.CardStyle.Reset" xml:space="preserve">
     <value>Rétablir l'apparence par défaut</value>

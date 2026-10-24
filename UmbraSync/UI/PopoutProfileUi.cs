@@ -155,6 +155,10 @@ public class PopoutProfileUi : WindowMediatorSubscriberBase
             var rectMin = drawList.GetClipRectMin();
             var rectMax = drawList.GetClipRectMax();
 
+            var palette = _isRpTab ? DrawSheet(drawList, umbraProfile.CardStyle.Value) : null;
+            using var sheetColors = ImRaii.PushColor(ImGuiCol.Text, palette?.Value ?? Vector4.Zero, palette != null)
+                .Push(ImGuiCol.Separator, (palette?.Accent ?? Vector4.Zero) with { W = ProfileSheetBackground.SeparatorOpacity }, palette != null);
+
             var nameColor = _isRpTab && _configService.Current.UseRpNameColors && !string.IsNullOrEmpty(umbraProfile.RpNameColor) ? UiSharedService.HexToVector4(umbraProfile.RpNameColor) : UiSharedService.AccentColor;
             using (_uiSharedService.UidFont.Push())
                 UiSharedService.ColorText(_pair.UserData.AliasOrUID + (_isRpTab ? " (RP)" : " (HRP)"), nameColor);
@@ -168,7 +172,7 @@ public class PopoutProfileUi : WindowMediatorSubscriberBase
             var note = _serverManager.GetNoteForUid(_pair.UserData.UID);
             if (!string.IsNullOrEmpty(note))
             {
-                UiSharedService.ColorText(note, ImGuiColors.DalamudGrey);
+                UiSharedService.ColorText(note, palette?.Label ?? ImGuiColors.DalamudGrey);
             }
             string status = _pair.IsVisible ? Loc.Get("PopoutProfile.Status.Visible") : (_pair.IsOnline ? Loc.Get("PopoutProfile.Status.Online") : Loc.Get("PopoutProfile.Status.Offline"));
             UiSharedService.ColorText(status, (_pair.IsVisible || _pair.IsOnline) ? ImGuiColors.HealerGreen : UiSharedService.AccentColor);
@@ -301,5 +305,18 @@ public class PopoutProfileUi : WindowMediatorSubscriberBase
         {
             _logger.LogWarning(ex, "Error during draw tooltip");
         }
+    }
+
+    // Sous la barre d'onglets, la feuille va d'un bord à l'autre de la fenêtre : son padding sert de marge intérieure.
+    private SheetPalette? DrawSheet(ImDrawListPtr drawList, ProfileCardStyle style)
+    {
+        var windowPos = ImGui.GetWindowPos();
+        var windowMax = windowPos + ImGui.GetWindowSize();
+        var min = new Vector2(windowPos.X, ImGui.GetCursorScreenPos().Y - (ImGui.GetStyle().ItemSpacing.Y * 0.5f));
+        drawList.PushClipRect(windowPos, windowMax, false);
+        var palette = ProfileSheetBackground.Draw(_uiSharedService.TextureProvider, drawList, style, min, windowMax,
+            ImGui.GetStyle().WindowRounding);
+        drawList.PopClipRect();
+        return palette;
     }
 }

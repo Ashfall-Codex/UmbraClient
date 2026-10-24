@@ -35,6 +35,7 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
     private IDalamudTextureWrap? _rpTextureWrap;
     private IDalamudTextureWrap? _rpBannerTexture;
     private byte[]? _lastRpBanner;
+    private SheetPalette? _sheetPalette;
     private bool _isRpTab = true;
     private bool _windowSizeInitialized = false;
     private string _localMoodlesJson = string.Empty;
@@ -257,9 +258,21 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
             if (ImGui.BeginChild("ProfileScrollArea", ImGui.GetContentRegionAvail(), false))
             {
                 if (_isRpTab)
-                    DrawRpProfile(umbraProfile, currentTexture, accent);
+                {
+                    var sheetMin = ImGui.GetWindowPos();
+                    var sheetMax = sheetMin + ImGui.GetWindowSize();
+                    if (ImGui.GetScrollMaxY() > 0f)
+                        sheetMax.X -= ImGui.GetStyle().ScrollbarSize;
+                    _sheetPalette = ProfileSheetBackground.Draw(_uiSharedService.TextureProvider, ImGui.GetWindowDrawList(),
+                        umbraProfile.CardStyle.Value, sheetMin, sheetMax, UiSharedService.RadiusCard * ImGuiHelpers.GlobalScale);
+                    using (ImRaii.PushColor(ImGuiCol.Text, _sheetPalette?.Value ?? Vector4.Zero, _sheetPalette != null))
+                        DrawRpProfile(umbraProfile, currentTexture, accent);
+                }
                 else
+                {
+                    _sheetPalette = null;
                     DrawHrpProfile(umbraProfile, currentTexture, accent);
+                }
             }
             ImGui.EndChild();
         }
@@ -413,7 +426,7 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
                     if (!first) ImGui.SameLine();
                     DrawVerticalField(Loc.Get("UserProfile.RpBuild"), profile.RpBuild!, colWidth);
                 }
-            }, stretchWidth: true);
+            }, stretchWidth: true, background: SheetCardFill, border: SheetCardFill);
             ImGuiHelpers.ScaledDummy(cardSpacing / ImGuiHelpers.GlobalScale);
         }
 
@@ -459,7 +472,7 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
                         DrawVerticalField(Loc.Get("UserProfile.RpAlignment"), profile.RpAlignment!, halfW);
                     }
                 }
-            }, stretchWidth: true);
+            }, stretchWidth: true, background: SheetCardFill, border: SheetCardFill);
             ImGuiHelpers.ScaledDummy(cardSpacing / ImGuiHelpers.GlobalScale);
         }
 
@@ -482,7 +495,7 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
                     if (!isEven) { ImGui.SameLine(); ImGui.SetCursorPosX(col2X); }
                     DrawVerticalField(field.Name, field.Value, halfW);
                 }
-            }, stretchWidth: true);
+            }, stretchWidth: true, background: SheetCardFill, border: SheetCardFill);
             ImGuiHelpers.ScaledDummy(cardSpacing / ImGuiHelpers.GlobalScale);
         }
 
@@ -496,7 +509,7 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
                 DrawSectionTitle(Loc.Get("UserProfile.RpDescription"));
                 using var _ = _uiSharedService.GameFont.Push();
                 BbCodeRenderer.Render(description, wrapWidth);
-            }, stretchWidth: true);
+            }, stretchWidth: true, background: SheetCardFill, border: SheetCardFill);
             ImGuiHelpers.ScaledDummy(cardSpacing / ImGuiHelpers.GlobalScale);
         }
 
@@ -509,7 +522,7 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
                 DrawSectionTitle(Loc.Get("UserProfile.RpAdditionalInfo"));
                 using var _ = _uiSharedService.GameFont.Push();
                 BbCodeRenderer.Render(profile.RpAdditionalInfo, wrapWidth);
-            }, stretchWidth: true);
+            }, stretchWidth: true, background: SheetCardFill, border: SheetCardFill);
         }
 
         // Establishment managed by this user
@@ -644,7 +657,7 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
             ImGuiHelpers.ScaledDummy(2f);
             if (_uiSharedService.IconTextButton(FontAwesomeIcon.Eye, Loc.Get("Profile.Establishment.View")))
                 Mediator.Publish(new OpenEstablishmentDetailMessage(_linkedEstablishment.Id));
-        }, stretchWidth: true);
+        }, stretchWidth: true, background: SheetCardFill, border: SheetCardFill);
     }
 
     private async Task LoadLinkedEstablishment(string uid)
@@ -745,7 +758,7 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
                 ImGui.TextColored(ImGuiColors.DalamudGrey, note);
 
             ImGui.EndGroup();
-        }, stretchWidth: true, backgroundOverlay: _rpBannerTexture is { } banner
+        }, stretchWidth: true, background: HeroCardFill, border: HeroCardBorder, backgroundOverlay: _rpBannerTexture is { } banner
             ? (min, max, rounding, background) => ProfileBanner.Draw(ImGui.GetWindowDrawList(), banner, min, max, background, rounding, profile.CardStyle.Value)
             : null);
 
@@ -928,17 +941,31 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
         return string.Equals(charName, liveName, StringComparison.Ordinal) && worldId == liveWorld;
     }
 
-    private static void DrawSectionTitle(string text)
+    private Vector4? SheetCardFill => _sheetPalette != null ? Vector4.Zero : null;
+
+    private Vector4? HeroCardFill => _sheetPalette is { } palette
+        ? (_rpBannerTexture == null ? Vector4.Zero : palette.Veil)
+        : null;
+
+    private Vector4? HeroCardBorder => _sheetPalette is { } palette ? palette.Accent with { W = ProfileSheetBackground.BorderOpacity } : null;
+
+    private void DrawSectionTitle(string text)
     {
+        if (_sheetPalette is { } palette)
+        {
+            var width = ImGui.GetContentRegionAvail().X - (ImGui.GetStyle().FramePadding.X + 4f * ImGuiHelpers.GlobalScale);
+            ProfileSheetBackground.DrawHeading(text, palette, width);
+            return;
+        }
         UiSharedService.ColorText(text, UiSharedService.AccentColor);
         ImGuiHelpers.ScaledDummy(2f);
     }
 
-    private static void DrawVerticalField(string label, string value, float width)
+    private void DrawVerticalField(string label, string value, float width)
     {
         ImGui.BeginGroup();
         ImGui.PushTextWrapPos(ImGui.GetCursorPosX() + width - 8f * ImGuiHelpers.GlobalScale);
-        ImGui.TextColored(ImGuiColors.DalamudGrey, label);
+        ImGui.TextColored(_sheetPalette?.Label ?? ImGuiColors.DalamudGrey, label);
         ImGui.TextUnformatted(value);
         ImGui.PopTextWrapPos();
         ImGui.EndGroup();

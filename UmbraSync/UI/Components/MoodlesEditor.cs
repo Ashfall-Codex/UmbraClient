@@ -11,6 +11,7 @@ using Dalamud.Plugin.Services;
 using Lumina.Excel.Sheets;
 using Microsoft.Extensions.Logging;
 using UmbraSync.Interop.Ipc;
+using UmbraSync.Localization;
 using UmbraSync.MareConfiguration;
 using UmbraSync.Models;
 using UmbraSync.Services;
@@ -247,6 +248,10 @@ public sealed partial class MoodlesEditor
             }
 
             ImGui.PopStyleColor(3);
+        }
+        else
+        {
+            UiSharedService.ColorTextWrapped(Loc.Get("EditProfile.Traits.MoodlesRequired"), ImGuiColors.DalamudYellow);
         }
 
         if (addClicked)

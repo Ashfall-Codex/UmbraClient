@@ -8164,6 +8164,9 @@ WARNING: this cannot be undone.</value>
   <data name="EditProfile.Card.Traits" xml:space="preserve">
     <value>Character traits</value>
   </data>
+  <data name="EditProfile.Traits.MoodlesRequired" xml:space="preserve">
+    <value>Character traits require the Moodles plugin. Install and enable it to add some.</value>
+  </data>
   <data name="EditProfile.Banner.Select" xml:space="preserve">
     <value>Choose a banner</value>
   </data>
@@ -8223,6 +8226,87 @@ WARNING: this cannot be undone.</value>
   </data>
   <data name="EditProfile.Banner.RenderingNeedsBanner" xml:space="preserve">
     <value>Choose a banner to adjust its dimming and fade.</value>
+  </data>
+  <data name="EditProfile.Background" xml:space="preserve">
+    <value>Sheet background</value>
+  </data>
+  <data name="EditProfile.Background.None" xml:space="preserve">
+    <value>None</value>
+  </data>
+  <data name="EditProfile.Background.Help" xml:space="preserve">
+    <value>A background taken from the game's adventurer plates, shown behind your RP sheet.</value>
+  </data>
+  <data name="EditProfile.Background.Dimming" xml:space="preserve">
+    <value>Dimming</value>
+  </data>
+  <data name="EditProfile.Background.Dimming.Tooltip" xml:space="preserve">
+    <value>How much the background image is darkened behind the text. 0%: the image as it is.</value>
+  </data>
+  <data name="EditProfile.Background.Fade" xml:space="preserve">
+    <value>Fade</value>
+  </data>
+  <data name="EditProfile.Background.Fade.Tooltip" xml:space="preserve">
+    <value>Tints the image and darkens its edges to keep text readable. Off: no tint and no darkened edges.</value>
+  </data>
+  <data name="EditProfile.Background.Veil" xml:space="preserve">
+    <value>Intensity</value>
+  </data>
+  <data name="EditProfile.Background.Veil.Tooltip" xml:space="preserve">
+    <value>Strength of the fade: the higher the value, the darker the image.</value>
+  </data>
+  <data name="EditProfile.Card.Banner" xml:space="preserve">
+    <value>Banner</value>
+  </data>
+  <data name="EditProfile.Background.Image" xml:space="preserve">
+    <value>Image</value>
+  </data>
+  <data name="EditProfile.Background.Family.Parchment" xml:space="preserve">
+    <value>Parchments</value>
+  </data>
+  <data name="EditProfile.Background.Family.Illustrated" xml:space="preserve">
+    <value>Illustrated parchments</value>
+  </data>
+  <data name="EditProfile.Background.Family.Wood" xml:space="preserve">
+    <value>Wood</value>
+  </data>
+  <data name="EditProfile.Background.WondrousWhimsy" xml:space="preserve">
+    <value>Sketchbook</value>
+  </data>
+  <data name="EditProfile.Background.ExplorerNotebook" xml:space="preserve">
+    <value>Explorer's notebook</value>
+  </data>
+  <data name="EditProfile.Background.SharlayanAgora" xml:space="preserve">
+    <value>Marbled paper</value>
+  </data>
+  <data name="EditProfile.Background.SolidBeige" xml:space="preserve">
+    <value>Plain beige</value>
+  </data>
+  <data name="EditProfile.Background.UltimaOmega" xml:space="preserve">
+    <value>Ultima and Omega</value>
+  </data>
+  <data name="EditProfile.Background.Shantotto" xml:space="preserve">
+    <value>Shantotto</value>
+  </data>
+  <data name="EditProfile.Background.Halone" xml:space="preserve">
+    <value>Halone's Blessing</value>
+  </data>
+  <data name="EditProfile.Background.Menphina" xml:space="preserve">
+    <value>Menphina's Blessing</value>
+  </data>
+  <data name="EditProfile.Background.Azeyma" xml:space="preserve">
+    <value>Azeyma's Blessing</value>
+  </data>
+  <data name="EditProfile.Background.Nophica" xml:space="preserve">
+    <value>Nophica's Blessing</value>
+  </data>
+  <data name="EditProfile.Background.LightWood" xml:space="preserve">
+    <value>Light wood</value>
+  </data>
+  <data name="EditProfile.Background.DarkWood" xml:space="preserve">
+    <value>Dark wood</value>
+  </data>
+  <data name="EditProfile.Background.WoodPanels" xml:space="preserve">
+    <value>Wood panels</value>
   </data>
   <data name="EditProfile.CardStyle.Reset" xml:space="preserve">
     <value>Restore default appearance</value>
