@@ -255,14 +255,27 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
 
             ImGuiHelpers.ScaledDummy(2f);
 
-            if (ImGui.BeginChild("ProfileScrollArea", ImGui.GetContentRegionAvail(), false))
+
+            bool sheetScrollbar = _isRpTab && umbraProfile.CardStyle.Value.HasBackground;
+            var parentDrawList = ImGui.GetWindowDrawList();
+            float scrollbarRounding = ImGui.GetStyle().ScrollbarSize * 0.5f;
+            bool scrollAreaOpen;
+            using (ImRaii.PushColor(ImGuiCol.ScrollbarBg, Vector4.Zero, sheetScrollbar))
+            using (ImRaii.PushStyle(ImGuiStyleVar.ScrollbarRounding, scrollbarRounding, sheetScrollbar))
+                scrollAreaOpen = ImGui.BeginChild("ProfileScrollArea", ImGui.GetContentRegionAvail(), false);
+            if (scrollAreaOpen)
             {
                 if (_isRpTab)
                 {
                     var sheetMin = ImGui.GetWindowPos();
                     var sheetMax = sheetMin + ImGui.GetWindowSize();
                     if (ImGui.GetScrollMaxY() > 0f)
+                    {
                         sheetMax.X -= ImGui.GetStyle().ScrollbarSize;
+                        if (sheetScrollbar)
+                            parentDrawList.AddRectFilled(new Vector2(sheetMax.X, sheetMin.Y), sheetMin + ImGui.GetWindowSize(),
+                                ImGui.GetColorU32(ImGuiCol.ScrollbarBg), scrollbarRounding);
+                    }
                     _sheetPalette = ProfileSheetBackground.Draw(_uiSharedService.TextureProvider, ImGui.GetWindowDrawList(),
                         umbraProfile.CardStyle.Value, sheetMin, sheetMax, UiSharedService.RadiusCard * ImGuiHelpers.GlobalScale);
                     using (ImRaii.PushColor(ImGuiCol.Text, _sheetPalette?.Value ?? Vector4.Zero, _sheetPalette != null))
