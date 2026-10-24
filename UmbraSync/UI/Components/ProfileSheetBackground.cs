@@ -1,4 +1,5 @@
 using Dalamud.Bindings.ImGui;
+using Dalamud.Interface.Colors;
 using Dalamud.Interface.Textures;
 using Dalamud.Interface.Textures.TextureWraps;
 using Dalamud.Interface.Utility;
@@ -36,6 +37,18 @@ public static class ProfileSheetBackground
             Value: new Vector4(0.98f, 0.94f, 0.86f, 1f)),
     };
 
+    public static SheetPalette WithCustomColors(SheetPalette palette, ProfileCardStyle style) => palette with
+    {
+        Accent = ColorOr(style.SheetTitleColor, palette.Accent),
+        Label = ColorOr(style.SheetLabelColor, palette.Label),
+        Value = ColorOr(style.SheetTextColor, palette.Value),
+    };
+
+    private static Vector4 ColorOr(string? hex, Vector4 fallback) => CustomColor(hex) ?? fallback;
+
+    public static Vector4? CustomColor(string? hex)
+        => UiSharedService.TryHexToVector4(hex, out var color) ? color : null;
+
     public static bool TryGetTexture(ITextureProvider textures, int iconId, out IDalamudTextureWrap texture)
     {
         texture = null!;
@@ -54,7 +67,7 @@ public static class ProfileSheetBackground
         if (ProfileBackgrounds.Find(style.Background) is not { } background) return null;
         if (!TryGetTexture(textures, background.IconId, out var texture)) return null;
 
-        var palette = PaletteFor(background.Family);
+        var palette = WithCustomColors(PaletteFor(background.Family), style);
         var (uv0, uv1) = ProfileBanner.CoverUv(texture.Width, texture.Height, size.X, size.Y);
         var brightness = 1f - style.BackgroundDimming;
         drawList.AddImageRounded(texture.Handle, min, max, uv0, uv1, ImGui.GetColorU32(new Vector4(brightness, brightness, brightness, 1f)), rounding);
@@ -65,11 +78,28 @@ public static class ProfileSheetBackground
             ProfileBanner.FadeEdges(drawList, min, size, palette.Veil with { W = VignetteOpacity }, rounding, VignetteClearRadius);
         }
 
+        DrawBorder(drawList, palette, min, max, rounding);
+        return palette;
+    }
+
+    public static SheetPalette DrawPlain(ImDrawListPtr drawList, ProfileCardStyle style, Vector2 min, Vector2 max, float rounding)
+    {
+        var palette = WithCustomColors(new SheetPalette(
+            Veil: UiSharedService.ThemeCardBg,
+            Accent: UiSharedService.AccentColor,
+            Label: ImGuiColors.DalamudGrey,
+            Value: ImGui.ColorConvertU32ToFloat4(ImGui.GetColorU32(ImGuiCol.Text))), style);
+        drawList.AddRectFilled(min, max, ImGui.GetColorU32(palette.Veil), rounding);
+        DrawBorder(drawList, palette, min, max, rounding);
+        return palette;
+    }
+
+    private static void DrawBorder(ImDrawListPtr drawList, SheetPalette palette, Vector2 min, Vector2 max, float rounding)
+    {
         var thickness = MathF.Max(1f, ImGui.GetStyle().FrameBorderSize * ImGuiHelpers.GlobalScale);
         var inset = new Vector2(thickness * 0.5f + 0.5f);
         drawList.AddRect(min + inset, max - inset, ImGui.GetColorU32(palette.Accent with { W = BorderOpacity }),
             rounding, ImDrawFlags.None, thickness);
-        return palette;
     }
 
     public static void DrawHeading(string title, SheetPalette palette, float width)

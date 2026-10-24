@@ -46,6 +46,15 @@ public sealed record ProfileCardStyle
     [JsonPropertyName("backgroundVeil")]
     public float BackgroundVeil { get; init; } = DefaultBackgroundVeil;
 
+    [JsonPropertyName("sheetTitleColor")]
+    public string? SheetTitleColor { get; init; }
+
+    [JsonPropertyName("sheetLabelColor")]
+    public string? SheetLabelColor { get; init; }
+
+    [JsonPropertyName("sheetTextColor")]
+    public string? SheetTextColor { get; init; }
+
     [JsonIgnore]
     public bool HasBackground => Background != 0;
 
@@ -73,14 +82,19 @@ public sealed record ProfileCardStyle
 
     public ProfileCardStyle Normalized() => this with
     {
-        AccentColor = IsHexColor(AccentColor) ? AccentColor!.ToUpperInvariant() : null,
-        TextColor = IsHexColor(TextColor) ? TextColor!.ToUpperInvariant() : null,
+        AccentColor = HexOrNull(AccentColor),
+        TextColor = HexOrNull(TextColor),
         BannerOpacity = Bound(BannerOpacity, MinBannerOpacity, MaxBannerOpacity, DefaultBannerOpacity),
         FadeRadius = Bound(FadeRadius, MinFadeRadius, MaxFadeRadius, DefaultFadeRadius),
         Background = ProfileBackgrounds.IsKnown(Background) ? Background : 0,
         BackgroundDimming = Bound(BackgroundDimming, MinBackgroundDimming, MaxBackgroundDimming, MinBackgroundDimming),
         BackgroundVeil = Bound(BackgroundVeil, MinBackgroundVeil, MaxBackgroundVeil, DefaultBackgroundVeil),
+        SheetTitleColor = HexOrNull(SheetTitleColor),
+        SheetLabelColor = HexOrNull(SheetLabelColor),
+        SheetTextColor = HexOrNull(SheetTextColor),
     };
+
+    private static string? HexOrNull(string? value) => IsHexColor(value) ? value!.ToUpperInvariant() : null;
 
     private static float Bound(float value, float min, float max, float fallback)
         => float.IsFinite(value) ? Math.Clamp(value, min, max) : fallback;

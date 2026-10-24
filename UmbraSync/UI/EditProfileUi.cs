@@ -958,7 +958,8 @@ public class EditProfileUi : WindowMediatorSubscriberBase
                 "EditProfile.ProfileAccent", "EditProfile.NameColor", "EditProfile.CardTextColor",
                 "EditProfile.Banner.Dimming", "EditProfile.Banner.Fade", "EditProfile.Banner.FadeRadius",
                 "EditProfile.Background.Image", "EditProfile.Background.Dimming", "EditProfile.Background.Fade",
-                "EditProfile.Background.Veil",
+                "EditProfile.Background.Veil", "EditProfile.Background.TitleColor", "EditProfile.Background.LabelColor",
+                "EditProfile.Background.TextColor",
             }
             .Max(key => ImGui.CalcTextSize(Loc.Get(key)).X) + (12f * scale);
         float sliderWidth = MathF.Min(240f * scale, MathF.Max(ImGui.GetContentRegionAvail().X - labelWidth, 80f * scale));
@@ -972,6 +973,9 @@ public class EditProfileUi : WindowMediatorSubscriberBase
 
         UiSharedService.BeginSectionCard(Loc.Get("EditProfile.Background"), FontAwesomeIcon.Scroll);
         DrawSheetBackgroundSettings(labelWidth, sliderWidth);
+
+        UiSharedService.BeginSectionCard(Loc.Get("EditProfile.Card.SheetColors"), FontAwesomeIcon.Palette);
+        DrawSheetColors(labelWidth);
     }
     
     private void DrawCardStrip()
@@ -1176,6 +1180,43 @@ public class EditProfileUi : WindowMediatorSubscriberBase
                 UiSharedService.AttachToolTip(Loc.Get("EditProfile.Background.Veil.Tooltip"));
             }
         }
+    }
+
+    private void DrawSheetColors(float labelWidth)
+    {
+        var sheet = ProfileBackgrounds.Find(_cardStyle.Background) is { } background
+            ? ProfileSheetBackground.PaletteFor(background.Family)
+            : null;
+        var accent = UiSharedService.TryHexToVector4(_cardStyle.AccentColor, out var custom) ? custom : UiSharedService.DefaultAccentColor;
+        var text = ImGui.ColorConvertU32ToFloat4(ImGui.GetColorU32(ImGuiCol.Text));
+
+        DrawSheetColor("EditProfile.Background.TitleColor", "##sheetTitleColor", _cardStyle.SheetTitleColor, sheet?.Accent ?? accent,
+            hex => _cardStyle with { SheetTitleColor = hex }, labelWidth);
+        DrawSheetColor("EditProfile.Background.LabelColor", "##sheetLabelColor", _cardStyle.SheetLabelColor, sheet?.Label ?? ImGuiColors.DalamudGrey,
+            hex => _cardStyle with { SheetLabelColor = hex }, labelWidth);
+        DrawSheetColor("EditProfile.Background.TextColor", "##sheetTextColor", _cardStyle.SheetTextColor, sheet?.Value ?? text,
+            hex => _cardStyle with { SheetTextColor = hex }, labelWidth);
+    }
+
+    // Sans couleur choisie, la pastille montre la teinte assortie au fond ; le bouton d'annulation y revient.
+    private void DrawSheetColor(string labelKey, string id, string? hex, Vector4 fallback, Func<string?, ProfileCardStyle> apply, float labelWidth)
+    {
+        DrawAppearanceLabel(Loc.Get(labelKey), labelWidth);
+        var color = UiSharedService.TryHexToVector4(hex, out var custom) ? custom : fallback;
+        var rgb = new Vector3(color.X, color.Y, color.Z);
+        ImGui.SetNextItemWidth(24f * ImGuiHelpers.GlobalScale);
+        if (ImGui.ColorEdit3(id, ref rgb, ImGuiColorEditFlags.NoInputs | ImGuiColorEditFlags.NoLabel))
+            UpdateCardStyle(apply(UiSharedService.Vector4ToHex(new Vector4(rgb, 1f))));
+        UiSharedService.AttachToolTip(Loc.Get(labelKey + ".Tooltip"));
+
+        if (hex == null) return;
+        ImGui.SameLine();
+        using (ImRaii.PushId(id))
+        {
+            if (_uiSharedService.IconButton(FontAwesomeIcon.Undo))
+                UpdateCardStyle(apply(null));
+        }
+        UiSharedService.AttachToolTip(Loc.Get("EditProfile.Background.Color.Reset"));
     }
 
     private void DrawBannerSettings(float labelWidth, float sliderWidth)

@@ -2,7 +2,9 @@
 using Dalamud.Interface.Utility;
 using Dalamud.Interface.Windowing;
 using Microsoft.Extensions.Logging;
+using System.Numerics;
 using UmbraSync.UI;
+using UmbraSync.UI.Components;
 using GlassLevel = UmbraSync.UI.UiSharedService.GlassLevel;
 
 namespace UmbraSync.Services.Mediator;
@@ -69,10 +71,10 @@ public abstract class WindowMediatorSubscriberBase : Window, IMediatorSubscriber
         ImGui.PushStyleColor(ImGuiCol.Header, UiSharedService.ThemeHeaderBg);
         ImGui.PushStyleColor(ImGuiCol.HeaderHovered, UiSharedService.ThemeHeaderHovered);
         ImGui.PushStyleColor(ImGuiCol.HeaderActive, UiSharedService.ThemeHeaderActive);
-        ImGui.PushStyleColor(ImGuiCol.ScrollbarBg, UiSharedService.ThemeScrollbarBg);
-        ImGui.PushStyleColor(ImGuiCol.ScrollbarGrab, UiSharedService.ThemeScrollbarGrab);
-        ImGui.PushStyleColor(ImGuiCol.ScrollbarGrabHovered, UiSharedService.ThemeScrollbarHover);
-        ImGui.PushStyleColor(ImGuiCol.ScrollbarGrabActive, UiSharedService.ThemeScrollbarActive);
+        ImGui.PushStyleColor(ImGuiCol.ScrollbarBg, Vector4.Zero);
+        ImGui.PushStyleColor(ImGuiCol.ScrollbarGrab, Vector4.Zero);
+        ImGui.PushStyleColor(ImGuiCol.ScrollbarGrabHovered, Vector4.Zero);
+        ImGui.PushStyleColor(ImGuiCol.ScrollbarGrabActive, Vector4.Zero);
         ImGui.PushStyleColor(ImGuiCol.SliderGrab, UiSharedService.ThemeSliderGrab);
         ImGui.PushStyleColor(ImGuiCol.SliderGrabActive, UiSharedService.ThemeSliderGrabActive);
         ImGui.PushStyleColor(ImGuiCol.CheckMark, UiSharedService.ThemeCheckMark);
@@ -95,6 +97,7 @@ public abstract class WindowMediatorSubscriberBase : Window, IMediatorSubscriber
     {
         DrawWindowSheen();
         _performanceCollectorService.LogPerformance(this, $"Draw", DrawInternal);
+        RoundedScrollbars.DrawForCurrentWindow();
     }
 
     private void DrawWindowSheen()

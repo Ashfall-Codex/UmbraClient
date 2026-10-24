@@ -8110,6 +8110,9 @@ ATTENTION : cette action est irréversible.</value>
   <data name="EditProfile.Card.ProfileCard" xml:space="preserve">
     <value>Carte de profil</value>
   </data>
+  <data name="EditProfile.Card.SheetColors" xml:space="preserve">
+    <value>Couleurs de la fiche</value>
+  </data>
   <data name="EditProfile.CardTextColor" xml:space="preserve">
     <value>Couleur du texte</value>
   </data>
@@ -8166,6 +8169,27 @@ ATTENTION : cette action est irréversible.</value>
   </data>
   <data name="EditProfile.Background.Veil.Tooltip" xml:space="preserve">
     <value>Force du fondu : plus la valeur est haute, plus l'image est assombrie.</value>
+  </data>
+  <data name="EditProfile.Background.TitleColor" xml:space="preserve">
+    <value>Couleur des titres</value>
+  </data>
+  <data name="EditProfile.Background.TitleColor.Tooltip" xml:space="preserve">
+    <value>Titres de section et filets de la fiche, et bordure de la feuille. Par défaut : la teinte assortie au fond, ou la couleur du profil sans fond.</value>
+  </data>
+  <data name="EditProfile.Background.LabelColor" xml:space="preserve">
+    <value>Couleur des libellés</value>
+  </data>
+  <data name="EditProfile.Background.LabelColor.Tooltip" xml:space="preserve">
+    <value>Intitulés des champs (Âge, Taille, Lieu de vie…). Par défaut : la teinte assortie au fond, ou gris sans fond.</value>
+  </data>
+  <data name="EditProfile.Background.TextColor" xml:space="preserve">
+    <value>Couleur du contenu</value>
+  </data>
+  <data name="EditProfile.Background.TextColor.Tooltip" xml:space="preserve">
+    <value>Valeurs des champs et textes de la fiche. Par défaut : la teinte assortie au fond, ou blanc sans fond.</value>
+  </data>
+  <data name="EditProfile.Background.Color.Reset" xml:space="preserve">
+    <value>Revenir à la couleur par défaut</value>
   </data>
   <data name="EditProfile.Card.Banner" xml:space="preserve">
     <value>Bannière</value>

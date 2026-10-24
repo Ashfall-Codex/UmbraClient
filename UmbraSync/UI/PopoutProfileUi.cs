@@ -155,9 +155,13 @@ public class PopoutProfileUi : WindowMediatorSubscriberBase
             var rectMin = drawList.GetClipRectMin();
             var rectMax = drawList.GetClipRectMax();
 
-            var palette = _isRpTab ? DrawSheet(drawList, umbraProfile.CardStyle.Value) : null;
-            using var sheetColors = ImRaii.PushColor(ImGuiCol.Text, palette?.Value ?? Vector4.Zero, palette != null)
-                .Push(ImGuiCol.Separator, (palette?.Accent ?? Vector4.Zero) with { W = ProfileSheetBackground.SeparatorOpacity }, palette != null);
+            var cardStyle = _isRpTab ? umbraProfile.CardStyle.Value : ProfileCardStyle.Default;
+            var palette = _isRpTab ? DrawSheet(drawList, cardStyle) : null;
+            var contentColor = palette?.Value ?? ProfileSheetBackground.CustomColor(cardStyle.SheetTextColor);
+            var ruleColor = palette?.Accent ?? ProfileSheetBackground.CustomColor(cardStyle.SheetTitleColor);
+            var labelColor = palette?.Label ?? ProfileSheetBackground.CustomColor(cardStyle.SheetLabelColor);
+            using var sheetColors = ImRaii.PushColor(ImGuiCol.Text, contentColor ?? Vector4.Zero, contentColor != null)
+                .Push(ImGuiCol.Separator, (ruleColor ?? Vector4.Zero) with { W = ProfileSheetBackground.SeparatorOpacity }, ruleColor != null);
 
             var nameColor = _isRpTab && _configService.Current.UseRpNameColors && !string.IsNullOrEmpty(umbraProfile.RpNameColor) ? UiSharedService.HexToVector4(umbraProfile.RpNameColor) : UiSharedService.AccentColor;
             using (_uiSharedService.UidFont.Push())
@@ -172,7 +176,7 @@ public class PopoutProfileUi : WindowMediatorSubscriberBase
             var note = _serverManager.GetNoteForUid(_pair.UserData.UID);
             if (!string.IsNullOrEmpty(note))
             {
-                UiSharedService.ColorText(note, palette?.Label ?? ImGuiColors.DalamudGrey);
+                UiSharedService.ColorText(note, labelColor ?? ImGuiColors.DalamudGrey);
             }
             string status = _pair.IsVisible ? Loc.Get("PopoutProfile.Status.Visible") : (_pair.IsOnline ? Loc.Get("PopoutProfile.Status.Online") : Loc.Get("PopoutProfile.Status.Offline"));
             UiSharedService.ColorText(status, (_pair.IsVisible || _pair.IsOnline) ? ImGuiColors.HealerGreen : UiSharedService.AccentColor);

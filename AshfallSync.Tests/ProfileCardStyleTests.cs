@@ -171,6 +171,27 @@ public class ProfileCardStyleTests
     }
 
     [Fact]
+    public void Couleurs_de_la_feuille_sont_normalisees()
+    {
+        var style = ProfileCardStyle.Parse("{\"sheetTitleColor\": \"#c8a060\", \"sheetLabelColor\": \"rouge\", \"sheetTextColor\": \"#12345\"}");
+
+        Assert.Equal("#C8A060", style.SheetTitleColor);
+        Assert.Null(style.SheetLabelColor);
+        Assert.Null(style.SheetTextColor);
+    }
+
+    [Fact]
+    public void Couleurs_de_la_feuille_sont_conservees()
+    {
+        var style = new ProfileCardStyle
+        {
+            Background = 193720, SheetTitleColor = "#C8A060", SheetLabelColor = "#806040", SheetTextColor = "#201810",
+        };
+
+        Assert.Equal(style, ProfileCardStyle.Parse(style.Serialize()));
+    }
+
+    [Fact]
     public void Liste_des_fonds_sans_doublon()
     {
         Assert.Equal(ProfileBackgrounds.All.Count, ProfileBackgrounds.All.Select(b => b.IconId).Distinct().Count());

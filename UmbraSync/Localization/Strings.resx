@@ -8197,6 +8197,9 @@ WARNING: this cannot be undone.</value>
   <data name="EditProfile.Card.ProfileCard" xml:space="preserve">
     <value>Profile card</value>
   </data>
+  <data name="EditProfile.Card.SheetColors" xml:space="preserve">
+    <value>Sheet colors</value>
+  </data>
   <data name="EditProfile.CardTextColor" xml:space="preserve">
     <value>Text color</value>
   </data>
@@ -8253,6 +8256,27 @@ WARNING: this cannot be undone.</value>
   </data>
   <data name="EditProfile.Background.Veil.Tooltip" xml:space="preserve">
     <value>Strength of the fade: the higher the value, the darker the image.</value>
+  </data>
+  <data name="EditProfile.Background.TitleColor" xml:space="preserve">
+    <value>Title color</value>
+  </data>
+  <data name="EditProfile.Background.TitleColor.Tooltip" xml:space="preserve">
+    <value>Section titles and rules of the sheet, and the sheet border. Default: the tint matching the background, or the profile color without a background.</value>
+  </data>
+  <data name="EditProfile.Background.LabelColor" xml:space="preserve">
+    <value>Label color</value>
+  </data>
+  <data name="EditProfile.Background.LabelColor.Tooltip" xml:space="preserve">
+    <value>Field names (Age, Height, Residence…). Default: the tint matching the background, or grey without a background.</value>
+  </data>
+  <data name="EditProfile.Background.TextColor" xml:space="preserve">
+    <value>Content color</value>
+  </data>
+  <data name="EditProfile.Background.TextColor.Tooltip" xml:space="preserve">
+    <value>Field values and sheet texts. Default: the tint matching the background, or white without a background.</value>
+  </data>
+  <data name="EditProfile.Background.Color.Reset" xml:space="preserve">
+    <value>Back to the default color</value>
   </data>
   <data name="EditProfile.Card.Banner" xml:space="preserve">
     <value>Banner</value>

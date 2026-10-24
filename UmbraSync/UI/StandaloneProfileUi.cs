@@ -36,6 +36,7 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
     private IDalamudTextureWrap? _rpBannerTexture;
     private byte[]? _lastRpBanner;
     private SheetPalette? _sheetPalette;
+    private ProfileCardStyle _rpCardStyle = ProfileCardStyle.Default;
     private bool _isRpTab = true;
     private bool _windowSizeInitialized = false;
     private string _localMoodlesJson = string.Empty;
@@ -256,34 +257,27 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
             ImGuiHelpers.ScaledDummy(2f);
 
 
-            bool sheetScrollbar = _isRpTab && umbraProfile.CardStyle.Value.HasBackground;
-            var parentDrawList = ImGui.GetWindowDrawList();
-            float scrollbarRounding = ImGui.GetStyle().ScrollbarSize * 0.5f;
-            bool scrollAreaOpen;
-            using (ImRaii.PushColor(ImGuiCol.ScrollbarBg, Vector4.Zero, sheetScrollbar))
-            using (ImRaii.PushStyle(ImGuiStyleVar.ScrollbarRounding, scrollbarRounding, sheetScrollbar))
-                scrollAreaOpen = ImGui.BeginChild("ProfileScrollArea", ImGui.GetContentRegionAvail(), false);
-            if (scrollAreaOpen)
+            if (ImGui.BeginChild("ProfileScrollArea", ImGui.GetContentRegionAvail(), false))
             {
                 if (_isRpTab)
                 {
                     var sheetMin = ImGui.GetWindowPos();
                     var sheetMax = sheetMin + ImGui.GetWindowSize();
                     if (ImGui.GetScrollMaxY() > 0f)
-                    {
                         sheetMax.X -= ImGui.GetStyle().ScrollbarSize;
-                        if (sheetScrollbar)
-                            parentDrawList.AddRectFilled(new Vector2(sheetMax.X, sheetMin.Y), sheetMin + ImGui.GetWindowSize(),
-                                ImGui.GetColorU32(ImGuiCol.ScrollbarBg), scrollbarRounding);
-                    }
+                    _rpCardStyle = umbraProfile.CardStyle.Value;
+                    var sheetRounding = UiSharedService.RadiusCard * ImGuiHelpers.GlobalScale;
                     _sheetPalette = ProfileSheetBackground.Draw(_uiSharedService.TextureProvider, ImGui.GetWindowDrawList(),
-                        umbraProfile.CardStyle.Value, sheetMin, sheetMax, UiSharedService.RadiusCard * ImGuiHelpers.GlobalScale);
-                    using (ImRaii.PushColor(ImGuiCol.Text, _sheetPalette?.Value ?? Vector4.Zero, _sheetPalette != null))
+                            _rpCardStyle, sheetMin, sheetMax, sheetRounding)
+                        ?? ProfileSheetBackground.DrawPlain(ImGui.GetWindowDrawList(), _rpCardStyle, sheetMin, sheetMax, sheetRounding);
+                    var contentColor = _sheetPalette?.Value ?? ProfileSheetBackground.CustomColor(_rpCardStyle.SheetTextColor);
+                    using (ImRaii.PushColor(ImGuiCol.Text, contentColor ?? Vector4.Zero, contentColor != null))
                         DrawRpProfile(umbraProfile, currentTexture, accent);
                 }
                 else
                 {
                     _sheetPalette = null;
+                    _rpCardStyle = ProfileCardStyle.Default;
                     DrawHrpProfile(umbraProfile, currentTexture, accent);
                 }
             }
@@ -418,26 +412,20 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
                     ? "Caractéristiques"
                     : "Characteristics");
 
-                var availW = ImGui.GetContentRegionAvail().X;
-                int fieldCount = (hasAge ? 1 : 0) + (hasHeight ? 1 : 0) + (hasBuild ? 1 : 0);
-                var colWidth = availW / Math.Max(fieldCount, 1);
+                var fields = new List<(string Label, string Value)>(3);
+                if (hasAge) fields.Add((Loc.Get("UserProfile.RpAge"), profile.RpAge!));
+                if (hasHeight) fields.Add((Loc.Get("UserProfile.RpHeight"), profile.RpHeight!));
+                if (hasBuild) fields.Add((Loc.Get("UserProfile.RpBuild"), profile.RpBuild!));
 
-                bool first = true;
-                if (hasAge)
+                // Colonnes égales sur la largeur du titre, champ centré dans la sienne.
+                var startX = ImGui.GetCursorPosX();
+                var colWidth = SectionContentWidth / fields.Count;
+                for (int i = 0; i < fields.Count; i++)
                 {
-                    DrawVerticalField(Loc.Get("UserProfile.RpAge"), profile.RpAge!, colWidth);
-                    first = false;
-                }
-                if (hasHeight)
-                {
-                    if (!first) ImGui.SameLine();
-                    DrawVerticalField(Loc.Get("UserProfile.RpHeight"), profile.RpHeight!, colWidth);
-                    first = false;
-                }
-                if (hasBuild)
-                {
-                    if (!first) ImGui.SameLine();
-                    DrawVerticalField(Loc.Get("UserProfile.RpBuild"), profile.RpBuild!, colWidth);
+                    if (i > 0) ImGui.SameLine();
+                    ImGui.BeginGroup();
+                    DrawCenteredField(fields[i].Label, fields[i].Value, startX + (i * colWidth), colWidth);
+                    ImGui.EndGroup();
                 }
             }, stretchWidth: true, background: SheetCardFill, border: SheetCardFill);
             ImGuiHelpers.ScaledDummy(cardSpacing / ImGuiHelpers.GlobalScale);
@@ -966,11 +954,10 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
     {
         if (_sheetPalette is { } palette)
         {
-            var width = ImGui.GetContentRegionAvail().X - (ImGui.GetStyle().FramePadding.X + 4f * ImGuiHelpers.GlobalScale);
-            ProfileSheetBackground.DrawHeading(text, palette, width);
+            ProfileSheetBackground.DrawHeading(text, palette, SectionContentWidth);
             return;
         }
-        UiSharedService.ColorText(text, UiSharedService.AccentColor);
+        UiSharedService.ColorText(text, ProfileSheetBackground.CustomColor(_rpCardStyle.SheetTitleColor) ?? UiSharedService.AccentColor);
         ImGuiHelpers.ScaledDummy(2f);
     }
 
@@ -978,10 +965,34 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
     {
         ImGui.BeginGroup();
         ImGui.PushTextWrapPos(ImGui.GetCursorPosX() + width - 8f * ImGuiHelpers.GlobalScale);
-        ImGui.TextColored(_sheetPalette?.Label ?? ImGuiColors.DalamudGrey, label);
+        ImGui.TextColored(FieldLabelColor, label);
         ImGui.TextUnformatted(value);
         ImGui.PopTextWrapPos();
         ImGui.EndGroup();
+    }
+
+    private Vector4 FieldLabelColor
+        => _sheetPalette?.Label ?? ProfileSheetBackground.CustomColor(_rpCardStyle.SheetLabelColor) ?? ImGuiColors.DalamudGrey;
+
+    private static float SectionContentWidth
+        => ImGui.GetContentRegionAvail().X - (ImGui.GetStyle().FramePadding.X + 4f * ImGuiHelpers.GlobalScale);
+
+    private void DrawCenteredField(string label, string value, float columnX, float width)
+    {
+        var pad = 4f * ImGuiHelpers.GlobalScale;
+        DrawCenteredLine(label, FieldLabelColor, columnX + pad, width - (pad * 2f));
+        DrawCenteredLine(value, null, columnX + pad, width - (pad * 2f));
+    }
+
+    private static void DrawCenteredLine(string text, Vector4? color, float columnX, float width)
+    {
+        ImGui.SetCursorPosX(columnX + MathF.Max((width - ImGui.CalcTextSize(text).X) * 0.5f, 0f));
+        ImGui.PushTextWrapPos(columnX + width);
+        if (color is { } c)
+            ImGui.TextColored(c, text);
+        else
+            ImGui.TextUnformatted(text);
+        ImGui.PopTextWrapPos();
     }
 
     private static (string Label, Vector4 Color, FontAwesomeIcon Icon, string Tooltip)? GetRpLevelStyle(byte level) => level switch
