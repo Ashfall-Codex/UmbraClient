@@ -11,6 +11,11 @@ public sealed record ProfileCardStyle
     public const float DefaultFadeRadius = 0.5f;
     public const float MinFadeRadius = 0f;
     public const float MaxFadeRadius = 0.9f;
+    public const float DefaultBackgroundVeil = 0.4f;
+    public const float MinBackgroundVeil = 0f;
+    public const float MaxBackgroundVeil = 0.9f;
+    public const float MinBackgroundDimming = 0f;
+    public const float MaxBackgroundDimming = 0.9f;
     public const int MaxJsonLength = 1024;
 
     public static ProfileCardStyle Default { get; } = new();
@@ -28,6 +33,30 @@ public sealed record ProfileCardStyle
 
     [JsonPropertyName("fadeRadius")]
     public float FadeRadius { get; init; } = DefaultFadeRadius;
+
+    [JsonPropertyName("background")]
+    public int Background { get; init; }
+
+    [JsonPropertyName("backgroundDimming")]
+    public float BackgroundDimming { get; init; }
+
+    [JsonPropertyName("backgroundFade")]
+    public bool BackgroundFade { get; init; } = true;
+
+    [JsonPropertyName("backgroundVeil")]
+    public float BackgroundVeil { get; init; } = DefaultBackgroundVeil;
+
+    [JsonPropertyName("sheetTitleColor")]
+    public string? SheetTitleColor { get; init; }
+
+    [JsonPropertyName("sheetLabelColor")]
+    public string? SheetLabelColor { get; init; }
+
+    [JsonPropertyName("sheetTextColor")]
+    public string? SheetTextColor { get; init; }
+
+    [JsonIgnore]
+    public bool HasBackground => Background != 0;
 
     [JsonIgnore]
     public bool IsDefault => Equals(Default);
@@ -53,11 +82,19 @@ public sealed record ProfileCardStyle
 
     public ProfileCardStyle Normalized() => this with
     {
-        AccentColor = IsHexColor(AccentColor) ? AccentColor!.ToUpperInvariant() : null,
-        TextColor = IsHexColor(TextColor) ? TextColor!.ToUpperInvariant() : null,
+        AccentColor = HexOrNull(AccentColor),
+        TextColor = HexOrNull(TextColor),
         BannerOpacity = Bound(BannerOpacity, MinBannerOpacity, MaxBannerOpacity, DefaultBannerOpacity),
         FadeRadius = Bound(FadeRadius, MinFadeRadius, MaxFadeRadius, DefaultFadeRadius),
+        Background = ProfileBackgrounds.IsKnown(Background) ? Background : 0,
+        BackgroundDimming = Bound(BackgroundDimming, MinBackgroundDimming, MaxBackgroundDimming, MinBackgroundDimming),
+        BackgroundVeil = Bound(BackgroundVeil, MinBackgroundVeil, MaxBackgroundVeil, DefaultBackgroundVeil),
+        SheetTitleColor = HexOrNull(SheetTitleColor),
+        SheetLabelColor = HexOrNull(SheetLabelColor),
+        SheetTextColor = HexOrNull(SheetTextColor),
     };
+
+    private static string? HexOrNull(string? value) => IsHexColor(value) ? value!.ToUpperInvariant() : null;
 
     private static float Bound(float value, float min, float max, float fallback)
         => float.IsFinite(value) ? Math.Clamp(value, min, max) : fallback;

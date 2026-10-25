@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging;
 using System.Numerics;
 using Dalamud.Interface.Utility.Raii;
 using UmbraSync.API.Dto.Establishment;
+using UmbraSync.API.Dto.User;
 using UmbraSync.Interop.Ipc;
 using UmbraSync.Localization;
 using UmbraSync.MareConfiguration;
@@ -35,6 +36,8 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
     private IDalamudTextureWrap? _rpTextureWrap;
     private IDalamudTextureWrap? _rpBannerTexture;
     private byte[]? _lastRpBanner;
+    private SheetPalette? _sheetPalette;
+    private ProfileCardStyle _rpCardStyle = ProfileCardStyle.Default;
     private bool _isRpTab = true;
     private bool _windowSizeInitialized = false;
     private string _localMoodlesJson = string.Empty;
@@ -80,6 +83,8 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
         {
             Mediator.Subscribe<MoodlesMessage>(this, (msg) => _ = Task.Run(RefreshLocalMoodlesAsync));
         }
+        // Une affiliation acceptée, quittée ou masquée change les établissements affichés : rechargement au prochain dessin.
+        Mediator.Subscribe<EstablishmentChangedMessage>(this, (_) => _profileEstablishmentsKey = null);
 
         IsOpen = true;
     }
@@ -254,12 +259,30 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
 
             ImGuiHelpers.ScaledDummy(2f);
 
+
             if (ImGui.BeginChild("ProfileScrollArea", ImGui.GetContentRegionAvail(), false))
             {
                 if (_isRpTab)
-                    DrawRpProfile(umbraProfile, currentTexture, accent);
+                {
+                    var sheetMin = ImGui.GetWindowPos();
+                    var sheetMax = sheetMin + ImGui.GetWindowSize();
+                    if (ImGui.GetScrollMaxY() > 0f)
+                        sheetMax.X -= ImGui.GetStyle().ScrollbarSize;
+                    _rpCardStyle = umbraProfile.CardStyle.Value;
+                    var sheetRounding = UiSharedService.RadiusCard * ImGuiHelpers.GlobalScale;
+                    _sheetPalette = ProfileSheetBackground.Draw(_uiSharedService.TextureProvider, ImGui.GetWindowDrawList(),
+                            _rpCardStyle, sheetMin, sheetMax, sheetRounding)
+                        ?? ProfileSheetBackground.DrawPlain(ImGui.GetWindowDrawList(), _rpCardStyle, sheetMin, sheetMax, sheetRounding);
+                    var contentColor = _sheetPalette?.Value ?? ProfileSheetBackground.CustomColor(_rpCardStyle.SheetTextColor);
+                    using (ImRaii.PushColor(ImGuiCol.Text, contentColor ?? Vector4.Zero, contentColor != null))
+                        DrawRpProfile(umbraProfile, currentTexture, accent);
+                }
                 else
+                {
+                    _sheetPalette = null;
+                    _rpCardStyle = ProfileCardStyle.Default;
                     DrawHrpProfile(umbraProfile, currentTexture, accent);
+                }
             }
             ImGui.EndChild();
         }
@@ -392,28 +415,22 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
                     ? "Caractéristiques"
                     : "Characteristics");
 
-                var availW = ImGui.GetContentRegionAvail().X;
-                int fieldCount = (hasAge ? 1 : 0) + (hasHeight ? 1 : 0) + (hasBuild ? 1 : 0);
-                var colWidth = availW / Math.Max(fieldCount, 1);
+                var fields = new List<(string Label, string Value)>(3);
+                if (hasAge) fields.Add((Loc.Get("UserProfile.RpAge"), profile.RpAge!));
+                if (hasHeight) fields.Add((Loc.Get("UserProfile.RpHeight"), profile.RpHeight!));
+                if (hasBuild) fields.Add((Loc.Get("UserProfile.RpBuild"), profile.RpBuild!));
 
-                bool first = true;
-                if (hasAge)
+                // Colonnes égales sur la largeur du titre, champ centré dans la sienne.
+                var startX = ImGui.GetCursorPosX();
+                var colWidth = SectionContentWidth / fields.Count;
+                for (int i = 0; i < fields.Count; i++)
                 {
-                    DrawVerticalField(Loc.Get("UserProfile.RpAge"), profile.RpAge!, colWidth);
-                    first = false;
+                    if (i > 0) ImGui.SameLine();
+                    ImGui.BeginGroup();
+                    DrawCenteredField(fields[i].Label, fields[i].Value, startX + (i * colWidth), colWidth);
+                    ImGui.EndGroup();
                 }
-                if (hasHeight)
-                {
-                    if (!first) ImGui.SameLine();
-                    DrawVerticalField(Loc.Get("UserProfile.RpHeight"), profile.RpHeight!, colWidth);
-                    first = false;
-                }
-                if (hasBuild)
-                {
-                    if (!first) ImGui.SameLine();
-                    DrawVerticalField(Loc.Get("UserProfile.RpBuild"), profile.RpBuild!, colWidth);
-                }
-            }, stretchWidth: true);
+            }, stretchWidth: true, background: SheetCardFill, border: SheetCardFill);
             ImGuiHelpers.ScaledDummy(cardSpacing / ImGuiHelpers.GlobalScale);
         }
 
@@ -427,39 +444,23 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
             {
                 DrawSectionTitle("Société");
 
-                var availW = ImGui.GetContentRegionAvail().X;
-                var halfW = availW / 2f;
+                // Deux colonnes sur la largeur du titre, champ centré dans la sienne, comme les Caractéristiques.
                 var col1X = ImGui.GetCursorPosX();
+                var halfW = SectionContentWidth / 2f;
                 var col2X = col1X + halfW;
 
-                // Row 1
                 bool row1HasContent = hasResidence || hasOccupation;
                 if (row1HasContent)
-                {
-                    if (hasResidence)
-                        DrawVerticalField(Loc.Get("UserProfile.RpResidence"), profile.RpResidence!, halfW);
-                    if (hasOccupation)
-                    {
-                        if (hasResidence) { ImGui.SameLine(); ImGui.SetCursorPosX(col2X); }
-                        DrawVerticalField(Loc.Get("UserProfile.RpOccupation"), profile.RpOccupation!, halfW);
-                    }
-                }
+                    DrawCenteredRow(hasResidence ? (Loc.Get("UserProfile.RpResidence"), profile.RpResidence!) : null,
+                        hasOccupation ? (Loc.Get("UserProfile.RpOccupation"), profile.RpOccupation!) : null, col1X, col2X, halfW);
 
-                // Row 2
-                bool row2HasContent = hasAffiliation || hasAlignment;
-                if (row2HasContent)
+                if (hasAffiliation || hasAlignment)
                 {
                     if (row1HasContent) ImGuiHelpers.ScaledDummy(4f);
-
-                    if (hasAffiliation)
-                        DrawVerticalField(Loc.Get("UserProfile.RpAffiliation"), profile.RpAffiliation!, halfW);
-                    if (hasAlignment)
-                    {
-                        if (hasAffiliation) { ImGui.SameLine(); ImGui.SetCursorPosX(col2X); }
-                        DrawVerticalField(Loc.Get("UserProfile.RpAlignment"), profile.RpAlignment!, halfW);
-                    }
+                    DrawCenteredRow(hasAffiliation ? (Loc.Get("UserProfile.RpAffiliation"), profile.RpAffiliation!) : null,
+                        hasAlignment ? (Loc.Get("UserProfile.RpAlignment"), profile.RpAlignment!) : null, col1X, col2X, halfW);
                 }
-            }, stretchWidth: true);
+            }, stretchWidth: true, background: SheetCardFill, border: SheetCardFill);
             ImGuiHelpers.ScaledDummy(cardSpacing / ImGuiHelpers.GlobalScale);
         }
 
@@ -482,7 +483,7 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
                     if (!isEven) { ImGui.SameLine(); ImGui.SetCursorPosX(col2X); }
                     DrawVerticalField(field.Name, field.Value, halfW);
                 }
-            }, stretchWidth: true);
+            }, stretchWidth: true, background: SheetCardFill, border: SheetCardFill);
             ImGuiHelpers.ScaledDummy(cardSpacing / ImGuiHelpers.GlobalScale);
         }
 
@@ -495,8 +496,8 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
                 var wrapWidth = ImGui.GetContentRegionAvail().X - rightPad;
                 DrawSectionTitle(Loc.Get("UserProfile.RpDescription"));
                 using var _ = _uiSharedService.GameFont.Push();
-                BbCodeRenderer.Render(description, wrapWidth);
-            }, stretchWidth: true);
+                DrawSectionText(description, wrapWidth);
+            }, stretchWidth: true, background: SheetCardFill, border: SheetCardFill);
             ImGuiHelpers.ScaledDummy(cardSpacing / ImGuiHelpers.GlobalScale);
         }
 
@@ -508,8 +509,8 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
                 var wrapWidth = ImGui.GetContentRegionAvail().X - rightPad;
                 DrawSectionTitle(Loc.Get("UserProfile.RpAdditionalInfo"));
                 using var _ = _uiSharedService.GameFont.Push();
-                BbCodeRenderer.Render(profile.RpAdditionalInfo, wrapWidth);
-            }, stretchWidth: true);
+                DrawSectionText(profile.RpAdditionalInfo, wrapWidth);
+            }, stretchWidth: true, background: SheetCardFill, border: SheetCardFill);
         }
 
         // Establishment managed by this user
@@ -524,6 +525,7 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
 
         if (isSelf)
         {
+            if (!IsDisplayingOwnLiveCharacter()) return;
             if (_ipcManager.Honorific.APIAvailable && string.IsNullOrEmpty(_localHonorificB64))
                 _ = RefreshLocalHonorificAsync();
             honorificB64 = _localHonorificB64;
@@ -580,96 +582,145 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
         Loc.Get("Establishment.Category.Workshop"), Loc.Get("Establishment.Category.Other")
     ];
 
-    private EstablishmentDto? _linkedEstablishment;
-    private bool _linkedEstablishmentLoaded;
-    private IDalamudTextureWrap? _linkedEstablishmentLogo;
+    private List<(EstablishmentProfileEntryDto Entry, IDalamudTextureWrap? Logo)> _profileEstablishments = [];
+    private readonly System.Collections.Concurrent.ConcurrentQueue<List<(EstablishmentProfileEntryDto Entry, IDalamudTextureWrap? Logo)>> _staleProfileEstablishments = new();
+    private string? _profileEstablishmentsKey;
+    private int _profileEstablishmentsRequest;
 
+    // Établissements gérés par le perso affiché ou auxquels il est affilié, trois au plus, filtrés par le serveur
+    // selon la visibilité de la fiche.
     private void DrawLinkedEstablishment(float cardSpacing)
     {
-        var uid = Pair.UserData.UID;
+        // Les logos remplacés sont libérés ici, sur le thread de rendu, jamais pendant qu'une frame les dessine.
+        while (_staleProfileEstablishments.TryDequeue(out var stale))
+            DisposeLogos(stale);
 
-        // Lazy load: check if this user manages an establishment
-        if (!_linkedEstablishmentLoaded)
+        var (charName, worldId) = (_selectedAltCharName != null && _selectedAltWorldId != null)
+            ? (_selectedAltCharName, _selectedAltWorldId)
+            : _umbraProfileManager.ResolveCharacter(Pair.UserData);
+        var key = $"{charName}@{worldId}";
+        if (!string.Equals(_profileEstablishmentsKey, key, StringComparison.Ordinal))
         {
-            _linkedEstablishmentLoaded = true;
-            _ = LoadLinkedEstablishment(uid);
+            _profileEstablishmentsKey = key;
+            var requestId = Interlocked.Increment(ref _profileEstablishmentsRequest);
+            _ = LoadProfileEstablishmentsAsync(charName, worldId, requestId);
         }
 
-        if (_linkedEstablishment == null || !_linkedEstablishment.ShowManagerOnProfile)
-            return;
+        var entries = _profileEstablishments;
+        if (entries.Count == 0) return;
 
         ImGuiHelpers.ScaledDummy(cardSpacing / ImGuiHelpers.GlobalScale);
-
-        var catNames = CategoryNames;
-        var catIndex = _linkedEstablishment.Category;
-        var catName = catIndex >= 0 && catIndex < catNames.Length ? catNames[catIndex] : "?";
-
         UiSharedService.DrawCard("rp-establishment-card", () =>
         {
-            DrawSectionTitle(Loc.Get("Profile.Establishment.Title"));
-
-            // Logo — drawn in absolute (placeholder if missing), content flows to its right
-            var scale = ImGuiHelpers.GlobalScale;
-            var logoSize = 44f * scale;
-            var logoRounding = 6f * scale;
-            var logoSpacing = 10f * scale;
-            var catIcon = FontAwesomeIcon.Building;
-            var linkedScreenPos = ImGui.GetCursorScreenPos();
-            var linkedLocalPos = ImGui.GetCursorPos();
-            if (_linkedEstablishmentLogo != null)
+            DrawSectionTitle(Loc.Get(entries.Count > 1 ? "Profile.Establishment.TitlePlural" : "Profile.Establishment.Title"));
+            for (int i = 0; i < entries.Count; i++)
             {
-                ImGui.GetWindowDrawList().AddImageRounded(_linkedEstablishmentLogo.Handle,
-                    linkedScreenPos, linkedScreenPos + new Vector2(logoSize, logoSize),
-                    Vector2.Zero, Vector2.One, ImGui.ColorConvertFloat4ToU32(Vector4.One), logoRounding);
+                if (i > 0) ImGuiHelpers.ScaledDummy(6f);
+                using var id = ImRaii.PushId(i);
+                DrawProfileEstablishment(entries[i].Entry, entries[i].Logo);
             }
-            else
-            {
-                UiSharedService.DrawLogoPlaceholder(linkedScreenPos, logoSize, logoRounding, catIcon);
-            }
-            ImGui.SetCursorPos(new Vector2(linkedLocalPos.X + logoSize + logoSpacing, linkedLocalPos.Y));
-
-            _uiSharedService.BigText(UiSharedService.SanitizeOneLine(_linkedEstablishment.Name));
-
-            ImGui.SetCursorPosX(logoSize + logoSpacing);
-            UiSharedService.DrawCategoryPill(catName);
-
-            var desc = UiSharedService.SanitizeOneLine(_linkedEstablishment.Description);
-            if (!string.IsNullOrEmpty(desc))
-            {
-                var descMaxX = ImGui.GetWindowContentRegionMax().X - 4f * scale;
-                var descAvail = MathF.Max(40f, descMaxX - ImGui.GetCursorPosX());
-                ImGui.TextDisabled(UiSharedService.TruncateToWidth(desc, descAvail));
-            }
-
-            ImGuiHelpers.ScaledDummy(2f);
-            if (_uiSharedService.IconTextButton(FontAwesomeIcon.Eye, Loc.Get("Profile.Establishment.View")))
-                Mediator.Publish(new OpenEstablishmentDetailMessage(_linkedEstablishment.Id));
-        }, stretchWidth: true);
+        }, stretchWidth: true, background: SheetCardFill, border: SheetCardFill);
     }
 
-    private async Task LoadLinkedEstablishment(string uid)
+    private void DrawProfileEstablishment(EstablishmentProfileEntryDto establishment, IDalamudTextureWrap? logo)
     {
+        var catNames = CategoryNames;
+        var catIndex = establishment.Category;
+        var catName = catIndex >= 0 && catIndex < catNames.Length ? catNames[catIndex] : "?";
+
+        // Logo dessiné en absolu (substitut s'il manque), le contenu s'écoule à sa droite.
+        var scale = ImGuiHelpers.GlobalScale;
+        var logoSize = 44f * scale;
+        var logoRounding = 6f * scale;
+        var logoSpacing = 10f * scale;
+        var linkedScreenPos = ImGui.GetCursorScreenPos();
+        var linkedLocalPos = ImGui.GetCursorPos();
+        if (logo != null)
+        {
+            ImGui.GetWindowDrawList().AddImageRounded(logo.Handle,
+                linkedScreenPos, linkedScreenPos + new Vector2(logoSize, logoSize),
+                Vector2.Zero, Vector2.One, ImGui.ColorConvertFloat4ToU32(Vector4.One), logoRounding);
+        }
+        else
+        {
+            UiSharedService.DrawLogoPlaceholder(linkedScreenPos, logoSize, logoRounding, FontAwesomeIcon.Building);
+        }
+
+        var contentX = linkedLocalPos.X + logoSize + logoSpacing;
+        ImGui.SetCursorPos(new Vector2(contentX, linkedLocalPos.Y));
+        _uiSharedService.BigText(UiSharedService.SanitizeOneLine(establishment.Name));
+
+        ImGui.SetCursorPosX(contentX);
+        UiSharedService.DrawCategoryPill(catName);
+        if (establishment.IsManager)
+        {
+            ImGui.SameLine();
+            UiSharedService.DrawCategoryPill(Loc.Get("Profile.Establishment.Manager"));
+        }
+
+        var desc = UiSharedService.SanitizeOneLine(establishment.Description);
+        if (!string.IsNullOrEmpty(desc))
+        {
+            ImGui.SetCursorPosX(contentX);
+            var descMaxX = ImGui.GetWindowContentRegionMax().X - 4f * scale;
+            var descAvail = MathF.Max(40f, descMaxX - ImGui.GetCursorPosX());
+            ImGui.TextDisabled(UiSharedService.TruncateToWidth(desc, descAvail));
+        }
+
+        ImGui.SetCursorPosX(contentX);
+        if (_uiSharedService.IconTextButton(FontAwesomeIcon.Eye, Loc.Get("Profile.Establishment.View")))
+            Mediator.Publish(new OpenEstablishmentDetailMessage(establishment.Id));
+    }
+
+    private async Task LoadProfileEstablishmentsAsync(string? charName, uint? worldId, int requestId)
+    {
+        var loaded = new List<(EstablishmentProfileEntryDto Entry, IDalamudTextureWrap? Logo)>();
         try
         {
-            // Search all establishments to find one where this user is the manager
-            var request = new EstablishmentListRequestDto { Page = 0, PageSize = 100 };
-            var result = await _apiController.EstablishmentList(request).ConfigureAwait(false);
-            if (result != null)
+            var entries = string.IsNullOrEmpty(charName) || worldId is not > 0
+                ? []
+                : await _apiController.EstablishmentGetForCharacter(new UserDto(Pair.UserData, charName, worldId)).ConfigureAwait(false);
+            foreach (var entry in entries)
             {
-                _linkedEstablishment = result.Establishments
-                    .FirstOrDefault(e => string.Equals(e.OwnerUID, uid, StringComparison.Ordinal));
-
-                if (_linkedEstablishment?.LogoImageBase64 is { Length: > 0 } logoB64)
+                IDalamudTextureWrap? logo = null;
+                if (entry.LogoImageBase64 is { Length: > 0 } logoB64)
                 {
-                    try { _linkedEstablishmentLogo = await _uiSharedService.LoadImageOrEmptyAsync(Convert.FromBase64String(logoB64)).ConfigureAwait(false); }
-                    catch { /* ignore */ }
+                    try { logo = await _uiSharedService.LoadImageOrEmptyAsync(Convert.FromBase64String(logoB64)).ConfigureAwait(false); }
+                    catch (Exception ex) { _logger.LogDebug(ex, "Failed to load an establishment logo for {uid}", Pair.UserData.UID); }
                 }
+                loaded.Add((entry, logo));
             }
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Error loading linked establishment for {uid}", uid);
+            _logger.LogWarning(ex, "Error loading establishments for a character of {uid}", Pair.UserData.UID);
         }
+
+        if (requestId != Volatile.Read(ref _profileEstablishmentsRequest))
+        {
+            DisposeLogos(loaded);
+            return;
+        }
+
+        _staleProfileEstablishments.Enqueue(Interlocked.Exchange(ref _profileEstablishments, loaded));
+    }
+
+    private static void DisposeLogos(List<(EstablishmentProfileEntryDto Entry, IDalamudTextureWrap? Logo)> entries)
+    {
+        foreach (var (_, logo) in entries)
+            logo?.Dispose();
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            DisposeLogos(Interlocked.Exchange(ref _profileEstablishments, []));
+            while (_staleProfileEstablishments.TryDequeue(out var stale))
+                DisposeLogos(stale);
+        }
+
+        base.Dispose(disposing);
     }
 
     private void DrawHeroCard(UmbraProfileData profile, IDalamudTextureWrap? texture, Vector4 accent)
@@ -745,7 +796,7 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
                 ImGui.TextColored(ImGuiColors.DalamudGrey, note);
 
             ImGui.EndGroup();
-        }, stretchWidth: true, backgroundOverlay: _rpBannerTexture is { } banner
+        }, stretchWidth: true, background: HeroCardFill, border: HeroCardBorder, backgroundOverlay: _rpBannerTexture is { } banner
             ? (min, max, rounding, background) => ProfileBanner.Draw(ImGui.GetWindowDrawList(), banner, min, max, background, rounding, profile.CardStyle.Value)
             : null);
 
@@ -889,6 +940,7 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
         bool isSelfProfile = string.Equals(Pair.UserData.UID, _apiController.UID, StringComparison.Ordinal);
         if (isSelfProfile)
         {
+            if (!IsDisplayingOwnLiveCharacter()) return profile.MoodlesData;
             if (string.IsNullOrEmpty(_localMoodlesJson) && !_moodlesFetching
                 && (DateTime.UtcNow - _lastMoodlesFetch).TotalSeconds > 3)
             {
@@ -928,20 +980,89 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
         return string.Equals(charName, liveName, StringComparison.Ordinal) && worldId == liveWorld;
     }
 
-    private static void DrawSectionTitle(string text)
+    // Même règle pour sa propre fiche : Honorific et Moodles locaux sont ceux du perso joué.
+    private bool IsDisplayingOwnLiveCharacter()
     {
-        UiSharedService.ColorText(text, UiSharedService.AccentColor);
+        if (_selectedAltCharName == null || _selectedAltWorldId == null) return true;
+        var (liveName, liveWorld) = _umbraProfileManager.ResolveCharacter(Pair.UserData);
+        return string.Equals(_selectedAltCharName, liveName, StringComparison.Ordinal) && _selectedAltWorldId == liveWorld;
+    }
+
+    private Vector4? SheetCardFill => _sheetPalette != null ? Vector4.Zero : null;
+
+    private Vector4? HeroCardFill => _sheetPalette is { } palette
+        ? (_rpBannerTexture == null ? Vector4.Zero : palette.Veil)
+        : null;
+
+    private Vector4? HeroCardBorder => _sheetPalette is { } palette ? palette.Accent with { W = ProfileSheetBackground.BorderOpacity } : null;
+
+    private void DrawSectionTitle(string text)
+    {
+        if (_sheetPalette is { } palette)
+        {
+            ProfileSheetBackground.DrawHeading(text, palette, SectionContentWidth);
+            return;
+        }
+        UiSharedService.ColorText(text, ProfileSheetBackground.CustomColor(_rpCardStyle.SheetTitleColor) ?? UiSharedService.AccentColor);
         ImGuiHelpers.ScaledDummy(2f);
     }
 
-    private static void DrawVerticalField(string label, string value, float width)
+    private void DrawVerticalField(string label, string value, float width)
     {
         ImGui.BeginGroup();
         ImGui.PushTextWrapPos(ImGui.GetCursorPosX() + width - 8f * ImGuiHelpers.GlobalScale);
-        ImGui.TextColored(ImGuiColors.DalamudGrey, label);
+        ImGui.TextColored(FieldLabelColor, label);
         ImGui.TextUnformatted(value);
         ImGui.PopTextWrapPos();
         ImGui.EndGroup();
+    }
+
+    private Vector4 FieldLabelColor
+        => _sheetPalette?.Label ?? ProfileSheetBackground.CustomColor(_rpCardStyle.SheetLabelColor) ?? ImGuiColors.DalamudGrey;
+
+    // Texte libre en retrait des bords, dans l'axe des filets du titre orné.
+    private static void DrawSectionText(string bbcode, float width)
+    {
+        var inset = MathF.Round(width * 0.04f);
+        ImGui.Indent(inset);
+        BbCodeRenderer.Render(bbcode, width - (inset * 2f));
+        ImGui.Unindent(inset);
+    }
+
+    private static float SectionContentWidth
+        => ImGui.GetContentRegionAvail().X - (ImGui.GetStyle().FramePadding.X + 4f * ImGuiHelpers.GlobalScale);
+
+    private void DrawCenteredRow((string Label, string Value)? left, (string Label, string Value)? right, float col1X, float col2X, float width)
+    {
+        if (left is { } l)
+        {
+            ImGui.BeginGroup();
+            DrawCenteredField(l.Label, l.Value, col1X, width);
+            ImGui.EndGroup();
+        }
+        if (right is not { } r) return;
+        if (left != null) ImGui.SameLine();
+        ImGui.BeginGroup();
+        DrawCenteredField(r.Label, r.Value, col2X, width);
+        ImGui.EndGroup();
+    }
+
+    private void DrawCenteredField(string label, string value, float columnX, float width)
+    {
+        var pad = 4f * ImGuiHelpers.GlobalScale;
+        DrawCenteredLine(label, FieldLabelColor, columnX + pad, width - (pad * 2f));
+        DrawCenteredLine(value, null, columnX + pad, width - (pad * 2f));
+    }
+
+    private static void DrawCenteredLine(string text, Vector4? color, float columnX, float width)
+    {
+        ImGui.SetCursorPosX(columnX + MathF.Max((width - ImGui.CalcTextSize(text).X) * 0.5f, 0f));
+        ImGui.PushTextWrapPos(columnX + width);
+        if (color is { } c)
+            ImGui.TextColored(c, text);
+        else
+            ImGui.TextUnformatted(text);
+        ImGui.PopTextWrapPos();
     }
 
     private static (string Label, Vector4 Color, FontAwesomeIcon Icon, string Tooltip)? GetRpLevelStyle(byte level) => level switch

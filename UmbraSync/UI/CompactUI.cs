@@ -10,6 +10,7 @@ using System.Globalization;
 using System.Numerics;
 using UmbraSync.Localization;
 using UmbraSync.MareConfiguration;
+using NotificationType = UmbraSync.MareConfiguration.Models.NotificationType;
 using UmbraSync.PlayerData.Handlers;
 using UmbraSync.PlayerData.Pairs;
 using UmbraSync.Services;
@@ -166,6 +167,18 @@ public partial class CompactUi : WindowMediatorSubscriberBase
         });
         Mediator.Subscribe<NotificationStateChanged>(this, msg => _notificationCount = msg.TotalCount);
         Mediator.Subscribe<EstablishmentChangedMessage>(this, (_) => AnnuaireRefreshAll());
+        Mediator.Subscribe<EstablishmentAffiliationRequestedMessage>(this, msg =>
+        {
+            var entry = NotificationEntry.EstablishmentAffiliationRequested(msg.Affiliation);
+            _notificationTracker.Upsert(entry);
+            Mediator.Publish(new NotificationMessage(entry.Title, entry.Description ?? string.Empty, NotificationType.Info));
+        });
+        Mediator.Subscribe<EstablishmentAffiliationRespondedMessage>(this, msg =>
+        {
+            var entry = NotificationEntry.EstablishmentAffiliationResponded(msg.Affiliation);
+            _notificationTracker.Upsert(entry);
+            Mediator.Publish(new NotificationMessage(entry.Title, entry.Description ?? string.Empty, NotificationType.Info));
+        });
         Mediator.Subscribe<DisconnectedMessage>(this, (_) =>
         {
             _drawUserPairCache.Clear();

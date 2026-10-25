@@ -104,4 +104,97 @@ public class ProfileCardStyleTests
         Assert.Null(style.TextColor);
         Assert.Null(style.AccentColor);
     }
+
+    [Fact]
+    public void Fond_de_la_liste_est_conserve()
+    {
+        var style = new ProfileCardStyle { Background = 193720, BackgroundVeil = 0.3f };
+
+        var parsed = ProfileCardStyle.Parse(style.Serialize());
+
+        Assert.Equal(style, parsed);
+        Assert.True(parsed.HasBackground);
+    }
+
+    [Theory]
+    [InlineData("{\"background\": 12345}")]
+    [InlineData("{\"background\": -193720}")]
+    [InlineData("{\"background\": 0}")]
+    public void Fond_hors_liste_est_ignore(string json)
+    {
+        var style = ProfileCardStyle.Parse(json);
+
+        Assert.Equal(0, style.Background);
+        Assert.False(style.HasBackground);
+    }
+
+    [Fact]
+    public void Fond_hors_liste_seul_se_serialise_en_chaine_vide()
+    {
+        Assert.Equal(string.Empty, new ProfileCardStyle { Background = 12345 }.Serialize());
+    }
+
+    [Theory]
+    [InlineData("{\"backgroundVeil\": 4}", 0.9f)]
+    [InlineData("{\"backgroundVeil\": -1}", 0f)]
+    [InlineData("{\"backgroundVeil\": 0.2}", 0.2f)]
+    public void Voile_est_borne(string json, float expected)
+    {
+        Assert.Equal(expected, ProfileCardStyle.Parse(json).BackgroundVeil, 3);
+    }
+
+    [Fact]
+    public void Fondu_du_fond_actif_par_defaut()
+    {
+        Assert.True(ProfileCardStyle.Parse("{\"background\": 193720}").BackgroundFade);
+    }
+
+    [Fact]
+    public void Fondu_du_fond_desactive_est_conserve()
+    {
+        var style = new ProfileCardStyle { Background = 193720, BackgroundFade = false, BackgroundVeil = 0.6f };
+
+        var parsed = ProfileCardStyle.Parse(style.Serialize());
+
+        Assert.Equal(style, parsed);
+        Assert.False(parsed.BackgroundFade);
+    }
+
+    [Theory]
+    [InlineData("{\"backgroundDimming\": 4}", 0.9f)]
+    [InlineData("{\"backgroundDimming\": -1}", 0f)]
+    [InlineData("{\"backgroundDimming\": 0.35}", 0.35f)]
+    [InlineData("{\"background\": 193720}", 0f)]
+    public void Assombrissement_du_fond_est_borne(string json, float expected)
+    {
+        Assert.Equal(expected, ProfileCardStyle.Parse(json).BackgroundDimming, 3);
+    }
+
+    [Fact]
+    public void Couleurs_de_la_feuille_sont_normalisees()
+    {
+        var style = ProfileCardStyle.Parse("{\"sheetTitleColor\": \"#c8a060\", \"sheetLabelColor\": \"rouge\", \"sheetTextColor\": \"#12345\"}");
+
+        Assert.Equal("#C8A060", style.SheetTitleColor);
+        Assert.Null(style.SheetLabelColor);
+        Assert.Null(style.SheetTextColor);
+    }
+
+    [Fact]
+    public void Couleurs_de_la_feuille_sont_conservees()
+    {
+        var style = new ProfileCardStyle
+        {
+            Background = 193720, SheetTitleColor = "#C8A060", SheetLabelColor = "#806040", SheetTextColor = "#201810",
+        };
+
+        Assert.Equal(style, ProfileCardStyle.Parse(style.Serialize()));
+    }
+
+    [Fact]
+    public void Liste_des_fonds_sans_doublon()
+    {
+        Assert.Equal(ProfileBackgrounds.All.Count, ProfileBackgrounds.All.Select(b => b.IconId).Distinct().Count());
+        Assert.Equal(ProfileBackgrounds.All.Count, ProfileBackgrounds.All.Select(b => b.Key).Distinct().Count());
+    }
 }

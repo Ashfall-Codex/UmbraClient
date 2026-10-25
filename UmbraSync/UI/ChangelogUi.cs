@@ -314,15 +314,16 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
     {
         return new List<ChangelogEntry>
         {
-            new(new Version(3, 1, 1, 1020), "3.1.1.1020", new List<ChangelogLine>
+            new(new Version(3, 1, 2, 1025), "3.1.2.1025", new List<ChangelogLine>
             {
-                new("Nouveauté : Votre carte de profil prend vos couleurs : couleur du profil (bordures, titres, onglets, boutons), couleur du texte, assombrissement de la bannière, fondu vers les bords et taille de la zone nette. La couleur du profil s'applique à votre fiche, à votre carte, à votre profil au survol et à l'éditeur."),
-                new("Nouveauté : La carte du joueur ciblé propose deux modes dans les paramètres : « Afficher en cliquant » ou « Afficher en laissant le curseur sur la barre d'état ». Elle a un bouton « Fermer la carte », garde sa position et prend la couleur du profil du joueur."),
-                new("Amélioration : L'éditeur « Mon profil » est réorganisé en quatre pages (Identité, Apparence, Chat et visibilité, Histoire), avec une carte d'enregistrement encadrée, le raccourci Ctrl+S, un aperçu du BBCode, les boutons « Prévisualiser mon profil » et « Aperçu de la carte », et de l'aide sur les titres et les formats d'image."),
-                new("Amélioration : L'identifiant personnalisé se règle désormais dans Paramètres → Compte, et l'option NSFW dans la page « Chat et visibilité » de l'éditeur."),
-                new("Amélioration : Modification de certains aspects du visuel."),
-                new("Correction : L'éditeur « Mon profil » n'affiche plus « Modifications non sauvegardées » quand rien n'a changé."),
-                new("Correction : La carte du joueur ne s'affiche plus en gpose."),
+                new("Nouveauté : Fonds de fiche RP tirés des plaques d'aventurier du jeu, avec assombrissement, fondu et intensité réglables."),
+                new("Nouveauté : Couleurs de la fiche au choix (titres, libellés, contenu), avec ou sans fond. Sans fond, la fiche s'affiche d'un seul bloc, avec des titres ornés."),
+                new("Nouveauté : Jusqu'à 3 établissements sur une fiche. Demandez l'affiliation depuis l'onglet « Affiliation » d'un établissement ; le propriétaire accepte ou refuse depuis ses notifications ou l'onglet « Membres »."),
+                new("Nouveauté : Social → Profils affiche « Mon personnage » et « Mes autres personnages », pour consulter les fiches de vos autres personnages."),
+                new("Amélioration : Page « Apparence » de l'éditeur réorganisée (Carte de profil, Bannière, Fond de fiche, Couleurs de la fiche), et profil au survol aux couleurs de la fiche. L'éditeur des traits indique quand le plugin Moodles est nécessaire."),
+                new("Amélioration : Un établissement s'affiche sur son personnage gérant et sur les personnages affiliés ; tant qu'aucun gérant n'est désigné, il reste sur tous les personnages du propriétaire."),
+                new("Correction : La fiche d'un de vos autres personnages n'affiche plus le titre Honorific ni les Moodles du personnage joué."),
+                new("Correction : La carte d'établissement s'affiche pour tous les établissements, et plus seulement pour une partie de l'annuaire."),
             }),
         };
     }

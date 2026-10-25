@@ -45,7 +45,7 @@ public static class ProfileBanner
         return (new Vector2(0f, offsetV), new Vector2(1f, offsetV + visibleV));
     }
 
-    private static void FadeEdges(ImDrawListPtr drawList, Vector2 pos, Vector2 size, Vector4 background, float rounding, float clearRadius)
+    public static void FadeEdges(ImDrawListPtr drawList, Vector2 pos, Vector2 size, Vector4 background, float rounding, float clearRadius)
     {
         var half = size * 0.5f;
         if (half.X <= rounding + 2f || half.Y <= rounding + 2f) return;
@@ -66,7 +66,7 @@ public static class ProfileBanner
                 var distance = new Vector2(offset.X / half.X, offset.Y / half.Y).Length();
                 var t = Math.Clamp((distance - clearRadius) / (solidRadius - clearRadius), 0f, 1f);
                 var opacity = t * t * (3f - 2f * t);
-                ShadeGrid[(r * (Cols + 1)) + c] = ImGui.GetColorU32(background with { W = opacity });
+                ShadeGrid[(r * (Cols + 1)) + c] = ImGui.GetColorU32(background with { W = opacity * background.W });
             }
         }
 

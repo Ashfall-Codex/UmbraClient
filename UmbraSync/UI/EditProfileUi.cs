@@ -277,13 +277,11 @@ public class EditProfileUi : WindowMediatorSubscriberBase
 
         SetProfilePreview();
         _standalonePreviewShown = true;
-        Mediator.Publish(new ProfileOpenStandaloneMessage(pair));
+        Mediator.Publish(new ProfileOpenStandaloneMessage(pair, _dalamudUtil.GetPlayerName(), _dalamudUtil.GetHomeWorldId()));
     }
 
     public RpProfileVisibility GetRpVisibility() => _rpConfigService.GetCurrentCharacterProfile().RpVisibility;
-
-    // Réglage enregistré tout de suite, sans passer par « Sauvegarder le profil » : le reste de la fiche
-    // reprend les valeurs du serveur. Renvoie false si le personnage n'est pas encore résolu.
+    
     public bool SetRpVisibility(RpProfileVisibility visibility)
     {
         var charName = _dalamudUtil.GetPlayerName();
@@ -952,34 +950,30 @@ public class EditProfileUi : WindowMediatorSubscriberBase
             _rpBannerTexture = _rpBannerImage.Length > 0 ? _uiSharedService.LoadImage(_rpBannerImage) : null;
         }
 
+        var scale = ImGuiHelpers.GlobalScale;
+        float labelWidth = new[]
+            {
+                "EditProfile.ProfileAccent", "EditProfile.NameColor", "EditProfile.CardTextColor",
+                "EditProfile.Banner.Dimming", "EditProfile.Banner.Fade", "EditProfile.Banner.FadeRadius",
+                "EditProfile.Background.Image", "EditProfile.Background.Dimming", "EditProfile.Background.Fade",
+                "EditProfile.Background.Veil", "EditProfile.Background.TitleColor", "EditProfile.Background.LabelColor",
+                "EditProfile.Background.TextColor",
+            }
+            .Max(key => ImGui.CalcTextSize(Loc.Get(key)).X) + (12f * scale);
+        float sliderWidth = MathF.Min(240f * scale, MathF.Max(ImGui.GetContentRegionAvail().X - labelWidth, 80f * scale));
+
         DrawCardStrip();
         ImGuiHelpers.ScaledDummy(2f);
+        DrawCardColors(labelWidth);
 
-        if (_uiSharedService.IconTextButton(FontAwesomeIcon.FileImage, Loc.Get("EditProfile.Banner.Select")))
-            SelectBanner();
+        UiSharedService.BeginSectionCard(Loc.Get("EditProfile.Card.Banner"), FontAwesomeIcon.FileImage);
+        DrawBannerSettings(labelWidth, sliderWidth);
 
-        if (_rpBannerImage.Length > 0)
-        {
-            ImGui.SameLine();
-            if (_uiSharedService.IconTextButton(FontAwesomeIcon.Trash, Loc.Get("EditProfile.Banner.Remove")))
-            {
-                _rpBannerImage = [];
-                _rpBannerDirty = true;
-                _bannerTextureStale = true;
-                _previewRefreshPending = true;
-            }
-        }
+        UiSharedService.BeginSectionCard(Loc.Get("EditProfile.Background"), FontAwesomeIcon.Scroll);
+        DrawSheetBackgroundSettings(labelWidth, sliderWidth);
 
-        ImGui.SameLine();
-        _uiSharedService.DrawHelpText(Loc.Get("EditProfile.Banner.Recommended"));
-
-        DrawPreviewButtons();
-
-        if (_showBannerError)
-            UiSharedService.ColorTextWrapped(Loc.Get("EditProfile.Banner.SizeError"), ImGuiColors.DalamudRed);
-
-        ImGuiHelpers.ScaledDummy(4f);
-        DrawCardAppearance();
+        UiSharedService.BeginSectionCard(Loc.Get("EditProfile.Card.SheetColors"), FontAwesomeIcon.Palette);
+        DrawSheetColors(labelWidth);
     }
     
     private void DrawCardStrip()
@@ -1112,42 +1106,26 @@ public class EditProfileUi : WindowMediatorSubscriberBase
             Mediator.Publish(new TargetProfilePreviewMessage(null));
     }
 
-    private void DrawCardAppearance()
+    private void DrawCardColors(float labelWidth)
     {
         var scale = ImGuiHelpers.GlobalScale;
-        string accentLabel = Loc.Get("EditProfile.ProfileAccent");
-        string nameLabel = Loc.Get("EditProfile.NameColor");
-        string colorLabel = Loc.Get("EditProfile.CardTextColor");
-        string dimLabel = Loc.Get("EditProfile.Banner.Dimming");
-        string fadeLabel = Loc.Get("EditProfile.Banner.Fade");
-        string radiusLabel = Loc.Get("EditProfile.Banner.FadeRadius");
-        float labelWidth = new[] { accentLabel, nameLabel, colorLabel, dimLabel, fadeLabel, radiusLabel }
-            .Max(label => ImGui.CalcTextSize(label).X) + (12f * scale);
-        float sliderWidth = MathF.Min(240f * scale, MathF.Max(ImGui.GetContentRegionAvail().X - labelWidth, 80f * scale));
 
-        DrawAppearanceLabel(accentLabel, labelWidth);
+        DrawAppearanceLabel(Loc.Get("EditProfile.ProfileAccent"), labelWidth);
         ImGui.SetNextItemWidth(24f * scale);
         if (ImGui.ColorEdit3("##rpAccentColor", ref _rpAccentColorVec, ImGuiColorEditFlags.NoInputs | ImGuiColorEditFlags.NoLabel))
             UpdateCardStyle(_cardStyle with { AccentColor = UiSharedService.Vector4ToHex(new Vector4(_rpAccentColorVec, 1f)) });
         UiSharedService.AttachToolTip(Loc.Get("EditProfile.ProfileAccent.Tooltip"));
         ImGui.SameLine();
         _uiSharedService.DrawHelpText(Loc.Get("EditProfile.ProfileAccent.Help"));
-        
-        var resetLabel = Loc.Get("EditProfile.CardStyle.Reset");
-        SameLineRightAligned(_uiSharedService.GetIconTextButtonSize(FontAwesomeIcon.Undo, resetLabel));
-        using (ImRaii.Disabled(_cardStyle.IsDefault))
-        {
-            if (_uiSharedService.IconTextButton(FontAwesomeIcon.Undo, resetLabel))
-                UpdateCardStyle(ProfileCardStyle.Default);
-        }
+        DrawPreviewButtons();
 
-        DrawAppearanceLabel(nameLabel, labelWidth);
+        DrawAppearanceLabel(Loc.Get("EditProfile.NameColor"), labelWidth);
         ImGui.SetNextItemWidth(24f * scale);
         if (ImGui.ColorEdit3("##rpNameColor", ref _rpNameColorVec, ImGuiColorEditFlags.NoInputs | ImGuiColorEditFlags.NoLabel))
             _previewRefreshPending = true;
         UiSharedService.AttachToolTip(Loc.Get("EditProfile.NameColor.Tooltip"));
 
-        DrawAppearanceLabel(colorLabel, labelWidth);
+        DrawAppearanceLabel(Loc.Get("EditProfile.CardTextColor"), labelWidth);
         ImGui.SetNextItemWidth(24f * scale);
         if (ImGui.ColorEdit3("##rpCardTextColor", ref _rpCardTextColorVec, ImGuiColorEditFlags.NoInputs | ImGuiColorEditFlags.NoLabel))
             UpdateCardStyle(_cardStyle with { TextColor = UiSharedService.Vector4ToHex(new Vector4(_rpCardTextColorVec, 1f)) });
@@ -1155,10 +1133,119 @@ public class EditProfileUi : WindowMediatorSubscriberBase
         ImGui.SameLine();
         _uiSharedService.DrawHelpText(Loc.Get("EditProfile.CardTextColor.Help"));
 
+        var resetLabel = Loc.Get("EditProfile.CardStyle.Reset");
+        SameLineRightAligned(_uiSharedService.GetIconTextButtonSize(FontAwesomeIcon.Undo, resetLabel));
+        using (ImRaii.Disabled(_cardStyle.IsDefault))
+        {
+            if (_uiSharedService.IconTextButton(FontAwesomeIcon.Undo, resetLabel))
+                UpdateCardStyle(ProfileCardStyle.Default);
+        }
+    }
+
+    private void DrawSheetBackgroundSettings(float labelWidth, float sliderWidth)
+    {
+        DrawAppearanceLabel(Loc.Get("EditProfile.Background.Image"), labelWidth);
+        DrawSheetBackgroundCombo(sliderWidth);
+        ImGui.SameLine();
+        _uiSharedService.DrawHelpText(Loc.Get("EditProfile.Background.Help"));
+
+        using (ImRaii.Disabled(!_cardStyle.HasBackground))
+        {
+            DrawAppearanceLabel(Loc.Get("EditProfile.Background.Dimming"), labelWidth);
+            int dimming = (int)MathF.Round(_cardStyle.BackgroundDimming * 100f);
+            ImGui.SetNextItemWidth(sliderWidth);
+            ThemedSlider.AlignWithFramePaddedLabel();
+            if (ThemedSlider.Int("##sheetBackgroundDimming", ref dimming, (int)(ProfileCardStyle.MinBackgroundDimming * 100f),
+                    (int)MathF.Round(ProfileCardStyle.MaxBackgroundDimming * 100f), "%d %"))
+                UpdateCardStyle(_cardStyle with { BackgroundDimming = dimming / 100f });
+            UiSharedService.AttachToolTip(Loc.Get("EditProfile.Background.Dimming.Tooltip"));
+
+            DrawAppearanceLabel(Loc.Get("EditProfile.Background.Fade"), labelWidth);
+            bool fade = _cardStyle.BackgroundFade;
+            if (ToggleSwitch.Draw("##sheetBackgroundFade", ref fade))
+                UpdateCardStyle(_cardStyle with { BackgroundFade = fade });
+            UiSharedService.AttachToolTip(Loc.Get("EditProfile.Background.Fade.Tooltip"));
+
+            using (ImRaii.Disabled(!_cardStyle.BackgroundFade))
+            {
+                DrawAppearanceLabel(Loc.Get("EditProfile.Background.Veil"), labelWidth);
+                int veil = (int)MathF.Round(_cardStyle.BackgroundVeil * 100f);
+                ImGui.SetNextItemWidth(sliderWidth);
+                ThemedSlider.AlignWithFramePaddedLabel();
+                if (ThemedSlider.Int("##sheetBackgroundVeil", ref veil, (int)(ProfileCardStyle.MinBackgroundVeil * 100f),
+                        (int)MathF.Round(ProfileCardStyle.MaxBackgroundVeil * 100f), "%d %"))
+                    UpdateCardStyle(_cardStyle with { BackgroundVeil = veil / 100f });
+                UiSharedService.AttachToolTip(Loc.Get("EditProfile.Background.Veil.Tooltip"));
+            }
+        }
+    }
+
+    private void DrawSheetColors(float labelWidth)
+    {
+        var sheet = ProfileBackgrounds.Find(_cardStyle.Background) is { } background
+            ? ProfileSheetBackground.PaletteFor(background.Family)
+            : null;
+        var accent = UiSharedService.TryHexToVector4(_cardStyle.AccentColor, out var custom) ? custom : UiSharedService.DefaultAccentColor;
+        var text = ImGui.ColorConvertU32ToFloat4(ImGui.GetColorU32(ImGuiCol.Text));
+
+        DrawSheetColor("EditProfile.Background.TitleColor", "##sheetTitleColor", _cardStyle.SheetTitleColor, sheet?.Accent ?? accent,
+            hex => _cardStyle with { SheetTitleColor = hex }, labelWidth);
+        DrawSheetColor("EditProfile.Background.LabelColor", "##sheetLabelColor", _cardStyle.SheetLabelColor, sheet?.Label ?? ImGuiColors.DalamudGrey,
+            hex => _cardStyle with { SheetLabelColor = hex }, labelWidth);
+        DrawSheetColor("EditProfile.Background.TextColor", "##sheetTextColor", _cardStyle.SheetTextColor, sheet?.Value ?? text,
+            hex => _cardStyle with { SheetTextColor = hex }, labelWidth);
+    }
+
+    // Sans couleur choisie, la pastille montre la teinte assortie au fond ; le bouton d'annulation y revient.
+    private void DrawSheetColor(string labelKey, string id, string? hex, Vector4 fallback, Func<string?, ProfileCardStyle> apply, float labelWidth)
+    {
+        DrawAppearanceLabel(Loc.Get(labelKey), labelWidth);
+        var color = UiSharedService.TryHexToVector4(hex, out var custom) ? custom : fallback;
+        var rgb = new Vector3(color.X, color.Y, color.Z);
+        ImGui.SetNextItemWidth(24f * ImGuiHelpers.GlobalScale);
+        if (ImGui.ColorEdit3(id, ref rgb, ImGuiColorEditFlags.NoInputs | ImGuiColorEditFlags.NoLabel))
+            UpdateCardStyle(apply(UiSharedService.Vector4ToHex(new Vector4(rgb, 1f))));
+        UiSharedService.AttachToolTip(Loc.Get(labelKey + ".Tooltip"));
+
+        if (hex == null) return;
+        ImGui.SameLine();
+        using (ImRaii.PushId(id))
+        {
+            if (_uiSharedService.IconButton(FontAwesomeIcon.Undo))
+                UpdateCardStyle(apply(null));
+        }
+        UiSharedService.AttachToolTip(Loc.Get("EditProfile.Background.Color.Reset"));
+    }
+
+    private void DrawBannerSettings(float labelWidth, float sliderWidth)
+    {
+        if (_uiSharedService.IconTextButton(FontAwesomeIcon.FileImage, Loc.Get("EditProfile.Banner.Select")))
+            SelectBanner();
+
+        if (_rpBannerImage.Length > 0)
+        {
+            ImGui.SameLine();
+            if (_uiSharedService.IconTextButton(FontAwesomeIcon.Trash, Loc.Get("EditProfile.Banner.Remove")))
+            {
+                _rpBannerImage = [];
+                _rpBannerDirty = true;
+                _bannerTextureStale = true;
+                _previewRefreshPending = true;
+            }
+        }
+
+        ImGui.SameLine();
+        _uiSharedService.DrawHelpText(Loc.Get("EditProfile.Banner.Recommended"));
+
+        if (_showBannerError)
+            UiSharedService.ColorTextWrapped(Loc.Get("EditProfile.Banner.SizeError"), ImGuiColors.DalamudRed);
+
+        ImGuiHelpers.ScaledDummy(2f);
+
         bool hasBanner = _rpBannerImage.Length > 0;
         using (ImRaii.Disabled(!hasBanner))
         {
-            DrawAppearanceLabel(dimLabel, labelWidth);
+            DrawAppearanceLabel(Loc.Get("EditProfile.Banner.Dimming"), labelWidth);
             int dimming = (int)MathF.Round((1f - _cardStyle.BannerOpacity) * 100f);
             int maxDimming = (int)MathF.Round((1f - ProfileCardStyle.MinBannerOpacity) * 100f);
             ImGui.SetNextItemWidth(sliderWidth);
@@ -1167,7 +1254,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
                 UpdateCardStyle(_cardStyle with { BannerOpacity = 1f - (dimming / 100f) });
             UiSharedService.AttachToolTip(Loc.Get("EditProfile.Banner.Dimming.Tooltip"));
 
-            DrawAppearanceLabel(fadeLabel, labelWidth);
+            DrawAppearanceLabel(Loc.Get("EditProfile.Banner.Fade"), labelWidth);
             bool fade = _cardStyle.FadeEdges;
             if (ToggleSwitch.Draw("##bannerFade", ref fade))
                 UpdateCardStyle(_cardStyle with { FadeEdges = fade });
@@ -1175,7 +1262,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
 
             using (ImRaii.Disabled(!_cardStyle.FadeEdges))
             {
-                DrawAppearanceLabel(radiusLabel, labelWidth);
+                DrawAppearanceLabel(Loc.Get("EditProfile.Banner.FadeRadius"), labelWidth);
                 int radius = (int)MathF.Round(_cardStyle.FadeRadius * 100f);
                 ImGui.SetNextItemWidth(sliderWidth);
                 ThemedSlider.AlignWithFramePaddedLabel();
@@ -1188,6 +1275,51 @@ public class EditProfileUi : WindowMediatorSubscriberBase
         if (!hasBanner)
             UiSharedService.ColorTextWrapped(Loc.Get("EditProfile.Banner.RenderingNeedsBanner"), ImGuiColors.DalamudGrey3);
     }
+
+    private void DrawSheetBackgroundCombo(float width)
+    {
+        var none = Loc.Get("EditProfile.Background.None");
+        var current = ProfileBackgrounds.Find(_cardStyle.Background);
+        ImGui.SetNextItemWidth(width);
+        if (!UiSharedService.BeginCombo("##sheetBackground", current == null ? none : SheetBackgroundName(current)))
+            return;
+
+        if (ImGui.Selectable(none, current == null))
+            UpdateCardStyle(_cardStyle with { Background = 0 });
+
+        ProfileBackgroundFamily? family = null;
+        foreach (var background in ProfileBackgrounds.All)
+        {
+            if (background.Family != family)
+            {
+                family = background.Family;
+                ImGui.Separator();
+                ImGui.TextColored(ImGuiColors.DalamudGrey3, Loc.Get($"EditProfile.Background.Family.{family}"));
+            }
+
+            bool selected = background.IconId == _cardStyle.Background;
+            if (ImGui.Selectable($"{SheetBackgroundName(background)}##sheetBg{background.IconId}", selected))
+                UpdateCardStyle(_cardStyle with { Background = background.IconId });
+            if (selected)
+                ImGui.SetItemDefaultFocus();
+            if (ImGui.IsItemHovered())
+                DrawSheetBackgroundThumbnail(background.IconId);
+        }
+
+        UiSharedService.EndCombo();
+    }
+
+    private void DrawSheetBackgroundThumbnail(int iconId)
+    {
+        if (!ProfileSheetBackground.TryGetTexture(_uiSharedService.TextureProvider, iconId, out var texture)) return;
+        var width = 240f * ImGuiHelpers.GlobalScale;
+        ImGui.BeginTooltip();
+        ImGui.Image(texture.Handle, new Vector2(width, width * texture.Height / texture.Width));
+        ImGui.EndTooltip();
+    }
+
+    private static string SheetBackgroundName(ProfileBackground background)
+        => Loc.Get($"EditProfile.Background.{background.Key}");
 
     private static void DrawAppearanceLabel(string label, float labelWidth)
     {

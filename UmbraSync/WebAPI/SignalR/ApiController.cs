@@ -442,6 +442,8 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
         OnQuestSessionEventTriggered((sender, trigger) => _ = Client_QuestSessionEventTriggered(sender, trigger));
         OnQuestSessionBranchingChoice((sender, choice) => _ = Client_QuestSessionBranchingChoice(sender, choice));
         OnMcdfShareReceived((ownerUid, description) => _ = Client_McdfShareReceived(ownerUid, description));
+        OnEstablishmentAffiliationRequested((dto) => _ = Client_EstablishmentAffiliationRequested(dto));
+        OnEstablishmentAffiliationResponded((dto) => _ = Client_EstablishmentAffiliationResponded(dto));
 
         _healthCheckTokenSource?.Cancel();
         _healthCheckTokenSource?.Dispose();
@@ -454,11 +456,6 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
     
     private async Task LoadBootstrapPairs()
     {
-        // 3 RPC parallèles, c'est tout. Le serveur retourne :
-        //  - UserGetPairedClients : pairs directs ET pairs syncshell-implicites en une passe (helper GetAllPairInfo).
-        //  - GroupsGetAll : DTO enrichi avec GroupPairUserInfos (flags pinned/mod) + GroupUserCount.
-        //  - UserGetOnlinePairs : présence en ligne via Redis.
-        // Plus de fan-out GroupsGetUsersInGroup × N qui saturait middleboxes/connexion lente au connect.
         var pairedClientsTask = UserGetPairedClients();
         var groupsTask = GroupsGetAll();
         var onlinePairsTask = UserGetOnlinePairs();

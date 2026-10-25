@@ -12,6 +12,7 @@ using UmbraSync.API.Dto.CharaData;
 using UmbraSync.Localization;
 using UmbraSync.MareConfiguration;
 using UmbraSync.MareConfiguration.Models;
+using UmbraSync.PlayerData.Factories;
 using UmbraSync.PlayerData.Pairs;
 using UmbraSync.Services;
 using UmbraSync.Services.CharaData.Models;
@@ -20,6 +21,7 @@ using UmbraSync.Services.Mediator;
 using UmbraSync.Services.ServerConfiguration;
 using UmbraSync.UI.Components;
 using UmbraSync.Utils;
+using UmbraSync.WebAPI.SignalR;
 
 namespace UmbraSync.UI;
 
@@ -146,6 +148,9 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
     private string _mcdfShareSourceId = string.Empty;
     private bool _mcdfShareSourceIsLocal;
     private readonly UmbraProfileManager _umbraProfileManager;
+    private readonly ApiController _apiController;
+    private readonly PairFactory _pairFactory;
+    private Pair? _selfPair;
     private string _profileBrowserSearch = string.Empty;
     private readonly Dictionary<string, (byte[] Data, Task<IDalamudTextureWrap> Task)> _profileBrowserTextureTasks = new(StringComparer.Ordinal);
     private readonly Dictionary<string, float> _profileCardHeights = new(StringComparer.Ordinal);
@@ -159,7 +164,8 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
                          HousingNpcScenarioService housingNpcScenarioService,
                          HousingScenarioManager housingScenarioManager,
                          HousingOwnershipService housingOwnershipService,
-                         UmbraProfileManager umbraProfileManager, MareConfigService mareConfigService)
+                         UmbraProfileManager umbraProfileManager, MareConfigService mareConfigService,
+                         ApiController apiController, PairFactory pairFactory)
         : base(logger, mediator, $"{Loc.Get("CharaDataHub.WindowTitle")}###UmbraCharaDataUI", performanceCollectorService)
     {
         SetWindowSizeConstraints();
@@ -196,6 +202,8 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
         _housingScenarioManager = housingScenarioManager;
         _housingOwnershipService = housingOwnershipService;
         _umbraProfileManager = umbraProfileManager;
+        _apiController = apiController;
+        _pairFactory = pairFactory;
         Mediator.Subscribe<GposeStartMessage>(this, (_) => IsOpen |= _configService.Current.OpenMareHubOnGposeStart);
         Mediator.Subscribe<OpenCharaDataHubWithFilterMessage>(this, (msg) =>
         {
@@ -261,6 +269,8 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
             _mcdfShareManager.StopBackgroundPolling();
             CancelAndDispose(ref _closalCts);
             CancelAndDispose(ref _disposalCts);
+            _selfPair?.Dispose();
+            _selfPair = null;
         }
 
         base.Dispose(disposing);
@@ -1627,27 +1637,28 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
 
     private void DrawProfileBrowser(Vector4 accent)
     {
+        _umbraProfileManager.RequestOwnCharacterProfiles();
         var cachedProfiles = _umbraProfileManager.GetCachedProfiles();
 
         var currentUid = _umbraProfileManager.CurrentUid;
         var search = _profileBrowserSearch;
         var filtered = cachedProfiles.Where(p =>
+            (currentUid == null || !string.Equals(p.Key.User.UID, currentUid, StringComparison.Ordinal)) && IsListed(p.Key, p.Profile)).ToList();
+        var own = _umbraProfileManager.GetOwnCharacterProfiles().Where(p => IsListed(p.Key, p.Profile)).ToList();
+
+        bool IsListed((API.Data.UserData User, string? CharName, uint? WorldId) key, UmbraProfileData profile)
         {
-            if (currentUid != null && string.Equals(p.Key.User.UID, currentUid, StringComparison.Ordinal))
-                return false;
-            if (string.IsNullOrWhiteSpace(p.Profile.RpFirstName) && string.IsNullOrWhiteSpace(p.Profile.RpLastName))
+            if (string.IsNullOrWhiteSpace(profile.RpFirstName) && string.IsNullOrWhiteSpace(profile.RpLastName))
                 return false;
             if (string.IsNullOrEmpty(search)) return true;
-
-            // Comparaison insensible à la casse plutôt qu'une mise en minuscules : le filtre est
-            // évalué à chaque frame pour chaque profil en cache, une chaîne allouée par champ.
-            return Matches(p.Key.User.AliasOrUID) || Matches(p.Key.CharName)
-                   || Matches(p.Profile.RpFirstName) || Matches(p.Profile.RpLastName)
-                   || Matches(_serverConfigurationManager.GetNoteForUid(p.Key.User.UID));
+            
+            return Matches(key.User.AliasOrUID) || Matches(key.CharName)
+                   || Matches(profile.RpFirstName) || Matches(profile.RpLastName)
+                   || Matches(_serverConfigurationManager.GetNoteForUid(key.User.UID));
 
             bool Matches(string? value)
                 => value != null && value.Contains(search, StringComparison.OrdinalIgnoreCase);
-        }).ToList();
+        }
 
         ImGui.TextColored(ImGuiColors.DalamudGrey,
             string.Format(CultureInfo.InvariantCulture, Loc.Get("Settings.ProfileBrowser.CachedProfiles"), filtered.Count));
@@ -1667,7 +1678,7 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
 
         ImGuiHelpers.ScaledDummy(4f);
 
-        if (filtered.Count == 0)
+        if (filtered.Count == 0 && own.Count == 0)
         {
             ImGuiHelpers.ScaledDummy(10f);
             ImGui.TextColored(ImGuiColors.DalamudGrey, Loc.Get("Settings.ProfileBrowser.NoResults"));
@@ -1678,6 +1689,18 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
             return;
 
         var cardSpacing = 6f * ImGuiHelpers.GlobalScale;
+        if (own.Count > 0)
+        {
+            DrawOwnProfileGroup(Loc.Get("Settings.ProfileBrowser.MyCharacter"), own.Where(p => IsCurrentCharacter(p.Key)).ToList(), accent, cardSpacing);
+            DrawOwnProfileGroup(Loc.Get("Settings.ProfileBrowser.OwnCharacters"), own.Where(p => !IsCurrentCharacter(p.Key)).ToList(), accent, cardSpacing);
+            if (filtered.Count > 0)
+            {
+                ImGuiHelpers.ScaledDummy(4f);
+                UiSharedService.ColorText(Loc.Get("Settings.ProfileBrowser.OtherProfiles"), accent);
+                ImGuiHelpers.ScaledDummy(2f);
+            }
+        }
+
         var clipMin = ImGui.GetWindowPos().Y;
         var clipMax = clipMin + ImGui.GetWindowHeight();
         float defaultHeight = _profileCardHeights.Count > 0 ? _profileCardHeights.Values.Average() : 90f * ImGuiHelpers.GlobalScale;
@@ -1784,7 +1807,8 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
             // Right side: info. On réserve la place du bouton pour que les noms longs passent à la ligne
             // au lieu de passer dessous.
             var openLabel = Loc.Get("Settings.ProfileBrowser.OpenProfile");
-            var hasOpenButton = _pairManager.GetPairByUID(key.User.UID) != null;
+            var pair = GetOpenablePair(key.User.UID);
+            var hasOpenButton = pair != null;
             var buttonReserve = hasOpenButton
                 ? _uiSharedService.GetIconTextButtonSize(FontAwesomeIcon.ExternalLinkAlt, openLabel) + ImGui.GetStyle().ItemSpacing.X * 4
                 : 0f;
@@ -1807,7 +1831,8 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
             var subLine = charName;
             if (!string.IsNullOrEmpty(worldName))
                 subLine += $" @ {worldName}";
-            subLine += $"  [{uid}]";
+            if (!string.Equals(key.User.UID, _apiController.UID, StringComparison.Ordinal))
+                subLine += $"  [{uid}]";
             ImGui.TextColored(ImGuiColors.DalamudGrey, subLine);
 
             // Note (if any)
@@ -1818,7 +1843,6 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
             ImGui.EndGroup();
 
             // Bouton calé à droite, centré sur la hauteur de la rangée (portrait ou texte, le plus haut des deux).
-            var pair = _pairManager.GetPairByUID(key.User.UID);
             if (pair != null)
             {
                 var rowHeight = ImGui.GetCursorPosY() - ImGui.GetStyle().ItemSpacing.Y - rowTop;
@@ -1832,6 +1856,42 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
                 }
             }
         }, stretchWidth: true);
+    }
+
+    private void DrawOwnProfileGroup(string header,
+        List<((API.Data.UserData User, string? CharName, uint? WorldId) Key, UmbraProfileData Profile)> entries,
+        Vector4 accent, float cardSpacing)
+    {
+        if (entries.Count == 0) return;
+        UiSharedService.ColorText(header, accent);
+        ImGuiHelpers.ScaledDummy(2f);
+        foreach (var entry in entries)
+        {
+            DrawProfileCard(entry.Key, entry.Profile, accent);
+            ImGui.Dummy(new Vector2(1f, cardSpacing));
+        }
+        ImGuiHelpers.ScaledDummy(2f);
+    }
+
+
+    private Pair? GetOpenablePair(string uid)
+    {
+        var pair = _pairManager.GetPairByUID(uid);
+        if (pair != null || !string.Equals(uid, _apiController.UID, StringComparison.Ordinal)) return pair;
+
+        if (_selfPair == null || !string.Equals(_selfPair.UserData.UID, uid, StringComparison.Ordinal))
+        {
+            _selfPair?.Dispose();
+            _selfPair = _pairFactory.Create(new API.Data.UserData(_apiController.UID, _apiController.DisplayName));
+        }
+        return _selfPair;
+    }
+
+    private bool IsCurrentCharacter((API.Data.UserData User, string? CharName, uint? WorldId) key)
+    {
+        if (!string.Equals(key.User.UID, _apiController.UID, StringComparison.Ordinal)) return false;
+        var (charName, worldId) = _umbraProfileManager.ResolveCharacter(key.User);
+        return string.Equals(key.CharName, charName, StringComparison.Ordinal) && key.WorldId == worldId;
     }
 
     private static void DrawSubTabButtons(string[] subLabels, FontAwesomeIcon[] subIcons, ref int activeSubTab, System.Numerics.Vector4 accent)

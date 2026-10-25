@@ -1,4 +1,5 @@
 using System.Globalization;
+using UmbraSync.API.Dto.Establishment;
 using UmbraSync.Localization;
 using UmbraSync.MareConfiguration;
 using UmbraSync.MareConfiguration.Models;
@@ -17,6 +18,7 @@ public enum NotificationCategory
     UserStatus,
     Profile,
     System,
+    Establishment,
 }
 
 public sealed record NotificationEntry(NotificationCategory Category, string Id, string Title, string? Description, DateTime CreatedAt)
@@ -26,6 +28,30 @@ public sealed record NotificationEntry(NotificationCategory Category, string Id,
         var title = string.Format(CultureInfo.CurrentCulture, Loc.Get("Notification.AutoDetect.RequestTitle"), displayName);
         var desc = string.Format(CultureInfo.CurrentCulture, Loc.Get("Notification.AutoDetect.RequestBody"), displayName, uid);
         return new(NotificationCategory.AutoDetect, uid, title, desc, DateTime.UtcNow);
+    }
+
+    public const string AffiliationRequestPrefix = "affiliation-request-";
+
+    public static NotificationEntry EstablishmentAffiliationRequested(EstablishmentAffiliationDto dto)
+    {
+        var rpName = $"{dto.RpFirstName} {dto.RpLastName}".Trim();
+        var who = string.IsNullOrEmpty(rpName) ? dto.CharacterName : rpName;
+        var body = string.Format(CultureInfo.CurrentCulture, Loc.Get("Notification.Establishment.AffiliationRequested.Body"), who);
+        if (!string.IsNullOrWhiteSpace(dto.Message))
+            body += "\n« " + dto.Message.Trim() + " »";
+        return new(NotificationCategory.Establishment, AffiliationRequestPrefix + dto.Id.ToString("D", CultureInfo.InvariantCulture),
+            string.Format(CultureInfo.CurrentCulture, Loc.Get("Notification.Establishment.AffiliationRequested.Title"), dto.EstablishmentName),
+            body, DateTime.UtcNow);
+    }
+
+    public static NotificationEntry EstablishmentAffiliationResponded(EstablishmentAffiliationDto dto)
+    {
+        var accepted = dto.Status == EstablishmentAffiliationStatus.Accepted;
+        var key = accepted ? "Notification.Establishment.AffiliationAccepted" : "Notification.Establishment.AffiliationRefused";
+        return new(NotificationCategory.Establishment, "affiliation-response-" + dto.Id.ToString("D", CultureInfo.InvariantCulture),
+            string.Format(CultureInfo.CurrentCulture, Loc.Get(key + ".Title"), dto.EstablishmentName),
+            string.Format(CultureInfo.CurrentCulture, Loc.Get(key + ".Body"), dto.CharacterName),
+            DateTime.UtcNow);
     }
 
     public static NotificationEntry SyncshellPublic(string gid, string aliasOrGid)
@@ -249,8 +275,8 @@ public sealed class NotificationTracker
             foreach (var s in list)
             {
                 if (!Enum.TryParse<NotificationCategory>(s.Category, out var cat)) continue;
-                // Anciennes demandes d'ami persistées : plus actionnables et porteuses de noms de joueurs
-                if (cat == NotificationCategory.AutoDetect) continue;
+                // Anciennes demandes persistées : plus actionnables et porteuses de noms de joueurs
+                if (IsSessionOnly(cat)) continue;
                 var entry = new NotificationEntry(cat, s.Id, s.Title, s.Description, s.CreatedAtUtc);
                 _entries[(entry.Category, entry.Id)] = entry;
             }
@@ -269,7 +295,7 @@ public sealed class NotificationTracker
             // Les demandes d'ami restent en mémoire : elles ne survivent pas à la session côté serveur,
             // et leur titre contient le nom du demandeur.
             var stored = _entries.Values
-                .Where(e => e.Category != NotificationCategory.AutoDetect)
+                .Where(e => !IsSessionOnly(e.Category))
                 .OrderBy(e => e.CreatedAt)
                 .Select(e => new StoredNotification
                 {
@@ -288,6 +314,10 @@ public sealed class NotificationTracker
             // ignore persistence errors
         }
     }
+
+    // Demandes d'ami et d'affiliation : elles portent des noms de joueurs et ne valent que pour la session.
+    private static bool IsSessionOnly(NotificationCategory category)
+        => category is NotificationCategory.AutoDetect or NotificationCategory.Establishment;
 
     private void TrimIfNecessary_NoLock()
     {
