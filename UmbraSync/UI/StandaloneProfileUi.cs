@@ -496,7 +496,7 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
                 var wrapWidth = ImGui.GetContentRegionAvail().X - rightPad;
                 DrawSectionTitle(Loc.Get("UserProfile.RpDescription"));
                 using var _ = _uiSharedService.GameFont.Push();
-                BbCodeRenderer.Render(description, wrapWidth);
+                DrawSectionText(description, wrapWidth);
             }, stretchWidth: true, background: SheetCardFill, border: SheetCardFill);
             ImGuiHelpers.ScaledDummy(cardSpacing / ImGuiHelpers.GlobalScale);
         }
@@ -509,7 +509,7 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
                 var wrapWidth = ImGui.GetContentRegionAvail().X - rightPad;
                 DrawSectionTitle(Loc.Get("UserProfile.RpAdditionalInfo"));
                 using var _ = _uiSharedService.GameFont.Push();
-                BbCodeRenderer.Render(profile.RpAdditionalInfo, wrapWidth);
+                DrawSectionText(profile.RpAdditionalInfo, wrapWidth);
             }, stretchWidth: true, background: SheetCardFill, border: SheetCardFill);
         }
 
@@ -1019,6 +1019,15 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
 
     private Vector4 FieldLabelColor
         => _sheetPalette?.Label ?? ProfileSheetBackground.CustomColor(_rpCardStyle.SheetLabelColor) ?? ImGuiColors.DalamudGrey;
+
+    // Texte libre en retrait des bords, dans l'axe des filets du titre orné.
+    private static void DrawSectionText(string bbcode, float width)
+    {
+        var inset = MathF.Round(width * 0.04f);
+        ImGui.Indent(inset);
+        BbCodeRenderer.Render(bbcode, width - (inset * 2f));
+        ImGui.Unindent(inset);
+    }
 
     private static float SectionContentWidth
         => ImGui.GetContentRegionAvail().X - (ImGui.GetStyle().FramePadding.X + 4f * ImGuiHelpers.GlobalScale);
