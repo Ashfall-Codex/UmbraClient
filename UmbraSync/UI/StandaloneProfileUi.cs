@@ -464,24 +464,34 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
             ImGuiHelpers.ScaledDummy(cardSpacing / ImGuiHelpers.GlobalScale);
         }
 
-        if (profile.RpCustomFields is { Count: > 0 })
+        var customFields = profile.RpCustomFields?
+            .Where(f => !string.IsNullOrEmpty(f.Name) || !string.IsNullOrEmpty(f.Value))
+            .OrderBy(f => f.Order)
+            .ToList() ?? [];
+        if (customFields.Count > 0)
         {
             UiSharedService.DrawCard("rp-custom-fields-card", () =>
             {
                 DrawSectionTitle(Loc.Get("UserProfile.RpCustomFields"));
-                var availW = ImGui.GetContentRegionAvail().X;
-                var halfW = availW / 2f;
+
                 var col1X = ImGui.GetCursorPosX();
-                var col2X = col1X + halfW;
-                var sorted = profile.RpCustomFields.OrderBy(f => f.Order).ToList();
-                for (int i = 0; i < sorted.Count; i++)
+                var fullW = SectionContentWidth;
+                var halfW = fullW / 2f;
+                for (int i = 0; i < customFields.Count; i += 2)
                 {
-                    var field = sorted[i];
-                    if (string.IsNullOrEmpty(field.Name) && string.IsNullOrEmpty(field.Value)) continue;
-                    bool isEven = (i % 2 == 0);
-                    if (isEven && i > 0) ImGuiHelpers.ScaledDummy(4f);
-                    if (!isEven) { ImGui.SameLine(); ImGui.SetCursorPosX(col2X); }
-                    DrawVerticalField(field.Name, field.Value, halfW);
+                    if (i > 0) ImGuiHelpers.ScaledDummy(4f);
+                    var left = (customFields[i].Name ?? string.Empty, customFields[i].Value ?? string.Empty);
+                    if (i + 1 < customFields.Count)
+                    {
+                        var right = (customFields[i + 1].Name ?? string.Empty, customFields[i + 1].Value ?? string.Empty);
+                        DrawCenteredRow(left, right, col1X, col1X + halfW, halfW);
+                    }
+                    else
+                    {
+                        ImGui.BeginGroup();
+                        DrawCenteredField(left.Item1, left.Item2, col1X, fullW);
+                        ImGui.EndGroup();
+                    }
                 }
             }, stretchWidth: true, background: SheetCardFill, border: SheetCardFill);
             ImGuiHelpers.ScaledDummy(cardSpacing / ImGuiHelpers.GlobalScale);
