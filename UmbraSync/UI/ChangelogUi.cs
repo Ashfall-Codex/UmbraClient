@@ -314,7 +314,7 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
     {
         return new List<ChangelogEntry>
         {
-            new(new Version(3, 1, 2, 1025), "3.1.2.1025", new List<ChangelogLine>
+            new(new Version(3, 1, 2, 10251), "3.1.2.10251", new List<ChangelogLine>
             {
                 new("Nouveauté : Fonds de fiche RP tirés des plaques d'aventurier du jeu, avec assombrissement, fondu et intensité réglables."),
                 new("Nouveauté : Couleurs de la fiche au choix (titres, libellés, contenu), avec ou sans fond. Sans fond, la fiche s'affiche d'un seul bloc, avec des titres ornés."),
@@ -322,6 +322,7 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
                 new("Nouveauté : Social → Profils affiche « Mon personnage » et « Mes autres personnages », pour consulter les fiches de vos autres personnages."),
                 new("Amélioration : Page « Apparence » de l'éditeur réorganisée (Carte de profil, Bannière, Fond de fiche, Couleurs de la fiche), et profil au survol aux couleurs de la fiche. L'éditeur des traits indique quand le plugin Moodles est nécessaire."),
                 new("Amélioration : Un établissement s'affiche sur son personnage gérant et sur les personnages affiliés ; tant qu'aucun gérant n'est désigné, il reste sur tous les personnages du propriétaire."),
+                new("Correction : La section « Autres détails » de la fiche RP est centrée comme Caractéristiques et Société ; un champ seul sur sa ligne s'affiche au centre de la fiche."),
                 new("Correction : La fiche d'un de vos autres personnages n'affiche plus le titre Honorific ni les Moodles du personnage joué."),
                 new("Correction : La carte d'établissement s'affiche pour tous les établissements, et plus seulement pour une partie de l'annuaire."),
             }),

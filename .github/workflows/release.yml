@@ -1,6 +1,7 @@
 name: Publication d'une release
 
-# Déclenché par un tag signé vX.Y.Z poussé sur un commit de main.
+# Déclenché par un tag signé vX.Y.Z poussé sur un commit de main, ou vX.Y.Z.B (version complète)
+# pour un correctif d'une version déjà publiée.
 # Le zip est compilé ici à partir du tag : la release ne dépend d'aucun fichier local.
 # Le dépôt de plugins récupère ensuite latest.zip depuis la release.
 
@@ -75,7 +76,7 @@ jobs:
           [ "$version" = "$(jq -er '.AssemblyVersion' "$MANIFEST")" ] \
             || { echo "::error::le manifeste du zip et celui du build diffèrent"; exit 1; }
           short=$(cut -d. -f1-3 <<< "$version")
-          [ "v$short" = "$GITHUB_REF_NAME" ] \
+          [ "v$short" = "$GITHUB_REF_NAME" ] || [ "v$version" = "$GITHUB_REF_NAME" ] \
             || { echo "::error::le tag $GITHUB_REF_NAME ne correspond pas à la version compilée $version"; exit 1; }
 
           notes="release-notes/$short.md"
@@ -86,6 +87,7 @@ jobs:
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "short=$short" >> "$GITHUB_OUTPUT"
           echo "notes=$notes" >> "$GITHUB_OUTPUT"
+          echo "title=V${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
           echo "Build $version, API Dalamud $(jq -r '.DalamudApiLevel' "$MANIFEST"), $(du -h "$PACKAGE" | cut -f1)"
 
       - name: Publication sur GitHub
@@ -94,6 +96,6 @@ jobs:
         run: |
           gh release create "$GITHUB_REF_NAME" "$PACKAGE" \
             --verify-tag \
-            --title "V${{ steps.check.outputs.short }}" \
+            --title "${{ steps.check.outputs.title }}" \
             --notes-file "${{ steps.check.outputs.notes }}" \
             --latest
