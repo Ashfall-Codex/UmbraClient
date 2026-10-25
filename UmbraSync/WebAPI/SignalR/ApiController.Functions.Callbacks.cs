@@ -5,6 +5,7 @@ using UmbraSync.API.Data.Enum;
 using UmbraSync.API.Data.Extensions;
 using UmbraSync.API.Dto;
 using UmbraSync.API.Dto.CharaData;
+using UmbraSync.API.Dto.Establishment;
 using UmbraSync.API.Dto.Group;
 using UmbraSync.API.Dto.User;
 using UmbraSync.MareConfiguration.Models;
@@ -616,6 +617,32 @@ public partial class ApiController
     {
         if (_initialized) return;
         _mareHub!.On(nameof(Client_McdfShareReceived), act);
+    }
+
+    public Task Client_EstablishmentAffiliationRequested(EstablishmentAffiliationDto dto)
+    {
+        if (dto == null) return Task.CompletedTask;
+        Mediator.Publish(new EstablishmentAffiliationRequestedMessage(dto));
+        return Task.CompletedTask;
+    }
+
+    public void OnEstablishmentAffiliationRequested(Action<EstablishmentAffiliationDto> act)
+    {
+        if (_initialized) return;
+        _mareHub!.On(nameof(Client_EstablishmentAffiliationRequested), act);
+    }
+
+    public Task Client_EstablishmentAffiliationResponded(EstablishmentAffiliationDto dto)
+    {
+        if (dto == null) return Task.CompletedTask;
+        Mediator.Publish(new EstablishmentAffiliationRespondedMessage(dto));
+        return Task.CompletedTask;
+    }
+
+    public void OnEstablishmentAffiliationResponded(Action<EstablishmentAffiliationDto> act)
+    {
+        if (_initialized) return;
+        _mareHub!.On(nameof(Client_EstablishmentAffiliationResponded), act);
     }
 
     private void ExecuteSafely(Action act)

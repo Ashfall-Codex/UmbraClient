@@ -3,6 +3,7 @@ using Dalamud.Interface;
 using Dalamud.Interface.Colors;
 using Dalamud.Interface.Utility;
 using Dalamud.Interface.Utility.Raii;
+using Microsoft.Extensions.Logging;
 using System.Globalization;
 using System.Numerics;
 using UmbraSync.Localization;
@@ -17,6 +18,7 @@ public partial class CompactUi
 {
     private static readonly Vector4 MutedCardBackground = new(0.10f, 0.10f, 0.13f, 0.78f);
     private static readonly Vector4 MutedCardBorder = new(0.55f, 0.55f, 0.62f, 0.82f);
+    private volatile bool _affiliationResponsePending;
 
     private void DrawNotificationsSection()
     {
@@ -50,6 +52,9 @@ public partial class CompactUi
                     break;
                 case NotificationCategory.McdfShare:
                     DrawMcdfShareNotification(notification);
+                    break;
+                case NotificationCategory.Establishment when notification.Id.StartsWith(NotificationEntry.AffiliationRequestPrefix, StringComparison.Ordinal):
+                    DrawAffiliationRequestNotification(notification);
                     break;
                 default:
                     UiSharedService.DrawCard($"notification-{notification.Category}-{notification.Id}", () =>
@@ -126,6 +131,63 @@ public partial class CompactUi
                 }
             }
         }, stretchWidth: true);
+    }
+
+    private void DrawAffiliationRequestNotification(NotificationEntry notification)
+    {
+        UiSharedService.DrawCard($"notification-affiliation-{notification.Id}", () =>
+        {
+            ImGui.TextUnformatted(notification.Title);
+            if (!string.IsNullOrEmpty(notification.Description))
+            {
+                using (ImRaii.PushColor(ImGuiCol.Text, ImGuiColors.DalamudGrey3))
+                    ImGui.TextWrapped(notification.Description);
+            }
+
+            ImGuiHelpers.ScaledDummy(3f);
+            var idText = notification.Id[NotificationEntry.AffiliationRequestPrefix.Length..];
+            using (ImRaii.PushId(notification.Id))
+            using (ImRaii.Disabled(_affiliationResponsePending || !Guid.TryParse(idText, out _)))
+            {
+                if (ImGui.Button(Loc.Get("CompactUi.Notifications.Accept")))
+                    RespondToAffiliation(notification, Guid.Parse(idText), accept: true);
+                ImGui.SameLine();
+                if (ImGui.Button(Loc.Get("CompactUi.Notifications.Decline")))
+                    RespondToAffiliation(notification, Guid.Parse(idText), accept: false);
+                ImGui.SameLine();
+                if (ImGui.Button(Loc.Get("CompactUi.Notifications.Clear")))
+                    _notificationTracker.Remove(notification.Category, notification.Id);
+            }
+        }, stretchWidth: true);
+    }
+
+    private void RespondToAffiliation(NotificationEntry notification, Guid affiliationId, bool accept)
+    {
+        _affiliationResponsePending = true;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                if (await _apiController.EstablishmentAffiliationRespond(affiliationId, accept).ConfigureAwait(false))
+                {
+                    _notificationTracker.Remove(notification.Category, notification.Id);
+                    Mediator.Publish(new EstablishmentChangedMessage());
+                }
+                else
+                {
+                    Mediator.Publish(new NotificationMessage(Loc.Get("Establishment.Affiliation.RespondFailed.Title"),
+                        Loc.Get("Establishment.Affiliation.RespondFailed.Body"), NotificationType.Warning));
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to respond to affiliation {id}", affiliationId);
+            }
+            finally
+            {
+                _affiliationResponsePending = false;
+            }
+        });
     }
 
     private static void DrawEmptySectionCard(string id, string header, string description, string tooltip)

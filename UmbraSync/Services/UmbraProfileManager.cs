@@ -38,6 +38,7 @@ public class UmbraProfileManager : MediatorSubscriberBase
     private bool _cacheDirty;
     private Timer? _saveTimer;
     private CancellationTokenSource? _ownProfileSyncCts;
+    private int _ownCharactersRequested;
 
     public string? CurrentUid => _apiController.IsConnected ? _apiController.UID : null;
 
@@ -56,6 +57,9 @@ public class UmbraProfileManager : MediatorSubscriberBase
 
         Mediator.Subscribe<ClearProfileDataMessage>(this, (msg) =>
         {
+            if (msg.UserData == null || string.Equals(msg.UserData.UID, _apiController.UID, StringComparison.Ordinal))
+                Interlocked.Exchange(ref _ownCharactersRequested, 0);
+
             if (msg.UserData != null)
             {
                 foreach (var k in _umbraProfiles.Keys.Where(k =>
@@ -78,6 +82,7 @@ public class UmbraProfileManager : MediatorSubscriberBase
             _persistedProfiles.Clear();
             _cacheUid = null;
             _cacheLoadedForUid = null;
+            Interlocked.Exchange(ref _ownCharactersRequested, 0);
         });
         Mediator.Subscribe<GroupProfileUpdatedMessage>(this, (msg) =>
         {
@@ -587,6 +592,11 @@ public class UmbraProfileManager : MediatorSubscriberBase
 
                 UpdatePersistedProfile(data, altCharName, altWorldId, altProfileData);
             }
+            else
+            {
+                // Ses propres persos restent en mémoire : jamais de copie disque ni de filtre NSFW.
+                _umbraProfiles[altKey] = altProfileData;
+            }
         }
 
         Mediator.Publish(new NameplateRedrawMessage());
@@ -631,6 +641,42 @@ public class UmbraProfileManager : MediatorSubscriberBase
         }
 
         return _persistedProfiles.Values.ToList().AsReadOnly();
+    }
+
+    public void RequestOwnCharacterProfiles()
+    {
+        if (!_apiController.IsConnected || Interlocked.Exchange(ref _ownCharactersRequested, 1) == 1) return;
+        _ = Task.Run(LoadOwnCharacterProfilesAsync);
+    }
+
+    private async Task LoadOwnCharacterProfilesAsync()
+    {
+        try
+        {
+            var uid = _apiController.UID;
+            var owned = await _apiController.EstablishmentGetOwnRpProfiles().ConfigureAwait(false);
+            var anchor = owned.FirstOrDefault(p => !string.IsNullOrEmpty(p.CharacterName) && p.WorldId > 0);
+            if (anchor == null) return;
+            await FetchAndCacheAllAltProfiles(new UserData(uid), anchor.CharacterName, anchor.WorldId).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Failed to load own character profiles");
+        }
+    }
+
+    public IReadOnlyList<((UserData User, string? CharName, uint? WorldId) Key, UmbraProfileData Profile)> GetOwnCharacterProfiles()
+    {
+        var uid = CurrentUid;
+        if (uid == null) return [];
+
+        return _umbraProfiles
+            .Where(p => string.Equals(p.Key.User.UID, uid, StringComparison.Ordinal) && !string.IsNullOrEmpty(p.Key.CharName)
+                        && !ReferenceEquals(p.Value, _loadingProfileData) && !ReferenceEquals(p.Value, _defaultProfileData)
+                        && !ReferenceEquals(p.Value, _nsfwProfileData))
+            .Select(p => (p.Key, p.Value))
+            .OrderBy(p => p.Key.CharName, StringComparer.OrdinalIgnoreCase)
+            .ToList();
     }
 
     public void ClearPersistedProfileCache()

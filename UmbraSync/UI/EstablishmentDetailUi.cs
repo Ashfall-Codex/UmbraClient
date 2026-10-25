@@ -19,13 +19,15 @@ using UmbraSync.UI.Components;
 
 namespace UmbraSync.UI;
 
-internal class EstablishmentDetailUi : WindowMediatorSubscriberBase
+internal partial class EstablishmentDetailUi : WindowMediatorSubscriberBase
 {
     private readonly ApiController _apiController;
     private readonly EstablishmentConfigService _configService;
     private readonly UiSharedService _uiSharedService;
     private readonly PairManager _pairManager;
     private readonly FileDialogManager _fileDialogManager;
+    private readonly DalamudUtilService _dalamudUtil;
+    private readonly UmbraProfileManager _umbraProfileManager;
 
     private EstablishmentDto? _establishment;
     private Guid _currentId;
@@ -127,7 +129,8 @@ internal class EstablishmentDetailUi : WindowMediatorSubscriberBase
     public EstablishmentDetailUi(ILogger<EstablishmentDetailUi> logger, MareMediator mediator,
         ApiController apiController, EstablishmentConfigService configService,
         UiSharedService uiSharedService, PairManager pairManager,
-        FileDialogManager fileDialogManager, PerformanceCollectorService performanceCollectorService)
+        FileDialogManager fileDialogManager, DalamudUtilService dalamudUtil, UmbraProfileManager umbraProfileManager,
+        PerformanceCollectorService performanceCollectorService)
         : base(logger, mediator, "D\u00e9tail \u00e9tablissement###EstablishmentDetail", performanceCollectorService)
     {
         _apiController = apiController;
@@ -135,6 +138,8 @@ internal class EstablishmentDetailUi : WindowMediatorSubscriberBase
         _uiSharedService = uiSharedService;
         _pairManager = pairManager;
         _fileDialogManager = fileDialogManager;
+        _dalamudUtil = dalamudUtil;
+        _umbraProfileManager = umbraProfileManager;
 
         SizeConstraints = new()
         {
@@ -148,9 +153,14 @@ internal class EstablishmentDetailUi : WindowMediatorSubscriberBase
             _isEditing = false;
             _eligibleGroupsLoaded = false;
             _eligibleGroups = [];
+            _myAffiliations = [];
+            _establishmentAffiliations = [];
+            _affiliationStatus = null;
             IsOpen = true;
             _ = LoadEstablishment();
         });
+        Mediator.Subscribe<EstablishmentAffiliationRequestedMessage>(this, msg => RefreshAffiliationsFor(msg.Affiliation.EstablishmentId));
+        Mediator.Subscribe<EstablishmentAffiliationRespondedMessage>(this, msg => RefreshAffiliationsFor(msg.Affiliation.EstablishmentId));
     }
 
     // La hauteur suit le contenu : mesurée en fin de frame, appliquée au début de la suivante,
@@ -228,8 +238,20 @@ internal class EstablishmentDetailUi : WindowMediatorSubscriberBase
                 DrawEventsTab(isOwner);
         }
 
+        using (var affiliationTab = ImRaii.TabItem(Loc.Get("Establishment.Affiliation.Tab")))
+        {
+            if (affiliationTab)
+                DrawAffiliationTab(isOwner);
+        }
+
         if (isOwner)
         {
+            using (var membersTab = ImRaii.TabItem(MembersTabLabel()))
+            {
+                if (membersTab)
+                    DrawMembersTab();
+            }
+
             using (var imagesTab = ImRaii.TabItem(Loc.Get("Establishment.Detail.Tab.Images")))
             {
                 if (imagesTab)
@@ -1577,6 +1599,9 @@ internal class EstablishmentDetailUi : WindowMediatorSubscriberBase
                 }
                 catch (Exception ex) { _logger.LogWarning(ex, "Failed to load banner texture for establishment {id}", _currentId); }
             }
+
+            if (_establishment != null)
+                await LoadAffiliationsAsync().ConfigureAwait(false);
         }
         catch (Exception ex)
         {

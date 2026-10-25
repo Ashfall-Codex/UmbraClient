@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.SignalR.Client;
 using Microsoft.Extensions.Logging;
 using UmbraSync.API.Dto.Establishment;
+using UmbraSync.API.Dto.User;
 
 namespace UmbraSync.WebAPI.SignalR;
 
@@ -143,6 +144,104 @@ public partial class ApiController
         {
             Logger.LogWarning(ex, "Error deleting establishment event {id}", eventId);
             return false;
+        }
+    }
+
+    public async Task<EstablishmentAffiliationRequestResult> EstablishmentAffiliationRequest(EstablishmentAffiliationRequestDto request)
+    {
+        if (!IsConnected) return EstablishmentAffiliationRequestResult.NotFound;
+        try
+        {
+            return await _mareHub!.InvokeAsync<EstablishmentAffiliationRequestResult>(nameof(EstablishmentAffiliationRequest), request).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Error requesting affiliation to establishment {id}", request.EstablishmentId);
+            return EstablishmentAffiliationRequestResult.NotFound;
+        }
+    }
+
+    public async Task<bool> EstablishmentAffiliationRespond(Guid affiliationId, bool accept)
+    {
+        if (!IsConnected) return false;
+        try
+        {
+            return await _mareHub!.InvokeAsync<bool>(nameof(EstablishmentAffiliationRespond), affiliationId, accept).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Error responding to affiliation {id}", affiliationId);
+            return false;
+        }
+    }
+
+    public async Task<bool> EstablishmentAffiliationRemove(Guid affiliationId)
+    {
+        if (!IsConnected) return false;
+        try
+        {
+            return await _mareHub!.InvokeAsync<bool>(nameof(EstablishmentAffiliationRemove), affiliationId).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Error removing affiliation {id}", affiliationId);
+            return false;
+        }
+    }
+
+    public async Task<bool> EstablishmentAffiliationSetVisibility(Guid affiliationId, bool showOnProfile)
+    {
+        if (!IsConnected) return false;
+        try
+        {
+            return await _mareHub!.InvokeAsync<bool>(nameof(EstablishmentAffiliationSetVisibility), affiliationId, showOnProfile).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Error setting visibility of affiliation {id}", affiliationId);
+            return false;
+        }
+    }
+
+    public async Task<List<EstablishmentAffiliationDto>> EstablishmentAffiliationGetForEstablishment(Guid establishmentId)
+    {
+        if (!IsConnected) return [];
+        try
+        {
+            return await _mareHub!.InvokeAsync<List<EstablishmentAffiliationDto>>(nameof(EstablishmentAffiliationGetForEstablishment), establishmentId).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Error getting affiliations of establishment {id}", establishmentId);
+            return [];
+        }
+    }
+
+    public async Task<List<EstablishmentAffiliationDto>> EstablishmentAffiliationGetMine()
+    {
+        if (!IsConnected) return [];
+        try
+        {
+            return await _mareHub!.InvokeAsync<List<EstablishmentAffiliationDto>>(nameof(EstablishmentAffiliationGetMine)).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Error getting own affiliations");
+            return [];
+        }
+    }
+
+    public async Task<List<EstablishmentProfileEntryDto>> EstablishmentGetForCharacter(UserDto user)
+    {
+        if (!IsConnected) return [];
+        try
+        {
+            return await _mareHub!.InvokeAsync<List<EstablishmentProfileEntryDto>>(nameof(EstablishmentGetForCharacter), user).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Error getting establishments of a character of {uid}", user.User.UID);
+            return [];
         }
     }
 }

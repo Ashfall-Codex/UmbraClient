@@ -5622,6 +5622,15 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
   <data name="Settings.ProfileBrowser.ClearCache" xml:space="preserve">
     <value>Vider le cache</value>
   </data>
+  <data name="Settings.ProfileBrowser.OwnCharacters" xml:space="preserve">
+    <value>Mes autres personnages</value>
+  </data>
+  <data name="Settings.ProfileBrowser.OtherProfiles" xml:space="preserve">
+    <value>Autres profils</value>
+  </data>
+  <data name="Settings.ProfileBrowser.MyCharacter" xml:space="preserve">
+    <value>Mon personnage</value>
+  </data>
   <!-- RGPD / Vie privée -->
   <data name="Settings.Section.Privacy.Desc" xml:space="preserve">
     <value>Gérez vos données personnelles, vos consentements et exercez vos droits conformément au RGPD.</value>
@@ -6302,6 +6311,141 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
   </data>
   <data name="Profile.Establishment.Title" xml:space="preserve">
     <value>&#xC9;tablissement</value>
+  </data>
+  <data name="Profile.Establishment.TitlePlural" xml:space="preserve">
+    <value>Établissements</value>
+  </data>
+  <data name="Profile.Establishment.Manager" xml:space="preserve">
+    <value>Gérant</value>
+  </data>
+  <data name="Notification.Establishment.AffiliationRequested.Title" xml:space="preserve">
+    <value>Demande d'affiliation à {0}</value>
+  </data>
+  <data name="Notification.Establishment.AffiliationRequested.Body" xml:space="preserve">
+    <value>{0} souhaite afficher votre établissement sur sa fiche RP.</value>
+  </data>
+  <data name="Notification.Establishment.AffiliationAccepted.Title" xml:space="preserve">
+    <value>Affiliation acceptée : {0}</value>
+  </data>
+  <data name="Notification.Establishment.AffiliationAccepted.Body" xml:space="preserve">
+    <value>{0} affiche désormais cet établissement sur sa fiche.</value>
+  </data>
+  <data name="Notification.Establishment.AffiliationRefused.Title" xml:space="preserve">
+    <value>Affiliation refusée : {0}</value>
+  </data>
+  <data name="Notification.Establishment.AffiliationRefused.Body" xml:space="preserve">
+    <value>La demande pour {0} n'a pas été acceptée.</value>
+  </data>
+  <data name="Establishment.Affiliation.RespondFailed.Title" xml:space="preserve">
+    <value>Affiliation</value>
+  </data>
+  <data name="Establishment.Affiliation.RespondFailed.Body" xml:space="preserve">
+    <value>Action impossible : la demande n'existe plus, ou le personnage affiche déjà le maximum d'établissements.</value>
+  </data>
+  <data name="Establishment.Affiliation.Tab" xml:space="preserve">
+    <value>Affiliation</value>
+  </data>
+  <data name="Establishment.Affiliation.CurrentCharacterHeader" xml:space="preserve">
+    <value>Personnage connecté</value>
+  </data>
+  <data name="Establishment.Affiliation.ManagerFooter" xml:space="preserve">
+    <value>Ce personnage gère l'établissement : il apparaît déjà en bas de sa fiche RP.</value>
+  </data>
+  <data name="Establishment.Affiliation.PendingFooter" xml:space="preserve">
+    <value>Le propriétaire n'a pas encore répondu. Vous serez prévenu dès qu'il le fera.</value>
+  </data>
+  <data name="Establishment.Affiliation.MemberFooter" xml:space="preserve">
+    <value>Cet établissement apparaît en bas de la fiche RP de ce personnage.</value>
+  </data>
+  <data name="Establishment.Affiliation.MemberHiddenFooter" xml:space="preserve">
+    <value>Cet établissement est masqué sur la fiche RP de ce personnage.</value>
+  </data>
+  <data name="Establishment.Affiliation.MessageHeader" xml:space="preserve">
+    <value>Message au propriétaire</value>
+  </data>
+  <data name="Establishment.Affiliation.MembersFooter" xml:space="preserve">
+    <value>Un membre peut masquer l'établissement sur sa fiche sans le quitter.</value>
+  </data>
+  <data name="Establishment.Affiliation.Status.HiddenTooltip" xml:space="preserve">
+    <value>Ce membre a masqué l'établissement sur sa fiche.</value>
+  </data>
+  <data name="Establishment.Affiliation.MembersTab" xml:space="preserve">
+    <value>Membres</value>
+  </data>
+  <data name="Establishment.Affiliation.Intro" xml:space="preserve">
+    <value>Affichez cet établissement en bas de la fiche RP de ce personnage. Le propriétaire doit accepter votre demande.</value>
+  </data>
+  <data name="Establishment.Affiliation.IntroOwner" xml:space="preserve">
+    <value>Ce personnage peut afficher votre établissement sur sa fiche : il est affilié directement, sans demande.</value>
+  </data>
+  <data name="Establishment.Affiliation.NoRpProfile" xml:space="preserve">
+    <value>Ce personnage n'a pas encore de fiche RP enregistrée. Enregistrez son profil RP pour pouvoir l'affilier.</value>
+  </data>
+  <data name="Establishment.Affiliation.MessageHint" xml:space="preserve">
+    <value>Facultatif : présentez votre personnage en quelques mots</value>
+  </data>
+  <data name="Establishment.Affiliation.Status.Manager" xml:space="preserve">
+    <value>Gérant</value>
+  </data>
+  <data name="Establishment.Affiliation.Affiliate" xml:space="preserve">
+    <value>Affilier ce personnage</value>
+  </data>
+  <data name="Establishment.Affiliation.Request" xml:space="preserve">
+    <value>Demander l'affiliation</value>
+  </data>
+  <data name="Establishment.Affiliation.Status.Pending" xml:space="preserve">
+    <value>En attente</value>
+  </data>
+  <data name="Establishment.Affiliation.Cancel" xml:space="preserve">
+    <value>Annuler la demande</value>
+  </data>
+  <data name="Establishment.Affiliation.Status.Member" xml:space="preserve">
+    <value>Membre</value>
+  </data>
+  <data name="Establishment.Affiliation.Leave" xml:space="preserve">
+    <value>Quitter l'établissement</value>
+  </data>
+  <data name="Establishment.Affiliation.ShowOnProfile" xml:space="preserve">
+    <value>Afficher sur ma fiche</value>
+  </data>
+  <data name="Establishment.Affiliation.ActionFailed" xml:space="preserve">
+    <value>L'action n'a pas abouti, réessayez.</value>
+  </data>
+  <data name="Establishment.Affiliation.NoMembers" xml:space="preserve">
+    <value>Aucune demande ni aucun membre pour l'instant.</value>
+  </data>
+  <data name="Establishment.Affiliation.PendingHeader" xml:space="preserve">
+    <value>Demandes en attente</value>
+  </data>
+  <data name="Establishment.Affiliation.MembersHeader" xml:space="preserve">
+    <value>Membres</value>
+  </data>
+  <data name="Establishment.Affiliation.Status.Hidden" xml:space="preserve">
+    <value>Masqué</value>
+  </data>
+  <data name="Establishment.Affiliation.Remove" xml:space="preserve">
+    <value>Retirer</value>
+  </data>
+  <data name="Establishment.Affiliation.Result.Requested" xml:space="preserve">
+    <value>Demande envoyée au propriétaire.</value>
+  </data>
+  <data name="Establishment.Affiliation.Result.Accepted" xml:space="preserve">
+    <value>Personnage affilié.</value>
+  </data>
+  <data name="Establishment.Affiliation.Result.AlreadyExists" xml:space="preserve">
+    <value>Ce personnage a déjà une demande ou une affiliation ici.</value>
+  </data>
+  <data name="Establishment.Affiliation.Result.LimitReached" xml:space="preserve">
+    <value>Ce personnage affiche déjà {0} établissements, le maximum.</value>
+  </data>
+  <data name="Establishment.Affiliation.Result.PendingLimitReached" xml:space="preserve">
+    <value>Ce personnage a déjà {0} demandes en attente.</value>
+  </data>
+  <data name="Establishment.Affiliation.Result.RateLimited" xml:space="preserve">
+    <value>Trop de demandes en peu de temps, réessayez plus tard.</value>
+  </data>
+  <data name="Establishment.Affiliation.Result.NotFound" xml:space="preserve">
+    <value>Établissement introuvable ou indisponible.</value>
   </data>
   <data name="Profile.Establishment.View" xml:space="preserve">
     <value>Voir l'&#xE9;tablissement</value>

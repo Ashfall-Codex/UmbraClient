@@ -5,6 +5,7 @@ using UmbraSync.API.Data;
 using UmbraSync.API.Data.Enum;
 using UmbraSync.API.Dto;
 using UmbraSync.API.Dto.CharaData;
+using UmbraSync.API.Dto.Establishment;
 using UmbraSync.API.Dto.Group;
 using UmbraSync.API.Dto.QuestSync;
 using UmbraSync.API.Dto.Slot;
@@ -192,5 +193,7 @@ public record EstablishmentEnteredMessage(UmbraSync.API.Dto.Establishment.Establ
 public record EstablishmentLeftMessage : MessageBase;
 public record OpenEstablishmentDetailMessage(Guid EstablishmentId) : MessageBase;
 public record EstablishmentChangedMessage : MessageBase;
+public record EstablishmentAffiliationRequestedMessage(EstablishmentAffiliationDto Affiliation) : MessageBase;
+public record EstablishmentAffiliationRespondedMessage(EstablishmentAffiliationDto Affiliation) : MessageBase;
 #pragma warning restore S2094
 #pragma warning restore MA0048

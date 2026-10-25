@@ -277,13 +277,11 @@ public class EditProfileUi : WindowMediatorSubscriberBase
 
         SetProfilePreview();
         _standalonePreviewShown = true;
-        Mediator.Publish(new ProfileOpenStandaloneMessage(pair));
+        Mediator.Publish(new ProfileOpenStandaloneMessage(pair, _dalamudUtil.GetPlayerName(), _dalamudUtil.GetHomeWorldId()));
     }
 
     public RpProfileVisibility GetRpVisibility() => _rpConfigService.GetCurrentCharacterProfile().RpVisibility;
-
-    // Réglage enregistré tout de suite, sans passer par « Sauvegarder le profil » : le reste de la fiche
-    // reprend les valeurs du serveur. Renvoie false si le personnage n'est pas encore résolu.
+    
     public bool SetRpVisibility(RpProfileVisibility visibility)
     {
         var charName = _dalamudUtil.GetPlayerName();
