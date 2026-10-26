@@ -8,8 +8,6 @@ namespace UmbraSync.UI.Components;
 
 public static class ProfileBanner
 {
-    public const float MaxBytes = 1.5f * 1024 * 1024;
-
     private const int Cols = 28;
     private const int Rows = 8;
     private const float VerticalBias = 0.35f;

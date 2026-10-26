@@ -242,11 +242,13 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
         return colon is > 0 and < 24 ? text[(colon + 1)..].TrimStart() : text;
     }
 
+    // La sécurité passe en tête : c'est ce qu'un joueur doit lire en premier quand une version en contient.
     private static readonly LineKind[] SectionOrder =
-        [LineKind.New, LineKind.Improve, LineKind.Fix, LineKind.Other, LineKind.Generic];
+        [LineKind.Security, LineKind.New, LineKind.Improve, LineKind.Fix, LineKind.Other, LineKind.Generic];
 
     private static string SectionTitleKey(LineKind kind) => kind switch
     {
+        LineKind.Security => "ChangelogUi.Section.Security",
         LineKind.New => "ChangelogUi.Section.New",
         LineKind.Improve => "ChangelogUi.Section.Improve",
         LineKind.Fix => "ChangelogUi.Section.Fix",
@@ -258,10 +260,11 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
     private static readonly Vector4 ColorFix = new(1f, 0.75f, 0.3f, 1f);
     private static readonly Vector4 ColorOther = ImGuiColors.DalamudGrey;
 
-    private enum LineKind { New, Improve, Fix, Other, Generic }
+    private enum LineKind { Security, New, Improve, Fix, Other, Generic }
 
     private static LineKind DetectLineKind(string text)
     {
+        if (text.StartsWith("Sécurité", StringComparison.OrdinalIgnoreCase)) return LineKind.Security;
         if (text.StartsWith("Nouveaut", StringComparison.OrdinalIgnoreCase)) return LineKind.New;
         if (text.StartsWith("Am\u00e9lioration", StringComparison.OrdinalIgnoreCase)) return LineKind.Improve;
         if (text.StartsWith("Correct", StringComparison.OrdinalIgnoreCase)) return LineKind.Fix;
@@ -273,6 +276,7 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
 
     private static (Vector4 color, FontAwesomeIcon icon) GetLineStyle(LineKind kind) => kind switch
     {
+        LineKind.Security => (ImGuiColors.DalamudViolet, FontAwesomeIcon.ShieldAlt),
         LineKind.New => (ColorNew, FontAwesomeIcon.Star),
         LineKind.Improve => (ColorImprove, FontAwesomeIcon.ArrowUp),
         LineKind.Fix => (ColorFix, FontAwesomeIcon.Wrench),
@@ -314,18 +318,15 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
     {
         return new List<ChangelogEntry>
         {
-            new(new Version(3, 1, 2, 10251), "3.1.2.10251", new List<ChangelogLine>
+            new(new Version(3, 1, 3, 1026), "3.1.3.1026", new List<ChangelogLine>
             {
-                new("Nouveauté : Fonds de fiche RP tirés des plaques d'aventurier du jeu, avec assombrissement, fondu et intensité réglables."),
-                new("Nouveauté : Couleurs de la fiche au choix (titres, libellés, contenu), avec ou sans fond. Sans fond, la fiche s'affiche d'un seul bloc, avec des titres ornés."),
-                new("Nouveauté : Jusqu'à 3 établissements sur une fiche. Demandez l'affiliation depuis l'onglet « Affiliation » d'un établissement ; le propriétaire accepte ou refuse depuis ses notifications ou l'onglet « Membres »."),
-                new("Nouveauté : Social → Profils affiche « Mon personnage » et « Mes autres personnages », pour consulter les fiches de vos autres personnages."),
-                new("Amélioration : Page « Apparence » de l'éditeur réorganisée (Carte de profil, Bannière, Fond de fiche, Couleurs de la fiche), et profil au survol aux couleurs de la fiche. L'éditeur des traits indique quand le plugin Moodles est nécessaire."),
-                new("Amélioration : Un établissement s'affiche sur son personnage gérant et sur les personnages affiliés ; tant qu'aucun gérant n'est désigné, il reste sur tous les personnages du propriétaire."),
-                new("Correction : La section « Autres détails » de la fiche RP est centrée comme Caractéristiques et Société ; un champ seul sur sa ligne s'affiche au centre de la fiche."),
-                new("Correction : La fiche d'un de vos autres personnages n'affiche plus le titre Honorific ni les Moodles du personnage joué."),
-                new("Correction : La carte d'établissement s'affiche pour tous les établissements, et plus seulement pour une partie de l'annuaire."),
-            }),
+                new("Sécurité : Faille corrigée dans les échanges avec le serveur : des messages piégés pouvaient le surcharger et perturber la synchronisation de tous les joueurs."),
+                new("Sécurité : Le serveur n'accepte plus que des images PNG ou JPEG de taille raisonnable (profil, syncshell, établissement) ; une image refusée laisse l'ancienne en place et vous prévient."),
+                new("Sécurité : Le serveur retire les métadonnées des images (auteur, appareil, logiciel…), à chaque envoi comme sur les images déjà publiées, sans toucher à l'image."),
+                new("Nouveauté : Éditeur de recadrage pour la bannière et les portraits RP et HRP. Faites glisser l'image pour la cadrer et zoomez à la molette ou au curseur ; l'aperçu montre exactement ce qui sera publié."),
+                new("Nouveauté : Interrupteur « Justifier les textes longs » sous les « Autres détails » de l'éditeur : les valeurs longues s'alignent sur les deux bords, comme un paragraphe."),
+                new("Amélioration : Images de profil jusqu'à 32 Mo en PNG ou JPEG, réduites automatiquement."),
+                new("Correction : Dans la section Établissement de la fiche, la catégorie et le badge « Gérant » ne chevauchent plus la description."),            }),
         };
     }
 

@@ -122,6 +122,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
     private volatile bool _rpPortraitStale;
     private volatile bool _hrpPortraitStale;
     private readonly Dictionary<string, (byte[] Source, string Base64)> _base64Cache = new(StringComparer.Ordinal);
+    private readonly ProfileImageCropEditor _cropEditor;
     public EditProfileUi(ILogger<EditProfileUi> logger, MareMediator mediator,
         ApiController apiController, UiSharedService uiSharedService, FileDialogManager fileDialogManager,
         UmbraProfileManager umbraProfileManager, PairManager pairManager, PairFactory pairFactory,
@@ -152,6 +153,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
         var statusIcons = new Lazy<List<StatusIconInfo>>(LoadStatusIcons);
         _moodlesEditor = new MoodlesEditor(logger, ipcManager, dalamudUtil, rpConfigService, uiSharedService, dataManager, statusIcons);
         _chatIconPicker = new ChatIconPicker();
+        _cropEditor = new ProfileImageCropEditor(logger, uiSharedService);
 
         Mediator.Subscribe<GposeStartMessage>(this, (_) => { _wasOpen = IsOpen; IsOpen = false; });
         Mediator.Subscribe<GposeEndMessage>(this, (_) => IsOpen = _wasOpen);
@@ -383,6 +385,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
         if (accent.W <= 0f) accent = ImGuiColors.ParsedPurple;
 
         DrawProfileTabButtons(accent);
+        _cropEditor.Draw();
     }
 
     public void DrawInline() => DrawInternal();
@@ -821,40 +824,26 @@ public class EditProfileUi : WindowMediatorSubscriberBase
 
     private void SelectPortrait(bool isRp)
     {
+        _showFileDialogError = false;
         _fileDialogManager.OpenFileDialog(Loc.Get("EditProfile.SelectImageButton"), "Image files{.png,.jpg,.jpeg}", (success, name) =>
         {
             if (!success) return;
-            _ = Task.Run(async () =>
+            _cropEditor.Open(name, ProfileImageKind.Portrait, portrait =>
             {
-                try
+                if (isRp)
                 {
-                    var file = await File.ReadAllBytesAsync(name).ConfigureAwait(false);
-                    if (file.Length > 5 * 1024 * 1024)
-                    {
-                        _showFileDialogError = true;
-                        return;
-                    }
-
-                    _showFileDialogError = false;
-                    if (isRp)
-                    {
-                        _rpProfileImage = file;
-                        _rpPortraitDirty = true;
-                        _rpPortraitStale = true;
-                    }
-                    else
-                    {
-                        _profileImage = file;
-                        _hrpPortraitDirty = true;
-                        _hrpPortraitStale = true;
-                    }
-                    _previewRefreshPending = true;
+                    _rpProfileImage = portrait;
+                    _rpPortraitDirty = true;
+                    _rpPortraitStale = true;
                 }
-                catch (Exception ex)
+                else
                 {
-                    _logger.LogWarning(ex, "Failed to read profile image");
+                    _profileImage = portrait;
+                    _hrpPortraitDirty = true;
+                    _hrpPortraitStale = true;
                 }
-            });
+                _previewRefreshPending = true;
+            }, () => _showFileDialogError = true);
         });
     }
 
@@ -1350,27 +1339,13 @@ public class EditProfileUi : WindowMediatorSubscriberBase
         _fileDialogManager.OpenFileDialog(Loc.Get("EditProfile.Banner.Select"), "Image files{.png,.jpg,.jpeg}", (success, name) =>
         {
             if (!success) return;
-            _ = Task.Run(async () =>
+            _cropEditor.Open(name, ProfileImageKind.Banner, banner =>
             {
-                try
-                {
-                    var file = await File.ReadAllBytesAsync(name).ConfigureAwait(false);
-                    if (file.Length > ProfileBanner.MaxBytes)
-                    {
-                        _showBannerError = true;
-                        return;
-                    }
-
-                    _rpBannerImage = file;
-                    _rpBannerDirty = true;
-                    _bannerTextureStale = true;
-                    _previewRefreshPending = true;
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Failed to read profile banner");
-                }
-            });
+                _rpBannerImage = banner;
+                _rpBannerDirty = true;
+                _bannerTextureStale = true;
+                _previewRefreshPending = true;
+            }, () => _showBannerError = true);
         });
     }
 
@@ -1489,6 +1464,17 @@ public class EditProfileUi : WindowMediatorSubscriberBase
             customFields.RemoveAt(removeIndex.Value);
             for (int i = 0; i < customFields.Count; i++) customFields[i].Order = i;
         }
+
+        if (customFields.Count == 0) return;
+
+        ImGuiHelpers.ScaledDummy(2f);
+        ImGui.AlignTextToFramePadding();
+        ImGui.TextColored(ImGuiColors.DalamudGrey, Loc.Get("EditProfile.CustomFields.Justify"));
+        ImGui.SameLine();
+        bool justify = _cardStyle.JustifyCustomFields;
+        if (ToggleSwitch.Draw("##customFieldsJustify", ref justify))
+            UpdateCardStyle(_cardStyle with { JustifyCustomFields = justify });
+        UiSharedService.AttachToolTip(Loc.Get("EditProfile.CustomFields.Justify.Tooltip"));
     }
 
     private List<StatusIconInfo> LoadStatusIcons()
@@ -1877,5 +1863,6 @@ public class EditProfileUi : WindowMediatorSubscriberBase
         _pfpTextureWrap?.Dispose();
         _rpBannerTexture?.Dispose();
         _rpBannerTexture = null;
+        _cropEditor.Dispose();
     }
 }

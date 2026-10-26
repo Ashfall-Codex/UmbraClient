@@ -4772,7 +4772,7 @@ Note: Weapons will not be displayed correctly unless using the same job as the s
     <value>An error occurred while saving your profile on the server.</value>
   </data>
   <data name="EditProfile.ImageSizeError" xml:space="preserve">
-    <value>The image file is too large. Maximum size is 5 MB.</value>
+    <value>Image rejected: unreadable, not a PNG or JPEG, or larger than 32 MB.</value>
   </data>
   <data name="EditProfile.RpFirstNameMismatch" xml:space="preserve">
     <value>The RP first name must contain your character's first name ({0}).</value>
@@ -8318,13 +8318,43 @@ WARNING: this cannot be undone.</value>
     <value>Remove</value>
   </data>
   <data name="EditProfile.Banner.SizeError" xml:space="preserve">
-    <value>Image too large: 1.5 MB maximum.</value>
+    <value>Image rejected: unreadable, not a PNG or JPEG, or larger than 32 MB.</value>
   </data>
   <data name="EditProfile.Banner.Recommended" xml:space="preserve">
-    <value>Format: PNG or JPEG&#x0A;Size: 1.5 MB maximum&#x0A;Dimensions: 1200 × 250 px</value>
+    <value>Format: PNG or JPEG&#x0A;Size: 32 MB maximum&#x0A;Cropped to 1200 × 250 px before upload</value>
   </data>
   <data name="EditProfile.Portrait.Recommended" xml:space="preserve">
-    <value>Format: PNG or JPEG&#x0A;Size: 5 MB maximum&#x0A;Dimensions: 512 × 512 px</value>
+    <value>Format: PNG or JPEG&#x0A;Size: 32 MB maximum&#x0A;Cropped to 512 × 512 px before upload</value>
+  </data>
+  <data name="EditProfile.CustomFields.Justify" xml:space="preserve">
+    <value>Justify long texts</value>
+  </data>
+  <data name="EditProfile.CustomFields.Justify.Tooltip" xml:space="preserve">
+    <value>Values spanning several lines are aligned on both edges of their column, like a paragraph. Short values stay centered.</value>
+  </data>
+  <data name="ProfileImageCrop.TitleBanner" xml:space="preserve">
+    <value>Crop banner</value>
+  </data>
+  <data name="ProfileImageCrop.TitlePortrait" xml:space="preserve">
+    <value>Crop portrait</value>
+  </data>
+  <data name="ProfileImageCrop.Hint" xml:space="preserve">
+    <value>Drag the image to frame it, use the mouse wheel to zoom.</value>
+  </data>
+  <data name="ProfileImageCrop.Zoom" xml:space="preserve">
+    <value>Zoom</value>
+  </data>
+  <data name="ProfileImageCrop.Reset" xml:space="preserve">
+    <value>Recenter</value>
+  </data>
+  <data name="ProfileImageCrop.Apply" xml:space="preserve">
+    <value>Apply</value>
+  </data>
+  <data name="ProfileImageCrop.Processing" xml:space="preserve">
+    <value>Preparing...</value>
+  </data>
+  <data name="ProfileImageCrop.RenderError" xml:space="preserve">
+    <value>Could not prepare the image: it is still too large once cropped.</value>
   </data>
   <data name="EditProfile.Banner.Preview" xml:space="preserve">
     <value>Card preview</value>
@@ -8571,6 +8601,9 @@ WARNING: this cannot be undone.</value>
   </data>
   <data name="ChangelogUi.Section.Other" xml:space="preserve">
     <value>Other changes</value>
+  </data>
+  <data name="ChangelogUi.Section.Security" xml:space="preserve">
+    <value>Security</value>
   </data>
   <data name="Wizard.Nav.Previous" xml:space="preserve">
     <value>Back</value>

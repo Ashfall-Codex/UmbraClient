@@ -484,12 +484,12 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
                     if (i + 1 < customFields.Count)
                     {
                         var right = (customFields[i + 1].Name ?? string.Empty, customFields[i + 1].Value ?? string.Empty);
-                        DrawCenteredRow(left, right, col1X, col1X + halfW, halfW);
+                        DrawCenteredRow(left, right, col1X, col1X + halfW, halfW, _rpCardStyle.JustifyCustomFields);
                     }
                     else
                     {
                         ImGui.BeginGroup();
-                        DrawCenteredField(left.Item1, left.Item2, col1X, fullW);
+                        DrawCenteredField(left.Item1, left.Item2, col1X, fullW, _rpCardStyle.JustifyCustomFields);
                         ImGui.EndGroup();
                     }
                 }
@@ -660,13 +660,17 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
         ImGui.SetCursorPos(new Vector2(contentX, linkedLocalPos.Y));
         _uiSharedService.BigText(UiSharedService.SanitizeOneLine(establishment.Name));
 
+        // DrawCategoryPill laisse le curseur sur sa ligne, calé sur son texte : la seconde pastille repart du haut
+        // de la première, et la ligne est terminée avant la description.
         ImGui.SetCursorPosX(contentX);
+        var pillsY = ImGui.GetCursorPosY();
         UiSharedService.DrawCategoryPill(catName);
         if (establishment.IsManager)
         {
-            ImGui.SameLine();
+            ImGui.SetCursorPosY(pillsY);
             UiSharedService.DrawCategoryPill(Loc.Get("Profile.Establishment.Manager"));
         }
+        ImGui.NewLine();
 
         var desc = UiSharedService.SanitizeOneLine(establishment.Description);
         if (!string.IsNullOrEmpty(desc))
@@ -1042,26 +1046,35 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
     private static float SectionContentWidth
         => ImGui.GetContentRegionAvail().X - (ImGui.GetStyle().FramePadding.X + 4f * ImGuiHelpers.GlobalScale);
 
-    private void DrawCenteredRow((string Label, string Value)? left, (string Label, string Value)? right, float col1X, float col2X, float width)
+    private void DrawCenteredRow((string Label, string Value)? left, (string Label, string Value)? right, float col1X, float col2X, float width, bool justifyValues = false)
     {
         if (left is { } l)
         {
             ImGui.BeginGroup();
-            DrawCenteredField(l.Label, l.Value, col1X, width);
+            DrawCenteredField(l.Label, l.Value, col1X, width, justifyValues);
             ImGui.EndGroup();
         }
         if (right is not { } r) return;
         if (left != null) ImGui.SameLine();
         ImGui.BeginGroup();
-        DrawCenteredField(r.Label, r.Value, col2X, width);
+        DrawCenteredField(r.Label, r.Value, col2X, width, justifyValues);
         ImGui.EndGroup();
     }
 
-    private void DrawCenteredField(string label, string value, float columnX, float width)
+    private void DrawCenteredField(string label, string value, float columnX, float width, bool justifyValue = false)
     {
         var pad = 4f * ImGuiHelpers.GlobalScale;
-        DrawCenteredLine(label, FieldLabelColor, columnX + pad, width - (pad * 2f));
-        DrawCenteredLine(value, null, columnX + pad, width - (pad * 2f));
+        var innerWidth = width - (pad * 2f);
+        DrawCenteredLine(label, FieldLabelColor, columnX + pad, innerWidth);
+
+        // Une valeur courte reste centrée sous son libellé ; plus longue, elle se lit comme un paragraphe justifié.
+        if (justifyValue && ImGui.CalcTextSize(value).X > innerWidth)
+        {
+            ImGui.SetCursorPosX(columnX + pad);
+            BbCodeRenderer.RenderJustified(value, innerWidth);
+            return;
+        }
+        DrawCenteredLine(value, null, columnX + pad, innerWidth);
     }
 
     private static void DrawCenteredLine(string text, Vector4? color, float columnX, float width)

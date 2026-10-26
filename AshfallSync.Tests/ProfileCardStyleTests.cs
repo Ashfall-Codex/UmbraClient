@@ -36,6 +36,18 @@ public class ProfileCardStyleTests
     }
 
     [Fact]
+    public void Justification_des_autres_details_desactivee_par_defaut_et_conservee()
+    {
+        Assert.False(ProfileCardStyle.Default.JustifyCustomFields);
+        Assert.False(ProfileCardStyle.Parse("{\"textColor\":\"#FFFFFF\"}").JustifyCustomFields);
+
+        var style = new ProfileCardStyle { JustifyCustomFields = true };
+
+        Assert.False(style.IsDefault);
+        Assert.True(ProfileCardStyle.Parse(style.Serialize()).JustifyCustomFields);
+    }
+
+    [Fact]
     public void Reglages_par_defaut_se_serialisent_en_chaine_vide()
     {
         Assert.Equal(string.Empty, ProfileCardStyle.Default.Serialize());

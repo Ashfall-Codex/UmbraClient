@@ -62,6 +62,16 @@ public static partial class BbCodeRenderer
         }
     }
 
+    public static void RenderJustified(string text, float wrapWidth)
+    {
+        if (string.IsNullOrEmpty(text)) return;
+
+        var style = new SpanStyle(ImGui.GetStyle().Colors[(int)ImGuiCol.Text], Bold: false, Italic: false, Underline: false);
+        var lines = WrapIntoLines(SplitIntoWords([(text, style)]), wrapWidth);
+        if (lines.Count > 0)
+            RenderLines(lines, wrapWidth, TextAlignment.Justify, ImGui.GetWindowDrawList());
+    }
+
     #region Parsing
 
     #pragma warning disable S1172 // defaultColor is used by local function CurrentStyle()

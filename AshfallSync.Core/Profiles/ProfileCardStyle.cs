@@ -55,6 +55,9 @@ public sealed record ProfileCardStyle
     [JsonPropertyName("sheetTextColor")]
     public string? SheetTextColor { get; init; }
 
+    [JsonPropertyName("justifyCustomFields")]
+    public bool JustifyCustomFields { get; init; }
+
     [JsonIgnore]
     public bool HasBackground => Background != 0;
 

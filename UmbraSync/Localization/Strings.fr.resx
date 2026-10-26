@@ -4676,7 +4676,7 @@ Note : Les armes ne s'afficheront pas correctement sauf si vous utilisez le m&#x
     <value>Une erreur est survenue lors de l'enregistrement de votre profil sur le serveur.</value>
   </data>
   <data name="EditProfile.ImageSizeError" xml:space="preserve">
-    <value>Le fichier image est trop volumineux. Taille maximale : 5 Mo.</value>
+    <value>Image refusée : illisible, ni PNG ni JPEG, ou plus de 32 Mo.</value>
   </data>
   <data name="EditProfile.RpFirstNameMismatch" xml:space="preserve">
     <value>Le prénom RP doit contenir le prénom de votre personnage ({0}).</value>
@@ -8231,13 +8231,43 @@ ATTENTION : cette action est irréversible.</value>
     <value>Retirer</value>
   </data>
   <data name="EditProfile.Banner.SizeError" xml:space="preserve">
-    <value>Image trop lourde : 1,5 Mo maximum.</value>
+    <value>Image refusée : illisible, ni PNG ni JPEG, ou plus de 32 Mo.</value>
   </data>
   <data name="EditProfile.Banner.Recommended" xml:space="preserve">
-    <value>Format : PNG ou JPEG&#x0A;Taille : 1,5 Mo maximum&#x0A;Dimensions : 1200 × 250 px</value>
+    <value>Format : PNG ou JPEG&#x0A;Taille : 32 Mo maximum&#x0A;Recadrée en 1200 × 250 px avant l'envoi</value>
   </data>
   <data name="EditProfile.Portrait.Recommended" xml:space="preserve">
-    <value>Format : PNG ou JPEG&#x0A;Taille : 5 Mo maximum&#x0A;Dimensions : 512 × 512 px</value>
+    <value>Format : PNG ou JPEG&#x0A;Taille : 32 Mo maximum&#x0A;Recadré en 512 × 512 px avant l'envoi</value>
+  </data>
+  <data name="EditProfile.CustomFields.Justify" xml:space="preserve">
+    <value>Justifier les textes longs</value>
+  </data>
+  <data name="EditProfile.CustomFields.Justify.Tooltip" xml:space="preserve">
+    <value>Les valeurs qui tiennent sur plusieurs lignes s'alignent sur les deux bords de leur colonne, comme un paragraphe. Les valeurs courtes restent centrées.</value>
+  </data>
+  <data name="ProfileImageCrop.TitleBanner" xml:space="preserve">
+    <value>Recadrer la bannière</value>
+  </data>
+  <data name="ProfileImageCrop.TitlePortrait" xml:space="preserve">
+    <value>Recadrer le portrait</value>
+  </data>
+  <data name="ProfileImageCrop.Hint" xml:space="preserve">
+    <value>Faites glisser l'image pour la cadrer, utilisez la molette pour zoomer.</value>
+  </data>
+  <data name="ProfileImageCrop.Zoom" xml:space="preserve">
+    <value>Zoom</value>
+  </data>
+  <data name="ProfileImageCrop.Reset" xml:space="preserve">
+    <value>Recentrer</value>
+  </data>
+  <data name="ProfileImageCrop.Apply" xml:space="preserve">
+    <value>Appliquer</value>
+  </data>
+  <data name="ProfileImageCrop.Processing" xml:space="preserve">
+    <value>Préparation...</value>
+  </data>
+  <data name="ProfileImageCrop.RenderError" xml:space="preserve">
+    <value>Impossible de préparer l'image : elle reste trop lourde une fois recadrée.</value>
   </data>
   <data name="EditProfile.Banner.Preview" xml:space="preserve">
     <value>Aperçu de la carte</value>
@@ -8484,6 +8514,9 @@ ATTENTION : cette action est irréversible.</value>
   </data>
   <data name="ChangelogUi.Section.Other" xml:space="preserve">
     <value>Autres changements</value>
+  </data>
+  <data name="ChangelogUi.Section.Security" xml:space="preserve">
+    <value>Sécurité</value>
   </data>
   <data name="Wizard.Nav.Previous" xml:space="preserve">
     <value>Précédent</value>
