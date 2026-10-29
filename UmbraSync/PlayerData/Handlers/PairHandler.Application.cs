@@ -322,16 +322,14 @@ public sealed partial class PairHandler
             Logger.LogDebug("[BASE-{appBase}] Already applied hash {hash} and no pending reapply, ignoring", applicationBase, charaData.DataHash.Value);
             return;
         }
-
-        // PendingModReapply n'est plus effacé ici : seule une application menée à terme l'efface, et
-        // seulement si aucune nouvelle demande n'est arrivée entre-temps (génération).
+        
         var reapplyGeneration = _state.ModReapplyGeneration;
-
         var updateModdedPaths = updatedData.Values.Any(v => v.Any(p => p == PlayerChanges.ModFiles));
         var updateManip = updatedData.Values.Any(v => v.Any(p => p == PlayerChanges.ModManip));
         var transferToken = GetTransferToken();
         _attemptCancellationTokenSource = _attemptCancellationTokenSource?.CancelRecreate() ?? new CancellationTokenSource();
-        var attemptCts = CancellationTokenSource.CreateLinkedTokenSource(transferToken, _attemptCancellationTokenSource.Token);
+        var attemptToken = _attemptCancellationTokenSource.Token;
+        var attemptCts = CancellationTokenSource.CreateLinkedTokenSource(transferToken, attemptToken);
         var downloadToken = attemptCts.Token;
         var dataHash = charaData.DataHash.Value;
         _inFlightDataHash = dataHash;
@@ -346,9 +344,17 @@ public sealed partial class PairHandler
             catch (OperationCanceledException)
             {
                 _state.PendingModReapply = true;
-                RecordFailure("Téléchargement annulé", "Cancellation");
-                if (!transferToken.IsCancellationRequested)
-                    Logger.LogDebug("[BASE-{appBase}] Tentative remplacée par une donnée plus récente, les transferts en cours continuent", applicationBase);
+                if (transferToken.IsCancellationRequested || attemptToken.IsCancellationRequested)
+                {
+                    RecordFailure("Téléchargement annulé", "Cancellation");
+                    if (!transferToken.IsCancellationRequested)
+                        Logger.LogDebug("[BASE-{appBase}] Tentative remplacée par une donnée plus récente, les transferts en cours continuent", applicationBase);
+                }
+                else
+                {
+                    RecordFailure("Délai d'attente dépassé", "Timeout");
+                    Logger.LogWarning("[BASE-{appBase}] Application interrompue par un délai d'attente dépassé, réapplication en attente", applicationBase);
+                }
             }
             catch (Exception ex)
             {
@@ -792,9 +798,19 @@ public sealed partial class PairHandler
         }
         catch (OperationCanceledException)
         {
-            Logger.LogDebug("[{applicationId}] Application cancelled for {handler}", _applicationId, this);
             _state.PendingModReapply = true;
-            RecordFailure("Application annulée", "Cancellation");
+            if (token.IsCancellationRequested)
+            {
+                Logger.LogDebug("[{applicationId}] Application cancelled for {handler}", _applicationId, this);
+                RecordFailure("Application annulée", "Cancellation");
+            }
+            else
+            {
+                // Délai interne expiré (attente de fin de dessin avant Glamourer ou le redraw) : sans ce
+                // message, l'abandon passe pour une annulation ordinaire et reste invisible en Information.
+                Logger.LogWarning("[{applicationId}] Application interrompue pour {handler} : délai d'attente dépassé, réapplication en attente", _applicationId, this);
+                RecordFailure("Délai d'attente dépassé", "Timeout");
+            }
             _state.CachedData = charaData;
             Mediator.Publish(new PairDataAppliedMessage(Pair.UserData.UID, charaData));
         }

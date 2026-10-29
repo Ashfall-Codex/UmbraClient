@@ -400,7 +400,7 @@ public sealed class GameObjectHandler : DisposableMediatorSubscriberBase
             throw new ArgumentNullException($"CurPtr for {this} turned ZERO");
         }
 
-        if (_dalamudUtil.IsAnythingDrawing)
+        if (_isOwnedObject && _dalamudUtil.IsAnythingDrawing)
         {
             Logger.LogTrace("[{this}] IsBeingDrawn, Global draw block", this);
             return true;
@@ -417,7 +417,7 @@ public sealed class GameObjectHandler : DisposableMediatorSubscriberBase
     {
         var drawObjZero = drawObj == IntPtr.Zero;
         if (drawObjZero) return DrawCondition.DrawObjectZero;
-        var renderFlags = (((FFXIVClientStructs.FFXIV.Client.Game.Object.GameObject*)curPtr)->RenderFlags) != FFXIVClientStructs.FFXIV.Client.Game.Object.VisibilityFlags.None;
+        var renderFlags = NativeGameObjectUtils.IsLoadingRenderFlags(((FFXIVClientStructs.FFXIV.Client.Game.Object.GameObject*)curPtr)->RenderFlags);
         if (renderFlags) return DrawCondition.RenderFlags;
 
         if (ObjectKind == ObjectKind.Player)
