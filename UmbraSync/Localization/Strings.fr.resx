@@ -4368,6 +4368,18 @@ Note : Les armes ne s'afficheront pas correctement sauf si vous utilisez le m&#x
   <data name="Notification.PluginIntegration.GlamourerInactive.Body" xml:space="preserve">
     <value>Votre installation Glamourer est inactive ou obsolète. Mettez à jour Glamourer pour continuer à utiliser Umbra.</value>
   </data>
+  <data name="Ipc.Glamourer.Unavailable.NotLoaded" xml:space="preserve">
+    <value>Glamourer n'est pas chargé. Vérifiez dans /xlplugins qu'il est installé, activé et sans erreur de chargement.</value>
+  </data>
+  <data name="Ipc.Glamourer.Unavailable.TooOld" xml:space="preserve">
+    <value>Votre version de Glamourer ({0}) est trop ancienne : la version {1} au minimum est requise. Mettez-la à jour depuis /xlplugins.</value>
+  </data>
+  <data name="Ipc.Glamourer.Unavailable.ApiNotResponding" xml:space="preserve">
+    <value>Glamourer est chargé mais ne répond pas à Umbra ({0}). Redémarrez le jeu ; si le problème persiste, transmettez votre dalamud.log au support.</value>
+  </data>
+  <data name="Ipc.Glamourer.Unavailable.ApiMismatch" xml:space="preserve">
+    <value>Glamourer répond avec une version d'API incompatible ({0}). C'est Umbra qui doit être mis à jour, pas Glamourer.</value>
+  </data>
   <data name="Notification.PluginIntegration.MissingPlugins.Title" xml:space="preserve">
     <value>Plugins manquants pour {0}</value>
   </data>

@@ -4,6 +4,7 @@ using Glamourer.Api.Enums;
 using Glamourer.Api.Helpers;
 using Glamourer.Api.IpcSubscribers;
 using Microsoft.Extensions.Logging;
+using System.Globalization;
 using UmbraSync.MareConfiguration.Models;
 using UmbraSync.PlayerData.Handlers;
 using UmbraSync.Localization;
@@ -136,15 +137,16 @@ public sealed class IpcCallerGlamourer : DisposableMediatorSubscriberBase, IIpcC
             await Task.Delay(IpcDelayBetweenRetriesMs).ConfigureAwait(false);
         }
 
-        _logger.LogWarning("Glamourer API still not available after {maxRetries} attempts", IpcCheckRetries);
+        _logger.LogWarning("Glamourer API still not available after {maxRetries} attempts: {reason} {detail}", IpcCheckRetries, UnavailableReason, UnavailableDetail);
         if (!APIAvailable && !_shownGlamourerUnavailable)
         {
             _shownGlamourerUnavailable = true;
+            var description = DescribeUnavailability();
             _mareMediator.Publish(new NotificationMessage(
                 Loc.Get("Notification.PluginIntegration.GlamourerInactive.Title"),
-                Loc.Get("Notification.PluginIntegration.GlamourerInactive.Body"),
+                description,
                 NotificationType.Error));
-            _notificationTracker.Upsert(NotificationEntry.GlamourerInactive());
+            _notificationTracker.Upsert(NotificationEntry.GlamourerInactive(description));
         }
     }
 
@@ -159,24 +161,63 @@ public sealed class IpcCallerGlamourer : DisposableMediatorSubscriberBase, IIpcC
 
     public bool APIAvailable { get; private set; }
 
+    public GlamourerUnavailableReason UnavailableReason { get; private set; } = GlamourerUnavailableReason.NotLoaded;
+    public string UnavailableDetail { get; private set; } = string.Empty;
+
+    private static readonly Version MinimumPluginVersion = new(1, 3, 0, 10);
+
+    public string DescribeUnavailability()
+        => UnavailableReason switch
+        {
+            GlamourerUnavailableReason.None => string.Empty,
+            GlamourerUnavailableReason.TooOld => string.Format(CultureInfo.CurrentCulture,
+                Loc.Get("Ipc.Glamourer.Unavailable.TooOld"), UnavailableDetail, MinimumPluginVersion),
+            GlamourerUnavailableReason.ApiNotResponding => string.Format(CultureInfo.CurrentCulture,
+                Loc.Get("Ipc.Glamourer.Unavailable.ApiNotResponding"), UnavailableDetail),
+            GlamourerUnavailableReason.ApiMismatch => string.Format(CultureInfo.CurrentCulture,
+                Loc.Get("Ipc.Glamourer.Unavailable.ApiMismatch"), UnavailableDetail),
+            _ => Loc.Get("Ipc.Glamourer.Unavailable.NotLoaded"),
+        };
+
     public void CheckAPI()
     {
         bool apiAvailable = false;
+        var reason = GlamourerUnavailableReason.None;
+        var detail = string.Empty;
         try
         {
-            bool versionValid = _pluginLoaded && _pluginVersion >= new Version(1, 3, 0, 10);
-            try
+            if (!_pluginLoaded)
             {
-                var version = _glamourerApiVersions.Invoke();
-                if (version is { Major: 1, Minor: >= 1 } && versionValid)
+                reason = GlamourerUnavailableReason.NotLoaded;
+            }
+            else if (_pluginVersion < MinimumPluginVersion)
+            {
+                reason = GlamourerUnavailableReason.TooOld;
+                detail = _pluginVersion.ToString();
+            }
+            else
+            {
+                try
                 {
-                    apiAvailable = true;
+                    var version = _glamourerApiVersions.Invoke();
+                    if (version is { Major: 1, Minor: >= 1 })
+                    {
+                        apiAvailable = true;
+                    }
+                    else
+                    {
+                        reason = GlamourerUnavailableReason.ApiMismatch;
+                        detail = $"{version.Major}.{version.Minor}";
+                    }
+                }
+                catch (Exception ex)
+                {
+                    reason = GlamourerUnavailableReason.ApiNotResponding;
+                    detail = ex.GetType().Name;
                 }
             }
-            catch
-            {
-                // ignore
-            }
+
+            UpdateUnavailableReason(reason, detail);
             _shownGlamourerUnavailable = _shownGlamourerUnavailable && !apiAvailable;
 
             bool becameAvailable = apiAvailable && !APIAvailable;
@@ -197,6 +238,20 @@ public sealed class IpcCallerGlamourer : DisposableMediatorSubscriberBase, IIpcC
             APIAvailable = apiAvailable;
         }
         // Notification is deferred to CheckAPIWithRetryAsync after all retries are exhausted
+    }
+
+    private void UpdateUnavailableReason(GlamourerUnavailableReason reason, string detail)
+    {
+        if (reason == UnavailableReason && string.Equals(detail, UnavailableDetail, StringComparison.Ordinal))
+            return;
+
+        UnavailableDetail = detail;
+        UnavailableReason = reason;
+        if (reason == GlamourerUnavailableReason.None)
+            _logger.LogInformation("Glamourer disponible (version {version})", _pluginVersion);
+        else
+            _logger.LogInformation("Glamourer indisponible : {reason} {detail} (chargé : {loaded}, version : {version})",
+                reason, detail, _pluginLoaded, _pluginVersion);
     }
 
     public async Task<GlamourerApiEc?> ApplyAllAsync(ILogger logger, GameObjectHandler handler, string? customization, Guid applicationId, CancellationToken token, bool allowImmediate = false)
@@ -457,4 +512,13 @@ public sealed class IpcCallerGlamourer : DisposableMediatorSubscriberBase, IIpcC
         if (changeType == StateChangeType.Reset && _ownRevertDepth == 0)
             _mareMediator.Publish(new GlamourerResetMessage(address));
     }
+}
+
+public enum GlamourerUnavailableReason
+{
+    None,
+    NotLoaded,
+    TooOld,
+    ApiNotResponding,
+    ApiMismatch,
 }

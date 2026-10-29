@@ -729,7 +729,7 @@ public class DalamudUtilService : IHostedService, IMediatorSubscriber
         if (drawObject == null)
             return false;
 
-        if ((ulong)gameObject->RenderFlags == 2048)
+        if (NativeGameObjectUtils.IsLoadingRenderFlags(gameObject->RenderFlags))
             return false;
 
         var characterBase = (CharacterBase*)drawObject;
@@ -749,7 +749,7 @@ public class DalamudUtilService : IHostedService, IMediatorSubscriber
         const int tick = 250;
         int curWaitTime = 0;
         _logger.LogTrace("RenderFlags: {flags}", obj->RenderFlags.ToString("X"));
-        while (obj->RenderFlags != FFXIVClientStructs.FFXIV.Client.Game.Object.VisibilityFlags.None && curWaitTime < timeOut)
+        while (NativeGameObjectUtils.IsLoadingRenderFlags(obj->RenderFlags) && curWaitTime < timeOut)
         {
             _logger.LogTrace($"Waiting for gpose actor to finish drawing");
             curWaitTime += tick;
@@ -811,7 +811,7 @@ public class DalamudUtilService : IHostedService, IMediatorSubscriber
         bool isDrawingChanged = false;
         if ((nint)drawObj != IntPtr.Zero)
         {
-            isDrawing = gameObj->RenderFlags == (FFXIVClientStructs.FFXIV.Client.Game.Object.VisibilityFlags)0b100000000000;
+            isDrawing = NativeGameObjectUtils.IsLoadingRenderFlags(gameObj->RenderFlags);
             if (!isDrawing)
             {
                 isDrawing = ((CharacterBase*)drawObj)->HasModelInSlotLoaded != 0;

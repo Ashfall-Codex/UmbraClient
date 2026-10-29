@@ -1021,16 +1021,6 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
         ImGuiHelpers.ScaledDummy(2f);
     }
 
-    private void DrawVerticalField(string label, string value, float width)
-    {
-        ImGui.BeginGroup();
-        ImGui.PushTextWrapPos(ImGui.GetCursorPosX() + width - 8f * ImGuiHelpers.GlobalScale);
-        ImGui.TextColored(FieldLabelColor, label);
-        ImGui.TextUnformatted(value);
-        ImGui.PopTextWrapPos();
-        ImGui.EndGroup();
-    }
-
     private Vector4 FieldLabelColor
         => _sheetPalette?.Label ?? ProfileSheetBackground.CustomColor(_rpCardStyle.SheetLabelColor) ?? ImGuiColors.DalamudGrey;
 

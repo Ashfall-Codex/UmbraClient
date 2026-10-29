@@ -322,35 +322,39 @@ public sealed partial class PairHandler
             Logger.LogDebug("[BASE-{appBase}] Already applied hash {hash} and no pending reapply, ignoring", applicationBase, charaData.DataHash.Value);
             return;
         }
-
-        // PendingModReapply n'est plus effacé ici : seule une application menée à terme l'efface, et
-        // seulement si aucune nouvelle demande n'est arrivée entre-temps (génération).
+        
         var reapplyGeneration = _state.ModReapplyGeneration;
-
         var updateModdedPaths = updatedData.Values.Any(v => v.Any(p => p == PlayerChanges.ModFiles));
         var updateManip = updatedData.Values.Any(v => v.Any(p => p == PlayerChanges.ModManip));
-
-        _downloadCancellationTokenSource = _downloadCancellationTokenSource?.CancelRecreate() ?? new CancellationTokenSource();
-        var downloadToken = _downloadCancellationTokenSource.Token;
+        var transferToken = GetTransferToken();
+        _attemptCancellationTokenSource = _attemptCancellationTokenSource?.CancelRecreate() ?? new CancellationTokenSource();
+        var attemptToken = _attemptCancellationTokenSource.Token;
+        var attemptCts = CancellationTokenSource.CreateLinkedTokenSource(transferToken, attemptToken);
+        var downloadToken = attemptCts.Token;
         var dataHash = charaData.DataHash.Value;
         _inFlightDataHash = dataHash;
-
-        // Un changement de mods seul passe par le même chemin que le reste : le ForcedRedraw issu du diff
-        // est exécuté via PairRedrawCoordinator (soft/hard selon la décision, redraw sauté si Penumbra
-        // a déjà redessiné l'acteur après la pose des mods).
-        // CancellationToken.None : le délégué doit toujours tourner pour marquer la reprise s'il est annulé.
         _downloadTask = Task.Run(async () =>
         {
             // Bail propre à cette passe : protège de l'éviction les fichiers téléchargés mais pas encore appliqués
             object pendingLeaseOwner = new();
             try
             {
-                await DownloadAndApplyCharacterAsync(applicationBase, charaData, updatedData, updateModdedPaths, updateManip, redrawDecisions, reapplyGeneration, pendingLeaseOwner, downloadToken).ConfigureAwait(false);
+                await DownloadAndApplyCharacterAsync(applicationBase, charaData, updatedData, updateModdedPaths, updateManip, redrawDecisions, reapplyGeneration, pendingLeaseOwner, transferToken, downloadToken).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
                 _state.PendingModReapply = true;
-                RecordFailure("Téléchargement annulé", "Cancellation");
+                if (transferToken.IsCancellationRequested || attemptToken.IsCancellationRequested)
+                {
+                    RecordFailure("Téléchargement annulé", "Cancellation");
+                    if (!transferToken.IsCancellationRequested)
+                        Logger.LogDebug("[BASE-{appBase}] Tentative remplacée par une donnée plus récente, les transferts en cours continuent", applicationBase);
+                }
+                else
+                {
+                    RecordFailure("Délai d'attente dépassé", "Timeout");
+                    Logger.LogWarning("[BASE-{appBase}] Application interrompue par un délai d'attente dépassé, réapplication en attente", applicationBase);
+                }
             }
             catch (Exception ex)
             {
@@ -363,8 +367,25 @@ public sealed partial class PairHandler
                 _cacheLeases.ReleaseLeases(pendingLeaseOwner);
                 if (string.Equals(_inFlightDataHash, dataHash, StringComparison.Ordinal))
                     _inFlightDataHash = null;
+                attemptCts.Dispose();
             }
         }, CancellationToken.None);
+    }
+
+    private CancellationToken GetTransferToken()
+    {
+        try
+        {
+            if (_downloadCancellationTokenSource is { IsCancellationRequested: false } live)
+                return live.Token;
+        }
+        catch (ObjectDisposedException)
+        {
+            // Annulée et libérée entre-temps par un autre thread : on repart d'une source neuve
+        }
+
+        _downloadCancellationTokenSource = new CancellationTokenSource();
+        return _downloadCancellationTokenSource.Token;
     }
 
     private string? _inFlightDataHash;
@@ -373,7 +394,7 @@ public sealed partial class PairHandler
 
     private async Task DownloadAndApplyCharacterAsync(Guid applicationBase, CharacterData charaData, Dictionary<ObjectKind, HashSet<PlayerChanges>> updatedData,
         bool updateModdedPaths, bool updateManip, IReadOnlyDictionary<ObjectKind, PairRedrawDecision>? redrawDecisions, int reapplyGeneration,
-        object pendingLeaseOwner, CancellationToken downloadToken)
+        object pendingLeaseOwner, CancellationToken transferToken, CancellationToken downloadToken)
     {
         Logger.LogTrace("[BASE-{appBase}] DownloadAndApplyCharacterAsync", applicationBase);
         Dictionary<(string GamePath, string? Hash), string> moddedPaths = [];
@@ -399,16 +420,26 @@ public sealed partial class PairHandler
                     Logger.LogDebug("[BASE-{appBase}] Finishing prior running download task for {pair}, {kind}", applicationBase, ToString(), updatedData);
                     try
                     {
-                        await priorDownloadTask.ConfigureAwait(false);
+                        await priorDownloadTask.WaitAsync(downloadToken).ConfigureAwait(false);
                     }
                     catch (OperationCanceledException) when (!downloadToken.IsCancellationRequested)
                     {
-                        // Le téléchargement précédent a été annulé par cette application même : on continue.
+                        // Lot précédent coupé (visibilité, zone, pause) avant que cette tentative ne démarre : on continue.
                         Logger.LogDebug("[BASE-{appBase}] Prior download task was cancelled, continuing", applicationBase);
                     }
                     catch (Exception ex) when (!downloadToken.IsCancellationRequested)
                     {
                         Logger.LogDebug(ex, "[BASE-{appBase}] Prior download task failed, continuing", applicationBase);
+                    }
+                    
+                    resolution = _assetResolver.Resolve(applicationBase, charaData, compressedUsage, downloadToken);
+                    toDownloadReplacements = resolution.MissingFiles;
+                    locallyPresentFiles = resolution.LocallyPresentFiles;
+                    LeasePendingFiles(pendingLeaseOwner, charaData, resolution.ModdedPaths.Values);
+                    if (toDownloadReplacements.Count == 0)
+                    {
+                        Logger.LogDebug("[BASE-{appBase}] Le lot précédent a apporté tous les fichiers manquants", applicationBase);
+                        break;
                     }
                 }
 
@@ -427,10 +458,11 @@ public sealed partial class PairHandler
                     return;
                 }
 
+                downloadToken.ThrowIfCancellationRequested();
                 var downloadBatch = toDownloadReplacements.ToList();
-                _pairDownloadTask = Task.Run(async () => await _downloadManager.DownloadFiles(_charaHandler!, downloadBatch, downloadToken).ConfigureAwait(false), downloadToken);
+                _pairDownloadTask = Task.Run(async () => await _downloadManager.DownloadFiles(_charaHandler!, downloadBatch, transferToken).ConfigureAwait(false), transferToken);
 
-                await _pairDownloadTask.ConfigureAwait(false);
+                await _pairDownloadTask.WaitAsync(downloadToken).ConfigureAwait(false);
 
                 if (downloadToken.IsCancellationRequested)
                 {
@@ -766,9 +798,19 @@ public sealed partial class PairHandler
         }
         catch (OperationCanceledException)
         {
-            Logger.LogDebug("[{applicationId}] Application cancelled for {handler}", _applicationId, this);
             _state.PendingModReapply = true;
-            RecordFailure("Application annulée", "Cancellation");
+            if (token.IsCancellationRequested)
+            {
+                Logger.LogDebug("[{applicationId}] Application cancelled for {handler}", _applicationId, this);
+                RecordFailure("Application annulée", "Cancellation");
+            }
+            else
+            {
+                // Délai interne expiré (attente de fin de dessin avant Glamourer ou le redraw) : sans ce
+                // message, l'abandon passe pour une annulation ordinaire et reste invisible en Information.
+                Logger.LogWarning("[{applicationId}] Application interrompue pour {handler} : délai d'attente dépassé, réapplication en attente", _applicationId, this);
+                RecordFailure("Délai d'attente dépassé", "Timeout");
+            }
             _state.CachedData = charaData;
             Mediator.Publish(new PairDataAppliedMessage(Pair.UserData.UID, charaData));
         }

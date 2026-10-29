@@ -981,6 +981,10 @@ internal sealed class GroupPanel
 
     private void DrawSyncshellList()
     {
+        ImGui.SetNextItemWidth(_mainUi.WindowContentWidth);
+        ImGui.InputTextWithHint("##syncshellfilter", Loc.Get("Syncshell.Filter.Placeholder"), ref _syncshellFilter, 255);
+        ImGuiHelpers.ScaledDummy(4f);
+
         float availableHeight = ImGui.GetContentRegionAvail().Y;
         float ySize;
         if (_mainUi.TransferPartHeight <= 0)
@@ -996,10 +1000,6 @@ internal sealed class GroupPanel
         {
             ySize = (ImGui.GetWindowContentRegionMax().Y - ImGui.GetWindowContentRegionMin().Y) - _mainUi.TransferPartHeight - ImGui.GetCursorPosY();
         }
-
-        ImGui.SetNextItemWidth(_mainUi.WindowContentWidth);
-        ImGui.InputTextWithHint("##syncshellfilter", Loc.Get("Syncshell.Filter.Placeholder"), ref _syncshellFilter, 255);
-        ImGuiHelpers.ScaledDummy(4f);
 
         ImGui.BeginChild("list", new Vector2(_mainUi.WindowContentWidth, ySize), border: false);
 

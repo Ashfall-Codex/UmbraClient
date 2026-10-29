@@ -4,6 +4,10 @@ namespace UmbraSync.Utils;
 
 internal static unsafe class NativeGameObjectUtils
 {
+    private const VisibilityFlags LoadingRenderFlag = (VisibilityFlags)0x800;
+    public static bool IsLoadingRenderFlags(VisibilityFlags renderFlags)
+        => (renderFlags & LoadingRenderFlag) != VisibilityFlags.None;
+
     public static bool IsValidObjectTableEntry(GameObject* gameObject, int objectIndex)
         => gameObject != null
             && objectIndex >= 0

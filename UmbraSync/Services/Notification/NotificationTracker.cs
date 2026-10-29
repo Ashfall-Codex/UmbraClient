@@ -104,10 +104,10 @@ public sealed record NotificationEntry(NotificationCategory Category, string Id,
             Loc.Get("Notification.PluginIntegration.PenumbraInactive.Body"),
             DateTime.UtcNow);
 
-    public static NotificationEntry GlamourerInactive()
+    public static NotificationEntry GlamourerInactive(string? description = null)
         => new(NotificationCategory.PluginIntegration, "glamourer-inactive",
             Loc.Get("Notification.PluginIntegration.GlamourerInactive.Title"),
-            Loc.Get("Notification.PluginIntegration.GlamourerInactive.Body"),
+            description ?? Loc.Get("Notification.PluginIntegration.GlamourerInactive.Body"),
             DateTime.UtcNow);
 
     public static NotificationEntry MissingPlugins(string playerName, List<string> missingPlugins)
