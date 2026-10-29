@@ -51,6 +51,7 @@ public sealed partial class PairHandler : DisposableMediatorSubscriberBase, IPai
     private GameObjectHandler? _charaHandler;
     private CombatData? _dataReceivedInDowntime;
     private CancellationTokenSource? _downloadCancellationTokenSource = new();
+    private CancellationTokenSource? _attemptCancellationTokenSource;
     private Task? _downloadTask;
     private bool _isVisible;
     private readonly Lock _pauseLock = new();
@@ -333,6 +334,8 @@ public sealed partial class PairHandler : DisposableMediatorSubscriberBase, IPai
             _applicationCancellationTokenSource = null;
             _downloadCancellationTokenSource?.Dispose();
             _downloadCancellationTokenSource = null;
+            _attemptCancellationTokenSource?.Dispose();
+            _attemptCancellationTokenSource = null;
             _visibilityGrace.Cancel();
             _charaHandler?.Dispose();
             _charaHandler = null;
@@ -363,7 +366,7 @@ public sealed partial class PairHandler : DisposableMediatorSubscriberBase, IPai
     public Task CancelDownloadsAsync()
     {
         _downloadCancellationTokenSource = _downloadCancellationTokenSource?.CancelRecreate();
-        return _downloadTask ?? Task.CompletedTask;
+        return Task.WhenAll(_downloadTask ?? Task.CompletedTask, _pairDownloadTask ?? Task.CompletedTask);
     }
 
     private void DisableSync()

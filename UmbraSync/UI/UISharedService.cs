@@ -360,6 +360,7 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
     private readonly IDalamudPluginInterface _pluginInterface;
 
     private bool _glamourerExists;
+    private string _glamourerUnavailableReason = string.Empty;
 
     private bool _heelsExists;
 
@@ -402,6 +403,7 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
             OffMainServer = !ServerConfigurationManager.IsMainServer(_serverConfigurationManager.CurrentServer);
             _penumbraExists = _ipcManager.Penumbra.APIAvailable;
             _glamourerExists = _ipcManager.Glamourer.APIAvailable;
+            _glamourerUnavailableReason = _glamourerExists ? string.Empty : _ipcManager.Glamourer.DescribeUnavailability();
             _customizePlusExists = _ipcManager.CustomizePlus.APIAvailable;
             _heelsExists = _ipcManager.Heels.APIAvailable;
             _honorificExists = _ipcManager.Honorific.APIAvailable;
@@ -2043,7 +2045,7 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
             SetFontScale(1.0f);
 
             DrawPluginEntry("Penumbra", _penumbraExists, check, cross);
-            DrawPluginEntry("Glamourer", _glamourerExists, check, cross);
+            DrawPluginEntry("Glamourer", _glamourerExists, check, cross, _glamourerUnavailableReason);
 
             SetFontScale(0.8f);
             BigText(Loc.Get("Settings.Plugins.Optional"));
@@ -2074,7 +2076,7 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
                 ImGui.TableNextColumn();
                 DrawPluginEntry("Penumbra", _penumbraExists, check, cross);
                 ImGui.TableNextColumn();
-                DrawPluginEntry("Glamourer", _glamourerExists, check, cross);
+                DrawPluginEntry("Glamourer", _glamourerExists, check, cross, _glamourerUnavailableReason);
                 ImGui.EndTable();
             }
 
@@ -2082,6 +2084,8 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
             {
                 ImGuiHelpers.ScaledDummy(2f);
                 ColorTextWrapped(Loc.Get("Settings.Plugins.MissingMandatory"), AccentColor);
+                if (!string.IsNullOrEmpty(_glamourerUnavailableReason))
+                    ColorTextWrapped(_glamourerUnavailableReason, ImGuiColors.DalamudYellow);
             }
 
             ImGuiHelpers.ScaledDummy(4f);
@@ -2155,11 +2159,13 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
         return true;
     }
 
-    private void DrawPluginEntry(string name, bool exists, FontAwesomeIcon check, FontAwesomeIcon cross)
+    private void DrawPluginEntry(string name, bool exists, FontAwesomeIcon check, FontAwesomeIcon cross, string? unavailableReason = null)
     {
         ImGui.TextUnformatted(name);
         ImGui.SameLine();
         IconText(exists ? check : cross, GetSuccessColor(exists));
+        if (!exists && !string.IsNullOrEmpty(unavailableReason))
+            AttachToolTip(unavailableReason);
     }
 
     public int DrawServiceSelection(bool selectOnChange = false, bool intro = false)

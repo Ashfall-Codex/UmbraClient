@@ -4464,6 +4464,18 @@ Note: Weapons will not be displayed correctly unless using the same job as the s
   <data name="Notification.PluginIntegration.GlamourerInactive.Body" xml:space="preserve">
     <value>Your Glamourer installation is not active or out of date. Update Glamourer to continue using Umbra.</value>
   </data>
+  <data name="Ipc.Glamourer.Unavailable.NotLoaded" xml:space="preserve">
+    <value>Glamourer is not loaded. Check in /xlplugins that it is installed, enabled and has no loading error.</value>
+  </data>
+  <data name="Ipc.Glamourer.Unavailable.TooOld" xml:space="preserve">
+    <value>Your Glamourer version ({0}) is too old: version {1} or newer is required. Update it from /xlplugins.</value>
+  </data>
+  <data name="Ipc.Glamourer.Unavailable.ApiNotResponding" xml:space="preserve">
+    <value>Glamourer is loaded but does not answer Umbra ({0}). Restart the game; if the problem persists, send your dalamud.log to support.</value>
+  </data>
+  <data name="Ipc.Glamourer.Unavailable.ApiMismatch" xml:space="preserve">
+    <value>Glamourer answers with an incompatible API version ({0}). Umbra needs an update, not Glamourer.</value>
+  </data>
   <data name="Notification.PluginIntegration.MissingPlugins.Title" xml:space="preserve">
     <value>Missing Plugins for {0}</value>
   </data>
