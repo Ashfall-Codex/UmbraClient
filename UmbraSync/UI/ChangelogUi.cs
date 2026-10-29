@@ -318,15 +318,13 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
     {
         return new List<ChangelogEntry>
         {
-            new(new Version(3, 1, 3, 1026), "3.1.3.1026", new List<ChangelogLine>
+            new(new Version(3, 1, 4, 1029), "3.1.4.1029", new List<ChangelogLine>
             {
-                new("Sécurité : Faille corrigée dans les échanges avec le serveur : des messages piégés pouvaient le surcharger et perturber la synchronisation de tous les joueurs."),
-                new("Sécurité : Le serveur n'accepte plus que des images PNG ou JPEG de taille raisonnable (profil, syncshell, établissement) ; une image refusée laisse l'ancienne en place et vous prévient."),
-                new("Sécurité : Le serveur retire les métadonnées des images (auteur, appareil, logiciel…), à chaque envoi comme sur les images déjà publiées, sans toucher à l'image."),
-                new("Nouveauté : Éditeur de recadrage pour la bannière et les portraits RP et HRP. Faites glisser l'image pour la cadrer et zoomez à la molette ou au curseur ; l'aperçu montre exactement ce qui sera publié."),
-                new("Nouveauté : Interrupteur « Justifier les textes longs » sous les « Autres détails » de l'éditeur : les valeurs longues s'alignent sur les deux bords, comme un paragraphe."),
-                new("Amélioration : Images de profil jusqu'à 32 Mo en PNG ou JPEG, réduites automatiquement."),
-                new("Correction : Dans la section Établissement de la fiche, la catégorie et le badge « Gérant » ne chevauchent plus la description."),            }),
+                new("Amélioration : Les nouvelles paires se chargent plus vite : en compression par défaut, tous les fichiers manquants partent dans un seul téléchargement, sans seconde passe ni attente."),
+                new("Correction : Un joueur qui change souvent d'apparence (emotes, arme sortie, Moodles…) finit par s'afficher : ses téléchargements ne repartent plus de zéro à chaque changement."),
+                new("Correction : Dans les intérieurs de housing, les joueurs ne restent plus sans leurs mods : un seul joueur encore en chargement, même à un autre étage, ne bloque plus l'affichage des autres."),
+                new("Correction : La dernière syncshell n'est plus coupée en bas de la liste."),
+            }),
         };
     }
 
