@@ -8,10 +8,6 @@ using UmbraSync.MareConfiguration.Models;
 
 namespace UmbraSync.PlayerData.Handlers;
 
-/// <summary>
-/// Traduit les remplacements de fichiers annoncés par un pair en redirections Penumbra exploitables,
-/// et signale ce qui manque encore en local. Ne touche ni au jeu ni aux IPC.
-/// </summary>
 public sealed class PairAssetResolver
 {
     private readonly ILogger _logger;
@@ -32,19 +28,11 @@ public sealed class PairAssetResolver
         _forbiddenTransfers = forbiddenTransfers;
         _compressionSettings = compressionSettings;
     }
-
-    /// <param name="MissingFiles">Remplacements dont le fichier n'est pas (encore) en cache local.</param>
-    /// <param name="LocallyPresentFiles">
-    /// Hashes déjà présents en local envoyés au download uniquement pour découvrir un alternate
-    /// (mode AlwaysCompressed) : si aucun alt n'existe, le download ne les re-téléchargera pas.
-    /// </param>
-    /// <param name="ModdedPaths">Redirections à poser dans Penumbra : (gamePath, hash source) → fichier réel.</param>
+    
     public sealed record Resolution(
         List<FileReplacementData> MissingFiles,
         HashSet<string> LocallyPresentFiles,
         Dictionary<(string GamePath, string? Hash), string> ModdedPaths);
-
-    /// <summary>Mode de compression pour ce pair : override par UID sinon config globale.</summary>
     public TextureCompressionMode ComputeCompressedAlternateUsage()
     {
         foreach (var uid in _compressionSettings.UidsToOverride)
@@ -60,12 +48,7 @@ public sealed class PairAssetResolver
     }
 
     private const int MaxResolveAttempts = 3;
-
-    /// <summary>
-    /// Résout les redirections. Une exception pendant le calcul (index du cache modifié en parallèle,
-    /// par exemple) relance le calcul complet ; après plusieurs échecs elle remonte à l'appelant :
-    /// une résolution partielle appliquerait le pair en vanilla sans réapplication.
-    /// </summary>
+    
     public Resolution Resolve(Guid applicationBase, CharacterData charaData, TextureCompressionMode compressedUsage, CancellationToken token)
     {
         for (int attempt = 1; ; attempt++)
@@ -103,10 +86,7 @@ public sealed class PairAssetResolver
 
         try
         {
-            // Un remplacement sans swap ET sans hash ne désigne aucun fichier : il ne sera jamais
-            // résolu ni téléchargeable. Le compter comme manquant fait boucler la boucle de download
-            // sur un hash vide et envoie des getFileSizes([""]) au serveur jusqu'à épuisement des
-            // tentatives. HasMissingFiles filtrait déjà ce cas, pas Resolve.
+
             var replacementList = charaData.FileReplacements
                 .SelectMany(k => k.Value.Where(v => string.IsNullOrEmpty(v.FileSwapPath)))
                 .Where(v => !string.IsNullOrWhiteSpace(v.Hash))
@@ -161,9 +141,8 @@ public sealed class PairAssetResolver
                     }
                     else
                     {
-                        // Statut inconnu : envoyer la source au download pour découvrir un alt, mais la marquer "déjà présente"
-                        // pour ne pas la re-télécharger si aucun alt n'existe.
-                        locallyPresentFileSet[item.Hash] = 0;
+                        if (fileCache != null)
+                            locallyPresentFileSet[item.Hash] = 0;
                         fileCache = null;
                     }
                 }
@@ -211,11 +190,7 @@ public sealed class PairAssetResolver
 
         return new Resolution([.. missingFiles], locallyPresentFiles, moddedDictionary);
     }
-
-    /// <summary>
-    /// Vrai si au moins un fichier attendu manque en local et reste téléchargeable. Purge au passage
-    /// les entrées de cache dont le fichier a disparu du disque.
-    /// </summary>
+    
     public bool HasMissingFiles(CharacterData data)
     {
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);

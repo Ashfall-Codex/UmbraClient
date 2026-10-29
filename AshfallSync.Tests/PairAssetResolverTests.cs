@@ -98,6 +98,31 @@ public class PairAssetResolverTests
     }
 
     [Fact]
+    public void Toujours_compresse_statut_inconnu_source_absente_reste_a_telecharger()
+    {
+        var data = Build.Data(Build.Replacement("SRC", "chara/body.tex"));
+
+        var result = Resolve(Create(new FakeFileCache()), data, TextureCompressionMode.AlwaysCompressed);
+
+        Assert.Single(result.MissingFiles);
+        Assert.Equal("SRC", result.MissingFiles[0].Hash);
+        Assert.DoesNotContain("SRC", result.LocallyPresentFiles);
+    }
+
+    [Fact]
+    public void Toujours_compresse_statut_inconnu_source_presente_part_seulement_en_decouverte()
+    {
+        var cache = new FakeFileCache().With("SRC", "/cache/src.tex");
+        var data = Build.Data(Build.Replacement("SRC", "chara/body.tex"));
+
+        var result = Resolve(Create(cache), data, TextureCompressionMode.AlwaysCompressed);
+
+        Assert.Single(result.MissingFiles);
+        Assert.Contains("SRC", result.LocallyPresentFiles);
+        Assert.Empty(result.ModdedPaths);
+    }
+
+    [Fact]
     public void Extension_manquante_declenche_une_migration_et_un_flush()
     {
         var cache = new FakeFileCache().With("NOEXT", "/cache/noext");
