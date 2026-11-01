@@ -39,8 +39,9 @@ public sealed class IpcCallerGlamourer : DisposableMediatorSubscriberBase, IIpcC
     private readonly EventSubscriber<nint>? _glamourerStateChanged;
     private readonly EventSubscriber<nint, StateChangeType>? _glamourerStateChangedWithType;
 
+    private readonly IDalamudPluginInterface _pluginInterface;
     private bool _pluginLoaded;
-    private Version _pluginVersion;
+    private Version _pluginVersion = new(0, 0, 0, 0);
 
     private bool _shownGlamourerUnavailable = false;
     private int _ownRevertDepth;
@@ -65,15 +66,11 @@ public sealed class IpcCallerGlamourer : DisposableMediatorSubscriberBase, IIpcC
         _mareMediator = mareMediator;
         _redrawManager = redrawManager;
 
-        var plugin = PluginWatcherService.GetInitialPluginState(pi, "Glamourer");
-
-        _pluginLoaded = plugin?.IsLoaded ?? false;
-        _pluginVersion = plugin?.Version ?? new(0, 0, 0, 0);
+        _pluginInterface = pi;
+        RefreshPluginState();
 
         Mediator.SubscribeKeyed<PluginChangeMessage>(this, "Glamourer", (msg) =>
         {
-            _pluginLoaded = msg.IsLoaded;
-            _pluginVersion = msg.Version;
             CheckAPI();
             if (msg.IsLoaded && !APIAvailable)
             {
@@ -179,6 +176,13 @@ public sealed class IpcCallerGlamourer : DisposableMediatorSubscriberBase, IIpcC
             _ => Loc.Get("Ipc.Glamourer.Unavailable.NotLoaded"),
         };
 
+    private void RefreshPluginState()
+    {
+        var plugin = PluginWatcherService.GetInitialPluginState(_pluginInterface, "Glamourer");
+        _pluginLoaded = plugin?.IsLoaded ?? false;
+        _pluginVersion = plugin?.Version ?? new(0, 0, 0, 0);
+    }
+
     public void CheckAPI()
     {
         bool apiAvailable = false;
@@ -186,6 +190,8 @@ public sealed class IpcCallerGlamourer : DisposableMediatorSubscriberBase, IIpcC
         var detail = string.Empty;
         try
         {
+            RefreshPluginState();
+
             if (!_pluginLoaded)
             {
                 reason = GlamourerUnavailableReason.NotLoaded;
