@@ -14,6 +14,8 @@ public class OnlinePlayerManager : DisposableMediatorSubscriberBase
     private readonly DalamudUtilService _dalamudUtil;
     private readonly FileUploadManager _fileTransferManager;
     private readonly PairManager _pairManager;
+    private readonly VisibilityService _visibilityService;
+    private readonly HashSet<UserData> _cameOnlineOutOfRange = new(UserDataComparer.Instance);
     private readonly Lock _stateLock = new();
     private CharacterData? _lastCreatedData;
     private long _dataGeneration;
@@ -39,11 +41,12 @@ public class OnlinePlayerManager : DisposableMediatorSubscriberBase
     private const int MaxReUploadHashes = 200;
 
     public OnlinePlayerManager(ILogger<OnlinePlayerManager> logger, ApiController apiController, DalamudUtilService dalamudUtil,
-        PairManager pairManager, MareMediator mediator, FileUploadManager fileTransferManager) : base(logger, mediator)
+        PairManager pairManager, MareMediator mediator, FileUploadManager fileTransferManager, VisibilityService visibilityService) : base(logger, mediator)
     {
         _apiController = apiController;
         _dalamudUtil = dalamudUtil;
         _pairManager = pairManager;
+        _visibilityService = visibilityService;
         _fileTransferManager = fileTransferManager;
 
         Mediator.Subscribe<DelayedFrameworkUpdateMessage>(this, (_) => FrameworkOnUpdate());
@@ -79,8 +82,14 @@ public class OnlinePlayerManager : DisposableMediatorSubscriberBase
         Mediator.Subscribe<PairOnlineMessage>(this, (msg) =>
         {
             if (!_apiController.IsConnected) return;
+            var inRange = _pairManager.GetPairByUID(msg.User.UID) is { } pair && IsInRange(pair);
             lock (_stateLock)
             {
+                if (!inRange)
+                {
+                    _cameOnlineOutOfRange.Add(msg.User);
+                    return;
+                }
                 if (_lastCreatedData == null) return;
                 _usersToPushDataTo.Add(msg.User);
             }
@@ -101,6 +110,7 @@ public class OnlinePlayerManager : DisposableMediatorSubscriberBase
             lock (_stateLock)
             {
                 _usersToPushDataTo.Clear();
+                _cameOnlineOutOfRange.Clear();
                 ResetRetryState();
             }
         });
@@ -233,7 +243,7 @@ public class OnlinePlayerManager : DisposableMediatorSubscriberBase
 
     private void PushToAllVisibleUsers()
     {
-        var visibleUsers = GetVisibleUsers();
+        var visibleUsers = GetUsersInRange();
         int count;
         lock (_stateLock)
         {
@@ -256,7 +266,16 @@ public class OnlinePlayerManager : DisposableMediatorSubscriberBase
     {
         if (!_dalamudUtil.GetIsPlayerPresent() || !_apiController.IsConnected) return;
 
-        var allVisibleUsers = GetVisibleUsers();
+        lock (_stateLock)
+        {
+            if (_cameOnlineOutOfRange.Count > 0)
+            {
+                _previouslyVisiblePlayers.RemoveAll(_cameOnlineOutOfRange.Contains);
+                _cameOnlineOutOfRange.Clear();
+            }
+        }
+
+        var allVisibleUsers = GetUsersInRange();
         var newVisibleUsers = allVisibleUsers.Except(_previouslyVisiblePlayers, UserDataComparer.Instance).ToList();
 
         _previouslyVisiblePlayers.Clear();
@@ -503,5 +522,10 @@ public class OnlinePlayerManager : DisposableMediatorSubscriberBase
         _nextRetryUtc = DateTime.MinValue;
     }
 
-    private List<UserData> GetVisibleUsers() => _pairManager.GetVisibleUsers();
+    private bool IsInRange(Pair pair) => !pair.IsPaused && (pair.IsVisible || _visibilityService.IsInObjectTable(pair.Ident));
+
+    private List<UserData> GetUsersInRange() => _pairManager.GetOnlineUserPairs()
+        .Where(IsInRange)
+        .Select(p => p.UserData)
+        .ToList();
 }
