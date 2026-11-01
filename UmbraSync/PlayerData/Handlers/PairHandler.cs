@@ -77,7 +77,8 @@ public sealed partial class PairHandler : DisposableMediatorSubscriberBase, IPai
     public bool Initialized => _charaHandler != null;
     public bool IsApplyingOrDownloading =>
         (_applicationTask != null && !_applicationTask.IsCompleted) ||
-        (_downloadTask != null && !_downloadTask.IsCompleted);
+        (_downloadTask != null && !_downloadTask.IsCompleted) ||
+        _redrawSettleCts != null;
     public CharacterData? LastReceivedCharacterData => _state.CachedData;
 
     public PairHandler(ILogger<PairHandler> logger, Pair pair, PairAnalyzer pairAnalyzer,
@@ -319,6 +320,11 @@ public sealed partial class PairHandler : DisposableMediatorSubscriberBase, IPai
             Logger.LogDebug("Disposing {pair}", Pair.UserData.AliasOrUID);
         try
         {
+            lock (_applyGate)
+            {
+                CancelRedrawSettle();
+            }
+
             Guid applicationId = Guid.NewGuid();
 
             if (!string.IsNullOrEmpty(name))
@@ -405,6 +411,11 @@ public sealed partial class PairHandler : DisposableMediatorSubscriberBase, IPai
         try
         {
             Logger.LogInformation("Pausing handler for {user}", Pair.UserData.UID);
+            lock (_applyGate)
+            {
+                CancelRedrawSettle();
+            }
+
             DisableSync();
             if (_charaHandler is not null && _charaHandler.Address != nint.Zero)
             {
@@ -493,6 +504,11 @@ public sealed partial class PairHandler : DisposableMediatorSubscriberBase, IPai
 
         if (!nowVisible && invalidate)
         {
+            lock (_applyGate)
+            {
+                CancelRedrawSettle();
+            }
+
             bool wasVisible = IsVisible;
             IsVisible = false;
             _charaHandler?.Invalidate();

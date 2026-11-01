@@ -18,11 +18,76 @@ public sealed partial class PairHandler
     {
         lock (_applyGate)
         {
-            ApplyCharacterDataCore(applicationBase, characterData, forceApplyCustomization);
+            ApplyCharacterDataCore(applicationBase, characterData, forceApplyCustomization, allowRedrawSettle: true);
+            if (!ReferenceEquals(_redrawSettleData, characterData))
+                CancelRedrawSettle();
         }
     }
 
-    private void ApplyCharacterDataCore(Guid applicationBase, CharacterData characterData, bool forceApplyCustomization)
+    private void ScheduleRedrawSettle(Guid applicationBase, CharacterData characterData)
+    {
+        var now = DateTime.UtcNow;
+        if (_redrawSettleCts == null)
+        {
+            _redrawSettleSince = now;
+            _redrawSettleGeneration = _state.ModReapplyGeneration;
+        }
+
+        var remaining = _redrawSettleSince + RedrawSettleMaxWait - now;
+        var delay = remaining < RedrawSettleDelay ? remaining : RedrawSettleDelay;
+        if (delay < TimeSpan.Zero)
+            delay = TimeSpan.Zero;
+
+        _redrawSettleCts?.Cancel();
+        var cts = new CancellationTokenSource();
+        _redrawSettleCts = cts;
+        _redrawSettleData = characterData;
+
+        Logger.LogDebug("[BASE-{appBase}] Rafale de données pour {uid} : redraw regroupé dans {delay} ms", applicationBase, Pair.UserData.UID, (int)delay.TotalMilliseconds);
+        _ = ApplyAfterRedrawSettleAsync(applicationBase, characterData, delay, cts);
+    }
+
+    private async Task ApplyAfterRedrawSettleAsync(Guid applicationBase, CharacterData characterData, TimeSpan delay, CancellationTokenSource cts)
+    {
+        try
+        {
+            await Task.Delay(delay, cts.Token).ConfigureAwait(false);
+            lock (_applyGate)
+            {
+                if (!ReferenceEquals(_redrawSettleCts, cts))
+                    return;
+
+                _redrawSettleCts = null;
+                _redrawSettleData = null;
+                if (Pair.IsPaused)
+                    return;
+
+                bool reapplyRequested = _state.ModReapplyGeneration != _redrawSettleGeneration;
+                ApplyCharacterDataCore(applicationBase, characterData, reapplyRequested, allowRedrawSettle: false);
+            }
+        }
+        catch (OperationCanceledException) when (cts.IsCancellationRequested)
+        {
+            Logger.LogTrace("[BASE-{appBase}] Attente de redraw remplacée", applicationBase);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "[BASE-{appBase}] Application regroupée impossible", applicationBase);
+        }
+        finally
+        {
+            cts.Dispose();
+        }
+    }
+
+    private void CancelRedrawSettle()
+    {
+        _redrawSettleCts?.Cancel();
+        _redrawSettleCts = null;
+        _redrawSettleData = null;
+    }
+
+    private void ApplyCharacterDataCore(Guid applicationBase, CharacterData characterData, bool forceApplyCustomization, bool allowRedrawSettle)
     {
         _state.LastApplyAttemptAt = DateTime.UtcNow;
         ClearFailureState();
@@ -98,7 +163,11 @@ public sealed partial class PairHandler
         {
             hasMissingFiles = _assetResolver.HasMissingFiles(characterData);
             if (!hasMissingFiles)
+            {
+                if (_applicationTask is { IsCompleted: false } || _downloadTask is { IsCompleted: false })
+                    _state.RequestModReapply();
                 return;
+            }
 
             Logger.LogDebug("[BASE-{appbase}] Same hash {hash} but missing files detected, forcing reapply", applicationBase, characterData.DataHash.Value);
         }
@@ -133,6 +202,18 @@ public sealed partial class PairHandler
         // Diff contre la dernière donnée réellement appliquée : CachedData peut contenir une donnée
         // différée ou annulée, dont les mods n'ont jamais été posés.
         var charaDataToUpdate = characterData.CheckUpdatedData(applicationBase, _state.LastAppliedData?.DeepClone() ?? new(), Logger, ToString(), forceApplyCustomization, _state.ForceApplyMods);
+
+        if (allowRedrawSettle && charaDataToUpdate.Values.Any(v => v.Contains(PlayerChanges.ForcedRedraw)))
+        {
+            var now = DateTime.UtcNow;
+            bool inBurst = now - _lastRedrawDataAt < RedrawBurstWindow;
+            _lastRedrawDataAt = now;
+            if (inBurst && _state.LastAppliedData != null && !_state.ForceApplyMods && !_state.RedrawOnNextApplication)
+            {
+                ScheduleRedrawSettle(applicationBase, characterData);
+                return;
+            }
+        }
 
         if (_charaHandler != null && _state.ForceApplyMods)
         {
@@ -388,6 +469,16 @@ public sealed partial class PairHandler
         return _downloadCancellationTokenSource.Token;
     }
 
+    private static readonly TimeSpan RedrawBurstWindow = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan RedrawSettleDelay = TimeSpan.FromSeconds(2);
+    private static readonly TimeSpan RedrawSettleMaxWait = TimeSpan.FromSeconds(8);
+
+    private CancellationTokenSource? _redrawSettleCts;
+    private CharacterData? _redrawSettleData;
+    private DateTime _redrawSettleSince;
+    private int _redrawSettleGeneration;
+    private DateTime _lastRedrawDataAt = DateTime.MinValue;
+
     private string? _inFlightDataHash;
 
     private Task? _pairDownloadTask;
@@ -610,9 +701,13 @@ public sealed partial class PairHandler
                 {
                     await _applicationTask.WaitAsync(combinedCts.Token).ConfigureAwait(false);
                 }
-                catch (OperationCanceledException)
+                catch (OperationCanceledException) when (!downloadToken.IsCancellationRequested)
                 {
                     Logger.LogWarning("[BASE-{appBase}] Timeout waiting for application task {id} to complete, proceeding anyway", applicationBase, _applicationId);
+                }
+                catch (OperationCanceledException)
+                {
+                    Logger.LogDebug("[BASE-{appBase}] Tentative remplacée pendant l'attente de l'application {id}", applicationBase, _applicationId);
                 }
             }
             else
