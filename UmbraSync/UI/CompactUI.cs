@@ -195,6 +195,8 @@ public partial class CompactUi : WindowMediatorSubscriberBase
         };
     }
 
+    protected override int ContentBackgroundLayers => 2;
+
     public override void PreDraw()
     {
         base.PreDraw();

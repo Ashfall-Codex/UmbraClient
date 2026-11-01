@@ -108,6 +108,20 @@ public sealed unsafe class BackdropBlur : IDisposable
             ImGui.GetColorU32(new Vector4(1f, 1f, 1f, Math.Clamp(opacity, 0f, 1f))), rounding);
     }
 
+    public void DrawInto(ImDrawListPtr drawList, Vector2 min, Vector2 max, float opacity)
+    {
+        if (!Ready) return;
+
+        var viewport = ImGui.GetMainViewport();
+        if (ImGui.GetWindowViewport().ID != viewport.ID) return;
+        var size = viewport.Size;
+        if (size.X <= 0 || size.Y <= 0) return;
+
+        var uv0 = (min - viewport.Pos) / size;
+        var uv1 = (max - viewport.Pos) / size;
+        drawList.AddImage(new ImTextureID((nint)views[0].Get()), min, max, uv0, uv1,
+            ImGui.GetColorU32(new Vector4(1f, 1f, 1f, Math.Clamp(opacity, 0f, 1f))));
+    }
 
     public void ReleaseIfIdle()
     {
