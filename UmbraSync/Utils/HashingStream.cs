@@ -7,25 +7,31 @@ public class HashingStream : Stream
 {
     private readonly Stream _stream;
     private readonly HashAlgorithm _hashAlgo;
+    private readonly HashAlgorithm? _secondaryHashAlgo;
     private bool _finished = false;
+    private bool _disposed = false;
     public bool DisposeUnderlying { get; set; } = true;
 
     public Stream UnderlyingStream { get => _stream; }
 
-    public HashingStream(Stream underlyingStream, HashAlgorithm hashAlgo)
+    public HashingStream(Stream underlyingStream, HashAlgorithm hashAlgo, HashAlgorithm? secondaryHashAlgo = null)
     {
         _stream = underlyingStream;
         _hashAlgo = hashAlgo;
+        _secondaryHashAlgo = secondaryHashAlgo;
     }
+    public byte[]? SecondaryHash => _finished ? _secondaryHashAlgo?.Hash : null;
 
     protected override void Dispose(bool disposing)
     {
         base.Dispose(disposing);
-        if (!DisposeUnderlying)
+        if (!DisposeUnderlying || _disposed)
             return;
+        _disposed = true;
         if (!_finished)
             _stream.Dispose();
         _hashAlgo.Dispose();
+        _secondaryHashAlgo?.Dispose();
     }
 
     public override bool CanRead => _stream.CanRead;
@@ -45,7 +51,10 @@ public class HashingStream : Stream
         ObjectDisposedException.ThrowIf(_finished, this);
         int n = _stream.Read(buffer, offset, count);
         if (n > 0)
+        {
             _hashAlgo.TransformBlock(buffer, offset, n, buffer, offset);
+            _secondaryHashAlgo?.TransformBlock(buffer, offset, n, null, 0);
+        }
         return n;
     }
 
@@ -65,6 +74,7 @@ public class HashingStream : Stream
         ObjectDisposedException.ThrowIf(_finished, this);
         _stream.Write(buffer, offset, count);
         _hashAlgo.TransformBlock(buffer, offset, count, buffer, offset);
+        _secondaryHashAlgo?.TransformBlock(buffer, offset, count, null, 0);
     }
 
     public byte[] Finish()
@@ -72,6 +82,7 @@ public class HashingStream : Stream
         if (_finished)
             return _hashAlgo.Hash!;
         _hashAlgo.TransformFinalBlock(Array.Empty<byte>(), 0, 0);
+        _secondaryHashAlgo?.TransformFinalBlock(Array.Empty<byte>(), 0, 0);
         _finished = true;
         if (DisposeUnderlying)
             _stream.Dispose();

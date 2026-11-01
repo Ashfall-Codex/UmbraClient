@@ -249,10 +249,21 @@ public class PlayerDataFactory
             var toCompute = fileReplacements.Where(f => !f.IsFileSwap).ToArray();
             _logger.LogDebug("Getting Hashes for {amount} Files", toCompute.Length);
             var computedPaths = _fileCacheManager.GetFileCachesByPaths(toCompute.Select(c => c.ResolvedPath).ToArray());
+            bool blake3Computed = false;
             foreach (var file in toCompute)
             {
-                file.Hash = computedPaths[file.ResolvedPath]?.Hash ?? string.Empty;
+                token.ThrowIfCancellationRequested();
+                var fileCache = computedPaths[file.ResolvedPath];
+                file.Hash = fileCache?.Hash ?? string.Empty;
+                string? blake3 = null;
+                bool computed = false;
+                if (fileCache != null)
+                    blake3 = _fileCacheManager.GetOrComputeBlake3(fileCache, out computed);
+                file.Blake3 = blake3 ?? string.Empty;
+                blake3Computed |= computed;
             }
+            if (blake3Computed)
+                _fileCacheManager.WriteOutFullCsv();
             var removed = fileReplacements.RemoveWhere(f => !f.IsFileSwap && string.IsNullOrEmpty(f.Hash));
             if (removed > 0)
             {

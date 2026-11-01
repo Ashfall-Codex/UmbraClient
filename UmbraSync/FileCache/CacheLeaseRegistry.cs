@@ -1,13 +1,9 @@
 using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
+using UmbraSync.Utils;
 
 namespace UmbraSync.FileCache;
 
-/// <summary>
-/// Hashes « épinglés » par leurs propriétaires (un pair appliqué, par exemple) : l'éviction
-/// automatique du cache ne les supprime pas tant qu'un bail existe. Garde aussi la date de
-/// dernier usage de chaque hash, LastAccessTime n'étant pas fiable (Wine/macOS, NTFS sans atime).
-/// </summary>
 public sealed class CacheLeaseRegistry
 {
     private readonly Lock _lock = new();
@@ -15,11 +11,7 @@ public sealed class CacheLeaseRegistry
     private readonly Dictionary<string, int> _leaseCounts = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, long> _lastUseTicks = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, byte> _pendingTouches = new(StringComparer.Ordinal);
-
-    /// <summary>
-    /// Remplace les baux de <paramref name="owner"/>. Accepte des hashes ou des chemins de fichiers
-    /// du cache (<c>HASH</c> ou <c>HASH.ext</c>) ; le reste (swaps, fichiers Penumbra locaux) est ignoré.
-    /// </summary>
+    
     public void SetLeases(object owner, IEnumerable<string> hashesOrPaths)
     {
         ArgumentNullException.ThrowIfNull(owner);
@@ -122,11 +114,7 @@ public sealed class CacheLeaseRegistry
         _lastUseTicks.TryRemove(normalized, out _);
         _pendingTouches.TryRemove(normalized, out _);
     }
-
-    /// <summary>
-    /// Vrai si le nom de fichier est celui d'un fichier du cache : hash hexadécimal de 40 caractères,
-    /// sans extension ou avec une seule extension qui n'est pas celle d'un temporaire.
-    /// </summary>
+    
     public static bool TryGetHashFromCacheFileName(string pathOrName, [NotNullWhen(true)] out string? hash)
     {
         hash = null;
@@ -135,18 +123,13 @@ public sealed class CacheLeaseRegistry
         ReadOnlySpan<char> name = Path.GetFileName(pathOrName.AsSpan());
         int dot = name.IndexOf('.');
         ReadOnlySpan<char> stem = dot < 0 ? name : name[..dot];
-        if (stem.Length != 40) return false;
+        if (!FileHash.IsAccepted(stem)) return false;
 
         if (dot >= 0)
         {
             ReadOnlySpan<char> extension = name[dot..];
             if (extension.Length < 2 || extension[1..].Contains('.')) return false;
             if (StorageFolderValidator.TemporaryExtensions.Contains(extension.ToString(), StringComparer.OrdinalIgnoreCase)) return false;
-        }
-
-        foreach (char c in stem)
-        {
-            if (!char.IsAsciiHexDigit(c)) return false;
         }
 
         hash = stem.ToString().ToUpperInvariant();

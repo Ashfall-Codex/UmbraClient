@@ -11,6 +11,7 @@ using UmbraSync.Services;
 using UmbraSync.Services.Mediator;
 using UmbraSync.Services.ServerConfiguration;
 using UmbraSync.Localization;
+using UmbraSync.Utils;
 
 namespace UmbraSync;
 
@@ -43,13 +44,23 @@ public class MarePlugin : MediatorSubscriberBase, IHostedService
     {
         var version = Assembly.GetExecutingAssembly().GetName().Version!;
         Logger.LogInformation("Launching {name} {major}.{minor}.{build}.{rev}", "Umbra Sync", version.Major, version.Minor, version.Build, version.Revision);
+        try
+        {
+            if (Crypto.Blake3SelfTest())
+                Logger.LogInformation("BLAKE3 self-test passed");
+            else
+                Logger.LogWarning("BLAKE3 self-test failed: this machine does not reproduce the reference hash");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "BLAKE3 self-test could not run");
+        }
         Mediator.Publish(new EventMessage(new Services.Events.Event(nameof(MarePlugin), Services.Events.EventSeverity.Informational,
             $"Starting Umbra Sync {version.Major}.{version.Minor}.{version.Build}.{version.Revision}")));
 
         Mediator.Subscribe<SwitchToMainUiMessage>(this, (msg) => { if (_launchTask == null || _launchTask.IsCompleted) _launchTask = Task.Run(WaitForPlayerAndLaunchCharacterManager); });
         Mediator.Subscribe<DalamudLoginMessage>(this, (_) => DalamudUtilOnLogIn());
         Mediator.Subscribe<DalamudLogoutMessage>(this, (_) => DalamudUtilOnLogOut());
-        // Consentement retiré : les services de synchronisation s'arrêtent et l'écran de consentement revient.
         Mediator.Subscribe<RgpdConsentUpdatedMessage>(this, (msg) =>
         {
             if (msg.ConsentGiven || !_dalamudUtil.IsLoggedIn) return;

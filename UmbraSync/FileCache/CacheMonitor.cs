@@ -508,7 +508,7 @@ public sealed class CacheMonitor : DisposableMediatorSubscriberBase
                                 .Where(f =>
                                 {
                                     var val = f.Split('\\')[^1];
-                                    return val.Length == 40 || (val.Split('.').FirstOrDefault()?.Length ?? 0) == 40
+                                    return FileHash.IsAcceptedFileName(val)
                                         || val.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase);
                                 });
         if (SubstWatcher != null)
@@ -546,7 +546,7 @@ public sealed class CacheMonitor : DisposableMediatorSubscriberBase
                                 .Where(f =>
                                 {
                                     var val = f.Split('\\')[^1];
-                                    return val.Length == 40 || (val.Split('.').FirstOrDefault()?.Length ?? 0) == 40
+                                    return FileHash.IsAcceptedFileName(val)
                                         || val.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase);
                                 });
 
@@ -1011,7 +1011,7 @@ public sealed class CacheMonitor : DisposableMediatorSubscriberBase
                                         return false;
 
                                     var val = f.Split('\\')[^1];
-                                    return val.Length == 40 || (val.Split('.').FirstOrDefault()?.Length ?? 0) == 40;
+                                    return FileHash.IsAcceptedFileName(val);
                                 });
 
         if (ct.IsCancellationRequested) return;

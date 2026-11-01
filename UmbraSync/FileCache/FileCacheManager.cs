@@ -64,7 +64,7 @@ public sealed class FileCacheManager : DisposableMediatorSubscriberBase, IHosted
         }
     }
 
-    public FileCacheEntity? CreateCacheEntry(string path, string? hash = null)
+    public FileCacheEntity? CreateCacheEntry(string path, string? hash = null, string? blake3 = null)
     {
         FileInfo fi = new(path);
         if (!fi.Exists) return null;
@@ -74,7 +74,7 @@ public sealed class FileCacheManager : DisposableMediatorSubscriberBase, IHosted
         if (!fullName.Contains(_configService.Current.CacheFolder.ToLowerInvariant(), StringComparison.Ordinal)) return null;
         string prefixedPath = fullName.Replace(_configService.Current.CacheFolder.ToLowerInvariant(), CachePrefix + "\\", StringComparison.Ordinal).Replace("\\\\", "\\", StringComparison.Ordinal);
         if (hash != null)
-            return CreateFileCacheEntity(fi, prefixedPath, hash);
+            return CreateFileCacheEntity(fi, prefixedPath, hash, blake3);
         else
             return CreateFileCacheEntity(fi, prefixedPath);
     }
@@ -467,10 +467,33 @@ public sealed class FileCacheManager : DisposableMediatorSubscriberBase, IHosted
             fileCache.Size = fi.Length;
             fileCache.CompressedSize = null;
             fileCache.Hash = Crypto.GetFileHash(fileCache.ResolvedFilepath);
+            fileCache.Blake3 = null;
             fileCache.LastModifiedDateTicks = fi.LastWriteTimeUtc.Ticks.ToString(CultureInfo.InvariantCulture);
         }
         RemoveHashedFile(oldHash, prefixedPath);
         AddHashedFile(fileCache);
+    }
+
+    public string? GetOrComputeBlake3(FileCacheEntity fileCache, out bool computed)
+    {
+        computed = false;
+        if (fileCache.Blake3 != null) return fileCache.Blake3;
+        if (fileCache.IsSubstEntry) return null;
+
+        try
+        {
+            var hashes = fileCache.ResolvedFilepath.GetFileHashes();
+            if (!string.Equals(hashes.Sha1, fileCache.Hash, StringComparison.OrdinalIgnoreCase)) return null;
+
+            fileCache.Blake3 = hashes.Blake3;
+            computed = true;
+            return hashes.Blake3;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _logger.LogDebug(ex, "Could not compute BLAKE3 for {path}", fileCache.ResolvedFilepath);
+            return null;
+        }
     }
 
     public (FileState State, FileCacheEntity FileCache) ValidateFileCacheEntity(FileCacheEntity fileCache)
@@ -524,6 +547,7 @@ public sealed class FileCacheManager : DisposableMediatorSubscriberBase, IHosted
             var extensionPath = fileCache.ResolvedFilepath.ToUpper(CultureInfo.InvariantCulture) + "." + ext;
             File.Move(fileCache.ResolvedFilepath, extensionPath, overwrite: true);
             var newHashedEntity = new FileCacheEntity(fileCache.Hash, fileCache.PrefixedFilePath + "." + ext, DateTime.UtcNow.Ticks.ToString(CultureInfo.InvariantCulture));
+            newHashedEntity.Blake3 = fileCache.Blake3;
             newHashedEntity.SetResolvedFilePath(extensionPath);
             AddHashedFile(newHashedEntity);
             _logger.LogTrace("Migrated from {oldPath} to {newPath}", fileCache.ResolvedFilepath, newHashedEntity.ResolvedFilepath);
@@ -553,10 +577,11 @@ public sealed class FileCacheManager : DisposableMediatorSubscriberBase, IHosted
         }
     }
 
-    private FileCacheEntity? CreateFileCacheEntity(FileInfo fileInfo, string prefixedPath, string? hash = null)
+    private FileCacheEntity? CreateFileCacheEntity(FileInfo fileInfo, string prefixedPath, string? hash = null, string? blake3 = null)
     {
         hash ??= Crypto.GetFileHash(fileInfo.FullName);
         var entity = new FileCacheEntity(hash, prefixedPath, fileInfo.LastWriteTimeUtc.Ticks.ToString(CultureInfo.InvariantCulture), fileInfo.Length);
+        entity.Blake3 = blake3;
         entity = ReplacePathPrefixes(entity);
         AddHashedFile(entity);
         lock (_fileWriteLock)
@@ -564,15 +589,12 @@ public sealed class FileCacheManager : DisposableMediatorSubscriberBase, IHosted
             File.AppendAllLines(_csvPath, new[] { entity.CsvEntry });
         }
         var result = GetFileCacheByPath(fileInfo.FullName);
+        if (result != null && blake3 != null && result.Blake3 == null && string.Equals(result.Hash, hash, StringComparison.OrdinalIgnoreCase))
+            result.Blake3 = blake3;
         _logger.LogTrace("Creating cache entity for {name} success: {success}", fileInfo.FullName, (result != null));
         return result;
     }
 
-    /// <summary>
-    /// Re-résout tous les chemins absolus à partir des préfixes. Nécessaire après un changement
-    /// de dossier de stockage : les entités déjà chargées pointeraient sinon vers l'ancien
-    /// emplacement jusqu'à leur prochaine validation.
-    /// </summary>
     public void ResolveAllPaths()
     {
         lock (_fileCachesLock)
@@ -704,7 +726,7 @@ public sealed class FileCacheManager : DisposableMediatorSubscriberBase, IHosted
                 try
                 {
                     var hash = splittedEntry[0];
-                    if (hash.Length != 40) throw new InvalidOperationException("Expected Hash length of 40, received " + hash.Length);
+                    if (!FileHash.IsAccepted(hash)) throw new InvalidOperationException("Unexpected hash format, length " + hash.Length);
                     var path = splittedEntry[1];
                     var time = splittedEntry[2];
 
@@ -729,7 +751,10 @@ public sealed class FileCacheManager : DisposableMediatorSubscriberBase, IHosted
                             compressed = resultCompressed;
                         }
                     }
-                    AddHashedFile(ReplacePathPrefixes(new FileCacheEntity(hash, path, time, size, compressed)));
+                    var entity = new FileCacheEntity(hash, path, time, size, compressed);
+                    if (splittedEntry.Length > 5 && FileHash.IsBlake3(splittedEntry[5]))
+                        entity.Blake3 = splittedEntry[5];
+                    AddHashedFile(ReplacePathPrefixes(entity));
                 }
                 catch (Exception ex)
                 {

@@ -15,6 +15,7 @@
     </ItemGroup>
 
     <ItemGroup>
+        <PackageReference Include="Blake3" Version="3.0.2" />
         <PackageReference Include="Chaos.NaCl.Standard" Version="1.0.0" />
         <PackageReference Include="Brio.API" Version="3.0.1" />
         <PackageReference Include="Downloader" Version="5.1.0" />

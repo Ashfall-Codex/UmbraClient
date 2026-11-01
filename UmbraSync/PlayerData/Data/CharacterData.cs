@@ -26,6 +26,7 @@ public class CharacterData
             {
                 GamePaths = g.SelectMany(f => f.GamePaths).Distinct(StringComparer.OrdinalIgnoreCase).ToArray(),
                 Hash = g.First().Hash,
+                Blake3 = g.Select(f => f.Blake3).FirstOrDefault(b => !string.IsNullOrEmpty(b)) ?? string.Empty,
             };
         }).ToList());
 
