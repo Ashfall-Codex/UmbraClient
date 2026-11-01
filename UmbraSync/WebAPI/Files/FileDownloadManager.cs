@@ -2243,7 +2243,11 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
     {
         if (blake3 == null || !_expectedBlake3.TryGetValue(hash, out var expected)) return true;
         var computed = Convert.ToHexString(blake3);
-        if (string.Equals(computed, expected, StringComparison.OrdinalIgnoreCase)) return true;
+        if (string.Equals(computed, expected, StringComparison.OrdinalIgnoreCase))
+        {
+            Logger.LogDebug("BLAKE3 verified for {hash}", hash);
+            return true;
+        }
 
         Logger.LogWarning("BLAKE3 mismatch for {hash}: got {computed}, expected {expected}", hash, computed, expected);
         return false;

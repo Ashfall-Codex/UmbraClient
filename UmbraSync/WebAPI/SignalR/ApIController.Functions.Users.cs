@@ -405,7 +405,7 @@ public partial class ApiController
         StringBuilder sb = new();
         foreach (var kvp in character.FileReplacements.ToList())
         {
-            sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "FileReplacements for {0}: {1}", kvp.Key, kvp.Value.Count));
+            sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "FileReplacements for {0}: {1}, with BLAKE3: {2}", kvp.Key, kvp.Value.Count, kvp.Value.Count(r => FileHash.IsBlake3(r.Blake3))));
         }
         foreach (var item in character.GlamourerData)
         {
