@@ -4777,6 +4777,36 @@ Note: Weapons will not be displayed correctly unless using the same job as the s
   <data name="EditProfile.SaveConfirm" xml:space="preserve">
     <value>Profile saved!</value>
   </data>
+  <data name="EditProfile.DeleteRp.Header" xml:space="preserve">
+    <value>Delete RP profile</value>
+  </data>
+  <data name="EditProfile.DeleteRp.Description" xml:space="preserve">
+    <value>Deletes this character's RP profile from the server and from this machine, including its establishment affiliations. Your OOC profile, moodles and Honorific title are not affected. Players who already saw this profile may keep a copy for up to 30 days.</value>
+  </data>
+  <data name="EditProfile.DeleteRp.Button" xml:space="preserve">
+    <value>Delete this profile</value>
+  </data>
+  <data name="EditProfile.DeleteRp.ConfirmTitle" xml:space="preserve">
+    <value>Delete this profile?</value>
+  </data>
+  <data name="EditProfile.DeleteRp.ConfirmMessage" xml:space="preserve">
+    <value>{0}'s RP profile will be permanently deleted. This cannot be undone.</value>
+  </data>
+  <data name="EditProfile.DeleteRp.ConfirmYes" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="EditProfile.DeleteRp.SuccessTitle" xml:space="preserve">
+    <value>Profile deleted</value>
+  </data>
+  <data name="EditProfile.DeleteRp.SuccessBody" xml:space="preserve">
+    <value>Your RP profile was deleted from the server and from this machine.</value>
+  </data>
+  <data name="EditProfile.DeleteRp.ErrorTitle" xml:space="preserve">
+    <value>Could not delete</value>
+  </data>
+  <data name="EditProfile.DeleteRp.ErrorBody" xml:space="preserve">
+    <value>The profile could not be deleted from the server. Nothing was changed on this machine.</value>
+  </data>
   <data name="EditProfile.SaveErrorTitle" xml:space="preserve">
     <value>Save error</value>
   </data>

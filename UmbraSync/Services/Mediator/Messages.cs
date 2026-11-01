@@ -82,6 +82,7 @@ public record DownloadFinishedMessage(GameObjectHandler DownloadId) : MessageBas
 public record UiToggleMessage(Type UiType) : MessageBase;
 public record PlayerUploadingMessage(GameObjectHandler Handler, bool IsUploading) : MessageBase;
 public record ClearProfileDataMessage(UserData? UserData = null, string? CharacterName = null, uint? WorldId = null) : MessageBase;
+public record RpProfileDeletedMessage(UserData User, uint WorldId) : MessageBase;
 public record CyclePauseMessage(UserData UserData) : MessageBase;
 public record PauseMessage(UserData UserData) : MessageBase;
 public record GroupPairPauseMessage(GroupData Group, UserData UserData, GroupUserPermissions CurrentPermissions) : MessageBase;

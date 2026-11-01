@@ -94,6 +94,7 @@ public sealed class UmbraProfileManager : MediatorSubscriberBase, IDisposable
             else
                 _umbraProfiles.Clear();
         });
+        Mediator.Subscribe<RpProfileDeletedMessage>(this, (msg) => _ = RefreshPersistedCopiesAsync(msg.User, msg.WorldId));
         Mediator.Subscribe<DisconnectedMessage>(this, (_) =>
         {
             Interlocked.Increment(ref _cacheGeneration);
@@ -536,7 +537,7 @@ public sealed class UmbraProfileManager : MediatorSubscriberBase, IDisposable
             // the user always sees their own settings reflected in the UI.
             ushort effectiveChatIcon = profile.ChatIcon ?? 0;
             byte effectiveRpLevel = profile.RpLevel ?? 0;
-            if (isSelf && !string.IsNullOrEmpty(charName) && worldId is > 0)
+            if (isSelf && profile.RpVisibility.HasValue && !string.IsNullOrEmpty(charName) && worldId is > 0)
             {
                 var localRp = _rpConfigService.GetCharacterProfile(charName, worldId.Value);
                 if (effectiveChatIcon == 0 && localRp.ChatIcon != 0)
@@ -615,7 +616,8 @@ public sealed class UmbraProfileManager : MediatorSubscriberBase, IDisposable
             {
                 // Le serveur ne renvoie un niveau de visibilité à un autre joueur que lorsque la fiche RP existe
                 // mais ne lui est plus accessible : l'ancienne copie conservée sur disque doit disparaître.
-                if (profile.RpVisibility.HasValue)
+                var pausedPairRefusal = IsPauseRefusal(profileData) && _pairManager.GetPairByUID(data.UID) != null;
+                if (profile.RpVisibility.HasValue && !pausedPairRefusal)
                     RemovePersistedProfile(data, charName, worldId);
                 else if (!IsPauseRefusal(profileData))
                     UpdatePersistedProfile(data, charName, worldId, profileData);
@@ -631,6 +633,35 @@ public sealed class UmbraProfileManager : MediatorSubscriberBase, IDisposable
             _umbraProfiles[key] = _defaultProfileData;
         }
     }
+
+    private async Task RefreshPersistedCopiesAsync(UserData user, uint worldId)
+    {
+        try
+        {
+            if (string.Equals(user.UID, _apiController.UID, StringComparison.Ordinal)) return;
+
+            var generation = Volatile.Read(ref _cacheGeneration);
+            var copies = _persistedProfiles.Values
+                .Where(p => string.Equals(p.Key.User.UID, user.UID, StringComparison.Ordinal) && p.Key.WorldId == worldId)
+                .Select(p => p.Key.CharName)
+                .ToList();
+            if (copies.Count == 0) return;
+
+            await Task.Delay(Random.Shared.Next(2000, 8000)).ConfigureAwait(false);
+            foreach (var charName in copies)
+            {
+                if (generation != Volatile.Read(ref _cacheGeneration)) return;
+                await GetUmbraProfileFromService(user, charName, worldId).ConfigureAwait(false);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogDebug(ex, "Relecture des fiches après une suppression impossible");
+        }
+    }
+
+    public void ForgetOwnProfile(string charName, uint worldId)
+        => _umbraProfiles.TryRemove(NormalizeKey(new UserData(_apiController.UID), charName, worldId), out _);
 
     private void MarkProfileFetchFailed((UserData User, string? CharName, uint? WorldId) key)
     {
@@ -692,6 +723,7 @@ public sealed class UmbraProfileManager : MediatorSubscriberBase, IDisposable
                 profile.MoodlesData,
                 profile.ChatIcon ?? 0,
                 profile.RpLevel ?? 0,
+                RpVisibility: profile.RpVisibility,
                 Base64RpBanner: profile.RpBannerBase64,
                 RpCardStyle: profile.RpCardStyle);
 
@@ -1032,13 +1064,6 @@ public sealed class UmbraProfileManager : MediatorSubscriberBase, IDisposable
         if (_cacheWritesStopped || !IsCacheLoadedForCurrentUid() || _imageStore is not { } store) return;
 
         var cacheKey = $"{data.UID}_{charName}_{worldId}";
-        bool hasRpName = !string.IsNullOrWhiteSpace(profile.RpFirstName) || !string.IsNullOrWhiteSpace(profile.RpLastName);
-        if (!hasRpName && _persistedProfiles.Values.Any(e =>
-                string.Equals(e.Key.User.UID, data.UID, StringComparison.Ordinal)
-                && string.Equals(e.Key.CharName, charName, StringComparison.Ordinal)
-                && (!string.IsNullOrWhiteSpace(e.Profile.RpFirstName) || !string.IsNullOrWhiteSpace(e.Profile.RpLastName))))
-            return;
-
         var stored = profile.WithImagesStoredIn(store);
         if (stored.ImageData.IsAwaitingStorage || stored.RpImageData.IsAwaitingStorage || stored.RpBannerData.IsAwaitingStorage) return;
 
@@ -1054,7 +1079,8 @@ public sealed class UmbraProfileManager : MediatorSubscriberBase, IDisposable
             _persistedProfiles[cacheKey] = ((data, charName, worldId), stored);
             _persistedAtUtc[cacheKey] = DateTime.UtcNow;
 
-            foreach (var key in _persistedProfiles.Keys.ToList())
+            var hasRpName = !string.IsNullOrWhiteSpace(profile.RpFirstName) || !string.IsNullOrWhiteSpace(profile.RpLastName);
+            foreach (var key in hasRpName ? _persistedProfiles.Keys.ToList() : [])
             {
                 if (string.Equals(key, cacheKey, StringComparison.Ordinal)) continue;
                 if (!_persistedProfiles.TryGetValue(key, out var existing)) continue;

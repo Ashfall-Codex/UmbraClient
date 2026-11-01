@@ -324,6 +324,12 @@ public partial class ApiController
         }
     }
 
+    public async Task UserDeleteRpProfile(UserDto dto)
+    {
+        if (!IsConnected) throw new InvalidOperationException("Not connected to server");
+        await _mareHub!.InvokeAsync(nameof(UserDeleteRpProfile), dto).ConfigureAwait(false);
+    }
+
     public async Task UserSetProfile(UserProfileDto userDescription)
     {
         if (!IsConnected)

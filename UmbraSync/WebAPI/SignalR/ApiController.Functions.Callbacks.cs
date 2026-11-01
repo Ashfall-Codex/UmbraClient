@@ -310,7 +310,11 @@ public partial class ApiController
     {
         if (Logger.IsEnabled(LogLevel.Debug))
             Logger.LogDebug("Client_UserUpdateProfile: {uid}", dto.User.UID);
-        ExecuteSafely(() => Mediator.Publish(new ClearProfileDataMessage(dto.User, null, null)));
+        ExecuteSafely(() =>
+        {
+            Mediator.Publish(new ClearProfileDataMessage(dto.User, null, null));
+            if (dto.WorldId is > 0) Mediator.Publish(new RpProfileDeletedMessage(dto.User, dto.WorldId.Value));
+        });
         return Task.CompletedTask;
     }
 

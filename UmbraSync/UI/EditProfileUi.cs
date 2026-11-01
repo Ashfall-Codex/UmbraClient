@@ -73,6 +73,9 @@ public class EditProfileUi : WindowMediatorSubscriberBase
     private volatile bool _previewRefreshPending;
     private bool _wasOpen;
     private bool _rpLoaded = false;
+    private bool _rpDeleteConfirmShown;
+    private volatile bool _rpDeleteInProgress;
+    private int _profileWritesInFlight;
     private string _rpLoadedForKey = string.Empty;
     private bool _hrpLoaded = false;
     private int _activeTab;
@@ -259,6 +262,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
             RpCustomFields: _rpCustomFields.Count > 0 ? _rpCustomFields : null,
             ChatIcon: _chatIconPicker.SelectedIcon,
             RpLevel: _rpLevel,
+            RpVisibility: _rpVisibility,
             Base64RpBanner: _rpBannerImage.Length > 0 ? CachedBase64("banner", _rpBannerImage) : null,
             RpCardStyle: _cardStyle.Serialize()
         );
@@ -288,7 +292,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
     {
         var charName = _dalamudUtil.GetPlayerName();
         var worldId = _dalamudUtil.GetHomeWorldId();
-        if (string.IsNullOrEmpty(charName) || string.Equals(charName, "--", StringComparison.Ordinal) || worldId == 0)
+        if (string.IsNullOrEmpty(charName) || string.Equals(charName, "--", StringComparison.Ordinal) || worldId == 0 || _rpDeleteInProgress)
             return false;
 
         var profile = _rpConfigService.GetCurrentCharacterProfile();
@@ -298,6 +302,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
         _rpVisibility = visibility;
         _savedRpVisibility = visibility;
 
+        Interlocked.Increment(ref _profileWritesInFlight);
         _ = Task.Run(async () =>
         {
             try
@@ -337,6 +342,10 @@ public class EditProfileUi : WindowMediatorSubscriberBase
             {
                 _logger.LogWarning(ex, "Failed to save RP visibility");
                 Mediator.Publish(new NotificationMessage(Loc.Get("EditProfile.SaveErrorTitle"), Loc.Get("EditProfile.SaveErrorBody"), NotificationType.Error));
+            }
+            finally
+            {
+                Interlocked.Decrement(ref _profileWritesInFlight);
             }
         });
         return true;
@@ -518,10 +527,11 @@ public class EditProfileUi : WindowMediatorSubscriberBase
             _rpAdditionalInfoText = umbraProfile.RpAdditionalInfo ?? string.Empty;
 
             var configProfile = _rpConfigService.GetCurrentCharacterProfile();
+            var noServerProfile = !umbraProfile.RpVisibility.HasValue && !umbraProfile.IsFlagged;
             // Source de vérité = serveur (Connect peut le modifier entre deux ouvertures du
             // plugin). Fallback config locale uniquement si le serveur a renvoyé null (perso
             // jamais sync). Une liste vide côté serveur signifie "tout supprimé" et est respectée.
-            var customFieldsSource = umbraProfile.RpCustomFields ?? configProfile.RpCustomFields;
+            var customFieldsSource = umbraProfile.RpCustomFields ?? (noServerProfile ? [] : configProfile.RpCustomFields);
             _rpCustomFields = customFieldsSource
                 .Select(f => new RpCustomField { Name = f.Name, Value = f.Value, Order = f.Order })
                 .ToList();
@@ -544,6 +554,13 @@ public class EditProfileUi : WindowMediatorSubscriberBase
             configProfile.RpNameColor = umbraProfile.RpNameColor ?? string.Empty;
             configProfile.RpCardStyle = umbraProfile.RpCardStyle ?? string.Empty;
             if (umbraProfile.RpVisibility.HasValue) configProfile.RpVisibility = umbraProfile.RpVisibility.Value;
+            if (noServerProfile)
+            {
+                configProfile.RpDescription = string.Empty;
+                configProfile.ChatIcon = 0;
+                configProfile.RpLevel = 0;
+                if (!_rpPortraitDirty) configProfile.RpProfilePictureBase64 = string.Empty;
+            }
             _rpConfigService.Save();
 
             _chatIconPicker.SelectedIcon = umbraProfile.ChatIcon > 0 ? umbraProfile.ChatIcon : configProfile.ChatIcon;
@@ -590,6 +607,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
             }
 
             _rpLoaded = true;
+            _previewRefreshPending = true;
             _rpLoadedForKey = curKey;
             _hydratedRpSnapshot = ComputeRpSnapshotFromProfile(umbraProfile);
             _serverHasNewerVersion = false;
@@ -886,6 +904,79 @@ public class EditProfileUi : WindowMediatorSubscriberBase
         ImGuiHelpers.ScaledDummy(new Vector2(0f, 6f));
 
         DrawNsfwToggle(true);
+
+        UiSharedService.BeginSectionCard(Loc.Get("EditProfile.DeleteRp.Header"), FontAwesomeIcon.Trash);
+        DrawRpDeleteSection();
+    }
+
+    private void DrawRpDeleteSection()
+    {
+        UiSharedService.TextWrapped(Loc.Get("EditProfile.DeleteRp.Description"));
+        ImGuiHelpers.ScaledDummy(new Vector2(0f, 4f));
+
+        var charName = _dalamudUtil.GetPlayerName();
+        var worldId = _dalamudUtil.GetHomeWorldId();
+        bool canDelete = _rpLoaded && !_rpDeleteInProgress && Volatile.Read(ref _profileWritesInFlight) == 0 && worldId > 0 && _apiController.IsConnected
+            && !string.IsNullOrEmpty(charName) && !string.Equals(charName, "--", StringComparison.Ordinal);
+        using (ImRaii.Disabled(!canDelete))
+        {
+            if (_uiSharedService.IconTextButton(FontAwesomeIcon.Trash, Loc.Get("EditProfile.DeleteRp.Button")))
+            {
+                _rpDeleteConfirmShown = true;
+                ImGui.OpenPopup("###rpDeletePopup");
+            }
+        }
+
+        if (ImGui.BeginPopupModal(Loc.Get("EditProfile.DeleteRp.ConfirmTitle") + "###rpDeletePopup", ref _rpDeleteConfirmShown, UiSharedService.PopupWindowFlags))
+        {
+            UiSharedService.TextWrapped(string.Format(System.Globalization.CultureInfo.CurrentCulture, Loc.Get("EditProfile.DeleteRp.ConfirmMessage"), charName));
+            ImGui.Separator();
+            ImGui.Spacing();
+            var buttonSize = (ImGui.GetWindowContentRegionMax().X - ImGui.GetWindowContentRegionMin().X - ImGui.GetStyle().ItemSpacing.X) / 2f;
+
+            if (ImGui.Button(Loc.Get("EditProfile.DeleteRp.ConfirmYes"), new Vector2(buttonSize, 0)))
+            {
+                _rpDeleteConfirmShown = false;
+                if (canDelete) DeleteRpProfile(charName, worldId);
+            }
+            ImGui.SameLine();
+            if (ImGui.Button(Loc.Get("Common.Cancel") + "##cancelRpDelete", new Vector2(buttonSize, 0)))
+                _rpDeleteConfirmShown = false;
+
+            UiSharedService.SetScaledWindowSize(350);
+            ImGui.EndPopup();
+        }
+    }
+
+    private void DeleteRpProfile(string charName, uint worldId)
+    {
+        _rpDeleteInProgress = true;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                var user = new UserData(_apiController.UID);
+                await _apiController.UserDeleteRpProfile(new UserDto(user) { CharacterName = charName, WorldId = worldId }).ConfigureAwait(false);
+
+                _umbraProfileManager.ForgetOwnProfile(charName, worldId);
+                _rpConfigService.ClearRpFields(charName, worldId);
+                _rpPortraitDirty = false;
+                _rpBannerDirty = false;
+                _rpLoaded = false;
+                _hrpLoaded = false;
+                Mediator.Publish(new ClearProfileDataMessage(user, charName, worldId));
+                Mediator.Publish(new NotificationMessage(Loc.Get("EditProfile.DeleteRp.SuccessTitle"), Loc.Get("EditProfile.DeleteRp.SuccessBody"), NotificationType.Success));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to delete RP profile");
+                Mediator.Publish(new NotificationMessage(Loc.Get("EditProfile.DeleteRp.ErrorTitle"), Loc.Get("EditProfile.DeleteRp.ErrorBody"), NotificationType.Error));
+            }
+            finally
+            {
+                _rpDeleteInProgress = false;
+            }
+        });
     }
 
     private void DrawStoryPage()
@@ -1609,7 +1700,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
         var charName = _dalamudUtil.GetPlayerName();
         var worldId = _dalamudUtil.GetHomeWorldId();
         bool playerReady = !string.IsNullOrEmpty(charName) && !string.Equals(charName, "--", StringComparison.Ordinal) && worldId > 0;
-        if (!playerReady || (isRp ? !_rpLoaded : !_hrpLoaded))
+        if (!playerReady || _rpDeleteInProgress || (isRp ? !_rpLoaded : !_hrpLoaded))
         {
             Mediator.Publish(new NotificationMessage(Loc.Get("EditProfile.SaveErrorTitle"), Loc.Get("EditProfile.ProfileNotReady"), NotificationType.Warning));
             return;
@@ -1664,12 +1755,14 @@ public class EditProfileUi : WindowMediatorSubscriberBase
         var rpPortraitSaved = isRp && _rpPortraitDirty;
         var hrpNsfw = _hrpNsfw;
 
+        Interlocked.Increment(ref _profileWritesInFlight);
         _ = Task.Run(async () =>
         {
             try
             {
-                var curProfile = await _apiController.TryUserGetProfile(new UserDto(new UserData(_apiController.UID, _apiController.DisplayName))).ConfigureAwait(false)
+                var curProfile = await _apiController.TryUserGetProfile(new UserDto(new UserData(_apiController.UID, _apiController.DisplayName), charName, worldId)).ConfigureAwait(false)
                     ?? throw new InvalidOperationException("Profil actuel indisponible, écriture annulée");
+                var writesRpProfile = isRp || curProfile.CharacterName != null;
                 if (isRp)
                     _logger.LogInformation("Saving RP profile for {uid}", _apiController.UID);
                 else
@@ -1682,8 +1775,8 @@ public class EditProfileUi : WindowMediatorSubscriberBase
                     hrpPortraitSnapshot ?? curProfile.ProfilePictureBase64,
                     isRp ? curProfile.Description : _descriptionText)
                 {
-                    CharacterName = charName,
-                    WorldId = worldId,
+                    CharacterName = writesRpProfile ? charName : null,
+                    WorldId = writesRpProfile ? worldId : null,
                     RpProfilePictureBase64 = localRpProfile.RpProfilePictureBase64,
                     RpDescription = localRpProfile.RpDescription,
                     IsRpNSFW = localRpProfile.IsRpNsfw,
@@ -1727,6 +1820,10 @@ public class EditProfileUi : WindowMediatorSubscriberBase
                 _logger.LogWarning(ex, "Failed to save profile");
                 Mediator.Publish(new NotificationMessage(Loc.Get("EditProfile.SaveErrorTitle"), Loc.Get("EditProfile.SaveErrorBody"), NotificationType.Error));
                 _notificationTracker.Upsert(NotificationEntry.ProfileSaveFailed());
+            }
+            finally
+            {
+                Interlocked.Decrement(ref _profileWritesInFlight);
             }
         });
     }

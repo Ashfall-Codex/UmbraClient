@@ -20,6 +20,19 @@ public class RpConfigService(string configDir, DalamudUtilService dalamudUtil) :
         }
         return profile;
     }
+    public void ClearRpFields(string charName, uint worldId)
+    {
+        var previous = GetCharacterProfile(charName, worldId);
+        Current.CharacterProfiles[GetCharacterKey(charName, worldId)] = new CharacterRpProfile
+        {
+            MoodlesBackupJson = previous.MoodlesBackupJson,
+            MoodlesBackupTimestamp = previous.MoodlesBackupTimestamp,
+            HonorificBackupJson = previous.HonorificBackupJson,
+            HonorificBackupTimestamp = previous.HonorificBackupTimestamp,
+        };
+        Save();
+    }
+
     public CharacterRpProfile GetCurrentCharacterProfile()
     {
         return GetCharacterProfile(_dalamudUtil.GetPlayerName(), _dalamudUtil.GetHomeWorldId());
