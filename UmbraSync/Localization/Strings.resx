@@ -5745,6 +5745,9 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
   <data name="Settings.ProfileBrowser.OpenProfile" xml:space="preserve">
     <value>Open Profile</value>
   </data>
+  <data name="Settings.ProfileBrowser.LearnMore" xml:space="preserve">
+    <value>Learn More</value>
+  </data>
   <data name="Settings.ProfileBrowser.CachedProfile" xml:space="preserve">
     <value>{0} cached profile</value>
   </data>
@@ -5753,6 +5756,15 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
   </data>
   <data name="Settings.ProfileBrowser.ClearCache" xml:space="preserve">
     <value>Clear cache</value>
+  </data>
+  <data name="Settings.ProfileBrowser.ClearCache.ConfirmTitle" xml:space="preserve">
+    <value>Clear the cache?</value>
+  </data>
+  <data name="Settings.ProfileBrowser.ClearCache.ConfirmMessage" xml:space="preserve">
+    <value>The profiles and images stored on this machine will be erased, along with the last seen state of players out of sight. Profiles will load again when you next meet these players.</value>
+  </data>
+  <data name="Settings.ProfileBrowser.ClearCache.ConfirmYes" xml:space="preserve">
+    <value>Clear</value>
   </data>
   <data name="Settings.ProfileBrowser.OwnCharacters" xml:space="preserve">
     <value>My other characters</value>

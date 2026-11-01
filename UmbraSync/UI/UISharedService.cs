@@ -82,6 +82,13 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
     public static Vector4 ThemeAccentSoft => ThemeTint(new(0.75f, 0.5f, 1f, 1f));
     public static readonly Vector4 ThemeSwitchKnobOn = new(1f, 0.98f, 1f, 1f);
     public static readonly Vector4 ThemeSwitchKnobOff = new(0.70f, 0.68f, 0.74f, 1f);
+    public static readonly Vector4 ThemeCapsule = new(0.09f, 0.09f, 0.11f, 0.72f);
+    public static readonly Vector4 ThemeCapsuleHovered = new(0.15f, 0.15f, 0.17f, 0.85f);
+    public static readonly Vector4 ThemeCapsulePressed = new(0.04f, 0.04f, 0.05f, 0.86f);
+    public static readonly Vector4 ThemeCapsuleBorder = new(1f, 1f, 1f, 0.16f);
+    public static readonly Vector4 ThemeCapsuleBorderHovered = new(1f, 1f, 1f, 0.30f);
+    public static readonly Vector4 ThemeCapsuleLabel = new(1f, 1f, 1f, 1f);
+    public static readonly Vector4 ThemeDestructive = new(1f, 0.27f, 0.23f, 1f);
     public static Vector4 ThemeCardBorder => WithAlpha(AccentColor, 0.45f);
     public static Vector4 ThemeCardBg => WithAlpha(ThemeButtonBg, CardAlpha());
     public const int ThemeColorCount = 27;

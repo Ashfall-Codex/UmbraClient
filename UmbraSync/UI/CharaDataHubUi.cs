@@ -157,6 +157,7 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
     private volatile string? _ownHonorificBase64;
     private DateTime _nextOwnHonorificRefresh = DateTime.MinValue;
     private string _profileBrowserSearch = string.Empty;
+    private bool _clearProfileCacheConfirmShown;
     private readonly Dictionary<string, float> _profileCardHeights = new(StringComparer.Ordinal);
 
     public CharaDataHubUi(ILogger<CharaDataHubUi> logger, MareMediator mediator, PerformanceCollectorService performanceCollectorService,
@@ -1664,25 +1665,53 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
                 => value != null && value.Contains(search, StringComparison.OrdinalIgnoreCase);
         }
 
+        var clearLabel = Loc.Get("Settings.ProfileBrowser.ClearCache");
+        var headerTop = ImGui.GetCursorPosY();
+        var headerRight = ImGui.GetCursorPosX() + ImGui.GetContentRegionAvail().X;
+        ImGui.SetCursorPosY(headerTop + (CapsuleButton.HitRegionHeight - ImGui.GetTextLineHeight()) / 2f);
         ImGui.TextColored(ImGuiColors.DalamudGrey,
             string.Format(CultureInfo.InvariantCulture, Loc.Get(filtered.Count == 1 ? "Settings.ProfileBrowser.CachedProfile" : "Settings.ProfileBrowser.CachedProfiles"), filtered.Count));
-        ImGui.SameLine(ImGui.GetContentRegionAvail().X - ImGui.CalcTextSize(Loc.Get("Settings.ProfileBrowser.ClearCache")).X - ImGui.GetFrameHeight() - ImGui.GetStyle().ItemSpacing.X);
-        if (_uiSharedService.IconTextButton(FontAwesomeIcon.Trash, Loc.Get("Settings.ProfileBrowser.ClearCache")))
+        ImGui.SameLine();
+        ImGui.SetCursorPos(new Vector2(headerRight - CapsuleButton.MeasureWidth(clearLabel, FontAwesomeIcon.Trash), headerTop));
+        if (CapsuleButton.Draw(clearLabel, FontAwesomeIcon.Trash, CapsuleButtonRole.Destructive))
         {
-            _ = Task.Run(() =>
-            {
-                try
-                {
-                    _umbraProfileManager.ClearPersistedProfileCache();
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Failed to clear the profile cache");
-                }
-            });
-            _profileCardHeights.Clear();
+            _clearProfileCacheConfirmShown = true;
+            ImGui.OpenPopup("###profileCacheClearPopup");
         }
-        ImGuiHelpers.ScaledDummy(2f);
+
+        if (ImGui.BeginPopupModal(Loc.Get("Settings.ProfileBrowser.ClearCache.ConfirmTitle") + "###profileCacheClearPopup", ref _clearProfileCacheConfirmShown, UiSharedService.PopupWindowFlags))
+        {
+            UiSharedService.TextWrapped(Loc.Get("Settings.ProfileBrowser.ClearCache.ConfirmMessage"));
+            ImGui.Separator();
+            ImGui.Spacing();
+            var confirmButtonWidth = (ImGui.GetWindowContentRegionMax().X - ImGui.GetWindowContentRegionMin().X - ImGui.GetStyle().ItemSpacing.X) / 2f;
+
+            if (ImGui.Button(Loc.Get("Common.Cancel") + "##cancelProfileCacheClear", new Vector2(confirmButtonWidth, 0)))
+                _clearProfileCacheConfirmShown = false;
+            ImGui.SameLine();
+            using (ImRaii.PushColor(ImGuiCol.Text, UiSharedService.ThemeDestructive))
+            {
+                if (ImGui.Button(Loc.Get("Settings.ProfileBrowser.ClearCache.ConfirmYes"), new Vector2(confirmButtonWidth, 0)))
+                {
+                    _clearProfileCacheConfirmShown = false;
+                    _ = Task.Run(() =>
+                    {
+                        try
+                        {
+                            _umbraProfileManager.ClearPersistedProfileCache();
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Failed to clear the profile cache");
+                        }
+                    });
+                    _profileCardHeights.Clear();
+                }
+            }
+
+            UiSharedService.SetScaledWindowSize(350);
+            ImGui.EndPopup();
+        }
 
         ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X);
         ImGui.InputTextWithHint("##profileBrowserSearch", Loc.Get("Settings.ProfileBrowser.SearchHint"), ref _profileBrowserSearch, 100);
@@ -1777,6 +1806,7 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
         var profileTexture = _uiSharedService.ProfileTextures.GetTexture(profile.RpImageData);
         var bannerTexture = _uiSharedService.ProfileTextures.GetTexture(profile.RpBannerData);
 
+        var openButtonHovered = false;
         UiSharedService.DrawCard($"profileCard_{texKey}", () =>
         {
             var dl = ImGui.GetWindowDrawList();
@@ -1820,11 +1850,11 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
 
             // Right side: info. On réserve la place du bouton pour que les noms longs passent à la ligne
             // au lieu de passer dessous.
-            var openLabel = Loc.Get("Settings.ProfileBrowser.OpenProfile");
+            var openLabel = Loc.Get("Settings.ProfileBrowser.LearnMore");
             var pair = GetOpenablePair(key.User.UID);
             var hasOpenButton = pair != null;
             var buttonReserve = hasOpenButton
-                ? _uiSharedService.GetIconTextButtonSize(FontAwesomeIcon.ExternalLinkAlt, openLabel) + ImGui.GetStyle().ItemSpacing.X * 4
+                ? CapsuleButton.MeasureWidth(openLabel) + ImGui.GetStyle().ItemSpacing.X * 4
                 : 0f;
             var textWidth = MathF.Max(80f * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X - buttonReserve);
             var displayName = !string.IsNullOrEmpty(rpName) ? rpName : charName;
@@ -1859,14 +1889,14 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
             if (pair != null)
             {
                 var rowHeight = ImGui.GetCursorPosY() - ImGui.GetStyle().ItemSpacing.Y - rowTop;
-                var btnSize = _uiSharedService.GetIconTextButtonSize(FontAwesomeIcon.ExternalLinkAlt, openLabel);
                 ImGui.SetCursorPos(new Vector2(
-                    ImGui.GetContentRegionAvail().X - btnSize - ImGui.GetStyle().ItemSpacing.X * 3 + ImGui.GetCursorPosX(),
-                    rowTop + MathF.Max(0f, (rowHeight - ImGui.GetFrameHeight()) / 2f)));
-                if (_uiSharedService.IconTextButton(FontAwesomeIcon.ExternalLinkAlt, openLabel))
+                    ImGui.GetContentRegionAvail().X - CapsuleButton.MeasureWidth(openLabel) - ImGui.GetStyle().ItemSpacing.X * 3 + ImGui.GetCursorPosX(),
+                    rowTop + MathF.Max(0f, (rowHeight - CapsuleButton.HitRegionHeight) / 2f)));
+                if (CapsuleButton.Draw(openLabel))
                 {
                     Mediator.Publish(new ProfileOpenStandaloneMessage(pair, key.CharName, key.WorldId));
                 }
+                openButtonHovered = ImGui.IsItemHovered();
             }
         }, stretchWidth: true, background: sheetPalette?.Veil,
             border: cardAccent is { } cardBorder ? cardBorder with { W = ProfileSheetBackground.BorderOpacity } : null,
@@ -1881,7 +1911,8 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
             identity += $"  [{uid}]";
         if (!string.IsNullOrEmpty(note))
             identity += UiSharedService.TooltipSeparator + note;
-        UiSharedService.AttachToolTip(identity);
+        if (!openButtonHovered)
+            UiSharedService.AttachToolTip(identity);
     }
 
     private (string Title, Vector4 Color)? ResolveCardHonorific((API.Data.UserData User, string? CharName, uint? WorldId) key)
