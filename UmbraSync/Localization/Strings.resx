@@ -5715,6 +5715,9 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
   <data name="Settings.ProfileBrowser.OpenProfile" xml:space="preserve">
     <value>Open Profile</value>
   </data>
+  <data name="Settings.ProfileBrowser.CachedProfile" xml:space="preserve">
+    <value>{0} cached profile</value>
+  </data>
   <data name="Settings.ProfileBrowser.CachedProfiles" xml:space="preserve">
     <value>{0} cached profiles</value>
   </data>

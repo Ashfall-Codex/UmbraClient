@@ -361,6 +361,26 @@ public sealed class UmbraProfileManager : MediatorSubscriberBase, IDisposable
 
     public bool IsProfileFetchFailed(UmbraProfileData profile) => ReferenceEquals(profile, _defaultProfileData);
 
+    public string? GetKnownLastSeenHonorific(UserData data, string? charName, uint? worldId)
+    {
+        if (string.IsNullOrEmpty(charName) || worldId is not > 0 || !IsCacheLoadedForCurrentUid()) return null;
+        if (_pairManager.GetPairByUID(data.UID)?.IsPaused == true || IsProfileWithheld(data, charName, worldId)) return null;
+
+        return _lastSeenLive.GetValueOrDefault(LastSeenKey(data.UID, charName, worldId.Value))?.HonorificData;
+    }
+
+    public string? GetOwnHonorificBackup(string? charName, uint? worldId)
+    {
+        if (string.IsNullOrEmpty(charName) || worldId is not > 0) return null;
+        if (!_rpConfigService.Current.CharacterProfiles.TryGetValue(RpConfigService.GetCharacterKey(charName, worldId.Value), out var profile)
+            || string.IsNullOrEmpty(profile.HonorificBackupJson))
+        {
+            return null;
+        }
+
+        return Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(profile.HonorificBackupJson));
+    }
+
     private bool IsConfirmedProfile(UmbraProfileData? profile)
         => profile != null
            && !ReferenceEquals(profile, _loadingProfileData) && !ReferenceEquals(profile, _defaultProfileData)

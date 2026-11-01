@@ -706,6 +706,38 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
         return true;
     }
 
+    public async Task<string?> GetLocalHonorificAsync()
+        => _ipcManager.Honorific.APIAvailable ? await _ipcManager.Honorific.GetTitle().ConfigureAwait(false) : null;
+
+    public static (string Title, Vector4 Color)? ParseHonorific(string? base64)
+    {
+        if (string.IsNullOrEmpty(base64)) return null;
+
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(Convert.FromBase64String(base64));
+            var root = doc.RootElement;
+            var title = root.TryGetProperty("Title", out var t) ? t.GetString() : null;
+            if (string.IsNullOrEmpty(title)) return null;
+
+            var color = Vector4.One;
+            if (root.TryGetProperty("Color", out var c) && c.ValueKind == System.Text.Json.JsonValueKind.Object)
+            {
+                color = new Vector4(
+                    (c.TryGetProperty("X", out var cx) || c.TryGetProperty("x", out cx)) ? cx.GetSingle() : 1f,
+                    (c.TryGetProperty("Y", out var cy) || c.TryGetProperty("y", out cy)) ? cy.GetSingle() : 1f,
+                    (c.TryGetProperty("Z", out var cz) || c.TryGetProperty("z", out cz)) ? cz.GetSingle() : 1f,
+                    1f);
+            }
+
+            return (title, color);
+        }
+        catch (Exception ex) when (ex is FormatException or System.Text.Json.JsonException or InvalidOperationException)
+        {
+            return null;
+        }
+    }
+
     // Lignes d'infos d'une carte de profil posées sur la bannière : couleur choisie par le joueur, gris sinon
     // (valeur absente ou invalide, puisqu'elle vient du profil d'un autre joueur).
     public static Vector4 ProfileCardTextColor(string? hex)

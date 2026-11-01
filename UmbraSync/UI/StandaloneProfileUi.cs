@@ -152,7 +152,17 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
 
     public override void PreDraw()
     {
-        UiSharedService.BeginProfileAccent(ResolveProfile().CardStyle.Value.AccentColor);
+        var profile = ResolveProfile();
+        UiSharedService.BeginProfileAccent(profile.CardStyle.Value.AccentColor);
+
+        var titleName = Pair.UserData.AliasOrUID;
+        if (_isRpTab && !string.IsNullOrWhiteSpace(profile.RpFirstName))
+            titleName = profile.RpFirstName;
+        else if (_isRpTab && !string.IsNullOrWhiteSpace(profile.RpLastName))
+            titleName = profile.RpLastName;
+        WindowName = string.Format(System.Globalization.CultureInfo.CurrentCulture, Loc.Get("StandaloneProfile.WindowTitle"), titleName)
+            + "###UmbraSyncStandaloneProfileUI" + Pair.UserData.AliasOrUID;
+
         base.PreDraw();
     }
 
@@ -488,31 +498,10 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
             honorificB64 = GetDisplayedLiveData().Honorific;
         }
 
-        if (string.IsNullOrEmpty(honorificB64)) return;
+        if (UiSharedService.ParseHonorific(honorificB64) is not { } honorific) return;
 
-        try
-        {
-            var json = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(honorificB64));
-            var doc = System.Text.Json.JsonDocument.Parse(json);
-            var root = doc.RootElement;
-
-            var title = root.TryGetProperty("Title", out var t) ? t.GetString() : null;
-            if (string.IsNullOrEmpty(title)) return;
-
-            var color = Vector4.One;
-            if (root.TryGetProperty("Color", out var c) && c.ValueKind == System.Text.Json.JsonValueKind.Object)
-            {
-                color = new Vector4(
-                    (c.TryGetProperty("X", out var cx) || c.TryGetProperty("x", out cx)) ? cx.GetSingle() : 1f,
-                    (c.TryGetProperty("Y", out var cy) || c.TryGetProperty("y", out cy)) ? cy.GetSingle() : 1f,
-                    (c.TryGetProperty("Z", out var cz) || c.TryGetProperty("z", out cz)) ? cz.GetSingle() : 1f,
-                    1f);
-            }
-
-            using var _ = _uiSharedService.GameFont.Push();
-            ImGui.TextColored(color, title);
-        }
-        catch { /* ignore parse errors */ }
+        using var font = _uiSharedService.GameFont.Push();
+        ImGui.TextColored(honorific.Color, honorific.Title);
     }
 
     private string _localHonorificB64 = string.Empty;

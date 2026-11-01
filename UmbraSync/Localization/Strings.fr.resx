@@ -5628,6 +5628,9 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
   <data name="Settings.ProfileBrowser.OpenProfile" xml:space="preserve">
     <value>Ouvrir le profil</value>
   </data>
+  <data name="Settings.ProfileBrowser.CachedProfile" xml:space="preserve">
+    <value>{0} profil en cache</value>
+  </data>
   <data name="Settings.ProfileBrowser.CachedProfiles" xml:space="preserve">
     <value>{0} profils en cache</value>
   </data>
