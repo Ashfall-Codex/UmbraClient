@@ -601,24 +601,6 @@ public sealed class UmbraProfileManager : MediatorSubscriberBase, IDisposable
                     UpdatePersistedProfile(data, charName, worldId, profileData);
 
                 UpdateLastSeenConfirmation(data, charName, worldId, effectiveProfile);
-
-                // Fetch all alt profiles for this UID in the background (only if we have valid encounter data)
-                if (!string.IsNullOrEmpty(charName) && worldId is > 0)
-                {
-                    var fetchCharName = charName;
-                    var fetchWorldId = worldId.Value;
-                    _ = Task.Run(async () =>
-                    {
-                        try
-                        {
-                            await FetchAndCacheAllAltProfiles(data, fetchCharName, fetchWorldId).ConfigureAwait(false);
-                        }
-                        catch (Exception ex2)
-                        {
-                            Logger.LogWarning(ex2, "Failed to fetch alt profiles for {uid}", data.UID);
-                        }
-                    });
-                }
             }
 
             Mediator.Publish(new NameplateRedrawMessage());
@@ -649,19 +631,16 @@ public sealed class UmbraProfileManager : MediatorSubscriberBase, IDisposable
         }
     }
 
-    private async Task FetchAndCacheAllAltProfiles(UserData data, string encounteredCharName, uint encounteredWorldId)
+    private async Task FetchOwnCharacterProfilesAsync(UserData data, string anchorCharName, uint anchorWorldId)
     {
         var allProfiles = await _apiController.UserGetAllCharacterProfiles(new API.Dto.User.UserDto(data)
         {
-            CharacterName = encounteredCharName,
-            WorldId = encounteredWorldId
+            CharacterName = anchorCharName,
+            WorldId = anchorWorldId
         }).ConfigureAwait(false);
         if (allProfiles.Count == 0) return;
 
-        Logger.LogInformation("Fetched {count} alt profiles for {uid}", allProfiles.Count, data.UID);
-        bool isSelf = string.Equals(_apiController.UID, data.UID, StringComparison.Ordinal);
-
-        if (!isSelf) PurgePersistedProfilesNoLongerVisible(data, allProfiles);
+        Logger.LogInformation("Fetched {count} own character profiles", allProfiles.Count);
 
         foreach (var profile in allProfiles)
         {
@@ -696,47 +675,11 @@ public sealed class UmbraProfileManager : MediatorSubscriberBase, IDisposable
                 Base64RpBanner: profile.RpBannerBase64,
                 RpCardStyle: profile.RpCardStyle);
 
-            if (!isSelf)
-            {
-                var effectiveAltProfile = (altProfileData.IsNSFW && !_mareConfigService.Current.ProfilesAllowNsfw)
-                    || (altProfileData.IsRpNSFW && !_mareConfigService.Current.ProfilesAllowRpNsfw)
-                    ? _nsfwProfileData
-                    : altProfileData;
-                _umbraProfiles[altKey] = effectiveAltProfile;
-
-                UpdatePersistedProfile(data, altCharName, altWorldId, altProfileData);
-                UpdateLastSeenConfirmation(data, altCharName, altWorldId, effectiveAltProfile);
-            }
-            else
-            {
-                // Ses propres persos restent en mémoire : jamais de copie disque ni de filtre NSFW.
-                _umbraProfiles[altKey] = altProfileData;
-            }
+            // Ses propres persos restent en mémoire : jamais de copie disque ni de filtre NSFW.
+            _umbraProfiles[altKey] = altProfileData;
         }
 
         Mediator.Publish(new NameplateRedrawMessage());
-    }
-
-    // Le serveur ne renvoie que les personnages dont la fiche nous est visible : une copie disque d'un autre
-    // personnage du même compte qui n'en fait plus partie a été masquée ou supprimée depuis.
-    private void PurgePersistedProfilesNoLongerVisible(UserData data, IEnumerable<API.Dto.User.UserProfileDto> visibleProfiles)
-    {
-        EnsureCacheLoaded();
-        var visibleKeys = visibleProfiles
-            .Where(p => !string.IsNullOrEmpty(p.CharacterName) && p.WorldId is > 0)
-            .Select(p => $"{data.UID}_{p.CharacterName}_{p.WorldId}")
-            .ToHashSet(StringComparer.Ordinal);
-
-        foreach (var entry in _persistedProfiles.ToList())
-        {
-            if (!string.Equals(entry.Value.Key.User.UID, data.UID, StringComparison.Ordinal)) continue;
-            if (visibleKeys.Contains(entry.Key)) continue;
-            if (string.IsNullOrWhiteSpace(entry.Value.Profile.RpFirstName) && string.IsNullOrWhiteSpace(entry.Value.Profile.RpLastName)) continue;
-            RemovePersistedProfile(data, entry.Value.Key.CharName, entry.Value.Key.WorldId);
-            var normalizedKey = NormalizeKey(data, entry.Value.Key.CharName, entry.Value.Key.WorldId);
-            if (!_umbraProfiles.TryGetValue(normalizedKey, out var known) || !IsWithheldProfile(known))
-                _umbraProfiles.TryRemove(normalizedKey, out _);
-        }
     }
 
     public List<(string CharName, uint WorldId)> GetEncounteredAlts(string uid)
@@ -775,7 +718,7 @@ public sealed class UmbraProfileManager : MediatorSubscriberBase, IDisposable
             var owned = await _apiController.EstablishmentGetOwnRpProfiles().ConfigureAwait(false);
             var anchor = owned.FirstOrDefault(p => !string.IsNullOrEmpty(p.CharacterName) && p.WorldId > 0);
             if (anchor == null) return;
-            await FetchAndCacheAllAltProfiles(new UserData(uid), anchor.CharacterName, anchor.WorldId).ConfigureAwait(false);
+            await FetchOwnCharacterProfilesAsync(new UserData(uid), anchor.CharacterName, anchor.WorldId).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
