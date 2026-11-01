@@ -220,11 +220,14 @@ public partial class ApiController
     }
 
     public async Task<UserProfileDto> UserGetProfile(UserDto dto)
+        => await TryUserGetProfile(dto).ConfigureAwait(false) ?? new UserProfileDto(dto.User, false, null, null, null);
+
+    public async Task<UserProfileDto?> TryUserGetProfile(UserDto dto)
     {
         if (!IsConnected)
         {
-            Logger.LogTrace("UserGetProfile: Not connected, returning empty profile");
-            return new UserProfileDto(dto.User, false, null, null, null);
+            Logger.LogTrace("UserGetProfile: Not connected, no profile available");
+            return null;
         }
 
         try
@@ -237,7 +240,7 @@ public partial class ApiController
         catch (Exception ex)
         {
             Logger.LogWarning(ex, "Error fetching profile for {uid}", dto.User.UID);
-            return new UserProfileDto(dto.User, false, null, null, null);
+            return null;
         }
     }
     public async Task<List<UserProfileDto>> UserGetAllCharacterProfiles(UserDto dto)

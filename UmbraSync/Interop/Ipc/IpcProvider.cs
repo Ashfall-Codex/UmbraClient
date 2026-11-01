@@ -202,7 +202,7 @@ public class IpcProvider : IHostedService, IMediatorSubscriber
         {
             // Octets bruts : les deux plugins vivent dans le même processus, encoder en
             // base64 ne ferait que gonfler une image déjà décodée ici.
-            var data = _profileManager.Value.GetUmbraProfile(owner).RpImageData.Value;
+            var data = _profileManager.Value.GetUmbraProfile(owner).RpImageData.ReadNow();
             return data.Length == 0 ? null : data;
         }
         catch (Exception ex)

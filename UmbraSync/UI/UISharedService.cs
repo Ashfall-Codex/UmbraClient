@@ -384,8 +384,9 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
         CacheMonitor cacheMonitor, FileDialogManager fileDialogManager,
         MareConfigService configService, DalamudUtilService dalamudUtil, IDalamudPluginInterface pluginInterface,
         ITextureProvider textureProvider,
-        ServerConfigurationManager serverManager, MareMediator mediator) : base(logger, mediator)
+        ServerConfigurationManager serverManager, ProfileImageTextureCache profileTextures, MareMediator mediator) : base(logger, mediator)
     {
+        ProfileTextures = profileTextures;
         _ipcManager = ipcManager;
         _apiController = apiController;
         _cacheMonitor = cacheMonitor;
@@ -2269,6 +2270,8 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
     {
         IconText(icon, color == null ? ImGui.GetColorU32(ImGuiCol.Text) : ImGui.GetColorU32(color.Value));
     }
+
+    public ProfileImageTextureCache ProfileTextures { get; }
 
     public IDalamudTextureWrap LoadImage(byte[] imageData)
     {

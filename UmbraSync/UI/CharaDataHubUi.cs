@@ -152,7 +152,6 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
     private readonly PairFactory _pairFactory;
     private Pair? _selfPair;
     private string _profileBrowserSearch = string.Empty;
-    private readonly Dictionary<string, (byte[] Data, Task<IDalamudTextureWrap> Task)> _profileBrowserTextureTasks = new(StringComparer.Ordinal);
     private readonly Dictionary<string, float> _profileCardHeights = new(StringComparer.Ordinal);
 
     public CharaDataHubUi(ILogger<CharaDataHubUi> logger, MareMediator mediator, PerformanceCollectorService performanceCollectorService,
@@ -1665,10 +1664,17 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
         ImGui.SameLine(ImGui.GetContentRegionAvail().X - ImGui.CalcTextSize(Loc.Get("Settings.ProfileBrowser.ClearCache")).X - ImGui.GetFrameHeight() - ImGui.GetStyle().ItemSpacing.X);
         if (_uiSharedService.IconTextButton(FontAwesomeIcon.Trash, Loc.Get("Settings.ProfileBrowser.ClearCache")))
         {
-            _umbraProfileManager.ClearPersistedProfileCache();
-            foreach (var pending in _profileBrowserTextureTasks.Values)
-                pending.Task.DisposeResultWhenCompleted();
-            _profileBrowserTextureTasks.Clear();
+            _ = Task.Run(() =>
+            {
+                try
+                {
+                    _umbraProfileManager.ClearPersistedProfileCache();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to clear the profile cache");
+                }
+            });
             _profileCardHeights.Clear();
         }
         ImGuiHelpers.ScaledDummy(2f);
@@ -1749,19 +1755,7 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
 
         // Texture cache key
         var texKey = $"{key.User.UID}_{key.CharName}_{key.WorldId}";
-        var imgData = profile.RpImageData.Value;
-        if (!_profileBrowserTextureTasks.TryGetValue(texKey, out var cachedTask)
-            || (!ReferenceEquals(imgData, cachedTask.Data) && !imgData.AsSpan().SequenceEqual(cachedTask.Data)))
-        {
-            if (cachedTask.Task != null)
-                cachedTask.Task.DisposeResultWhenCompleted();
-            cachedTask = (imgData, imgData.Length == 0
-                ? Task.FromException<IDalamudTextureWrap>(new InvalidOperationException("Aucune image"))
-                : Task.Run(() => _uiSharedService.LoadImageAsync(imgData)));
-            _profileBrowserTextureTasks[texKey] = cachedTask;
-        }
-        IDalamudTextureWrap? profileTexture = cachedTask.Task.IsCompletedSuccessfully ? cachedTask.Task.Result : null;
-        var cached = (Data: imgData, Texture: profileTexture);
+        var profileTexture = _uiSharedService.ProfileTextures.GetTexture(profile.RpImageData);
 
         UiSharedService.DrawCard($"profileCard_{texKey}", () =>
         {
@@ -1771,18 +1765,18 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
             var rowTop = ImGui.GetCursorPosY();
             var portraitStart = ImGui.GetCursorScreenPos();
             var portraitRounding = 10f * ImGuiHelpers.GlobalScale;
-            if (cached.Texture != null && cached.Texture.Handle != IntPtr.Zero && imgData.Length > 0)
+            if (profileTexture != null && profileTexture.Handle != IntPtr.Zero)
             {
-                bool tallerThanWide = cached.Texture.Height >= cached.Texture.Width;
-                var stretchFactor = tallerThanWide ? portraitSize / cached.Texture.Height : portraitSize / cached.Texture.Width;
-                var newW = cached.Texture.Width * stretchFactor;
-                var newH = cached.Texture.Height * stretchFactor;
+                bool tallerThanWide = profileTexture.Height >= profileTexture.Width;
+                var stretchFactor = tallerThanWide ? portraitSize / profileTexture.Height : portraitSize / profileTexture.Width;
+                var newW = profileTexture.Width * stretchFactor;
+                var newH = profileTexture.Height * stretchFactor;
                 var offX = (portraitSize - newW) / 2f;
                 var offY = (portraitSize - newH) / 2f;
 
                 var pMin = new Vector2(portraitStart.X + offX, portraitStart.Y + offY);
                 var pMax = new Vector2(pMin.X + newW, pMin.Y + newH);
-                dl.AddImageRounded(cached.Texture.Handle, pMin, pMax,
+                dl.AddImageRounded(profileTexture.Handle, pMin, pMax,
                     Vector2.Zero, Vector2.One, ImGui.GetColorU32(new Vector4(1, 1, 1, 1)), portraitRounding);
             }
             else

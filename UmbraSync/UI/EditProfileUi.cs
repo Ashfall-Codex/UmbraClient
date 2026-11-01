@@ -617,7 +617,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
 
                 if (!_rpBannerDirty)
                 {
-                    _rpBannerImage = umbraProfile.RpBannerData.Value;
+                    _rpBannerImage = umbraProfile.RpBannerData.ReadNow();
                     _bannerTextureStale = true;
                 }
 
@@ -640,7 +640,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
                 {
                     try
                     {
-                        _profileImage = umbraProfile.ImageData.Value;
+                        _profileImage = umbraProfile.ImageData.ReadNow();
                         _pfpTextureWrap?.Dispose();
                         _pfpTextureWrap = _profileImage.Length > 0 ? _uiSharedService.LoadImage(_profileImage) : null;
                         _logger.LogDebug("Loaded HRP profile image, size: {size}", _profileImage.Length);

@@ -12,16 +12,22 @@ using UmbraSync.Services.ServerConfiguration;
 
 namespace UmbraSync.Services;
 
-public class UmbraProfileManager : MediatorSubscriberBase
+public sealed class UmbraProfileManager : MediatorSubscriberBase, IDisposable
 {
     private const string _noDescription = "-- User has no description set --";
     private const string _nsfw = "Profile not displayed - NSFW";
+    private const string ImageDirectoryPrefix = "profile_cache_images_";
+    private const string TempSuffix = ".tmp";
+    private const int FailedProfileRetryMinMs = 30_000;
+    private const int FailedProfileRetryMaxMs = 45_000;
+    private const string PauseRefusalDescription = "Due to the pause status you cannot access this users profile.";
     private readonly ApiController _apiController;
     private readonly DalamudUtilService _dalamudUtil;
     private readonly MareConfigService _mareConfigService;
     private readonly RpConfigService _rpConfigService;
     private readonly PairManager _pairManager;
     private readonly ServerConfigurationManager _serverConfigurationManager;
+    private readonly ProfileImageTextureCache _profileTextures;
     private readonly ConcurrentDictionary<(UserData User, string? CharName, uint? WorldId), UmbraProfileData> _umbraProfiles = new();
     private readonly ConcurrentDictionary<string, GroupProfileDto> _groupProfiles = new(StringComparer.OrdinalIgnoreCase);
 
@@ -32,9 +38,23 @@ public class UmbraProfileManager : MediatorSubscriberBase
     private readonly ConcurrentDictionary<string, ((UserData User, string? CharName, uint? WorldId) Key, UmbraProfileData Profile)> _persistedProfiles = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, DateTime> _persistedAtUtc = new(StringComparer.Ordinal);
     private static readonly TimeSpan PersistedProfileLifetime = TimeSpan.FromDays(30);
+    private readonly ConcurrentDictionary<string, LastSeenLiveData> _lastSeenLive = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, LastSeenLiveData> _lastSeenPending = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, byte> _removalsBeforeLoad = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, PairLiveDataSeenMessage> _lastSeenBeforeLoad = new(StringComparer.Ordinal);
+    private static readonly TimeSpan LastSeenRefreshInterval = TimeSpan.FromDays(1);
+    private static readonly TimeSpan CacheLoadRetryDelay = TimeSpan.FromMinutes(5);
+    private bool _lastSeenDirty;
+    private volatile bool _cacheWritesStopped;
     private string? _cacheUid;
+    private ProfileImageStore? _imageStore;
     private volatile string? _cacheLoadedForUid;
     private readonly Lock _cacheLoadLock = new();
+    private readonly Lock _cacheSaveLock = new();
+    private int _cacheGeneration;
+    private int _cacheLoadRunning;
+    private long _cacheLoadRetryAtTicks;
+    private bool _disposed;
     private bool _cacheDirty;
     private Timer? _saveTimer;
     private CancellationTokenSource? _ownProfileSyncCts;
@@ -45,8 +65,9 @@ public class UmbraProfileManager : MediatorSubscriberBase
     public UmbraProfileManager(ILogger<UmbraProfileManager> logger, MareConfigService mareConfigService,
         RpConfigService rpConfigService, MareMediator mediator, ApiController apiController,
         PairManager pairManager, DalamudUtilService dalamudUtil, ServerConfigurationManager serverConfigurationManager,
-        IDalamudPluginInterface pluginInterface) : base(logger, mediator)
+        ProfileImageTextureCache profileTextures, IDalamudPluginInterface pluginInterface) : base(logger, mediator)
     {
+        _profileTextures = profileTextures;
         _mareConfigService = mareConfigService;
         _rpConfigService = rpConfigService;
         _apiController = apiController;
@@ -75,15 +96,26 @@ public class UmbraProfileManager : MediatorSubscriberBase
         });
         Mediator.Subscribe<DisconnectedMessage>(this, (_) =>
         {
+            Interlocked.Increment(ref _cacheGeneration);
             CancelOwnProfileSync();
+            _saveTimer?.Dispose();
+            _saveTimer = null;
             SaveProfileCacheNow();
             _umbraProfiles.Clear();
+            _profileTextures.Clear();
             _groupProfiles.Clear();
             _persistedProfiles.Clear();
+            _lastSeenLive.Clear();
+            _lastSeenPending.Clear();
+            _lastSeenBeforeLoad.Clear();
+            _removalsBeforeLoad.Clear();
+            Interlocked.Exchange(ref _cacheLoadRetryAtTicks, 0);
             _cacheUid = null;
+            _imageStore = null;
             _cacheLoadedForUid = null;
             Interlocked.Exchange(ref _ownCharactersRequested, 0);
         });
+        Mediator.Subscribe<PairLiveDataSeenMessage>(this, RememberLastSeenLiveData);
         Mediator.Subscribe<GroupProfileUpdatedMessage>(this, (msg) =>
         {
             if (msg.Profile.Group != null)
@@ -94,6 +126,7 @@ public class UmbraProfileManager : MediatorSubscriberBase
         Mediator.Subscribe<ConnectedMessage>(this, (msg) =>
         {
             CancelOwnProfileSync();
+            _cacheWritesStopped = false;
             _ownProfileSyncCts = new CancellationTokenSource();
             _ = DelayedEnsureOwnProfileSyncedAsync(_ownProfileSyncCts.Token);
        
@@ -191,6 +224,8 @@ public class UmbraProfileManager : MediatorSubscriberBase
         {
             try
             {
+                if (_cacheWritesStopped) return;
+
                 var path = GroupProfileCachePath(gid);
 
                 // Une fiche que l'utilisateur a choisi de ne pas afficher n'a pas à rester sur son disque.
@@ -306,6 +341,66 @@ public class UmbraProfileManager : MediatorSubscriberBase
         return false;
     }
 
+    public LastSeenLiveData? GetLastSeenLiveData(UserData data, string? charName, uint? worldId)
+    {
+        if (worldId is not > 0) worldId = _serverConfigurationManager.GetWorldIdForUid(data.UID);
+        if (string.IsNullOrEmpty(charName) || worldId is not > 0) return null;
+
+        if (!IsCacheLoadedForCurrentUid())
+        {
+            StartBackgroundCacheLoad();
+            return null;
+        }
+
+        var key = LastSeenKey(data.UID, charName, worldId.Value);
+        if (!_lastSeenLive.ContainsKey(key) && !_lastSeenPending.ContainsKey(key)) return null;
+        if (_pairManager.GetPairByUID(data.UID)?.IsPaused == true) return null;
+
+        return IsConfirmedProfile(GetUmbraProfile(data, charName, worldId)) ? _lastSeenLive.GetValueOrDefault(key) : null;
+    }
+
+    public bool IsProfileFetchFailed(UmbraProfileData profile) => ReferenceEquals(profile, _defaultProfileData);
+
+    private bool IsConfirmedProfile(UmbraProfileData? profile)
+        => profile != null
+           && !ReferenceEquals(profile, _loadingProfileData) && !ReferenceEquals(profile, _defaultProfileData)
+           && !IsWithheldProfile(profile);
+
+    private bool IsWithheldProfile(UmbraProfileData profile)
+        => ReferenceEquals(profile, _nsfwProfileData) || profile.RpVisibility.HasValue || profile.IsFlagged || IsPauseRefusal(profile);
+
+    private static bool IsPauseRefusal(UmbraProfileData profile)
+        => string.Equals(profile.Description, PauseRefusalDescription, StringComparison.Ordinal);
+
+    private void UpdateLastSeenConfirmation(UserData data, string? charName, uint? worldId, UmbraProfileData response)
+    {
+        if (string.IsNullOrEmpty(charName) || worldId is not > 0) return;
+
+        var key = LastSeenKey(data.UID, charName, worldId.Value);
+        if (IsConfirmedProfile(response))
+        {
+            if (!_lastSeenPending.TryRemove(key, out var seen)) return;
+            _lastSeenLive[key] = seen;
+        }
+        else
+        {
+            _lastSeenPending.TryRemove(key, out _);
+            if (!_lastSeenLive.TryRemove(key, out _)) return;
+        }
+
+        _lastSeenDirty = true;
+        ScheduleCacheSave();
+    }
+
+    private bool IsProfileWithheld(UserData data, string charName, uint? worldId)
+    {
+        return IsWithheld(worldId) || IsWithheld(null);
+
+        bool IsWithheld(uint? keyWorldId)
+            => _umbraProfiles.TryGetValue(NormalizeKey(data, charName, keyWorldId), out var known)
+               && IsWithheldProfile(known);
+    }
+
     public (string? CharName, uint? WorldId) ResolveCharacter(UserData data)
     {
         var pair = _pairManager.GetPairByUID(data.UID);
@@ -368,11 +463,16 @@ public class UmbraProfileManager : MediatorSubscriberBase
         try
         {
             _umbraProfiles[key] = _loadingProfileData;
-            var profile = await _apiController.UserGetProfile(new API.Dto.User.UserDto(data)
+            var profile = await _apiController.TryUserGetProfile(new API.Dto.User.UserDto(data)
             {
                 CharacterName = charName,
                 WorldId = worldId
             }).ConfigureAwait(false);
+            if (profile == null)
+            {
+                MarkProfileFetchFailed(key);
+                return;
+            }
 
             Logger.LogDebug("Profile response for {uid}: RP name {name}, RP description {desc}",
                 data.UID,
@@ -483,18 +583,12 @@ public class UmbraProfileManager : MediatorSubscriberBase
                 }
             }
 
-            if (profileData.IsNSFW && !_mareConfigService.Current.ProfilesAllowNsfw && !isSelf)
-            {
-                _umbraProfiles[key] = _nsfwProfileData;
-            }
-            else if (profileData.IsRpNSFW && !_mareConfigService.Current.ProfilesAllowRpNsfw && !isSelf)
-            {
-                _umbraProfiles[key] = _nsfwProfileData;
-            }
-            else
-            {
-                _umbraProfiles[key] = profileData;
-            }
+            var effectiveProfile = !isSelf
+                && ((profileData.IsNSFW && !_mareConfigService.Current.ProfilesAllowNsfw)
+                    || (profileData.IsRpNSFW && !_mareConfigService.Current.ProfilesAllowRpNsfw))
+                ? _nsfwProfileData
+                : profileData;
+            _umbraProfiles[key] = effectiveProfile;
 
             // Persist to disk cache (not for self)
             if (!isSelf)
@@ -503,8 +597,10 @@ public class UmbraProfileManager : MediatorSubscriberBase
                 // mais ne lui est plus accessible : l'ancienne copie conservée sur disque doit disparaître.
                 if (profile.RpVisibility.HasValue)
                     RemovePersistedProfile(data, charName, worldId);
+                else if (!IsPauseRefusal(profileData))
+                    UpdatePersistedProfile(data, charName, worldId, profileData);
 
-                UpdatePersistedProfile(data, charName, worldId, profileData);
+                UpdateLastSeenConfirmation(data, charName, worldId, effectiveProfile);
 
                 // Fetch all alt profiles for this UID in the background (only if we have valid encounter data)
                 if (!string.IsNullOrEmpty(charName) && worldId is > 0)
@@ -531,6 +627,25 @@ public class UmbraProfileManager : MediatorSubscriberBase
         {
             Logger.LogWarning(ex, "Failed to get Profile from service for user {user}", data);
             _umbraProfiles[key] = _defaultProfileData;
+        }
+    }
+
+    private void MarkProfileFetchFailed((UserData User, string? CharName, uint? WorldId) key)
+    {
+        _umbraProfiles[key] = _defaultProfileData;
+        _ = ForgetFailedProfileAsync(key);
+    }
+
+    private async Task ForgetFailedProfileAsync((UserData User, string? CharName, uint? WorldId) key)
+    {
+        try
+        {
+            await Task.Delay(Random.Shared.Next(FailedProfileRetryMinMs, FailedProfileRetryMaxMs)).ConfigureAwait(false);
+            _umbraProfiles.TryRemove(new KeyValuePair<(UserData User, string? CharName, uint? WorldId), UmbraProfileData>(key, _defaultProfileData));
+        }
+        catch (Exception ex)
+        {
+            Logger.LogDebug(ex, "Nouvel essai d'une fiche en échec impossible");
         }
     }
 
@@ -583,14 +698,14 @@ public class UmbraProfileManager : MediatorSubscriberBase
 
             if (!isSelf)
             {
-                if (altProfileData.IsNSFW && !_mareConfigService.Current.ProfilesAllowNsfw)
-                    _umbraProfiles[altKey] = _nsfwProfileData;
-                else if (altProfileData.IsRpNSFW && !_mareConfigService.Current.ProfilesAllowRpNsfw)
-                    _umbraProfiles[altKey] = _nsfwProfileData;
-                else
-                    _umbraProfiles[altKey] = altProfileData;
+                var effectiveAltProfile = (altProfileData.IsNSFW && !_mareConfigService.Current.ProfilesAllowNsfw)
+                    || (altProfileData.IsRpNSFW && !_mareConfigService.Current.ProfilesAllowRpNsfw)
+                    ? _nsfwProfileData
+                    : altProfileData;
+                _umbraProfiles[altKey] = effectiveAltProfile;
 
                 UpdatePersistedProfile(data, altCharName, altWorldId, altProfileData);
+                UpdateLastSeenConfirmation(data, altCharName, altWorldId, effectiveAltProfile);
             }
             else
             {
@@ -616,8 +731,11 @@ public class UmbraProfileManager : MediatorSubscriberBase
         {
             if (!string.Equals(entry.Value.Key.User.UID, data.UID, StringComparison.Ordinal)) continue;
             if (visibleKeys.Contains(entry.Key)) continue;
+            if (string.IsNullOrWhiteSpace(entry.Value.Profile.RpFirstName) && string.IsNullOrWhiteSpace(entry.Value.Profile.RpLastName)) continue;
             RemovePersistedProfile(data, entry.Value.Key.CharName, entry.Value.Key.WorldId);
-            _umbraProfiles.TryRemove(NormalizeKey(data, entry.Value.Key.CharName, entry.Value.Key.WorldId), out _);
+            var normalizedKey = NormalizeKey(data, entry.Value.Key.CharName, entry.Value.Key.WorldId);
+            if (!_umbraProfiles.TryGetValue(normalizedKey, out var known) || !IsWithheldProfile(known))
+                _umbraProfiles.TryRemove(normalizedKey, out _);
         }
     }
 
@@ -679,13 +797,40 @@ public class UmbraProfileManager : MediatorSubscriberBase
             .ToList();
     }
 
-    public void ClearPersistedProfileCache()
+    public void ClearPersistedProfileCache(bool stopWritesUntilReconnect = false)
     {
-        _persistedProfiles.Clear();
-        _persistedAtUtc.Clear();
-        _umbraProfiles.Clear();
-        _cacheDirty = true;
-        SaveProfileCacheNow();
+        Interlocked.Increment(ref _cacheGeneration);
+        if (stopWritesUntilReconnect)
+        {
+            _imageStore?.Close();
+        }
+
+        lock (_cacheLoadLock)
+        {
+            _persistedProfiles.Clear();
+            _persistedAtUtc.Clear();
+            _umbraProfiles.Clear();
+            _lastSeenLive.Clear();
+            _lastSeenPending.Clear();
+            _lastSeenBeforeLoad.Clear();
+            _removalsBeforeLoad.Clear();
+            Interlocked.Exchange(ref _ownCharactersRequested, 0);
+            _lastSeenDirty = true;
+            _cacheDirty = true;
+            SaveProfileCacheNow(force: true);
+            if (stopWritesUntilReconnect)
+            {
+                _cacheWritesStopped = true;
+                _imageStore?.Close();
+                _diskGroupProfiles.Clear();
+                _diskGroupProfileLoads.Clear();
+            }
+
+            _imageStore?.Clear();
+            _profileTextures.Clear();
+            Interlocked.Increment(ref _cacheGeneration);
+        }
+
         Logger.LogInformation("Profile cache cleared by user");
     }
     
@@ -768,6 +913,9 @@ public class UmbraProfileManager : MediatorSubscriberBase
     private void StartBackgroundCacheLoad()
     {
         if (!_apiController.IsConnected || IsCacheLoadedForCurrentUid()) return;
+        if (Environment.TickCount64 < Interlocked.Read(ref _cacheLoadRetryAtTicks)) return;
+        if (Interlocked.Exchange(ref _cacheLoadRunning, 1) == 1) return;
+
         _ = Task.Run(() =>
         {
             try
@@ -778,32 +926,122 @@ public class UmbraProfileManager : MediatorSubscriberBase
             {
                 Logger.LogWarning(ex, "Chargement du cache de profils en arrière-plan impossible");
             }
+            finally
+            {
+                Interlocked.Exchange(ref _cacheLoadRunning, 0);
+            }
         });
     }
 
     private void EnsureCacheLoaded()
     {
-        if (!_apiController.IsConnected) return;
-        var uid = _apiController.UID;
+        if (IsCacheLoadedForCurrentUid()) return;
+
         lock (_cacheLoadLock)
         {
+            if (!_apiController.IsConnected) return;
+            var uid = _apiController.UID;
             if (string.Equals(_cacheLoadedForUid, uid, StringComparison.Ordinal)) return;
+            if (Environment.TickCount64 < Interlocked.Read(ref _cacheLoadRetryAtTicks)) return;
+
             if (_cacheUid != null && !string.Equals(_cacheUid, uid, StringComparison.Ordinal)) SaveProfileCacheNow();
+            _cacheDirty = false;
+            _lastSeenDirty = false;
+            var generation = Volatile.Read(ref _cacheGeneration);
             _persistedProfiles.Clear();
             _persistedAtUtc.Clear();
+            _lastSeenLive.Clear();
+            _lastSeenPending.Clear();
             _cacheUid = uid;
-            LoadProfileCache();
+            var store = new ProfileImageStore(Logger, GetImageDirectory(uid));
+            _imageStore = store;
+            DeleteExpiredCachesOfOtherAccounts(uid);
+            if (!LoadProfileCache(uid, store, generation)) return;
+
+            if (!LoadLastSeenLiveData())
+            {
+                AbandonProfileCacheLoad();
+                return;
+            }
+
+            if (generation != Volatile.Read(ref _cacheGeneration) || !string.Equals(_cacheUid, uid, StringComparison.Ordinal)) return;
+
+            ApplyRemovalsBeforeLoad();
             _cacheLoadedForUid = uid;
+        }
+
+        ReplayLastSeenBeforeLoad();
+    }
+
+    private void ApplyRemovalsBeforeLoad()
+    {
+        foreach (var key in _removalsBeforeLoad.Keys.ToList())
+        {
+            if (!_removalsBeforeLoad.TryRemove(key, out _)) continue;
+            _persistedProfiles.TryRemove(key, out _);
+            _lastSeenPending.TryRemove(key, out _);
+            _lastSeenLive.TryRemove(key, out _);
+            _cacheDirty = true;
+            _lastSeenDirty = true;
+            ScheduleCacheSave();
+        }
+    }
+
+    private void ReplayLastSeenBeforeLoad()
+    {
+        foreach (var key in _lastSeenBeforeLoad.Keys.ToList())
+        {
+            if (_lastSeenBeforeLoad.TryRemove(key, out var message)) RememberLastSeenLiveData(message);
         }
     }
 
     private string GetCacheFilePath(string uid) =>
         Path.Combine(_configDir, $"profile_cache_{uid}.json");
 
+    private string GetImageDirectory(string uid) =>
+        Path.Combine(_configDir, $"{ImageDirectoryPrefix}{uid}");
+
+    private void DeleteExpiredCachesOfOtherAccounts(string uid)
+    {
+        try
+        {
+            var now = DateTime.UtcNow;
+            var ownFiles = new[] { GetCacheFilePath(uid), GetLastSeenFilePath(uid), GetCacheFilePath(uid) + TempSuffix, GetLastSeenFilePath(uid) + TempSuffix };
+            foreach (var file in Directory.EnumerateFiles(_configDir, "profile_cache_*.json*"))
+            {
+                if (ownFiles.Contains(file, StringComparer.OrdinalIgnoreCase)) continue;
+                if (now - File.GetLastWriteTimeUtc(file) > PersistedProfileLifetime) TryDeleteFile(file);
+            }
+
+            foreach (var directory in Directory.EnumerateDirectories(_configDir, $"{ImageDirectoryPrefix}*"))
+            {
+                var owner = Path.GetFileName(directory)[ImageDirectoryPrefix.Length..];
+                if (string.Equals(owner, uid, StringComparison.OrdinalIgnoreCase) || File.Exists(GetCacheFilePath(owner))) continue;
+                Directory.Delete(directory, recursive: true);
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Logger.LogDebug(ex, "Nettoyage des caches d'autres comptes impossible");
+        }
+    }
+
     private void RemovePersistedProfile(UserData data, string? charName, uint? worldId)
     {
         EnsureCacheLoaded();
         var cacheKey = $"{data.UID}_{charName}_{worldId}";
+        if (_cacheUid == null || !string.Equals(_cacheLoadedForUid, _cacheUid, StringComparison.Ordinal))
+        {
+            _removalsBeforeLoad[cacheKey] = 0;
+            return;
+        }
+
+        _lastSeenPending.TryRemove(cacheKey, out _);
+        if (_lastSeenLive.TryRemove(cacheKey, out _))
+        {
+            _lastSeenDirty = true;
+            ScheduleCacheSave();
+        }
         if (_persistedProfiles.TryRemove(cacheKey, out _))
         {
             _cacheDirty = true;
@@ -824,9 +1062,12 @@ public class UmbraProfileManager : MediatorSubscriberBase
         // Une clé incomplète (personnage ou monde inconnus) correspond à une requête faite sans
         // savoir quel personnage afficher : le serveur répond alors par une fiche vide, qui ne
         // doit ni polluer le cache ni écraser la vraie fiche du personnage.
-        if (string.IsNullOrEmpty(charName) || worldId is not > 0) return;
+        if (string.IsNullOrEmpty(charName) || worldId is not > 0 || _cacheWritesStopped) return;
 
+        var generation = Volatile.Read(ref _cacheGeneration);
         EnsureCacheLoaded();
+        if (_cacheWritesStopped || !IsCacheLoadedForCurrentUid() || _imageStore is not { } store) return;
+
         var cacheKey = $"{data.UID}_{charName}_{worldId}";
         bool hasRpName = !string.IsNullOrWhiteSpace(profile.RpFirstName) || !string.IsNullOrWhiteSpace(profile.RpLastName);
         if (!hasRpName && _persistedProfiles.Values.Any(e =>
@@ -835,22 +1076,35 @@ public class UmbraProfileManager : MediatorSubscriberBase
                 && (!string.IsNullOrWhiteSpace(e.Profile.RpFirstName) || !string.IsNullOrWhiteSpace(e.Profile.RpLastName))))
             return;
 
-        _persistedProfiles[cacheKey] = ((data, charName, worldId), profile);
-        _persistedAtUtc[cacheKey] = DateTime.UtcNow;
+        var stored = profile.WithImagesStoredIn(store);
+        if (stored.ImageData.IsAwaitingStorage || stored.RpImageData.IsAwaitingStorage || stored.RpBannerData.IsAwaitingStorage) return;
 
-        foreach (var key in _persistedProfiles.Keys.ToList())
+        lock (_cacheLoadLock)
         {
-            if (string.Equals(key, cacheKey, StringComparison.Ordinal)) continue;
-            if (!_persistedProfiles.TryGetValue(key, out var existing)) continue;
-            if (string.Equals(existing.Key.User.UID, data.UID, StringComparison.Ordinal)
-                && string.Equals(existing.Key.CharName, charName, StringComparison.Ordinal))
-            {
-                _persistedProfiles.TryRemove(key, out _);
-            }
-        }
+            if (generation != Volatile.Read(ref _cacheGeneration) || _cacheWritesStopped) return;
 
-        _cacheDirty = true;
-        ScheduleCacheSave();
+            if (!_umbraProfiles.TryUpdate(NormalizeKey(data, charName, worldId), stored, profile)) return;
+
+            _profileTextures.Rekey(profile.ImageData, stored.ImageData);
+            _profileTextures.Rekey(profile.RpImageData, stored.RpImageData);
+            _profileTextures.Rekey(profile.RpBannerData, stored.RpBannerData);
+            _persistedProfiles[cacheKey] = ((data, charName, worldId), stored);
+            _persistedAtUtc[cacheKey] = DateTime.UtcNow;
+
+            foreach (var key in _persistedProfiles.Keys.ToList())
+            {
+                if (string.Equals(key, cacheKey, StringComparison.Ordinal)) continue;
+                if (!_persistedProfiles.TryGetValue(key, out var existing)) continue;
+                if (string.Equals(existing.Key.User.UID, data.UID, StringComparison.Ordinal)
+                    && string.Equals(existing.Key.CharName, charName, StringComparison.Ordinal))
+                {
+                    _persistedProfiles.TryRemove(key, out _);
+                }
+            }
+
+            _cacheDirty = true;
+            ScheduleCacheSave();
+        }
     }
 
     private void ScheduleCacheSave()
@@ -859,43 +1113,91 @@ public class UmbraProfileManager : MediatorSubscriberBase
         _saveTimer = new Timer(_ => SaveProfileCacheNow(), null, 3000, Timeout.Infinite);
     }
 
-    private void SaveProfileCacheNow()
+    private void SaveProfileCacheNow(bool force = false)
     {
-        if (!_cacheDirty || _cacheUid == null) return;
-        try
+        lock (_cacheSaveLock)
         {
-            var entries = _persistedProfiles.Select(kvp =>
+            var uid = _cacheUid;
+            if (uid == null || (!force && !string.Equals(_cacheLoadedForUid, uid, StringComparison.Ordinal))) return;
+            SaveLastSeenLiveData();
+            if (!_cacheDirty || _cacheWritesStopped) return;
+            try
             {
-                var entry = ProfileCacheEntry.FromProfile(kvp.Value.Key.User, kvp.Value.Key.CharName, kvp.Value.Key.WorldId, kvp.Value.Profile);
-                entry.CachedAtUtc = _persistedAtUtc.TryGetValue(kvp.Key, out var cachedAt) ? cachedAt : DateTime.UtcNow;
-                return entry;
-            }).ToList();
-            var json = JsonSerializer.Serialize(entries, new JsonSerializerOptions { WriteIndented = false });
-            File.WriteAllText(GetCacheFilePath(_cacheUid), json);
-            _cacheDirty = false;
-            Logger.LogDebug("Saved {count} profiles to cache for UID {uid}", entries.Count, _cacheUid);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogWarning(ex, "Failed to save profile cache");
+                _cacheDirty = false;
+                var entries = _persistedProfiles.Select(kvp =>
+                {
+                    var entry = ProfileCacheEntry.FromProfile(kvp.Value.Key.User, kvp.Value.Key.CharName, kvp.Value.Key.WorldId, kvp.Value.Profile);
+                    entry.CachedAtUtc = _persistedAtUtc.TryGetValue(kvp.Key, out var cachedAt) ? cachedAt : DateTime.UtcNow;
+                    return entry;
+                }).ToList();
+                WriteAtomic(GetCacheFilePath(uid), JsonSerializer.Serialize(entries));
+                _imageStore?.RetainOnly(ReferencedHashes(entries));
+                Logger.LogDebug("Saved {count} profiles to cache for UID {uid}", entries.Count, uid);
+            }
+            catch (Exception ex)
+            {
+                _cacheDirty = true;
+                Logger.LogWarning(ex, "Failed to save profile cache");
+            }
         }
     }
 
-    private void LoadProfileCache()
+    private static void WriteAtomic(string path, string content)
     {
-        if (_cacheUid == null) return;
-        var path = GetCacheFilePath(_cacheUid);
+        var temp = path + TempSuffix;
         try
         {
-            if (!File.Exists(path)) return;
-            var json = File.ReadAllText(path);
-            var entries = JsonSerializer.Deserialize<List<ProfileCacheEntry>>(json);
-            if (entries == null) return;
+            File.WriteAllText(temp, content);
+            File.Move(temp, path, overwrite: true);
+        }
+        catch
+        {
+            TryDeleteFile(temp);
+            throw;
+        }
+    }
+
+    private static HashSet<string> ReferencedHashes(IEnumerable<ProfileCacheEntry> entries)
+    {
+        var hashes = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var entry in entries)
+        {
+            if (entry.ProfilePictureHash != null) hashes.Add(entry.ProfilePictureHash);
+            if (entry.RpProfilePictureHash != null) hashes.Add(entry.RpProfilePictureHash);
+            if (entry.RpBannerHash != null) hashes.Add(entry.RpBannerHash);
+        }
+
+        return hashes;
+    }
+
+    private bool LoadProfileCache(string uid, ProfileImageStore store, int generation)
+    {
+        var path = GetCacheFilePath(uid);
+        try
+        {
+            if (!File.Exists(path))
+            {
+                store.RetainOnly(new HashSet<string>(StringComparer.Ordinal));
+                return true;
+            }
+
+            List<ProfileCacheEntry>? entries;
+            using (var stream = File.OpenRead(path))
+                entries = JsonSerializer.Deserialize<List<ProfileCacheEntry>>(stream);
+            if (entries == null) return true;
 
             var now = DateTime.UtcNow;
             int expired = 0;
+            int migrated = 0;
+            var kept = new List<ProfileCacheEntry>(entries.Count);
             foreach (var entry in entries)
             {
+                if (generation != Volatile.Read(ref _cacheGeneration))
+                {
+                    AbandonProfileCacheLoad();
+                    return false;
+                }
+
                 // Les entrées écrites avant l'ajout de la date partent d'aujourd'hui.
                 var cachedAt = entry.CachedAtUtc ?? now;
                 if (now - cachedAt > PersistedProfileLifetime)
@@ -904,29 +1206,213 @@ public class UmbraProfileManager : MediatorSubscriberBase
                     continue;
                 }
 
+                if (entry.MoveLegacyImagesTo(store)) migrated++;
+                kept.Add(entry);
+
                 var user = new UserData(entry.UID, entry.Alias);
-                var profile = entry.ToProfileData();
+                var profile = entry.ToProfileData(store);
                 var cacheKey = $"{entry.UID}_{entry.CharName}_{entry.WorldId}";
                 _persistedProfiles[cacheKey] = ((user, entry.CharName, entry.WorldId), profile);
                 _persistedAtUtc[cacheKey] = cachedAt;
             }
 
-            if (expired > 0 || entries.Exists(e => e.CachedAtUtc == null))
+            if (generation != Volatile.Read(ref _cacheGeneration))
+            {
+                AbandonProfileCacheLoad();
+                return false;
+            }
+
+            store.RetainOnly(ReferencedHashes(kept));
+
+            if (migrated > 0)
+            {
+                Logger.LogInformation("Migrated images of {count} cached profiles for UID {uid}", migrated, uid);
+                foreach (var entry in kept) entry.CachedAtUtc ??= now;
+                WriteMigratedCache(uid, kept, generation);
+            }
+            else if (expired > 0 || entries.Exists(e => e.CachedAtUtc == null))
             {
                 _cacheDirty = true;
                 ScheduleCacheSave();
             }
 
-            Logger.LogInformation("Loaded {count} profiles from cache for UID {uid}", entries.Count, _cacheUid);
+            Logger.LogInformation("Loaded {count} profiles from cache for UID {uid}", entries.Count, uid);
+            return true;
+        }
+        catch (JsonException ex)
+        {
+            Logger.LogWarning(ex, "Profile cache at {path} is unreadable, starting empty", path);
+            AbandonProfileCacheLoad();
+            return true;
         }
         catch (Exception ex)
         {
             Logger.LogWarning(ex, "Failed to load profile cache from {path}", path);
+            AbandonProfileCacheLoad();
+            DelayNextCacheLoad();
+            return false;
+        }
+    }
+
+    private void WriteMigratedCache(string uid, List<ProfileCacheEntry> entries, int generation)
+    {
+        lock (_cacheSaveLock)
+        {
+            if (generation != Volatile.Read(ref _cacheGeneration)) return;
+            try
+            {
+                WriteAtomic(GetCacheFilePath(uid), JsonSerializer.Serialize(entries));
+                _cacheDirty = false;
+            }
+            catch (Exception ex)
+            {
+                _cacheDirty = true;
+                Logger.LogWarning(ex, "Failed to save migrated profile cache");
+            }
+        }
+    }
+
+    private void DelayNextCacheLoad()
+        => Interlocked.Exchange(ref _cacheLoadRetryAtTicks, Environment.TickCount64 + (long)CacheLoadRetryDelay.TotalMilliseconds);
+
+    private void AbandonProfileCacheLoad()
+    {
+        _persistedProfiles.Clear();
+        _persistedAtUtc.Clear();
+        _cacheDirty = false;
+    }
+
+    private static string LastSeenKey(string uid, string charName, uint worldId) => $"{uid}_{charName}_{worldId}";
+
+    private string GetLastSeenFilePath(string uid) =>
+        Path.Combine(_configDir, $"profile_cache_lastseen_{uid}.json");
+
+    private void RememberLastSeenLiveData(PairLiveDataSeenMessage msg)
+    {
+        if (_cacheWritesStopped || string.IsNullOrEmpty(msg.CharName) || msg.WorldId == 0 || !_apiController.IsConnected) return;
+
+        var key = LastSeenKey(msg.User.UID, msg.CharName, msg.WorldId);
+        if (!IsCacheLoadedForCurrentUid())
+        {
+            _lastSeenBeforeLoad[key] = msg;
+            StartBackgroundCacheLoad();
+            return;
+        }
+
+        if (IsProfileWithheld(msg.User, msg.CharName, msg.WorldId)
+            || _pairManager.GetPairByUID(msg.User.UID)?.IsPaused == true
+            || (string.IsNullOrEmpty(msg.HonorificData) && string.IsNullOrEmpty(msg.MoodlesData)))
+        {
+            _lastSeenPending.TryRemove(key, out _);
+            if (!_lastSeenLive.TryRemove(key, out _)) return;
+        }
+        else
+        {
+            var now = DateTime.UtcNow;
+            if (_lastSeenLive.TryGetValue(key, out var known)
+                && string.Equals(known.HonorificData, msg.HonorificData, StringComparison.Ordinal)
+                && string.Equals(known.MoodlesData, msg.MoodlesData, StringComparison.Ordinal)
+                && now - known.SeenAtUtc < LastSeenRefreshInterval)
+            {
+                return;
+            }
+
+            var seen = new LastSeenLiveData(msg.User.UID, msg.CharName, msg.WorldId, msg.HonorificData, msg.MoodlesData, now);
+            var current = _umbraProfiles.GetValueOrDefault(NormalizeKey(msg.User, msg.CharName, msg.WorldId));
+            var confirmed = current == null || ReferenceEquals(current, _defaultProfileData)
+                ? _persistedProfiles.ContainsKey(key)
+                : IsConfirmedProfile(current);
+            if (!confirmed)
+            {
+                _lastSeenPending[key] = seen;
+                return;
+            }
+
+            _lastSeenPending.TryRemove(key, out _);
+            _lastSeenLive[key] = seen;
+        }
+
+        _lastSeenDirty = true;
+        ScheduleCacheSave();
+    }
+
+    private void SaveLastSeenLiveData()
+    {
+        if (!_lastSeenDirty || _cacheWritesStopped || _cacheUid == null) return;
+        try
+        {
+            _lastSeenDirty = false;
+            WriteAtomic(GetLastSeenFilePath(_cacheUid), JsonSerializer.Serialize(_lastSeenLive.Values.ToList()));
+        }
+        catch (Exception ex)
+        {
+            _lastSeenDirty = true;
+            Logger.LogWarning(ex, "Failed to save last seen live data");
+        }
+    }
+
+    private bool LoadLastSeenLiveData()
+    {
+        if (_cacheUid == null) return false;
+        var path = GetLastSeenFilePath(_cacheUid);
+        try
+        {
+            if (!File.Exists(path)) return true;
+            var entries = JsonSerializer.Deserialize<List<LastSeenLiveData>>(File.ReadAllText(path));
+            if (entries == null) return true;
+
+            var now = DateTime.UtcNow;
+            foreach (var entry in entries)
+            {
+                if (string.IsNullOrEmpty(entry.UID) || string.IsNullOrEmpty(entry.CharName) || entry.WorldId == 0
+                    || now - entry.SeenAtUtc > PersistedProfileLifetime)
+                {
+                    _lastSeenDirty = true;
+                    continue;
+                }
+
+                _lastSeenLive[LastSeenKey(entry.UID, entry.CharName, entry.WorldId)] = entry;
+            }
+
+            if (_lastSeenDirty) ScheduleCacheSave();
+            return true;
+        }
+        catch (JsonException ex)
+        {
+            Logger.LogWarning(ex, "Last seen live data at {path} is unreadable, starting empty", path);
+            _lastSeenLive.Clear();
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Failed to load last seen live data from {path}", path);
+            _lastSeenLive.Clear();
+            DelayNextCacheLoad();
+            return false;
         }
     }
 
     #endregion
-    
+
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+
+        Interlocked.Increment(ref _cacheGeneration);
+        try
+        {
+            UnsubscribeAll();
+            CancelOwnProfileSync();
+            _saveTimer?.Dispose();
+            SaveProfileCacheNow();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogDebug(ex, "Arrêt du gestionnaire de fiches incomplet");
+        }
+    }
+
     private static (UserData User, string? CharName, uint? WorldId) NormalizeKey(UserData data, string? charName, uint? worldId)
         => (new UserData(data.UID), charName, worldId);
 }

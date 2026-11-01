@@ -121,6 +121,7 @@ public record UnholdPairApplicationMessage(string UID, string Source) : KeyedMes
 public record HoldPairDownloadsMessage(string UID, string Source) : KeyedMessage(UID);
 public record UnholdPairDownloadsMessage(string UID, string Source) : KeyedMessage(UID);
 public record PairDataAppliedMessage(string UID, CharacterData? CharacterData) : KeyedMessage(UID);
+public record PairLiveDataSeenMessage(UserData User, string? CharName, uint WorldId, string? HonorificData, string? MoodlesData) : MessageBase;
 public record PairDataAnalyzedMessage(string UID) : KeyedMessage(UID);
 public record GameObjectHandlerCreatedMessage(GameObjectHandler GameObjectHandler, bool OwnedObject) : MessageBase;
 public record GameObjectHandlerDestroyedMessage(GameObjectHandler GameObjectHandler, bool OwnedObject) : MessageBase;

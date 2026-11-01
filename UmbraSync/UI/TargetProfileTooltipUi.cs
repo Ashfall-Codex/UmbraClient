@@ -38,10 +38,6 @@ public sealed class TargetProfileTooltipUi : WindowMediatorSubscriberBase
     private string? _dismissedTargetKey;
 
     private volatile TargetInfo? _target;
-    private byte[] _lastPictureData = [];
-    private Task<IDalamudTextureWrap>? _textureTask;
-    private byte[] _lastBannerData = [];
-    private Task<IDalamudTextureWrap>? _bannerTask;
     private volatile UmbraProfileData? _preview;
 
     private sealed record TargetInfo(Pair Pair, string CharName, uint WorldId)
@@ -217,17 +213,7 @@ public sealed class TargetProfileTooltipUi : WindowMediatorSubscriberBase
         var accent = UiSharedService.AccentColor;
         if (accent.W <= 0f) accent = ImGuiColors.ParsedPurple;
 
-        var pictureData = profile.RpImageData.Value;
-        if (pictureData.Length == 0) pictureData = profile.ImageData.Value;
-        if (_textureTask == null || !ReferenceEquals(pictureData, _lastPictureData) && !pictureData.AsSpan().SequenceEqual(_lastPictureData))
-        {
-            var previous = _textureTask;
-            previous.DisposeResultWhenCompleted();
-            _lastPictureData = pictureData;
-            _textureTask = pictureData.Length == 0
-                ? Task.FromException<IDalamudTextureWrap>(new InvalidOperationException("Pas d'image"))
-                : Task.Run(() => _uiSharedService.LoadImageAsync(pictureData));
-        }
+        var portrait = _uiSharedService.ProfileTextures.GetTexture(profile.RpImageData.HasImage ? profile.RpImageData : profile.ImageData);
 
         var windowDraw = ImGui.GetWindowDrawList();
         windowDraw.ChannelsSplit(2);
@@ -239,9 +225,8 @@ public sealed class TargetProfileTooltipUi : WindowMediatorSubscriberBase
         var portraitRounding = 10f * ImGuiHelpers.GlobalScale;
         ImGui.Dummy(portraitSize);
         var portraitDraw = ImGui.GetWindowDrawList();
-        if (_textureTask is { IsCompletedSuccessfully: true })
+        if (portrait != null)
         {
-            var portrait = _textureTask.Result;
             var (uv0, uv1) = Components.ProfileBanner.CoverUv(portrait.Width, portrait.Height, portraitSize.X, portraitSize.Y);
             portraitDraw.AddImageRounded(portrait.Handle, portraitMin, portraitMin + portraitSize,
                 uv0, uv1, ImGui.ColorConvertFloat4ToU32(Vector4.One), portraitRounding);
@@ -326,23 +311,15 @@ public sealed class TargetProfileTooltipUi : WindowMediatorSubscriberBase
             }
         }
 
-        DrawBanner(windowDraw, profile.RpBannerData.Value, cardStyle);
+        DrawBanner(windowDraw, profile.RpBannerData, cardStyle);
         windowDraw.ChannelsMerge();
     }
 
     // Bannière derrière tout le contenu, estompée sur les bords comme la carte héros du profil.
-    private void DrawBanner(ImDrawListPtr drawList, byte[] bannerData, ProfileCardStyle style)
+    private void DrawBanner(ImDrawListPtr drawList, ProfileImage bannerImage, ProfileCardStyle style)
     {
-        if (!ReferenceEquals(bannerData, _lastBannerData) && !bannerData.AsSpan().SequenceEqual(_lastBannerData))
-        {
-            _bannerTask.DisposeResultWhenCompleted();
-            _lastBannerData = bannerData;
-            _bannerTask = bannerData.Length == 0
-                ? null
-                : Task.Run(() => _uiSharedService.LoadImageAsync(bannerData));
-        }
-
-        if (_bannerTask is not { IsCompletedSuccessfully: true }) return;
+        var banner = _uiSharedService.ProfileTextures.GetTexture(bannerImage);
+        if (banner == null) return;
 
         var scale = ImGuiHelpers.GlobalScale;
         var inset = 1f * scale;
@@ -351,7 +328,7 @@ public sealed class TargetProfileTooltipUi : WindowMediatorSubscriberBase
         var background = ImGui.ColorConvertU32ToFloat4(ImGui.GetColorU32(ImGuiCol.WindowBg));
 
         drawList.ChannelsSetCurrent(0);
-        Components.ProfileBanner.Draw(drawList, _bannerTask.Result, min, max, background,
+        Components.ProfileBanner.Draw(drawList, banner, min, max, background,
             MathF.Max(ImGui.GetStyle().WindowRounding - inset, 0f), style);
         drawList.ChannelsSetCurrent(1);
     }
@@ -390,18 +367,5 @@ public sealed class TargetProfileTooltipUi : WindowMediatorSubscriberBase
         dl.AddText(new Vector2(startX + iconSize.X + gap, pos.Y + (size.Y - textSize.Y) / 2f), textColor, label);
 
         return clicked;
-    }
-
-    protected override void Dispose(bool disposing)
-    {
-        if (disposing)
-        {
-            _textureTask.DisposeResultWhenCompleted();
-            _textureTask = null;
-            _bannerTask.DisposeResultWhenCompleted();
-            _bannerTask = null;
-        }
-
-        base.Dispose(disposing);
     }
 }

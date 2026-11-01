@@ -17,8 +17,18 @@ public record UmbraProfileData(bool IsFlagged, bool IsNSFW, string Base64Profile
     string? Base64RpBanner = null,
     string? RpCardStyle = null)
 {
-    public Lazy<byte[]> ImageData { get; } = new Lazy<byte[]>(() => string.IsNullOrEmpty(Base64ProfilePicture) ? Array.Empty<byte>() : Convert.FromBase64String(Base64ProfilePicture));
-    public Lazy<byte[]> RpImageData { get; } = new Lazy<byte[]>(() => string.IsNullOrEmpty(Base64RpProfilePicture) ? Array.Empty<byte>() : Convert.FromBase64String(Base64RpProfilePicture));
-    public Lazy<byte[]> RpBannerData { get; } = new Lazy<byte[]>(() => string.IsNullOrEmpty(Base64RpBanner) ? Array.Empty<byte>() : Convert.FromBase64String(Base64RpBanner));
+    public ProfileImage ImageData { get; init; } = ProfileImage.FromBase64(Base64ProfilePicture);
+    public ProfileImage RpImageData { get; init; } = ProfileImage.FromBase64(Base64RpProfilePicture);
+    public ProfileImage RpBannerData { get; init; } = ProfileImage.FromBase64(Base64RpBanner);
     public Lazy<ProfileCardStyle> CardStyle { get; } = new Lazy<ProfileCardStyle>(() => ProfileCardStyle.Parse(RpCardStyle));
+
+    internal UmbraProfileData WithImagesStoredIn(ProfileImageStore store) => this with
+    {
+        Base64ProfilePicture = string.Empty,
+        Base64RpProfilePicture = null,
+        Base64RpBanner = null,
+        ImageData = ImageData.StoreIn(store),
+        RpImageData = RpImageData.StoreIn(store),
+        RpBannerData = RpBannerData.StoreIn(store),
+    };
 }

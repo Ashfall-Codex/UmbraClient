@@ -511,6 +511,7 @@ public sealed partial class PairHandler : DisposableMediatorSubscriberBase, IPai
         {
             IsVisible = true;
             Mediator.Publish(new PairHandlerVisibleMessage(this));
+            Pair.PublishLiveDataIfVisible();
             int applyJitterMs = Random.Shared.Next(0, VisibilityApplyJitterMaxMs);
 
             // Toujours repartir de la dernière donnée reçue : CachedData peut être une donnée plus

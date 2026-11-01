@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using UmbraSync.API.Data;
 
 namespace UmbraSync.Services;
@@ -10,10 +11,16 @@ internal class ProfileCacheEntry
     public uint? WorldId { get; set; }
     public bool IsFlagged { get; set; }
     public bool IsNSFW { get; set; }
-    public string Base64ProfilePicture { get; set; } = string.Empty;
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Base64ProfilePicture { get; set; }
+    public string? ProfilePictureHash { get; set; }
     public string Description { get; set; } = string.Empty;
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Base64RpProfilePicture { get; set; }
+    public string? RpProfilePictureHash { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Base64RpBanner { get; set; }
+    public string? RpBannerHash { get; set; }
     public string? RpDescription { get; set; }
     public bool IsRpNSFW { get; set; }
     public string? RpFirstName { get; set; }
@@ -37,9 +44,9 @@ internal class ProfileCacheEntry
     public byte RpLevel { get; set; }
     public DateTime? CachedAtUtc { get; set; }
 
-    public UmbraProfileData ToProfileData() => new(
-        IsFlagged, IsNSFW, Base64ProfilePicture, Description,
-        Base64RpProfilePicture, RpDescription, IsRpNSFW,
+    public UmbraProfileData ToProfileData(ProfileImageStore store) => new(
+        IsFlagged, IsNSFW, string.Empty, Description,
+        null, RpDescription, IsRpNSFW,
         RpFirstName, RpLastName, RpTitle, RpAge,
         RpRace, RpEthnicity,
         RpHeight, RpBuild, RpResidence, RpOccupation, RpAffiliation,
@@ -48,8 +55,33 @@ internal class ProfileCacheEntry
         MoodlesData,
         ChatIcon,
         RpLevel,
-        Base64RpBanner: Base64RpBanner,
-        RpCardStyle: RpCardStyle);
+        RpCardStyle: RpCardStyle)
+    {
+        ImageData = store.Get(ProfilePictureHash),
+        RpImageData = store.Get(RpProfilePictureHash),
+        RpBannerData = store.Get(RpBannerHash),
+    };
+
+    public bool MoveLegacyImagesTo(ProfileImageStore store)
+    {
+        if (Base64ProfilePicture == null && Base64RpProfilePicture == null && Base64RpBanner == null) return false;
+
+        ProfilePictureHash ??= Move(Base64ProfilePicture, store);
+        RpProfilePictureHash ??= Move(Base64RpProfilePicture, store);
+        RpBannerHash ??= Move(Base64RpBanner, store);
+        Base64ProfilePicture = null;
+        Base64RpProfilePicture = null;
+        Base64RpBanner = null;
+        return true;
+    }
+
+    private static string? Move(string? base64, ProfileImageStore store)
+    {
+        var bytes = ProfileImage.Decode(base64);
+        if (bytes.Length == 0) return null;
+
+        return store.Put(bytes) ?? throw new IOException("Écriture d'une image de fiche impossible");
+    }
 
     public static ProfileCacheEntry FromProfile(UserData user, string? charName, uint? worldId, UmbraProfileData profile) => new()
     {
@@ -59,10 +91,10 @@ internal class ProfileCacheEntry
         WorldId = worldId,
         IsFlagged = profile.IsFlagged,
         IsNSFW = profile.IsNSFW,
-        Base64ProfilePicture = profile.Base64ProfilePicture,
+        ProfilePictureHash = profile.ImageData.StoredHash,
         Description = profile.Description,
-        Base64RpProfilePicture = profile.Base64RpProfilePicture,
-        Base64RpBanner = profile.Base64RpBanner,
+        RpProfilePictureHash = profile.RpImageData.StoredHash,
+        RpBannerHash = profile.RpBannerData.StoredHash,
         RpDescription = profile.RpDescription,
         IsRpNSFW = profile.IsRpNSFW,
         RpFirstName = profile.RpFirstName,

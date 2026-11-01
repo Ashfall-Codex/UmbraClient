@@ -22,8 +22,6 @@ internal partial class EstablishmentDetailUi
     private string _affiliationMessage = string.Empty;
     private string? _affiliationStatus;
     private volatile bool _affiliationBusy;
-    private byte[] _portraitData = [];
-    private Task<IDalamudTextureWrap>? _portraitTask;
     private readonly Dictionary<Guid, (string Base64, Task<IDalamudTextureWrap> Task)> _memberPortraits = [];
 
     private void RefreshAffiliationsFor(Guid establishmentId)
@@ -163,16 +161,8 @@ internal partial class EstablishmentDetailUi
     }
 
     private IDalamudTextureWrap? CurrentCharacterPortrait(RpProfileSummaryDto profile)
-    {
-        var data = _umbraProfileManager.GetUmbraProfile(new UserData(_apiController.UID), profile.CharacterName, profile.WorldId).RpImageData.Value;
-        if (!ReferenceEquals(data, _portraitData) && !data.AsSpan().SequenceEqual(_portraitData))
-        {
-            _portraitTask.DisposeResultWhenCompleted();
-            _portraitData = data;
-            _portraitTask = data.Length == 0 ? null : Task.Run(() => _uiSharedService.LoadImageAsync(data));
-        }
-        return _portraitTask is { IsCompletedSuccessfully: true } ? _portraitTask.Result : null;
-    }
+        => _uiSharedService.ProfileTextures.GetTexture(
+            _umbraProfileManager.GetUmbraProfile(new UserData(_apiController.UID), profile.CharacterName, profile.WorldId).RpImageData);
 
     private IDalamudTextureWrap? MemberPortrait(EstablishmentAffiliationDto member)
     {
@@ -215,8 +205,6 @@ internal partial class EstablishmentDetailUi
     {
         if (disposing)
         {
-            _portraitTask.DisposeResultWhenCompleted();
-            _portraitTask = null;
             foreach (var (_, task) in _memberPortraits.Values)
                 task.DisposeResultWhenCompleted();
             _memberPortraits.Clear();
