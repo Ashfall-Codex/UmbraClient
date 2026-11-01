@@ -29,6 +29,7 @@ public sealed partial class MoodlesEditor
     private readonly Lazy<List<StatusIconInfo>> _statusIcons;
 
     private string _localMoodlesJson = string.Empty;
+    private bool _localMoodlesKnown;
     private bool _moodleOperationInProgress;
     private bool _moodleRestoreAttempted;
     private int _moodleRestoreRetries;
@@ -70,17 +71,18 @@ public sealed partial class MoodlesEditor
         _statusIcons = statusIcons;
     }
 
-    public string LocalMoodlesJson => _localMoodlesJson;
+    public string? LocalMoodlesJson => _localMoodlesKnown ? _localMoodlesJson : null;
 
     public void PersistBackupForCharacter(string charName, uint worldId)
     {
-        if (string.IsNullOrEmpty(charName) || worldId == 0) return;
+        if (string.IsNullOrEmpty(charName) || worldId == 0 || !_localMoodlesKnown) return;
         SaveBackup(_localMoodlesJson, charName, worldId);
     }
 
     public void ResetSession()
     {
         _localMoodlesJson = string.Empty;
+        _localMoodlesKnown = false;
         _lastMoodlesFetch = DateTime.MinValue;
         _moodleRestoreAttempted = false;
         _moodleRestoreRetries = 0;
@@ -115,6 +117,13 @@ public sealed partial class MoodlesEditor
         }
     }
 
+    private async Task ReadLocalMoodlesAsync(IntPtr ptr)
+    {
+        var status = await _ipcManager.Moodles.GetStatusAsync(ptr).ConfigureAwait(false);
+        _localMoodlesJson = status ?? string.Empty;
+        _localMoodlesKnown = status != null;
+    }
+
     public async Task RefreshAsync()
     {
         if (_moodlesFetching) return;
@@ -124,7 +133,7 @@ public sealed partial class MoodlesEditor
             if (!_ipcManager.Moodles.APIAvailable) return;
             var ptr = await _dalamudUtil.GetPlayerPointerAsync().ConfigureAwait(false);
             if (ptr == IntPtr.Zero) return;
-            _localMoodlesJson = await _ipcManager.Moodles.GetStatusAsync(ptr).ConfigureAwait(false) ?? string.Empty;
+            await ReadLocalMoodlesAsync(ptr).ConfigureAwait(false);
             _lastMoodlesFetch = DateTime.UtcNow;
 
             var charName = await _dalamudUtil.GetPlayerNameAsync().ConfigureAwait(false);
@@ -163,7 +172,7 @@ public sealed partial class MoodlesEditor
                         _logger.LogInformation("Restoring {count} moodles from local backup (attempt {attempt}/5)",
                             backupMoodles.Count, _moodleRestoreRetries);
                         await _ipcManager.Moodles.SetStatusAsync(ptr, profile.MoodlesBackupJson).ConfigureAwait(false);
-                        _localMoodlesJson = await _ipcManager.Moodles.GetStatusAsync(ptr).ConfigureAwait(false) ?? string.Empty;
+                        await ReadLocalMoodlesAsync(ptr).ConfigureAwait(false);
 
                         var restoredMoodles = MoodleStatusInfo.ParseMoodles(_localMoodlesJson);
                         if (restoredMoodles.Count > 0)
@@ -231,7 +240,7 @@ public sealed partial class MoodlesEditor
                             var bp = _rpConfigService.GetCurrentCharacterProfile();
                             _logger.LogInformation("Manual restore of moodles from local backup");
                             await _ipcManager.Moodles.SetStatusAsync(ptr, bp.MoodlesBackupJson).ConfigureAwait(false);
-                            _localMoodlesJson = await _ipcManager.Moodles.GetStatusAsync(ptr).ConfigureAwait(false) ?? string.Empty;
+                            await ReadLocalMoodlesAsync(ptr).ConfigureAwait(false);
                         }
                         catch (Exception ex)
                         {
@@ -623,7 +632,7 @@ public sealed partial class MoodlesEditor
 
             var newJson = MoodleStatusInfo.RemoveMoodleAtIndex(freshJson, index);
             await _ipcManager.Moodles.SetStatusAsync(ptr, newJson).ConfigureAwait(false);
-            _localMoodlesJson = await _ipcManager.Moodles.GetStatusAsync(ptr).ConfigureAwait(false) ?? string.Empty;
+            await ReadLocalMoodlesAsync(ptr).ConfigureAwait(false);
             var cn = await _dalamudUtil.GetPlayerNameAsync().ConfigureAwait(false);
             var wid = await _dalamudUtil.GetHomeWorldIdAsync().ConfigureAwait(false);
             if (!string.IsNullOrEmpty(cn) && wid > 0) SaveBackup(_localMoodlesJson, cn, wid);
@@ -653,7 +662,7 @@ public sealed partial class MoodlesEditor
 
             var newJson = MoodleStatusInfo.ReplaceMoodleAtIndex(freshJson, index, moodle);
             await _ipcManager.Moodles.SetStatusAsync(ptr, newJson).ConfigureAwait(false);
-            _localMoodlesJson = await _ipcManager.Moodles.GetStatusAsync(ptr).ConfigureAwait(false) ?? string.Empty;
+            await ReadLocalMoodlesAsync(ptr).ConfigureAwait(false);
             var cn = await _dalamudUtil.GetPlayerNameAsync().ConfigureAwait(false);
             var wid = await _dalamudUtil.GetHomeWorldIdAsync().ConfigureAwait(false);
             if (!string.IsNullOrEmpty(cn) && wid > 0) SaveBackup(_localMoodlesJson, cn, wid);
@@ -681,7 +690,7 @@ public sealed partial class MoodlesEditor
             var freshJson = await _ipcManager.Moodles.GetStatusAsync(ptr).ConfigureAwait(false) ?? string.Empty;
             var newJson = MoodleStatusInfo.AddMoodle(freshJson, moodle);
             await _ipcManager.Moodles.SetStatusAsync(ptr, newJson).ConfigureAwait(false);
-            _localMoodlesJson = await _ipcManager.Moodles.GetStatusAsync(ptr).ConfigureAwait(false) ?? string.Empty;
+            await ReadLocalMoodlesAsync(ptr).ConfigureAwait(false);
             var cn = await _dalamudUtil.GetPlayerNameAsync().ConfigureAwait(false);
             var wid = await _dalamudUtil.GetHomeWorldIdAsync().ConfigureAwait(false);
             if (!string.IsNullOrEmpty(cn) && wid > 0) SaveBackup(_localMoodlesJson, cn, wid);

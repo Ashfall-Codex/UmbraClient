@@ -8473,6 +8473,12 @@ ATTENTION : cette action est irréversible.</value>
   <data name="EditProfile.SaveCard.UpToDate" xml:space="preserve">
     <value>Fiche à jour</value>
   </data>
+  <data name="EditProfile.ProfileUnavailable" xml:space="preserve">
+    <value>Votre profil n'a pas pu être récupéré depuis le serveur. Vos données n'ont pas été modifiées. Cliquez sur le bouton de rechargement pour réessayer.</value>
+  </data>
+  <data name="EditProfile.ProfileNotReady" xml:space="preserve">
+    <value>Votre profil n'est pas encore chargé. Réessayez dans quelques instants.</value>
+  </data>
   <data name="EditProfile.SaveCard.Unsaved.Desc" xml:space="preserve">
     <value>Personne ne voit ces changements avant la sauvegarde.</value>
   </data>

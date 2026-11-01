@@ -302,7 +302,8 @@ public class EditProfileUi : WindowMediatorSubscriberBase
         {
             try
             {
-                var curProfile = await _apiController.UserGetProfile(new UserDto(new UserData(_apiController.UID, _apiController.DisplayName))).ConfigureAwait(false);
+                var curProfile = await _apiController.TryUserGetProfile(new UserDto(new UserData(_apiController.UID, _apiController.DisplayName))).ConfigureAwait(false)
+                    ?? throw new InvalidOperationException("Profil actuel indisponible, écriture annulée");
                 _logger.LogInformation("Setting RP visibility to {visibility} for {uid}", visibility, _apiController.UID);
                 await _apiController.UserSetProfile(new UserProfileDto(new UserData(_apiController.UID, _apiController.DisplayName), curProfile.Disabled, curProfile.IsNSFW, curProfile.ProfilePictureBase64, curProfile.Description)
                 {
@@ -349,9 +350,11 @@ public class EditProfileUi : WindowMediatorSubscriberBase
     
     private UmbraProfileData SetProfilePreview()
     {
-        var previewProfileData = BuildPreviewProfileData();
         var myUserData = new UserData(_apiController.UID, _apiController.DisplayName);
         var (charName, worldId) = _umbraProfileManager.ResolveCharacter(myUserData);
+        if (!_rpLoaded || !_hrpLoaded) return _umbraProfileManager.GetUmbraProfile(myUserData, charName, worldId);
+
+        var previewProfileData = BuildPreviewProfileData();
         _umbraProfileManager.SetPreviewProfile(myUserData, charName, worldId, previewProfileData);
         return previewProfileData;
     }
@@ -443,11 +446,12 @@ public class EditProfileUi : WindowMediatorSubscriberBase
         {
             var charName = await _dalamudUtil.GetPlayerNameAsync().ConfigureAwait(false);
             var worldId = await _dalamudUtil.GetHomeWorldIdAsync().ConfigureAwait(false);
-            var dto = await _apiController.UserGetProfile(new UmbraSync.API.Dto.User.UserDto(new UserData(_apiController.UID))
+            var dto = await _apiController.TryUserGetProfile(new UmbraSync.API.Dto.User.UserDto(new UserData(_apiController.UID))
             {
                 CharacterName = charName,
                 WorldId = worldId,
             }).ConfigureAwait(false);
+            if (dto == null) return;
 
             List<RpCustomField>? customFields = null;
             if (!string.IsNullOrEmpty(dto.RpCustomFields))
@@ -481,6 +485,149 @@ public class EditProfileUi : WindowMediatorSubscriberBase
         }
     }
 
+    private void HydrateRpTab(UmbraProfileData umbraProfile)
+    {
+        var curName = _dalamudUtil.GetPlayerName();
+        var curWorld = _dalamudUtil.GetHomeWorldId();
+        bool playerReady = !string.IsNullOrEmpty(curName)
+            && !string.Equals(curName, "--", StringComparison.Ordinal) && curWorld > 0;
+        // Clé perso courante (même format que RpConfigService.GetCharacterKey).
+        var curKey = playerReady ? $"{curName}@{curWorld}" : string.Empty;
+
+        // Switch d'alt fenêtre ouverte : si le perso a changé depuis le dernier chargement,
+        // on recharge pour ne pas garder les champs (ni réécrire le config) de l'ancien perso.
+        if (playerReady && !string.Equals(curKey, _rpLoadedForKey, StringComparison.Ordinal))
+            _rpLoaded = false;
+
+        if (playerReady && !_rpLoaded && !_umbraProfileManager.IsProfileFetchFailed(umbraProfile)
+            && !string.Equals(umbraProfile.Description, "Loading Data from server...", StringComparison.Ordinal))
+        {
+            _rpDescriptionText = umbraProfile.RpDescription ?? string.Empty;
+            _rpFirstNameText = umbraProfile.RpFirstName ?? string.Empty;
+            _rpLastNameText = umbraProfile.RpLastName ?? string.Empty;
+            _rpTitleText = umbraProfile.RpTitle ?? string.Empty;
+            _rpAgeText = umbraProfile.RpAge ?? string.Empty;
+            _rpRaceText = umbraProfile.RpRace ?? string.Empty;
+            _rpEthnicityText = umbraProfile.RpEthnicity ?? string.Empty;
+            _rpHeightText = umbraProfile.RpHeight ?? string.Empty;
+            _rpBuildText = umbraProfile.RpBuild ?? string.Empty;
+            _rpResidenceText = umbraProfile.RpResidence ?? string.Empty;
+            _rpOccupationText = umbraProfile.RpOccupation ?? string.Empty;
+            _rpAffiliationText = umbraProfile.RpAffiliation ?? string.Empty;
+            _rpAlignmentText = umbraProfile.RpAlignment ?? string.Empty;
+            _rpAdditionalInfoText = umbraProfile.RpAdditionalInfo ?? string.Empty;
+
+            var configProfile = _rpConfigService.GetCurrentCharacterProfile();
+            // Source de vérité = serveur (Connect peut le modifier entre deux ouvertures du
+            // plugin). Fallback config locale uniquement si le serveur a renvoyé null (perso
+            // jamais sync). Une liste vide côté serveur signifie "tout supprimé" et est respectée.
+            var customFieldsSource = umbraProfile.RpCustomFields ?? configProfile.RpCustomFields;
+            _rpCustomFields = customFieldsSource
+                .Select(f => new RpCustomField { Name = f.Name, Value = f.Value, Order = f.Order })
+                .ToList();
+            configProfile.RpCustomFields = _rpCustomFields
+                .Select(f => new RpCustomField { Name = f.Name, Value = f.Value, Order = f.Order })
+                .ToList();
+            configProfile.RpFirstName = _rpFirstNameText;
+            configProfile.RpLastName = _rpLastNameText;
+            configProfile.RpTitle = _rpTitleText;
+            configProfile.RpAge = _rpAgeText;
+            configProfile.RpRace = _rpRaceText;
+            configProfile.RpEthnicity = _rpEthnicityText;
+            configProfile.RpHeight = _rpHeightText;
+            configProfile.RpBuild = _rpBuildText;
+            configProfile.RpResidence = _rpResidenceText;
+            configProfile.RpOccupation = _rpOccupationText;
+            configProfile.RpAffiliation = _rpAffiliationText;
+            configProfile.RpAlignment = _rpAlignmentText;
+            configProfile.RpAdditionalInfo = _rpAdditionalInfoText;
+            configProfile.RpNameColor = umbraProfile.RpNameColor ?? string.Empty;
+            configProfile.RpCardStyle = umbraProfile.RpCardStyle ?? string.Empty;
+            if (umbraProfile.RpVisibility.HasValue) configProfile.RpVisibility = umbraProfile.RpVisibility.Value;
+            _rpConfigService.Save();
+
+            _chatIconPicker.SelectedIcon = umbraProfile.ChatIcon > 0 ? umbraProfile.ChatIcon : configProfile.ChatIcon;
+            _rpLevel = umbraProfile.RpLevel != 0 ? umbraProfile.RpLevel : configProfile.RpLevel;
+            _rpVisibility = configProfile.RpVisibility;
+
+            var nameColorHex = umbraProfile.RpNameColor ?? string.Empty;
+            if (!string.IsNullOrEmpty(nameColorHex))
+            {
+                var v4 = UiSharedService.HexToVector4(nameColorHex);
+                _rpNameColorVec = new Vector3(v4.X, v4.Y, v4.Z);
+            }
+            else
+            {
+                var accent = UiSharedService.AccentColor;
+                _rpNameColorVec = new Vector3(accent.X, accent.Y, accent.Z);
+            }
+
+            SetCardStyle(umbraProfile.CardStyle.Value);
+
+            _rpNsfw = umbraProfile.IsRpNSFW;
+
+            if (!_rpPortraitDirty)
+            {
+                try
+                {
+                    _rpProfileImage = !string.IsNullOrEmpty(umbraProfile.Base64RpProfilePicture) ? Convert.FromBase64String(umbraProfile.Base64RpProfilePicture) : [];
+                    _rpPfpTextureWrap?.Dispose();
+                    _rpPfpTextureWrap = _rpProfileImage.Length > 0 ? _uiSharedService.LoadImage(_rpProfileImage) : null;
+                    _logger.LogDebug("Loaded RP profile image, size: {size}", _rpProfileImage.Length);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to load RP profile image");
+                    _rpProfileImage = [];
+                    _rpPfpTextureWrap = null;
+                }
+            }
+
+            if (!_rpBannerDirty)
+            {
+                _rpBannerImage = umbraProfile.RpBannerData.ReadNow();
+                _bannerTextureStale = true;
+            }
+
+            _rpLoaded = true;
+            _rpLoadedForKey = curKey;
+            _hydratedRpSnapshot = ComputeRpSnapshotFromProfile(umbraProfile);
+            _serverHasNewerVersion = false;
+            _lastRpPollUtc = DateTime.UtcNow;
+            SnapshotSavedState(true);
+        }
+    }
+
+    private void HydrateHrpTab(UmbraProfileData umbraProfile)
+    {
+        if (!_hrpLoaded && !_umbraProfileManager.IsProfileFetchFailed(umbraProfile)
+            && !string.Equals(umbraProfile.Description, "Loading Data from server...", StringComparison.Ordinal))
+        {
+            _descriptionText = umbraProfile.Description;
+            _hrpNsfw = umbraProfile.IsNSFW;
+
+            if (!_hrpPortraitDirty)
+            {
+                try
+                {
+                    _profileImage = umbraProfile.ImageData.ReadNow();
+                    _pfpTextureWrap?.Dispose();
+                    _pfpTextureWrap = _profileImage.Length > 0 ? _uiSharedService.LoadImage(_profileImage) : null;
+                    _logger.LogDebug("Loaded HRP profile image, size: {size}", _profileImage.Length);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to load HRP profile image");
+                    _profileImage = [];
+                    _pfpTextureWrap = null;
+                }
+            }
+
+            _hrpLoaded = true;
+            SnapshotSavedState(false);
+        }
+    }
+
     private void DrawProfileContent(bool isRp)
     {
         _moodlesEditor.EnsureRefreshed();
@@ -501,6 +648,17 @@ public class EditProfileUi : WindowMediatorSubscriberBase
             return;
         }
 
+        if (_umbraProfileManager.IsProfileFetchFailed(umbraProfile) && !(isRp ? _rpLoaded : _hrpLoaded))
+        {
+            _uiSharedService.BigText(isRp ? "Profil RP" : "Profil HRP");
+            UiSharedService.ColorTextWrapped(Loc.Get("EditProfile.ProfileUnavailable"), UiSharedService.AccentColor);
+            DrawRefreshControl();
+            return;
+        }
+
+        HydrateRpTab(umbraProfile);
+        HydrateHrpTab(umbraProfile);
+
         _uiSharedService.BigText(isRp ? "Profil RP" : "Profil HRP");
         if (isRp)
         {
@@ -517,146 +675,6 @@ public class EditProfileUi : WindowMediatorSubscriberBase
         ImGuiHelpers.ScaledDummy(2f);
         DrawSaveCard(isRp);
         ImGuiHelpers.ScaledDummy(new Vector2(0f, ImGui.GetStyle().ItemSpacing.Y / 2));
-
-        if (isRp)
-        {
-            var curName = _dalamudUtil.GetPlayerName();
-            var curWorld = _dalamudUtil.GetHomeWorldId();
-            bool playerReady = !string.IsNullOrEmpty(curName)
-                && !string.Equals(curName, "--", StringComparison.Ordinal) && curWorld > 0;
-            // Clé perso courante (même format que RpConfigService.GetCharacterKey).
-            var curKey = playerReady ? $"{curName}@{curWorld}" : string.Empty;
-
-            // Switch d'alt fenêtre ouverte : si le perso a changé depuis le dernier chargement,
-            // on recharge pour ne pas garder les champs (ni réécrire le config) de l'ancien perso.
-            if (playerReady && !string.Equals(curKey, _rpLoadedForKey, StringComparison.Ordinal))
-                _rpLoaded = false;
-
-            if (playerReady && !_rpLoaded && !string.Equals(umbraProfile.Description, "Loading Data from server...", StringComparison.Ordinal))
-            {
-                _rpDescriptionText = umbraProfile.RpDescription ?? string.Empty;
-                _rpFirstNameText = umbraProfile.RpFirstName ?? string.Empty;
-                _rpLastNameText = umbraProfile.RpLastName ?? string.Empty;
-                _rpTitleText = umbraProfile.RpTitle ?? string.Empty;
-                _rpAgeText = umbraProfile.RpAge ?? string.Empty;
-                _rpRaceText = umbraProfile.RpRace ?? string.Empty;
-                _rpEthnicityText = umbraProfile.RpEthnicity ?? string.Empty;
-                _rpHeightText = umbraProfile.RpHeight ?? string.Empty;
-                _rpBuildText = umbraProfile.RpBuild ?? string.Empty;
-                _rpResidenceText = umbraProfile.RpResidence ?? string.Empty;
-                _rpOccupationText = umbraProfile.RpOccupation ?? string.Empty;
-                _rpAffiliationText = umbraProfile.RpAffiliation ?? string.Empty;
-                _rpAlignmentText = umbraProfile.RpAlignment ?? string.Empty;
-                _rpAdditionalInfoText = umbraProfile.RpAdditionalInfo ?? string.Empty;
-
-                var configProfile = _rpConfigService.GetCurrentCharacterProfile();
-                // Source de vérité = serveur (Connect peut le modifier entre deux ouvertures du
-                // plugin). Fallback config locale uniquement si le serveur a renvoyé null (perso
-                // jamais sync). Une liste vide côté serveur signifie "tout supprimé" et est respectée.
-                var customFieldsSource = umbraProfile.RpCustomFields ?? configProfile.RpCustomFields;
-                _rpCustomFields = customFieldsSource
-                    .Select(f => new RpCustomField { Name = f.Name, Value = f.Value, Order = f.Order })
-                    .ToList();
-                configProfile.RpCustomFields = _rpCustomFields
-                    .Select(f => new RpCustomField { Name = f.Name, Value = f.Value, Order = f.Order })
-                    .ToList();
-                configProfile.RpFirstName = _rpFirstNameText;
-                configProfile.RpLastName = _rpLastNameText;
-                configProfile.RpTitle = _rpTitleText;
-                configProfile.RpAge = _rpAgeText;
-                configProfile.RpRace = _rpRaceText;
-                configProfile.RpEthnicity = _rpEthnicityText;
-                configProfile.RpHeight = _rpHeightText;
-                configProfile.RpBuild = _rpBuildText;
-                configProfile.RpResidence = _rpResidenceText;
-                configProfile.RpOccupation = _rpOccupationText;
-                configProfile.RpAffiliation = _rpAffiliationText;
-                configProfile.RpAlignment = _rpAlignmentText;
-                configProfile.RpAdditionalInfo = _rpAdditionalInfoText;
-                configProfile.RpNameColor = umbraProfile.RpNameColor ?? string.Empty;
-                configProfile.RpCardStyle = umbraProfile.RpCardStyle ?? string.Empty;
-                if (umbraProfile.RpVisibility.HasValue) configProfile.RpVisibility = umbraProfile.RpVisibility.Value;
-                _rpConfigService.Save();
-
-                _chatIconPicker.SelectedIcon = umbraProfile.ChatIcon > 0 ? umbraProfile.ChatIcon : configProfile.ChatIcon;
-                _rpLevel = umbraProfile.RpLevel != 0 ? umbraProfile.RpLevel : configProfile.RpLevel;
-                _rpVisibility = configProfile.RpVisibility;
-
-                var nameColorHex = umbraProfile.RpNameColor ?? string.Empty;
-                if (!string.IsNullOrEmpty(nameColorHex))
-                {
-                    var v4 = UiSharedService.HexToVector4(nameColorHex);
-                    _rpNameColorVec = new Vector3(v4.X, v4.Y, v4.Z);
-                }
-                else
-                {
-                    var accent = UiSharedService.AccentColor;
-                    _rpNameColorVec = new Vector3(accent.X, accent.Y, accent.Z);
-                }
-
-                SetCardStyle(umbraProfile.CardStyle.Value);
-
-                _rpNsfw = umbraProfile.IsRpNSFW;
-
-                if (!_rpPortraitDirty)
-                {
-                    try
-                    {
-                        _rpProfileImage = !string.IsNullOrEmpty(umbraProfile.Base64RpProfilePicture) ? Convert.FromBase64String(umbraProfile.Base64RpProfilePicture) : [];
-                        _rpPfpTextureWrap?.Dispose();
-                        _rpPfpTextureWrap = _rpProfileImage.Length > 0 ? _uiSharedService.LoadImage(_rpProfileImage) : null;
-                        _logger.LogDebug("Loaded RP profile image, size: {size}", _rpProfileImage.Length);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning(ex, "Failed to load RP profile image");
-                        _rpProfileImage = [];
-                        _rpPfpTextureWrap = null;
-                    }
-                }
-
-                if (!_rpBannerDirty)
-                {
-                    _rpBannerImage = umbraProfile.RpBannerData.ReadNow();
-                    _bannerTextureStale = true;
-                }
-
-                _rpLoaded = true;
-                _rpLoadedForKey = curKey;
-                _hydratedRpSnapshot = ComputeRpSnapshotFromProfile(umbraProfile);
-                _serverHasNewerVersion = false;
-                _lastRpPollUtc = DateTime.UtcNow;
-                SnapshotSavedState(true);
-            }
-        }
-        else
-        {
-            if (!_hrpLoaded && !string.Equals(umbraProfile.Description, "Loading Data from server...", StringComparison.Ordinal))
-            {
-                _descriptionText = umbraProfile.Description;
-                _hrpNsfw = umbraProfile.IsNSFW;
-
-                if (!_hrpPortraitDirty)
-                {
-                    try
-                    {
-                        _profileImage = umbraProfile.ImageData.ReadNow();
-                        _pfpTextureWrap?.Dispose();
-                        _pfpTextureWrap = _profileImage.Length > 0 ? _uiSharedService.LoadImage(_profileImage) : null;
-                        _logger.LogDebug("Loaded HRP profile image, size: {size}", _profileImage.Length);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning(ex, "Failed to load HRP profile image");
-                        _profileImage = [];
-                        _pfpTextureWrap = null;
-                    }
-                }
-
-                _hrpLoaded = true;
-                SnapshotSavedState(false);
-            }
-        }
 
         if (isRp)
         {
@@ -1588,6 +1606,15 @@ public class EditProfileUi : WindowMediatorSubscriberBase
 
     private void SaveProfile(bool isRp)
     {
+        var charName = _dalamudUtil.GetPlayerName();
+        var worldId = _dalamudUtil.GetHomeWorldId();
+        bool playerReady = !string.IsNullOrEmpty(charName) && !string.Equals(charName, "--", StringComparison.Ordinal) && worldId > 0;
+        if (!playerReady || (isRp ? !_rpLoaded : !_hrpLoaded))
+        {
+            Mediator.Publish(new NotificationMessage(Loc.Get("EditProfile.SaveErrorTitle"), Loc.Get("EditProfile.ProfileNotReady"), NotificationType.Warning));
+            return;
+        }
+
         if (isRp)
         {
             var vanillaFirst = GetVanillaFirstName();
@@ -1628,11 +1655,9 @@ public class EditProfileUi : WindowMediatorSubscriberBase
             _rpConfigService.Save();
         }
 
-        var charName = _dalamudUtil.GetPlayerName();
-        var worldId = _dalamudUtil.GetHomeWorldId();
         _moodlesEditor.PersistBackupForCharacter(charName, worldId);
         var localRpProfile = _rpConfigService.GetCurrentCharacterProfile();
-        var customFieldsJsonSnapshot = System.Text.Json.JsonSerializer.Serialize(_rpCustomFields);
+        var customFieldsJsonSnapshot = System.Text.Json.JsonSerializer.Serialize(_rpLoaded ? _rpCustomFields : localRpProfile.RpCustomFields);
         var moodlesDataSnapshot = _moodlesEditor.LocalMoodlesJson;
         var bannerSnapshot = isRp && _rpBannerDirty ? Convert.ToBase64String(_rpBannerImage) : null;
         var hrpPortraitSnapshot = !isRp && _hrpPortraitDirty ? Convert.ToBase64String(_profileImage) : null;
@@ -1643,7 +1668,8 @@ public class EditProfileUi : WindowMediatorSubscriberBase
         {
             try
             {
-                var curProfile = await _apiController.UserGetProfile(new UserDto(new UserData(_apiController.UID, _apiController.DisplayName))).ConfigureAwait(false);
+                var curProfile = await _apiController.TryUserGetProfile(new UserDto(new UserData(_apiController.UID, _apiController.DisplayName))).ConfigureAwait(false)
+                    ?? throw new InvalidOperationException("Profil actuel indisponible, écriture annulée");
                 if (isRp)
                     _logger.LogInformation("Saving RP profile for {uid}", _apiController.UID);
                 else

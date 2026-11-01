@@ -8560,6 +8560,12 @@ WARNING: this cannot be undone.</value>
   <data name="EditProfile.SaveCard.UpToDate" xml:space="preserve">
     <value>Profile up to date</value>
   </data>
+  <data name="EditProfile.ProfileUnavailable" xml:space="preserve">
+    <value>Your profile could not be retrieved from the server. Your data was not changed. Click the reload button to try again.</value>
+  </data>
+  <data name="EditProfile.ProfileNotReady" xml:space="preserve">
+    <value>Your profile is not loaded yet. Please try again in a moment.</value>
+  </data>
   <data name="EditProfile.SaveCard.Unsaved.Desc" xml:space="preserve">
     <value>Nobody sees these changes until you save.</value>
   </data>
