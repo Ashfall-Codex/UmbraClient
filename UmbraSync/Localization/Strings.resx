@@ -4777,6 +4777,36 @@ Note: Weapons will not be displayed correctly unless using the same job as the s
   <data name="EditProfile.SaveConfirm" xml:space="preserve">
     <value>Profile saved!</value>
   </data>
+  <data name="EditProfile.DeleteRp.Header" xml:space="preserve">
+    <value>Delete RP profile</value>
+  </data>
+  <data name="EditProfile.DeleteRp.Description" xml:space="preserve">
+    <value>Deletes this character's RP profile from the server and from this machine, including its establishment affiliations. Your OOC profile, moodles and Honorific title are not affected. Players who already saw this profile may keep a copy for up to 30 days.</value>
+  </data>
+  <data name="EditProfile.DeleteRp.Button" xml:space="preserve">
+    <value>Delete this profile</value>
+  </data>
+  <data name="EditProfile.DeleteRp.ConfirmTitle" xml:space="preserve">
+    <value>Delete this profile?</value>
+  </data>
+  <data name="EditProfile.DeleteRp.ConfirmMessage" xml:space="preserve">
+    <value>{0}'s RP profile will be permanently deleted. This cannot be undone.</value>
+  </data>
+  <data name="EditProfile.DeleteRp.ConfirmYes" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="EditProfile.DeleteRp.SuccessTitle" xml:space="preserve">
+    <value>Profile deleted</value>
+  </data>
+  <data name="EditProfile.DeleteRp.SuccessBody" xml:space="preserve">
+    <value>Your RP profile was deleted from the server and from this machine.</value>
+  </data>
+  <data name="EditProfile.DeleteRp.ErrorTitle" xml:space="preserve">
+    <value>Could not delete</value>
+  </data>
+  <data name="EditProfile.DeleteRp.ErrorBody" xml:space="preserve">
+    <value>The profile could not be deleted from the server. Nothing was changed on this machine.</value>
+  </data>
   <data name="EditProfile.SaveErrorTitle" xml:space="preserve">
     <value>Save error</value>
   </data>
@@ -5715,11 +5745,26 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
   <data name="Settings.ProfileBrowser.OpenProfile" xml:space="preserve">
     <value>Open Profile</value>
   </data>
+  <data name="Settings.ProfileBrowser.LearnMore" xml:space="preserve">
+    <value>Learn More</value>
+  </data>
+  <data name="Settings.ProfileBrowser.CachedProfile" xml:space="preserve">
+    <value>{0} cached profile</value>
+  </data>
   <data name="Settings.ProfileBrowser.CachedProfiles" xml:space="preserve">
     <value>{0} cached profiles</value>
   </data>
   <data name="Settings.ProfileBrowser.ClearCache" xml:space="preserve">
     <value>Clear cache</value>
+  </data>
+  <data name="Settings.ProfileBrowser.ClearCache.ConfirmTitle" xml:space="preserve">
+    <value>Clear the cache?</value>
+  </data>
+  <data name="Settings.ProfileBrowser.ClearCache.ConfirmMessage" xml:space="preserve">
+    <value>The profiles and images stored on this machine will be erased, along with the last seen state of players out of sight. Profiles will load again when you next meet these players.</value>
+  </data>
+  <data name="Settings.ProfileBrowser.ClearCache.ConfirmYes" xml:space="preserve">
+    <value>Clear</value>
   </data>
   <data name="Settings.ProfileBrowser.OwnCharacters" xml:space="preserve">
     <value>My other characters</value>
@@ -8559,6 +8604,12 @@ WARNING: this cannot be undone.</value>
   </data>
   <data name="EditProfile.SaveCard.UpToDate" xml:space="preserve">
     <value>Profile up to date</value>
+  </data>
+  <data name="EditProfile.ProfileUnavailable" xml:space="preserve">
+    <value>Your profile could not be retrieved from the server. Your data was not changed. Click the reload button to try again.</value>
+  </data>
+  <data name="EditProfile.ProfileNotReady" xml:space="preserve">
+    <value>Your profile is not loaded yet. Please try again in a moment.</value>
   </data>
   <data name="EditProfile.SaveCard.Unsaved.Desc" xml:space="preserve">
     <value>Nobody sees these changes until you save.</value>

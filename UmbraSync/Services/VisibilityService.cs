@@ -21,11 +21,9 @@ public class VisibilityService : DisposableMediatorSubscriberBase
     private readonly DrawObjectTrackingService _drawTracking;
     private readonly MareConfigService _configService;
     private static readonly TimeSpan EventModeSafetyInterval = TimeSpan.FromSeconds(2);
-    // Diagnostic uniquement : un acteur présent dans l'object table mais sans draw object lié reste « visible »
-    // (le jeu cesse de dessiner certains joueurs selon la distance/limite d'affichage, et un redraw délie
-    // brièvement le draw object ; dans les deux cas rien à réappliquer). On journalise la durée de ces absences.
     private static readonly TimeSpan UndrawnReportThreshold = TimeSpan.FromSeconds(5);
     private readonly ConcurrentDictionary<string, (DateTime Since, bool Reported)> _undrawnSinceUtc = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, byte> _inObjectTable = new(StringComparer.Ordinal);
     private volatile bool _scanRequested;
     private DateTime _lastScanUtc = DateTime.MinValue;
 
@@ -44,8 +42,11 @@ public class VisibilityService : DisposableMediatorSubscriberBase
             _trackedPlayerVisibility.Clear();
             _makeVisibleNextFrame.Clear();
             _undrawnSinceUtc.Clear();
+            _inObjectTable.Clear();
         });
     }
+
+    public bool IsInObjectTable(string ident) => _inObjectTable.ContainsKey(ident);
 
     public void StartTracking(string ident)
     {
@@ -57,6 +58,7 @@ public class VisibilityService : DisposableMediatorSubscriberBase
         // No PairVisibilityMessage is emitted if the player was visible when removed
         _trackedPlayerVisibility.TryRemove(ident, out _);
         _undrawnSinceUtc.TryRemove(ident, out _);
+        _inObjectTable.TryRemove(ident, out _);
     }
 
     /// <summary>
@@ -121,6 +123,10 @@ public class VisibilityService : DisposableMediatorSubscriberBase
             string ident = player.Key;
             var findResult = _dalamudUtil.FindPlayerByNameHash(ident);
             var inObjectTable = findResult.ObjectId != 0;
+            if (inObjectTable)
+                _inObjectTable[ident] = 0;
+            else
+                _inObjectTable.TryRemove(ident, out _);
             var isDrawn = findResult.Address != nint.Zero && _drawTracking.HasDrawObjectLinked(findResult.Address);
             var isPresent = eventMode
                 ? (player.Value == TrackedPlayerStatus.Visible ? StaysVisible(ident, inObjectTable, isDrawn) : isDrawn)

@@ -151,8 +151,13 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
     private readonly ApiController _apiController;
     private readonly PairFactory _pairFactory;
     private Pair? _selfPair;
+    private const int MaxParsedHonorifics = 256;
+    private static readonly TimeSpan OwnHonorificRefreshInterval = TimeSpan.FromSeconds(5);
+    private readonly Dictionary<string, (string Title, Vector4 Color)?> _parsedHonorifics = new(StringComparer.Ordinal);
+    private volatile string? _ownHonorificBase64;
+    private DateTime _nextOwnHonorificRefresh = DateTime.MinValue;
     private string _profileBrowserSearch = string.Empty;
-    private readonly Dictionary<string, (byte[] Data, Task<IDalamudTextureWrap> Task)> _profileBrowserTextureTasks = new(StringComparer.Ordinal);
+    private bool _clearProfileCacheConfirmShown;
     private readonly Dictionary<string, float> _profileCardHeights = new(StringComparer.Ordinal);
 
     public CharaDataHubUi(ILogger<CharaDataHubUi> logger, MareMediator mediator, PerformanceCollectorService performanceCollectorService,
@@ -1660,18 +1665,53 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
                 => value != null && value.Contains(search, StringComparison.OrdinalIgnoreCase);
         }
 
+        var clearLabel = Loc.Get("Settings.ProfileBrowser.ClearCache");
+        var headerTop = ImGui.GetCursorPosY();
+        var headerRight = ImGui.GetCursorPosX() + ImGui.GetContentRegionAvail().X;
+        ImGui.SetCursorPosY(headerTop + (CapsuleButton.HitRegionHeight - ImGui.GetTextLineHeight()) / 2f);
         ImGui.TextColored(ImGuiColors.DalamudGrey,
-            string.Format(CultureInfo.InvariantCulture, Loc.Get("Settings.ProfileBrowser.CachedProfiles"), filtered.Count));
-        ImGui.SameLine(ImGui.GetContentRegionAvail().X - ImGui.CalcTextSize(Loc.Get("Settings.ProfileBrowser.ClearCache")).X - ImGui.GetFrameHeight() - ImGui.GetStyle().ItemSpacing.X);
-        if (_uiSharedService.IconTextButton(FontAwesomeIcon.Trash, Loc.Get("Settings.ProfileBrowser.ClearCache")))
+            string.Format(CultureInfo.InvariantCulture, Loc.Get(filtered.Count == 1 ? "Settings.ProfileBrowser.CachedProfile" : "Settings.ProfileBrowser.CachedProfiles"), filtered.Count));
+        ImGui.SameLine();
+        ImGui.SetCursorPos(new Vector2(headerRight - CapsuleButton.MeasureWidth(clearLabel, FontAwesomeIcon.Trash), headerTop));
+        if (CapsuleButton.Draw(clearLabel, FontAwesomeIcon.Trash, CapsuleButtonRole.Destructive))
         {
-            _umbraProfileManager.ClearPersistedProfileCache();
-            foreach (var pending in _profileBrowserTextureTasks.Values)
-                pending.Task.DisposeResultWhenCompleted();
-            _profileBrowserTextureTasks.Clear();
-            _profileCardHeights.Clear();
+            _clearProfileCacheConfirmShown = true;
+            ImGui.OpenPopup("###profileCacheClearPopup");
         }
-        ImGuiHelpers.ScaledDummy(2f);
+
+        if (ImGui.BeginPopupModal(Loc.Get("Settings.ProfileBrowser.ClearCache.ConfirmTitle") + "###profileCacheClearPopup", ref _clearProfileCacheConfirmShown, UiSharedService.PopupWindowFlags))
+        {
+            UiSharedService.TextWrapped(Loc.Get("Settings.ProfileBrowser.ClearCache.ConfirmMessage"));
+            ImGui.Separator();
+            ImGui.Spacing();
+            var confirmButtonWidth = (ImGui.GetWindowContentRegionMax().X - ImGui.GetWindowContentRegionMin().X - ImGui.GetStyle().ItemSpacing.X) / 2f;
+
+            if (ImGui.Button(Loc.Get("Common.Cancel") + "##cancelProfileCacheClear", new Vector2(confirmButtonWidth, 0)))
+                _clearProfileCacheConfirmShown = false;
+            ImGui.SameLine();
+            using (ImRaii.PushColor(ImGuiCol.Text, UiSharedService.ThemeDestructive))
+            {
+                if (ImGui.Button(Loc.Get("Settings.ProfileBrowser.ClearCache.ConfirmYes"), new Vector2(confirmButtonWidth, 0)))
+                {
+                    _clearProfileCacheConfirmShown = false;
+                    _ = Task.Run(() =>
+                    {
+                        try
+                        {
+                            _umbraProfileManager.ClearPersistedProfileCache();
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Failed to clear the profile cache");
+                        }
+                    });
+                    _profileCardHeights.Clear();
+                }
+            }
+
+            UiSharedService.SetScaledWindowSize(350);
+            ImGui.EndPopup();
+        }
 
         ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X);
         ImGui.InputTextWithHint("##profileBrowserSearch", Loc.Get("Settings.ProfileBrowser.SearchHint"), ref _profileBrowserSearch, 100);
@@ -1734,7 +1774,6 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
         var firstName = profile.RpFirstName ?? string.Empty;
         var lastName = profile.RpLastName ?? string.Empty;
         var rpName = $"{firstName} {lastName}".Trim();
-        var title = profile.RpTitle ?? string.Empty;
         var charName = key.CharName ?? "?";
         var worldId = key.WorldId ?? 0;
         var worldName = worldId > 0 && _dalamudUtilService.WorldData.Value.TryGetValue((ushort)worldId, out var wn) ? wn : string.Empty;
@@ -1742,27 +1781,32 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
         var note = _serverConfigurationManager.GetNoteForCharacter(key.User.UID, key.CharName, key.WorldId)
                    ?? _serverConfigurationManager.GetNoteForUid(key.User.UID);
 
+        var cardStyle = profile.CardStyle.Value;
+        using var cardAccentScope = UiSharedService.PushProfileAccent(cardStyle.AccentColor);
+        using var cardThemeColors = UiSharedService.PushThemeContentColors();
+        var sheetPalette = ProfileSheetBackground.PaletteOf(cardStyle);
+        var cardAccent = sheetPalette?.Accent
+            ?? ProfileSheetBackground.CustomColor(cardStyle.SheetTitleColor)
+            ?? ProfileSheetBackground.CustomColor(cardStyle.AccentColor);
+
         // Name color
         var nameColor = !string.IsNullOrEmpty(profile.RpNameColor)
             ? UiSharedService.HexToVector4(profile.RpNameColor)
-            : accent;
+            : cardAccent ?? accent;
+        var honorific = ResolveCardHonorific(key);
+        var title = honorific?.Title ?? profile.RpTitle ?? string.Empty;
+        var titleColor = honorific?.Color
+            ?? ProfileSheetBackground.CustomColor(cardStyle.TextColor)
+            ?? sheetPalette?.Value
+            ?? ProfileSheetBackground.CustomColor(cardStyle.SheetTextColor)
+            ?? nameColor;
 
         // Texture cache key
         var texKey = $"{key.User.UID}_{key.CharName}_{key.WorldId}";
-        var imgData = profile.RpImageData.Value;
-        if (!_profileBrowserTextureTasks.TryGetValue(texKey, out var cachedTask)
-            || (!ReferenceEquals(imgData, cachedTask.Data) && !imgData.AsSpan().SequenceEqual(cachedTask.Data)))
-        {
-            if (cachedTask.Task != null)
-                cachedTask.Task.DisposeResultWhenCompleted();
-            cachedTask = (imgData, imgData.Length == 0
-                ? Task.FromException<IDalamudTextureWrap>(new InvalidOperationException("Aucune image"))
-                : Task.Run(() => _uiSharedService.LoadImageAsync(imgData)));
-            _profileBrowserTextureTasks[texKey] = cachedTask;
-        }
-        IDalamudTextureWrap? profileTexture = cachedTask.Task.IsCompletedSuccessfully ? cachedTask.Task.Result : null;
-        var cached = (Data: imgData, Texture: profileTexture);
+        var profileTexture = _uiSharedService.ProfileTextures.GetTexture(profile.RpImageData);
+        var bannerTexture = _uiSharedService.ProfileTextures.GetTexture(profile.RpBannerData);
 
+        var openButtonHovered = false;
         UiSharedService.DrawCard($"profileCard_{texKey}", () =>
         {
             var dl = ImGui.GetWindowDrawList();
@@ -1771,18 +1815,18 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
             var rowTop = ImGui.GetCursorPosY();
             var portraitStart = ImGui.GetCursorScreenPos();
             var portraitRounding = 10f * ImGuiHelpers.GlobalScale;
-            if (cached.Texture != null && cached.Texture.Handle != IntPtr.Zero && imgData.Length > 0)
+            if (profileTexture != null && profileTexture.Handle != IntPtr.Zero)
             {
-                bool tallerThanWide = cached.Texture.Height >= cached.Texture.Width;
-                var stretchFactor = tallerThanWide ? portraitSize / cached.Texture.Height : portraitSize / cached.Texture.Width;
-                var newW = cached.Texture.Width * stretchFactor;
-                var newH = cached.Texture.Height * stretchFactor;
+                bool tallerThanWide = profileTexture.Height >= profileTexture.Width;
+                var stretchFactor = tallerThanWide ? portraitSize / profileTexture.Height : portraitSize / profileTexture.Width;
+                var newW = profileTexture.Width * stretchFactor;
+                var newH = profileTexture.Height * stretchFactor;
                 var offX = (portraitSize - newW) / 2f;
                 var offY = (portraitSize - newH) / 2f;
 
                 var pMin = new Vector2(portraitStart.X + offX, portraitStart.Y + offY);
                 var pMax = new Vector2(pMin.X + newW, pMin.Y + newH);
-                dl.AddImageRounded(cached.Texture.Handle, pMin, pMax,
+                dl.AddImageRounded(profileTexture.Handle, pMin, pMax,
                     Vector2.Zero, Vector2.One, ImGui.GetColorU32(new Vector4(1, 1, 1, 1)), portraitRounding);
             }
             else
@@ -1806,17 +1850,28 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
 
             // Right side: info. On réserve la place du bouton pour que les noms longs passent à la ligne
             // au lieu de passer dessous.
-            var openLabel = Loc.Get("Settings.ProfileBrowser.OpenProfile");
+            var openLabel = Loc.Get("Settings.ProfileBrowser.LearnMore");
             var pair = GetOpenablePair(key.User.UID);
             var hasOpenButton = pair != null;
             var buttonReserve = hasOpenButton
-                ? _uiSharedService.GetIconTextButtonSize(FontAwesomeIcon.ExternalLinkAlt, openLabel) + ImGui.GetStyle().ItemSpacing.X * 4
+                ? CapsuleButton.MeasureWidth(openLabel) + ImGui.GetStyle().ItemSpacing.X * 4
                 : 0f;
+            var textWidth = MathF.Max(80f * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X - buttonReserve);
+            var displayName = !string.IsNullOrEmpty(rpName) ? rpName : charName;
             ImGui.BeginGroup();
-            ImGui.PushTextWrapPos(ImGui.GetCursorPosX() + MathF.Max(80f * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X - buttonReserve));
+            ImGui.PushTextWrapPos(ImGui.GetCursorPosX() + textWidth);
+
+            if (string.IsNullOrEmpty(title))
+            {
+                float nameHeight;
+                using (_uiSharedService.UidFont.Push())
+                    nameHeight = ImGui.CalcTextSize(displayName, false, textWidth).Y;
+                var topSpace = (portraitSize - nameHeight) / 2f - ImGui.GetStyle().ItemSpacing.Y;
+                if (topSpace > 0f)
+                    ImGui.Dummy(new Vector2(1f, topSpace));
+            }
 
             // RP Name (colored)
-            var displayName = !string.IsNullOrEmpty(rpName) ? rpName : charName;
             using (_uiSharedService.UidFont.Push())
                 UiSharedService.ColorText(displayName, nameColor);
 
@@ -1824,20 +1879,8 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
             if (!string.IsNullOrEmpty(title))
             {
                 using var _ = _uiSharedService.GameFont.Push();
-                UiSharedService.ColorText(title, nameColor);
+                UiSharedService.ColorText(title, titleColor);
             }
-
-            // Character name @ World  [UID]
-            var subLine = charName;
-            if (!string.IsNullOrEmpty(worldName))
-                subLine += $" @ {worldName}";
-            if (!string.Equals(key.User.UID, _apiController.UID, StringComparison.Ordinal))
-                subLine += $"  [{uid}]";
-            ImGui.TextColored(ImGuiColors.DalamudGrey, subLine);
-
-            // Note (if any)
-            if (!string.IsNullOrEmpty(note))
-                ImGui.TextColored(ImGuiColors.DalamudGrey2, note);
 
             ImGui.PopTextWrapPos();
             ImGui.EndGroup();
@@ -1846,16 +1889,83 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
             if (pair != null)
             {
                 var rowHeight = ImGui.GetCursorPosY() - ImGui.GetStyle().ItemSpacing.Y - rowTop;
-                var btnSize = _uiSharedService.GetIconTextButtonSize(FontAwesomeIcon.ExternalLinkAlt, openLabel);
                 ImGui.SetCursorPos(new Vector2(
-                    ImGui.GetContentRegionAvail().X - btnSize - ImGui.GetStyle().ItemSpacing.X * 3 + ImGui.GetCursorPosX(),
-                    rowTop + MathF.Max(0f, (rowHeight - ImGui.GetFrameHeight()) / 2f)));
-                if (_uiSharedService.IconTextButton(FontAwesomeIcon.ExternalLinkAlt, openLabel))
+                    ImGui.GetContentRegionAvail().X - CapsuleButton.MeasureWidth(openLabel) - ImGui.GetStyle().ItemSpacing.X * 3 + ImGui.GetCursorPosX(),
+                    rowTop + MathF.Max(0f, (rowHeight - CapsuleButton.HitRegionHeight) / 2f)));
+                if (CapsuleButton.Draw(openLabel))
                 {
                     Mediator.Publish(new ProfileOpenStandaloneMessage(pair, key.CharName, key.WorldId));
                 }
+                openButtonHovered = ImGui.IsItemHovered();
             }
-        }, stretchWidth: true);
+        }, stretchWidth: true, background: sheetPalette?.Veil,
+            border: cardAccent is { } cardBorder ? cardBorder with { W = ProfileSheetBackground.BorderOpacity } : null,
+            backgroundOverlay: bannerTexture is { } banner
+                ? (min, max, rounding, background) => ProfileBanner.Draw(ImGui.GetWindowDrawList(), banner, min, max, background, rounding, cardStyle)
+                : null);
+
+        var identity = charName;
+        if (!string.IsNullOrEmpty(worldName))
+            identity += $" @ {worldName}";
+        if (!string.Equals(key.User.UID, _apiController.UID, StringComparison.Ordinal))
+            identity += $"  [{uid}]";
+        if (!string.IsNullOrEmpty(note))
+            identity += UiSharedService.TooltipSeparator + note;
+        if (!openButtonHovered)
+            UiSharedService.AttachToolTip(identity);
+    }
+
+    private (string Title, Vector4 Color)? ResolveCardHonorific((API.Data.UserData User, string? CharName, uint? WorldId) key)
+    {
+        string? base64;
+        if (string.Equals(key.User.UID, _apiController.UID, StringComparison.Ordinal))
+        {
+            if (IsCurrentCharacter(key))
+            {
+                RefreshOwnHonorific();
+                base64 = _ownHonorificBase64;
+            }
+            else
+            {
+                base64 = _umbraProfileManager.GetOwnHonorificBackup(key.CharName, key.WorldId);
+            }
+        }
+        else
+        {
+            var pair = _pairManager.GetPairByUID(key.User.UID);
+            base64 = pair is { IsVisible: true, LastReceivedCharacterData: { } live }
+                     && string.Equals(pair.PlayerName, key.CharName, StringComparison.Ordinal) && pair.WorldId == key.WorldId
+                ? live.HonorificData
+                : _umbraProfileManager.GetKnownLastSeenHonorific(key.User, key.CharName, key.WorldId);
+        }
+
+        if (string.IsNullOrEmpty(base64)) return null;
+        if (_parsedHonorifics.TryGetValue(base64, out var parsed)) return parsed;
+
+        if (_parsedHonorifics.Count >= MaxParsedHonorifics) _parsedHonorifics.Clear();
+        parsed = UiSharedService.ParseHonorific(base64);
+        _parsedHonorifics[base64] = parsed;
+        return parsed;
+    }
+
+    private void RefreshOwnHonorific()
+    {
+        var now = DateTime.UtcNow;
+        if (now < _nextOwnHonorificRefresh) return;
+        _nextOwnHonorificRefresh = now + OwnHonorificRefreshInterval;
+        _ = RefreshOwnHonorificAsync();
+    }
+
+    private async Task RefreshOwnHonorificAsync()
+    {
+        try
+        {
+            _ownHonorificBase64 = await _uiSharedService.GetLocalHonorificAsync().ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Lecture du titre Honorific local impossible");
+        }
     }
 
     private void DrawOwnProfileGroup(string header,

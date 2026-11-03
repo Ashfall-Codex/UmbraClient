@@ -36,7 +36,6 @@ public class AutoDetectUi : WindowMediatorSubscriberBase
     private readonly PairManager _pairManager;
     private readonly UmbraProfileManager _profileManager;
     private readonly UiSharedService _uiSharedService;
-    private readonly Dictionary<string, (byte[] Data, Task<Dalamud.Interface.Textures.TextureWraps.IDalamudTextureWrap> Task)> _nearbyTextureTasks = new(StringComparer.Ordinal);
     private List<Services.Mediator.NearbyEntry> _entries;
     private readonly HashSet<string> _acceptInFlight = new(StringComparer.Ordinal);
     private readonly SyncshellDiscoveryService _syncshellDiscoveryService;
@@ -359,7 +358,7 @@ public class AutoDetectUi : WindowMediatorSubscriberBase
             UiSharedService.DrawCard("nearby-" + i, () =>
             {
                 float rowTop = ImGui.GetCursorPosY();
-                DrawNearbyPortrait(entry, rpProfile, hasRp ? rpName : displayName, nameColor);
+                DrawNearbyPortrait(rpProfile, hasRp ? rpName : displayName, nameColor);
                 ImGui.SameLine();
                 ImGui.BeginGroup();
 
@@ -432,28 +431,14 @@ public class AutoDetectUi : WindowMediatorSubscriberBase
         return _profileManager.GetUmbraProfile(new API.Data.UserData(entry.Uid), entry.Name, entry.WorldId);
     }
 
-    private void DrawNearbyPortrait(Services.Mediator.NearbyEntry entry, UmbraProfileData? profile, string initialsSource, Vector4 color)
+    private void DrawNearbyPortrait(UmbraProfileData? profile, string initialsSource, Vector4 color)
     {
         var size = new Vector2(56f * ImGuiHelpers.GlobalScale);
         var rounding = 10f * ImGuiHelpers.GlobalScale;
         var start = ImGui.GetCursorScreenPos();
         var dl = ImGui.GetWindowDrawList();
 
-        Dalamud.Interface.Textures.TextureWraps.IDalamudTextureWrap? texture = null;
-        var data = profile?.RpImageData.Value ?? [];
-        if (data.Length > 0)
-        {
-            var key = $"{entry.Uid}_{entry.Name}_{entry.WorldId}";
-            if (!_nearbyTextureTasks.TryGetValue(key, out var cached)
-                || (!ReferenceEquals(data, cached.Data) && !data.AsSpan().SequenceEqual(cached.Data)))
-            {
-                if (cached.Task != null)
-                    cached.Task.DisposeResultWhenCompleted();
-                cached = (data, Task.Run(() => _uiSharedService.LoadImageAsync(data)));
-                _nearbyTextureTasks[key] = cached;
-            }
-            if (cached.Task.IsCompletedSuccessfully) texture = cached.Task.Result;
-        }
+        var texture = profile == null ? null : _uiSharedService.ProfileTextures.GetTexture(profile.RpImageData);
 
         if (texture != null && texture.Handle != IntPtr.Zero)
         {
@@ -480,9 +465,6 @@ public class AutoDetectUi : WindowMediatorSubscriberBase
     {
         if (disposing)
         {
-            foreach (var pending in _nearbyTextureTasks.Values)
-                pending.Task.DisposeResultWhenCompleted();
-            _nearbyTextureTasks.Clear();
             foreach (var pending in _syncshellIconTasks.Values)
                 pending.Task.DisposeResultWhenCompleted();
             _syncshellIconTasks.Clear();

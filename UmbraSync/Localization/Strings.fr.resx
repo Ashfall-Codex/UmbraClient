@@ -4681,6 +4681,36 @@ Note : Les armes ne s'afficheront pas correctement sauf si vous utilisez le m&#x
   <data name="EditProfile.SaveConfirm" xml:space="preserve">
     <value>Profil sauvegardé !</value>
   </data>
+  <data name="EditProfile.DeleteRp.Header" xml:space="preserve">
+    <value>Supprimer la fiche RP</value>
+  </data>
+  <data name="EditProfile.DeleteRp.Description" xml:space="preserve">
+    <value>Supprime la fiche RP de ce personnage sur le serveur et sur cette machine, y compris ses affiliations à des établissements. Votre profil HRP, vos moodles et votre titre Honorific ne sont pas touchés. Les joueurs qui ont déjà vu cette fiche peuvent en garder une copie jusqu'à 30 jours.</value>
+  </data>
+  <data name="EditProfile.DeleteRp.Button" xml:space="preserve">
+    <value>Supprimer cette fiche</value>
+  </data>
+  <data name="EditProfile.DeleteRp.ConfirmTitle" xml:space="preserve">
+    <value>Supprimer cette fiche ?</value>
+  </data>
+  <data name="EditProfile.DeleteRp.ConfirmMessage" xml:space="preserve">
+    <value>La fiche RP de {0} sera supprimée définitivement. Cette action est irréversible.</value>
+  </data>
+  <data name="EditProfile.DeleteRp.ConfirmYes" xml:space="preserve">
+    <value>Supprimer</value>
+  </data>
+  <data name="EditProfile.DeleteRp.SuccessTitle" xml:space="preserve">
+    <value>Fiche supprimée</value>
+  </data>
+  <data name="EditProfile.DeleteRp.SuccessBody" xml:space="preserve">
+    <value>Votre fiche RP a été supprimée du serveur et de cette machine.</value>
+  </data>
+  <data name="EditProfile.DeleteRp.ErrorTitle" xml:space="preserve">
+    <value>Suppression impossible</value>
+  </data>
+  <data name="EditProfile.DeleteRp.ErrorBody" xml:space="preserve">
+    <value>La fiche n'a pas pu être supprimée du serveur. Rien n'a été modifié sur cette machine.</value>
+  </data>
   <data name="EditProfile.SaveErrorTitle" xml:space="preserve">
     <value>Erreur de sauvegarde</value>
   </data>
@@ -5628,11 +5658,26 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
   <data name="Settings.ProfileBrowser.OpenProfile" xml:space="preserve">
     <value>Ouvrir le profil</value>
   </data>
+  <data name="Settings.ProfileBrowser.LearnMore" xml:space="preserve">
+    <value>Voir le profil</value>
+  </data>
+  <data name="Settings.ProfileBrowser.CachedProfile" xml:space="preserve">
+    <value>{0} profil en cache</value>
+  </data>
   <data name="Settings.ProfileBrowser.CachedProfiles" xml:space="preserve">
     <value>{0} profils en cache</value>
   </data>
   <data name="Settings.ProfileBrowser.ClearCache" xml:space="preserve">
     <value>Vider le cache</value>
+  </data>
+  <data name="Settings.ProfileBrowser.ClearCache.ConfirmTitle" xml:space="preserve">
+    <value>Vider le cache ?</value>
+  </data>
+  <data name="Settings.ProfileBrowser.ClearCache.ConfirmMessage" xml:space="preserve">
+    <value>Les fiches et les images enregistrées sur cette machine seront effacées, ainsi que le dernier état vu des joueurs hors de vue. Les fiches seront rechargées lorsque vous recroiserez ces joueurs.</value>
+  </data>
+  <data name="Settings.ProfileBrowser.ClearCache.ConfirmYes" xml:space="preserve">
+    <value>Vider</value>
   </data>
   <data name="Settings.ProfileBrowser.OwnCharacters" xml:space="preserve">
     <value>Mes autres personnages</value>
@@ -8472,6 +8517,12 @@ ATTENTION : cette action est irréversible.</value>
   </data>
   <data name="EditProfile.SaveCard.UpToDate" xml:space="preserve">
     <value>Fiche à jour</value>
+  </data>
+  <data name="EditProfile.ProfileUnavailable" xml:space="preserve">
+    <value>Votre profil n'a pas pu être récupéré depuis le serveur. Vos données n'ont pas été modifiées. Cliquez sur le bouton de rechargement pour réessayer.</value>
+  </data>
+  <data name="EditProfile.ProfileNotReady" xml:space="preserve">
+    <value>Votre profil n'est pas encore chargé. Réessayez dans quelques instants.</value>
   </data>
   <data name="EditProfile.SaveCard.Unsaved.Desc" xml:space="preserve">
     <value>Personne ne voit ces changements avant la sauvegarde.</value>

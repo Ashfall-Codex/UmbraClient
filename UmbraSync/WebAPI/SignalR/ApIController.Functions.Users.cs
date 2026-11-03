@@ -8,6 +8,7 @@ using UmbraSync.API.Data;
 using UmbraSync.API.Data.Enum;
 using UmbraSync.API.Dto.User;
 using UmbraSync.API.SignalR;
+using UmbraSync.Utils;
 
 namespace UmbraSync.WebAPI.SignalR;
 
@@ -48,7 +49,7 @@ public partial class ApiController
             foreach (var replacement in replacements)
             {
                 var validGamePaths = replacement.GamePaths.Where(IsValidPushGamePath).ToArray();
-                bool validHash = string.IsNullOrEmpty(replacement.Hash) || SafeIsMatch(PushHashRegex(), replacement.Hash);
+                bool validHash = string.IsNullOrEmpty(replacement.Hash) || FileHash.IsAccepted(replacement.Hash);
                 bool validFileSwapPath = string.IsNullOrEmpty(replacement.FileSwapPath) || SafeIsMatch(PushGamePathRegex(), replacement.FileSwapPath);
 
                 if (validGamePaths.Length == replacement.GamePaths.Length && validHash && validFileSwapPath)
@@ -66,6 +67,7 @@ public partial class ApiController
                     GamePaths = validGamePaths,
                     Hash = replacement.Hash,
                     FileSwapPath = replacement.FileSwapPath,
+                    Blake3 = replacement.Blake3,
                 });
             }
 
@@ -218,11 +220,14 @@ public partial class ApiController
     }
 
     public async Task<UserProfileDto> UserGetProfile(UserDto dto)
+        => await TryUserGetProfile(dto).ConfigureAwait(false) ?? new UserProfileDto(dto.User, false, null, null, null);
+
+    public async Task<UserProfileDto?> TryUserGetProfile(UserDto dto)
     {
         if (!IsConnected)
         {
-            Logger.LogTrace("UserGetProfile: Not connected, returning empty profile");
-            return new UserProfileDto(dto.User, false, null, null, null);
+            Logger.LogTrace("UserGetProfile: Not connected, no profile available");
+            return null;
         }
 
         try
@@ -235,7 +240,7 @@ public partial class ApiController
         catch (Exception ex)
         {
             Logger.LogWarning(ex, "Error fetching profile for {uid}", dto.User.UID);
-            return new UserProfileDto(dto.User, false, null, null, null);
+            return null;
         }
     }
     public async Task<List<UserProfileDto>> UserGetAllCharacterProfiles(UserDto dto)
@@ -317,6 +322,12 @@ public partial class ApiController
             Logger.LogWarning("Error during UserSetAlias: {Message}", ex.Message);
             throw new InvalidOperationException("Failed to set user alias", ex);
         }
+    }
+
+    public async Task UserDeleteRpProfile(UserDto dto)
+    {
+        if (!IsConnected) throw new InvalidOperationException("Not connected to server");
+        await _mareHub!.InvokeAsync(nameof(UserDeleteRpProfile), dto).ConfigureAwait(false);
     }
 
     public async Task UserSetProfile(UserProfileDto userDescription)
@@ -403,7 +414,7 @@ public partial class ApiController
         StringBuilder sb = new();
         foreach (var kvp in character.FileReplacements.ToList())
         {
-            sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "FileReplacements for {0}: {1}", kvp.Key, kvp.Value.Count));
+            sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "FileReplacements for {0}: {1}, with BLAKE3: {2}", kvp.Key, kvp.Value.Count, kvp.Value.Count(r => FileHash.IsBlake3(r.Blake3))));
         }
         foreach (var item in character.GlamourerData)
         {
@@ -419,7 +430,4 @@ public partial class ApiController
 
     [GeneratedRegex(@"^([a-z0-9_ '+&,\.\-\{\}]+\/)+([a-z0-9_ '+&,\.\-\{\}]+\.[a-z]{3,4})$", RegexOptions.IgnoreCase | RegexOptions.Compiled | RegexOptions.ECMAScript, matchTimeoutMilliseconds: 1000)]
     private static partial Regex PushGamePathRegex();
-
-    [GeneratedRegex(@"^[A-Z0-9]{40}$", RegexOptions.IgnoreCase | RegexOptions.Compiled | RegexOptions.ECMAScript, matchTimeoutMilliseconds: 1000)]
-    private static partial Regex PushHashRegex();
 }

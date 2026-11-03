@@ -30,12 +30,7 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
     private readonly UiSharedService _uiSharedService;
     private readonly IpcManager _ipcManager;
     private readonly DalamudUtilService _dalamudUtil;
-    private byte[] _lastProfilePicture = [];
-    private byte[] _lastRpProfilePicture = [];
-    private IDalamudTextureWrap? _textureWrap;
-    private IDalamudTextureWrap? _rpTextureWrap;
     private IDalamudTextureWrap? _rpBannerTexture;
-    private byte[]? _lastRpBanner;
     private SheetPalette? _sheetPalette;
     private ProfileCardStyle _rpCardStyle = ProfileCardStyle.Default;
     private bool _isRpTab = true;
@@ -45,7 +40,6 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
     private DateTime _lastMoodlesFetch = DateTime.MinValue;
     private string? _selectedAltCharName;
     private uint? _selectedAltWorldId;
-    private volatile bool _resetTexturesPending;
     private string _characterNoteDraft = string.Empty;
     private string? _characterNoteKey;
     private const float FixedWindowWidth = 700f;
@@ -54,7 +48,6 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
         if (string.IsNullOrEmpty(charName) || worldId is not > 0) return;
         _selectedAltCharName = charName;
         _selectedAltWorldId = worldId;
-        _resetTexturesPending = true;
     }
 
     public StandaloneProfileUi(ILogger<StandaloneProfileUi> logger, MareMediator mediator, UiSharedService uiBuilder,
@@ -159,7 +152,17 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
 
     public override void PreDraw()
     {
-        UiSharedService.BeginProfileAccent(ResolveProfile().CardStyle.Value.AccentColor);
+        var profile = ResolveProfile();
+        UiSharedService.BeginProfileAccent(profile.CardStyle.Value.AccentColor);
+
+        var titleName = Pair.UserData.AliasOrUID;
+        if (_isRpTab && !string.IsNullOrWhiteSpace(profile.RpFirstName))
+            titleName = profile.RpFirstName;
+        else if (_isRpTab && !string.IsNullOrWhiteSpace(profile.RpLastName))
+            titleName = profile.RpLastName;
+        WindowName = string.Format(System.Globalization.CultureInfo.CurrentCulture, Loc.Get("StandaloneProfile.WindowTitle"), titleName)
+            + "###UmbraSyncStandaloneProfileUI" + Pair.UserData.AliasOrUID;
+
         base.PreDraw();
     }
 
@@ -179,20 +182,6 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
                 _windowSizeInitialized = true;
             }
 
-            if (_resetTexturesPending)
-            {
-                _resetTexturesPending = false;
-                _lastProfilePicture = [];
-                _lastRpProfilePicture = [];
-                _textureWrap?.Dispose();
-                _textureWrap = null;
-                _rpTextureWrap?.Dispose();
-                _rpTextureWrap = null;
-                _rpBannerTexture?.Dispose();
-                _rpBannerTexture = null;
-                _lastRpBanner = null;
-            }
-
             var umbraProfile = ResolveProfile();
 
             var accent = UiSharedService.AccentColor;
@@ -201,44 +190,8 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
             // RP / HRP toggle buttons
             DrawTabButtons(accent);
 
-            // Load textures
-            var pfpData = _isRpTab ? umbraProfile.RpImageData.Value : umbraProfile.ImageData.Value;
-
-            if (_isRpTab)
-            {
-                if (_rpTextureWrap == null || !pfpData.SequenceEqual(_lastRpProfilePicture))
-                {
-                    _rpTextureWrap?.Dispose();
-                    _lastRpProfilePicture = pfpData;
-                    _rpTextureWrap = _uiSharedService.LoadImage(_lastRpProfilePicture);
-                }
-            }
-            else
-            {
-                if (_textureWrap == null || !pfpData.SequenceEqual(_lastProfilePicture))
-                {
-                    _textureWrap?.Dispose();
-                    _lastProfilePicture = pfpData;
-                    _textureWrap = _uiSharedService.LoadImage(_lastProfilePicture);
-                }
-            }
-
-            if (_isRpTab)
-            {
-                var bannerData = umbraProfile.RpBannerData.Value;
-                if (!ReferenceEquals(bannerData, _lastRpBanner))
-                {
-                    // Une prévisualisation rafraîchie recrée le tableau : ne recharger la texture que si l'image change.
-                    if (!bannerData.AsSpan().SequenceEqual(_lastRpBanner))
-                    {
-                        _rpBannerTexture?.Dispose();
-                        _rpBannerTexture = bannerData.Length > 0 ? _uiSharedService.LoadImage(bannerData) : null;
-                    }
-                    _lastRpBanner = bannerData;
-                }
-            }
-
-            var currentTexture = _isRpTab ? _rpTextureWrap : _textureWrap;
+            var currentTexture = _uiSharedService.ProfileTextures.GetTexture(_isRpTab ? umbraProfile.RpImageData : umbraProfile.ImageData);
+            _rpBannerTexture = _isRpTab ? _uiSharedService.ProfileTextures.GetTexture(umbraProfile.RpBannerData) : null;
 
             // Profil enrichi (onglet RP) à gauche, signalement (pas soi-même) à droite, sur la même ligne
             if (_isRpTab)
@@ -540,36 +493,15 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
                 _ = RefreshLocalHonorificAsync();
             honorificB64 = _localHonorificB64;
         }
-        else if (IsDisplayingLiveCharacter())
+        else
         {
-            honorificB64 = Pair.LastReceivedCharacterData?.HonorificData;
+            honorificB64 = GetDisplayedLiveData().Honorific;
         }
 
-        if (string.IsNullOrEmpty(honorificB64)) return;
+        if (UiSharedService.ParseHonorific(honorificB64) is not { } honorific) return;
 
-        try
-        {
-            var json = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(honorificB64));
-            var doc = System.Text.Json.JsonDocument.Parse(json);
-            var root = doc.RootElement;
-
-            var title = root.TryGetProperty("Title", out var t) ? t.GetString() : null;
-            if (string.IsNullOrEmpty(title)) return;
-
-            var color = Vector4.One;
-            if (root.TryGetProperty("Color", out var c) && c.ValueKind == System.Text.Json.JsonValueKind.Object)
-            {
-                color = new Vector4(
-                    (c.TryGetProperty("X", out var cx) || c.TryGetProperty("x", out cx)) ? cx.GetSingle() : 1f,
-                    (c.TryGetProperty("Y", out var cy) || c.TryGetProperty("y", out cy)) ? cy.GetSingle() : 1f,
-                    (c.TryGetProperty("Z", out var cz) || c.TryGetProperty("z", out cz)) ? cz.GetSingle() : 1f,
-                    1f);
-            }
-
-            using var _ = _uiSharedService.GameFont.Push();
-            ImGui.TextColored(color, title);
-        }
-        catch { /* ignore parse errors */ }
+        using var font = _uiSharedService.GameFont.Push();
+        ImGui.TextColored(honorific.Color, honorific.Title);
     }
 
     private string _localHonorificB64 = string.Empty;
@@ -966,16 +898,28 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
         }
         else
         {
-            if (IsDisplayingLiveCharacter())
-            {
-                var realtimeMoodles = Pair.LastReceivedCharacterData?.MoodlesData;
-                if (!string.IsNullOrEmpty(realtimeMoodles))
-                    return realtimeMoodles;
-            }
+            var displayedMoodles = GetDisplayedLiveData().Moodles;
+            if (!string.IsNullOrEmpty(displayedMoodles))
+                return displayedMoodles;
 
             return profile.MoodlesData;
         }
     }
+
+    private (string? Honorific, string? Moodles) GetDisplayedLiveData()
+    {
+        if (Pair.IsVisible && IsDisplayingLiveCharacter() && Pair.LastReceivedCharacterData is { } live)
+            return (live.HonorificData, live.MoodlesData);
+
+        var (charName, worldId) = GetDisplayedCharacter();
+        var lastSeen = _umbraProfileManager.GetLastSeenLiveData(Pair.UserData, charName, worldId);
+        return (lastSeen?.HonorificData, lastSeen?.MoodlesData);
+    }
+
+    private (string? CharName, uint? WorldId) GetDisplayedCharacter()
+        => _selectedAltCharName != null && _selectedAltWorldId != null
+            ? (_selectedAltCharName, _selectedAltWorldId)
+            : _umbraProfileManager.ResolveCharacter(Pair.UserData);
 
     // Les données reçues en direct (Honorific, Moodles) appartiennent au personnage connecté :
     // ne les afficher que si c'est bien lui que montre la fiche, jamais sur un autre perso du compte.
@@ -987,9 +931,7 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
         var liveWorld = Pair.WorldId;
         if (string.IsNullOrEmpty(liveName) || liveWorld == 0) return false;
 
-        var (charName, worldId) = (_selectedAltCharName != null && _selectedAltWorldId != null)
-            ? (_selectedAltCharName, _selectedAltWorldId)
-            : _umbraProfileManager.ResolveCharacter(Pair.UserData);
+        var (charName, worldId) = GetDisplayedCharacter();
 
         return string.Equals(charName, liveName, StringComparison.Ordinal) && worldId == liveWorld;
     }

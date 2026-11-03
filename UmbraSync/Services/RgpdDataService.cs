@@ -115,7 +115,9 @@ public class RgpdDataService : DisposableMediatorSubscriberBase
         Mediator.Publish(new RgpdConsentUpdatedMessage(false));
     }
 
-    private const string ProfileCachePattern = "profile_cache_*.json";
+    private const string ProfileCachePattern = "profile_cache_*.json*";
+    private const string SyncshellProfilesDirectory = "syncshell_profiles";
+    private const string ProfileImagesPattern = "profile_cache_images_*";
 
     private string NetworkDiagnosticDirectory => Path.Combine(_configDirectory, "NetworkDiag");
 
@@ -197,6 +199,8 @@ public class RgpdDataService : DisposableMediatorSubscriberBase
                 },
                 ["notifications"] = _notificationTracker.GetEntries(),
                 ["cached_profiles_of_others"] = DescribeFiles(_configDirectory, ProfileCachePattern),
+                ["cached_profile_images_of_others"] = DescribeProfileImages(),
+                ["cached_syncshell_profiles"] = DescribeFiles(Path.Combine(_configDirectory, SyncshellProfilesDirectory), "*"),
                 ["event_logs"] = DescribeFiles(EventLogDirectory, "*"),
                 ["network_diagnostic_logs"] = DescribeFiles(NetworkDiagnosticDirectory, "*"),
                 ["file_cache"] = SummarizeFileCache(),
@@ -316,9 +320,9 @@ public class RgpdDataService : DisposableMediatorSubscriberBase
             _configService.Current.KnownDelegatedScenarios.Clear();
 
             _notificationTracker.Clear();
-            _umbraProfileManager.ClearPersistedProfileCache();
+            _umbraProfileManager.ClearPersistedProfileCache(stopWritesUntilReconnect: true);
 
-            DeleteFiles(_configDirectory, ProfileCachePattern);
+            DeleteCachedProfiles();
             DeleteFiles(EventLogDirectory, "*");
             DeleteFiles(NetworkDiagnosticDirectory, "*");
             DeletePreviousExports();
@@ -332,6 +336,7 @@ public class RgpdDataService : DisposableMediatorSubscriberBase
                 {
                     await Task.Delay(BackupPurgeDelay).ConfigureAwait(false);
                     PurgeConfigBackups();
+                    DeleteCachedProfiles();
                     Logger.LogInformation("RGPD local data deleted");
                     Mediator.Publish(new RgpdLocalDataDeletionCompleteMessage());
                 }
@@ -346,6 +351,48 @@ public class RgpdDataService : DisposableMediatorSubscriberBase
         {
             Logger.LogError(ex, "Failed to delete RGPD local data");
             Mediator.Publish(new RgpdLocalDataDeletionCompleteMessage());
+        }
+    }
+
+    private List<Dictionary<string, object?>> DescribeProfileImages()
+    {
+        try
+        {
+            if (!Directory.Exists(_configDirectory)) return [];
+            return Directory.EnumerateDirectories(_configDirectory, ProfileImagesPattern)
+                .SelectMany(directory => DescribeFiles(directory, "*"))
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Could not enumerate profile images for RGPD export");
+            return [];
+        }
+    }
+
+    private void DeleteCachedProfiles()
+    {
+        DeleteFiles(_configDirectory, ProfileCachePattern);
+        DeleteFiles(Path.Combine(_configDirectory, SyncshellProfilesDirectory), "*");
+
+        try
+        {
+            if (!Directory.Exists(_configDirectory)) return;
+            foreach (var directory in Directory.GetDirectories(_configDirectory, ProfileImagesPattern))
+            {
+                try
+                {
+                    Directory.Delete(directory, recursive: true);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    Logger.LogWarning(ex, "Could not delete a profile image directory");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Could not delete profile images");
         }
     }
 

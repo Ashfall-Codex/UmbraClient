@@ -68,7 +68,7 @@ jobs:
         run: |
           test -f "$PACKAGE" || { echo "::error::$PACKAGE absent"; exit 1; }
           entries=$(unzip -Z1 "$PACKAGE")
-          for f in UmbraSync.json UmbraSync.dll; do
+          for f in UmbraSync.json UmbraSync.dll Blake3.dll; do
             grep -Fxq "$f" <<< "$entries" || { echo "::error::$f absent de latest.zip"; exit 1; }
           done
 

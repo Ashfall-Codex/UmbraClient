@@ -26,12 +26,8 @@ public class PopoutProfileUi : WindowMediatorSubscriberBase
     private readonly UiSharedService _uiSharedService;
     private Vector2 _lastMainPos = Vector2.Zero;
     private Vector2 _lastMainSize = Vector2.Zero;
-    private byte[] _lastProfilePicture = [];
-    private byte[] _lastRpProfilePicture = [];
     private Pair? _pair;
     private IDalamudTextureWrap? _supporterTextureWrap;
-    private IDalamudTextureWrap? _textureWrap;
-    private IDalamudTextureWrap? _rpTextureWrap;
     private bool _isRpTab;
 
     public PopoutProfileUi(ILogger<PopoutProfileUi> logger, MareMediator mediator, UiSharedService uiSharedService,
@@ -48,12 +44,6 @@ public class PopoutProfileUi : WindowMediatorSubscriberBase
         {
             IsOpen = msg.Pair != null;
             _pair = msg.Pair;
-            _lastProfilePicture = [];
-            _lastRpProfilePicture = [];
-            _textureWrap?.Dispose();
-            _textureWrap = null;
-            _rpTextureWrap?.Dispose();
-            _rpTextureWrap = null;
             _supporterTextureWrap?.Dispose();
             _supporterTextureWrap = null;
             _isRpTab = false;
@@ -129,27 +119,7 @@ public class PopoutProfileUi : WindowMediatorSubscriberBase
                 }
             }
 
-            var pfpData = _isRpTab ? umbraProfile.RpImageData.Value : umbraProfile.ImageData.Value;
-            if (_isRpTab)
-            {
-                if (_rpTextureWrap == null || !pfpData.SequenceEqual(_lastRpProfilePicture))
-                {
-                    _rpTextureWrap?.Dispose();
-                    _lastRpProfilePicture = pfpData;
-                    _rpTextureWrap = _uiSharedService.LoadImage(_lastRpProfilePicture);
-                }
-            }
-            else
-            {
-                if (_textureWrap == null || !pfpData.SequenceEqual(_lastProfilePicture))
-                {
-                    _textureWrap?.Dispose();
-                    _lastProfilePicture = pfpData;
-                    _textureWrap = _uiSharedService.LoadImage(_lastProfilePicture);
-                }
-            }
-
-            var currentTexture = _isRpTab ? _rpTextureWrap : _textureWrap;
+            var currentTexture = _uiSharedService.ProfileTextures.GetTexture(_isRpTab ? umbraProfile.RpImageData : umbraProfile.ImageData);
 
             var drawList = ImGui.GetWindowDrawList();
             var rectMin = drawList.GetClipRectMin();
@@ -215,8 +185,16 @@ public class PopoutProfileUi : WindowMediatorSubscriberBase
 
             if (_isRpTab)
             {
-                // Données live = personnage connecté ; hors ligne, elles peuvent venir d'un autre perso du compte
-                var moodlesJson = _pair.IsOnline ? _pair.LastReceivedCharacterData?.MoodlesData : null;
+                string? moodlesJson;
+                if (_pair.IsVisible)
+                {
+                    moodlesJson = _pair.LastReceivedCharacterData?.MoodlesData;
+                }
+                else
+                {
+                    var (charName, worldId) = _umbraProfileManager.ResolveCharacter(_pair.UserData);
+                    moodlesJson = _umbraProfileManager.GetLastSeenLiveData(_pair.UserData, charName, worldId)?.MoodlesData;
+                }
                 if (string.IsNullOrEmpty(moodlesJson))
                     moodlesJson = umbraProfile.MoodlesData;
                 if (!string.IsNullOrEmpty(moodlesJson))

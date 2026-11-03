@@ -82,6 +82,13 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
     public static Vector4 ThemeAccentSoft => ThemeTint(new(0.75f, 0.5f, 1f, 1f));
     public static readonly Vector4 ThemeSwitchKnobOn = new(1f, 0.98f, 1f, 1f);
     public static readonly Vector4 ThemeSwitchKnobOff = new(0.70f, 0.68f, 0.74f, 1f);
+    public static readonly Vector4 ThemeCapsule = new(0.09f, 0.09f, 0.11f, 0.72f);
+    public static readonly Vector4 ThemeCapsuleHovered = new(0.15f, 0.15f, 0.17f, 0.85f);
+    public static readonly Vector4 ThemeCapsulePressed = new(0.04f, 0.04f, 0.05f, 0.86f);
+    public static readonly Vector4 ThemeCapsuleBorder = new(1f, 1f, 1f, 0.16f);
+    public static readonly Vector4 ThemeCapsuleBorderHovered = new(1f, 1f, 1f, 0.30f);
+    public static readonly Vector4 ThemeCapsuleLabel = new(1f, 1f, 1f, 1f);
+    public static readonly Vector4 ThemeDestructive = new(1f, 0.27f, 0.23f, 1f);
     public static Vector4 ThemeCardBorder => WithAlpha(AccentColor, 0.45f);
     public static Vector4 ThemeCardBg => WithAlpha(ThemeButtonBg, CardAlpha());
     public const int ThemeColorCount = 27;
@@ -384,8 +391,9 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
         CacheMonitor cacheMonitor, FileDialogManager fileDialogManager,
         MareConfigService configService, DalamudUtilService dalamudUtil, IDalamudPluginInterface pluginInterface,
         ITextureProvider textureProvider,
-        ServerConfigurationManager serverManager, MareMediator mediator) : base(logger, mediator)
+        ServerConfigurationManager serverManager, ProfileImageTextureCache profileTextures, MareMediator mediator) : base(logger, mediator)
     {
+        ProfileTextures = profileTextures;
         _ipcManager = ipcManager;
         _apiController = apiController;
         _cacheMonitor = cacheMonitor;
@@ -703,6 +711,38 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
             return false;
         color = new Vector4(((rgb >> 16) & 0xFF) / 255f, ((rgb >> 8) & 0xFF) / 255f, (rgb & 0xFF) / 255f, 1f);
         return true;
+    }
+
+    public async Task<string?> GetLocalHonorificAsync()
+        => _ipcManager.Honorific.APIAvailable ? await _ipcManager.Honorific.GetTitle().ConfigureAwait(false) : null;
+
+    public static (string Title, Vector4 Color)? ParseHonorific(string? base64)
+    {
+        if (string.IsNullOrEmpty(base64)) return null;
+
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(Convert.FromBase64String(base64));
+            var root = doc.RootElement;
+            var title = root.TryGetProperty("Title", out var t) ? t.GetString() : null;
+            if (string.IsNullOrEmpty(title)) return null;
+
+            var color = Vector4.One;
+            if (root.TryGetProperty("Color", out var c) && c.ValueKind == System.Text.Json.JsonValueKind.Object)
+            {
+                color = new Vector4(
+                    (c.TryGetProperty("X", out var cx) || c.TryGetProperty("x", out cx)) ? cx.GetSingle() : 1f,
+                    (c.TryGetProperty("Y", out var cy) || c.TryGetProperty("y", out cy)) ? cy.GetSingle() : 1f,
+                    (c.TryGetProperty("Z", out var cz) || c.TryGetProperty("z", out cz)) ? cz.GetSingle() : 1f,
+                    1f);
+            }
+
+            return (title, color);
+        }
+        catch (Exception ex) when (ex is FormatException or System.Text.Json.JsonException or InvalidOperationException)
+        {
+            return null;
+        }
     }
 
     // Lignes d'infos d'une carte de profil posées sur la bannière : couleur choisie par le joueur, gris sinon
@@ -2269,6 +2309,8 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
     {
         IconText(icon, color == null ? ImGui.GetColorU32(ImGuiCol.Text) : ImGui.GetColorU32(color.Value));
     }
+
+    public ProfileImageTextureCache ProfileTextures { get; }
 
     public IDalamudTextureWrap LoadImage(byte[] imageData)
     {

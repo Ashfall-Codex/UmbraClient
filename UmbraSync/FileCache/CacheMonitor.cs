@@ -114,7 +114,8 @@ public sealed class CacheMonitor : DisposableMediatorSubscriberBase
         Interlocked.Increment(ref HaltScanLocks[source].Value);
     }
 
-    record WatcherChange(WatcherChangeTypes ChangeType, string? OldPath = null);
+    record WatcherChange(WatcherChangeTypes ChangeType, string? OldPath = null, int FailedAttempts = 0);
+    private const int MaxWatcherRetries = 3;
     private readonly Dictionary<string, WatcherChange> _watcherChanges = new Dictionary<string, WatcherChange>(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, WatcherChange> _mareChanges = new Dictionary<string, WatcherChange>(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, WatcherChange> _substChanges = new Dictionary<string, WatcherChange>(StringComparer.OrdinalIgnoreCase);
@@ -466,7 +467,7 @@ public sealed class CacheMonitor : DisposableMediatorSubscriberBase
             }
         }
 
-        HandleChanges(changes);
+        HandleChangesWithRetry(changes, _mareChanges, MareWatcherExecution);
     }
 
     private async Task SubstWatcherExecution()
@@ -497,7 +498,7 @@ public sealed class CacheMonitor : DisposableMediatorSubscriberBase
             }
         }
 
-        HandleChanges(changes);
+        HandleChangesWithRetry(changes, _substChanges, SubstWatcherExecution);
     }
 
     public void ClearSubstStorage()
@@ -507,7 +508,7 @@ public sealed class CacheMonitor : DisposableMediatorSubscriberBase
                                 .Where(f =>
                                 {
                                     var val = f.Split('\\')[^1];
-                                    return val.Length == 40 || (val.Split('.').FirstOrDefault()?.Length ?? 0) == 40
+                                    return FileHash.IsAcceptedFileName(val)
                                         || val.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase);
                                 });
         if (SubstWatcher != null)
@@ -545,7 +546,7 @@ public sealed class CacheMonitor : DisposableMediatorSubscriberBase
                                 .Where(f =>
                                 {
                                     var val = f.Split('\\')[^1];
-                                    return val.Length == 40 || (val.Split('.').FirstOrDefault()?.Length ?? 0) == 40
+                                    return FileHash.IsAcceptedFileName(val)
                                         || val.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase);
                                 });
 
@@ -561,6 +562,31 @@ public sealed class CacheMonitor : DisposableMediatorSubscriberBase
             {
                 Logger.LogWarning(ex, "Failed to delete cache file {file}", cacheFile);
             }
+        }
+    }
+
+    private void HandleChangesWithRetry(Dictionary<string, WatcherChange> changes, Dictionary<string, WatcherChange> pendingChanges, Func<Task> reschedule)
+    {
+        try
+        {
+            HandleChanges(changes);
+        }
+        catch (Exception ex)
+        {
+            int requeued = 0;
+            lock (pendingChanges)
+            {
+                foreach (var change in changes.Where(c => c.Value.FailedAttempts < MaxWatcherRetries))
+                {
+                    if (pendingChanges.TryAdd(change.Key, change.Value with { FailedAttempts = change.Value.FailedAttempts + 1 }))
+                        requeued++;
+                }
+            }
+
+            Logger.LogWarning(ex, "Échec du traitement de {count} changements de fichiers, {requeued} remis en attente", changes.Count, requeued);
+
+            if (requeued > 0 && !_periodicCalculationTokenSource.IsCancellationRequested)
+                _ = reschedule();
         }
     }
 
@@ -655,7 +681,7 @@ public sealed class CacheMonitor : DisposableMediatorSubscriberBase
             }
         }
 
-        HandleChanges(changes);
+        HandleChangesWithRetry(changes, _watcherChanges, PenumbraWatcherExecution);
     }
 
     public void InvokeScan(bool deferred = false)
@@ -985,7 +1011,7 @@ public sealed class CacheMonitor : DisposableMediatorSubscriberBase
                                         return false;
 
                                     var val = f.Split('\\')[^1];
-                                    return val.Length == 40 || (val.Split('.').FirstOrDefault()?.Length ?? 0) == 40;
+                                    return FileHash.IsAcceptedFileName(val);
                                 });
 
         if (ct.IsCancellationRequested) return;

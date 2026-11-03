@@ -16,6 +16,7 @@ public partial class FileReplacement
     public bool HasFileReplacement => GamePaths.Count >= 1 && GamePaths.Any(p => !string.Equals(p, ResolvedPath, StringComparison.Ordinal));
 
     public string Hash { get; set; } = string.Empty;
+    public string Blake3 { get; set; } = string.Empty;
     public bool IsFileSwap => !LocalPathRegex().IsMatch(ResolvedPath) && GamePaths.All(p => !LocalPathRegex().IsMatch(p));
     public string ResolvedPath { get; init; }
 
@@ -26,6 +27,7 @@ public partial class FileReplacement
             GamePaths = [.. GamePaths],
             Hash = Hash,
             FileSwapPath = IsFileSwap ? ResolvedPath : string.Empty,
+            Blake3 = Blake3,
         };
     }
 

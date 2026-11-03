@@ -27,7 +27,6 @@ public class UidDisplayHandler
     private DateTime? _popupTime;
     private readonly UmbraProfileManager _profileManager;
     private readonly UiSharedService _uiSharedService;
-    private readonly Dictionary<string, (byte[] Data, Task<Dalamud.Interface.Textures.TextureWraps.IDalamudTextureWrap> Task)> _avatarTasks = new(StringComparer.Ordinal);
     private DateTime _lastProfileRequestUtc = DateTime.MinValue;
 
     public UidDisplayHandler(MareMediator mediator, PairManager pairManager,
@@ -196,7 +195,7 @@ public class UidDisplayHandler
         profile = null!;
         if (!_mareConfigService.Current.ShowRpIdentityInPairList || !pair.IsVisible) return false;
         var known = GetRpIdentity(pair);
-        if (known == null || known.RpImageData.Value.Length == 0) return false;
+        if (known == null || !known.RpImageData.HasImage) return false;
         profile = known;
         return true;
     }
@@ -207,10 +206,10 @@ public class UidDisplayHandler
     public void DrawPresenceAvatar(Pair pair, UmbraProfileData profile, System.Numerics.Vector2 pos, float size)
     {
         var rpName = $"{profile.RpFirstName} {profile.RpLastName}".Trim();
-        DrawMiniAvatar(pair, profile, rpName, pos, size);
+        DrawMiniAvatar(profile, rpName, pos, size);
     }
 
-    private void DrawMiniAvatar(Pair pair, UmbraProfileData profile, string rpName, System.Numerics.Vector2 pos, float size)
+    private void DrawMiniAvatar(UmbraProfileData profile, string rpName, System.Numerics.Vector2 pos, float size)
     {
         var dl = ImGui.GetWindowDrawList();
         var rounding = size * 0.3f;
@@ -219,21 +218,7 @@ public class UidDisplayHandler
             ? UiSharedService.HexToVector4(profile.RpNameColor)
             : UiSharedService.AccentColor;
 
-        Dalamud.Interface.Textures.TextureWraps.IDalamudTextureWrap? texture = null;
-        var data = profile.RpImageData.Value;
-        if (data.Length > 0)
-        {
-            var key = pair.UserData.UID;
-            if (!_avatarTasks.TryGetValue(key, out var cached)
-                || (!ReferenceEquals(data, cached.Data) && !data.AsSpan().SequenceEqual(cached.Data)))
-            {
-                if (cached.Task != null)
-                    cached.Task.DisposeResultWhenCompleted();
-                cached = (data, Task.Run(() => _uiSharedService.LoadImageAsync(data)));
-                _avatarTasks[key] = cached;
-            }
-            if (cached.Task.IsCompletedSuccessfully) texture = cached.Task.Result;
-        }
+        var texture = _uiSharedService.ProfileTextures.GetTexture(profile.RpImageData);
 
         if (texture != null && texture.Handle != IntPtr.Zero)
         {
@@ -313,9 +298,6 @@ public class UidDisplayHandler
 
     internal void Clear()
     {
-        foreach (var pending in _avatarTasks.Values)
-            pending.Task.DisposeResultWhenCompleted();
-        _avatarTasks.Clear();
         _editNickEntry = string.Empty;
         _editUserComment = string.Empty;
     }

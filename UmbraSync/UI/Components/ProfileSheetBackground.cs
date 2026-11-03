@@ -37,6 +37,11 @@ public static class ProfileSheetBackground
             Value: new Vector4(0.98f, 0.94f, 0.86f, 1f)),
     };
 
+    public static SheetPalette? PaletteOf(ProfileCardStyle style)
+        => ProfileBackgrounds.Find(style.Background) is { } background
+            ? WithCustomColors(PaletteFor(background.Family), style)
+            : null;
+
     public static SheetPalette WithCustomColors(SheetPalette palette, ProfileCardStyle style) => palette with
     {
         Accent = ColorOr(style.SheetTitleColor, palette.Accent),

@@ -62,6 +62,7 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
     private readonly ConcurrentDictionary<string, (DateTime LastFailure, int FailCount)> _hashFailureCooldowns = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, DateTime> _serverMissingHashes = new(StringComparer.OrdinalIgnoreCase);
     private static readonly TimeSpan ServerMissingTtl = TimeSpan.FromMinutes(10);
+    private readonly ConcurrentDictionary<string, string> _expectedBlake3 = new(StringComparer.OrdinalIgnoreCase);
     private const double BaseCooldownSeconds = 15;
     private const double MaxCooldownSeconds = 120;
     private const int MaxTrackedFailureCount = 4;
@@ -798,10 +799,11 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
         try
         {
             byte[] calculatedHashBytes;
+            byte[]? calculatedBlake3Bytes;
 
             using (var hashingStream = new HashingStream(
                 new FileStream(cdnTmpPath, FileMode.Create, FileAccess.Write, FileShare.None),
-                SHA1.Create()))
+                SHA1.Create(), new Blake3.Blake3HashAlgorithm()))
             {
                 using var lz4Input = new FileStream(lz4TmpPath, FileMode.Open, FileAccess.Read, FileShare.Read, 65536);
                 using var lz4Decoder = LZ4Stream.Decode(lz4Input, leaveOpen: true);
@@ -817,12 +819,19 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
 
                 Logger.LogDebug("LZ4 decompression finished for {hash}, wrote {bytes} bytes", file.Hash, totalBytesWritten);
                 calculatedHashBytes = hashingStream.Finish();
+                calculatedBlake3Bytes = hashingStream.SecondaryHash;
             }
 
             var calculatedHash = BitConverter.ToString(calculatedHashBytes).Replace("-", "", StringComparison.Ordinal);
             if (!string.Equals(calculatedHash, file.Hash, StringComparison.OrdinalIgnoreCase))
             {
                 Logger.LogWarning("CDN hash mismatch for {hash}: got {calculated}", file.Hash, calculatedHash);
+                if (File.Exists(cdnTmpPath)) File.Delete(cdnTmpPath);
+                return false;
+            }
+
+            if (!MatchesExpectedBlake3(file.Hash, calculatedBlake3Bytes))
+            {
                 if (File.Exists(cdnTmpPath)) File.Delete(cdnTmpPath);
                 return false;
             }
@@ -834,7 +843,7 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
                 return false;
             }
 
-            PersistFileToStorage(file.Hash, destPath, file.Total);
+            PersistFileToStorage(file.Hash, destPath, file.Total, calculatedBlake3Bytes);
             Logger.LogDebug("Direct CDN decompress+persist complete: {hash}", file.Hash);
             return true;
         }
@@ -965,6 +974,7 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
         Logger.LogDebug("Files with size 0 or less: {files}", string.Join(", ", downloadFileInfoFromService.Where(f => f.Size <= 0).Select(f => f.Hash)));
 
         TrackHashesMissingOnServer(downloadFileInfoFromService);
+        RememberExpectedBlake3(fileReplacement, downloadFileInfoFromService);
 
         foreach (var dto in downloadFileInfoFromService.Where(c => c.IsForbidden))
         {
@@ -1358,7 +1368,7 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
                                 Mode = FileMode.CreateNew,
                                 Access = FileAccess.Write,
                                 Share = FileShare.None
-                            }), System.Security.Cryptography.SHA1.Create());
+                            }), System.Security.Cryptography.SHA1.Create(), new Blake3.Blake3HashAlgorithm());
 
                             using var fileChunkStream = new FileStream(capturedBlockFile, new FileStreamOptions()
                             {
@@ -1380,6 +1390,7 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
                                 throw new EndOfStreamException();
 
                             string calculatedHash = BitConverter.ToString(tmpFileStream.Finish()).Replace("-", "", StringComparison.Ordinal);
+                            var calculatedBlake3 = tmpFileStream.SecondaryHash;
 
                             // Comparaison insensible à la casse : alignée sur le chemin CDN
                             // (DecompressAndVerifyLz4) qui utilise OrdinalIgnoreCase. Un hash de
@@ -1390,6 +1401,9 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
                                 return;
                             }
 
+                            if (!MatchesExpectedBlake3(capturedHash, calculatedBlake3))
+                                return;
+
                             tmpFileStream.Close();
                             if (!_fileCompactor.RenameAndCompact(capturedFilePath, capturedTmpPath) || !File.Exists(capturedFilePath))
                             {
@@ -1397,7 +1411,7 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
                                 return;
                             }
 
-                            PersistFileToStorage(capturedHash, capturedFilePath, capturedLength);
+                            PersistFileToStorage(capturedHash, capturedFilePath, capturedLength, calculatedBlake3);
                             hashSuccess = true;
                         }
                         catch (EndOfStreamException)
@@ -1831,7 +1845,7 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
                                 Mode = FileMode.CreateNew,
                                 Access = FileAccess.Write,
                                 Share = FileShare.None
-                            }), SHA1.Create());
+                            }), SHA1.Create(), new Blake3.Blake3HashAlgorithm());
 
                             using var fileChunkStream = new FileStream(capturedBlockFile, new FileStreamOptions()
                             {
@@ -1855,12 +1869,16 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
                             }
 
                             string calculatedHash = BitConverter.ToString(tmpFileStream.Finish()).Replace("-", "", StringComparison.Ordinal);
+                            var calculatedBlake3 = tmpFileStream.SecondaryHash;
                             
                             if (!calculatedHash.Equals(capturedHash, StringComparison.OrdinalIgnoreCase))
                             {
                                 Logger.LogError("Hash mismatch after extracting, got {hash}, expected {expectedHash}, deleting file", calculatedHash, capturedHash);
                                 return;
                             }
+
+                            if (!MatchesExpectedBlake3(capturedHash, calculatedBlake3))
+                                return;
 
                             tmpFileStream.Close();
                             if (!_fileCompactor.RenameAndCompact(capturedFilePath, capturedTmpPath) || !File.Exists(capturedFilePath))
@@ -1869,7 +1887,7 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
                                 return;
                             }
 
-                            PersistFileToStorage(capturedHash, capturedFilePath, capturedLength);
+                            PersistFileToStorage(capturedHash, capturedFilePath, capturedLength, calculatedBlake3);
                             hashSuccess = true;
                         }
                         catch (EndOfStreamException)
@@ -2203,11 +2221,44 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
         }
     }
 
-    private void PersistFileToStorage(string fileHash, string filePath, long? compressedSize = null)
+    private void RememberExpectedBlake3(List<FileReplacementData> fileReplacement, List<DownloadFileDto> serverFiles)
     {
+        foreach (var dto in serverFiles)
+        {
+            if (FileHash.IsBlake3(dto.Blake3)) _expectedBlake3[dto.Hash] = dto.Blake3;
+            var alt = dto.CompressedAlternateFileDownload;
+            if (alt != null && FileHash.IsBlake3(alt.Blake3)) _expectedBlake3[alt.Hash] = alt.Blake3;
+        }
+
+        // Appliqué en dernier : la valeur de l'émetteur l'emporte sur celle du serveur.
+        foreach (var file in fileReplacement)
+        {
+            if (!string.IsNullOrEmpty(file.Hash) && FileHash.IsBlake3(file.Blake3)) _expectedBlake3[file.Hash] = file.Blake3;
+        }
+    }
+
+    // Le SHA-1 a déjà été vérifié : un BLAKE3 différent veut dire que le fichier servi n'est pas celui que
+    // l'émetteur a sur son disque (collision SHA-1, ou valeur annoncée fausse). Il est traité comme corrompu.
+    private bool MatchesExpectedBlake3(string hash, byte[]? blake3)
+    {
+        if (blake3 == null || !_expectedBlake3.TryGetValue(hash, out var expected)) return true;
+        var computed = Convert.ToHexString(blake3);
+        if (string.Equals(computed, expected, StringComparison.OrdinalIgnoreCase))
+        {
+            Logger.LogDebug("BLAKE3 verified for {hash}", hash);
+            return true;
+        }
+
+        Logger.LogWarning("BLAKE3 mismatch for {hash}: got {computed}, expected {expected}", hash, computed, expected);
+        return false;
+    }
+
+    private void PersistFileToStorage(string fileHash, string filePath, long? compressedSize = null, byte[]? blake3 = null)
+    {
+        _expectedBlake3.TryRemove(fileHash, out _);
         try
         {
-            var entry = _fileDbManager.CreateCacheEntry(filePath, fileHash);
+            var entry = _fileDbManager.CreateCacheEntry(filePath, fileHash, blake3 != null ? Convert.ToHexString(blake3) : null);
             if (entry != null && !string.Equals(entry.Hash, fileHash, StringComparison.OrdinalIgnoreCase))
             {
                 _fileDbManager.RemoveHashedFile(entry.Hash, entry.PrefixedFilePath);

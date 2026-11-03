@@ -14,9 +14,9 @@ public class FileCacheEntity : ICachedFile
         PrefixedFilePath = path;
         LastModifiedDateTicks = lastModifiedDateTicks;
     }
-
+    public string Blake3 { get; set; }
     public long? CompressedSize { get; set; }
-    public string CsvEntry => $"{Hash}{FileCacheManager.CsvSplit}{PrefixedFilePath}{FileCacheManager.CsvSplit}{LastModifiedDateTicks}|{Size ?? -1}|{CompressedSize ?? -1}";
+    public string CsvEntry => $"{Hash}{FileCacheManager.CsvSplit}{PrefixedFilePath}{FileCacheManager.CsvSplit}{LastModifiedDateTicks}|{Size ?? -1}|{CompressedSize ?? -1}|{Blake3}";
     public string Hash { get; set; }
     public bool IsCacheEntry => PrefixedFilePath.StartsWith(FileCacheManager.CachePrefix, StringComparison.OrdinalIgnoreCase);
     public bool IsSubstEntry => PrefixedFilePath.StartsWith(FileCacheManager.SubstPrefix, StringComparison.OrdinalIgnoreCase);

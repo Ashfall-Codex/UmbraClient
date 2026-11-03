@@ -116,6 +116,19 @@ public class Pair : DisposableMediatorSubscriberBase
     public uint WorldId => _worldId ?? 0;
 
     public CharacterData? LastReceivedCharacterData { get; set; }
+    private string _lastReceivedIdent = string.Empty;
+
+    public void PublishLiveDataIfVisible()
+    {
+        var data = LastReceivedCharacterData;
+        if (data == null || !IsVisible || string.IsNullOrEmpty(Ident)
+            || !string.Equals(_lastReceivedIdent, Ident, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        Mediator.Publish(new PairLiveDataSeenMessage(UserData, CachedPlayer?.PlayerName, WorldId, data.HonorificData, data.MoodlesData));
+    }
 
     public string? PlayerName => GetPlayerName();
     public uint PlayerCharacterId => GetPlayerCharacterId();
@@ -215,6 +228,8 @@ public class Pair : DisposableMediatorSubscriberBase
     {
         _applicationCts = _applicationCts.CancelRecreate();
         LastReceivedCharacterData = data.CharaData;
+        _lastReceivedIdent = Ident;
+        PublishLiveDataIfVisible();
 
         // Notifier le handler que des données ont été reçues (pour diagnostic)
         CachedPlayer?.OnDataReceived();
@@ -305,6 +320,7 @@ public class Pair : DisposableMediatorSubscriberBase
             {
                 _logger.LogDebug("Recovered character data from cache for {uid} (ident: {ident})", UserData.UID, Ident);
                 LastReceivedCharacterData = cachedData;
+                _lastReceivedIdent = Ident;
             }
             else
             {
@@ -443,6 +459,7 @@ public class Pair : DisposableMediatorSubscriberBase
             {
                 _logger.LogDebug("Recovered character data from cache for {uid} (ident: {ident})", UserData.UID, Ident);
                 LastReceivedCharacterData = cachedData;
+                _lastReceivedIdent = Ident;
             }
         }
 
@@ -482,6 +499,11 @@ public class Pair : DisposableMediatorSubscriberBase
             if (dto != null)
             {
                 _onlineUserIdentDto = dto;
+                if (!string.IsNullOrEmpty(_lastReceivedIdent) && !string.Equals(_lastReceivedIdent, dto.Ident, StringComparison.Ordinal))
+                {
+                    LastReceivedCharacterData = null;
+                    _lastReceivedIdent = string.Empty;
+                }
             }
 
             CachedPlayer?.Dispose();

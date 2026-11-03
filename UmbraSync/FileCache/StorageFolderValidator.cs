@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using UmbraSync.Utils;
 
 namespace UmbraSync.FileCache;
 
@@ -46,10 +47,6 @@ public static partial class StorageFolderValidator
         return StorageFolderIssue.None;
     }
 
-    /// <summary>
-    /// Le jeu ne sait lire qu'un sous-ensemble de caractères dans les chemins de ressources :
-    /// un accent ou un point dans le dossier de stockage et les fichiers ne se chargent plus.
-    /// </summary>
     public static bool IsPathReadableByGame(string? path)
     {
         return !string.IsNullOrEmpty(path) && PathRegex().IsMatch(path);
@@ -102,7 +99,7 @@ public static partial class StorageFolderValidator
     public static bool IsStorageFile(string filePath)
     {
         if (IsTemporaryFile(filePath)) return true;
-        return Path.GetFileNameWithoutExtension(filePath).Length == 40;
+        return FileHash.IsAccepted(Path.GetFileNameWithoutExtension(filePath.AsSpan()));
     }
 
     public static bool IsTemporaryFile(string filePath)

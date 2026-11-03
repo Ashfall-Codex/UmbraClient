@@ -210,7 +210,7 @@ public sealed class HonorificEditor
 
     public async Task ApplyAsync()
     {
-        if (!_ipcManager.Honorific.APIAvailable) return;
+        if (!_loaded || !_ipcManager.Honorific.APIAvailable) return;
         try
         {
             string json;
@@ -298,15 +298,16 @@ public sealed class HonorificEditor
             var worldId = await _dalamudUtil.GetHomeWorldIdAsync().ConfigureAwait(false);
             if (string.IsNullOrEmpty(charName) || worldId == 0) return;
 
-            var profile = _rpConfigService.GetCharacterProfile(charName, worldId);
-            if (string.IsNullOrEmpty(profile.HonorificBackupJson)) return;
-
             var currentB64 = await _ipcManager.Honorific.GetTitle().ConfigureAwait(false);
             if (!string.IsNullOrEmpty(currentB64) && !IsOriginalTitle(currentB64))
             {
+                await TrySaveBackupFromBase64Async(currentB64).ConfigureAwait(false);
                 _restoreAttempted = true;
                 return;
             }
+
+            var profile = _rpConfigService.GetCharacterProfile(charName, worldId);
+            if (string.IsNullOrEmpty(profile.HonorificBackupJson)) return;
 
             var ptr = await _dalamudUtil.GetPlayerPointerAsync().ConfigureAwait(false);
             if (ptr == IntPtr.Zero) return;

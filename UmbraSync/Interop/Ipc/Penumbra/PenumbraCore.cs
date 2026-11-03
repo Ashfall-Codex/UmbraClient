@@ -17,7 +17,7 @@ public sealed class PenumbraCore : DisposableMediatorSubscriberBase, IPenumbraCo
     private readonly PenumbraIpc.GetEnabledState _penumbraEnabled;
     private readonly PenumbraIpc.GetModDirectory _penumbraResolveModDir;
     private bool _pluginLoaded;
-    private Version _pluginVersion;
+    private Version _pluginVersion = new(0, 0, 0, 0);
     private bool _shownPenumbraUnavailable;
     private string? _penumbraModDirectory;
     public new ILogger Logger => base.Logger;
@@ -56,9 +56,7 @@ public sealed class PenumbraCore : DisposableMediatorSubscriberBase, IPenumbraCo
         _penumbraDispose = PenumbraIpc.Disposed.Subscriber(pluginInterface, PenumbraDispose);
         _penumbraEnabled = new PenumbraIpc.GetEnabledState(pluginInterface);
         _penumbraResolveModDir = new PenumbraIpc.GetModDirectory(pluginInterface);
-        var plugin = PluginWatcherService.GetInitialPluginState(pluginInterface, "Penumbra");
-        _pluginLoaded = plugin?.IsLoaded ?? false;
-        _pluginVersion = plugin?.Version ?? new(0, 0, 0, 0);
+        RefreshPluginState();
         mediator.SubscribeKeyed<PluginChangeMessage>(this, "Penumbra", HandlePluginChange);
         mediator.Subscribe<DalamudLoginMessage>(this, _ => HandleDalamudLogin());
         CheckModDirectory();
@@ -76,10 +74,15 @@ public sealed class PenumbraCore : DisposableMediatorSubscriberBase, IPenumbraCo
         APIAvailable = false;
     }
 
+    private void RefreshPluginState()
+    {
+        var plugin = PluginWatcherService.GetInitialPluginState(PluginInterface, "Penumbra");
+        _pluginLoaded = plugin?.IsLoaded ?? false;
+        _pluginVersion = plugin?.Version ?? new(0, 0, 0, 0);
+    }
+
     private void HandlePluginChange(PluginChangeMessage msg)
     {
-        _pluginLoaded = msg.IsLoaded;
-        _pluginVersion = msg.Version;
         CheckAPI();
         if (msg.IsLoaded && !APIAvailable)
         {
@@ -134,6 +137,7 @@ public sealed class PenumbraCore : DisposableMediatorSubscriberBase, IPenumbraCo
         bool penumbraAvailable = false;
         try
         {
+            RefreshPluginState();
             penumbraAvailable = _pluginLoaded && _pluginVersion >= new Version(1, 5, 1, 0);
             try
             {

@@ -82,6 +82,7 @@ public record DownloadFinishedMessage(GameObjectHandler DownloadId) : MessageBas
 public record UiToggleMessage(Type UiType) : MessageBase;
 public record PlayerUploadingMessage(GameObjectHandler Handler, bool IsUploading) : MessageBase;
 public record ClearProfileDataMessage(UserData? UserData = null, string? CharacterName = null, uint? WorldId = null) : MessageBase;
+public record RpProfileDeletedMessage(UserData User, uint WorldId) : MessageBase;
 public record CyclePauseMessage(UserData UserData) : MessageBase;
 public record PauseMessage(UserData UserData) : MessageBase;
 public record GroupPairPauseMessage(GroupData Group, UserData UserData, GroupUserPermissions CurrentPermissions) : MessageBase;
@@ -121,6 +122,7 @@ public record UnholdPairApplicationMessage(string UID, string Source) : KeyedMes
 public record HoldPairDownloadsMessage(string UID, string Source) : KeyedMessage(UID);
 public record UnholdPairDownloadsMessage(string UID, string Source) : KeyedMessage(UID);
 public record PairDataAppliedMessage(string UID, CharacterData? CharacterData) : KeyedMessage(UID);
+public record PairLiveDataSeenMessage(UserData User, string? CharName, uint WorldId, string? HonorificData, string? MoodlesData) : MessageBase;
 public record PairDataAnalyzedMessage(string UID) : KeyedMessage(UID);
 public record GameObjectHandlerCreatedMessage(GameObjectHandler GameObjectHandler, bool OwnedObject) : MessageBase;
 public record GameObjectHandlerDestroyedMessage(GameObjectHandler GameObjectHandler, bool OwnedObject) : MessageBase;

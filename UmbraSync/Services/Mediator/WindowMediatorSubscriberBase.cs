@@ -93,10 +93,13 @@ public abstract class WindowMediatorSubscriberBase : Window, IMediatorSubscriber
 
     protected virtual bool UseBackdropBlur => true;
 
+    protected virtual int ContentBackgroundLayers => 1;
+
     public override void Draw()
     {
         DrawWindowSheen();
         _performanceCollectorService.LogPerformance(this, $"Draw", DrawInternal);
+        ScrollEdgeEffect.DrawForCurrentWindow(WindowGlassLevel, UseBackdropBlur, ContentBackgroundLayers);
         RoundedScrollbars.DrawForCurrentWindow();
     }
 
