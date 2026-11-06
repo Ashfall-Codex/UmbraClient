@@ -16,6 +16,7 @@ using UmbraSync.Services.Mediator;
 using UmbraSync.Services.ServerConfiguration;
 using UmbraSync.UI.Components;
 
+using UmbraSync.Modules;
 namespace UmbraSync.UI;
 
 public class PopoutProfileUi : WindowMediatorSubscriberBase
@@ -102,21 +103,28 @@ public class PopoutProfileUi : WindowMediatorSubscriberBase
 
             var accent = UiSharedService.AccentColor;
             if (accent.W <= 0f) accent = ImGuiColors.ParsedPurple;
-            using (var _ = ImRaii.PushColor(ImGuiCol.TabHovered, accent))
-            using (var __ = ImRaii.PushColor(ImGuiCol.TabActive, accent))
+            if (_uiSharedService.Modules.IsEnabled(ModuleId.Rp))
             {
-                using var tabBar = ImRaii.TabBar("PopoutProfileTabBarV2");
-                if (tabBar)
+                using (var _ = ImRaii.PushColor(ImGuiCol.TabHovered, accent))
+                using (var __ = ImRaii.PushColor(ImGuiCol.TabActive, accent))
                 {
-                    using (var tabItem = ImRaii.TabItem("RP"))
+                    using var tabBar = ImRaii.TabBar("PopoutProfileTabBarV2");
+                    if (tabBar)
                     {
-                        if (tabItem) _isRpTab = true;
-                    }
-                    using (var tabItem = ImRaii.TabItem("HRP"))
-                    {
-                        if (tabItem) _isRpTab = false;
+                        using (var tabItem = ImRaii.TabItem("RP"))
+                        {
+                            if (tabItem) _isRpTab = true;
+                        }
+                        using (var tabItem = ImRaii.TabItem("HRP"))
+                        {
+                            if (tabItem) _isRpTab = false;
+                        }
                     }
                 }
+            }
+            else
+            {
+                _isRpTab = false;
             }
 
             var currentTexture = _uiSharedService.ProfileTextures.GetTexture(_isRpTab ? umbraProfile.RpImageData : umbraProfile.ImageData);

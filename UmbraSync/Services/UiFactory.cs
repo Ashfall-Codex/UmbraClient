@@ -3,9 +3,9 @@ using Microsoft.Extensions.Logging;
 using UmbraSync.API.Dto.Group;
 using UmbraSync.Interop.Ipc;
 using UmbraSync.PlayerData.Pairs;
-using UmbraSync.Services.AutoDetect;
 using UmbraSync.Services.Mediator;
 using UmbraSync.MareConfiguration;
+using UmbraSync.Modules.Discovery.Services;
 using UmbraSync.Services.Notification;
 using UmbraSync.Services.ServerConfiguration;
 using UmbraSync.UI;
@@ -18,7 +18,6 @@ public class UiFactory(
     ApiController apiController,
     UiSharedService uiSharedService,
     PairManager pairManager,
-    SyncshellDiscoveryService syncshellDiscoveryService,
     ServerConfigurationManager serverConfigManager,
     UmbraProfileManager umbraProfileManager,
     PerformanceCollectorService performanceCollectorService,
@@ -26,7 +25,8 @@ public class UiFactory(
     DalamudUtilService dalamudUtilService,
     FileDialogManager fileDialogManager,
     IpcManager ipcManager,
-    MareConfigService mareConfigService)
+    MareConfigService mareConfigService,
+    SyncshellDiscoveryService? syncshellDiscoveryService = null)
 {
     public SyncshellAdminUI CreateSyncshellAdminUi(GroupFullInfoDto dto)
     {

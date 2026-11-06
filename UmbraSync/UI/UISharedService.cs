@@ -27,6 +27,7 @@ using UmbraSync.Localization;
 using UmbraSync.Services.ServerConfiguration;
 using UmbraSync.UI.Components;
 
+using UmbraSync.Modules;
 namespace UmbraSync.UI;
 
 public partial class UiSharedService : DisposableMediatorSubscriberBase
@@ -387,13 +388,17 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
 
     private int _serverSelectionIndex = -1;
 
+    public IModuleRegistry Modules { get; }
+
     public UiSharedService(ILogger<UiSharedService> logger, IpcManager ipcManager, ApiController apiController,
         CacheMonitor cacheMonitor, FileDialogManager fileDialogManager,
         MareConfigService configService, DalamudUtilService dalamudUtil, IDalamudPluginInterface pluginInterface,
         ITextureProvider textureProvider,
-        ServerConfigurationManager serverManager, ProfileImageTextureCache profileTextures, MareMediator mediator) : base(logger, mediator)
+        ServerConfigurationManager serverManager, ProfileImageTextureCache profileTextures, MareMediator mediator,
+        IModuleRegistry moduleRegistry) : base(logger, mediator)
     {
         ProfileTextures = profileTextures;
+        Modules = moduleRegistry;
         _ipcManager = ipcManager;
         _apiController = apiController;
         _cacheMonitor = cacheMonitor;

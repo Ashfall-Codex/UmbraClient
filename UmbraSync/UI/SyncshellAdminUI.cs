@@ -14,9 +14,9 @@ using UmbraSync.API.Data.Extensions;
 using UmbraSync.API.Dto.Group;
 using UmbraSync.API.Dto.Slot;
 using UmbraSync.Localization;
+using UmbraSync.Modules.Discovery.Services;
 using UmbraSync.PlayerData.Pairs;
 using UmbraSync.Services;
-using UmbraSync.Services.AutoDetect;
 using UmbraSync.Services.Mediator;
 using UmbraSync.Services.Notification;
 using NotificationType = UmbraSync.MareConfiguration.Models.NotificationType;
@@ -32,7 +32,7 @@ public class SyncshellAdminUI : WindowMediatorSubscriberBase
     private readonly List<string> _oneTimeInvites = [];
     private readonly PairManager _pairManager;
     private readonly UiSharedService _uiSharedService;
-    private readonly SyncshellDiscoveryService _syncshellDiscoveryService;
+    private readonly SyncshellDiscoveryService? _syncshellDiscoveryService;
     private readonly NotificationTracker _notificationTracker;
     private List<BannedGroupUserDto> _bannedUsers = [];
     private int _multiInvites;
@@ -111,7 +111,7 @@ public class SyncshellAdminUI : WindowMediatorSubscriberBase
     private byte[] _savedBannerImageBytes = [];
 
     public SyncshellAdminUI(ILogger<SyncshellAdminUI> logger, MareMediator mediator, ApiController apiController,
-        UiSharedService uiSharedService, PairManager pairManager, SyncshellDiscoveryService syncshellDiscoveryService,
+        UiSharedService uiSharedService, PairManager pairManager, SyncshellDiscoveryService? syncshellDiscoveryService,
         GroupFullInfoDto groupFullInfo, PerformanceCollectorService performanceCollectorService, NotificationTracker notificationTracker,
         DalamudUtilService dalamudUtilService, FileDialogManager fileDialogManager, UmbraProfileManager profileManager)
         : base(logger, mediator, string.Format(CultureInfo.CurrentCulture, Loc.Get("SyncshellAdmin.WindowTitle"), groupFullInfo.GroupAliasOrGID) + "###UmbraSyncSyncshellAdmin" + groupFullInfo.GID, performanceCollectorService)
@@ -521,12 +521,15 @@ public class SyncshellAdminUI : WindowMediatorSubscriberBase
             }
             mgmtTab.Dispose();
 
-            var discoveryTab = ImRaii.TabItem(Loc.Get("SyncshellAdmin.Tab.AutoDetect"));
-            if (discoveryTab)
+            if (_syncshellDiscoveryService != null)
             {
-                DrawAutoDetectTab();
+                var discoveryTab = ImRaii.TabItem(Loc.Get("SyncshellAdmin.Tab.AutoDetect"));
+                if (discoveryTab)
+                {
+                    DrawAutoDetectTab();
+                }
+                discoveryTab.Dispose();
             }
-            discoveryTab.Dispose();
 
             var permissionTab = ImRaii.TabItem(Loc.Get("SyncshellAdmin.Tab.Permissions"));
             if (permissionTab)
@@ -1467,6 +1470,7 @@ public class SyncshellAdminUI : WindowMediatorSubscriberBase
 
     private async Task EnsureAutoDetectStateAsync(bool force = false)
     {
+        if (_syncshellDiscoveryService == null) return;
         try
         {
             var state = await _syncshellDiscoveryService.GetStateAsync(GroupFullInfo.GID, CancellationToken.None).ConfigureAwait(false);
@@ -1532,7 +1536,7 @@ public class SyncshellAdminUI : WindowMediatorSubscriberBase
                 tz = _adTimeZone;
             }
 
-            var ok = await _syncshellDiscoveryService.SetVisibilityAsync(
+            var ok = _syncshellDiscoveryService != null && await _syncshellDiscoveryService.SetVisibilityAsync(
                 GroupFullInfo.GID,
                 _autoDetectDesiredVisibility,
                 duration,

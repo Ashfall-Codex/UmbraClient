@@ -8,9 +8,9 @@ using System.Globalization;
 using System.Runtime.InteropServices;
 using UmbraSync.Localization;
 using UmbraSync.MareConfiguration;
+using UmbraSync.Modules.Discovery.Services;
 using UmbraSync.PlayerData.Pairs;
 using UmbraSync.Services;
-using UmbraSync.Services.AutoDetect;
 using UmbraSync.Services.Mediator;
 
 namespace UmbraSync.UI;
@@ -41,14 +41,14 @@ public sealed class DtrEntry : IDisposable, IHostedService
     private readonly ILogger<DtrEntry> _logger;
     private readonly MareMediator _mareMediator;
     private readonly PairManager _pairManager;
-    private readonly NearbyPendingService _nearbyPendingService;
+    private readonly NearbyPendingService? _nearbyPendingService;
     private readonly SlotService _slotService;
     private Task? _runTask;
     private string? _text;
     private string? _tooltip;
     private Colors _colors;
 
-    public DtrEntry(ILogger<DtrEntry> logger, IDtrBar dtrBar, MareConfigService configService, MareMediator mareMediator, PairManager pairManager, ApiController apiController, NearbyPendingService nearbyPendingService, SlotService slotService)
+    public DtrEntry(ILogger<DtrEntry> logger, IDtrBar dtrBar, MareConfigService configService, MareMediator mareMediator, PairManager pairManager, ApiController apiController, SlotService slotService, NearbyPendingService? nearbyPendingService = null)
     {
         _logger = logger;
         _dtrBar = dtrBar;
@@ -152,7 +152,7 @@ public sealed class DtrEntry : IDisposable, IHostedService
         {
             var pairCount = _pairManager.GetVisibleUserCount();
             var baseText = RenderDtrStyle(_configService.Current.DtrStyle, pairCount.ToString(CultureInfo.InvariantCulture));
-            var pendingNearby = _nearbyPendingService.Pending.Count;
+            var pendingNearby = _nearbyPendingService?.Pending.Count ?? 0;
             text = pendingNearby > 0 ? $"{baseText} ({pendingNearby})" : baseText;
             if (pairCount > 0)
             {

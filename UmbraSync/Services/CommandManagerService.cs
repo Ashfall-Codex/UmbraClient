@@ -9,6 +9,9 @@ using UmbraSync.Services.ServerConfiguration;
 using UmbraSync.UI;
 using UmbraSync.Localization;
 
+using UmbraSync.Modules;
+using UmbraSync.Modules.Housing.UI;
+
 namespace UmbraSync.Services;
 
 public sealed class CommandManagerService : IDisposable
@@ -23,11 +26,18 @@ public sealed class CommandManagerService : IDisposable
     private readonly PerformanceCollectorService _performanceCollectorService;
     private readonly CacheMonitor _cacheMonitor;
     private readonly ServerConfigurationManager _serverConfigurationManager;
+    private readonly IChatGui _chatGui;
+    private readonly ModulesConfigService _modulesConfigService;
+    private readonly IModuleRegistry _moduleRegistry;
 
     public CommandManagerService(ICommandManager commandManager, PerformanceCollectorService performanceCollectorService,
         ServerConfigurationManager serverConfigurationManager, CacheMonitor periodicFileScanner,
-        ApiController apiController, MareMediator mediator, MareConfigService mareConfigService)
+        ApiController apiController, MareMediator mediator, MareConfigService mareConfigService,
+        IChatGui chatGui, ModulesConfigService modulesConfigService, IModuleRegistry moduleRegistry)
     {
+        _chatGui = chatGui;
+        _modulesConfigService = modulesConfigService;
+        _moduleRegistry = moduleRegistry;
         _commandManager = commandManager;
         _performanceCollectorService = performanceCollectorService;
         _serverConfigurationManager = serverConfigurationManager;
@@ -37,7 +47,7 @@ public sealed class CommandManagerService : IDisposable
         _mareConfigService = mareConfigService;
         _commandManager.AddHandler(_commandName, new CommandInfo(OnCommand)
         {
-            HelpMessage = "Ouvre l'interface UmbraSync. Sous-commandes : toggle [on|off], gpose, npcedit, rescan, perf, analyze"
+            HelpMessage = "Ouvre l'interface UmbraSync. Sous-commandes : toggle [on|off], gpose, npcedit, rescan, perf, analyze, modules"
         });
         _commandManager.AddHandler(_commandAlias, new CommandInfo(OnCommand)
         {
@@ -112,25 +122,54 @@ public sealed class CommandManagerService : IDisposable
         {
             _mediator.PrintSubscriberInfo();
         }
+        else if (string.Equals(splitArgs[0], "modules", StringComparison.OrdinalIgnoreCase))
+        {
+            PrintModules();
+        }
         else if (string.Equals(splitArgs[0], "analyze", StringComparison.OrdinalIgnoreCase))
         {
             _mediator.Publish(new UiToggleMessage(typeof(DataAnalysisUi)));
         }
-        else if (string.Equals(splitArgs[0], "npcadd", StringComparison.OrdinalIgnoreCase))
+        else if (string.Equals(splitArgs[0], "npcadd", StringComparison.OrdinalIgnoreCase) && RequireModule(ModuleId.Housing))
         {
             _mediator.Publish(new HousingNpcAddRequestMessage());
         }
-        else if (string.Equals(splitArgs[0], "npcwipe", StringComparison.OrdinalIgnoreCase))
+        else if (string.Equals(splitArgs[0], "npcwipe", StringComparison.OrdinalIgnoreCase) && RequireModule(ModuleId.Housing))
         {
             _mediator.Publish(new HousingNpcWipeMessage());
         }
-        else if (string.Equals(splitArgs[0], "npcedit", StringComparison.OrdinalIgnoreCase))
+        else if (string.Equals(splitArgs[0], "npcedit", StringComparison.OrdinalIgnoreCase) && RequireModule(ModuleId.Housing))
         {
-            _mediator.Publish(new UiToggleMessage(typeof(UI.HousingNpcSceneEditorUi)));
+            _mediator.Publish(new UiToggleMessage(typeof(HousingNpcSceneEditorUi)));
         }
-        else if (string.Equals(splitArgs[0], "npcsharetest", StringComparison.OrdinalIgnoreCase))
+        else if (string.Equals(splitArgs[0], "npcsharetest", StringComparison.OrdinalIgnoreCase) && RequireModule(ModuleId.Housing))
         {
             _mediator.Publish(new HousingNpcShareTestMessage());
         }
+    }
+
+    private void PrintModules()
+    {
+        _chatGui.Print(Loc.Get("Command.Modules.Header"));
+        foreach (var module in ModuleCatalog.All)
+        {
+            bool active = _moduleRegistry.IsEnabled(module.Id);
+            bool wanted = _modulesConfigService.Current.IsEnabled(module.Id);
+            var stateKey = (active, wanted) switch
+            {
+                (true, true) => "Settings.Modules.State.Active",
+                (false, false) => "Settings.Modules.State.Inactive",
+                (false, true) => "Settings.Modules.State.PendingOn",
+                (true, false) => "Settings.Modules.State.PendingOff",
+            };
+            _chatGui.Print($"  {Loc.Get(module.TitleKey)} : {Loc.Get(stateKey)}");
+        }
+    }
+
+    private bool RequireModule(ModuleId id)
+    {
+        if (_moduleRegistry.IsEnabled(id)) return true;
+        _chatGui.PrintError(string.Format(CultureInfo.CurrentCulture, Loc.Get("Command.ModuleDisabled"), Loc.Get(ModuleCatalog.Get(id).TitleKey)));
+        return false;
     }
 }

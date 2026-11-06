@@ -7521,6 +7521,75 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
   <data name="Settings.Section.About.Title" xml:space="preserve">
     <value>About</value>
   </data>
+  <data name="Settings.Section.Modules.Title" xml:space="preserve">
+    <value>Modules</value>
+  </data>
+  <data name="Settings.Section.Modules.Desc" xml:space="preserve">
+    <value>Enable or disable UmbraSync's main feature sets.</value>
+  </data>
+  <data name="Settings.Modules.ReloadRequired" xml:space="preserve">
+    <value>Your changes take effect the next time the plugin is reloaded (/xlplugins).</value>
+  </data>
+  <data name="Settings.Modules.Presets.Title" xml:space="preserve">
+    <value>Presets</value>
+  </data>
+  <data name="Settings.Modules.Intro" xml:space="preserve">
+    <value>Each module groups a set of features. A disabled module is not loaded: no window, no network call, no overhead.</value>
+  </data>
+  <data name="Settings.Modules.Preset.Full" xml:space="preserve">
+    <value>Full</value>
+  </data>
+  <data name="Settings.Modules.Preset.Full.Help" xml:space="preserve">
+    <value>Enables every module.</value>
+  </data>
+  <data name="Settings.Modules.Preset.Legacy" xml:space="preserve">
+    <value>Legacy</value>
+  </data>
+  <data name="Settings.Modules.Preset.Legacy.Help" xml:space="preserve">
+    <value>Disables every module to get back to Mare's base features: pairs, syncshells, synchronisation, GPose and the classic profile.</value>
+  </data>
+  <data name="Settings.Modules.State.Active" xml:space="preserve">
+    <value>Active</value>
+  </data>
+  <data name="Settings.Modules.State.Inactive" xml:space="preserve">
+    <value>Inactive</value>
+  </data>
+  <data name="Settings.Modules.State.PendingOn" xml:space="preserve">
+    <value>Active after the next reload</value>
+  </data>
+  <data name="Settings.Modules.State.PendingOff" xml:space="preserve">
+    <value>Inactive after the next reload</value>
+  </data>
+  <data name="Modules.Rp.Title" xml:space="preserve">
+    <value>Roleplay</value>
+  </data>
+  <data name="Modules.Rp.Desc" xml:space="preserve">
+    <value>RP sheets, RP names in chat and on nameplates, establishments, wild RP and Ashfall Connect.</value>
+  </data>
+  <data name="Modules.Housing.Title" xml:space="preserve">
+    <value>Housing</value>
+  </data>
+  <data name="Modules.Housing.Desc" xml:space="preserve">
+    <value>Synchronisation of furniture, NPCs and housing scenarios with your pairs.</value>
+  </data>
+  <data name="Modules.Discovery.Title" xml:space="preserve">
+    <value>Discovery</value>
+  </data>
+  <data name="Modules.Discovery.Desc" xml:space="preserve">
+    <value>Auto-detection of nearby players, pair requests, SyncFinder and temporary syncshells.</value>
+  </data>
+  <data name="Modules.ChatPlus.Title" xml:space="preserve">
+    <value>Chat+</value>
+  </data>
+  <data name="Modules.ChatPlus.Desc" xml:space="preserve">
+    <value>Typing indicator, ChatTwo compatibility and a sound when your target speaks.</value>
+  </data>
+  <data name="Command.ModuleDisabled" xml:space="preserve">
+    <value>This command needs the "{0}" module, which is disabled in the settings.</value>
+  </data>
+  <data name="Command.Modules.Header" xml:space="preserve">
+    <value>UmbraSync modules:</value>
+  </data>
   <data name="Settings.Storage.Intro" xml:space="preserve">
     <value>UmbraSync keeps the files received from the people you are paired with, so appearances load faster and the same data is not downloaded over and over. The storage governs itself by removing the oldest files once it exceeds the size you set: just pick that size, clearing it by hand is not needed.</value>
   </data>

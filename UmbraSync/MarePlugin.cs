@@ -7,6 +7,7 @@ using UmbraSync.FileCache;
 using UmbraSync.MareConfiguration;
 using UmbraSync.PlayerData.Pairs;
 using UmbraSync.PlayerData.Services;
+using UmbraSync.Modules;
 using UmbraSync.Services;
 using UmbraSync.Services.Mediator;
 using UmbraSync.Services.ServerConfiguration;
@@ -145,14 +146,10 @@ public class MarePlugin : MediatorSubscriberBase, IHostedService
             _runtimeServiceScope.ServiceProvider.GetRequiredService<NotificationService>();
             _runtimeServiceScope.ServiceProvider.GetRequiredService<SyncDefaultsService>();
             _runtimeServiceScope.ServiceProvider.GetRequiredService<ChatService>();
-            _runtimeServiceScope.ServiceProvider.GetRequiredService<ChatNameReplacementService>();
-            _runtimeServiceScope.ServiceProvider.GetRequiredService<ChatEmoteHighlightService>();
-            _runtimeServiceScope.ServiceProvider.GetRequiredService<ChatProximityBlendService>();
-            _runtimeServiceScope.ServiceProvider.GetRequiredService<ChatTargetSoundService>();
-            _runtimeServiceScope.ServiceProvider.GetRequiredService<ChatTypingDetectionService>();
             _runtimeServiceScope.ServiceProvider.GetRequiredService<GuiHookService>();
             _runtimeServiceScope.ServiceProvider.GetRequiredService<CharacterAnalyzer>();
-            _runtimeServiceScope.ServiceProvider.GetRequiredService<EstablishmentReminderService>();
+            foreach (var runtimeService in _runtimeServiceScope.ServiceProvider.GetServices<IRuntimeScopedService>())
+                Logger.LogDebug("Module runtime service started: {type}", runtimeService.GetType().Name);
 
 #if !DEBUG
             if (_mareConfigService.Current.LogLevel != LogLevel.Information)

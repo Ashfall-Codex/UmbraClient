@@ -19,6 +19,7 @@ using UmbraSync.Services.Mediator;
 using UmbraSync.Services.ServerConfiguration;
 using UmbraSync.UI.Components;
 
+using UmbraSync.Modules;
 namespace UmbraSync.UI;
 
 public class StandaloneProfileUi : WindowMediatorSubscriberBase
@@ -33,7 +34,7 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
     private IDalamudTextureWrap? _rpBannerTexture;
     private SheetPalette? _sheetPalette;
     private ProfileCardStyle _rpCardStyle = ProfileCardStyle.Default;
-    private bool _isRpTab = true;
+    private bool _isRpTab;
     private bool _windowSizeInitialized = false;
     private string _localMoodlesJson = string.Empty;
     private bool _moodlesFetching;
@@ -56,6 +57,7 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
         : base(logger, mediator, string.Format(System.Globalization.CultureInfo.CurrentCulture, Loc.Get("StandaloneProfile.WindowTitle"), pair.UserData.AliasOrUID) + "###UmbraSyncStandaloneProfileUI" + pair.UserData.AliasOrUID, performanceCollector)
     {
         _uiSharedService = uiBuilder;
+        _isRpTab = uiBuilder.Modules.IsEnabled(ModuleId.Rp);
         _serverManager = serverManager;
         _configService = configService;
         _umbraProfileManager = umbraProfileManager;
@@ -187,8 +189,8 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
             var accent = UiSharedService.AccentColor;
             if (accent.W <= 0f) accent = ImGuiColors.ParsedPurple;
 
-            // RP / HRP toggle buttons
-            DrawTabButtons(accent);
+            if (_uiSharedService.Modules.IsEnabled(ModuleId.Rp))
+                DrawTabButtons(accent);
 
             var currentTexture = _uiSharedService.ProfileTextures.GetTexture(_isRpTab ? umbraProfile.RpImageData : umbraProfile.ImageData);
             _rpBannerTexture = _isRpTab ? _uiSharedService.ProfileTextures.GetTexture(umbraProfile.RpBannerData) : null;
@@ -476,8 +478,8 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
             }, stretchWidth: true, background: SheetCardFill, border: SheetCardFill);
         }
 
-        // Establishment managed by this user
-        DrawLinkedEstablishment(cardSpacing);
+        if (_uiSharedService.Modules.IsEnabled(ModuleId.Rp))
+            DrawLinkedEstablishment(cardSpacing);
     }
 
     private void DrawHonorificInHero()

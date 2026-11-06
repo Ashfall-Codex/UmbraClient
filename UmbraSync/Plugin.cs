@@ -11,12 +11,12 @@ using UmbraSync.Interop.Ipc;
 using UmbraSync.Localization;
 using UmbraSync.MareConfiguration;
 using UmbraSync.MareConfiguration.Configurations;
+using UmbraSync.Modules;
 using UmbraSync.PlayerData.Factories;
 using UmbraSync.PlayerData.Pairs;
 using UmbraSync.PlayerData.Services;
 using UmbraSync.Services;
 using UmbraSync.Services.Events;
-using UmbraSync.Services.Housing;
 using UmbraSync.Services.Mediator;
 using UmbraSync.Services.Rendering;
 using UmbraSync.Services.Notification;
@@ -49,6 +49,8 @@ public sealed class Plugin : IDalamudPlugin
         INamePlateGui namePlateGui, IGameConfig gameConfig, IPartyList partyList, IKeyState keyState)
     {
         Instance = this;
+        var modulesConfig = new ModulesConfigService(pluginInterface.ConfigDirectory.FullName);
+        var moduleRegistry = ModuleRegistry.Snapshot(modulesConfig.Current);
         _host = new HostBuilder()
         .UseContentRoot(pluginInterface.ConfigDirectory.FullName)
         .ConfigureLogging(lb =>
@@ -61,6 +63,8 @@ public sealed class Plugin : IDalamudPlugin
         {
             collection.AddSingleton<IWindowSystem>(new WindowSystem("UmbraSync"));
             collection.AddSingleton<FileDialogManager>();
+            collection.AddSingleton(_ => modulesConfig);
+            collection.AddSingleton<IModuleRegistry>(moduleRegistry);
 
             // add dalamud services
             collection.AddSingleton(_ => pluginInterface);
@@ -86,235 +90,17 @@ public sealed class Plugin : IDalamudPlugin
             collection.AddSingleton(_ => partyList);
             collection.AddSingleton(_ => keyState);
 
-            // add mare related singletons
-            collection.AddSingleton<MareMediator>();
-            collection.AddSingleton<CacheLeaseRegistry>();
-            collection.AddSingleton<FileCacheManager>();
-            collection.AddSingleton<ServerConfigurationManager>();
-            collection.AddSingleton<ApiController>();
-            collection.AddSingleton<PerformanceCollectorService>();
-            collection.AddSingleton<ApplicationSemaphoreService>();
-            collection.AddSingleton<HubFactory>();
-            collection.AddSingleton<FileUploadManager>();
-            collection.AddSingleton<FileTransferOrchestrator>();
-            collection.AddSingleton<UmbraSync.Services.AutoDetect.DiscoveryConfigProvider>();
-            collection.AddSingleton<UmbraSync.WebAPI.AutoDetect.DiscoveryApiClient>();
-            collection.AddSingleton<UmbraSync.Services.AutoDetect.AutoDetectRequestService>();
-            collection.AddSingleton<UmbraSync.Services.AutoDetect.NearbyDiscoveryService>();
-            collection.AddSingleton<UmbraSync.Services.AutoDetect.NearbyPendingService>();
-            collection.AddSingleton<UmbraSync.Services.AutoDetect.AutoDetectSuppressionService>();
-            collection.AddSingleton<UmbraSync.Services.AutoDetect.SyncshellDiscoveryService>();
-            collection.AddSingleton<MarePlugin>();
-            collection.AddSingleton<ProfileImageTextureCache>();
-            collection.AddSingleton<UmbraProfileManager>();
-            collection.AddSingleton<GameObjectHandlerFactory>();
-            collection.AddSingleton<FileDownloadDeduplicator>();
-            collection.AddSingleton<UmbraSync.FileCache.CompressedAlternateManager>();
-            collection.AddSingleton<FileDownloadManagerFactory>();
-            collection.AddSingleton<UmbraSync.PlayerData.Redraw.PairRedrawCoordinator>();
-            collection.AddSingleton<PairHandlerFactory>();
-            collection.AddSingleton<PairAnalyzerFactory>();
-            collection.AddSingleton<PairFactory>();
-            collection.AddSingleton<XivDataAnalyzer>();
-            collection.AddSingleton<CharacterAnalyzer>();
-            collection.AddSingleton<TokenProvider>();
-            collection.AddSingleton<AccountRegistrationService>();
-            collection.AddSingleton<PluginWarningNotificationService>();
-            collection.AddSingleton<ExternalPluginRestartAdvisor>();
-            collection.AddSingleton<FileCompactor>();
-            collection.AddSingleton<CacheMonitor>();
-            collection.AddSingleton<TagHandler>();
-            collection.AddSingleton<SyncDefaultsService>();
-            collection.AddSingleton<UidDisplayHandler>();
-            collection.AddSingleton<PluginWatcherService>();
-            collection.AddSingleton<PairPerformanceMetricsCache>();
-            collection.AddSingleton<PlayerPerformanceService>();
+            RegisterCore(collection, pluginInterface);
 
-            collection.AddSingleton<CharaDataManager>();
-            collection.AddSingleton<CharaDataFileHandler>();
-            collection.AddSingleton<CharaDataCharacterHandler>();
-            collection.AddSingleton<CharaDataNearbyManager>();
-            collection.AddSingleton<CharaDataGposeTogetherManager>();
-            collection.AddSingleton<McdfShareManager>();
-
-            collection.AddSingleton<VfxSpawnManager>();
-            collection.AddSingleton<BlockedCharacterHandler>();
-            collection.AddSingleton<IpcProvider>();
-            collection.AddSingleton<UmbraSync.Services.ActorTracking.DrawObjectTrackingService>();
-            collection.AddSingleton<VisibilityService>();
-            collection.AddSingleton<EventAggregator>();
-            collection.AddSingleton<DalamudUtilService>();
-            collection.AddSingleton<DtrEntry>();
-            collection.AddSingleton<PairManager>();
-            collection.AddSingleton<PauseCoordinator>();
-            collection.AddSingleton<PairHandlerRegistry>();
-            collection.AddSingleton<PairStateCache>();
-            collection.AddSingleton<PairLedger>();
-            collection.AddSingleton<RedrawManager>();
-            collection.AddSingleton<IpcCallerPenumbra>();
-            collection.AddSingleton<IpcCallerGlamourer>();
-            collection.AddSingleton<IpcCallerCustomize>();
-            collection.AddSingleton<IpcCallerHeels>();
-            collection.AddSingleton<IpcCallerHonorific>();
-            collection.AddSingleton<IpcCallerMoodles>();
-            collection.AddSingleton<IpcCallerPetNames>();
-            collection.AddSingleton<IpcCallerBrio>();
-            collection.AddSingleton<IpcCallerMare>();
-            collection.AddSingleton<IpcManager>();
-            collection.AddSingleton<NotificationService>();
-            collection.AddSingleton<UmbraSync.Services.Network.NetworkDiagnosticService>();
-            collection.AddSingleton<TemporarySyncshellNotificationService>();
-            collection.AddSingleton<PartyListTypingService>();
-            collection.AddSingleton<TypingIndicatorStateService>();
-            collection.AddSingleton<TypingRemoteNotificationService>();
-            collection.AddSingleton<ChatTwoCompatibilityService>();
-            collection.AddSingleton<NotificationTracker>();
-            collection.AddSingleton<PenumbraPrecacheService>();
-            collection.AddSingleton<SlotService>();
-            collection.AddSingleton<HousingMonitorService>();
-            collection.AddSingleton<HousingFurnitureScanner>();
-            collection.AddSingleton<HousingFurnitureRedrawService>();
-            collection.AddSingleton<HousingShareManager>();
-            collection.AddSingleton<HousingFurnitureSyncService>();
-            collection.AddSingleton<ArrPathResolver>();
-            collection.AddSingleton<ArrScenarioFileService>();
-            collection.AddSingleton<HousingScenarioManager>();
-            collection.AddSingleton<HousingScenarioSyncService>();
-            collection.AddSingleton<NativeNpcSpawner>();
-            collection.AddSingleton<LookAtService>();
-            collection.AddSingleton<NpcLiveAppearanceService>();
-            collection.AddSingleton<HousingNpcScenarioStore>();
-            collection.AddSingleton<NpcPoseCatalog>();
-            collection.AddSingleton<HousingNpcScenarioService>();
-            collection.AddSingleton<HousingOwnershipService>();
-            collection.AddSingleton<RgpdDataService>();
-            collection.AddSingleton<EstablishmentProximityService>();
-            collection.AddSingleton<EstablishmentReminderService>();
-            collection.AddSingleton<EstablishmentSyncSlotService>();
-
-            collection.AddSingleton((s) => new RpConfigService(pluginInterface.ConfigDirectory.FullName, s.GetRequiredService<DalamudUtilService>()));
-            collection.AddSingleton((s) => new MareConfigService(pluginInterface.ConfigDirectory.FullName));
-            collection.AddSingleton((s) => new ServerConfigService(pluginInterface.ConfigDirectory.FullName));
-            collection.AddSingleton((s) => new NotesConfigService(pluginInterface.ConfigDirectory.FullName));
-            collection.AddSingleton((s) => new ServerTagConfigService(pluginInterface.ConfigDirectory.FullName));
-            collection.AddSingleton((s) => new SyncshellConfigService(pluginInterface.ConfigDirectory.FullName));
-            collection.AddSingleton((s) => new EstablishmentConfigService(pluginInterface.ConfigDirectory.FullName));
-            collection.AddSingleton((s) => new TransientConfigService(pluginInterface.ConfigDirectory.FullName));
-            collection.AddSingleton((s) => new XivDataStorageService(pluginInterface.ConfigDirectory.FullName));
-            collection.AddSingleton((s) => new PlayerPerformanceConfigService(pluginInterface.ConfigDirectory.FullName));
-            collection.AddSingleton((s) => new ServerBlockConfigService(pluginInterface.ConfigDirectory.FullName));
-            collection.AddSingleton((s) => new CharaDataConfigService(pluginInterface.ConfigDirectory.FullName));
-            collection.AddSingleton((s) => new RemoteConfigCacheService(pluginInterface.ConfigDirectory.FullName));
-            collection.AddSingleton((s) => new NotificationsConfigService(pluginInterface.ConfigDirectory.FullName));
-            collection.AddSingleton<IConfigService<IMareConfiguration>>(s => s.GetRequiredService<MareConfigService>());
-            collection.AddSingleton<IConfigService<IMareConfiguration>>(s => s.GetRequiredService<ServerConfigService>());
-            collection.AddSingleton<IConfigService<IMareConfiguration>>(s => s.GetRequiredService<NotesConfigService>());
-            collection.AddSingleton<IConfigService<IMareConfiguration>>(s => s.GetRequiredService<ServerTagConfigService>());
-            collection.AddSingleton<IConfigService<IMareConfiguration>>(s => s.GetRequiredService<SyncshellConfigService>());
-            collection.AddSingleton<IConfigService<IMareConfiguration>>(s => s.GetRequiredService<EstablishmentConfigService>());
-            collection.AddSingleton<IConfigService<IMareConfiguration>>(s => s.GetRequiredService<TransientConfigService>());
-            collection.AddSingleton<IConfigService<IMareConfiguration>>(s => s.GetRequiredService<XivDataStorageService>());
-            collection.AddSingleton<IConfigService<IMareConfiguration>>(s => s.GetRequiredService<PlayerPerformanceConfigService>());
-            collection.AddSingleton<IConfigService<IMareConfiguration>>(s => s.GetRequiredService<ServerBlockConfigService>());
-            collection.AddSingleton<IConfigService<IMareConfiguration>>(s => s.GetRequiredService<CharaDataConfigService>());
-            collection.AddSingleton<IConfigService<IMareConfiguration>>(s => s.GetRequiredService<RemoteConfigCacheService>());
-            collection.AddSingleton<IConfigService<IMareConfiguration>>(s => s.GetRequiredService<NotificationsConfigService>());
-            collection.AddSingleton<IConfigService<IMareConfiguration>>(s => s.GetRequiredService<RpConfigService>());
-            collection.AddSingleton<ConfigurationMigrator>();
-            collection.AddSingleton<ConfigurationSaveService>();
-            collection.AddSingleton<IPopupHandler, ReportPopupHandler>();
-            collection.AddSingleton<IPopupHandler, BanUserPopupHandler>();
-            collection.AddSingleton<IPopupHandler, SlotPopupHandler>();
-            collection.AddSingleton<WindowMediatorSubscriberBase, PopupHandler>();
-
-
-            collection.AddSingleton<HubFactory>();
-
-            // add scoped services
-            collection.AddScoped<StorageRelocationService>();
-            collection.AddScoped<UiFactory>();
-            collection.AddScoped<SettingsUi>();
-            collection.AddScoped<CompactUi>();
-            collection.AddScoped<EditProfileUi>();
-            collection.AddScoped<DataAnalysisUi>();
-            collection.AddScoped<CharaDataHubUi>();
-            collection.AddScoped<AutoDetectUi>();
-            collection.AddScoped<HousingNpcSceneEditorUi>();
-            collection.AddScoped<WindowMediatorSubscriberBase>(sp => sp.GetRequiredService<HousingNpcSceneEditorUi>());
-            collection.AddScoped<WindowMediatorSubscriberBase, HousingNpcGizmoOverlayUi>();
-            collection.AddScoped<WindowMediatorSubscriberBase>(sp => sp.GetRequiredService<SettingsUi>());
-            collection.AddScoped<WindowMediatorSubscriberBase>(sp => sp.GetRequiredService<CompactUi>());
-            collection.AddScoped<WindowMediatorSubscriberBase, IntroUi>();
-            collection.AddScoped<WindowMediatorSubscriberBase, DownloadUi>();
-            collection.AddScoped<WindowMediatorSubscriberBase, PairRequestToastUi>();
-            collection.AddScoped<WindowMediatorSubscriberBase>(sp => sp.GetRequiredService<AutoDetectUi>());
-            collection.AddScoped<WindowMediatorSubscriberBase, ChangelogUi>();
-            collection.AddScoped<WindowMediatorSubscriberBase, TestBuildWarningUi>();
-            collection.AddScoped<WindowMediatorSubscriberBase, PopoutProfileUi>();
-            collection.AddScoped<WindowMediatorSubscriberBase, TargetProfileTooltipUi>();
-            collection.AddScoped<UmbraSync.WebAPI.AshfallConnectService>();
-            collection.AddSingleton<UmbraSync.Services.AshfallConnectAutoSyncService>();
-            collection.AddScoped<UmbraSync.UI.AshfallLinkCodeUi>();
-            collection.AddScoped<WindowMediatorSubscriberBase>(sp => sp.GetRequiredService<UmbraSync.UI.AshfallLinkCodeUi>());
-            collection.AddScoped<WindowMediatorSubscriberBase>(sp => sp.GetRequiredService<DataAnalysisUi>());
-            collection.AddScoped<WindowMediatorSubscriberBase, EventViewerUI>();
-            collection.AddScoped<WindowMediatorSubscriberBase, CharaDataHubUi>();
-            collection.AddScoped<WindowMediatorSubscriberBase>(sp => sp.GetRequiredService<EditProfileUi>());
-            collection.AddScoped<WindowMediatorSubscriberBase, TypingIndicatorOverlay>();
-            collection.AddScoped<WindowMediatorSubscriberBase, HousingNpcApplyOverlayUi>();
-            collection.AddScoped<EstablishmentDirectoryUi>();
-            collection.AddScoped<WindowMediatorSubscriberBase>(sp => sp.GetRequiredService<EstablishmentDirectoryUi>());
-            collection.AddScoped<EstablishmentDetailUi>();
-            collection.AddScoped<WindowMediatorSubscriberBase>(sp => sp.GetRequiredService<EstablishmentDetailUi>());
-            collection.AddScoped<EstablishmentRegistrationUi>();
-            collection.AddScoped<WindowMediatorSubscriberBase>(sp => sp.GetRequiredService<EstablishmentRegistrationUi>());
-            collection.AddScoped<CacheCreationService>();
-            collection.AddScoped<TransientResourceManager>();
-            collection.AddScoped<PlayerDataFactory>();
-            collection.AddScoped<OnlinePlayerManager>();
-            collection.AddScoped<MissingFileReportService>();
-            collection.AddScoped<BackdropBlur>();
-            collection.AddScoped<UiService>();
-            collection.AddScoped<CommandManagerService>();
-            collection.AddScoped<UiSharedService>();
-            collection.AddScoped<ChatService>();
-            collection.AddScoped<ChatNameReplacementService>();
-            collection.AddScoped<ChatEmoteHighlightService>();
-            collection.AddScoped<ChatProximityBlendService>();
-            collection.AddScoped<ChatTargetSoundService>();
-            collection.AddScoped<GuiHookService>();
-            collection.AddScoped<ChatTypingDetectionService>();
-            collection.AddSingleton<PictomancyService>();
-            collection.AddHostedService(p => p.GetRequiredService<PluginWatcherService>());
-            collection.AddHostedService(p => p.GetRequiredService<ExternalPluginRestartAdvisor>());
-            collection.AddHostedService(p => p.GetRequiredService<ConfigurationSaveService>());
-            collection.AddHostedService(p => p.GetRequiredService<MareMediator>());
-            collection.AddHostedService(p => p.GetRequiredService<NotificationService>());
-            collection.AddHostedService(p => p.GetRequiredService<UmbraSync.Services.Network.NetworkDiagnosticService>());
-            collection.AddHostedService(p => p.GetRequiredService<TemporarySyncshellNotificationService>());
-            collection.AddSingleton<UmbraSync.Services.AutoDetect.PermanentSyncshellAutoDetectMonitor>();
-            collection.AddHostedService(p => p.GetRequiredService<FileCacheManager>());
-            collection.AddHostedService(p => p.GetRequiredService<ConfigurationMigrator>());
-            collection.AddHostedService(p => p.GetRequiredService<DalamudUtilService>());
-            collection.AddHostedService(p => p.GetRequiredService<UmbraSync.Services.ActorTracking.DrawObjectTrackingService>());
-            collection.AddHostedService(p => p.GetRequiredService<PerformanceCollectorService>());
-            collection.AddHostedService(p => p.GetRequiredService<DtrEntry>());
-            collection.AddHostedService(p => p.GetRequiredService<EventAggregator>());
-            collection.AddHostedService(p => p.GetRequiredService<MarePlugin>());
-            collection.AddHostedService(p => p.GetRequiredService<IpcProvider>());
-            collection.AddHostedService(p => p.GetRequiredService<UmbraSync.Services.AutoDetect.NearbyDiscoveryService>());
-            collection.AddHostedService(p => p.GetRequiredService<UmbraSync.Services.AutoDetect.SyncshellDiscoveryService>());
-            collection.AddHostedService(p => p.GetRequiredService<UmbraSync.Services.AutoDetect.PermanentSyncshellAutoDetectMonitor>());
-            collection.AddHostedService(p => p.GetRequiredService<ChatTwoCompatibilityService>());
-            collection.AddHostedService(p => p.GetRequiredService<UmbraSync.Services.AutoDetect.AutoDetectSuppressionService>());
-            collection.AddHostedService(p => p.GetRequiredService<PenumbraPrecacheService>());
-            collection.AddHostedService(p => p.GetRequiredService<HousingMonitorService>());
-            collection.AddHostedService(p => p.GetRequiredService<HousingFurnitureSyncService>());
-            collection.AddHostedService(p => p.GetRequiredService<HousingScenarioSyncService>());
-            collection.AddHostedService(p => p.GetRequiredService<HousingNpcScenarioService>());
-            collection.AddHostedService(p => p.GetRequiredService<HousingOwnershipService>());
-            collection.AddHostedService(p => p.GetRequiredService<UmbraSync.Services.AshfallConnectAutoSyncService>());
+            foreach (var module in ModuleCatalog.All)
+            {
+                if (moduleRegistry.IsEnabled(module.Id))
+                    module.ConfigureServices(collection);
+            }
         })
+#if DEBUG
+        .UseDefaultServiceProvider(options => options.ValidateOnBuild = true)
+#endif
         .Build();
 
         // Enregistrer les callbacks UI immédiatement pour satisfaire la validation Dalamud.
@@ -329,17 +115,6 @@ public sealed class Plugin : IDalamudPlugin
             configService.Current.UiLanguage = Loc.CurrentLanguage;
             configService.Save();
         }
-
-        try
-        {
-            var partyListTypingService = _host.Services.GetRequiredService<PartyListTypingService>();
-            pluginInterface.UiBuilder.Draw += partyListTypingService.Draw;
-        }
-        catch (Exception e)
-        {
-            pluginLog.Warning(e, "Failed to initialize PartyListTypingService draw hook");
-        }
-
 
         _ = Task.Run(async () =>
         {
@@ -362,5 +137,168 @@ public sealed class Plugin : IDalamudPlugin
     {
         _host.StopAsync().GetAwaiter().GetResult();
         _host.Dispose();
+    }
+
+    private static void RegisterCore(IServiceCollection collection, IDalamudPluginInterface pluginInterface)
+    {
+        collection.AddSingleton<MareMediator>();
+        collection.AddSingleton<CacheLeaseRegistry>();
+        collection.AddSingleton<FileCacheManager>();
+        collection.AddSingleton<ServerConfigurationManager>();
+        collection.AddSingleton<ApiController>();
+        collection.AddSingleton<PerformanceCollectorService>();
+        collection.AddSingleton<ApplicationSemaphoreService>();
+        collection.AddSingleton<HubFactory>();
+        collection.AddSingleton<FileUploadManager>();
+        collection.AddSingleton<FileTransferOrchestrator>();
+        collection.AddSingleton<MarePlugin>();
+        collection.AddSingleton<ProfileImageTextureCache>();
+        collection.AddSingleton<UmbraProfileManager>();
+        collection.AddSingleton<GameObjectHandlerFactory>();
+        collection.AddSingleton<FileDownloadDeduplicator>();
+        collection.AddSingleton<UmbraSync.FileCache.CompressedAlternateManager>();
+        collection.AddSingleton<FileDownloadManagerFactory>();
+        collection.AddSingleton<UmbraSync.PlayerData.Redraw.PairRedrawCoordinator>();
+        collection.AddSingleton<PairHandlerFactory>();
+        collection.AddSingleton<PairAnalyzerFactory>();
+        collection.AddSingleton<PairFactory>();
+        collection.AddSingleton<XivDataAnalyzer>();
+        collection.AddSingleton<CharacterAnalyzer>();
+        collection.AddSingleton<TokenProvider>();
+        collection.AddSingleton<AccountRegistrationService>();
+        collection.AddSingleton<PluginWarningNotificationService>();
+        collection.AddSingleton<ExternalPluginRestartAdvisor>();
+        collection.AddSingleton<FileCompactor>();
+        collection.AddSingleton<CacheMonitor>();
+        collection.AddSingleton<TagHandler>();
+        collection.AddSingleton<SyncDefaultsService>();
+        collection.AddSingleton<UidDisplayHandler>();
+        collection.AddSingleton<PluginWatcherService>();
+        collection.AddSingleton<PairPerformanceMetricsCache>();
+        collection.AddSingleton<PlayerPerformanceService>();
+
+        collection.AddSingleton<CharaDataManager>();
+        collection.AddSingleton<CharaDataFileHandler>();
+        collection.AddSingleton<CharaDataCharacterHandler>();
+        collection.AddSingleton<CharaDataNearbyManager>();
+        collection.AddSingleton<CharaDataGposeTogetherManager>();
+        collection.AddSingleton<McdfShareManager>();
+
+        collection.AddSingleton<VfxSpawnManager>();
+        collection.AddSingleton<BlockedCharacterHandler>();
+        collection.AddSingleton<IpcProvider>();
+        collection.AddSingleton<UmbraSync.Services.ActorTracking.DrawObjectTrackingService>();
+        collection.AddSingleton<VisibilityService>();
+        collection.AddSingleton<EventAggregator>();
+        collection.AddSingleton<DalamudUtilService>();
+        collection.AddSingleton<DtrEntry>();
+        collection.AddSingleton<PairManager>();
+        collection.AddSingleton<PauseCoordinator>();
+        collection.AddSingleton<PairHandlerRegistry>();
+        collection.AddSingleton<PairStateCache>();
+        collection.AddSingleton<PairLedger>();
+        collection.AddSingleton<RedrawManager>();
+        collection.AddSingleton<IpcCallerPenumbra>();
+        collection.AddSingleton<IpcCallerGlamourer>();
+        collection.AddSingleton<IpcCallerCustomize>();
+        collection.AddSingleton<IpcCallerHeels>();
+        collection.AddSingleton<IpcCallerHonorific>();
+        collection.AddSingleton<IpcCallerMoodles>();
+        collection.AddSingleton<IpcCallerPetNames>();
+        collection.AddSingleton<IpcCallerBrio>();
+        collection.AddSingleton<IpcCallerMare>();
+        collection.AddSingleton<IpcManager>();
+        collection.AddSingleton<NotificationService>();
+        collection.AddSingleton<UmbraSync.Services.Network.NetworkDiagnosticService>();
+        collection.AddSingleton<NotificationTracker>();
+        collection.AddSingleton<PenumbraPrecacheService>();
+        collection.AddSingleton<SlotService>();
+        collection.AddSingleton<HousingMonitorService>();
+        collection.AddSingleton<RgpdDataService>();
+        collection.AddSingleton<PictomancyService>();
+
+        collection.AddSingleton((s) => new RpConfigService(pluginInterface.ConfigDirectory.FullName, s.GetRequiredService<DalamudUtilService>()));
+        collection.AddSingleton((s) => new MareConfigService(pluginInterface.ConfigDirectory.FullName));
+        collection.AddSingleton((s) => new ServerConfigService(pluginInterface.ConfigDirectory.FullName));
+        collection.AddSingleton((s) => new NotesConfigService(pluginInterface.ConfigDirectory.FullName));
+        collection.AddSingleton((s) => new ServerTagConfigService(pluginInterface.ConfigDirectory.FullName));
+        collection.AddSingleton((s) => new SyncshellConfigService(pluginInterface.ConfigDirectory.FullName));
+        collection.AddSingleton((s) => new EstablishmentConfigService(pluginInterface.ConfigDirectory.FullName));
+        collection.AddSingleton((s) => new TransientConfigService(pluginInterface.ConfigDirectory.FullName));
+        collection.AddSingleton((s) => new XivDataStorageService(pluginInterface.ConfigDirectory.FullName));
+        collection.AddSingleton((s) => new PlayerPerformanceConfigService(pluginInterface.ConfigDirectory.FullName));
+        collection.AddSingleton((s) => new ServerBlockConfigService(pluginInterface.ConfigDirectory.FullName));
+        collection.AddSingleton((s) => new CharaDataConfigService(pluginInterface.ConfigDirectory.FullName));
+        collection.AddSingleton((s) => new RemoteConfigCacheService(pluginInterface.ConfigDirectory.FullName));
+        collection.AddSingleton((s) => new NotificationsConfigService(pluginInterface.ConfigDirectory.FullName));
+        collection.AddSingleton<IConfigService<IMareConfiguration>>(s => s.GetRequiredService<MareConfigService>());
+        collection.AddSingleton<IConfigService<IMareConfiguration>>(s => s.GetRequiredService<ServerConfigService>());
+        collection.AddSingleton<IConfigService<IMareConfiguration>>(s => s.GetRequiredService<NotesConfigService>());
+        collection.AddSingleton<IConfigService<IMareConfiguration>>(s => s.GetRequiredService<ServerTagConfigService>());
+        collection.AddSingleton<IConfigService<IMareConfiguration>>(s => s.GetRequiredService<SyncshellConfigService>());
+        collection.AddSingleton<IConfigService<IMareConfiguration>>(s => s.GetRequiredService<EstablishmentConfigService>());
+        collection.AddSingleton<IConfigService<IMareConfiguration>>(s => s.GetRequiredService<TransientConfigService>());
+        collection.AddSingleton<IConfigService<IMareConfiguration>>(s => s.GetRequiredService<XivDataStorageService>());
+        collection.AddSingleton<IConfigService<IMareConfiguration>>(s => s.GetRequiredService<PlayerPerformanceConfigService>());
+        collection.AddSingleton<IConfigService<IMareConfiguration>>(s => s.GetRequiredService<ServerBlockConfigService>());
+        collection.AddSingleton<IConfigService<IMareConfiguration>>(s => s.GetRequiredService<CharaDataConfigService>());
+        collection.AddSingleton<IConfigService<IMareConfiguration>>(s => s.GetRequiredService<RemoteConfigCacheService>());
+        collection.AddSingleton<IConfigService<IMareConfiguration>>(s => s.GetRequiredService<NotificationsConfigService>());
+        collection.AddSingleton<IConfigService<IMareConfiguration>>(s => s.GetRequiredService<RpConfigService>());
+        collection.AddSingleton<IConfigService<IMareConfiguration>>(s => s.GetRequiredService<ModulesConfigService>());
+        collection.AddSingleton<ConfigurationMigrator>();
+        collection.AddSingleton<ConfigurationSaveService>();
+        collection.AddSingleton<IPopupHandler, ReportPopupHandler>();
+        collection.AddSingleton<IPopupHandler, BanUserPopupHandler>();
+        collection.AddSingleton<IPopupHandler, SlotPopupHandler>();
+        collection.AddSingleton<WindowMediatorSubscriberBase, PopupHandler>();
+
+        collection.AddScoped<StorageRelocationService>();
+        collection.AddScoped<UiFactory>();
+        collection.AddScoped<SettingsUi>();
+        collection.AddScoped<CompactUi>();
+        collection.AddScoped<EditProfileUi>();
+        collection.AddScoped<DataAnalysisUi>();
+        collection.AddScoped<CharaDataHubUi>();
+        collection.AddScoped<WindowMediatorSubscriberBase>(sp => sp.GetRequiredService<SettingsUi>());
+        collection.AddScoped<WindowMediatorSubscriberBase>(sp => sp.GetRequiredService<CompactUi>());
+        collection.AddScoped<WindowMediatorSubscriberBase, IntroUi>();
+        collection.AddScoped<WindowMediatorSubscriberBase, DownloadUi>();
+        collection.AddScoped<WindowMediatorSubscriberBase, ChangelogUi>();
+        collection.AddScoped<WindowMediatorSubscriberBase, TestBuildWarningUi>();
+        collection.AddScoped<WindowMediatorSubscriberBase, PopoutProfileUi>();
+        collection.AddScoped<WindowMediatorSubscriberBase>(sp => sp.GetRequiredService<DataAnalysisUi>());
+        collection.AddScoped<WindowMediatorSubscriberBase, EventViewerUI>();
+        collection.AddScoped<WindowMediatorSubscriberBase, CharaDataHubUi>();
+        collection.AddScoped<WindowMediatorSubscriberBase>(sp => sp.GetRequiredService<EditProfileUi>());
+        collection.AddScoped<CacheCreationService>();
+        collection.AddScoped<TransientResourceManager>();
+        collection.AddScoped<PlayerDataFactory>();
+        collection.AddScoped<OnlinePlayerManager>();
+        collection.AddScoped<MissingFileReportService>();
+        collection.AddScoped<BackdropBlur>();
+        collection.AddScoped<UiService>();
+        collection.AddScoped<CommandManagerService>();
+        collection.AddScoped<UiSharedService>();
+        collection.AddScoped<ChatService>();
+        collection.AddScoped<GuiHookService>();
+
+        collection.AddHostedService(p => p.GetRequiredService<PluginWatcherService>());
+        collection.AddHostedService(p => p.GetRequiredService<ExternalPluginRestartAdvisor>());
+        collection.AddHostedService(p => p.GetRequiredService<ConfigurationSaveService>());
+        collection.AddHostedService(p => p.GetRequiredService<MareMediator>());
+        collection.AddHostedService(p => p.GetRequiredService<NotificationService>());
+        collection.AddHostedService(p => p.GetRequiredService<UmbraSync.Services.Network.NetworkDiagnosticService>());
+        collection.AddHostedService(p => p.GetRequiredService<FileCacheManager>());
+        collection.AddHostedService(p => p.GetRequiredService<ConfigurationMigrator>());
+        collection.AddHostedService(p => p.GetRequiredService<DalamudUtilService>());
+        collection.AddHostedService(p => p.GetRequiredService<UmbraSync.Services.ActorTracking.DrawObjectTrackingService>());
+        collection.AddHostedService(p => p.GetRequiredService<PerformanceCollectorService>());
+        collection.AddHostedService(p => p.GetRequiredService<DtrEntry>());
+        collection.AddHostedService(p => p.GetRequiredService<EventAggregator>());
+        collection.AddHostedService(p => p.GetRequiredService<MarePlugin>());
+        collection.AddHostedService(p => p.GetRequiredService<IpcProvider>());
+        collection.AddHostedService(p => p.GetRequiredService<PenumbraPrecacheService>());
+        collection.AddHostedService(p => p.GetRequiredService<HousingMonitorService>());
     }
 }

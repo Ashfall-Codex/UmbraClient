@@ -32,7 +32,7 @@ public partial class CompactUi
             ? Loc.Get("CompactUi.Sidebar.Notifications")
             : Loc.Get("CompactUi.Sidebar.NotificationsEmpty");
         DrawSidebarButton(FontAwesomeIcon.Bell, notificationsTooltip, CompactUiSection.Notifications, hasNotifications, hasNotifications, _notificationCount, null, ImGuiColors.DalamudOrange);
-        int pendingInvites = _nearbyPending.Pending.Count;
+        int pendingInvites = _nearbyPending?.Pending.Count ?? 0;
         bool highlightSocial = pendingInvites > 0;
         string socialTooltip = highlightSocial
             ? string.Format(CultureInfo.CurrentCulture, Loc.Get("CompactUi.Sidebar.SocialPending"), pendingInvites)

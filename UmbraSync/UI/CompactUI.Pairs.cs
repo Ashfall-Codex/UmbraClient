@@ -201,7 +201,7 @@ public partial class CompactUi
         var nonVisibleUsers = allUsers.Where(u => !u.IsVisible).ToList();
         ImGui.BeginChild("list", new Vector2(WindowContentWidth, ySize), border: false);
 
-        var pendingCount = _nearbyPending.Pending.Count;
+        var pendingCount = _nearbyPending?.Pending.Count ?? 0;
         if (pendingCount > 0)
         {
             UiSharedService.ColorTextWrapped(Loc.Get("CompactUi.AutoDetect.PendingInvitation"), ImGuiColors.DalamudYellow);

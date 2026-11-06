@@ -12,11 +12,11 @@ using UmbraSync.API.Dto.CharaData;
 using UmbraSync.Localization;
 using UmbraSync.MareConfiguration;
 using UmbraSync.MareConfiguration.Models;
+using UmbraSync.Modules.Housing.Services;
 using UmbraSync.PlayerData.Factories;
 using UmbraSync.PlayerData.Pairs;
 using UmbraSync.Services;
 using UmbraSync.Services.CharaData.Models;
-using UmbraSync.Services.Housing;
 using UmbraSync.Services.Mediator;
 using UmbraSync.Services.ServerConfiguration;
 using UmbraSync.UI.Components;
@@ -42,7 +42,7 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
     private readonly HousingShareManager? _housingShareManager_housing;
     private readonly HousingFurnitureScanner? _housingScanner;
     private readonly HousingNpcScenarioService? _housingNpcScenarioService;
-    private readonly HousingOwnershipService _housingOwnershipService;
+    private readonly HousingOwnershipService? _housingOwnershipService;
     private readonly HousingScenarioManager? _housingScenarioManager;
     private CancellationTokenSource? _closalCts = new();
     private bool _disableUI = false;
@@ -165,12 +165,12 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
                          UiSharedService uiSharedService, ServerConfigurationManager serverConfigurationManager,
                          DalamudUtilService dalamudUtilService, FileDialogManager fileDialogManager, PairManager pairManager,
                          CharaDataGposeTogetherManager charaDataGposeTogetherManager, McdfShareManager mcdfShareManager,
-                         HousingShareManager housingShareManager, HousingFurnitureScanner housingScanner,
-                         HousingNpcScenarioService housingNpcScenarioService,
-                         HousingScenarioManager housingScenarioManager,
-                         HousingOwnershipService housingOwnershipService,
                          UmbraProfileManager umbraProfileManager, MareConfigService mareConfigService,
-                         ApiController apiController, PairFactory pairFactory)
+                         ApiController apiController, PairFactory pairFactory,
+                         HousingShareManager? housingShareManager = null, HousingFurnitureScanner? housingScanner = null,
+                         HousingNpcScenarioService? housingNpcScenarioService = null,
+                         HousingScenarioManager? housingScenarioManager = null,
+                         HousingOwnershipService? housingOwnershipService = null)
         : base(logger, mediator, $"{Loc.Get("CharaDataHub.WindowTitle")}###UmbraCharaDataUI", performanceCollectorService)
     {
         SetWindowSizeConstraints();
@@ -426,9 +426,12 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
         entries.Add(SideRailEntry.Group(Loc.Get("CharaDataHub.Nav.Group.Data")));
         entries.Add(Page(HubPage.McdfData, "CharaDataHub.Mcd.Online.TabMcdf", FontAwesomeIcon.FileArchive, creation: true));
         entries.Add(Page(HubPage.LiveData, "CharaDataHub.Nav.LiveData", FontAwesomeIcon.Edit, creation: true));
-        entries.Add(SideRailEntry.Group(Loc.Get("CharaDataHub.Tab.HousingShare")));
-        entries.Add(Page(HubPage.HousingFurniture, "CharaDataHub.Nav.Furniture", FontAwesomeIcon.Couch, creation: true));
-        entries.Add(Page(HubPage.HousingNpc, "CharaDataHub.Nav.Npc", FontAwesomeIcon.Users, creation: true));
+        if (_housingShareManager_housing != null)
+        {
+            entries.Add(SideRailEntry.Group(Loc.Get("CharaDataHub.Tab.HousingShare")));
+            entries.Add(Page(HubPage.HousingFurniture, "CharaDataHub.Nav.Furniture", FontAwesomeIcon.Couch, creation: true));
+            entries.Add(Page(HubPage.HousingNpc, "CharaDataHub.Nav.Npc", FontAwesomeIcon.Users, creation: true));
+        }
         return entries;
     }
 

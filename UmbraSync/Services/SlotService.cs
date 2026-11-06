@@ -7,7 +7,6 @@ using UmbraSync.API.Dto.Slot;
 using UmbraSync.Localization;
 using UmbraSync.MareConfiguration;
 using UmbraSync.PlayerData.Pairs;
-using UmbraSync.Services.AutoDetect;
 using UmbraSync.Services.Mediator;
 using UmbraSync.Services.Notification;
 
@@ -30,7 +29,7 @@ public class SlotService : MediatorSubscriberBase, IDisposable
     private readonly HashSet<Guid> _declinedSlots = [];
 
     public SlotService(ILogger<SlotService> logger, MareMediator mediator, ApiController apiController,
-        SyncshellDiscoveryService syncshellDiscoveryService, MareConfigService configService, TransientConfigService transientConfigService,
+        MareConfigService configService, TransientConfigService transientConfigService,
         PairManager pairManager, ChatService chatService, NotificationTracker notificationTracker)
         : base(logger, mediator)
     {

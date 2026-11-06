@@ -8,10 +8,12 @@ using UmbraSync.PlayerData.Pairs;
 using UmbraSync.Services.Mediator;
 using UmbraSync.UI;
 
+using UmbraSync.Modules;
 namespace UmbraSync.Services;
 
 public class GuiHookService : DisposableMediatorSubscriberBase
 {
+    private readonly IModuleRegistry _modules;
     private readonly DalamudUtilService _dalamudUtil;
     private readonly MareConfigService _configService;
     private readonly INamePlateGui _namePlateGui;
@@ -28,9 +30,10 @@ public class GuiHookService : DisposableMediatorSubscriberBase
 
     public GuiHookService(ILogger<GuiHookService> logger, DalamudUtilService dalamudUtil, MareMediator mediator, MareConfigService configService,
         INamePlateGui namePlateGui, IGameConfig gameConfig, IPartyList partyList, IObjectTable objectTable,
-        PairManager pairManager, UmbraProfileManager umbraProfileManager, ApiController apiController)
+        PairManager pairManager, UmbraProfileManager umbraProfileManager, ApiController apiController, IModuleRegistry moduleRegistry)
         : base(logger, mediator)
     {
+        _modules = moduleRegistry;
         _dalamudUtil = dalamudUtil;
         _configService = configService;
         _namePlateGui = namePlateGui;
@@ -85,7 +88,7 @@ public class GuiHookService : DisposableMediatorSubscriberBase
     private void OnNamePlateUpdate(INamePlateUpdateContext context, IReadOnlyList<INamePlateUpdateHandler> handlers)
     {
         var applyColors = _configService.Current.UseNameColors;
-        var applyRpNames = _configService.Current.UseRpNamesOnNameplates;
+        var applyRpNames = _configService.Current.UseRpNamesOnNameplates && _modules.IsEnabled(ModuleId.Rp);
         if (!applyColors && !applyRpNames)
             return;
 

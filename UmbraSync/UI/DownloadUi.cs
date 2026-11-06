@@ -7,9 +7,9 @@ using System.Globalization;
 using System.Numerics;
 using UmbraSync.Localization;
 using UmbraSync.MareConfiguration;
+using UmbraSync.Modules.Housing.Services;
 using UmbraSync.PlayerData.Handlers;
 using UmbraSync.Services;
-using UmbraSync.Services.Housing;
 using UmbraSync.Services.Mediator;
 using UmbraSync.WebAPI.Files;
 using UmbraSync.WebAPI.Files.Models;
@@ -22,13 +22,14 @@ public class DownloadUi : WindowMediatorSubscriberBase
     private readonly ConcurrentDictionary<GameObjectHandler, ConcurrentDictionary<string, FileDownloadStatus>> _currentDownloads = new();
     private readonly DalamudUtilService _dalamudUtilService;
     private readonly FileUploadManager _fileTransferManager;
-    private readonly HousingShareManager _housingShareManager;
+    private readonly HousingShareManager? _housingShareManager;
     private readonly UiSharedService _uiShared;
     private readonly ConcurrentDictionary<GameObjectHandler, bool> _uploadingPlayers = new();
 
     public DownloadUi(ILogger<DownloadUi> logger, DalamudUtilService dalamudUtilService, MareConfigService configService,
-        FileUploadManager fileTransferManager, HousingShareManager housingShareManager,
-        MareMediator mediator, UiSharedService uiShared, PerformanceCollectorService performanceCollectorService)
+        FileUploadManager fileTransferManager,
+        MareMediator mediator, UiSharedService uiShared, PerformanceCollectorService performanceCollectorService,
+        HousingShareManager? housingShareManager = null)
         : base(logger, mediator, Loc.Get("DownloadUi.WindowTitle") + "###UmbraSyncDownloads", performanceCollectorService)
     {
         _dalamudUtilService = dalamudUtilService;
@@ -281,7 +282,7 @@ public class DownloadUi : WindowMediatorSubscriberBase
             }
         }
 
-        if (_housingShareManager.IsBusy)
+        if (_housingShareManager is { IsBusy: true })
         {
             try
             {
@@ -338,7 +339,7 @@ public class DownloadUi : WindowMediatorSubscriberBase
         drawList.AddRectFilled(barStart, barEnd,
             UiSharedService.Color(25, 22, 28, 220), barRounding);
 
-        var percent = Math.Clamp(_housingShareManager.ProgressPercent, 0f, 1f);
+        var percent = Math.Clamp(_housingShareManager?.ProgressPercent ?? 0f, 0f, 1f);
         var progressWidth = percent * barWidth;
         if (progressWidth > 0.5f)
         {
@@ -349,7 +350,7 @@ public class DownloadUi : WindowMediatorSubscriberBase
         drawList.AddRectFilled(barStart, barStart with { X = barEnd.X, Y = barStart.Y + barHeight * 0.45f },
             UiSharedService.Color(255, 255, 255, 14), barRounding);
 
-        var statusText = _housingShareManager.ProgressStatus ?? Loc.Get("HousingShare.Processing");
+        var statusText = _housingShareManager?.ProgressStatus ?? Loc.Get("HousingShare.Processing");
         var statusSize = ImGui.CalcTextSize(statusText);
         var barCenterY = barStart.Y + (barHeight - statusSize.Y) / 2f;
 
@@ -358,7 +359,7 @@ public class DownloadUi : WindowMediatorSubscriberBase
 
     public override bool DrawConditions()
     {
-        if (_housingShareManager.IsBusy) return true;
+        if (_housingShareManager is { IsBusy: true }) return true;
         if (_uiShared.EditTrackerPosition) return true;
         if (!_configService.Current.ShowTransferWindow && !_configService.Current.ShowTransferBars) return false;
         if (_currentDownloads.Count == 0 && _fileTransferManager.CurrentUploads.Count == 0 && _uploadingPlayers.Count == 0) return false;

@@ -20,7 +20,8 @@ public static class SettingsCatalog
     private const int Chat = 5;
     private const int Account = 6;
     private const int Privacy = 7;
-    private const int Advanced = 8;
+    private const int Modules = 8;
+    private const int Advanced = 9;
 
     public static readonly SettingsEntry[] Entries =
     [
@@ -146,6 +147,11 @@ public static class SettingsCatalog
         new(Privacy, "Settings.Privacy.Revoke.Header"),
         new(Privacy, "Settings.Privacy.Rights.Header"),
 
+        new(Modules, "Settings.Modules.Presets.Title", "Settings.Modules.Intro"),
+        new(Modules, "Modules.Rp.Title", "Modules.Rp.Desc"),
+        new(Modules, "Modules.Housing.Title", "Modules.Housing.Desc"),
+        new(Modules, "Modules.Discovery.Title", "Modules.Discovery.Desc"),
+        new(Modules, "Modules.ChatPlus.Title", "Modules.ChatPlus.Desc"),
         new(Advanced, "Settings.Advanced.PluginCompatibility"),
         new(Advanced, "Settings.Advanced.Options.Title"),
         new(Advanced, "Settings.Advanced.UmbraApi", "Settings.Advanced.UmbraApi.Help"),

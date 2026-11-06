@@ -26,6 +26,7 @@ using UmbraSync.Services.Notification;
 using UmbraSync.UI.Components;
 using NotificationType = UmbraSync.MareConfiguration.Models.NotificationType;
 
+using UmbraSync.Modules;
 namespace UmbraSync.UI;
 
 public class EditProfileUi : WindowMediatorSubscriberBase
@@ -157,6 +158,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
         _moodlesEditor = new MoodlesEditor(logger, ipcManager, dalamudUtil, rpConfigService, uiSharedService, dataManager, statusIcons);
         _chatIconPicker = new ChatIconPicker();
         _cropEditor = new ProfileImageCropEditor(logger, uiSharedService);
+        var rpModule = uiSharedService.Modules.IsEnabled(ModuleId.Rp);
 
         Mediator.Subscribe<GposeStartMessage>(this, (_) => { _wasOpen = IsOpen; IsOpen = false; });
         Mediator.Subscribe<GposeEndMessage>(this, (_) => IsOpen = _wasOpen);
@@ -166,6 +168,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
             _rpLoaded = false;
             _hrpLoaded = false;
             _moodlesEditor.ResetSession();
+            if (!rpModule) return;
             _honorificEditor.ResetRestoreState();
             _ = Task.Run(_honorificEditor.RunRestoreLoopAsync);
             _ = Task.Run(_moodlesEditor.RunRestoreLoopAsync);
@@ -194,26 +197,29 @@ public class EditProfileUi : WindowMediatorSubscriberBase
         {
             if (msg.Profile == null) _cardPreviewOpen = false;
         });
-        Mediator.Subscribe<MoodlesMessage>(this, (msg) => _ = Task.Run(_moodlesEditor.RefreshAsync));
-        Mediator.Subscribe<MoodlesReadyMessage>(this, (msg) => _ = Task.Run(_moodlesEditor.RunRestoreLoopAsync));
-        Mediator.Subscribe<ZoneSwitchEndMessage>(this, (msg) =>
+        if (rpModule)
         {
-            _moodlesEditor.ResetRestoreState();
-            _honorificEditor.ResetRestoreState();
-            _ = Task.Run(_moodlesEditor.RunRestoreLoopAsync);
-            _ = Task.Run(_honorificEditor.RunRestoreLoopAsync);
-        });
-        Mediator.Subscribe<HonorificMessage>(this, (msg) =>
-        {
-            _honorificEditor.RefreshFromData(msg.NewHonorificTitle);
-            if (!string.IsNullOrEmpty(msg.NewHonorificTitle))
+            Mediator.Subscribe<MoodlesMessage>(this, (msg) => _ = Task.Run(_moodlesEditor.RefreshAsync));
+            Mediator.Subscribe<MoodlesReadyMessage>(this, (msg) => _ = Task.Run(_moodlesEditor.RunRestoreLoopAsync));
+            Mediator.Subscribe<ZoneSwitchEndMessage>(this, (msg) =>
             {
-                _ = Task.Run(() => _honorificEditor.TrySaveBackupFromBase64Async(msg.NewHonorificTitle));
-            }
-        });
-        Mediator.Subscribe<HonorificReadyMessage>(this, (msg) => _ = Task.Run(_honorificEditor.RunRestoreLoopAsync));
-        Mediator.Subscribe<ConnectedMessage>(this, (msg) => _ = Task.Run(_moodlesEditor.RunRestoreLoopAsync));
-        Mediator.Subscribe<ConnectedMessage>(this, (msg) => _ = Task.Run(_honorificEditor.RunRestoreLoopAsync));
+                _moodlesEditor.ResetRestoreState();
+                _honorificEditor.ResetRestoreState();
+                _ = Task.Run(_moodlesEditor.RunRestoreLoopAsync);
+                _ = Task.Run(_honorificEditor.RunRestoreLoopAsync);
+            });
+            Mediator.Subscribe<HonorificMessage>(this, (msg) =>
+            {
+                _honorificEditor.RefreshFromData(msg.NewHonorificTitle);
+                if (!string.IsNullOrEmpty(msg.NewHonorificTitle))
+                {
+                    _ = Task.Run(() => _honorificEditor.TrySaveBackupFromBase64Async(msg.NewHonorificTitle));
+                }
+            });
+            Mediator.Subscribe<HonorificReadyMessage>(this, (msg) => _ = Task.Run(_honorificEditor.RunRestoreLoopAsync));
+            Mediator.Subscribe<ConnectedMessage>(this, (msg) => _ = Task.Run(_moodlesEditor.RunRestoreLoopAsync));
+            Mediator.Subscribe<ConnectedMessage>(this, (msg) => _ = Task.Run(_honorificEditor.RunRestoreLoopAsync));
+        }
     }
 
     public override void OnOpen() => RefreshFromServer();
@@ -404,6 +410,13 @@ public class EditProfileUi : WindowMediatorSubscriberBase
 
     private void DrawProfileTabButtons(Vector4 accent)
     {
+        if (!_uiSharedService.Modules.IsEnabled(ModuleId.Rp))
+        {
+            _activeTab = 1;
+            DrawProfileContent(false);
+            return;
+        }
+
         var labels = new[] { "RP", "HRP" };
         var icons = new[] { FontAwesomeIcon.Scroll, FontAwesomeIcon.User };
         Components.AccentTabBar.Draw("profile", labels, icons, accent, ref _activeTab);
@@ -437,7 +450,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
     {
         var customJson = p.RpCustomFields == null
             ? string.Empty
-            : System.Text.Json.JsonSerializer.Serialize(p.RpCustomFields.OrderBy(f => f.Order).Select(f => new { f.Name, f.Value }));
+            : System.Text.Json.JsonSerializer.Serialize(p.RpCustomFields.OrderBy(f => f.Order).Select(f => new { f.Name, f.Value, f.Section }));
         return string.Join('\u0001',
             p.RpFirstName ?? "", p.RpLastName ?? "", p.RpTitle ?? "",
             p.RpAge ?? "", p.RpRace ?? "", p.RpEthnicity ?? "",
