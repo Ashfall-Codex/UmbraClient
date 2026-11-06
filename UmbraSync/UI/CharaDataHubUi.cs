@@ -43,6 +43,7 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
     private readonly HousingFurnitureScanner? _housingScanner;
     private readonly HousingNpcScenarioService? _housingNpcScenarioService;
     private readonly HousingOwnershipService? _housingOwnershipService;
+    private readonly StageShareManager? _stageShareManager;
     private readonly HousingScenarioManager? _housingScenarioManager;
     private CancellationTokenSource? _closalCts = new();
     private bool _disableUI = false;
@@ -105,6 +106,7 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
         LiveData,
         HousingFurniture,
         HousingNpc,
+        Stages,
     }
 
     private readonly SideRail _hubRail = new();
@@ -170,7 +172,8 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
                          HousingShareManager? housingShareManager = null, HousingFurnitureScanner? housingScanner = null,
                          HousingNpcScenarioService? housingNpcScenarioService = null,
                          HousingScenarioManager? housingScenarioManager = null,
-                         HousingOwnershipService? housingOwnershipService = null)
+                         HousingOwnershipService? housingOwnershipService = null,
+                         StageShareManager? stageShareManager = null)
         : base(logger, mediator, $"{Loc.Get("CharaDataHub.WindowTitle")}###UmbraCharaDataUI", performanceCollectorService)
     {
         SetWindowSizeConstraints();
@@ -206,6 +209,7 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
         _housingNpcScenarioService = housingNpcScenarioService;
         _housingScenarioManager = housingScenarioManager;
         _housingOwnershipService = housingOwnershipService;
+        _stageShareManager = stageShareManager;
         _umbraProfileManager = umbraProfileManager;
         _apiController = apiController;
         _pairFactory = pairFactory;
@@ -223,6 +227,14 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
                 _mcdfShareManager.StartBackgroundPolling();
         });
         Mediator.Subscribe<DisconnectedMessage>(this, (_) => _mcdfShareManager.StopBackgroundPolling());
+        if (_stageShareManager != null)
+        {
+            Mediator.Subscribe<OpenStagesHubMessage>(this, (_) =>
+            {
+                _hubPage = HubPage.Stages;
+                IsOpen = true;
+            });
+        }
         InitQuestSyncSubscriptions();
     }
 
@@ -405,7 +417,7 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
         => page is HubPage.GposeTogether or HubPage.QuestSync or HubPage.GposeActors or HubPage.NearbyPoses or HubPage.ApplyData;
 
     private static bool IsCreationPage(HubPage page)
-        => page is HubPage.McdfData or HubPage.LiveData or HubPage.HousingFurniture or HubPage.HousingNpc;
+        => page is HubPage.McdfData or HubPage.LiveData or HubPage.HousingFurniture or HubPage.HousingNpc or HubPage.Stages;
 
     private List<SideRailEntry> BuildHubRail(bool inGpose)
     {
@@ -431,6 +443,8 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
             entries.Add(SideRailEntry.Group(Loc.Get("CharaDataHub.Tab.HousingShare")));
             entries.Add(Page(HubPage.HousingFurniture, "CharaDataHub.Nav.Furniture", FontAwesomeIcon.Couch, creation: true));
             entries.Add(Page(HubPage.HousingNpc, "CharaDataHub.Nav.Npc", FontAwesomeIcon.Users, creation: true));
+            if (_stageShareManager != null)
+                entries.Add(Page(HubPage.Stages, "CharaDataHub.Nav.Stages", FontAwesomeIcon.Cubes, creation: true));
         }
         return entries;
     }
@@ -481,6 +495,10 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
             case HubPage.HousingNpc:
                 using (ImRaii.PushId("housingShare"))
                     DrawHousingShare(page);
+                break;
+            case HubPage.Stages:
+                using (ImRaii.PushId("stages"))
+                    DrawStagesPage();
                 break;
         }
     }

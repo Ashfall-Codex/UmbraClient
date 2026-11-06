@@ -430,6 +430,16 @@ public class DrawUserPair : DrawPairBase
                 _mediator.Publish(new PairSyncOverrideChanged(entry.UserData.UID, null, null, null, null, !isDisableScenarios));
             }
             UiSharedService.AttachToolTip(string.Format(CultureInfo.CurrentCulture, Loc.Get("DrawUserPair.Menu.HousingScenariosTooltip"), entryUID));
+
+            var stagesOverride = _mareConfig.Current.PairSyncOverrides.TryGetValue(entry.UserData.UID, out var stagesEntry)
+                ? stagesEntry.DisableStages
+                : null;
+            var isDisableStages = stagesOverride ?? _mareConfig.Current.DefaultDisableStages;
+            if (PopupMenu.ToggleRow(FontAwesomeIcon.Cubes, Loc.Get("DrawUserPair.Menu.PermStages"), !isDisableStages, "stages"))
+            {
+                _mediator.Publish(new PairSyncOverrideChanged(entry.UserData.UID, null, null, null, null, null, !isDisableStages));
+            }
+            UiSharedService.AttachToolTip(string.Format(CultureInfo.CurrentCulture, Loc.Get("DrawUserPair.Menu.StagesTooltip"), entryUID));
         }
         if (_uiSharedService.Modules.IsEnabled(ModuleId.ChatPlus))
             UiSharedService.DrawTargetSoundOverrideCombo(_mareConfig, entry.UserData.UID, "##pair_sound_");

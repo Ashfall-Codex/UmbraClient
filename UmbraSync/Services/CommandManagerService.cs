@@ -146,6 +146,10 @@ public sealed class CommandManagerService : IDisposable
         {
             _mediator.Publish(new HousingNpcShareTestMessage());
         }
+        else if (string.Equals(splitArgs[0], "stages", StringComparison.OrdinalIgnoreCase) && RequireModule(ModuleId.Housing))
+        {
+            _mediator.Publish(new OpenStagesHubMessage());
+        }
     }
 
     private void PrintModules()

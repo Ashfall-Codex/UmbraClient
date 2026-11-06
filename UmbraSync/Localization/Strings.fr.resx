@@ -888,6 +888,12 @@ Veuillez conserver une copie de votre clé secrète au cas où vous auriez besoi
   <data name="DrawUserPair.Menu.HousingScenariosTooltip" xml:space="preserve">
     <value>Affiche ou masque les PNJ que {0} a placés dans son logement.&amp;#x0A;Ce réglage reste sur votre client : {0} n'en est pas informé.</value>
   </data>
+  <data name="DrawUserPair.Menu.PermStages" xml:space="preserve">
+    <value>Stages partagés</value>
+  </data>
+  <data name="DrawUserPair.Menu.StagesTooltip" xml:space="preserve">
+    <value>Affiche ou masque les Stages que {0} a publiés. Ce réglage reste sur votre client : {0} n'en est pas informé.</value>
+  </data>
   <data name="DrawUserPair.Menu.Unpair" xml:space="preserve">
     <value>Rompre l'appairage définitivement</value>
   </data>
@@ -1046,6 +1052,12 @@ Veuillez conserver une copie de votre clé secrète au cas où vous auriez besoi
   </data>
   <data name="CompactUi.SyncDefaults.ScenarioSubject" xml:space="preserve">
     <value>des scénarios PNJ</value>
+  </data>
+  <data name="CompactUi.SyncDefaults.StagesLabel" xml:space="preserve">
+    <value>Stages</value>
+  </data>
+  <data name="CompactUi.SyncDefaults.StagesSubject" xml:space="preserve">
+    <value>des Stages partagés</value>
   </data>
   <data name="CompactUi.Uid.CopyTooltip" xml:space="preserve">
     <value>Copier votre UID dans le presse-papiers</value>
@@ -4380,6 +4392,15 @@ Note : Les armes ne s'afficheront pas correctement sauf si vous utilisez le m&#x
   <data name="Ipc.Glamourer.Unavailable.ApiMismatch" xml:space="preserve">
     <value>Glamourer répond avec une version d'API incompatible ({0}). C'est Umbra qui doit être mis à jour, pas Glamourer.</value>
   </data>
+  <data name="Ipc.Stagehand.Unavailable.NotLoaded" xml:space="preserve">
+    <value>Stagehand n'est pas chargé.</value>
+  </data>
+  <data name="Ipc.Stagehand.Unavailable.TooOld" xml:space="preserve">
+    <value>Votre version de Stagehand est trop ancienne pour UmbraSync. Mettez-la à jour.</value>
+  </data>
+  <data name="Ipc.Stagehand.Unavailable.TooNew" xml:space="preserve">
+    <value>Votre version de Stagehand est plus récente que celle prise en charge par UmbraSync. Mettez UmbraSync à jour.</value>
+  </data>
   <data name="Notification.PluginIntegration.MissingPlugins.Title" xml:space="preserve">
     <value>Plugins manquants pour {0}</value>
   </data>
@@ -4392,15 +4413,6 @@ Note : Les armes ne s'afficheront pas correctement sauf si vous utilisez le m&#x
     <value>Erreur : </value>
   </data>
   <data name="Notification.Chat.InfoPrefix" xml:space="preserve">
-  <data name="Ipc.Stagehand.Unavailable.NotLoaded" xml:space="preserve">
-    <value>Stagehand n'est pas chargé.</value>
-  </data>
-  <data name="Ipc.Stagehand.Unavailable.TooOld" xml:space="preserve">
-    <value>Votre version de Stagehand est trop ancienne pour UmbraSync. Mettez-la à jour.</value>
-  </data>
-  <data name="Ipc.Stagehand.Unavailable.TooNew" xml:space="preserve">
-    <value>Votre version de Stagehand est plus récente que celle prise en charge par UmbraSync. Mettez UmbraSync à jour.</value>
-  </data>
     <value>Info : </value>
   </data>
   <data name="Notification.Chat.WarningPrefix" xml:space="preserve">
@@ -5148,6 +5160,9 @@ Note : Les armes ne s'afficheront pas correctement sauf si vous utilisez le m&#x
   <data name="Settings.Plugins.SimpleTweaks.Hint" xml:space="preserve">
     <value>Les couleurs de noms configurées dans SimpleTweaks sont conservées lorsque « Respecter les couleurs de noms externes » est activé</value>
   </data>
+  <data name="Settings.Plugins.Stagehand.Hint" xml:space="preserve">
+    <value>Permet de partager des Stages (décors placés) avec les joueurs présents au même endroit. Installez-le depuis son dépôt personnalisé.</value>
+  </data>
   <data name="Settings.Plugins.MissingMandatory" xml:space="preserve">
     <value>Vous devez installer Penumbra et Glamourer et les maintenir à jour pour utiliser UmbraSync.</value>
   </data>
@@ -5159,9 +5174,6 @@ Note : Les armes ne s'afficheront pas correctement sauf si vous utilisez le m&#x
   </data>
   <data name="Settings.Account.DeleteAccount.Help" xml:space="preserve">
     <value>Supprime définitivement votre compte actuellement connecté.</value>
-  </data>
-  <data name="Settings.Plugins.Stagehand.Hint" xml:space="preserve">
-    <value>Permet de partager des Stages (décors placés) avec les joueurs présents au même endroit. Installez-le depuis son dépôt personnalisé.</value>
   </data>
   <data name="Settings.Account.DeleteAccount.Warning1" xml:space="preserve">
     <value>Votre compte et tous les fichiers et données associés sur le service seront supprimés.</value>
@@ -7935,6 +7947,225 @@ Expérimental : ces hooks sont bas niveau ; en cas de souci, désactivez l'optio
   </data>
   <data name="CharaDataHub.Nav.Npc" xml:space="preserve">
     <value>PNJ</value>
+  </data>
+  <data name="CharaDataHub.Nav.Stages" xml:space="preserve">
+    <value>Stages</value>
+  </data>
+  <data name="Stages.Title" xml:space="preserve">
+    <value>Stages partagés</value>
+  </data>
+  <data name="Stages.Intro" xml:space="preserve">
+    <value>Publiez un Stage Stagehand (décor placé) à l'endroit où vous vous trouvez : les joueurs autorisés le trouveront en arrivant au même endroit. En logement il s'affiche à l'arrivée ; en extérieur, chacun choisit de l'afficher.</value>
+  </data>
+  <data name="Stages.StagehandMissing" xml:space="preserve">
+    <value>Le plugin Stagehand est nécessaire pour partager et afficher des Stages.</value>
+  </data>
+  <data name="Stages.StagehandRepo" xml:space="preserve">
+    <value>Ouvrir le dépôt de Stagehand</value>
+  </data>
+  <data name="Stages.Processing" xml:space="preserve">
+    <value>Traitement en cours…</value>
+  </data>
+  <data name="Stages.CurrentLocation" xml:space="preserve">
+    <value>Lieu actuel :</value>
+  </data>
+  <data name="Stages.LocationUnknown" xml:space="preserve">
+    <value>inconnu</value>
+  </data>
+  <data name="Stages.LocationFormat" xml:space="preserve">
+    <value>Monde {0}, territoire {1}, quartier {2}, parcelle {3}, pièce {4}</value>
+  </data>
+  <data name="Stages.Publish.Title" xml:space="preserve">
+    <value>Publier un Stage</value>
+  </data>
+  <data name="Stages.NoLocalStage" xml:space="preserve">
+    <value>Aucun Stage dans votre bibliothèque Stagehand.</value>
+  </data>
+  <data name="Stages.SelectStage" xml:space="preserve">
+    <value>Choisissez un Stage…</value>
+  </data>
+  <data name="Stages.LocalStage" xml:space="preserve">
+    <value>Stage local</value>
+  </data>
+  <data name="Stages.LocalStage.Help" xml:space="preserve">
+    <value>La liste vient de votre bibliothèque Stagehand. Le Stage est publié tel qu'il est enregistré sur le disque, avec sa position actuelle.</value>
+  </data>
+  <data name="Stages.Folder" xml:space="preserve">
+    <value>Dossier des Stages</value>
+  </data>
+  <data name="Stages.Folder.Hint" xml:space="preserve">
+    <value>Chemin du dossier Stages de Stagehand (Entrée pour valider)</value>
+  </data>
+  <data name="Stages.Folder.Help" xml:space="preserve">
+    <value>Renseignez ce dossier seulement si UmbraSync ne retrouve pas vos fichiers de Stage. Par défaut, Stagehand les range dans Documents\Stages.</value>
+  </data>
+  <data name="Stages.Description" xml:space="preserve">
+    <value>Description</value>
+  </data>
+  <data name="Stages.Description.Hint" xml:space="preserve">
+    <value>Description facultative, visible par les joueurs autorisés</value>
+  </data>
+  <data name="Stages.Publish" xml:space="preserve">
+    <value>Publier ici</value>
+  </data>
+  <data name="Stages.Publish.Tooltip" xml:space="preserve">
+    <value>Envoie les fichiers de mods du Stage puis le publie à votre lieu actuel.</value>
+  </data>
+  <data name="Stages.Republish" xml:space="preserve">
+    <value>Republier</value>
+  </data>
+  <data name="Stages.Republish.Tooltip" xml:space="preserve">
+    <value>Renvoie le contenu actuel du fichier local en conservant l'identifiant du partage.</value>
+  </data>
+  <data name="Stages.EditedLocally" xml:space="preserve">
+    <value>Le fichier local a été modifié depuis la publication : republiez pour mettre le partage à jour.</value>
+  </data>
+  <data name="Stages.OwnShares" xml:space="preserve">
+    <value>Mes Stages publiés</value>
+  </data>
+  <data name="Stages.Refresh" xml:space="preserve">
+    <value>Actualiser</value>
+  </data>
+  <data name="Stages.NoOwnShares" xml:space="preserve">
+    <value>Vous n'avez publié aucun Stage.</value>
+  </data>
+  <data name="Stages.Column.Name" xml:space="preserve">
+    <value>Stage</value>
+  </data>
+  <data name="Stages.Column.Location" xml:space="preserve">
+    <value>Lieu</value>
+  </data>
+  <data name="Stages.Column.Created" xml:space="preserve">
+    <value>Publié le</value>
+  </data>
+  <data name="Stages.Column.Access" xml:space="preserve">
+    <value>Accès</value>
+  </data>
+  <data name="Stages.Column.Actions" xml:space="preserve">
+    <value>Actions</value>
+  </data>
+  <data name="Stages.Delete.Tooltip" xml:space="preserve">
+    <value>Maintenez Ctrl pour supprimer ce partage.</value>
+  </data>
+  <data name="Stages.Edit.Title" xml:space="preserve">
+    <value>Modifier le partage « {0} »</value>
+  </data>
+  <data name="Stages.Edit.Save" xml:space="preserve">
+    <value>Enregistrer</value>
+  </data>
+  <data name="Stages.Edit.Cancel" xml:space="preserve">
+    <value>Annuler</value>
+  </data>
+  <data name="Stages.AppliedHere" xml:space="preserve">
+    <value>Stages à cet endroit</value>
+  </data>
+  <data name="Stages.Here.Help" xml:space="preserve">
+    <value>En extérieur, rien ne s'affiche tout seul : cliquez sur l'œil pour afficher un Stage. En logement, le plus récent s'affiche à l'arrivée. Un seul Stage est affiché à la fois.</value>
+  </data>
+  <data name="Stages.NoneApplied" xml:space="preserve">
+    <value>Aucun Stage partagé à cet endroit.</value>
+  </data>
+  <data name="Stages.Show" xml:space="preserve">
+    <value>Afficher ce Stage (celui qui est affiché sera masqué)</value>
+  </data>
+  <data name="Stages.Hide" xml:space="preserve">
+    <value>Masquer ce Stage</value>
+  </data>
+  <data name="Stages.HideAll" xml:space="preserve">
+    <value>Tout retirer</value>
+  </data>
+  <data name="Stages.HideAll.Tooltip" xml:space="preserve">
+    <value>Retire les Stages chargés à cet endroit. La liste reste disponible pour les réafficher.</value>
+  </data>
+  <data name="Stages.Access.All" xml:space="preserve">
+    <value>Toutes mes paires et syncshells</value>
+  </data>
+  <data name="Stages.Access.Restricted" xml:space="preserve">
+    <value>Accès restreint</value>
+  </data>
+  <data name="Stages.Access.Help" xml:space="preserve">
+    <value>Choisissez qui peut voir ce Stage. Avec un accès restreint, seules les paires et syncshells listées le recevront.</value>
+  </data>
+  <data name="Stages.Access.Pairs" xml:space="preserve">
+    <value>Paires autorisées</value>
+  </data>
+  <data name="Stages.Access.Syncshells" xml:space="preserve">
+    <value>Syncshells autorisées</value>
+  </data>
+  <data name="Stages.Access.PickSyncshell" xml:space="preserve">
+    <value>Ajouter une syncshell…</value>
+  </data>
+  <data name="Stages.Access.Public" xml:space="preserve">
+    <value>Visible par tous</value>
+  </data>
+  <data name="Stages.Progress.Reading" xml:space="preserve">
+    <value>Lecture du Stage…</value>
+  </data>
+  <data name="Stages.Progress.Importing" xml:space="preserve">
+    <value>Préparation des fichiers de mods…</value>
+  </data>
+  <data name="Stages.Progress.Uploading" xml:space="preserve">
+    <value>Envoi des fichiers…</value>
+  </data>
+  <data name="Stages.Progress.Publishing" xml:space="preserve">
+    <value>Publication…</value>
+  </data>
+  <data name="Stages.Progress.Searching" xml:space="preserve">
+    <value>Recherche de Stages à cet endroit…</value>
+  </data>
+  <data name="Stages.Progress.Downloading" xml:space="preserve">
+    <value>Téléchargement du Stage…</value>
+  </data>
+  <data name="Stages.Progress.DownloadingFiles" xml:space="preserve">
+    <value>Téléchargement de {0} fichier(s)…</value>
+  </data>
+  <data name="Stages.Progress.Applying" xml:space="preserve">
+    <value>Affichage du Stage…</value>
+  </data>
+  <data name="Stages.Error.StagehandMissing" xml:space="preserve">
+    <value>Stagehand n'est pas disponible.</value>
+  </data>
+  <data name="Stages.Error.FileNotFound" xml:space="preserve">
+    <value>Le fichier de ce Stage est introuvable sur le disque.</value>
+  </data>
+  <data name="Stages.Error.ParseFailed" xml:space="preserve">
+    <value>Le fichier de ce Stage n'a pas pu être lu.</value>
+  </data>
+  <data name="Stages.Error.TooLarge" xml:space="preserve">
+    <value>Ce Stage est trop volumineux pour être partagé.</value>
+  </data>
+  <data name="Stages.Error.UploadFailed" xml:space="preserve">
+    <value>{0} fichier(s) n'ont pas pu être envoyés.</value>
+  </data>
+  <data name="Stages.Error.UpdateFailed" xml:space="preserve">
+    <value>La mise à jour du partage a échoué.</value>
+  </data>
+  <data name="Stages.Error.DeleteFailed" xml:space="preserve">
+    <value>La suppression du partage a échoué.</value>
+  </data>
+  <data name="Stages.Error.DecryptFailed" xml:space="preserve">
+    <value>Le Stage partagé n'a pas pu être déchiffré.</value>
+  </data>
+  <data name="Stages.Error.ApplyFailed" xml:space="preserve">
+    <value>Stagehand a refusé d'afficher ce Stage.</value>
+  </data>
+  <data name="Stages.Success.Published" xml:space="preserve">
+    <value>Stage publié ({0} fichier(s) de mods).</value>
+  </data>
+  <data name="Stages.Success.PublishedSkipped" xml:space="preserve">
+    <value>Stage publié ({0} fichier(s) de mods, {1} ressource(s) introuvable(s) ignorée(s)).</value>
+  </data>
+  <data name="Stages.Success.Updated" xml:space="preserve">
+    <value>Partage mis à jour.</value>
+  </data>
+  <data name="Stages.Success.Deleted" xml:space="preserve">
+    <value>Partage supprimé.</value>
+  </data>
+  <data name="Stages.Success.Refreshed" xml:space="preserve">
+    <value>Liste actualisée.</value>
+  </data>
+  <data name="Stages.Notification.Title" xml:space="preserve">
+    <value>Stages partagés</value>
   </data>
   <data name="CharaDataHub.Library.All" xml:space="preserve">
     <value>Tout</value>
