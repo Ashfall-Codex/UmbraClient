@@ -4726,6 +4726,21 @@ Note: Weapons will not be displayed correctly unless using the same job as the s
   <data name="UserProfile.RpCustomFieldValue" xml:space="preserve">
     <value>Value</value>
   </data>
+  <data name="UserProfile.RpCharacteristics" xml:space="preserve">
+    <value>Characteristics</value>
+  </data>
+  <data name="EditProfile.CustomFields.AddSection" xml:space="preserve">
+    <value>New category</value>
+  </data>
+  <data name="EditProfile.CustomFields.NewSectionName" xml:space="preserve">
+    <value>Category</value>
+  </data>
+  <data name="EditProfile.CustomFields.SectionName" xml:space="preserve">
+    <value>Category name</value>
+  </data>
+  <data name="EditProfile.CustomFields.DeleteSection" xml:space="preserve">
+    <value>Delete the category and its details (Ctrl + click)</value>
+  </data>
   <data name="UserProfile.RpNsfw" xml:space="preserve">
     <value>Is this a RP NSFW profile?</value>
   </data>

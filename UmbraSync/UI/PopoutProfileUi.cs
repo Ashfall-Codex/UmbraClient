@@ -236,10 +236,14 @@ public class PopoutProfileUi : WindowMediatorSubscriberBase
 
                 if (umbraProfile.RpCustomFields is { Count: > 0 })
                 {
-                    foreach (var field in umbraProfile.RpCustomFields.OrderBy(f => f.Order))
+                    foreach (var group in RpCustomFieldGroups.Group(umbraProfile.RpCustomFields, includeEmptyDefault: false))
                     {
-                        if (!string.IsNullOrEmpty(field.Name) || !string.IsNullOrEmpty(field.Value))
-                            sb.Append(field.Name).Append(" : ").Append(field.Value).Append('\n');
+                        if (!group.IsDefault) sb.Append(group.Name).Append('\n');
+                        foreach (var field in group.Fields)
+                        {
+                            if (!string.IsNullOrEmpty(field.Name) || !string.IsNullOrEmpty(field.Value))
+                                sb.Append(field.Name).Append(" : ").Append(field.Value).Append('\n');
+                        }
                     }
                 }
 

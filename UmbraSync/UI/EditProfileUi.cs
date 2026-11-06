@@ -528,15 +528,12 @@ public class EditProfileUi : WindowMediatorSubscriberBase
 
             var configProfile = _rpConfigService.GetCurrentCharacterProfile();
             var noServerProfile = !umbraProfile.RpVisibility.HasValue && !umbraProfile.IsFlagged;
-            // Source de vérité = serveur (Connect peut le modifier entre deux ouvertures du
-            // plugin). Fallback config locale uniquement si le serveur a renvoyé null (perso
-            // jamais sync). Une liste vide côté serveur signifie "tout supprimé" et est respectée.
             var customFieldsSource = umbraProfile.RpCustomFields ?? (noServerProfile ? [] : configProfile.RpCustomFields);
             _rpCustomFields = customFieldsSource
-                .Select(f => new RpCustomField { Name = f.Name, Value = f.Value, Order = f.Order })
+                .Select(f => new RpCustomField { Name = f.Name, Value = f.Value, Order = f.Order, Section = f.Section })
                 .ToList();
             configProfile.RpCustomFields = _rpCustomFields
-                .Select(f => new RpCustomField { Name = f.Name, Value = f.Value, Order = f.Order })
+                .Select(f => new RpCustomField { Name = f.Name, Value = f.Value, Order = f.Order, Section = f.Section })
                 .ToList();
             configProfile.RpFirstName = _rpFirstNameText;
             configProfile.RpLastName = _rpLastNameText;
@@ -1526,120 +1523,83 @@ public class EditProfileUi : WindowMediatorSubscriberBase
         });
     }
 
+    private readonly Dictionary<int, string> _customSectionDrafts = new();
+
     private void DrawCustomFieldsSection(float availableWidth)
     {
         var customFields = _rpCustomFields;
+        var groups = RpCustomFieldGroups.Group(customFields, includeEmptyDefault: true);
+        var namedCount = groups.Count - 1;
+        var changed = false;
+        int? moveGroupUp = null;
+        int? moveGroupDown = null;
+        int? removeGroup = null;
 
-        ImGui.TextColored(ImGuiColors.DalamudGrey, Loc.Get("UserProfile.RpCustomFields"));
-        ImGui.SameLine();
-
-        if (customFields.Count < 10)
+        for (int g = 0; g < groups.Count; g++)
         {
-            ImGui.PushStyleColor(ImGuiCol.Button, Vector4.Zero);
-            ImGui.PushStyleColor(ImGuiCol.ButtonHovered, UiSharedService.ThemeButtonHovered);
-            ImGui.PushStyleColor(ImGuiCol.ButtonActive, UiSharedService.ThemeButtonActive);
-            if (_uiSharedService.IconButton(FontAwesomeIcon.Plus))
+            var group = groups[g];
+            using var groupId = ImRaii.PushId($"custom_section_{g}");
+
+            if (g > 0) ImGuiHelpers.ScaledDummy(6f);
+            if (group.IsDefault)
             {
-                customFields.Add(new RpCustomField
-                {
-                    Name = string.Empty,
-                    Value = string.Empty,
-                    Order = customFields.Count
-                });
+                ImGui.AlignTextToFramePadding();
+                ImGui.TextColored(ImGuiColors.DalamudGrey, Loc.Get("UserProfile.RpCustomFields"));
             }
-            UiSharedService.AttachToolTip(Loc.Get("UserProfile.RpCustomFieldAdd"));
-            ImGui.PopStyleColor(3);
-        }
-
-        int? removeIndex = null;
-        int? moveUpIndex = null;
-        int? moveDownIndex = null;
-
-        for (int i = 0; i < customFields.Count; i++)
-        {
-            var field = customFields[i];
-            ImGui.PushID($"custom_field_{i}");
-
-            var labelWidth = 120f * ImGuiHelpers.GlobalScale;
-            var buttonAreaWidth = 90f * ImGuiHelpers.GlobalScale;
-            var valueWidth = availableWidth - labelWidth - buttonAreaWidth - ImGui.GetStyle().ItemSpacing.X * 3;
-
-            using (_uiSharedService.GameFont.Push())
+            else
             {
-                ImGui.SetNextItemWidth(labelWidth);
-                var name = field.Name;
-                if (ImGui.InputTextWithHint("##name", Loc.Get("UserProfile.RpCustomFieldName"), ref name, 30))
+                DrawCustomSectionHeader(group, g, groups.Count, ref moveGroupUp, ref moveGroupDown, ref removeGroup, ref changed);
+            }
+
+            if (group.Fields.Count < RpCustomFieldGroups.MaxFieldsPerSection)
+            {
+                ImGui.SameLine();
+                using (PushFlatButtonColors())
                 {
-                    field.Name = name;
+                    if (_uiSharedService.IconButton(FontAwesomeIcon.Plus))
+                    {
+                        group.Fields.Add(new RpCustomField { Section = group.Name });
+                        changed = true;
+                    }
                 }
+                UiSharedService.AttachToolTip(Loc.Get("UserProfile.RpCustomFieldAdd"));
             }
-            ImGui.SameLine();
-            using (_uiSharedService.GameFont.Push())
-            {
-                ImGui.SetNextItemWidth(valueWidth);
-                var value = field.Value;
-                if (ImGui.InputTextWithHint("##value", Loc.Get("UserProfile.RpCustomFieldValue"), ref value, 200))
-                {
-                    field.Value = value;
-                }
-            }
-            ImGui.SameLine();
 
-            ImGui.PushStyleColor(ImGuiCol.Button, Vector4.Zero);
-            ImGui.PushStyleColor(ImGuiCol.ButtonHovered, UiSharedService.ThemeButtonHovered);
-            ImGui.PushStyleColor(ImGuiCol.ButtonActive, UiSharedService.ThemeButtonActive);
-
-            ImGui.PushID("up");
-            if (i > 0 && _uiSharedService.IconButton(FontAwesomeIcon.ArrowUp))
-                moveUpIndex = i;
-            else if (i == 0)
-            {
-                ImGui.PushStyleVar(ImGuiStyleVar.Alpha, 0.3f);
-                _uiSharedService.IconButton(FontAwesomeIcon.ArrowUp);
-                ImGui.PopStyleVar();
-            }
-            ImGui.PopID();
-            ImGui.SameLine();
-
-            ImGui.PushID("down");
-            if (i < customFields.Count - 1 && _uiSharedService.IconButton(FontAwesomeIcon.ArrowDown))
-                moveDownIndex = i;
-            else if (i == customFields.Count - 1)
-            {
-                ImGui.PushStyleVar(ImGuiStyleVar.Alpha, 0.3f);
-                _uiSharedService.IconButton(FontAwesomeIcon.ArrowDown);
-                ImGui.PopStyleVar();
-            }
-            ImGui.PopID();
-            ImGui.SameLine();
-
-            ImGui.PushID("del");
-            ImGui.PushStyleColor(ImGuiCol.Text, ImGuiColors.DalamudRed);
-            if (_uiSharedService.IconButton(FontAwesomeIcon.Trash))
-                removeIndex = i;
-            ImGui.PopStyleColor();
-            ImGui.PopID();
-
-            ImGui.PopStyleColor(3);
-            ImGui.PopID();
+            changed |= DrawCustomFieldRows(group.Fields, availableWidth);
         }
 
-        if (moveUpIndex.HasValue)
+        if (moveGroupUp is { } up)
         {
-            var idx = moveUpIndex.Value;
-            (customFields[idx], customFields[idx - 1]) = (customFields[idx - 1], customFields[idx]);
-            for (int i = 0; i < customFields.Count; i++) customFields[i].Order = i;
+            (groups[up], groups[up - 1]) = (groups[up - 1], groups[up]);
+            changed = true;
         }
-        if (moveDownIndex.HasValue)
+        if (moveGroupDown is { } down)
         {
-            var idx = moveDownIndex.Value;
-            (customFields[idx], customFields[idx + 1]) = (customFields[idx + 1], customFields[idx]);
-            for (int i = 0; i < customFields.Count; i++) customFields[i].Order = i;
+            (groups[down], groups[down + 1]) = (groups[down + 1], groups[down]);
+            changed = true;
         }
-        if (removeIndex.HasValue)
+        if (removeGroup is { } removed)
         {
-            customFields.RemoveAt(removeIndex.Value);
-            for (int i = 0; i < customFields.Count; i++) customFields[i].Order = i;
+            groups.RemoveAt(removed);
+            changed = true;
+        }
+
+        if (namedCount < RpCustomFieldGroups.MaxNamedSections)
+        {
+            ImGuiHelpers.ScaledDummy(6f);
+            if (_uiSharedService.IconTextButton(FontAwesomeIcon.FolderPlus, Loc.Get("EditProfile.CustomFields.AddSection")))
+            {
+                var group = new RpCustomFieldGroup(NewSectionName(groups));
+                group.Fields.Add(new RpCustomField { Section = group.Name });
+                groups.Add(group);
+                changed = true;
+            }
+        }
+
+        if (changed)
+        {
+            _customSectionDrafts.Clear();
+            RpCustomFieldGroups.Flatten(groups, customFields);
         }
 
         if (customFields.Count == 0) return;
@@ -1652,6 +1612,152 @@ public class EditProfileUi : WindowMediatorSubscriberBase
         if (ToggleSwitch.Draw("##customFieldsJustify", ref justify))
             UpdateCardStyle(_cardStyle with { JustifyCustomFields = justify });
         UiSharedService.AttachToolTip(Loc.Get("EditProfile.CustomFields.Justify.Tooltip"));
+    }
+
+    private static string NewSectionName(List<RpCustomFieldGroup> groups)
+    {
+        var baseName = Loc.Get("EditProfile.CustomFields.NewSectionName");
+        var name = baseName;
+        var suffix = 2;
+        while (groups.Exists(g => string.Equals(g.Name, name, StringComparison.Ordinal)))
+            name = $"{baseName} {suffix++}";
+        return RpCustomFieldGroups.NormalizeSection(name);
+    }
+
+    private static IDisposable PushFlatButtonColors()
+        => ImRaii.PushColor(ImGuiCol.Button, Vector4.Zero)
+            .Push(ImGuiCol.ButtonHovered, UiSharedService.ThemeButtonHovered)
+            .Push(ImGuiCol.ButtonActive, UiSharedService.ThemeButtonActive);
+
+    private void DrawCustomSectionHeader(RpCustomFieldGroup group, int index, int groupCount,
+        ref int? moveUp, ref int? moveDown, ref int? remove, ref bool changed)
+    {
+        using (_uiSharedService.GameFont.Push())
+        {
+            ImGui.SetNextItemWidth(200f * ImGuiHelpers.GlobalScale);
+            var name = _customSectionDrafts.TryGetValue(index, out var draft) ? draft : group.Name;
+            if (ImGui.InputTextWithHint("##sectionName", Loc.Get("EditProfile.CustomFields.SectionName"), ref name, RpCustomFieldGroups.MaxSectionNameLength))
+                _customSectionDrafts[index] = name;
+            if (ImGui.IsItemDeactivatedAfterEdit() && _customSectionDrafts.Remove(index, out var committed))
+            {
+                group.Name = RpCustomFieldGroups.NormalizeSection(committed);
+                changed = true;
+            }
+        }
+
+        ImGui.SameLine();
+        using var colors = PushFlatButtonColors();
+
+        using (ImRaii.PushId("sectionUp"))
+        {
+            if (index > 1)
+            {
+                if (_uiSharedService.IconButton(FontAwesomeIcon.ArrowUp)) moveUp = index;
+            }
+            else
+            {
+                using var dim = ImRaii.PushStyle(ImGuiStyleVar.Alpha, 0.3f);
+                _uiSharedService.IconButton(FontAwesomeIcon.ArrowUp);
+            }
+        }
+        ImGui.SameLine();
+        using (ImRaii.PushId("sectionDown"))
+        {
+            if (index < groupCount - 1)
+            {
+                if (_uiSharedService.IconButton(FontAwesomeIcon.ArrowDown)) moveDown = index;
+            }
+            else
+            {
+                using var dim = ImRaii.PushStyle(ImGuiStyleVar.Alpha, 0.3f);
+                _uiSharedService.IconButton(FontAwesomeIcon.ArrowDown);
+            }
+        }
+        ImGui.SameLine();
+        using (ImRaii.PushId("sectionDel"))
+        using (ImRaii.PushColor(ImGuiCol.Text, ImGuiColors.DalamudRed))
+        {
+            if (_uiSharedService.IconButton(FontAwesomeIcon.Trash) && UiSharedService.CtrlPressed())
+                remove = index;
+        }
+        UiSharedService.AttachToolTip(Loc.Get("EditProfile.CustomFields.DeleteSection"));
+    }
+
+    private bool DrawCustomFieldRows(List<RpCustomField> customFields, float availableWidth)
+    {
+        int? removeIndex = null;
+        int? moveUpIndex = null;
+        int? moveDownIndex = null;
+
+        for (int i = 0; i < customFields.Count; i++)
+        {
+            var field = customFields[i];
+            using var fieldId = ImRaii.PushId($"custom_field_{i}");
+
+            var labelWidth = 120f * ImGuiHelpers.GlobalScale;
+            var buttonAreaWidth = 90f * ImGuiHelpers.GlobalScale;
+            var valueWidth = availableWidth - labelWidth - buttonAreaWidth - ImGui.GetStyle().ItemSpacing.X * 3;
+
+            using (_uiSharedService.GameFont.Push())
+            {
+                ImGui.SetNextItemWidth(labelWidth);
+                var name = field.Name;
+                if (ImGui.InputTextWithHint("##name", Loc.Get("UserProfile.RpCustomFieldName"), ref name, 30))
+                    field.Name = name;
+            }
+            ImGui.SameLine();
+            using (_uiSharedService.GameFont.Push())
+            {
+                ImGui.SetNextItemWidth(valueWidth);
+                var value = field.Value;
+                if (ImGui.InputTextWithHint("##value", Loc.Get("UserProfile.RpCustomFieldValue"), ref value, 200))
+                    field.Value = value;
+            }
+            ImGui.SameLine();
+
+            using var colors = PushFlatButtonColors();
+
+            using (ImRaii.PushId("up"))
+            {
+                if (i > 0)
+                {
+                    if (_uiSharedService.IconButton(FontAwesomeIcon.ArrowUp)) moveUpIndex = i;
+                }
+                else
+                {
+                    using var dim = ImRaii.PushStyle(ImGuiStyleVar.Alpha, 0.3f);
+                    _uiSharedService.IconButton(FontAwesomeIcon.ArrowUp);
+                }
+            }
+            ImGui.SameLine();
+            using (ImRaii.PushId("down"))
+            {
+                if (i < customFields.Count - 1)
+                {
+                    if (_uiSharedService.IconButton(FontAwesomeIcon.ArrowDown)) moveDownIndex = i;
+                }
+                else
+                {
+                    using var dim = ImRaii.PushStyle(ImGuiStyleVar.Alpha, 0.3f);
+                    _uiSharedService.IconButton(FontAwesomeIcon.ArrowDown);
+                }
+            }
+            ImGui.SameLine();
+            using (ImRaii.PushId("del"))
+            using (ImRaii.PushColor(ImGuiCol.Text, ImGuiColors.DalamudRed))
+            {
+                if (_uiSharedService.IconButton(FontAwesomeIcon.Trash)) removeIndex = i;
+            }
+        }
+
+        if (moveUpIndex is { } up)
+            (customFields[up], customFields[up - 1]) = (customFields[up - 1], customFields[up]);
+        if (moveDownIndex is { } down)
+            (customFields[down], customFields[down + 1]) = (customFields[down + 1], customFields[down]);
+        if (removeIndex is { } removed)
+            customFields.RemoveAt(removed);
+
+        return moveUpIndex.HasValue || moveDownIndex.HasValue || removeIndex.HasValue;
     }
 
     private List<StatusIconInfo> LoadStatusIcons()
@@ -1806,7 +1912,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
             profile.RpNameColor = UiSharedService.Vector4ToHex(new Vector4(_rpNameColorVec, 1f));
             profile.RpCardStyle = _cardStyle.Serialize();
             profile.RpCustomFields = _rpCustomFields
-                .Select(f => new RpCustomField { Name = f.Name, Value = f.Value, Order = f.Order })
+                .Select(f => new RpCustomField { Name = f.Name, Value = f.Value, Order = f.Order, Section = f.Section })
                 .ToList();
             profile.ChatIcon = _chatIconPicker.SelectedIcon;
             profile.RpLevel = _rpLevel;

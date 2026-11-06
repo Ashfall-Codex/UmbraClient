@@ -364,9 +364,7 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
         {
             UiSharedService.DrawCard("rp-characteristics-card", () =>
             {
-                DrawSectionTitle(string.Equals(Loc.Get("UserProfile.RpAge").Split(' ')[0], "Âge", StringComparison.Ordinal)
-                    ? "Caractéristiques"
-                    : "Characteristics");
+                DrawSectionTitle(Loc.Get("UserProfile.RpCharacteristics"));
 
                 var fields = new List<(string Label, string Value)>(3);
                 if (hasAge) fields.Add((Loc.Get("UserProfile.RpAge"), profile.RpAge!));
@@ -417,16 +415,18 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
             ImGuiHelpers.ScaledDummy(cardSpacing / ImGuiHelpers.GlobalScale);
         }
 
-        var customFields = profile.RpCustomFields?
-            .Where(f => !string.IsNullOrEmpty(f.Name) || !string.IsNullOrEmpty(f.Value))
-            .OrderBy(f => f.Order)
-            .ToList() ?? [];
-        if (customFields.Count > 0)
+        var customFieldGroups = RpCustomFieldGroups.Group(
+            profile.RpCustomFields?.Where(f => !string.IsNullOrEmpty(f.Name) || !string.IsNullOrEmpty(f.Value)) ?? [],
+            includeEmptyDefault: false);
+        for (int g = 0; g < customFieldGroups.Count; g++)
         {
-            UiSharedService.DrawCard("rp-custom-fields-card", () =>
+            var group = customFieldGroups[g];
+            var title = group.IsDefault ? Loc.Get("UserProfile.RpCustomFields") : group.Name;
+            UiSharedService.DrawCard($"rp-custom-fields-card-{g}", () =>
             {
-                DrawSectionTitle(Loc.Get("UserProfile.RpCustomFields"));
+                DrawSectionTitle(title);
 
+                var customFields = group.Fields;
                 var col1X = ImGui.GetCursorPosX();
                 var fullW = SectionContentWidth;
                 var halfW = fullW / 2f;

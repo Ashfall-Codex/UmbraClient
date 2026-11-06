@@ -4630,6 +4630,21 @@ Note : Les armes ne s'afficheront pas correctement sauf si vous utilisez le m&#x
   <data name="UserProfile.RpCustomFieldValue" xml:space="preserve">
     <value>Valeur</value>
   </data>
+  <data name="UserProfile.RpCharacteristics" xml:space="preserve">
+    <value>Caractéristiques</value>
+  </data>
+  <data name="EditProfile.CustomFields.AddSection" xml:space="preserve">
+    <value>Nouvelle catégorie</value>
+  </data>
+  <data name="EditProfile.CustomFields.NewSectionName" xml:space="preserve">
+    <value>Catégorie</value>
+  </data>
+  <data name="EditProfile.CustomFields.SectionName" xml:space="preserve">
+    <value>Nom de la catégorie</value>
+  </data>
+  <data name="EditProfile.CustomFields.DeleteSection" xml:space="preserve">
+    <value>Supprimer la catégorie et ses détails (Ctrl + clic)</value>
+  </data>
   <data name="UserProfile.RpNsfw" xml:space="preserve">
     <value>Est-ce un profil RP NSFW ?</value>
   </data>
