@@ -4392,6 +4392,15 @@ Note : Les armes ne s'afficheront pas correctement sauf si vous utilisez le m&#x
     <value>Erreur : </value>
   </data>
   <data name="Notification.Chat.InfoPrefix" xml:space="preserve">
+  <data name="Ipc.Stagehand.Unavailable.NotLoaded" xml:space="preserve">
+    <value>Stagehand n'est pas chargé.</value>
+  </data>
+  <data name="Ipc.Stagehand.Unavailable.TooOld" xml:space="preserve">
+    <value>Votre version de Stagehand est trop ancienne pour UmbraSync. Mettez-la à jour.</value>
+  </data>
+  <data name="Ipc.Stagehand.Unavailable.TooNew" xml:space="preserve">
+    <value>Votre version de Stagehand est plus récente que celle prise en charge par UmbraSync. Mettez UmbraSync à jour.</value>
+  </data>
     <value>Info : </value>
   </data>
   <data name="Notification.Chat.WarningPrefix" xml:space="preserve">
@@ -5150,6 +5159,9 @@ Note : Les armes ne s'afficheront pas correctement sauf si vous utilisez le m&#x
   </data>
   <data name="Settings.Account.DeleteAccount.Help" xml:space="preserve">
     <value>Supprime définitivement votre compte actuellement connecté.</value>
+  </data>
+  <data name="Settings.Plugins.Stagehand.Hint" xml:space="preserve">
+    <value>Permet de partager des Stages (décors placés) avec les joueurs présents au même endroit. Installez-le depuis son dépôt personnalisé.</value>
   </data>
   <data name="Settings.Account.DeleteAccount.Warning1" xml:space="preserve">
     <value>Votre compte et tous les fichiers et données associés sur le service seront supprimés.</value>

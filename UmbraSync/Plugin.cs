@@ -206,6 +206,7 @@ public sealed class Plugin : IDalamudPlugin
         collection.AddSingleton<IpcCallerMoodles>();
         collection.AddSingleton<IpcCallerPetNames>();
         collection.AddSingleton<IpcCallerBrio>();
+        collection.AddSingleton<IpcCallerStagehand>();
         collection.AddSingleton<IpcCallerMare>();
         collection.AddSingleton<IpcManager>();
         collection.AddSingleton<NotificationService>();

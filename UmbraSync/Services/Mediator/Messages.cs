@@ -9,6 +9,7 @@ using UmbraSync.API.Dto.Establishment;
 using UmbraSync.API.Dto.Group;
 using UmbraSync.API.Dto.QuestSync;
 using UmbraSync.API.Dto.Slot;
+using UmbraSync.API.Dto.StageShare;
 using UmbraSync.API.Dto.User;
 using UmbraSync.MareConfiguration.Models;
 using UmbraSync.PlayerData.Handlers;
@@ -157,6 +158,14 @@ public record HousingNpcSharedScenePurgedMessage : MessageBase;
 public record ForcePlayerCacheRecreationMessage : MessageBase;
 public record HousingScenarioPublishedMessage(Guid ShareId, LocationInfo Location) : MessageBase;
 public record HousingScanCompleteMessage(LocationInfo Location, int FileCount) : MessageBase;
+public record StagehandAvailabilityChangedMessage(bool Available) : MessageBase;
+public record StagehandLocationChangedMessage(StageLocationDto Location) : MessageBase;
+public record StagehandLocalStagesChangedMessage : MessageBase;
+public record StagehandLocalStageEditedMessage(string FullPath) : MessageBase;
+public record StageAppliedMessage(Guid ShareId, string OwnerUid, string StageName) : MessageBase;
+public record StageRemovedMessage(Guid ShareId) : MessageBase;
+public record StageSyncPreferenceChangedMessage : MessageBase;
+public record OpenStagesHubMessage : MessageBase;
 public record ManualPairInviteMessage(string SourceUid, string SourceAlias, string TargetUid, string? DisplayName, string InviteId) : MessageBase;
 public record PairRequestAcceptedMessage(UserData Acceptor) : MessageBase;
 public record FilesReUploadRequestedMessage(List<string> Hashes) : MessageBase;
@@ -173,7 +182,7 @@ public interface ISyncOverrideChange
     bool? DisableVfx { get; }
     bool? DisableHousingMods { get; }
 }
-public record PairSyncOverrideChanged(string Uid, bool? DisableSounds, bool? DisableAnimations, bool? DisableVfx, bool? DisableHousingMods = null, bool? DisableHousingScenarios = null) : MessageBase, ISyncOverrideChange;
+public record PairSyncOverrideChanged(string Uid, bool? DisableSounds, bool? DisableAnimations, bool? DisableVfx, bool? DisableHousingMods = null, bool? DisableHousingScenarios = null, bool? DisableStages = null) : MessageBase, ISyncOverrideChange;
 public record GroupSyncOverrideChanged(string Gid, bool? DisableSounds, bool? DisableAnimations, bool? DisableVfx, bool? DisableHousingMods = null) : MessageBase, ISyncOverrideChange;
 public record NotificationStateChanged(int TotalCount) : MessageBase;
 public record PairOnlineMessage(UserData User) : MessageBase;

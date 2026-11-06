@@ -8,7 +8,7 @@ public sealed class IpcManager : DisposableMediatorSubscriberBase
     public IpcManager(ILogger<IpcManager> logger, MareMediator mediator,
         IpcCallerPenumbra penumbraIpc, IpcCallerGlamourer glamourerIpc, IpcCallerCustomize customizeIpc, IpcCallerHeels heelsIpc,
         IpcCallerHonorific honorificIpc, IpcCallerMoodles moodlesIpc, IpcCallerPetNames ipcCallerPetNames, IpcCallerBrio ipcCallerBrio,
-        IpcCallerMare mareIpc) : base(logger, mediator)
+        IpcCallerMare mareIpc, IpcCallerStagehand ipcCallerStagehand) : base(logger, mediator)
     {
         CustomizePlus = customizeIpc;
         Heels = heelsIpc;
@@ -18,6 +18,7 @@ public sealed class IpcManager : DisposableMediatorSubscriberBase
         Moodles = moodlesIpc;
         PetNames = ipcCallerPetNames;
         Brio = ipcCallerBrio;
+        Stagehand = ipcCallerStagehand;
         Mare = mareIpc;
 
         if (Initialized)
@@ -49,6 +50,8 @@ public sealed class IpcManager : DisposableMediatorSubscriberBase
 
     public IpcCallerBrio Brio { get; }
 
+    public IpcCallerStagehand Stagehand { get; }
+
     public IpcCallerMare Mare { get; }
 
     private int _stateCheckCounter = -1;
@@ -56,7 +59,7 @@ public sealed class IpcManager : DisposableMediatorSubscriberBase
     private void PeriodicApiStateCheck()
     {
         // Stagger API checks
-        if (++_stateCheckCounter > 8)
+        if (++_stateCheckCounter > 9)
             _stateCheckCounter = 0;
         int i = _stateCheckCounter;
         if (i == 0) Penumbra.CheckAPI();
@@ -68,5 +71,6 @@ public sealed class IpcManager : DisposableMediatorSubscriberBase
         if (i == 6) Moodles.CheckAPI();
         if (i == 7) PetNames.CheckAPI();
         if (i == 8) Brio.CheckAPI();
+        if (i == 9) Stagehand.CheckAPI();
     }
 }

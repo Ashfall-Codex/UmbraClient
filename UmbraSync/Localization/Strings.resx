@@ -4488,6 +4488,15 @@ Note: Weapons will not be displayed correctly unless using the same job as the s
     <value>Error: </value>
   </data>
   <data name="Notification.Chat.InfoPrefix" xml:space="preserve">
+  <data name="Ipc.Stagehand.Unavailable.NotLoaded" xml:space="preserve">
+    <value>Stagehand is not loaded.</value>
+  </data>
+  <data name="Ipc.Stagehand.Unavailable.TooOld" xml:space="preserve">
+    <value>Your Stagehand version is too old for UmbraSync. Please update it.</value>
+  </data>
+  <data name="Ipc.Stagehand.Unavailable.TooNew" xml:space="preserve">
+    <value>Your Stagehand version is newer than the one UmbraSync supports. Please update UmbraSync.</value>
+  </data>
     <value>Info: </value>
   </data>
   <data name="Notification.Chat.WarningPrefix" xml:space="preserve">
@@ -5237,6 +5246,9 @@ Note: Weapons will not be displayed correctly unless using the same job as the s
   </data>
   <data name="Settings.Account.DeleteAccount.Help" xml:space="preserve">
     <value>Completely deletes your currently connected account.</value>
+  </data>
+  <data name="Settings.Plugins.Stagehand.Hint" xml:space="preserve">
+    <value>Lets you share Stages (placed scenery) with players at the same place. Install it from its custom repository.</value>
   </data>
   <data name="Settings.Account.DeleteAccount.Warning1" xml:space="preserve">
     <value>Your account and all associated files and data on the service will be deleted.</value>

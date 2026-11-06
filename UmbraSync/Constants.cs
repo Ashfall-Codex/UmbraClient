@@ -12,4 +12,5 @@ public static class Constants
 
     public const string DiscordUrl = "https://discord.gg/7bxYwgCmC2";
     public const string GitHubUrl = "https://github.com/Ashfall-Codex/UmbraClient";
+    public const string StagehandRepoUrl = "https://github.com/universalconquistador/Stagehand/releases/latest/download/repo.json";
 }
