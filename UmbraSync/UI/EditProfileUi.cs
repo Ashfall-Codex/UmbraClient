@@ -1055,7 +1055,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
                 "EditProfile.Banner.Dimming", "EditProfile.Banner.Fade", "EditProfile.Banner.FadeRadius",
                 "EditProfile.Background.Image", "EditProfile.Background.Dimming", "EditProfile.Background.Fade",
                 "EditProfile.Background.Veil", "EditProfile.Background.TitleColor", "EditProfile.Background.LabelColor",
-                "EditProfile.Background.TextColor",
+                "EditProfile.Background.TextColor", "EditProfile.Background.Heading", "EditProfile.Background.Heading.Upper",
             }
             .Max(key => ImGui.CalcTextSize(Loc.Get(key)).X) + (12f * scale);
         float sliderWidth = MathF.Min(240f * scale, MathF.Max(ImGui.GetContentRegionAvail().X - labelWidth, 80f * scale));
@@ -1247,6 +1247,17 @@ public class EditProfileUi : WindowMediatorSubscriberBase
         ImGui.SameLine();
         _uiSharedService.DrawHelpText(Loc.Get("EditProfile.Background.Help"));
 
+        DrawAppearanceLabel(Loc.Get("EditProfile.Background.Heading"), labelWidth);
+        DrawHeadingStyleCombo(sliderWidth);
+        ImGui.SameLine();
+        _uiSharedService.DrawHelpText(Loc.Get("EditProfile.Background.Heading.Help"));
+
+        DrawAppearanceLabel(Loc.Get("EditProfile.Background.Heading.Upper"), labelWidth);
+        bool upper = _cardStyle.UpperHeadings;
+        if (ToggleSwitch.Draw("##sheetHeadingUpper", ref upper))
+            UpdateCardStyle(_cardStyle with { UpperHeadings = upper });
+        UiSharedService.AttachToolTip(Loc.Get("EditProfile.Background.Heading.Upper.Tooltip"));
+
         using (ImRaii.Disabled(!_cardStyle.HasBackground))
         {
             DrawAppearanceLabel(Loc.Get("EditProfile.Background.Dimming"), labelWidth);
@@ -1418,6 +1429,63 @@ public class EditProfileUi : WindowMediatorSubscriberBase
 
     private static string SheetBackgroundName(ProfileBackground background)
         => Loc.Get($"EditProfile.Background.{background.Key}");
+
+    private void DrawHeadingStyleCombo(float width)
+    {
+        var current = _cardStyle.HeadingStyle;
+        ImGui.SetNextItemWidth(width);
+        if (!UiSharedService.BeginCombo("##sheetHeading", HeadingStyleName(current)))
+            return;
+
+        ProfileHeadingFamily? family = null;
+        foreach (var style in ProfileHeadingStyles.All)
+        {
+            var styleFamily = ProfileHeadingStyles.FamilyOf(style);
+            if (styleFamily != family)
+            {
+                if (family != null) ImGui.Separator();
+                family = styleFamily;
+                ImGui.TextColored(ImGuiColors.DalamudGrey3, Loc.Get($"EditProfile.Background.Heading.Family.{styleFamily}"));
+            }
+
+            bool selected = style == current;
+            if (ImGui.Selectable($"{HeadingStyleName(style)}##sheetHeading{style}", selected))
+                UpdateCardStyle(_cardStyle with { Heading = ProfileHeadingStyles.KeyOf(style) });
+            if (selected)
+                ImGui.SetItemDefaultFocus();
+            if (ImGui.IsItemHovered())
+                DrawHeadingStylePreview(style);
+        }
+
+        UiSharedService.EndCombo();
+    }
+
+    private void DrawHeadingStylePreview(ProfileHeadingStyle style)
+    {
+        var palette = ProfileBackgrounds.Find(_cardStyle.Background) is { } background
+            ? ProfileSheetBackground.WithCustomColors(ProfileSheetBackground.PaletteFor(background.Family), _cardStyle)
+            : ProfileSheetBackground.PlainPalette(_cardStyle);
+        var scale = ImGuiHelpers.GlobalScale;
+        var width = 260f * scale;
+        var pad = 12f * scale;
+        var height = ProfileSheetBackground.HeadingHeight(style) + (pad * 2f);
+
+        using var padding = ImRaii.PushStyle(ImGuiStyleVar.WindowPadding, Vector2.Zero);
+        ImGui.BeginTooltip();
+        var min = ImGui.GetCursorScreenPos();
+        ImGui.GetWindowDrawList().AddRectFilled(min, min + new Vector2(width, height),
+            ImGui.GetColorU32(palette.Veil), ImGui.GetStyle().WindowRounding);
+        ImGui.SetCursorScreenPos(new Vector2(min.X + pad, min.Y + pad));
+        var preview = Loc.Get("EditProfile.Background.Heading.Preview");
+        if (_cardStyle.UpperHeadings) preview = preview.ToUpper(Loc.CurrentCulture);
+        ProfileSheetBackground.DrawHeading(preview, palette, width - (pad * 2f), style);
+        ImGui.SetCursorScreenPos(min);
+        ImGui.Dummy(new Vector2(width, height));
+        ImGui.EndTooltip();
+    }
+
+    private static string HeadingStyleName(ProfileHeadingStyle style)
+        => Loc.Get($"EditProfile.Background.Heading.{style}");
 
     private static void DrawAppearanceLabel(string label, float labelWidth)
     {

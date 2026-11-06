@@ -8383,6 +8383,84 @@ ATTENTION : cette action est irréversible.</value>
   <data name="EditProfile.Background.Help" xml:space="preserve">
     <value>Un fond tiré des plaques d'aventurier du jeu, affiché derrière votre fiche RP.</value>
   </data>
+  <data name="EditProfile.Background.Heading.Upper" xml:space="preserve">
+    <value>Titres en capitales</value>
+  </data>
+  <data name="EditProfile.Background.Heading.Upper.Tooltip" xml:space="preserve">
+    <value>Affiche les titres de section de votre fiche RP en lettres capitales.</value>
+  </data>
+  <data name="EditProfile.Background.Heading.Family.Rules" xml:space="preserve">
+    <value>Filets</value>
+  </data>
+  <data name="EditProfile.Background.Heading.Family.Ornaments" xml:space="preserve">
+    <value>Ornements</value>
+  </data>
+  <data name="EditProfile.Background.Heading.Family.Frames" xml:space="preserve">
+    <value>Encadrements</value>
+  </data>
+  <data name="EditProfile.Background.Heading.Underline" xml:space="preserve">
+    <value>Soulignement</value>
+  </data>
+  <data name="EditProfile.Background.Heading.Dashes" xml:space="preserve">
+    <value>Tirets</value>
+  </data>
+  <data name="EditProfile.Background.Heading.Milestones" xml:space="preserve">
+    <value>Jalons</value>
+  </data>
+  <data name="EditProfile.Background.Heading.HollowDiamond" xml:space="preserve">
+    <value>Losange évidé</value>
+  </data>
+  <data name="EditProfile.Background.Heading.Trefoil" xml:space="preserve">
+    <value>Trèfle</value>
+  </data>
+  <data name="EditProfile.Background.Heading.Chevrons" xml:space="preserve">
+    <value>Chevrons</value>
+  </data>
+  <data name="EditProfile.Background.Heading.Waves" xml:space="preserve">
+    <value>Ondes</value>
+  </data>
+  <data name="EditProfile.Background.Heading.Parentheses" xml:space="preserve">
+    <value>Parenthèses</value>
+  </data>
+  <data name="EditProfile.Background.Heading.Cartouche" xml:space="preserve">
+    <value>Cartouche</value>
+  </data>
+  <data name="EditProfile.Background.Heading.Band" xml:space="preserve">
+    <value>Bandeau</value>
+  </data>
+  <data name="EditProfile.Background.Heading" xml:space="preserve">
+    <value>Séparateur de section</value>
+  </data>
+  <data name="EditProfile.Background.Heading.Help" xml:space="preserve">
+    <value>L'ornement dessiné autour des titres de section de votre fiche RP.</value>
+  </data>
+  <data name="EditProfile.Background.Heading.Preview" xml:space="preserve">
+    <value>Histoire</value>
+  </data>
+  <data name="EditProfile.Background.Heading.Diamonds" xml:space="preserve">
+    <value>Diamants</value>
+  </data>
+  <data name="EditProfile.Background.Heading.Rule" xml:space="preserve">
+    <value>Filet simple</value>
+  </data>
+  <data name="EditProfile.Background.Heading.DoubleRule" xml:space="preserve">
+    <value>Double filet</value>
+  </data>
+  <data name="EditProfile.Background.Heading.Pearls" xml:space="preserve">
+    <value>Perles</value>
+  </data>
+  <data name="EditProfile.Background.Heading.Scrolls" xml:space="preserve">
+    <value>Volutes</value>
+  </data>
+  <data name="EditProfile.Background.Heading.Stars" xml:space="preserve">
+    <value>Étoiles</value>
+  </data>
+  <data name="EditProfile.Background.Heading.Brackets" xml:space="preserve">
+    <value>Encadré</value>
+  </data>
+  <data name="EditProfile.Background.Heading.Editorial" xml:space="preserve">
+    <value>Éditorial</value>
+  </data>
   <data name="EditProfile.Background.Dimming" xml:space="preserve">
     <value>Assombrissement</value>
   </data>

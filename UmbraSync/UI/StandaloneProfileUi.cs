@@ -954,9 +954,10 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
 
     private void DrawSectionTitle(string text)
     {
+        if (_rpCardStyle.UpperHeadings) text = text.ToUpper(Loc.CurrentCulture);
         if (_sheetPalette is { } palette)
         {
-            ProfileSheetBackground.DrawHeading(text, palette, SectionContentWidth);
+            ProfileSheetBackground.DrawHeading(text, palette, SectionContentWidth, _rpCardStyle.HeadingStyle);
             return;
         }
         UiSharedService.ColorText(text, ProfileSheetBackground.CustomColor(_rpCardStyle.SheetTitleColor) ?? UiSharedService.AccentColor);
