@@ -155,12 +155,22 @@ public sealed class SyncDefaultsService : DisposableMediatorSubscriberBase
             changed = true;
         }
 
+        bool stagesChanged = ResolveOverride(message.DisableStages, config.DefaultDisableStages,
+            entry.DisableStages, out var stages);
+        if (stagesChanged)
+        {
+            entry.DisableStages = stages;
+            changed = true;
+        }
+
         if (!changed) return;
 
         StoreOverride(overrides, message.Uid, entry);
 
         if (scenariosChanged)
             Mediator.Publish(new HousingScenarioSyncPreferenceChangedMessage());
+        if (stagesChanged)
+            Mediator.Publish(new StageSyncPreferenceChangedMessage());
     }
 
     private void OnGroupOverrideChanged(GroupSyncOverrideChanged message)

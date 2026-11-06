@@ -32,11 +32,14 @@ public sealed class HousingModule : IUmbraModule
         services.AddSingleton<NpcPoseCatalog>();
         services.AddSingleton<HousingNpcScenarioService>();
         services.AddSingleton<HousingOwnershipService>();
+        services.AddSingleton<StageShareManager>();
+        services.AddSingleton<StageShareSyncService>();
 
         services.AddHostedService(sp => sp.GetRequiredService<HousingFurnitureSyncService>());
         services.AddHostedService(sp => sp.GetRequiredService<HousingScenarioSyncService>());
         services.AddHostedService(sp => sp.GetRequiredService<HousingNpcScenarioService>());
         services.AddHostedService(sp => sp.GetRequiredService<HousingOwnershipService>());
+        services.AddHostedService(sp => sp.GetRequiredService<StageShareSyncService>());
 
         services.AddScoped<HousingNpcSceneEditorUi>();
         services.AddScoped<WindowMediatorSubscriberBase>(sp => sp.GetRequiredService<HousingNpcSceneEditorUi>());

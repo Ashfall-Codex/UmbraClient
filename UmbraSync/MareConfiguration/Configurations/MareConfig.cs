@@ -119,6 +119,9 @@ public class MareConfig : IMareConfiguration
     public bool DefaultDisableHousingMods { get; set; }
     public bool DefaultDisableHousingScenarios { get; set; }
     public string? ArrScenariosPathOverride { get; set; }
+    public bool DefaultDisableStages { get; set; }
+    public string? StagehandStagesPathOverride { get; set; }
+    public Dictionary<string, string> StageShareSourceFiles { get; set; } = new(StringComparer.Ordinal);
     public Dictionary<string, SyncOverrideEntry> PairSyncOverrides { get; set; } = new(StringComparer.Ordinal);
     public Dictionary<string, SyncOverrideEntry> GroupSyncOverrides { get; set; } = new(StringComparer.Ordinal);
     public bool EnableAutoDetectDiscovery { get; set; }
