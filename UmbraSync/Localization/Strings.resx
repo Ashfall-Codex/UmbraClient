@@ -8059,6 +8059,18 @@ Experimental: these hooks are low level; if anything goes wrong, turn this off (
   <data name="Settings.TargetTooltip.HideInDuty.Help" xml:space="preserve">
     <value>The card is also always hidden during combat and cutscenes.</value>
   </data>
+  <data name="Settings.Profiles.ShowNsfw" xml:space="preserve">
+    <value>Show profiles marked as NSFW</value>
+  </data>
+  <data name="Settings.Profiles.ShowNsfw.Help" xml:space="preserve">
+    <value>Shows profiles whose owner enabled the NSFW tag.</value>
+  </data>
+  <data name="Settings.Profiles.ShowRpNsfw" xml:space="preserve">
+    <value>Show RP profiles marked as NSFW</value>
+  </data>
+  <data name="Settings.Profiles.ShowRpNsfw.Help" xml:space="preserve">
+    <value>Shows RP profiles whose owner enabled the RP NSFW tag.</value>
+  </data>
   <data name="Settings.RpIdentityInPairList" xml:space="preserve">
     <value>Show RP avatar and name in the pair list</value>
   </data>

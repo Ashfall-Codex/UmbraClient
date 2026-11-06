@@ -2910,13 +2910,13 @@ Note : Les armes ne s'afficheront pas correctement sauf si vous utilisez le m&#x
     <value />
   </data>
   <data name="EditProfile.IsNsfwLabel" xml:space="preserve">
-    <value />
+    <value>Contenu NSFW</value>
   </data>
   <data name="EditProfile.ProfileIsNsfw" xml:space="preserve">
-    <value />
+    <value>Profil à caractère adulte (NSFW)</value>
   </data>
   <data name="EditProfile.ProfileIsNsfwHelp" xml:space="preserve">
-    <value />
+    <value>Si la description ou l'image de votre profil peut être considérée comme NSFW, activez cette option.</value>
   </data>
   <data name="EditProfile.SaveDescription" xml:space="preserve">
     <value />
@@ -7971,6 +7971,18 @@ Expérimental : ces hooks sont bas niveau ; en cas de souci, désactivez l'optio
   </data>
   <data name="Settings.TargetTooltip.HideInDuty.Help" xml:space="preserve">
     <value>La carte est de toute façon toujours masquée en combat et pendant les cinématiques.</value>
+  </data>
+  <data name="Settings.Profiles.ShowNsfw" xml:space="preserve">
+    <value>Afficher les profils marqués NSFW</value>
+  </data>
+  <data name="Settings.Profiles.ShowNsfw.Help" xml:space="preserve">
+    <value>Affiche les profils dont le propriétaire a activé la mention NSFW.</value>
+  </data>
+  <data name="Settings.Profiles.ShowRpNsfw" xml:space="preserve">
+    <value>Afficher les fiches RP marquées NSFW</value>
+  </data>
+  <data name="Settings.Profiles.ShowRpNsfw.Help" xml:space="preserve">
+    <value>Affiche les fiches RP dont le propriétaire a activé la mention NSFW.</value>
   </data>
   <data name="Settings.RpIdentityInPairList" xml:space="preserve">
     <value>Afficher l'avatar et le nom RP dans la liste des paires</value>

@@ -2463,21 +2463,21 @@ public class SettingsUi : WindowMediatorSubscriberBase
         }
         _uiShared.DrawHelpText(Loc.Get("Settings.TargetTooltip.HideInDuty.Help"));
 
-        if (ToggleSwitch.Draw("Show profiles marked as NSFW", ref showNsfwProfiles))
+        if (ToggleSwitch.Draw(Loc.Get("Settings.Profiles.ShowNsfw"), ref showNsfwProfiles))
         {
             Mediator.Publish(new ClearProfileDataMessage());
             _configService.Current.ProfilesAllowNsfw = showNsfwProfiles;
             _configService.Save();
         }
-        _uiShared.DrawHelpText("Will show profiles that have the NSFW tag enabled");
+        _uiShared.DrawHelpText(Loc.Get("Settings.Profiles.ShowNsfw.Help"));
 
-        if (ToggleSwitch.Draw("Show RP profiles marked as NSFW", ref showRpNsfwProfiles))
+        if (ToggleSwitch.Draw(Loc.Get("Settings.Profiles.ShowRpNsfw"), ref showRpNsfwProfiles))
         {
             Mediator.Publish(new ClearProfileDataMessage());
             _configService.Current.ProfilesAllowRpNsfw = showRpNsfwProfiles;
             _configService.Save();
         }
-        _uiShared.DrawHelpText("Will show RP profiles that have the RP NSFW tag enabled");
+        _uiShared.DrawHelpText(Loc.Get("Settings.Profiles.ShowRpNsfw.Help"));
 
         var disableOptionalPluginWarnings = _configService.Current.DisableOptionalPluginWarnings;
         var shareRpProfile = _configService.Current.ShareRpProfileWithPlugins;
