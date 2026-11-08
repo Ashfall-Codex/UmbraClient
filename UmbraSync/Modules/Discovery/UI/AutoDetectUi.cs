@@ -44,6 +44,7 @@ public class AutoDetectUi : WindowMediatorSubscriberBase
     private List<SyncshellDiscoveryEntryDto> _syncshellEntries = [];
     private bool _syncshellInitialized;
     private readonly HashSet<string> _syncshellJoinInFlight = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _expandedSyncshellDescriptions = new(StringComparer.OrdinalIgnoreCase);
     private string? _syncshellLastError;
     private bool _showNsfwSyncshells;
     private string _syncshellSearch = string.Empty;
@@ -732,9 +733,35 @@ public class AutoDetectUi : WindowMediatorSubscriberBase
             if (!string.IsNullOrEmpty(entry.Description))
             {
                 if (hasTags) ImGuiHelpers.ScaledDummy(1f);
-                UiSharedService.ColorTextWrapped(entry.Description, ImGuiColors.DalamudGrey, rightEdge);
+                bool expanded = _expandedSyncshellDescriptions.Contains(entry.GID);
+                if (DrawDescriptionToggle(expanded))
+                {
+                    if (expanded) _expandedSyncshellDescriptions.Remove(entry.GID);
+                    else _expandedSyncshellDescriptions.Add(entry.GID);
+                }
+
+                if (expanded)
+                    UiSharedService.ColorTextWrapped(entry.Description, ImGuiColors.DalamudGrey, rightEdge);
             }
         }, stretchWidth: true);
+    }
+
+    private static bool DrawDescriptionToggle(bool expanded)
+    {
+        var label = Loc.Get(expanded ? "AutoDetectUi.Syncshell.HideDescription" : "AutoDetectUi.Syncshell.ShowDescription");
+        var icon = expanded ? FontAwesomeIcon.ChevronUp : FontAwesomeIcon.ChevronDown;
+
+        ImGui.BeginGroup();
+        using (ImRaii.PushFont(UiBuilder.IconFont))
+            UiSharedService.ColorText(icon.ToIconString(), UiSharedService.ThemeTextAccent);
+        ImGui.SameLine(0, 4f * ImGuiHelpers.GlobalScale);
+        UiSharedService.ColorText(label, UiSharedService.ThemeTextAccent);
+        ImGui.EndGroup();
+
+        if (!ImGui.IsItemHovered()) return false;
+
+        ImGui.SetMouseCursor(ImGuiMouseCursor.Hand);
+        return ImGui.IsMouseClicked(ImGuiMouseButton.Left);
     }
 
     private void DrawSyncshellTile(string name, Vector4 tint, IDalamudTextureWrap? icon, float size)

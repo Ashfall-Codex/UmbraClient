@@ -5088,6 +5088,12 @@ Note: Weapons will not be displayed correctly unless using the same job as the s
   <data name="SyncshellAdmin.Profile.ImageTooLarge" xml:space="preserve">
     <value>Image too large (max 2 MB).</value>
   </data>
+  <data name="AutoDetectUi.Syncshell.ShowDescription" xml:space="preserve">
+    <value>Show description</value>
+  </data>
+  <data name="AutoDetectUi.Syncshell.HideDescription" xml:space="preserve">
+    <value>Hide description</value>
+  </data>
   <data name="AutoDetectUi.ShowNSFW" xml:space="preserve">
     <value>Show NSFW syncshells</value>
   </data>
@@ -5885,7 +5891,7 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
     <value>Delete</value>
   </data>
   <data name="Settings.Privacy.Delete.InProgress" xml:space="preserve">
-    <value>Deletion in progress…</value>
+    <value>Deletion in progress...</value>
   </data>
   <data name="Settings.Privacy.Delete.Done" xml:space="preserve">
     <value>Local deletion complete. Your server-side data is unaffected.</value>
@@ -5918,7 +5924,7 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
     <value>Delete permanently</value>
   </data>
   <data name="Settings.Privacy.ServerDelete.InProgress" xml:space="preserve">
-    <value>Erasure requested from the server…</value>
+    <value>Erasure requested from the server...</value>
   </data>
   <data name="Settings.Privacy.ServerDelete.Done" xml:space="preserve">
     <value>Erasure complete. Your account no longer exists on this server.</value>
@@ -6053,7 +6059,7 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
     <value>I accept and continue</value>
   </data>
   <data name="Rgpd.Consent.MandatoryWarning" xml:space="preserve">
-    <value>This acceptance is required to use the service. Optional processing remains your choice.</value>
+    <value>Tick the box above to continue: it is required to use the service. Optional processing remains your choice.</value>
   </data>
   <data name="HousingShare.Progress.Hashing" xml:space="preserve">
     <value>Hashing files...</value>
@@ -6853,7 +6859,7 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
     <value>NPC scenario</value>
   </data>
   <data name="HousingScenario.Notification.Applying" xml:space="preserve">
-    <value>Applying an NPC scenario… Please wait a few seconds.</value>
+    <value>Applying an NPC scenario... Please wait a few seconds.</value>
   </data>
   <data name="HousingScenario.Notification.Applied" xml:space="preserve">
     <value>A shared NPC scenario is applied in this housing.</value>
@@ -6925,7 +6931,7 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
     <value>UmbraSync is not showing any NPC in this room.</value>
   </data>
   <data name="HousingNpc.Editor.NoneSpawnedTip" xml:space="preserve">
-    <value>If you still see NPCs here, another plugin placed them&amp;#x0A;(A Realm Repopulated, Brio…): they can only be removed from that plugin.</value>
+    <value>If you still see NPCs here, another plugin placed them&amp;#x0A;(A Realm Repopulated, Brio...): they can only be removed from that plugin.</value>
   </data>
   <data name="HousingNpc.Editor.SpawnedSummary" xml:space="preserve">
     <value>{0} NPC(s) shown here by UmbraSync.</value>
@@ -7147,7 +7153,7 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
     <value>Pick a Glamourer design:</value>
   </data>
   <data name="HousingNpc.Editor.CaptureGlamourerLoading" xml:space="preserve">
-    <value>Loading designs…</value>
+    <value>Loading designs...</value>
   </data>
   <data name="HousingNpc.Editor.CaptureGlamourerEmpty" xml:space="preserve">
     <value>No Glamourer design found.</value>
@@ -7711,7 +7717,7 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
     <value>Local storage used: {0} GiB</value>
   </data>
   <data name="Settings.Storage.Used.Calculating" xml:space="preserve">
-    <value>Local storage used: calculating…</value>
+    <value>Local storage used: calculating...</value>
   </data>
   <data name="Settings.Storage.FreeSpace" xml:space="preserve">
     <value>Free space on drive: {0} GiB</value>
@@ -8066,10 +8072,10 @@ Experimental: these hooks are low level; if anything goes wrong, turn this off (
     <value>Stagehand is required to display a decor. You can still browse the catalogue.</value>
   </data>
   <data name="DecorCatalog.Processing" xml:space="preserve">
-    <value>Processing…</value>
+    <value>Processing...</value>
   </data>
   <data name="DecorCatalog.Search.Hint" xml:space="preserve">
-    <value>Search decors…</value>
+    <value>Search decors...</value>
   </data>
   <data name="DecorCatalog.Sort.Recent" xml:space="preserve">
     <value>Recent</value>
@@ -8177,7 +8183,7 @@ Experimental: these hooks are low level; if anything goes wrong, turn this off (
     <value>Description</value>
   </data>
   <data name="DecorCatalog.Description.Hint" xml:space="preserve">
-    <value>Describe your decor…</value>
+    <value>Describe your decor...</value>
   </data>
   <data name="DecorCatalog.Preview" xml:space="preserve">
     <value>Preview</value>
@@ -8282,7 +8288,7 @@ Experimental: these hooks are low level; if anything goes wrong, turn this off (
     <value>Open the Stagehand repository</value>
   </data>
   <data name="Stages.Processing" xml:space="preserve">
-    <value>Processing…</value>
+    <value>Processing...</value>
   </data>
   <data name="Stages.CurrentLocation" xml:space="preserve">
     <value>Current location:</value>
@@ -8300,7 +8306,7 @@ Experimental: these hooks are low level; if anything goes wrong, turn this off (
     <value>No Stage in your Stagehand library.</value>
   </data>
   <data name="Stages.SelectStage" xml:space="preserve">
-    <value>Pick a Stage…</value>
+    <value>Pick a Stage...</value>
   </data>
   <data name="Stages.LocalStage" xml:space="preserve">
     <value>Local Stage</value>
@@ -8411,34 +8417,34 @@ Experimental: these hooks are low level; if anything goes wrong, turn this off (
     <value>Allowed syncshells</value>
   </data>
   <data name="Stages.Access.PickSyncshell" xml:space="preserve">
-    <value>Add a syncshell…</value>
+    <value>Add a syncshell...</value>
   </data>
   <data name="Stages.Access.Public" xml:space="preserve">
     <value>Visible to everyone</value>
   </data>
   <data name="Stages.Progress.Reading" xml:space="preserve">
-    <value>Reading the Stage…</value>
+    <value>Reading the Stage...</value>
   </data>
   <data name="Stages.Progress.Importing" xml:space="preserve">
-    <value>Preparing mod files…</value>
+    <value>Preparing mod files...</value>
   </data>
   <data name="Stages.Progress.Uploading" xml:space="preserve">
-    <value>Uploading files…</value>
+    <value>Uploading files...</value>
   </data>
   <data name="Stages.Progress.Publishing" xml:space="preserve">
-    <value>Publishing…</value>
+    <value>Publishing...</value>
   </data>
   <data name="Stages.Progress.Searching" xml:space="preserve">
-    <value>Looking for Stages at this place…</value>
+    <value>Looking for Stages at this place...</value>
   </data>
   <data name="Stages.Progress.Downloading" xml:space="preserve">
-    <value>Downloading the Stage…</value>
+    <value>Downloading the Stage...</value>
   </data>
   <data name="Stages.Progress.DownloadingFiles" xml:space="preserve">
-    <value>Downloading {0} file(s)…</value>
+    <value>Downloading {0} file(s)...</value>
   </data>
   <data name="Stages.Progress.Applying" xml:space="preserve">
-    <value>Displaying the Stage…</value>
+    <value>Displaying the Stage...</value>
   </data>
   <data name="Stages.Error.StagehandMissing" xml:space="preserve">
     <value>Stagehand is not available.</value>
@@ -8501,7 +8507,7 @@ Experimental: these hooks are low level; if anything goes wrong, turn this off (
     <value>Share with pairs or syncshells</value>
   </data>
   <data name="AutoDetectUi.Syncshell.Search" xml:space="preserve">
-    <value>Search a syncshell, owner or tag…</value>
+    <value>Search a syncshell, owner or tag...</value>
   </data>
   <data name="Settings.TargetTooltip.Enable" xml:space="preserve">
     <value>Show a profile card when targeting a paired player</value>
@@ -8528,7 +8534,7 @@ Experimental: these hooks are low level; if anything goes wrong, turn this off (
     <value>Only you can see this note. It is specific to this character, not to the whole account.</value>
   </data>
   <data name="Settings.TargetTooltip.HideInDuty" xml:space="preserve">
-    <value>Hide the profile card in instances (dungeons, raids, trials…)</value>
+    <value>Hide the profile card in instances (dungeons, raids, trials...)</value>
   </data>
   <data name="Settings.TargetTooltip.HideInDuty.Help" xml:space="preserve">
     <value>The card is also always hidden during combat and cutscenes.</value>
@@ -9149,7 +9155,7 @@ WARNING: this cannot be undone.</value>
     <value>Label color</value>
   </data>
   <data name="EditProfile.Background.LabelColor.Tooltip" xml:space="preserve">
-    <value>Field names (Age, Height, Residence…). Default: the tint matching the background, or grey without a background.</value>
+    <value>Field names (Age, Height, Residence...). Default: the tint matching the background, or grey without a background.</value>
   </data>
   <data name="EditProfile.Background.TextColor" xml:space="preserve">
     <value>Content color</value>

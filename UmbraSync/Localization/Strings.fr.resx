@@ -459,7 +459,7 @@
     <value>Pour utiliser Umbra, vous devez créer un compte.</value>
   </data>
   <data name="CompactUi.IntroUi.Service.RegisterSending" xml:space="preserve">
-    <value>Envoi de la demande…</value>
+    <value>Envoi de la demande...</value>
   </data>
   <data name="CompactUi.IntroUi.Service.RegisterSuccess" xml:space="preserve">
     <value>Nouveau compte enregistré.
@@ -3573,7 +3573,7 @@ Note : Les armes ne s'afficheront pas correctement sauf si vous utilisez le m&#x
     <value>Échec de la modification de la capacité.</value>
   </data>
   <data name="SyncshellAdmin.Capacity.Busy" xml:space="preserve">
-    <value>Application…</value>
+    <value>Application...</value>
   </data>
   <data name="SyncshellAdmin.AutoDetect.Weekday.Sat" xml:space="preserve">
     <value>Sam</value>
@@ -5001,6 +5001,12 @@ Note : Les armes ne s'afficheront pas correctement sauf si vous utilisez le m&#x
   <data name="SyncshellAdmin.Profile.ImageTooLarge" xml:space="preserve">
     <value>Image trop lourde (max 2 Mo).</value>
   </data>
+  <data name="AutoDetectUi.Syncshell.ShowDescription" xml:space="preserve">
+    <value>Afficher la description</value>
+  </data>
+  <data name="AutoDetectUi.Syncshell.HideDescription" xml:space="preserve">
+    <value>Masquer la description</value>
+  </data>
   <data name="AutoDetectUi.ShowNSFW" xml:space="preserve">
     <value>Afficher les syncshells NSFW</value>
   </data>
@@ -5798,7 +5804,7 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
     <value>Supprimer</value>
   </data>
   <data name="Settings.Privacy.Delete.InProgress" xml:space="preserve">
-    <value>Suppression en cours…</value>
+    <value>Suppression en cours...</value>
   </data>
   <data name="Settings.Privacy.Delete.Done" xml:space="preserve">
     <value>Suppression locale terminée. Vos données serveur ne sont pas affectées.</value>
@@ -5831,7 +5837,7 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
     <value>Supprimer définitivement</value>
   </data>
   <data name="Settings.Privacy.ServerDelete.InProgress" xml:space="preserve">
-    <value>Effacement demandé au serveur…</value>
+    <value>Effacement demandé au serveur...</value>
   </data>
   <data name="Settings.Privacy.ServerDelete.Done" xml:space="preserve">
     <value>Effacement effectué. Votre compte n'existe plus sur ce serveur.</value>
@@ -5966,7 +5972,7 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
     <value>J'accepte et je continue</value>
   </data>
   <data name="Rgpd.Consent.MandatoryWarning" xml:space="preserve">
-    <value>Cette acceptation est nécessaire pour utiliser le service. Les traitements facultatifs restent à votre choix.</value>
+    <value>Cochez la case ci-dessus pour continuer : elle est nécessaire pour utiliser le service. Les traitements facultatifs restent à votre choix.</value>
   </data>
   <data name="HousingShare.Progress.Hashing" xml:space="preserve">
     <value>Hachage des fichiers...</value>
@@ -6766,7 +6772,7 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
     <value>Scénario PNJ</value>
   </data>
   <data name="HousingScenario.Notification.Applying" xml:space="preserve">
-    <value>Application d'un scénario PNJ en cours… Patientez quelques secondes.</value>
+    <value>Application d'un scénario PNJ en cours... Patientez quelques secondes.</value>
   </data>
   <data name="HousingScenario.Notification.Applied" xml:space="preserve">
     <value>Un scénario PNJ partagé est appliqué dans ce housing.</value>
@@ -6838,7 +6844,7 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
     <value>UmbraSync n'affiche aucun PNJ dans cette pièce.</value>
   </data>
   <data name="HousingNpc.Editor.NoneSpawnedTip" xml:space="preserve">
-    <value>Si vous voyez malgré tout des PNJ ici, ils sont placés par un autre plugin&amp;#x0A;(A Realm Repopulated, Brio…) : ils ne peuvent être retirés que depuis celui-ci.</value>
+    <value>Si vous voyez malgré tout des PNJ ici, ils sont placés par un autre plugin&amp;#x0A;(A Realm Repopulated, Brio...) : ils ne peuvent être retirés que depuis celui-ci.</value>
   </data>
   <data name="HousingNpc.Editor.SpawnedSummary" xml:space="preserve">
     <value>{0} PNJ affiché(s) ici par UmbraSync.</value>
@@ -7060,7 +7066,7 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
     <value>Choisissez un design Glamourer :</value>
   </data>
   <data name="HousingNpc.Editor.CaptureGlamourerLoading" xml:space="preserve">
-    <value>Chargement des designs…</value>
+    <value>Chargement des designs...</value>
   </data>
   <data name="HousingNpc.Editor.CaptureGlamourerEmpty" xml:space="preserve">
     <value>Aucun design Glamourer trouvé.</value>
@@ -7624,7 +7630,7 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
     <value>Stockage local utilisé : {0} GiB</value>
   </data>
   <data name="Settings.Storage.Used.Calculating" xml:space="preserve">
-    <value>Stockage local utilisé : calcul en cours…</value>
+    <value>Stockage local utilisé : calcul en cours...</value>
   </data>
   <data name="Settings.Storage.FreeSpace" xml:space="preserve">
     <value>Espace libre sur le disque : {0} GiB</value>
@@ -8090,7 +8096,7 @@ Expérimental : ces hooks sont bas niveau ; en cas de souci, désactivez l'optio
     <value>Description</value>
   </data>
   <data name="DecorCatalog.Description.Hint" xml:space="preserve">
-    <value>Décrivez votre décor…</value>
+    <value>Décrivez votre décor...</value>
   </data>
   <data name="DecorCatalog.Preview" xml:space="preserve">
     <value>Aperçu</value>
@@ -8195,7 +8201,7 @@ Expérimental : ces hooks sont bas niveau ; en cas de souci, désactivez l'optio
     <value>Ouvrir le dépôt de Stagehand</value>
   </data>
   <data name="Stages.Processing" xml:space="preserve">
-    <value>Traitement en cours…</value>
+    <value>Traitement en cours...</value>
   </data>
   <data name="Stages.CurrentLocation" xml:space="preserve">
     <value>Lieu actuel :</value>
@@ -8324,34 +8330,34 @@ Expérimental : ces hooks sont bas niveau ; en cas de souci, désactivez l'optio
     <value>Syncshells autorisées</value>
   </data>
   <data name="Stages.Access.PickSyncshell" xml:space="preserve">
-    <value>Ajouter une syncshell…</value>
+    <value>Ajouter une syncshell...</value>
   </data>
   <data name="Stages.Access.Public" xml:space="preserve">
     <value>Visible par tous</value>
   </data>
   <data name="Stages.Progress.Reading" xml:space="preserve">
-    <value>Lecture du décor…</value>
+    <value>Lecture du décor...</value>
   </data>
   <data name="Stages.Progress.Importing" xml:space="preserve">
-    <value>Préparation des fichiers de mods…</value>
+    <value>Préparation des fichiers de mods...</value>
   </data>
   <data name="Stages.Progress.Uploading" xml:space="preserve">
-    <value>Envoi des fichiers…</value>
+    <value>Envoi des fichiers...</value>
   </data>
   <data name="Stages.Progress.Publishing" xml:space="preserve">
-    <value>Publication…</value>
+    <value>Publication...</value>
   </data>
   <data name="Stages.Progress.Searching" xml:space="preserve">
-    <value>Recherche de décors à cet endroit…</value>
+    <value>Recherche de décors à cet endroit...</value>
   </data>
   <data name="Stages.Progress.Downloading" xml:space="preserve">
-    <value>Téléchargement du décor…</value>
+    <value>Téléchargement du décor...</value>
   </data>
   <data name="Stages.Progress.DownloadingFiles" xml:space="preserve">
-    <value>Téléchargement de {0} fichier(s)…</value>
+    <value>Téléchargement de {0} fichier(s)...</value>
   </data>
   <data name="Stages.Progress.Applying" xml:space="preserve">
-    <value>Affichage du décor…</value>
+    <value>Affichage du décor...</value>
   </data>
   <data name="Stages.Error.StagehandMissing" xml:space="preserve">
     <value>Stagehand n'est pas disponible.</value>
@@ -8414,7 +8420,7 @@ Expérimental : ces hooks sont bas niveau ; en cas de souci, désactivez l'optio
     <value>Partager avec des paires ou des syncshells</value>
   </data>
   <data name="AutoDetectUi.Syncshell.Search" xml:space="preserve">
-    <value>Rechercher une syncshell, un propriétaire, un tag…</value>
+    <value>Rechercher une syncshell, un propriétaire, un tag...</value>
   </data>
   <data name="Settings.TargetTooltip.Enable" xml:space="preserve">
     <value>Afficher une carte de profil sur la cible</value>
@@ -8441,7 +8447,7 @@ Expérimental : ces hooks sont bas niveau ; en cas de souci, désactivez l'optio
     <value>Vous seul voyez cette note. Elle est propre à ce personnage.</value>
   </data>
   <data name="Settings.TargetTooltip.HideInDuty" xml:space="preserve">
-    <value>Masquer la carte en instance (donjons, raids, défis…)</value>
+    <value>Masquer la carte en instance (donjons, raids, défis...)</value>
   </data>
   <data name="Settings.TargetTooltip.HideInDuty.Help" xml:space="preserve">
     <value>La carte est de toute façon toujours masquée en combat et pendant les cinématiques.</value>
@@ -9062,7 +9068,7 @@ ATTENTION : cette action est irréversible.</value>
     <value>Couleur des libellés</value>
   </data>
   <data name="EditProfile.Background.LabelColor.Tooltip" xml:space="preserve">
-    <value>Intitulés des champs (Âge, Taille, Lieu de vie…). Par défaut : la teinte assortie au fond, ou gris sans fond.</value>
+    <value>Intitulés des champs (Âge, Taille, Lieu de vie...). Par défaut : la teinte assortie au fond, ou gris sans fond.</value>
   </data>
   <data name="EditProfile.Background.TextColor" xml:space="preserve">
     <value>Couleur du contenu</value>
