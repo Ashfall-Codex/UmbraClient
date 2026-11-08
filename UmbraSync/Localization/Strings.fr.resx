@@ -889,10 +889,10 @@ Veuillez conserver une copie de votre clé secrète au cas où vous auriez besoi
     <value>Affiche ou masque les PNJ que {0} a placés dans son logement.&amp;#x0A;Ce réglage reste sur votre client : {0} n'en est pas informé.</value>
   </data>
   <data name="DrawUserPair.Menu.PermStages" xml:space="preserve">
-    <value>Stages partagés</value>
+    <value>Décors partagés</value>
   </data>
   <data name="DrawUserPair.Menu.StagesTooltip" xml:space="preserve">
-    <value>Affiche ou masque les Stages que {0} a publiés. Ce réglage reste sur votre client : {0} n'en est pas informé.</value>
+    <value>Affiche ou masque les décors que {0} a publiés. Ce réglage reste sur votre client : {0} n'en est pas informé.</value>
   </data>
   <data name="DrawUserPair.Menu.Unpair" xml:space="preserve">
     <value>Rompre l'appairage définitivement</value>
@@ -1054,10 +1054,10 @@ Veuillez conserver une copie de votre clé secrète au cas où vous auriez besoi
     <value>des scénarios PNJ</value>
   </data>
   <data name="CompactUi.SyncDefaults.StagesLabel" xml:space="preserve">
-    <value>Stages</value>
+    <value>Décors</value>
   </data>
   <data name="CompactUi.SyncDefaults.StagesSubject" xml:space="preserve">
-    <value>des Stages partagés</value>
+    <value>des décors partagés</value>
   </data>
   <data name="CompactUi.Uid.CopyTooltip" xml:space="preserve">
     <value>Copier votre UID dans le presse-papiers</value>
@@ -5161,7 +5161,7 @@ Note : Les armes ne s'afficheront pas correctement sauf si vous utilisez le m&#x
     <value>Les couleurs de noms configurées dans SimpleTweaks sont conservées lorsque « Respecter les couleurs de noms externes » est activé</value>
   </data>
   <data name="Settings.Plugins.Stagehand.Hint" xml:space="preserve">
-    <value>Permet de partager des Stages (décors placés) avec les joueurs présents au même endroit. Installez-le depuis son dépôt personnalisé.</value>
+    <value>Permet de partager les décors placés avec Stagehand avec les joueurs présents au même endroit. Installez-le depuis son dépôt personnalisé.</value>
   </data>
   <data name="Settings.Plugins.MissingMandatory" xml:space="preserve">
     <value>Vous devez installer Penumbra et Glamourer et les maintenir à jour pour utiliser UmbraSync.</value>
@@ -7471,7 +7471,7 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
     <value>Préréglages</value>
   </data>
   <data name="Settings.Modules.Intro" xml:space="preserve">
-    <value>Chaque module regroupe un ensemble de fonctionnalités. Un module désactivé n'est pas chargé : aucune fenêtre, aucun appel réseau, aucune surcharge.</value>
+    <value>Choisissez les familles de fonctions que vous utilisez. « Complet » active tout ; « Legacy » revient aux fonctions de base de Mare : paires, syncshells, synchronisation, GPose et profil classique.</value>
   </data>
   <data name="Settings.Modules.Preset.Full" xml:space="preserve">
     <value>Complet</value>
@@ -7507,7 +7507,7 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
     <value>Housing</value>
   </data>
   <data name="Modules.Housing.Desc" xml:space="preserve">
-    <value>Synchronisation des meubles, des PNJ et des scénarios de housing avec vos paires.</value>
+    <value>Synchronisation des meubles, des PNJ, des scénarios de housing et des décors Stagehand avec vos paires.</value>
   </data>
   <data name="Modules.Discovery.Title" xml:space="preserve">
     <value>Découverte</value>
@@ -7952,13 +7952,13 @@ Expérimental : ces hooks sont bas niveau ; en cas de souci, désactivez l'optio
     <value>Stages</value>
   </data>
   <data name="Stages.Title" xml:space="preserve">
-    <value>Stages partagés</value>
+    <value>Décors partagés</value>
   </data>
   <data name="Stages.Intro" xml:space="preserve">
-    <value>Publiez un Stage Stagehand (décor placé) à l'endroit où vous vous trouvez : les joueurs autorisés le trouveront en arrivant au même endroit. En logement il s'affiche à l'arrivée ; en extérieur, chacun choisit de l'afficher.</value>
+    <value>Publiez un décor Stagehand à l'endroit où vous vous trouvez : les joueurs autorisés le trouveront en arrivant au même endroit. En logement il s'affiche à l'arrivée ; en extérieur, chacun choisit de l'afficher.</value>
   </data>
   <data name="Stages.StagehandMissing" xml:space="preserve">
-    <value>Le plugin Stagehand est nécessaire pour partager et afficher des Stages.</value>
+    <value>Le plugin Stagehand est nécessaire pour partager et afficher des décors.</value>
   </data>
   <data name="Stages.StagehandRepo" xml:space="preserve">
     <value>Ouvrir le dépôt de Stagehand</value>
@@ -7976,28 +7976,28 @@ Expérimental : ces hooks sont bas niveau ; en cas de souci, désactivez l'optio
     <value>Monde {0}, territoire {1}, quartier {2}, parcelle {3}, pièce {4}</value>
   </data>
   <data name="Stages.Publish.Title" xml:space="preserve">
-    <value>Publier un Stage</value>
+    <value>Publier un décor</value>
   </data>
   <data name="Stages.NoLocalStage" xml:space="preserve">
-    <value>Aucun Stage dans votre bibliothèque Stagehand.</value>
+    <value>Aucun décor dans votre bibliothèque Stagehand.</value>
   </data>
   <data name="Stages.SelectStage" xml:space="preserve">
-    <value>Choisissez un Stage…</value>
+    <value>Choisissez un décor...</value>
   </data>
   <data name="Stages.LocalStage" xml:space="preserve">
-    <value>Stage local</value>
+    <value>Décor local</value>
   </data>
   <data name="Stages.LocalStage.Help" xml:space="preserve">
-    <value>La liste vient de votre bibliothèque Stagehand. Le Stage est publié tel qu'il est enregistré sur le disque, avec sa position actuelle.</value>
+    <value>La liste vient de votre bibliothèque Stagehand. Le décor est publié tel qu'il est enregistré sur le disque, avec sa position actuelle.</value>
   </data>
   <data name="Stages.Folder" xml:space="preserve">
-    <value>Dossier des Stages</value>
+    <value>Dossier des décors</value>
   </data>
   <data name="Stages.Folder.Hint" xml:space="preserve">
     <value>Chemin du dossier Stages de Stagehand (Entrée pour valider)</value>
   </data>
   <data name="Stages.Folder.Help" xml:space="preserve">
-    <value>Renseignez ce dossier seulement si UmbraSync ne retrouve pas vos fichiers de Stage. Par défaut, Stagehand les range dans Documents\Stages.</value>
+    <value>Renseignez ce dossier seulement si UmbraSync ne retrouve pas vos fichiers de décor. Par défaut, Stagehand les range dans Documents\Stages.</value>
   </data>
   <data name="Stages.Description" xml:space="preserve">
     <value>Description</value>
@@ -8009,7 +8009,7 @@ Expérimental : ces hooks sont bas niveau ; en cas de souci, désactivez l'optio
     <value>Publier ici</value>
   </data>
   <data name="Stages.Publish.Tooltip" xml:space="preserve">
-    <value>Envoie les fichiers de mods du Stage puis le publie à votre lieu actuel.</value>
+    <value>Envoie les fichiers de mods du décor puis le publie à votre lieu actuel.</value>
   </data>
   <data name="Stages.Republish" xml:space="preserve">
     <value>Republier</value>
@@ -8021,16 +8021,16 @@ Expérimental : ces hooks sont bas niveau ; en cas de souci, désactivez l'optio
     <value>Le fichier local a été modifié depuis la publication : republiez pour mettre le partage à jour.</value>
   </data>
   <data name="Stages.OwnShares" xml:space="preserve">
-    <value>Mes Stages publiés</value>
+    <value>Mes décors publiés</value>
   </data>
   <data name="Stages.Refresh" xml:space="preserve">
     <value>Actualiser</value>
   </data>
   <data name="Stages.NoOwnShares" xml:space="preserve">
-    <value>Vous n'avez publié aucun Stage.</value>
+    <value>Vous n'avez publié aucun décor.</value>
   </data>
   <data name="Stages.Column.Name" xml:space="preserve">
-    <value>Stage</value>
+    <value>Décor</value>
   </data>
   <data name="Stages.Column.Location" xml:space="preserve">
     <value>Lieu</value>
@@ -8057,25 +8057,25 @@ Expérimental : ces hooks sont bas niveau ; en cas de souci, désactivez l'optio
     <value>Annuler</value>
   </data>
   <data name="Stages.AppliedHere" xml:space="preserve">
-    <value>Stages à cet endroit</value>
+    <value>Décors à cet endroit</value>
   </data>
   <data name="Stages.Here.Help" xml:space="preserve">
-    <value>En extérieur, rien ne s'affiche tout seul : cliquez sur l'œil pour afficher un Stage. En logement, le plus récent s'affiche à l'arrivée. Un seul Stage est affiché à la fois.</value>
+    <value>En extérieur, rien ne s'affiche tout seul : cliquez sur l'œil pour afficher un décor. En logement, le plus récent s'affiche à l'arrivée. Un seul décor est affiché à la fois.</value>
   </data>
   <data name="Stages.NoneApplied" xml:space="preserve">
-    <value>Aucun Stage partagé à cet endroit.</value>
+    <value>Aucun décor partagé à cet endroit.</value>
   </data>
   <data name="Stages.Show" xml:space="preserve">
-    <value>Afficher ce Stage (celui qui est affiché sera masqué)</value>
+    <value>Afficher ce décor (celui qui est affiché sera masqué)</value>
   </data>
   <data name="Stages.Hide" xml:space="preserve">
-    <value>Masquer ce Stage</value>
+    <value>Masquer ce décor</value>
   </data>
   <data name="Stages.HideAll" xml:space="preserve">
     <value>Tout retirer</value>
   </data>
   <data name="Stages.HideAll.Tooltip" xml:space="preserve">
-    <value>Retire les Stages chargés à cet endroit. La liste reste disponible pour les réafficher.</value>
+    <value>Retire les décors chargés à cet endroit. La liste reste disponible pour les réafficher.</value>
   </data>
   <data name="Stages.Access.All" xml:space="preserve">
     <value>Toutes mes paires et syncshells</value>
@@ -8084,7 +8084,7 @@ Expérimental : ces hooks sont bas niveau ; en cas de souci, désactivez l'optio
     <value>Accès restreint</value>
   </data>
   <data name="Stages.Access.Help" xml:space="preserve">
-    <value>Choisissez qui peut voir ce Stage. Avec un accès restreint, seules les paires et syncshells listées le recevront.</value>
+    <value>Choisissez qui peut voir ce décor. Avec un accès restreint, seules les paires et syncshells listées le recevront.</value>
   </data>
   <data name="Stages.Access.Pairs" xml:space="preserve">
     <value>Paires autorisées</value>
@@ -8099,7 +8099,7 @@ Expérimental : ces hooks sont bas niveau ; en cas de souci, désactivez l'optio
     <value>Visible par tous</value>
   </data>
   <data name="Stages.Progress.Reading" xml:space="preserve">
-    <value>Lecture du Stage…</value>
+    <value>Lecture du décor…</value>
   </data>
   <data name="Stages.Progress.Importing" xml:space="preserve">
     <value>Préparation des fichiers de mods…</value>
@@ -8111,28 +8111,28 @@ Expérimental : ces hooks sont bas niveau ; en cas de souci, désactivez l'optio
     <value>Publication…</value>
   </data>
   <data name="Stages.Progress.Searching" xml:space="preserve">
-    <value>Recherche de Stages à cet endroit…</value>
+    <value>Recherche de décors à cet endroit…</value>
   </data>
   <data name="Stages.Progress.Downloading" xml:space="preserve">
-    <value>Téléchargement du Stage…</value>
+    <value>Téléchargement du décor…</value>
   </data>
   <data name="Stages.Progress.DownloadingFiles" xml:space="preserve">
     <value>Téléchargement de {0} fichier(s)…</value>
   </data>
   <data name="Stages.Progress.Applying" xml:space="preserve">
-    <value>Affichage du Stage…</value>
+    <value>Affichage du décor…</value>
   </data>
   <data name="Stages.Error.StagehandMissing" xml:space="preserve">
     <value>Stagehand n'est pas disponible.</value>
   </data>
   <data name="Stages.Error.FileNotFound" xml:space="preserve">
-    <value>Le fichier de ce Stage est introuvable sur le disque.</value>
+    <value>Le fichier de ce décor est introuvable sur le disque.</value>
   </data>
   <data name="Stages.Error.ParseFailed" xml:space="preserve">
-    <value>Le fichier de ce Stage n'a pas pu être lu.</value>
+    <value>Le fichier de ce décor n'a pas pu être lu.</value>
   </data>
   <data name="Stages.Error.TooLarge" xml:space="preserve">
-    <value>Ce Stage est trop volumineux pour être partagé.</value>
+    <value>Ce décor est trop volumineux pour être partagé.</value>
   </data>
   <data name="Stages.Error.UploadFailed" xml:space="preserve">
     <value>{0} fichier(s) n'ont pas pu être envoyés.</value>
@@ -8144,16 +8144,16 @@ Expérimental : ces hooks sont bas niveau ; en cas de souci, désactivez l'optio
     <value>La suppression du partage a échoué.</value>
   </data>
   <data name="Stages.Error.DecryptFailed" xml:space="preserve">
-    <value>Le Stage partagé n'a pas pu être déchiffré.</value>
+    <value>Le décor partagé n'a pas pu être déchiffré.</value>
   </data>
   <data name="Stages.Error.ApplyFailed" xml:space="preserve">
-    <value>Stagehand a refusé d'afficher ce Stage.</value>
+    <value>Stagehand a refusé d'afficher ce décor.</value>
   </data>
   <data name="Stages.Success.Published" xml:space="preserve">
-    <value>Stage publié ({0} fichier(s) de mods).</value>
+    <value>Décor publié ({0} fichier(s) de mods).</value>
   </data>
   <data name="Stages.Success.PublishedSkipped" xml:space="preserve">
-    <value>Stage publié ({0} fichier(s) de mods, {1} ressource(s) introuvable(s) ignorée(s)).</value>
+    <value>Décor publié ({0} fichier(s) de mods, {1} ressource(s) introuvable(s) ignorée(s)).</value>
   </data>
   <data name="Stages.Success.Updated" xml:space="preserve">
     <value>Partage mis à jour.</value>
@@ -8165,7 +8165,7 @@ Expérimental : ces hooks sont bas niveau ; en cas de souci, désactivez l'optio
     <value>Liste actualisée.</value>
   </data>
   <data name="Stages.Notification.Title" xml:space="preserve">
-    <value>Stages partagés</value>
+    <value>Décors partagés</value>
   </data>
   <data name="CharaDataHub.Library.All" xml:space="preserve">
     <value>Tout</value>

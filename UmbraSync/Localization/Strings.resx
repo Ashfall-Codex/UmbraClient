@@ -7558,7 +7558,7 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
     <value>Presets</value>
   </data>
   <data name="Settings.Modules.Intro" xml:space="preserve">
-    <value>Each module groups a set of features. A disabled module is not loaded: no window, no network call, no overhead.</value>
+    <value>Choose the feature families you use. “Full” enables everything; “Legacy” goes back to Mare's base features: pairs, syncshells, synchronisation, GPose and the classic profile.</value>
   </data>
   <data name="Settings.Modules.Preset.Full" xml:space="preserve">
     <value>Full</value>
@@ -7594,7 +7594,7 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
     <value>Housing</value>
   </data>
   <data name="Modules.Housing.Desc" xml:space="preserve">
-    <value>Synchronisation of furniture, NPCs and housing scenarios with your pairs.</value>
+    <value>Synchronisation of furniture, NPCs, housing scenarios and Stagehand scenery with your pairs.</value>
   </data>
   <data name="Modules.Discovery.Title" xml:space="preserve">
     <value>Discovery</value>
