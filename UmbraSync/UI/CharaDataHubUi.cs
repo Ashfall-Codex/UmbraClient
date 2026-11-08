@@ -1686,7 +1686,7 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
         var cachedProfiles = _umbraProfileManager.GetCachedProfiles();
 
         var currentUid = _umbraProfileManager.CurrentUid;
-        var search = _profileBrowserSearch;
+        var searchTerms = _profileBrowserSearch.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         var filtered = cachedProfiles.Where(p =>
             (currentUid == null || !string.Equals(p.Key.User.UID, currentUid, StringComparison.Ordinal)) && IsListed(p.Key, p.Profile)).ToList();
         var own = _umbraProfileManager.GetOwnCharacterProfiles().Where(p => IsListed(p.Key, p.Profile)).ToList();
@@ -1695,14 +1695,24 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
         {
             if (string.IsNullOrWhiteSpace(profile.RpFirstName) && string.IsNullOrWhiteSpace(profile.RpLastName))
                 return false;
-            if (string.IsNullOrEmpty(search)) return true;
-            
-            return Matches(key.User.AliasOrUID) || Matches(key.CharName)
-                   || Matches(profile.RpFirstName) || Matches(profile.RpLastName)
-                   || Matches(_serverConfigurationManager.GetNoteForUid(key.User.UID));
+            if (searchTerms.Length == 0) return true;
 
-            bool Matches(string? value)
-                => value != null && value.Contains(search, StringComparison.OrdinalIgnoreCase);
+            var note = _serverConfigurationManager.GetNoteForUid(key.User.UID);
+            foreach (var term in searchTerms)
+            {
+                if (!(Matches(key.User.AliasOrUID, term) || Matches(key.CharName, term) || Matches(note, term)
+                      || Matches(profile.RpFirstName, term) || Matches(profile.RpLastName, term) || Matches(profile.RpTitle, term)
+                      || Matches(profile.RpOccupation, term) || Matches(profile.RpAffiliation, term) || Matches(profile.RpResidence, term)
+                      || Matches(profile.RpRace, term) || Matches(profile.RpEthnicity, term) || Matches(profile.RpAlignment, term)
+                      || Matches(profile.RpDescription, term) || Matches(profile.RpAdditionalInfo, term) || Matches(profile.Description, term)))
+                    return false;
+            }
+
+            return true;
+
+            static bool Matches(string? value, string term)
+                => !string.IsNullOrEmpty(value)
+                   && CultureInfo.InvariantCulture.CompareInfo.IndexOf(value, term, CompareOptions.IgnoreCase | CompareOptions.IgnoreNonSpace) >= 0;
         }
 
         var clearLabel = Loc.Get("Settings.ProfileBrowser.ClearCache");

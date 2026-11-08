@@ -5689,7 +5689,7 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
     <value>Parcourir les profils en cache</value>
   </data>
   <data name="Settings.ProfileBrowser.SearchHint" xml:space="preserve">
-    <value>Rechercher par nom, UID ou alias...</value>
+    <value>Rechercher par nom, UID, alias ou mot-clé...</value>
   </data>
   <data name="Settings.ProfileBrowser.NoResults" xml:space="preserve">
     <value>Aucun profil trouvé</value>

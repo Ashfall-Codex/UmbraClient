@@ -5776,7 +5776,7 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
     <value>Browse Cached Profiles</value>
   </data>
   <data name="Settings.ProfileBrowser.SearchHint" xml:space="preserve">
-    <value>Search by name, UID, or alias...</value>
+    <value>Search by name, UID, alias, or keyword...</value>
   </data>
   <data name="Settings.ProfileBrowser.NoResults" xml:space="preserve">
     <value>No profiles found</value>
