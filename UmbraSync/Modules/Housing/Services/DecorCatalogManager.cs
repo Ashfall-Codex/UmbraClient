@@ -83,8 +83,7 @@ public sealed class DecorCatalogManager : IDisposable
     public ProfileImage TryGetPreview(DecorCatalogEntryDto entry)
     {
         if (string.IsNullOrEmpty(entry.PreviewHash)) return ProfileImage.Empty;
-        var stored = _previewStore.Get(entry.PreviewHash);
-        if (stored.HasImage) return stored;
+        if (_previewStore.Contains(entry.PreviewHash)) return _previewStore.Get(entry.PreviewHash);
         if (_previewFailures.ContainsKey(entry.Id) || _disposed) return ProfileImage.Empty;
 
         _ = _previewTasks.GetOrAdd(entry.Id, id => Task.Run(async () =>

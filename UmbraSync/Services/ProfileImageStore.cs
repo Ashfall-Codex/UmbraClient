@@ -14,6 +14,20 @@ public sealed class ProfileImageStore(ILogger logger, string directory)
 
     public ProfileImage Get(string? hash) => IsValidHash(hash) ? ProfileImage.FromStore(this, hash!) : ProfileImage.Empty;
 
+    public bool Contains(string? hash)
+    {
+        if (!IsValidHash(hash)) return false;
+
+        try
+        {
+            return File.Exists(PathFor(hash!));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
+    }
+
     public string? Put(byte[] bytes)
     {
         if (_closed) return null;

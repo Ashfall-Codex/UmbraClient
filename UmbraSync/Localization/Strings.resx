@@ -5814,6 +5814,21 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
   <data name="Settings.ProfileBrowser.MyCharacter" xml:space="preserve">
     <value>My character</value>
   </data>
+  <data name="CharaDataHub.Profiles.Tab.All" xml:space="preserve">
+    <value>All</value>
+  </data>
+  <data name="CharaDataHub.Profiles.Tab.Mine" xml:space="preserve">
+    <value>My characters</value>
+  </data>
+  <data name="CharaDataHub.Profiles.Tab.Others" xml:space="preserve">
+    <value>Other profiles</value>
+  </data>
+  <data name="Settings.ProfileBrowser.DeleteCharacter" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="Settings.ProfileBrowser.DeleteCharacter.Tooltip" xml:space="preserve">
+    <value>Hold Ctrl to delete the RP profile of {0} from the server. This cannot be undone.</value>
+  </data>
   <!-- GDPR / Privacy -->
   <data name="Settings.Section.Privacy.Desc" xml:space="preserve">
     <value>Manage your personal data, consent settings, and exercise your rights under the GDPR.</value>

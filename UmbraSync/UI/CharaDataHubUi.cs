@@ -163,6 +163,9 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
     private volatile string? _ownHonorificBase64;
     private DateTime _nextOwnHonorificRefresh = DateTime.MinValue;
     private string _profileBrowserSearch = string.Empty;
+    private int _profilesSubTab;
+    private const int ProfilesTabMine = 1;
+    private const int ProfilesTabOthers = 2;
     private bool _clearProfileCacheConfirmShown;
     private readonly Dictionary<string, float> _profileCardHeights = new(StringComparer.Ordinal);
 
@@ -1753,7 +1756,20 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
         ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X);
         ImGui.InputTextWithHint("##profileBrowserSearch", Loc.Get("Settings.ProfileBrowser.SearchHint"), ref _profileBrowserSearch, 100);
 
+        ImGuiHelpers.ScaledDummy(2f);
+        using (ImRaii.PushId("profilesTabs"))
+        {
+            DrawSubTabButtons(
+                [Loc.Get("CharaDataHub.Profiles.Tab.All"), Loc.Get("CharaDataHub.Profiles.Tab.Mine"), Loc.Get("CharaDataHub.Profiles.Tab.Others")],
+                [FontAwesomeIcon.LayerGroup, FontAwesomeIcon.User, FontAwesomeIcon.Users],
+                ref _profilesSubTab, accent);
+        }
         ImGuiHelpers.ScaledDummy(4f);
+
+        bool showOwn = _profilesSubTab != ProfilesTabOthers;
+        bool showOthers = _profilesSubTab != ProfilesTabMine;
+        if (!showOwn) own = [];
+        if (!showOthers) filtered = [];
 
         if (filtered.Count == 0 && own.Count == 0)
         {
@@ -1768,8 +1784,8 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
         var cardSpacing = 6f * ImGuiHelpers.GlobalScale;
         if (own.Count > 0)
         {
-            DrawOwnProfileGroup(Loc.Get("Settings.ProfileBrowser.MyCharacter"), own.Where(p => IsCurrentCharacter(p.Key)).ToList(), accent, cardSpacing);
-            DrawOwnProfileGroup(Loc.Get("Settings.ProfileBrowser.OwnCharacters"), own.Where(p => !IsCurrentCharacter(p.Key)).ToList(), accent, cardSpacing);
+            DrawOwnProfileGroup(Loc.Get("Settings.ProfileBrowser.MyCharacter"), own.Where(p => IsCurrentCharacter(p.Key)).ToList(), accent, cardSpacing, deletable: false);
+            DrawOwnProfileGroup(Loc.Get("Settings.ProfileBrowser.OwnCharacters"), own.Where(p => !IsCurrentCharacter(p.Key)).ToList(), accent, cardSpacing, deletable: true);
             if (filtered.Count > 0)
             {
                 ImGuiHelpers.ScaledDummy(4f);
@@ -1803,7 +1819,7 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
 
     private void DrawProfileCard(
         (API.Data.UserData User, string? CharName, uint? WorldId) key,
-        UmbraProfileData profile, Vector4 accent)
+        UmbraProfileData profile, Vector4 accent, bool deletable = false)
     {
         var portraitSize = 64f * ImGuiHelpers.GlobalScale;
 
@@ -1926,14 +1942,33 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
             if (pair != null)
             {
                 var rowHeight = ImGui.GetCursorPosY() - ImGui.GetStyle().ItemSpacing.Y - rowTop;
+                var deleteLabel = Loc.Get("Settings.ProfileBrowser.DeleteCharacter");
+                float buttonsWidth = CapsuleButton.MeasureWidth(openLabel)
+                    + (deletable ? CapsuleButton.MeasureWidth(deleteLabel, FontAwesomeIcon.Trash) + ImGui.GetStyle().ItemSpacing.X : 0f);
+                float buttonY = rowTop + MathF.Max(0f, (rowHeight - CapsuleButton.HitRegionHeight) / 2f);
                 ImGui.SetCursorPos(new Vector2(
-                    ImGui.GetContentRegionAvail().X - CapsuleButton.MeasureWidth(openLabel) - ImGui.GetStyle().ItemSpacing.X * 3 + ImGui.GetCursorPosX(),
-                    rowTop + MathF.Max(0f, (rowHeight - CapsuleButton.HitRegionHeight) / 2f)));
+                    ImGui.GetContentRegionAvail().X - buttonsWidth - ImGui.GetStyle().ItemSpacing.X * 3 + ImGui.GetCursorPosX(),
+                    buttonY));
+                if (deletable)
+                {
+                    using (ImRaii.Disabled(!UiSharedService.CtrlPressed()))
+                    {
+                        if (CapsuleButton.Draw(deleteLabel, FontAwesomeIcon.Trash, CapsuleButtonRole.Destructive))
+                            _ = DeleteOwnCharacterProfileAsync(key);
+                    }
+                    if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+                    {
+                        openButtonHovered = true;
+                        UiSharedService.AttachToolTip(string.Format(CultureInfo.CurrentCulture, Loc.Get("Settings.ProfileBrowser.DeleteCharacter.Tooltip"), key.CharName ?? "?"));
+                    }
+                    ImGui.SameLine();
+                    ImGui.SetCursorPosY(buttonY);
+                }
                 if (CapsuleButton.Draw(openLabel))
                 {
                     Mediator.Publish(new ProfileOpenStandaloneMessage(pair, key.CharName, key.WorldId));
                 }
-                openButtonHovered = ImGui.IsItemHovered();
+                openButtonHovered |= ImGui.IsItemHovered();
             }
         }, stretchWidth: true, background: sheetPalette?.Veil,
             border: cardAccent is { } cardBorder ? cardBorder with { W = ProfileSheetBackground.BorderOpacity } : null,
@@ -2007,17 +2042,37 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
 
     private void DrawOwnProfileGroup(string header,
         List<((API.Data.UserData User, string? CharName, uint? WorldId) Key, UmbraProfileData Profile)> entries,
-        Vector4 accent, float cardSpacing)
+        Vector4 accent, float cardSpacing, bool deletable)
     {
         if (entries.Count == 0) return;
         UiSharedService.ColorText(header, accent);
         ImGuiHelpers.ScaledDummy(2f);
         foreach (var entry in entries)
         {
-            DrawProfileCard(entry.Key, entry.Profile, accent);
+            using var id = ImRaii.PushId($"{entry.Key.CharName}_{entry.Key.WorldId}");
+            DrawProfileCard(entry.Key, entry.Profile, accent, deletable);
             ImGui.Dummy(new Vector2(1f, cardSpacing));
         }
         ImGuiHelpers.ScaledDummy(2f);
+    }
+
+    private async Task DeleteOwnCharacterProfileAsync((API.Data.UserData User, string? CharName, uint? WorldId) key)
+    {
+        if (string.IsNullOrEmpty(key.CharName) || key.WorldId is not > 0) return;
+        try
+        {
+            var user = new API.Data.UserData(_apiController.UID);
+            await _apiController.UserDeleteRpProfile(new API.Dto.User.UserDto(user) { CharacterName = key.CharName, WorldId = key.WorldId }).ConfigureAwait(false);
+            _umbraProfileManager.ForgetOwnProfile(key.CharName, key.WorldId.Value);
+            _profileCardHeights.Remove($"{key.User.UID}_{key.CharName}_{key.WorldId}");
+            Mediator.Publish(new ClearProfileDataMessage(user, key.CharName, key.WorldId.Value));
+            Mediator.Publish(new NotificationMessage(Loc.Get("EditProfile.DeleteRp.SuccessTitle"), Loc.Get("EditProfile.DeleteRp.SuccessBody"), NotificationType.Success));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Suppression de la fiche d'un autre personnage en échec");
+            Mediator.Publish(new NotificationMessage(Loc.Get("EditProfile.DeleteRp.ErrorTitle"), Loc.Get("EditProfile.DeleteRp.ErrorBody"), NotificationType.Error));
+        }
     }
 
 

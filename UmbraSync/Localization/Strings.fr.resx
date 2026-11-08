@@ -5727,6 +5727,21 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
   <data name="Settings.ProfileBrowser.MyCharacter" xml:space="preserve">
     <value>Mon personnage</value>
   </data>
+  <data name="CharaDataHub.Profiles.Tab.All" xml:space="preserve">
+    <value>Tous</value>
+  </data>
+  <data name="CharaDataHub.Profiles.Tab.Mine" xml:space="preserve">
+    <value>Mes personnages</value>
+  </data>
+  <data name="CharaDataHub.Profiles.Tab.Others" xml:space="preserve">
+    <value>Autres profils</value>
+  </data>
+  <data name="Settings.ProfileBrowser.DeleteCharacter" xml:space="preserve">
+    <value>Supprimer</value>
+  </data>
+  <data name="Settings.ProfileBrowser.DeleteCharacter.Tooltip" xml:space="preserve">
+    <value>Maintenez Ctrl pour supprimer la fiche RP de {0} du serveur. Cette action est définitive.</value>
+  </data>
   <!-- RGPD / Vie privée -->
   <data name="Settings.Section.Privacy.Desc" xml:space="preserve">
     <value>Gérez vos données personnelles, vos consentements et exercez vos droits conformément au RGPD.</value>
