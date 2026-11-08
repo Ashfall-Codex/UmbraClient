@@ -13,6 +13,7 @@ using UmbraSync.Localization;
 using UmbraSync.MareConfiguration;
 using UmbraSync.MareConfiguration.Models;
 using UmbraSync.Modules.Housing.Services;
+using UmbraSync.Modules.Housing.UI;
 using UmbraSync.PlayerData.Factories;
 using UmbraSync.PlayerData.Pairs;
 using UmbraSync.Services;
@@ -44,6 +45,8 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
     private readonly HousingNpcScenarioService? _housingNpcScenarioService;
     private readonly HousingOwnershipService? _housingOwnershipService;
     private readonly StageShareManager? _stageShareManager;
+    private readonly DecorCatalogManager? _decorCatalogManager;
+    private readonly DecorReportPopupHandler? _decorReportPopup;
     private readonly HousingScenarioManager? _housingScenarioManager;
     private CancellationTokenSource? _closalCts = new();
     private bool _disableUI = false;
@@ -107,6 +110,7 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
         HousingFurniture,
         HousingNpc,
         Stages,
+        DecorCatalog,
     }
 
     private readonly SideRail _hubRail = new();
@@ -173,7 +177,9 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
                          HousingNpcScenarioService? housingNpcScenarioService = null,
                          HousingScenarioManager? housingScenarioManager = null,
                          HousingOwnershipService? housingOwnershipService = null,
-                         StageShareManager? stageShareManager = null)
+                         StageShareManager? stageShareManager = null,
+                         DecorCatalogManager? decorCatalogManager = null,
+                         DecorReportPopupHandler? decorReportPopup = null)
         : base(logger, mediator, $"{Loc.Get("CharaDataHub.WindowTitle")}###UmbraCharaDataUI", performanceCollectorService)
     {
         SetWindowSizeConstraints();
@@ -210,6 +216,8 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
         _housingScenarioManager = housingScenarioManager;
         _housingOwnershipService = housingOwnershipService;
         _stageShareManager = stageShareManager;
+        _decorCatalogManager = decorCatalogManager;
+        _decorReportPopup = decorReportPopup;
         _umbraProfileManager = umbraProfileManager;
         _apiController = apiController;
         _pairFactory = pairFactory;
@@ -288,6 +296,8 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
             CancelAndDispose(ref _disposalCts);
             _selfPair?.Dispose();
             _selfPair = null;
+            _decorCropEditor?.Dispose();
+            _decorCropEditor = null;
         }
 
         base.Dispose(disposing);
@@ -417,7 +427,7 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
         => page is HubPage.GposeTogether or HubPage.QuestSync or HubPage.GposeActors or HubPage.NearbyPoses or HubPage.ApplyData;
 
     private static bool IsCreationPage(HubPage page)
-        => page is HubPage.McdfData or HubPage.LiveData or HubPage.HousingFurniture or HubPage.HousingNpc or HubPage.Stages;
+        => page is HubPage.McdfData or HubPage.LiveData or HubPage.HousingFurniture or HubPage.HousingNpc or HubPage.Stages or HubPage.DecorCatalog;
 
     private List<SideRailEntry> BuildHubRail(bool inGpose)
     {
@@ -445,6 +455,8 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
             entries.Add(Page(HubPage.HousingNpc, "CharaDataHub.Nav.Npc", FontAwesomeIcon.Users, creation: true));
             if (_stageShareManager != null)
                 entries.Add(Page(HubPage.Stages, "CharaDataHub.Nav.Stages", FontAwesomeIcon.Cubes, creation: true));
+            if (_decorCatalogManager != null)
+                entries.Add(Page(HubPage.DecorCatalog, "CharaDataHub.Nav.DecorCatalog", FontAwesomeIcon.Store, creation: true));
         }
         return entries;
     }
@@ -499,6 +511,10 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
             case HubPage.Stages:
                 using (ImRaii.PushId("stages"))
                     DrawStagesPage();
+                break;
+            case HubPage.DecorCatalog:
+                using (ImRaii.PushId("decorCatalog"))
+                    DrawDecorCatalogPage();
                 break;
         }
     }

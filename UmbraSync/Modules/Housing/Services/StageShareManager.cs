@@ -1,4 +1,3 @@
-using MessagePack;
 using Microsoft.Extensions.Logging;
 using Stagehand.Api;
 using Stagehand.Definitions;
@@ -30,13 +29,20 @@ public sealed partial class StageShareManager : IDisposable
 {
     public const int MaxStageNameLength = 128;
     public const int MaxDescriptionLength = 1024;
-    private const byte PayloadVersion = 1;
     private const int MaxDefinitionJsonBytes = 8 * 1024 * 1024;
     private const int MaxFileCount = 2048;
     private const int MaxCipherBytes = 16 * 1024 * 1024;
     private const string DefaultStagesFolderName = "Stages";
 
-    public sealed record AppliedStage(Guid ShareId, string OwnerUid, string StageName, bool Visible);
+    public enum AppliedStageSource
+    {
+        Location,
+        Catalog,
+    }
+
+    public sealed record AppliedStage(Guid ShareId, string OwnerUid, string StageName, bool Visible, AppliedStageSource Source = AppliedStageSource.Location);
+
+    internal sealed record BuildResult(StageSharePlaintextV1? Plaintext, string? Path, int Skipped, string? ErrorKey, string? ErrorDetail = null);
 
     private readonly ILogger<StageShareManager> _logger;
     private readonly ApiController _apiController;
@@ -142,119 +148,17 @@ public sealed partial class StageShareManager : IDisposable
     {
         return RunOperation(async () =>
         {
-            if (!_stagehand.APIAvailable)
+            var build = await BuildPlaintextAsync(stage, ct).ConfigureAwait(false);
+            if (build.Plaintext == null || build.Path == null)
             {
-                LastError = Loc.Get("Stages.Error.StagehandMissing");
+                LastError = build.ErrorDetail ?? Loc.Get(build.ErrorKey ?? "Stages.Error.ParseFailed");
                 return;
-            }
-
-            string? path = ResolveLocalStagePath(stage);
-            if (path == null || !File.Exists(path))
-            {
-                LastError = Loc.Get("Stages.Error.FileNotFound");
-                return;
-            }
-
-            ProgressStatus = Loc.Get("Stages.Progress.Reading");
-            ProgressPercent = 0.05f;
-
-            string text = await File.ReadAllTextAsync(path, ct).ConfigureAwait(false);
-            JsonNode? root;
-            try
-            {
-                root = JsonNode.Parse(text);
-                using var validation = new MemoryStream(Encoding.UTF8.GetBytes(text));
-                if (root is not JsonObject || !StageDefinition.TryParseJSONStream(validation, out StageDefinition? parsed) || parsed == null)
-                    root = null;
-            }
-            catch (Exception ex) when (ex is System.Text.Json.JsonException or ArgumentException)
-            {
-                _logger.LogWarning(ex, "Stage local illisible");
-                root = null;
-            }
-
-            if (root == null)
-            {
-                LastError = Loc.Get("Stages.Error.ParseFailed");
-                return;
-            }
-
-            int formatVersion = StageDefinitionRewriter.ReadFormatVersion(root);
-            string stageName = StageDefinitionRewriter.ReadStageName(root);
-            if (string.IsNullOrWhiteSpace(stageName)) stageName = stage.Name;
-            if (string.IsNullOrWhiteSpace(stageName)) stageName = Path.GetFileNameWithoutExtension(path);
-            stageName = Truncate(stageName, MaxStageNameLength);
-
-            ProgressStatus = Loc.Get("Stages.Progress.Importing");
-            ProgressPercent = 0.10f;
-
-            var files = new List<StageShareFileRef>();
-            var hashes = new HashSet<string>(StringComparer.Ordinal);
-            int skipped = 0;
-            var resources = StageDefinitionRewriter.EnumerateResources(root);
-            for (int i = 0; i < resources.Count; i++)
-            {
-                ct.ThrowIfCancellationRequested();
-                var resource = resources[i];
-                ProgressPercent = 0.10f + 0.20f * i / Math.Max(1, resources.Count);
-                if (string.Equals(resource.Type, "Game", StringComparison.Ordinal)) continue;
-
-                (string Hash, long Size)? imported = await Task.Run(() => ImportResource(resource), ct).ConfigureAwait(false);
-                if (imported == null)
-                {
-                    StageDefinitionRewriter.RemoveResource(resource);
-                    skipped++;
-                    continue;
-                }
-
-                StageDefinitionRewriter.ReplaceWithMarker(resource.Node, imported.Value.Hash);
-                hashes.Add(imported.Value.Hash);
-                files.Add(new StageShareFileRef { Hash = imported.Value.Hash, Size = imported.Value.Size, GamePath = resource.GamePath });
-            }
-
-            if (files.Count > MaxFileCount)
-            {
-                LastError = Loc.Get("Stages.Error.TooLarge");
-                return;
-            }
-
-            if (hashes.Count > 0)
-            {
-                ProgressStatus = Loc.Get("Stages.Progress.Uploading");
-                ProgressPercent = 0.35f;
-                var uploadProgress = new Progress<string>(status => ProgressStatus = status);
-                var missingLocally = await _fileUploadManager.UploadFiles([.. hashes], uploadProgress, ct).ConfigureAwait(false);
-                if (missingLocally.Count > 0)
-                {
-                    _logger.LogWarning("{Count} fichiers manquants localement lors de l'envoi du Stage", missingLocally.Count);
-                    LastError = string.Format(CultureInfo.CurrentCulture, Loc.Get("Stages.Error.UploadFailed"), missingLocally.Count);
-                    return;
-                }
             }
 
             ProgressStatus = Loc.Get("Stages.Progress.Publishing");
             ProgressPercent = 0.80f;
 
-            var plaintext = new StageSharePlaintextV1
-            {
-                StageName = stageName,
-                StageFormatVersion = formatVersion,
-                DefinitionJson = root.ToJsonString(),
-                Translation = [stage.Translation.X, stage.Translation.Y, stage.Translation.Z],
-                Rotation = [stage.Rotation.X, stage.Rotation.Y, stage.Rotation.Z, stage.Rotation.W],
-                UniformScale = stage.UniformScale,
-                Files = files,
-            };
-            if (Encoding.UTF8.GetByteCount(plaintext.DefinitionJson) > MaxDefinitionJsonBytes)
-            {
-                LastError = Loc.Get("Stages.Error.TooLarge");
-                return;
-            }
-
-            byte[] body = MessagePackSerializer.Serialize(plaintext, cancellationToken: ct);
-            byte[] dataBytes = new byte[1 + body.Length];
-            dataBytes[0] = PayloadVersion;
-            Buffer.BlockCopy(body, 0, dataBytes, 1, body.Length);
+            byte[] dataBytes = StageSharePayloadCodec.Encode(build.Plaintext);
             if (dataBytes.Length > MaxCipherBytes)
             {
                 LastError = Loc.Get("Stages.Error.TooLarge");
@@ -283,20 +187,116 @@ public sealed partial class StageShareManager : IDisposable
                 Tag = tag,
                 AllowedIndividuals = allowedIndividuals,
                 AllowedSyncshells = allowedSyncshells,
-                StageName = stageName,
-                StageFormatVersion = formatVersion,
+                StageName = build.Plaintext.StageName,
+                StageFormatVersion = build.Plaintext.StageFormatVersion,
             }).ConfigureAwait(false);
 
-            _configService.Current.StageShareSourceFiles[shareId.ToString()] = path;
+            _configService.Current.StageShareSourceFiles[shareId.ToString()] = build.Path;
             _configService.Save();
             _pendingRepublish.TryRemove(shareId, out _);
 
             await InternalRefreshAsync().ConfigureAwait(false);
-            LastSuccess = skipped > 0
-                ? string.Format(CultureInfo.CurrentCulture, Loc.Get("Stages.Success.PublishedSkipped"), files.Count, skipped)
-                : string.Format(CultureInfo.CurrentCulture, Loc.Get("Stages.Success.Published"), files.Count);
+            LastSuccess = build.Skipped > 0
+                ? string.Format(CultureInfo.CurrentCulture, Loc.Get("Stages.Success.PublishedSkipped"), build.Plaintext.Files.Count, build.Skipped)
+                : string.Format(CultureInfo.CurrentCulture, Loc.Get("Stages.Success.Published"), build.Plaintext.Files.Count);
             _mediator.Publish(new NotificationMessage(Loc.Get("Stages.Notification.Title"), LastSuccess, NotificationType.Info));
         });
+    }
+
+    internal async Task<BuildResult> BuildPlaintextAsync(LocalStageDefinition stage, CancellationToken ct)
+    {
+        if (!_stagehand.APIAvailable)
+            return new BuildResult(null, null, 0, "Stages.Error.StagehandMissing");
+
+        string? path = ResolveLocalStagePath(stage);
+        if (path == null || !File.Exists(path))
+            return new BuildResult(null, null, 0, "Stages.Error.FileNotFound");
+
+        ProgressStatus = Loc.Get("Stages.Progress.Reading");
+        ProgressPercent = 0.05f;
+
+        string text = await File.ReadAllTextAsync(path, ct).ConfigureAwait(false);
+        JsonNode? root;
+        try
+        {
+            root = JsonNode.Parse(text);
+            using var validation = new MemoryStream(Encoding.UTF8.GetBytes(text));
+            if (root is not JsonObject || !StageDefinition.TryParseJSONStream(validation, out StageDefinition? parsed) || parsed == null)
+                root = null;
+        }
+        catch (Exception ex) when (ex is System.Text.Json.JsonException or ArgumentException)
+        {
+            _logger.LogWarning(ex, "Stage local illisible");
+            root = null;
+        }
+
+        if (root == null)
+            return new BuildResult(null, path, 0, "Stages.Error.ParseFailed");
+
+        int formatVersion = StageDefinitionRewriter.ReadFormatVersion(root);
+        string stageName = StageDefinitionRewriter.ReadStageName(root);
+        if (string.IsNullOrWhiteSpace(stageName)) stageName = stage.Name;
+        if (string.IsNullOrWhiteSpace(stageName)) stageName = Path.GetFileNameWithoutExtension(path);
+        stageName = Truncate(stageName, MaxStageNameLength);
+
+        ProgressStatus = Loc.Get("Stages.Progress.Importing");
+        ProgressPercent = 0.10f;
+
+        var files = new List<StageShareFileRef>();
+        var hashes = new HashSet<string>(StringComparer.Ordinal);
+        int skipped = 0;
+        var resources = StageDefinitionRewriter.EnumerateResources(root);
+        for (int i = 0; i < resources.Count; i++)
+        {
+            ct.ThrowIfCancellationRequested();
+            var resource = resources[i];
+            ProgressPercent = 0.10f + 0.20f * i / Math.Max(1, resources.Count);
+            if (string.Equals(resource.Type, "Game", StringComparison.Ordinal)) continue;
+
+            (string Hash, long Size)? imported = await Task.Run(() => ImportResource(resource), ct).ConfigureAwait(false);
+            if (imported == null)
+            {
+                StageDefinitionRewriter.RemoveResource(resource);
+                skipped++;
+                continue;
+            }
+
+            StageDefinitionRewriter.ReplaceWithMarker(resource.Node, imported.Value.Hash);
+            hashes.Add(imported.Value.Hash);
+            files.Add(new StageShareFileRef { Hash = imported.Value.Hash, Size = imported.Value.Size, GamePath = resource.GamePath });
+        }
+
+        if (files.Count > MaxFileCount)
+            return new BuildResult(null, path, skipped, "Stages.Error.TooLarge");
+
+        if (hashes.Count > 0)
+        {
+            ProgressStatus = Loc.Get("Stages.Progress.Uploading");
+            ProgressPercent = 0.35f;
+            var uploadProgress = new Progress<string>(status => ProgressStatus = status);
+            var missingLocally = await _fileUploadManager.UploadFiles([.. hashes], uploadProgress, ct).ConfigureAwait(false);
+            if (missingLocally.Count > 0)
+            {
+                _logger.LogWarning("{Count} fichiers manquants localement lors de l'envoi du Stage", missingLocally.Count);
+                return new BuildResult(null, path, skipped, "Stages.Error.UploadFailed",
+                    string.Format(CultureInfo.CurrentCulture, Loc.Get("Stages.Error.UploadFailed"), missingLocally.Count));
+            }
+        }
+
+        var plaintext = new StageSharePlaintextV1
+        {
+            StageName = stageName,
+            StageFormatVersion = formatVersion,
+            DefinitionJson = root.ToJsonString(),
+            Translation = [stage.Translation.X, stage.Translation.Y, stage.Translation.Z],
+            Rotation = [stage.Rotation.X, stage.Rotation.Y, stage.Rotation.Z, stage.Rotation.W],
+            UniformScale = stage.UniformScale,
+            Files = files,
+        };
+        if (Encoding.UTF8.GetByteCount(plaintext.DefinitionJson) > MaxDefinitionJsonBytes)
+            return new BuildResult(null, path, skipped, "Stages.Error.TooLarge");
+
+        return new BuildResult(plaintext, path, skipped, null);
     }
 
     private (string Hash, long Size)? ImportResource(StageDefinitionRewriter.ModResource resource)
@@ -481,7 +481,7 @@ public sealed partial class StageShareManager : IDisposable
             _availableStages = shares;
 
             var wanted = new HashSet<Guid>(shares.Select(s => s.Id));
-            foreach (var applied in _appliedStages.Where(a => !wanted.Contains(a.ShareId)).ToList())
+            foreach (var applied in _appliedStages.Where(a => a.Source == AppliedStageSource.Location && !wanted.Contains(a.ShareId)).ToList())
             {
                 await RemoveAppliedInternalAsync(applied).ConfigureAwait(false);
             }
@@ -501,21 +501,64 @@ public sealed partial class StageShareManager : IDisposable
         var entry = _availableStages.FirstOrDefault(s => s.Id == shareId);
         if (entry == null || !_stagehand.APIAvailable) return;
 
-        foreach (var other in _appliedStages.Where(a => a.Visible && a.ShareId != shareId).ToList())
-        {
-            if (await _stagehand.SetTemporaryStageVisibleAsync(StageIdFor(other.ShareId), false).ConfigureAwait(false))
-                _appliedStages = [.. _appliedStages.Select(a => a.ShareId == other.ShareId ? a with { Visible = false } : a)];
-        }
+        await HideOthersAsync(shareId).ConfigureAwait(false);
 
         var applied = _appliedStages.FirstOrDefault(a => a.ShareId == shareId);
         if (applied != null)
         {
-            if (await _stagehand.SetTemporaryStageVisibleAsync(StageIdFor(shareId), true).ConfigureAwait(false))
-                _appliedStages = [.. _appliedStages.Select(a => a.ShareId == shareId ? a with { Visible = true } : a)];
+            await SetAppliedVisibleAsync(applied, true).ConfigureAwait(false);
             return;
         }
 
         await ApplyShareAsync(entry, ct).ConfigureAwait(false);
+    }
+
+    public Task ShowExternalAsync(Guid id, StageSharePlaintextV1 plaintext, Vector3 translation, string ownerUid, string name, CancellationToken ct = default)
+    {
+        return RunOperation(async () =>
+        {
+            if (!_stagehand.APIAvailable)
+            {
+                LastError = Loc.Get("Stages.Error.StagehandMissing");
+                return;
+            }
+
+            await HideOthersAsync(id).ConfigureAwait(false);
+
+            var applied = _appliedStages.FirstOrDefault(a => a.ShareId == id);
+            if (applied != null)
+            {
+                await SetAppliedVisibleAsync(applied, true).ConfigureAwait(false);
+                return;
+            }
+
+            await ApplyPlaintextAsync(new AppliedStage(id, ownerUid, name, true, AppliedStageSource.Catalog), plaintext, translation, ct).ConfigureAwait(false);
+        });
+    }
+
+    public Task ShowAppliedAsync(Guid id)
+    {
+        return RunOperation(async () =>
+        {
+            var applied = _appliedStages.FirstOrDefault(a => a.ShareId == id);
+            if (applied == null || !_stagehand.APIAvailable) return;
+            await HideOthersAsync(id).ConfigureAwait(false);
+            await SetAppliedVisibleAsync(applied, true).ConfigureAwait(false);
+        });
+    }
+
+    private async Task HideOthersAsync(Guid keep)
+    {
+        foreach (var other in _appliedStages.Where(a => a.Visible && a.ShareId != keep).ToList())
+        {
+            await SetAppliedVisibleAsync(other, false).ConfigureAwait(false);
+        }
+    }
+
+    private async Task SetAppliedVisibleAsync(AppliedStage applied, bool visible)
+    {
+        if (await _stagehand.SetTemporaryStageVisibleAsync(StageIdFor(applied), visible).ConfigureAwait(false))
+            _appliedStages = [.. _appliedStages.Select(a => a.ShareId == applied.ShareId ? a with { Visible = visible } : a)];
     }
 
     public Task HideStageAsync(Guid shareId)
@@ -524,8 +567,7 @@ public sealed partial class StageShareManager : IDisposable
         {
             var applied = _appliedStages.FirstOrDefault(a => a.ShareId == shareId);
             if (applied == null || !applied.Visible) return;
-            if (await _stagehand.SetTemporaryStageVisibleAsync(StageIdFor(shareId), false).ConfigureAwait(false))
-                _appliedStages = [.. _appliedStages.Select(a => a.ShareId == shareId ? a with { Visible = false } : a)];
+            await SetAppliedVisibleAsync(applied, false).ConfigureAwait(false);
         });
     }
 
@@ -561,25 +603,20 @@ public sealed partial class StageShareManager : IDisposable
             return;
         }
 
-        if (plaintextBytes.Length < 2 || plaintextBytes[0] != PayloadVersion)
+        var plaintext = StageSharePayloadCodec.TryDecode(plaintextBytes);
+        if (plaintext == null)
         {
-            _logger.LogWarning("Version de Stage inconnue pour {ShareId}", share.Id);
+            _logger.LogWarning("Contenu de Stage illisible pour {ShareId}", share.Id);
             return;
         }
 
-        StageSharePlaintextV1? plaintext;
-        try
-        {
-            plaintext = MessagePackSerializer.Deserialize<StageSharePlaintextV1>(
-                new ReadOnlyMemory<byte>(plaintextBytes, 1, plaintextBytes.Length - 1), cancellationToken: ct);
-        }
-        catch (MessagePackSerializationException ex)
-        {
-            _logger.LogWarning(ex, "Contenu de Stage illisible pour {ShareId}", share.Id);
-            return;
-        }
-        if (plaintext == null || string.IsNullOrEmpty(plaintext.DefinitionJson)) return;
+        float[] t = plaintext.Translation is { Length: 3 } ? plaintext.Translation : [0f, 0f, 0f];
+        string stageName = string.IsNullOrWhiteSpace(plaintext.StageName) ? share.StageName : plaintext.StageName;
+        await ApplyPlaintextAsync(new AppliedStage(share.Id, share.OwnerUid, stageName, true), plaintext, new Vector3(t[0], t[1], t[2]), ct).ConfigureAwait(false);
+    }
 
+    private async Task<bool> ApplyPlaintextAsync(AppliedStage target, StageSharePlaintextV1 plaintext, Vector3 translation, CancellationToken ct)
+    {
         JsonNode? root;
         try
         {
@@ -587,37 +624,36 @@ public sealed partial class StageShareManager : IDisposable
         }
         catch (System.Text.Json.JsonException ex)
         {
-            _logger.LogWarning(ex, "Définition de Stage illisible pour {ShareId}", share.Id);
-            return;
+            _logger.LogWarning(ex, "Définition de Stage illisible pour {ShareId}", target.ShareId);
+            return false;
         }
-        if (root == null) return;
+        if (root == null) return false;
 
-        var resolved = await ResolveFilesAsync(share.Id, plaintext.Files ?? [], ct).ConfigureAwait(false);
+        var resolved = await ResolveFilesAsync(target.ShareId, plaintext.Files ?? [], ct).ConfigureAwait(false);
         int count = StageDefinitionRewriter.ResolveMarkers(root, hash => resolved.TryGetValue(hash, out string? p) ? p : null, out var unresolved);
         if (unresolved.Count > 0)
-            _logger.LogWarning("Stage {ShareId} : {Count} ressources non résolues retirées", share.Id, unresolved.Count);
-        _logger.LogDebug("Stage {ShareId} : {Count} ressources résolues", share.Id, count);
+            _logger.LogWarning("Stage {ShareId} : {Count} ressources non résolues retirées", target.ShareId, unresolved.Count);
+        _logger.LogDebug("Stage {ShareId} : {Count} ressources résolues", target.ShareId, count);
 
         ProgressStatus = Loc.Get("Stages.Progress.Applying");
         ProgressPercent = 0.90f;
 
-        float[] t = plaintext.Translation is { Length: 3 } ? plaintext.Translation : [0f, 0f, 0f];
         float[] r = plaintext.Rotation is { Length: 4 } ? plaintext.Rotation : [0f, 0f, 0f, 1f];
-        string stageId = StageIdFor(share.Id);
-        string stageName = string.IsNullOrWhiteSpace(plaintext.StageName) ? share.StageName : plaintext.StageName;
+        string stageId = StageIdFor(target);
         bool created = await _stagehand.CreateOrUpdateTemporaryStageAsync(stageId, root.ToJsonString(),
-            new Vector3(t[0], t[1], t[2]), new Quaternion(r[0], r[1], r[2], r[3]), plaintext.UniformScale <= 0f ? 1f : plaintext.UniformScale,
-            "UmbraSync " + stageName).ConfigureAwait(false);
+            translation, new Quaternion(r[0], r[1], r[2], r[3]), plaintext.UniformScale <= 0f ? 1f : plaintext.UniformScale,
+            "UmbraSync " + target.StageName).ConfigureAwait(false);
         if (!created)
         {
             LastError = Loc.Get("Stages.Error.ApplyFailed");
-            return;
+            return false;
         }
 
         await _stagehand.SetTemporaryStageVisibleAsync(stageId, true).ConfigureAwait(false);
-        _appliedStages = [.. _appliedStages, new AppliedStage(share.Id, share.OwnerUid, stageName, true)];
-        _logger.LogInformation("Stage {ShareId} appliqué", share.Id);
-        _mediator.Publish(new StageAppliedMessage(share.Id, share.OwnerUid, stageName));
+        _appliedStages = [.. _appliedStages.Where(a => a.ShareId != target.ShareId), target with { Visible = true }];
+        _logger.LogInformation("Stage {ShareId} appliqué", target.ShareId);
+        _mediator.Publish(new StageAppliedMessage(target.ShareId, target.OwnerUid, target.StageName));
+        return true;
     }
 
     private async Task<Dictionary<string, string>> ResolveFilesAsync(Guid shareId, List<StageShareFileRef> files, CancellationToken ct)
@@ -675,7 +711,7 @@ public sealed partial class StageShareManager : IDisposable
 
     private async Task RemoveAppliedInternalAsync(AppliedStage applied)
     {
-        await _stagehand.DestroyTemporaryStageAsync(StageIdFor(applied.ShareId)).ConfigureAwait(false);
+        await _stagehand.DestroyTemporaryStageAsync(StageIdFor(applied)).ConfigureAwait(false);
         _appliedStages = [.. _appliedStages.Where(a => a.ShareId != applied.ShareId)];
         _mediator.Publish(new StageRemovedMessage(applied.ShareId));
     }
@@ -688,7 +724,10 @@ public sealed partial class StageShareManager : IDisposable
             _mediator.Publish(new StageRemovedMessage(applied.ShareId));
     }
 
-    private static string StageIdFor(Guid shareId) => $"{IpcCallerStagehand.TemporaryStageIdPrefix}{shareId:N}";
+    private static string StageIdFor(AppliedStage applied)
+        => applied.Source == AppliedStageSource.Catalog
+            ? $"{IpcCallerStagehand.TemporaryStageIdPrefix}Catalog_{applied.ShareId:N}"
+            : $"{IpcCallerStagehand.TemporaryStageIdPrefix}{applied.ShareId:N}";
 
     private Task RunOperation(Func<Task> operation)
     {

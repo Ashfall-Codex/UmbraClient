@@ -8038,6 +8038,222 @@ Experimental: these hooks are low level; if anything goes wrong, turn this off (
   <data name="CharaDataHub.Nav.Stages" xml:space="preserve">
     <value>Stages</value>
   </data>
+  <data name="CharaDataHub.Nav.DecorCatalog" xml:space="preserve">
+    <value>Catalogue</value>
+  </data>
+  <data name="DecorCatalog.Title" xml:space="preserve">
+    <value>Decor catalogue</value>
+  </data>
+  <data name="DecorCatalog.Intro" xml:space="preserve">
+    <value>Browse decors published by the community and display one where you stand. Nothing is written to your Stagehand library.</value>
+  </data>
+  <data name="DecorCatalog.StagehandMissing" xml:space="preserve">
+    <value>Stagehand is required to display a decor. You can still browse the catalogue.</value>
+  </data>
+  <data name="DecorCatalog.Processing" xml:space="preserve">
+    <value>Processing…</value>
+  </data>
+  <data name="DecorCatalog.Search.Hint" xml:space="preserve">
+    <value>Search decors…</value>
+  </data>
+  <data name="DecorCatalog.Sort.Recent" xml:space="preserve">
+    <value>Recent</value>
+  </data>
+  <data name="DecorCatalog.Sort.Popular" xml:space="preserve">
+    <value>Most displayed</value>
+  </data>
+  <data name="DecorCatalog.Sort.MostFavorited" xml:space="preserve">
+    <value>Most favourited</value>
+  </data>
+  <data name="DecorCatalog.Tab.All" xml:space="preserve">
+    <value>All</value>
+  </data>
+  <data name="DecorCatalog.Tab.Favorites" xml:space="preserve">
+    <value>Favourites</value>
+  </data>
+  <data name="DecorCatalog.Tab.Mine" xml:space="preserve">
+    <value>My decors</value>
+  </data>
+  <data name="DecorCatalog.Refresh" xml:space="preserve">
+    <value>Refresh</value>
+  </data>
+  <data name="DecorCatalog.Page" xml:space="preserve">
+    <value>Page {0}/{1} ({2})</value>
+  </data>
+  <data name="DecorCatalog.Empty" xml:space="preserve">
+    <value>No decor matches.</value>
+  </data>
+  <data name="DecorCatalog.Empty.Favorites" xml:space="preserve">
+    <value>You have no favourites yet.</value>
+  </data>
+  <data name="DecorCatalog.Empty.Mine" xml:space="preserve">
+    <value>You have not published anything yet.</value>
+  </data>
+  <data name="DecorCatalog.By" xml:space="preserve">
+    <value>by {0}</value>
+  </data>
+  <data name="DecorCatalog.Displays" xml:space="preserve">
+    <value>{0} display(s)</value>
+  </data>
+  <data name="DecorCatalog.Favorites.Count" xml:space="preserve">
+    <value>{0} favourite(s)</value>
+  </data>
+  <data name="DecorCatalog.Files" xml:space="preserve">
+    <value>{0} file(s), {1}</value>
+  </data>
+  <data name="DecorCatalog.Favorite.Add" xml:space="preserve">
+    <value>Add to favourites</value>
+  </data>
+  <data name="DecorCatalog.Favorite.Remove" xml:space="preserve">
+    <value>Remove from favourites</value>
+  </data>
+  <data name="DecorCatalog.DisplayHere" xml:space="preserve">
+    <value>Display here</value>
+  </data>
+  <data name="DecorCatalog.DisplayHere.Tooltip" xml:space="preserve">
+    <value>The decor is displayed temporarily at your position, replacing the one already displayed. It disappears when you change location.</value>
+  </data>
+  <data name="DecorCatalog.Hide" xml:space="preserve">
+    <value>Hide</value>
+  </data>
+  <data name="DecorCatalog.AppliedOrigin" xml:space="preserve">
+    <value>Catalogue</value>
+  </data>
+  <data name="DecorCatalog.Edit" xml:space="preserve">
+    <value>Edit</value>
+  </data>
+  <data name="DecorCatalog.Edit.Title" xml:space="preserve">
+    <value>Edit “{0}”</value>
+  </data>
+  <data name="DecorCatalog.Edit.Save" xml:space="preserve">
+    <value>Save</value>
+  </data>
+  <data name="DecorCatalog.Edit.Cancel" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="DecorCatalog.Delete" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="DecorCatalog.Delete.Tooltip" xml:space="preserve">
+    <value>Hold Ctrl to remove this decor from the catalogue.</value>
+  </data>
+  <data name="DecorCatalog.UpdateContent" xml:space="preserve">
+    <value>Update content</value>
+  </data>
+  <data name="DecorCatalog.UpdateContent.Tooltip" xml:space="preserve">
+    <value>Sends the decor again from your local file, without changing the card.</value>
+  </data>
+  <data name="DecorCatalog.Publish.Title" xml:space="preserve">
+    <value>Publish to the catalogue</value>
+  </data>
+  <data name="DecorCatalog.Publish" xml:space="preserve">
+    <value>Publish</value>
+  </data>
+  <data name="DecorCatalog.Publish.Tooltip" xml:space="preserve">
+    <value>The decor will be visible to every user, anchored at your current position.</value>
+  </data>
+  <data name="DecorCatalog.Name" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="DecorCatalog.Name.Hint" xml:space="preserve">
+    <value>Decor name</value>
+  </data>
+  <data name="DecorCatalog.Description" xml:space="preserve">
+    <value>Description</value>
+  </data>
+  <data name="DecorCatalog.Description.Hint" xml:space="preserve">
+    <value>Describe your decor…</value>
+  </data>
+  <data name="DecorCatalog.Preview" xml:space="preserve">
+    <value>Preview</value>
+  </data>
+  <data name="DecorCatalog.Preview.Select" xml:space="preserve">
+    <value>Choose an image</value>
+  </data>
+  <data name="DecorCatalog.Preview.Change" xml:space="preserve">
+    <value>Change the image</value>
+  </data>
+  <data name="DecorCatalog.Preview.Remove" xml:space="preserve">
+    <value>Remove the image</value>
+  </data>
+  <data name="DecorCatalog.Preview.None" xml:space="preserve">
+    <value>No preview</value>
+  </data>
+  <data name="DecorCatalog.Preview.Kept" xml:space="preserve">
+    <value>Current preview kept</value>
+  </data>
+  <data name="DecorCatalog.Preview.Removed" xml:space="preserve">
+    <value>Preview removed on save</value>
+  </data>
+  <data name="DecorCatalog.Preview.New" xml:space="preserve">
+    <value>New image ready</value>
+  </data>
+  <data name="DecorCatalog.Preview.Error" xml:space="preserve">
+    <value>This image could not be read.</value>
+  </data>
+  <data name="DecorCatalog.Preview.Dialog" xml:space="preserve">
+    <value>Choose the decor preview</value>
+  </data>
+  <data name="DecorCatalog.Report" xml:space="preserve">
+    <value>Report this decor</value>
+  </data>
+  <data name="DecorCatalog.Report.Title" xml:space="preserve">
+    <value>Report “{0}”</value>
+  </data>
+  <data name="DecorCatalog.Report.Note" xml:space="preserve">
+    <value>Describe what is wrong. The report goes to the moderators, who can remove the decor.</value>
+  </data>
+  <data name="DecorCatalog.Report.Submit" xml:space="preserve">
+    <value>Send the report</value>
+  </data>
+  <data name="DecorCatalog.Error.ListFailed" xml:space="preserve">
+    <value>The catalogue could not be loaded.</value>
+  </data>
+  <data name="DecorCatalog.Error.StagehandMissing" xml:space="preserve">
+    <value>Stagehand is not loaded.</value>
+  </data>
+  <data name="DecorCatalog.Error.PositionUnknown" xml:space="preserve">
+    <value>Your position is unknown.</value>
+  </data>
+  <data name="DecorCatalog.Error.TooLarge" xml:space="preserve">
+    <value>This decor is too large for the catalogue.</value>
+  </data>
+  <data name="DecorCatalog.Error.PublishRefused" xml:space="preserve">
+    <value>The server refused the publication (20 decors quota reached, empty name or decor too large).</value>
+  </data>
+  <data name="DecorCatalog.Error.UpdateFailed" xml:space="preserve">
+    <value>The update failed.</value>
+  </data>
+  <data name="DecorCatalog.Error.DeleteFailed" xml:space="preserve">
+    <value>The deletion failed.</value>
+  </data>
+  <data name="DecorCatalog.Error.ContentUnreadable" xml:space="preserve">
+    <value>The content of this decor is unreadable.</value>
+  </data>
+  <data name="DecorCatalog.Error.FormatTooRecent" xml:space="preserve">
+    <value>This decor requires a more recent Stagehand version.</value>
+  </data>
+  <data name="DecorCatalog.Success.Published" xml:space="preserve">
+    <value>Decor published to the catalogue.</value>
+  </data>
+  <data name="DecorCatalog.Success.PublishedSkipped" xml:space="preserve">
+    <value>Decor published to the catalogue ({0} missing resource(s) skipped).</value>
+  </data>
+  <data name="DecorCatalog.Success.Updated" xml:space="preserve">
+    <value>Card updated.</value>
+  </data>
+  <data name="DecorCatalog.Success.Deleted" xml:space="preserve">
+    <value>Decor removed from the catalogue.</value>
+  </data>
+  <data name="DecorCatalog.Success.Displayed" xml:space="preserve">
+    <value>Decor displayed at your position.</value>
+  </data>
+  <data name="DecorCatalog.Success.Reported" xml:space="preserve">
+    <value>Report sent.</value>
+  </data>
+  <data name="DecorCatalog.Notification.Title" xml:space="preserve">
+    <value>Decor catalogue</value>
+  </data>
   <data name="Stages.Title" xml:space="preserve">
     <value>Shared Stages</value>
   </data>
@@ -8733,6 +8949,9 @@ WARNING: this cannot be undone.</value>
   </data>
   <data name="ProfileImageCrop.TitlePortrait" xml:space="preserve">
     <value>Crop portrait</value>
+  </data>
+  <data name="ProfileImageCrop.TitleDecorPreview" xml:space="preserve">
+    <value>Crop the preview</value>
   </data>
   <data name="ProfileImageCrop.Hint" xml:space="preserve">
     <value>Drag the image to frame it, use the mouse wheel to zoom.</value>

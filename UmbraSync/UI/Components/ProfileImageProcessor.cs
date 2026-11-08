@@ -14,6 +14,7 @@ public enum ProfileImageKind
 {
     Portrait,
     Banner,
+    DecorPreview,
 }
 
 // Cadrage normalisé : centre en fraction de la source, et zoom (1 = plus grand cadre au bon ratio qui tient dans l'image).
@@ -103,6 +104,7 @@ public static class ProfileImageProcessor
     public const int MaxSourceBytes = 32 * 1024 * 1024;
     public const int BannerMaxBytes = 1536 * 1024;
     public const int PortraitMaxBytes = 1024 * 1024;
+    public const int DecorPreviewMaxBytes = 512 * 1024;
 
     private const long MaxSourcePixels = 50_000_000;
     private const int WorkingMaxDimension = 2048;
@@ -119,7 +121,12 @@ public static class ProfileImageProcessor
     private static readonly JpegEncoder PhotoEncoder = new() { Quality = JpegQuality };
 
     public static Size TargetSize(ProfileImageKind kind)
-        => kind == ProfileImageKind.Banner ? new Size(1200, 250) : new Size(512, 512);
+        => kind switch
+        {
+            ProfileImageKind.Banner => new Size(1200, 250),
+            ProfileImageKind.DecorPreview => new Size(640, 360),
+            _ => new Size(512, 512),
+        };
 
     public static float TargetAspect(ProfileImageKind kind)
     {
@@ -128,7 +135,12 @@ public static class ProfileImageProcessor
     }
 
     public static int MaxOutputBytes(ProfileImageKind kind)
-        => kind == ProfileImageKind.Banner ? BannerMaxBytes : PortraitMaxBytes;
+        => kind switch
+        {
+            ProfileImageKind.Banner => BannerMaxBytes,
+            ProfileImageKind.DecorPreview => DecorPreviewMaxBytes,
+            _ => PortraitMaxBytes,
+        };
 
     public static ProfileImageSource? TryLoad(byte[] file)
     {

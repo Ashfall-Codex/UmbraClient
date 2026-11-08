@@ -34,6 +34,8 @@ public sealed class HousingModule : IUmbraModule
         services.AddSingleton<HousingOwnershipService>();
         services.AddSingleton<StageShareManager>();
         services.AddSingleton<StageShareSyncService>();
+        services.AddSingleton<DecorCatalogManager>();
+        services.AddSingleton<DecorReportPopupHandler>();
 
         services.AddHostedService(sp => sp.GetRequiredService<HousingFurnitureSyncService>());
         services.AddHostedService(sp => sp.GetRequiredService<HousingScenarioSyncService>());

@@ -331,7 +331,8 @@ public sealed partial class CharaDataHubUi
         UiSharedService.BeginSectionCard(Loc.Get("Stages.AppliedHere"), FontAwesomeIcon.Eye);
 
         var available = manager.AvailableStages;
-        if (available.Count == 0)
+        bool catalogApplied = manager.AppliedStages.Any(a => a.Source == StageShareManager.AppliedStageSource.Catalog);
+        if (available.Count == 0 && !catalogApplied)
         {
             ImGui.TextDisabled(Loc.Get("Stages.NoneApplied"));
             return;
@@ -360,6 +361,7 @@ public sealed partial class CharaDataHubUi
             ImGui.SameLine();
             ImGui.TextDisabled(FormatPairLabel(entry.OwnerUid));
         }
+        DrawCatalogAppliedRows(manager);
 
         if (applied.Count == 0) return;
         ImGuiHelpers.ScaledDummy(3);

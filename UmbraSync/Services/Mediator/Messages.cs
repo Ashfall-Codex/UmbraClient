@@ -166,6 +166,7 @@ public record StageAppliedMessage(Guid ShareId, string OwnerUid, string StageNam
 public record StageRemovedMessage(Guid ShareId) : MessageBase;
 public record StageSyncPreferenceChangedMessage : MessageBase;
 public record OpenStagesHubMessage : MessageBase;
+public record OpenPopupHandlerMessage(UI.Components.Popup.IPopupHandler Handler) : MessageBase;
 public record ManualPairInviteMessage(string SourceUid, string SourceAlias, string TargetUid, string? DisplayName, string InviteId) : MessageBase;
 public record PairRequestAcceptedMessage(UserData Acceptor) : MessageBase;
 public record FilesReUploadRequestedMessage(List<string> Hashes) : MessageBase;
