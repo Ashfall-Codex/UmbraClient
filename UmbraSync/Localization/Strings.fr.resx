@@ -7519,7 +7519,7 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
     <value>Inactif au prochain rechargement</value>
   </data>
   <data name="Modules.Rp.Title" xml:space="preserve">
-    <value>Roleplay</value>
+    <value>RôlePlay</value>
   </data>
   <data name="Modules.Rp.Desc" xml:space="preserve">
     <value>Fiches RP, noms RP dans le chat et sur les plaques, établissements, RP sauvage et Ashfall Connect.</value>
