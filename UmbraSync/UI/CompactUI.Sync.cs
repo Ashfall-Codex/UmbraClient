@@ -9,6 +9,7 @@ using UmbraSync.Localization;
 using UmbraSync.Services;
 using UmbraSync.Services.Mediator;
 
+using UmbraSync.Modules;
 namespace UmbraSync.UI;
 
 public partial class CompactUi
@@ -27,25 +28,29 @@ public partial class CompactUi
             var vfxLabel = Loc.Get("CompactUi.SyncDefaults.VfxLabel");
             var housingLabel = Loc.Get("CompactUi.SyncDefaults.HousingLabel");
             var scenarioLabel = Loc.Get("CompactUi.SyncDefaults.ScenarioLabel");
+            var stagesLabel = Loc.Get("CompactUi.SyncDefaults.StagesLabel");
             var soundSubject = Loc.Get("CompactUi.SyncDefaults.AudioSubject");
             var animSubject = Loc.Get("CompactUi.SyncDefaults.AnimationSubject");
             var vfxSubject = Loc.Get("CompactUi.SyncDefaults.VfxSubject");
             var housingSubject = Loc.Get("CompactUi.SyncDefaults.HousingSubject");
             var scenarioSubject = Loc.Get("CompactUi.SyncDefaults.ScenarioSubject");
+            var stagesSubject = Loc.Get("CompactUi.SyncDefaults.StagesSubject");
 
             bool soundsDisabled = _configService.Current.DefaultDisableSounds;
             bool animsDisabled = _configService.Current.DefaultDisableAnimations;
             bool vfxDisabled = _configService.Current.DefaultDisableVfx;
             bool housingDisabled = _configService.Current.DefaultDisableHousingMods;
             bool scenariosDisabled = _configService.Current.DefaultDisableHousingScenarios;
+            bool stagesDisabled = _configService.Current.DefaultDisableStages;
             bool showNearby = _configService.Current.EnableAutoDetectDiscovery;
-            int pendingInvites = _nearbyPending.Pending.Count;
+            int pendingInvites = _nearbyPending?.Pending.Count ?? 0;
 
             var soundIcon = soundsDisabled ? FontAwesomeIcon.VolumeMute : FontAwesomeIcon.VolumeUp;
             var animIcon = animsDisabled ? FontAwesomeIcon.WindowClose : FontAwesomeIcon.Running;
             var vfxIcon = vfxDisabled ? FontAwesomeIcon.TimesCircle : FontAwesomeIcon.Sun;
             var housingIcon = housingDisabled ? FontAwesomeIcon.TimesCircle : FontAwesomeIcon.Home;
             var scenarioIcon = scenariosDisabled ? FontAwesomeIcon.UserSlash : FontAwesomeIcon.UserFriends;
+            var stagesIcon = stagesDisabled ? FontAwesomeIcon.EyeSlash : FontAwesomeIcon.Cubes;
 
             var extraPadding = new Vector2(6f, 4f) * ImGuiHelpers.GlobalScale;
             var originalPadding = ImGui.GetStyle().FramePadding;
@@ -55,9 +60,12 @@ public partial class CompactUi
             float audioWidth = _uiSharedService.GetIconTextButtonSize(soundIcon, soundLabel);
             float animWidth = _uiSharedService.GetIconTextButtonSize(animIcon, animLabel);
             float vfxWidth = _uiSharedService.GetIconTextButtonSize(vfxIcon, vfxLabel);
-            float housingWidth = _uiSharedService.GetIconTextButtonSize(housingIcon, housingLabel);
-            float scenarioWidth = _uiSharedService.GetIconTextButtonSize(scenarioIcon, scenarioLabel);
-            float totalWidth = audioWidth + animWidth + vfxWidth + housingWidth + scenarioWidth + spacing * 4f;
+            bool housingModule = _uiSharedService.Modules.IsEnabled(ModuleId.Housing);
+            float housingWidth = housingModule ? _uiSharedService.GetIconTextButtonSize(housingIcon, housingLabel) : 0f;
+            float scenarioWidth = housingModule ? _uiSharedService.GetIconTextButtonSize(scenarioIcon, scenarioLabel) : 0f;
+            float stagesWidth = housingModule ? _uiSharedService.GetIconTextButtonSize(stagesIcon, stagesLabel) : 0f;
+            float totalWidth = audioWidth + animWidth + vfxWidth + spacing * 2f
+                + (housingModule ? housingWidth + scenarioWidth + stagesWidth + spacing * 3f : 0f);
             float available = ImGui.GetContentRegionAvail().X;
             float startCursorX = ImGui.GetCursorPosX();
             if (totalWidth < available)
@@ -92,22 +100,33 @@ public partial class CompactUi
                 },
                 () => DisableStateTooltip(vfxSubject, _configService.Current.DefaultDisableVfx), spacing);
 
-            DrawDefaultSyncButton(housingIcon, housingLabel, housingWidth, housingDisabled,
-                state =>
-                {
-                    _configService.Current.DefaultDisableHousingMods = state;
-                    _configService.Save();
-                    Mediator.Publish(new ApplyDefaultsToAllSyncsMessage(housingSubject, state));
-                },
-                () => DisableStateTooltip(housingSubject, _configService.Current.DefaultDisableHousingMods), spacing);
-            DrawDefaultSyncButton(scenarioIcon, scenarioLabel, scenarioWidth, scenariosDisabled,
-                state =>
-                {
-                    _configService.Current.DefaultDisableHousingScenarios = state;
-                    _configService.Save();
-                    Mediator.Publish(new HousingScenarioSyncPreferenceChangedMessage());
-                },
-                () => DisableStateTooltip(scenarioSubject, _configService.Current.DefaultDisableHousingScenarios), spacing);
+            if (housingModule)
+            {
+                DrawDefaultSyncButton(housingIcon, housingLabel, housingWidth, housingDisabled,
+                    state =>
+                    {
+                        _configService.Current.DefaultDisableHousingMods = state;
+                        _configService.Save();
+                        Mediator.Publish(new ApplyDefaultsToAllSyncsMessage(housingSubject, state));
+                    },
+                    () => DisableStateTooltip(housingSubject, _configService.Current.DefaultDisableHousingMods), spacing);
+                DrawDefaultSyncButton(scenarioIcon, scenarioLabel, scenarioWidth, scenariosDisabled,
+                    state =>
+                    {
+                        _configService.Current.DefaultDisableHousingScenarios = state;
+                        _configService.Save();
+                        Mediator.Publish(new HousingScenarioSyncPreferenceChangedMessage());
+                    },
+                    () => DisableStateTooltip(scenarioSubject, _configService.Current.DefaultDisableHousingScenarios), spacing);
+                DrawDefaultSyncButton(stagesIcon, stagesLabel, stagesWidth, stagesDisabled,
+                    state =>
+                    {
+                        _configService.Current.DefaultDisableStages = state;
+                        _configService.Save();
+                        Mediator.Publish(new StageSyncPreferenceChangedMessage());
+                    },
+                    () => DisableStateTooltip(stagesSubject, _configService.Current.DefaultDisableStages), spacing);
+            }
 
             ImGui.PopStyleVar();
 

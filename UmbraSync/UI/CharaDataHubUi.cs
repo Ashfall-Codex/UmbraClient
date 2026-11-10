@@ -12,11 +12,14 @@ using UmbraSync.API.Dto.CharaData;
 using UmbraSync.Localization;
 using UmbraSync.MareConfiguration;
 using UmbraSync.MareConfiguration.Models;
+using UmbraSync.Modules.Housing.Services;
+using UmbraSync.Modules.Housing.UI;
+using UmbraSync.Modules.Rp.Services;
+using UmbraSync.Modules.Rp.UI;
 using UmbraSync.PlayerData.Factories;
 using UmbraSync.PlayerData.Pairs;
 using UmbraSync.Services;
 using UmbraSync.Services.CharaData.Models;
-using UmbraSync.Services.Housing;
 using UmbraSync.Services.Mediator;
 using UmbraSync.Services.ServerConfiguration;
 using UmbraSync.UI.Components;
@@ -42,7 +45,11 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
     private readonly HousingShareManager? _housingShareManager_housing;
     private readonly HousingFurnitureScanner? _housingScanner;
     private readonly HousingNpcScenarioService? _housingNpcScenarioService;
-    private readonly HousingOwnershipService _housingOwnershipService;
+    private readonly HousingOwnershipService? _housingOwnershipService;
+    private readonly StageShareManager? _stageShareManager;
+    private readonly DecorCatalogManager? _decorCatalogManager;
+    private readonly RpJournalService? _rpJournal;
+    private readonly DecorReportPopupHandler? _decorReportPopup;
     private readonly HousingScenarioManager? _housingScenarioManager;
     private CancellationTokenSource? _closalCts = new();
     private bool _disableUI = false;
@@ -105,6 +112,8 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
         LiveData,
         HousingFurniture,
         HousingNpc,
+        Stages,
+        DecorCatalog,
     }
 
     private readonly SideRail _hubRail = new();
@@ -157,6 +166,10 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
     private volatile string? _ownHonorificBase64;
     private DateTime _nextOwnHonorificRefresh = DateTime.MinValue;
     private string _profileBrowserSearch = string.Empty;
+    private int _profilesSubTab;
+    private const int ProfilesTabMine = 1;
+    private const int ProfilesTabOthers = 2;
+    private const int ProfilesTabJournal = 3;
     private bool _clearProfileCacheConfirmShown;
     private readonly Dictionary<string, float> _profileCardHeights = new(StringComparer.Ordinal);
 
@@ -165,12 +178,16 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
                          UiSharedService uiSharedService, ServerConfigurationManager serverConfigurationManager,
                          DalamudUtilService dalamudUtilService, FileDialogManager fileDialogManager, PairManager pairManager,
                          CharaDataGposeTogetherManager charaDataGposeTogetherManager, McdfShareManager mcdfShareManager,
-                         HousingShareManager housingShareManager, HousingFurnitureScanner housingScanner,
-                         HousingNpcScenarioService housingNpcScenarioService,
-                         HousingScenarioManager housingScenarioManager,
-                         HousingOwnershipService housingOwnershipService,
                          UmbraProfileManager umbraProfileManager, MareConfigService mareConfigService,
-                         ApiController apiController, PairFactory pairFactory)
+                         ApiController apiController, PairFactory pairFactory,
+                         HousingShareManager? housingShareManager = null, HousingFurnitureScanner? housingScanner = null,
+                         HousingNpcScenarioService? housingNpcScenarioService = null,
+                         HousingScenarioManager? housingScenarioManager = null,
+                         HousingOwnershipService? housingOwnershipService = null,
+                         StageShareManager? stageShareManager = null,
+                         DecorCatalogManager? decorCatalogManager = null,
+                         DecorReportPopupHandler? decorReportPopup = null,
+                         RpJournalService? rpJournalService = null)
         : base(logger, mediator, $"{Loc.Get("CharaDataHub.WindowTitle")}###UmbraCharaDataUI", performanceCollectorService)
     {
         SetWindowSizeConstraints();
@@ -206,6 +223,10 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
         _housingNpcScenarioService = housingNpcScenarioService;
         _housingScenarioManager = housingScenarioManager;
         _housingOwnershipService = housingOwnershipService;
+        _stageShareManager = stageShareManager;
+        _decorCatalogManager = decorCatalogManager;
+        _decorReportPopup = decorReportPopup;
+        _rpJournal = rpJournalService;
         _umbraProfileManager = umbraProfileManager;
         _apiController = apiController;
         _pairFactory = pairFactory;
@@ -223,6 +244,14 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
                 _mcdfShareManager.StartBackgroundPolling();
         });
         Mediator.Subscribe<DisconnectedMessage>(this, (_) => _mcdfShareManager.StopBackgroundPolling());
+        if (_stageShareManager != null)
+        {
+            Mediator.Subscribe<OpenStagesHubMessage>(this, (_) =>
+            {
+                _hubPage = HubPage.Stages;
+                IsOpen = true;
+            });
+        }
         InitQuestSyncSubscriptions();
     }
 
@@ -276,6 +305,8 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
             CancelAndDispose(ref _disposalCts);
             _selfPair?.Dispose();
             _selfPair = null;
+            _decorCropEditor?.Dispose();
+            _decorCropEditor = null;
         }
 
         base.Dispose(disposing);
@@ -405,7 +436,7 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
         => page is HubPage.GposeTogether or HubPage.QuestSync or HubPage.GposeActors or HubPage.NearbyPoses or HubPage.ApplyData;
 
     private static bool IsCreationPage(HubPage page)
-        => page is HubPage.McdfData or HubPage.LiveData or HubPage.HousingFurniture or HubPage.HousingNpc;
+        => page is HubPage.McdfData or HubPage.LiveData or HubPage.HousingFurniture or HubPage.HousingNpc or HubPage.Stages or HubPage.DecorCatalog;
 
     private List<SideRailEntry> BuildHubRail(bool inGpose)
     {
@@ -426,9 +457,16 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
         entries.Add(SideRailEntry.Group(Loc.Get("CharaDataHub.Nav.Group.Data")));
         entries.Add(Page(HubPage.McdfData, "CharaDataHub.Mcd.Online.TabMcdf", FontAwesomeIcon.FileArchive, creation: true));
         entries.Add(Page(HubPage.LiveData, "CharaDataHub.Nav.LiveData", FontAwesomeIcon.Edit, creation: true));
-        entries.Add(SideRailEntry.Group(Loc.Get("CharaDataHub.Tab.HousingShare")));
-        entries.Add(Page(HubPage.HousingFurniture, "CharaDataHub.Nav.Furniture", FontAwesomeIcon.Couch, creation: true));
-        entries.Add(Page(HubPage.HousingNpc, "CharaDataHub.Nav.Npc", FontAwesomeIcon.Users, creation: true));
+        if (_housingShareManager_housing != null)
+        {
+            entries.Add(SideRailEntry.Group(Loc.Get("CharaDataHub.Tab.HousingShare")));
+            entries.Add(Page(HubPage.HousingFurniture, "CharaDataHub.Nav.Furniture", FontAwesomeIcon.Couch, creation: true));
+            entries.Add(Page(HubPage.HousingNpc, "CharaDataHub.Nav.Npc", FontAwesomeIcon.Users, creation: true));
+            if (_stageShareManager != null)
+                entries.Add(Page(HubPage.Stages, "CharaDataHub.Nav.Stages", FontAwesomeIcon.Cubes, creation: true));
+            if (_decorCatalogManager != null)
+                entries.Add(Page(HubPage.DecorCatalog, "CharaDataHub.Nav.DecorCatalog", FontAwesomeIcon.Store, creation: true));
+        }
         return entries;
     }
 
@@ -478,6 +516,14 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
             case HubPage.HousingNpc:
                 using (ImRaii.PushId("housingShare"))
                     DrawHousingShare(page);
+                break;
+            case HubPage.Stages:
+                using (ImRaii.PushId("stages"))
+                    DrawStagesPage();
+                break;
+            case HubPage.DecorCatalog:
+                using (ImRaii.PushId("decorCatalog"))
+                    DrawDecorCatalogPage();
                 break;
         }
     }
@@ -1646,7 +1692,7 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
         var cachedProfiles = _umbraProfileManager.GetCachedProfiles();
 
         var currentUid = _umbraProfileManager.CurrentUid;
-        var search = _profileBrowserSearch;
+        var searchTerms = _profileBrowserSearch.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         var filtered = cachedProfiles.Where(p =>
             (currentUid == null || !string.Equals(p.Key.User.UID, currentUid, StringComparison.Ordinal)) && IsListed(p.Key, p.Profile)).ToList();
         var own = _umbraProfileManager.GetOwnCharacterProfiles().Where(p => IsListed(p.Key, p.Profile)).ToList();
@@ -1655,14 +1701,26 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
         {
             if (string.IsNullOrWhiteSpace(profile.RpFirstName) && string.IsNullOrWhiteSpace(profile.RpLastName))
                 return false;
-            if (string.IsNullOrEmpty(search)) return true;
-            
-            return Matches(key.User.AliasOrUID) || Matches(key.CharName)
-                   || Matches(profile.RpFirstName) || Matches(profile.RpLastName)
-                   || Matches(_serverConfigurationManager.GetNoteForUid(key.User.UID));
+            if (searchTerms.Length == 0) return true;
 
-            bool Matches(string? value)
-                => value != null && value.Contains(search, StringComparison.OrdinalIgnoreCase);
+            var note = _serverConfigurationManager.GetNoteForUid(key.User.UID);
+            var journalSubject = _rpJournal?.TryGetSubject(key.CharName, key.WorldId ?? 0);
+            foreach (var term in searchTerms)
+            {
+                if (journalSubject != null && RpJournalQuery.Matches(journalSubject, [term])) continue;
+                if (!(Matches(key.User.AliasOrUID, term) || Matches(key.CharName, term) || Matches(note, term)
+                      || Matches(profile.RpFirstName, term) || Matches(profile.RpLastName, term) || Matches(profile.RpTitle, term)
+                      || Matches(profile.RpOccupation, term) || Matches(profile.RpAffiliation, term) || Matches(profile.RpResidence, term)
+                      || Matches(profile.RpRace, term) || Matches(profile.RpEthnicity, term) || Matches(profile.RpAlignment, term)
+                      || Matches(profile.RpDescription, term) || Matches(profile.RpAdditionalInfo, term) || Matches(profile.Description, term)))
+                    return false;
+            }
+
+            return true;
+
+            static bool Matches(string? value, string term)
+                => !string.IsNullOrEmpty(value)
+                   && CultureInfo.InvariantCulture.CompareInfo.IndexOf(value, term, CompareOptions.IgnoreCase | CompareOptions.IgnoreNonSpace) >= 0;
         }
 
         var clearLabel = Loc.Get("Settings.ProfileBrowser.ClearCache");
@@ -1716,7 +1774,27 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
         ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X);
         ImGui.InputTextWithHint("##profileBrowserSearch", Loc.Get("Settings.ProfileBrowser.SearchHint"), ref _profileBrowserSearch, 100);
 
+        ImGuiHelpers.ScaledDummy(2f);
+        using (ImRaii.PushId("profilesTabs"))
+        {
+            bool journalTab = _rpJournal is { HasOwner: true };
+            if (!journalTab && _profilesSubTab == ProfilesTabJournal) _profilesSubTab = 0;
+            string[] tabLabels = journalTab
+                ? [Loc.Get("CharaDataHub.Profiles.Tab.All"), Loc.Get("CharaDataHub.Profiles.Tab.Mine"), Loc.Get("CharaDataHub.Profiles.Tab.Others"), Loc.Get("CharaDataHub.Profiles.Tab.Journal")]
+                : [Loc.Get("CharaDataHub.Profiles.Tab.All"), Loc.Get("CharaDataHub.Profiles.Tab.Mine"), Loc.Get("CharaDataHub.Profiles.Tab.Others")];
+            FontAwesomeIcon[] tabIcons = journalTab
+                ? [FontAwesomeIcon.LayerGroup, FontAwesomeIcon.User, FontAwesomeIcon.Users, FontAwesomeIcon.Feather]
+                : [FontAwesomeIcon.LayerGroup, FontAwesomeIcon.User, FontAwesomeIcon.Users];
+            DrawSubTabButtons(tabLabels, tabIcons, ref _profilesSubTab, accent);
+        }
         ImGuiHelpers.ScaledDummy(4f);
+
+        bool showOwn = _profilesSubTab is not (ProfilesTabOthers or ProfilesTabJournal);
+        bool showOthers = _profilesSubTab != ProfilesTabMine;
+        if (!showOwn) own = [];
+        if (!showOthers) filtered = [];
+        if (_profilesSubTab == ProfilesTabJournal && _rpJournal != null)
+            filtered = filtered.Where(p => _rpJournal.TryGetSubject(p.Key.CharName, p.Key.WorldId ?? 0) != null).ToList();
 
         if (filtered.Count == 0 && own.Count == 0)
         {
@@ -1731,8 +1809,8 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
         var cardSpacing = 6f * ImGuiHelpers.GlobalScale;
         if (own.Count > 0)
         {
-            DrawOwnProfileGroup(Loc.Get("Settings.ProfileBrowser.MyCharacter"), own.Where(p => IsCurrentCharacter(p.Key)).ToList(), accent, cardSpacing);
-            DrawOwnProfileGroup(Loc.Get("Settings.ProfileBrowser.OwnCharacters"), own.Where(p => !IsCurrentCharacter(p.Key)).ToList(), accent, cardSpacing);
+            DrawOwnProfileGroup(Loc.Get("Settings.ProfileBrowser.MyCharacter"), own.Where(p => IsCurrentCharacter(p.Key)).ToList(), accent, cardSpacing, deletable: false);
+            DrawOwnProfileGroup(Loc.Get("Settings.ProfileBrowser.OwnCharacters"), own.Where(p => !IsCurrentCharacter(p.Key)).ToList(), accent, cardSpacing, deletable: true);
             if (filtered.Count > 0)
             {
                 ImGuiHelpers.ScaledDummy(4f);
@@ -1766,7 +1844,7 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
 
     private void DrawProfileCard(
         (API.Data.UserData User, string? CharName, uint? WorldId) key,
-        UmbraProfileData profile, Vector4 accent)
+        UmbraProfileData profile, Vector4 accent, bool deletable = false)
     {
         var portraitSize = 64f * ImGuiHelpers.GlobalScale;
 
@@ -1780,6 +1858,8 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
         var uid = key.User.AliasOrUID;
         var note = _serverConfigurationManager.GetNoteForCharacter(key.User.UID, key.CharName, key.WorldId)
                    ?? _serverConfigurationManager.GetNoteForUid(key.User.UID);
+        var journalSubject = deletable || string.Equals(key.User.UID, _umbraProfileManager.CurrentUid, StringComparison.Ordinal)
+            ? null : _rpJournal?.TryGetSubject(key.CharName, key.WorldId ?? 0);
 
         var cardStyle = profile.CardStyle.Value;
         using var cardAccentScope = UiSharedService.PushProfileAccent(cardStyle.AccentColor);
@@ -1882,6 +1962,16 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
                 UiSharedService.ColorText(title, titleColor);
             }
 
+            if (journalSubject != null)
+            {
+                JournalTrustStyle.DrawDot(journalSubject.Trust);
+                ImGui.SameLine(0, 6f * ImGuiHelpers.GlobalScale);
+                var journalLine = JournalTrustStyle.Label(journalSubject.Trust);
+                if (!string.IsNullOrWhiteSpace(journalSubject.Relation)) journalLine += " · " + journalSubject.Relation;
+                UiSharedService.ColorText(journalLine, ImGuiColors.DalamudGrey);
+                UiSharedService.AttachToolTip(Loc.Get("Journal.Card.InJournal"));
+            }
+
             ImGui.PopTextWrapPos();
             ImGui.EndGroup();
 
@@ -1889,14 +1979,33 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
             if (pair != null)
             {
                 var rowHeight = ImGui.GetCursorPosY() - ImGui.GetStyle().ItemSpacing.Y - rowTop;
+                var deleteLabel = Loc.Get("Settings.ProfileBrowser.DeleteCharacter");
+                float buttonsWidth = CapsuleButton.MeasureWidth(openLabel)
+                    + (deletable ? CapsuleButton.MeasureWidth(deleteLabel, FontAwesomeIcon.Trash) + ImGui.GetStyle().ItemSpacing.X : 0f);
+                float buttonY = rowTop + MathF.Max(0f, (rowHeight - CapsuleButton.HitRegionHeight) / 2f);
                 ImGui.SetCursorPos(new Vector2(
-                    ImGui.GetContentRegionAvail().X - CapsuleButton.MeasureWidth(openLabel) - ImGui.GetStyle().ItemSpacing.X * 3 + ImGui.GetCursorPosX(),
-                    rowTop + MathF.Max(0f, (rowHeight - CapsuleButton.HitRegionHeight) / 2f)));
+                    ImGui.GetContentRegionAvail().X - buttonsWidth - ImGui.GetStyle().ItemSpacing.X * 3 + ImGui.GetCursorPosX(),
+                    buttonY));
+                if (deletable)
+                {
+                    using (ImRaii.Disabled(!UiSharedService.CtrlPressed()))
+                    {
+                        if (CapsuleButton.Draw(deleteLabel, FontAwesomeIcon.Trash, CapsuleButtonRole.Destructive))
+                            _ = DeleteOwnCharacterProfileAsync(key);
+                    }
+                    if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+                    {
+                        openButtonHovered = true;
+                        UiSharedService.AttachToolTip(string.Format(CultureInfo.CurrentCulture, Loc.Get("Settings.ProfileBrowser.DeleteCharacter.Tooltip"), key.CharName ?? "?"));
+                    }
+                    ImGui.SameLine();
+                    ImGui.SetCursorPosY(buttonY);
+                }
                 if (CapsuleButton.Draw(openLabel))
                 {
                     Mediator.Publish(new ProfileOpenStandaloneMessage(pair, key.CharName, key.WorldId));
                 }
-                openButtonHovered = ImGui.IsItemHovered();
+                openButtonHovered |= ImGui.IsItemHovered();
             }
         }, stretchWidth: true, background: sheetPalette?.Veil,
             border: cardAccent is { } cardBorder ? cardBorder with { W = ProfileSheetBackground.BorderOpacity } : null,
@@ -1970,17 +2079,37 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
 
     private void DrawOwnProfileGroup(string header,
         List<((API.Data.UserData User, string? CharName, uint? WorldId) Key, UmbraProfileData Profile)> entries,
-        Vector4 accent, float cardSpacing)
+        Vector4 accent, float cardSpacing, bool deletable)
     {
         if (entries.Count == 0) return;
         UiSharedService.ColorText(header, accent);
         ImGuiHelpers.ScaledDummy(2f);
         foreach (var entry in entries)
         {
-            DrawProfileCard(entry.Key, entry.Profile, accent);
+            using var id = ImRaii.PushId($"{entry.Key.CharName}_{entry.Key.WorldId}");
+            DrawProfileCard(entry.Key, entry.Profile, accent, deletable);
             ImGui.Dummy(new Vector2(1f, cardSpacing));
         }
         ImGuiHelpers.ScaledDummy(2f);
+    }
+
+    private async Task DeleteOwnCharacterProfileAsync((API.Data.UserData User, string? CharName, uint? WorldId) key)
+    {
+        if (string.IsNullOrEmpty(key.CharName) || key.WorldId is not > 0) return;
+        try
+        {
+            var user = new API.Data.UserData(_apiController.UID);
+            await _apiController.UserDeleteRpProfile(new API.Dto.User.UserDto(user) { CharacterName = key.CharName, WorldId = key.WorldId }).ConfigureAwait(false);
+            _umbraProfileManager.ForgetOwnProfile(key.CharName, key.WorldId.Value);
+            _profileCardHeights.Remove($"{key.User.UID}_{key.CharName}_{key.WorldId}");
+            Mediator.Publish(new ClearProfileDataMessage(user, key.CharName, key.WorldId.Value));
+            Mediator.Publish(new NotificationMessage(Loc.Get("EditProfile.DeleteRp.SuccessTitle"), Loc.Get("EditProfile.DeleteRp.SuccessBody"), NotificationType.Success));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Suppression de la fiche d'un autre personnage en échec");
+            Mediator.Publish(new NotificationMessage(Loc.Get("EditProfile.DeleteRp.ErrorTitle"), Loc.Get("EditProfile.DeleteRp.ErrorBody"), NotificationType.Error));
+        }
     }
 
 

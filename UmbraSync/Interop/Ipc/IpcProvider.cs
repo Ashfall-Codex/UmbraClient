@@ -13,6 +13,7 @@ using UmbraSync.MareConfiguration;
 using UmbraSync.PlayerData.Handlers;
 using UmbraSync.Services.Mediator;
 
+using UmbraSync.Modules;
 namespace UmbraSync.Interop.Ipc;
 
 public class IpcProvider : IHostedService, IMediatorSubscriber
@@ -32,6 +33,7 @@ public class IpcProvider : IHostedService, IMediatorSubscriber
     private ICallGateProvider<int>? _rpVersionProvider;
     private ICallGateProvider<uint, bool>? _rpIsPairedProvider;
     private ICallGateProvider<uint, string?>? _rpProfileProvider;
+    private readonly IModuleRegistry _modules;
     private ICallGateProvider<uint, byte[]?>? _rpPortraitProvider;
     private readonly CharaDataManager _charaDataManager;
     private ICallGateProvider<string, IGameObject, bool>? _loadFileProvider;
@@ -53,8 +55,9 @@ public class IpcProvider : IHostedService, IMediatorSubscriber
     public MareMediator Mediator { get; init; }
 
     public IpcProvider(ILogger<IpcProvider> logger, IDalamudPluginInterface pi, MareConfigService mareConfig,
-        CharaDataManager charaDataManager, MareMediator mareMediator, IServiceProvider serviceProvider)
+        CharaDataManager charaDataManager, MareMediator mareMediator, IServiceProvider serviceProvider, IModuleRegistry moduleRegistry)
     {
+        _modules = moduleRegistry;
         _logger = logger;
         _pi = pi;
         _mareConfig = mareConfig;
@@ -87,7 +90,7 @@ public class IpcProvider : IHostedService, IMediatorSubscriber
         _handledGameAddresses = _pi.GetIpcProvider<List<nint>>("UmbraSync.GetHandledAddresses");
         _handledGameAddresses.RegisterFunc(GetHandledAddresses);
 
-        RegisterRpProfileApi();
+        if (_modules.IsEnabled(ModuleId.Rp)) RegisterRpProfileApi();
 
         _loadFileProviderMare = _pi.GetIpcProvider<string, IGameObject, bool>($"{UmbraApiLabelPrefix}.LoadMcdf");
         _loadFileAsyncProviderMare = _pi.GetIpcProvider<string, IGameObject, Task<bool>>($"{UmbraApiLabelPrefix}.LoadMcdfAsync");
@@ -137,7 +140,7 @@ public class IpcProvider : IHostedService, IMediatorSubscriber
             return string.IsNullOrEmpty(uid) ? null : new UserData(uid);
         }
 
-        if (!_mareConfig.Current.ShareRpProfileWithPlugins) return null;
+        if (!_mareConfig.Current.ShareRpProfileWithPlugins || !_modules.IsEnabled(ModuleId.Rp)) return null;
 
         return _pairManager.Value.GetVisiblePairByObjectId(objectId)?.UserData;
     }
@@ -175,7 +178,7 @@ public class IpcProvider : IHostedService, IMediatorSubscriber
                 ["customFields"] = profile.RpCustomFields?
                     .Where(f => !string.IsNullOrWhiteSpace(f.Name) || !string.IsNullOrWhiteSpace(f.Value))
                     .OrderBy(f => f.Order)
-                    .Select(f => new Dictionary<string, string>(StringComparer.Ordinal) { ["label"] = f.Name, ["value"] = f.Value })
+                    .Select(f => new Dictionary<string, string>(StringComparer.Ordinal) { ["label"] = f.Name, ["value"] = f.Value, ["section"] = f.Section })
                     .ToList(),
             };
 

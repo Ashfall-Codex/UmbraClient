@@ -18,6 +18,7 @@ using UmbraSync.Services.ServerConfiguration;
 using UmbraSync.Localization;
 using UmbraSync.WebAPI.SignalR.Utils;
 
+using UmbraSync.Modules;
 namespace UmbraSync.WebAPI.SignalR;
 
 #pragma warning disable MA0040
@@ -39,6 +40,7 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
     private readonly NotificationTracker _notificationTracker;
     private readonly PauseCoordinator _pauseCoordinator;
     private CancellationTokenSource _connectionCancellationTokenSource;
+    private readonly IModuleRegistry _modules;
     private ConnectionDto? _connectionDto;
     private bool _doNotNotifyOnNextInfo;
     private CancellationTokenSource? _healthCheckTokenSource = new();
@@ -52,8 +54,9 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
     public ApiController(ILogger<ApiController> logger, HubFactory hubFactory, DalamudUtilService dalamudUtil,
         PairManager pairManager, ServerConfigurationManager serverManager, MareMediator mediator,
         TokenProvider tokenProvider, NotificationTracker notificationTracker, MareConfigService configService,
-        PauseCoordinator pauseCoordinator) : base(logger, mediator)
+        PauseCoordinator pauseCoordinator, IModuleRegistry moduleRegistry) : base(logger, mediator)
     {
+        _modules = moduleRegistry;
         _hubFactory = hubFactory;
         _dalamudUtil = dalamudUtil;
         _pairManager = pairManager;
@@ -260,6 +263,7 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
                 DrainBootstrapCallbacks();
 
                 Mediator.Publish(new ConnectedMessage(_connectionDto));
+            _ = RefusePairRequestsWhenDiscoveryIsOffAsync(_connectionCancellationTokenSource.Token);
             }
             catch (OperationCanceledException)
             {
@@ -454,6 +458,26 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
         _initialized = true;
     }
     
+    // Sans le module Découverte, personne ne traite les demandes d'ami reçues : le serveur les refuse à l'envoi.
+    private async Task RefusePairRequestsWhenDiscoveryIsOffAsync(CancellationToken token)
+    {
+        if (_modules.IsEnabled(ModuleId.Discovery)) return;
+        try
+        {
+            await Task.Delay(Random.Shared.Next(2000, 8000), token).ConfigureAwait(false);
+            if (!IsConnected) return;
+            await UserSetPairRequestsAllowed(false).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            Logger.LogDebug(ex, "Could not refuse pair requests on the server");
+        }
+        catch (OperationCanceledException)
+        {
+            Logger.LogTrace("Pair request refusal skipped: connection cancelled");
+        }
+    }
+
     private async Task LoadBootstrapPairs()
     {
         var pairedClientsTask = UserGetPairedClients();
@@ -513,6 +537,7 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
             _pairManager.ApplyPendingCharacterData();
             DrainBootstrapCallbacks();
             Mediator.Publish(new ConnectedMessage(_connectionDto));
+            _ = RefusePairRequestsWhenDiscoveryIsOffAsync(_connectionCancellationTokenSource.Token);
         }
         catch (Exception ex)
         {

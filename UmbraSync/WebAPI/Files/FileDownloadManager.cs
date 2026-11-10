@@ -63,6 +63,8 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
     private readonly ConcurrentDictionary<string, DateTime> _serverMissingHashes = new(StringComparer.OrdinalIgnoreCase);
     private static readonly TimeSpan ServerMissingTtl = TimeSpan.FromMinutes(10);
     private readonly ConcurrentDictionary<string, string> _expectedBlake3 = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, byte> _expectedBlake3FromSender = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, byte> _blake3Rejected = new(StringComparer.OrdinalIgnoreCase);
     private const double BaseCooldownSeconds = 15;
     private const double MaxCooldownSeconds = 120;
     private const int MaxTrackedFailureCount = 4;
@@ -245,10 +247,11 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
         // (fichiers sans direct download) n'est jamais claimé, et conditionner le cooldown à cette
         // valeur laissait ces hashes sans backoff — d'où des reapply en boucle serrée.
         // Seul le claim détenu par cette instance (et de la bonne génération) est libéré.
+        var rejectedByManifest = _blake3Rejected.TryRemove(hash, out _) && !success && !cancelled;
         if (_ownedClaims.TryRemove(hash, out var owned))
         {
             var outcome = success ? DownloadClaimOutcome.Success
-                : cancelled ? DownloadClaimOutcome.Released
+                : cancelled || rejectedByManifest ? DownloadClaimOutcome.Released
                 : DownloadClaimOutcome.Failed;
             _deduplicator.Complete(owned.ClaimedHash, owned.Generation, outcome);
         }
@@ -424,58 +427,6 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
             }
         }
         base.Dispose(disposing);
-    }
-
-    private static byte ConvertReadByte(int byteOrEof)
-    {
-        if (byteOrEof == -1)
-        {
-            throw new EndOfStreamException();
-        }
-
-        return (byte)byteOrEof;
-    }
-
-    private static (string fileHash, long fileLengthBytes) ReadBlockFileHeader(FileStream fileBlockStream)
-    {
-        const int maxHashLen = 64;
-        const int maxLengthLen = 20;
-
-        List<char> hashName = [];
-        List<char> fileLength = [];
-        var separator = (char)ConvertReadByte(fileBlockStream.ReadByte());
-        if (separator != '#') throw new InvalidDataException("Data is invalid, first char is not #");
-
-        bool readHash = false;
-        while (true)
-        {
-            int readByte = fileBlockStream.ReadByte();
-            if (readByte == -1)
-                throw new EndOfStreamException();
-
-            var readChar = (char)ConvertReadByte(readByte);
-            if (readChar == ':')
-            {
-                readHash = true;
-                continue;
-            }
-            if (readChar == '#') break;
-            if (!readHash)
-            {
-                if (hashName.Count >= maxHashLen)
-                    throw new InvalidDataException($"Block file header hash exceeds {maxHashLen} chars");
-                hashName.Add(readChar);
-            }
-            else
-            {
-                if (fileLength.Count >= maxLengthLen)
-                    throw new InvalidDataException($"Block file header length exceeds {maxLengthLen} chars");
-                fileLength.Add(readChar);
-            }
-        }
-        if (fileLength.Count == 0)
-            fileLength.Add('0');
-        return (string.Join("", hashName), long.Parse(string.Join("", fileLength), CultureInfo.InvariantCulture));
     }
 
     private SemaphoreSlim GetQueueSemaphore()
@@ -1332,7 +1283,7 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
                 fileBlockStream = File.OpenRead(blockFile);
                 while (fileBlockStream.Position < fileBlockStream.Length)
                 {
-                    (string fileHash, long fileLengthBytes) = ReadBlockFileHeader(fileBlockStream);
+                    (string fileHash, long fileLengthBytes) = BlockFileHeader.Read(fileBlockStream);
                     seenHashes.Add(fileHash);
                     var chunkPosition = fileBlockStream.Position;
                     fileBlockStream.Position += fileLengthBytes;
@@ -1806,7 +1757,7 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
                 fileBlockStream = File.OpenRead(blockFile);
                 while (fileBlockStream.Position < fileBlockStream.Length)
                 {
-                    (string fileHash, long fileLengthBytes) = ReadBlockFileHeader(fileBlockStream);
+                    (string fileHash, long fileLengthBytes) = BlockFileHeader.Read(fileBlockStream);
                     seenHashes.Add(fileHash);
                     var chunkPosition = fileBlockStream.Position;
                     fileBlockStream.Position += fileLengthBytes;
@@ -2225,15 +2176,27 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
     {
         foreach (var dto in serverFiles)
         {
-            if (FileHash.IsBlake3(dto.Blake3)) _expectedBlake3[dto.Hash] = dto.Blake3;
+            if (FileHash.IsBlake3(dto.Blake3))
+            {
+                _expectedBlake3[dto.Hash] = dto.Blake3;
+                _expectedBlake3FromSender.TryRemove(dto.Hash, out _);
+            }
             var alt = dto.CompressedAlternateFileDownload;
-            if (alt != null && FileHash.IsBlake3(alt.Blake3)) _expectedBlake3[alt.Hash] = alt.Blake3;
+            if (alt != null && FileHash.IsBlake3(alt.Blake3))
+            {
+                _expectedBlake3[alt.Hash] = alt.Blake3;
+                _expectedBlake3FromSender.TryRemove(alt.Hash, out _);
+            }
         }
 
         // Appliqué en dernier : la valeur de l'émetteur l'emporte sur celle du serveur.
         foreach (var file in fileReplacement)
         {
-            if (!string.IsNullOrEmpty(file.Hash) && FileHash.IsBlake3(file.Blake3)) _expectedBlake3[file.Hash] = file.Blake3;
+            if (!string.IsNullOrEmpty(file.Hash) && FileHash.IsBlake3(file.Blake3))
+            {
+                _expectedBlake3[file.Hash] = file.Blake3;
+                _expectedBlake3FromSender[file.Hash] = 0;
+            }
         }
     }
 
@@ -2250,12 +2213,16 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
         }
 
         Logger.LogWarning("BLAKE3 mismatch for {hash}: got {computed}, expected {expected}", hash, computed, expected);
+        _expectedBlake3.TryRemove(hash, out _);
+        if (_expectedBlake3FromSender.TryRemove(hash, out _))
+            _blake3Rejected[hash] = 0;
         return false;
     }
 
     private void PersistFileToStorage(string fileHash, string filePath, long? compressedSize = null, byte[]? blake3 = null)
     {
         _expectedBlake3.TryRemove(fileHash, out _);
+        _expectedBlake3FromSender.TryRemove(fileHash, out _);
         try
         {
             var entry = _fileDbManager.CreateCacheEntry(filePath, fileHash, blake3 != null ? Convert.ToHexString(blake3) : null);

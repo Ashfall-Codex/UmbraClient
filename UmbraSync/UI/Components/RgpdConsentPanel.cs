@@ -1,4 +1,5 @@
 using Dalamud.Bindings.ImGui;
+using Dalamud.Interface;
 using Dalamud.Interface.Colors;
 using Dalamud.Interface.Utility;
 using Dalamud.Interface.Utility.Raii;
@@ -70,10 +71,6 @@ public sealed class RgpdConsentPanel
         UiSharedService.ColorTextWrapped(Loc.Get("Rgpd.Consent.ThirdParties"), ImGuiColors.DalamudGrey3);
         ImGuiHelpers.ScaledDummy(4f);
 
-        ImGui.Checkbox(Loc.Get("Rgpd.Consent.Mandatory"), ref _consentMandatory);
-        UiSharedService.ColorTextWrapped(Loc.Get("Rgpd.Consent.Mandatory.Detail"), ImGuiColors.DalamudGrey3);
-
-        ImGuiHelpers.ScaledDummy(6f);
         _uiShared.BigText(Loc.Get("Rgpd.Consent.Optional.Header"));
         UiSharedService.TextWrapped(Loc.Get("Rgpd.Consent.Optional.Intro"));
         if (_optionalPrefilled)
@@ -94,11 +91,17 @@ public sealed class RgpdConsentPanel
         UiSharedService.ColorTextWrapped(Loc.Get("Rgpd.Consent.Retention"), ImGuiColors.DalamudGrey3);
         ImGuiHelpers.ScaledDummy(2f);
         UiSharedService.ColorTextWrapped(Loc.Get("Rgpd.Consent.Controller"), ImGuiColors.DalamudGrey3);
+        ImGuiHelpers.ScaledDummy(6f);
+        ImGui.Separator();
+        ImGuiHelpers.ScaledDummy(4f);
+
+        ImGui.Checkbox(Loc.Get("Rgpd.Consent.Mandatory"), ref _consentMandatory);
+        UiSharedService.ColorTextWrapped(Loc.Get("Rgpd.Consent.Mandatory.Detail"), ImGuiColors.DalamudGrey3);
         ImGuiHelpers.ScaledDummy(4f);
 
         using (ImRaii.Disabled(!_consentMandatory))
         {
-            if (ImGui.Button(Loc.Get("Rgpd.Consent.AcceptButton")))
+            if (CapsuleButton.Draw(Loc.Get("Rgpd.Consent.AcceptButton"), FontAwesomeIcon.Check))
             {
                 _rgpdDataService.AcceptRgpdConsent(new RgpdDataService.OptionalChoices(
                     _optionNearby, _optionPosition, _optionTyping, _optionPlugins));

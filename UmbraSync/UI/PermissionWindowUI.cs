@@ -12,6 +12,7 @@ using UmbraSync.Services.Mediator;
 using UmbraSync.Utils;
 using UmbraSync.UI.Components;
 
+using UmbraSync.Modules;
 namespace UmbraSync.UI;
 
 public class PermissionWindowUI : WindowMediatorSubscriberBase
@@ -180,5 +181,8 @@ public class PermissionWindowUI : WindowMediatorSubscriberBase
     }
 
     private void DrawPairTargetSoundCombo()
-        => UiSharedService.DrawTargetSoundOverrideCombo(_uiSharedService.ConfigService, Pair.UserData.UID, "##perm_sound_");
+    {
+        if (!_uiSharedService.Modules.IsEnabled(ModuleId.ChatPlus)) return;
+        UiSharedService.DrawTargetSoundOverrideCombo(_uiSharedService.ConfigService, Pair.UserData.UID, "##perm_sound_");
+    }
 }

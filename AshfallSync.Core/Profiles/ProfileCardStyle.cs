@@ -58,6 +58,15 @@ public sealed record ProfileCardStyle
     [JsonPropertyName("justifyCustomFields")]
     public bool JustifyCustomFields { get; init; }
 
+    [JsonPropertyName("heading")]
+    public string? Heading { get; init; }
+
+    [JsonPropertyName("upperHeadings")]
+    public bool UpperHeadings { get; init; }
+
+    [JsonIgnore]
+    public ProfileHeadingStyle HeadingStyle => ProfileHeadingStyles.Parse(Heading);
+
     [JsonIgnore]
     public bool HasBackground => Background != 0;
 
@@ -95,6 +104,7 @@ public sealed record ProfileCardStyle
         SheetTitleColor = HexOrNull(SheetTitleColor),
         SheetLabelColor = HexOrNull(SheetLabelColor),
         SheetTextColor = HexOrNull(SheetTextColor),
+        Heading = ProfileHeadingStyles.Normalize(Heading),
     };
 
     private static string? HexOrNull(string? value) => IsHexColor(value) ? value!.ToUpperInvariant() : null;

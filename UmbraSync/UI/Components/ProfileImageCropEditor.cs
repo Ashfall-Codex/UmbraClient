@@ -72,7 +72,12 @@ public sealed class ProfileImageCropEditor : IDisposable
 
         if (_source == null || _texture == null) return;
 
-        string title = Loc.Get(_kind == ProfileImageKind.Banner ? "ProfileImageCrop.TitleBanner" : "ProfileImageCrop.TitlePortrait");
+        string title = Loc.Get(_kind switch
+        {
+            ProfileImageKind.Banner => "ProfileImageCrop.TitleBanner",
+            ProfileImageKind.DecorPreview => "ProfileImageCrop.TitleDecorPreview",
+            _ => "ProfileImageCrop.TitlePortrait",
+        });
         ImGui.SetNextWindowPos(ImGui.GetMainViewport().GetCenter(), ImGuiCond.Appearing, new Vector2(0.5f, 0.5f));
         if (!ImGui.BeginPopupModal(title + PopupId, ref _open, UiSharedService.PopupWindowFlags | ImGuiWindowFlags.AlwaysAutoResize))
         {
@@ -108,9 +113,9 @@ public sealed class ProfileImageCropEditor : IDisposable
     {
         float scale = ImGuiHelpers.GlobalScale;
         float aspect = ProfileImageProcessor.TargetAspect(_kind);
-        Vector2 canvasSize = _kind == ProfileImageKind.Banner
-            ? new Vector2(600f, 600f / aspect) * scale
-            : new Vector2(320f, 320f) * scale;
+        Vector2 canvasSize = _kind == ProfileImageKind.Portrait
+            ? new Vector2(320f, 320f) * scale
+            : new Vector2(600f, 600f / aspect) * scale;
         bool busy = _renderTask != null;
 
         Vector2 canvasMin = ImGui.GetCursorScreenPos();

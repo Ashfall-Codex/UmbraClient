@@ -15,12 +15,14 @@ using UmbraSync.Localization;
 using UmbraSync.MareConfiguration;
 using UmbraSync.PlayerData.Pairs;
 using UmbraSync.Services;
-using UmbraSync.Services.AutoDetect;
 using UmbraSync.Services.Mediator;
 using UmbraSync.Services.ServerConfiguration;
 using UmbraSync.UI.Handlers;
 using NotificationType = UmbraSync.MareConfiguration.Models.NotificationType;
 using UmbraSync.Utils;
+
+using UmbraSync.Modules;
+using UmbraSync.Modules.Discovery.Services;
 
 namespace UmbraSync.UI.Components;
 
@@ -31,7 +33,7 @@ internal sealed class GroupPanel
     private readonly PairManager _pairManager;
     private readonly ServerConfigurationManager _serverConfigurationManager;
     private readonly CharaDataManager _charaDataManager;
-    private readonly AutoDetectRequestService _autoDetectRequestService;
+    private readonly AutoDetectRequestService? _autoDetectRequestService;
     private readonly MareConfigService _mareConfig;
     private readonly Dictionary<string, bool> _showGidForEntry = new(StringComparer.Ordinal);
     private readonly UidDisplayHandler _uidDisplayHandler;
@@ -101,7 +103,7 @@ internal sealed class GroupPanel
 
     public GroupPanel(ILogger logger, CompactUi mainUi, UiSharedService uiShared, PairManager pairManager,
         UidDisplayHandler uidDisplayHandler, ServerConfigurationManager serverConfigurationManager,
-        CharaDataManager charaDataManager, AutoDetectRequestService autoDetectRequestService,
+        CharaDataManager charaDataManager, AutoDetectRequestService? autoDetectRequestService,
         MareConfigService mareConfig, SyncshellConfigService syncshellConfig, SlotService slotService,
         UmbraProfileManager profileManager)
     {
@@ -1426,7 +1428,8 @@ internal sealed class GroupPanel
             ToggleShellPermission(groupDto, ShellPermission.Animations, groupName, totalMembers);
         if (PopupMenu.ToggleRow(FontAwesomeIcon.Sun, Loc.Get("Syncshell.Cards.Perm.Vfx"), !perm.IsDisableVFX(), $"{menuId}-vfx"))
             ToggleShellPermission(groupDto, ShellPermission.Vfx, groupName, totalMembers);
-        if (PopupMenu.ToggleRow(FontAwesomeIcon.Home, Loc.Get("Syncshell.Cards.Perm.Housing"), !perm.IsDisableHousing(), $"{menuId}-housing"))
+        if (_uiShared.Modules.IsEnabled(ModuleId.Housing)
+            && PopupMenu.ToggleRow(FontAwesomeIcon.Home, Loc.Get("Syncshell.Cards.Perm.Housing"), !perm.IsDisableHousing(), $"{menuId}-housing"))
             ToggleShellPermission(groupDto, ShellPermission.Housing, groupName, totalMembers);
 
         ImGui.EndPopup();

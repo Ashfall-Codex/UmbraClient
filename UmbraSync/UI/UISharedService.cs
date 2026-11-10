@@ -27,6 +27,7 @@ using UmbraSync.Localization;
 using UmbraSync.Services.ServerConfiguration;
 using UmbraSync.UI.Components;
 
+using UmbraSync.Modules;
 namespace UmbraSync.UI;
 
 public partial class UiSharedService : DisposableMediatorSubscriberBase
@@ -376,6 +377,8 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
     private bool _penumbraExists;
     private bool _petNamesExists;
     private bool _brioExists;
+    private bool _stagehandExists;
+    private string _stagehandUnavailableReason = string.Empty;
     private bool _chatTwoExists;
     private bool _chatProximityExists;
     private bool _chatAlertExists;
@@ -387,13 +390,17 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
 
     private int _serverSelectionIndex = -1;
 
+    public IModuleRegistry Modules { get; }
+
     public UiSharedService(ILogger<UiSharedService> logger, IpcManager ipcManager, ApiController apiController,
         CacheMonitor cacheMonitor, FileDialogManager fileDialogManager,
         MareConfigService configService, DalamudUtilService dalamudUtil, IDalamudPluginInterface pluginInterface,
         ITextureProvider textureProvider,
-        ServerConfigurationManager serverManager, ProfileImageTextureCache profileTextures, MareMediator mediator) : base(logger, mediator)
+        ServerConfigurationManager serverManager, ProfileImageTextureCache profileTextures, MareMediator mediator,
+        IModuleRegistry moduleRegistry) : base(logger, mediator)
     {
         ProfileTextures = profileTextures;
+        Modules = moduleRegistry;
         _ipcManager = ipcManager;
         _apiController = apiController;
         _cacheMonitor = cacheMonitor;
@@ -418,6 +425,8 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
             _petNamesExists = _ipcManager.PetNames.APIAvailable;
             _moodlesExists = _ipcManager.Moodles.APIAvailable;
             _brioExists = _ipcManager.Brio.APIAvailable;
+            _stagehandExists = _ipcManager.Stagehand.APIAvailable;
+            _stagehandUnavailableReason = _stagehandExists ? string.Empty : _ipcManager.Stagehand.DescribeUnavailability();
             _chatTwoExists = Services.PluginWatcherService.GetInitialPluginState(pluginInterface, "ChatTwo")?.IsLoaded ?? false;
             _chatProximityExists = Services.PluginWatcherService.GetInitialPluginState(pluginInterface, "ChatProximity")?.IsLoaded ?? false;
             _chatAlertExists = Services.PluginWatcherService.GetInitialPluginState(pluginInterface, "ChatAlerts")?.IsLoaded ?? false;
@@ -453,6 +462,7 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
         ("Brio", _brioExists, null),
         ("A Quest Reborn", _questRebornExists, null),
         ("A Realm Repopulated", _aRealmRepopulatedExists, null),
+        ("Stagehand", _stagehandExists, "Settings.Plugins.Stagehand.Hint"),
     ];
 
     public IReadOnlyList<(string Name, bool Exists, string? HintKey)> GetDetectedPluginStates() =>
@@ -2098,6 +2108,7 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
             DrawPluginEntry("PetNicknames", _petNamesExists, check, cross);
             DrawPluginEntry("Moodles", _moodlesExists, check, cross);
             DrawPluginEntry("Brio", _brioExists, check, cross);
+            DrawPluginEntry("Stagehand", _stagehandExists, check, cross, _stagehandUnavailableReason);
             DrawPluginEntry("A Quest Reborn", _questRebornExists, check, cross);
             DrawPluginEntry("Chat2", _chatTwoExists, check, cross);
             DrawPluginEntry("Chat Proximity", _chatProximityExists, check, cross);
@@ -2145,6 +2156,7 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
                 ("Brio", _brioExists),
                 ("A Quest Reborn", _questRebornExists),
                 ("A Realm Repopulated", _aRealmRepopulatedExists),
+                ("Stagehand", _stagehandExists),
             };
             if (ImGui.BeginTable("##OptionalPlugins", 2, ImGuiTableFlags.SizingFixedFit))
             {

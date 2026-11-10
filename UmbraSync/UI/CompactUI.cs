@@ -14,7 +14,6 @@ using NotificationType = UmbraSync.MareConfiguration.Models.NotificationType;
 using UmbraSync.PlayerData.Handlers;
 using UmbraSync.PlayerData.Pairs;
 using UmbraSync.Services;
-using UmbraSync.Services.AutoDetect;
 using UmbraSync.Services.Mediator;
 using UmbraSync.Services.Notification;
 using UmbraSync.Services.ServerConfiguration;
@@ -23,6 +22,10 @@ using UmbraSync.UI.Handlers;
 using UmbraSync.WebAPI.Files;
 using UmbraSync.WebAPI.Files.Models;
 using UmbraSync.WebAPI.SignalR.Utils;
+
+using UmbraSync.Modules;
+using UmbraSync.Modules.Discovery.Services;
+using UmbraSync.Modules.Discovery.UI;
 
 namespace UmbraSync.UI;
 
@@ -41,15 +44,15 @@ public partial class CompactUi : WindowMediatorSubscriberBase
     private readonly SelectPairForGroupUi _selectPairsForGroupUi;
     private readonly ServerConfigurationManager _serverManager;
     private readonly CharaDataManager _charaDataManager;
-    private readonly NearbyPendingService _nearbyPending;
-    private readonly AutoDetectRequestService _autoDetectRequestService;
+    private readonly NearbyPendingService? _nearbyPending;
+    private readonly AutoDetectRequestService? _autoDetectRequestService;
     private readonly CharacterAnalyzer _characterAnalyzer;
     private readonly UidDisplayHandler _uidDisplayHandler;
     private readonly UiSharedService _uiSharedService;
     private DateTime? _connectingSinceUtc;
     private readonly EditProfileUi _editProfileUi;
     private readonly SettingsUi _settingsUi;
-    private readonly AutoDetectUi _autoDetectUi;
+    private readonly AutoDetectUi? _autoDetectUi;
     private readonly DataAnalysisUi _dataAnalysisUi;
     private readonly CharaDataHubUi _charaDataHubUi;
     private readonly NotificationTracker _notificationTracker;
@@ -91,13 +94,10 @@ public partial class CompactUi : WindowMediatorSubscriberBase
 
     public CompactUi(ILogger<CompactUi> logger, UiSharedService uiShared, MareConfigService configService, ApiController apiController, PairManager pairManager,
         ServerConfigurationManager serverManager, MareMediator mediator, FileUploadManager fileTransferManager, UidDisplayHandler uidDisplayHandler, CharaDataManager charaDataManager,
-        NearbyPendingService nearbyPendingService,
-        AutoDetectRequestService autoDetectRequestService,
         CharacterAnalyzer characterAnalyzer,
         PerformanceCollectorService performanceCollectorService,
         EditProfileUi editProfileUi,
         SettingsUi settingsUi,
-        AutoDetectUi autoDetectUi,
         DataAnalysisUi dataAnalysisUi,
         CharaDataHubUi charaDataHubUi,
         NotificationTracker notificationTracker,
@@ -105,7 +105,10 @@ public partial class CompactUi : WindowMediatorSubscriberBase
         EstablishmentConfigService establishmentConfigService,
         DalamudUtilService dalamudUtilService,
         SlotService slotService,
-        UmbraProfileManager umbraProfileManager)
+        UmbraProfileManager umbraProfileManager,
+        NearbyPendingService? nearbyPendingService = null,
+        AutoDetectRequestService? autoDetectRequestService = null,
+        AutoDetectUi? autoDetectUi = null)
         : base(logger, mediator, "###UmbraSyncMainUI", performanceCollectorService)
     {
         _dalamudUtilService = dalamudUtilService;
@@ -166,19 +169,22 @@ public partial class CompactUi : WindowMediatorSubscriberBase
             }
         });
         Mediator.Subscribe<NotificationStateChanged>(this, msg => _notificationCount = msg.TotalCount);
-        Mediator.Subscribe<EstablishmentChangedMessage>(this, (_) => AnnuaireRefreshAll());
-        Mediator.Subscribe<EstablishmentAffiliationRequestedMessage>(this, msg =>
+        if (_uiSharedService.Modules.IsEnabled(ModuleId.Rp))
         {
-            var entry = NotificationEntry.EstablishmentAffiliationRequested(msg.Affiliation);
-            _notificationTracker.Upsert(entry);
-            Mediator.Publish(new NotificationMessage(entry.Title, entry.Description ?? string.Empty, NotificationType.Info));
-        });
-        Mediator.Subscribe<EstablishmentAffiliationRespondedMessage>(this, msg =>
-        {
-            var entry = NotificationEntry.EstablishmentAffiliationResponded(msg.Affiliation);
-            _notificationTracker.Upsert(entry);
-            Mediator.Publish(new NotificationMessage(entry.Title, entry.Description ?? string.Empty, NotificationType.Info));
-        });
+            Mediator.Subscribe<EstablishmentChangedMessage>(this, (_) => AnnuaireRefreshAll());
+            Mediator.Subscribe<EstablishmentAffiliationRequestedMessage>(this, msg =>
+            {
+                var entry = NotificationEntry.EstablishmentAffiliationRequested(msg.Affiliation);
+                _notificationTracker.Upsert(entry);
+                Mediator.Publish(new NotificationMessage(entry.Title, entry.Description ?? string.Empty, NotificationType.Info));
+            });
+            Mediator.Subscribe<EstablishmentAffiliationRespondedMessage>(this, msg =>
+            {
+                var entry = NotificationEntry.EstablishmentAffiliationResponded(msg.Affiliation);
+                _notificationTracker.Upsert(entry);
+                Mediator.Publish(new NotificationMessage(entry.Title, entry.Description ?? string.Empty, NotificationType.Info));
+            });
+        }
         Mediator.Subscribe<DisconnectedMessage>(this, (_) =>
         {
             _drawUserPairCache.Clear();
@@ -459,23 +465,23 @@ public partial class CompactUi : WindowMediatorSubscriberBase
                 DrawSyncshellSection();
                 break;
             case SocialSubSection.Invitations:
-                _autoDetectUi.DrawInvitationsPage();
+                _autoDetectUi?.DrawInvitationsPage();
                 break;
             case SocialSubSection.Nearby:
-                _autoDetectUi.DrawNearbyPage();
+                _autoDetectUi?.DrawNearbyPage();
                 break;
             case SocialSubSection.SyncFinder:
-                _autoDetectUi.DrawSyncFinderPage();
+                _autoDetectUi?.DrawSyncFinderPage();
                 break;
             case SocialSubSection.Profiles:
-                _charaDataHubUi.DrawProfilesPage();
+                if (_uiSharedService.Modules.IsEnabled(ModuleId.Rp)) _charaDataHubUi.DrawProfilesPage();
                 break;
             case SocialSubSection.DirectoryBrowse:
             case SocialSubSection.DirectoryFavorites:
             case SocialSubSection.DirectoryMine:
             case SocialSubSection.DirectoryUpcoming:
             case SocialSubSection.DirectoryWildRp:
-                DrawDirectoryPage();
+                if (_uiSharedService.Modules.IsEnabled(ModuleId.Rp)) DrawDirectoryPage();
                 break;
         }
 
@@ -506,28 +512,39 @@ public partial class CompactUi : WindowMediatorSubscriberBase
 
     private List<SideRailEntry> BuildSocialRail()
     {
-        int invitations = _autoDetectUi.PendingInvitationCount;
+        var discovery = _autoDetectUi != null;
+        var rp = _uiSharedService.Modules.IsEnabled(ModuleId.Rp);
+        int invitations = _autoDetectUi?.PendingInvitationCount ?? 0;
         var invitationsLabel = invitations > 0
             ? string.Format(CultureInfo.CurrentCulture, Loc.Get("AutoDetectUi.Tab.Invitations"), invitations)
             : Loc.Get("CompactUi.Social.Nav.Invitations");
 
-        return
-        [
+        var entries = new List<SideRailEntry>
+        {
             SideRailEntry.Group(Loc.Get("CompactUi.Social.Nav.Group.Contacts")),
-            new((int)SocialSubSection.Invitations, invitationsLabel, FontAwesomeIcon.Envelope),
-            new((int)SocialSubSection.IndividualPairs, Loc.Get("CompactUi.Sidebar.IndividualPairs"), FontAwesomeIcon.User),
-            new((int)SocialSubSection.Syncshells, Loc.Get("CompactUi.Sidebar.Syncshells"), FontAwesomeIcon.UserFriends),
-            new((int)SocialSubSection.Profiles, Loc.Get("CharaDataHub.Tab.Profiles"), FontAwesomeIcon.AddressBook),
-            SideRailEntry.Group(Loc.Get("CompactUi.Social.Nav.Group.Discover")),
-            new((int)SocialSubSection.Nearby, Loc.Get("AutoDetectUi.Tab.Nearby"), FontAwesomeIcon.MapMarkerAlt),
-            new((int)SocialSubSection.SyncFinder, Loc.Get("AutoDetectUi.Tab.SyncFinder"), FontAwesomeIcon.Search),
-            SideRailEntry.Group(Loc.Get("CompactUi.Social.Nav.Directory")),
-            new((int)SocialSubSection.DirectoryMine, Loc.Get("Establishment.Directory.Tab.Mine"), FontAwesomeIcon.Home),
-            new((int)SocialSubSection.DirectoryFavorites, Loc.Get("Establishment.Directory.Tab.Favorites"), FontAwesomeIcon.Star),
-            new((int)SocialSubSection.DirectoryBrowse, Loc.Get("Establishment.Directory.Tab.Browse"), FontAwesomeIcon.Globe),
-            new((int)SocialSubSection.DirectoryUpcoming, Loc.Get("Establishment.Directory.Tab.Upcoming"), FontAwesomeIcon.CalendarAlt),
-            new((int)SocialSubSection.DirectoryWildRp, Loc.Get("WildRp.Tab.Title"), FontAwesomeIcon.Compass),
-        ];
+        };
+        if (discovery)
+            entries.Add(new((int)SocialSubSection.Invitations, invitationsLabel, FontAwesomeIcon.Envelope));
+        entries.Add(new((int)SocialSubSection.IndividualPairs, Loc.Get("CompactUi.Sidebar.IndividualPairs"), FontAwesomeIcon.User));
+        entries.Add(new((int)SocialSubSection.Syncshells, Loc.Get("CompactUi.Sidebar.Syncshells"), FontAwesomeIcon.UserFriends));
+        if (rp)
+            entries.Add(new((int)SocialSubSection.Profiles, Loc.Get("CharaDataHub.Tab.Profiles"), FontAwesomeIcon.AddressBook));
+        if (discovery)
+        {
+            entries.Add(SideRailEntry.Group(Loc.Get("CompactUi.Social.Nav.Group.Discover")));
+            entries.Add(new((int)SocialSubSection.Nearby, Loc.Get("AutoDetectUi.Tab.Nearby"), FontAwesomeIcon.MapMarkerAlt));
+            entries.Add(new((int)SocialSubSection.SyncFinder, Loc.Get("AutoDetectUi.Tab.SyncFinder"), FontAwesomeIcon.Search));
+        }
+        if (rp)
+        {
+            entries.Add(SideRailEntry.Group(Loc.Get("CompactUi.Social.Nav.Directory")));
+            entries.Add(new((int)SocialSubSection.DirectoryMine, Loc.Get("Establishment.Directory.Tab.Mine"), FontAwesomeIcon.Home));
+            entries.Add(new((int)SocialSubSection.DirectoryFavorites, Loc.Get("Establishment.Directory.Tab.Favorites"), FontAwesomeIcon.Star));
+            entries.Add(new((int)SocialSubSection.DirectoryBrowse, Loc.Get("Establishment.Directory.Tab.Browse"), FontAwesomeIcon.Globe));
+            entries.Add(new((int)SocialSubSection.DirectoryUpcoming, Loc.Get("Establishment.Directory.Tab.Upcoming"), FontAwesomeIcon.CalendarAlt));
+            entries.Add(new((int)SocialSubSection.DirectoryWildRp, Loc.Get("WildRp.Tab.Title"), FontAwesomeIcon.Compass));
+        }
+        return entries;
     }
 
     private void DrawUnsupportedVersionBanner()

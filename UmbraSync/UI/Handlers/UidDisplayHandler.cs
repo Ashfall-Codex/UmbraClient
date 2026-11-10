@@ -11,6 +11,7 @@ using UmbraSync.Services.ServerConfiguration;
 using UmbraSync.UI.Components;
 using UmbraSync.Utils;
 
+using UmbraSync.Modules;
 namespace UmbraSync.UI.Handlers;
 
 public class UidDisplayHandler
@@ -71,7 +72,7 @@ public class UidDisplayHandler
         {
             ImGui.SetCursorPosY(originalY);
 
-            if (_mareConfigService.Current.ShowRpIdentityInPairList)
+            if ((_mareConfigService.Current.ShowRpIdentityInPairList && _uiSharedService.Modules.IsEnabled(ModuleId.Rp)))
             {
                 rpIdentity = GetRpIdentity(pair);
                 var rpName = rpIdentity == null ? null : $"{rpIdentity.RpFirstName} {rpIdentity.RpLastName}".Trim();
@@ -193,7 +194,7 @@ public class UidDisplayHandler
     public bool TryGetPresenceAvatar(Pair pair, out UmbraProfileData profile)
     {
         profile = null!;
-        if (!_mareConfigService.Current.ShowRpIdentityInPairList || !pair.IsVisible) return false;
+        if (!(_mareConfigService.Current.ShowRpIdentityInPairList && _uiSharedService.Modules.IsEnabled(ModuleId.Rp)) || !pair.IsVisible) return false;
         var known = GetRpIdentity(pair);
         if (known == null || !known.RpImageData.HasImage) return false;
         profile = known;
@@ -201,7 +202,7 @@ public class UidDisplayHandler
     }
 
     public bool WantsTallRow(Pair pair)
-        => _mareConfigService.Current.ShowRpIdentityInPairList && pair.IsVisible;
+        => (_mareConfigService.Current.ShowRpIdentityInPairList && _uiSharedService.Modules.IsEnabled(ModuleId.Rp)) && pair.IsVisible;
 
     public void DrawPresenceAvatar(Pair pair, UmbraProfileData profile, System.Numerics.Vector2 pos, float size)
     {

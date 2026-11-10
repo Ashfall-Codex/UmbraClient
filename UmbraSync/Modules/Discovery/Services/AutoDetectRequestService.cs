@@ -1,0 +1,418 @@
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using System.Collections.Concurrent;
+using System.Globalization;
+using UmbraSync.API.Data;
+using UmbraSync.API.Dto.User;
+using UmbraSync.Localization;
+using UmbraSync.MareConfiguration;
+using UmbraSync.Modules.Discovery.WebAPI;
+using UmbraSync.PlayerData.Pairs;
+using UmbraSync.Services;
+using UmbraSync.Services.Mediator;
+using UmbraSync.Services.Notification;
+using NotificationType = UmbraSync.MareConfiguration.Models.NotificationType;
+
+namespace UmbraSync.Modules.Discovery.Services;
+
+public class AutoDetectRequestService : IMediatorSubscriber
+{
+    private readonly ILogger<AutoDetectRequestService> _logger;
+    private readonly DiscoveryConfigProvider _configProvider;
+    private readonly DiscoveryApiClient _client;
+    private readonly MareConfigService _configService;
+    private readonly DalamudUtilService _dalamud;
+    private readonly MareMediator _mediator;
+    private readonly NotificationTracker _notificationTracker;
+    private readonly Lock _syncRoot = new();
+    private readonly Dictionary<string, DateTime> _activeCooldowns = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, SendFailureTracker> _sendFailureTrackers = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, PendingRequestInfo> _pendingRequests = new(StringComparer.Ordinal);
+    private const int FailuresBeforeLock = 3;
+
+    private static readonly TimeSpan RequestCooldown = TimeSpan.FromMinutes(5);
+    private static readonly TimeSpan FailureLockDuration = TimeSpan.FromMinutes(15);
+    private readonly Lazy<ApiController> _apiController;
+    private readonly Lazy<PairManager> _pairManager;
+    private readonly Lazy<NearbyDiscoveryService> _discoveryService;
+
+    public AutoDetectRequestService(ILogger<AutoDetectRequestService> logger, DiscoveryConfigProvider configProvider, DiscoveryApiClient client, MareConfigService configService, MareMediator mediator, DalamudUtilService dalamudUtilService, IServiceProvider serviceProvider, NotificationTracker notificationTracker)
+    {
+        _logger = logger;
+        _configProvider = configProvider;
+        _client = client;
+        _configService = configService;
+        _mediator = mediator;
+        _dalamud = dalamudUtilService;
+        _notificationTracker = notificationTracker;
+        _apiController = new Lazy<ApiController>(() => serviceProvider.GetRequiredService<ApiController>());
+        _pairManager = new Lazy<PairManager>(() => serviceProvider.GetRequiredService<PairManager>());
+        _discoveryService = new Lazy<NearbyDiscoveryService>(() => serviceProvider.GetRequiredService<NearbyDiscoveryService>());
+        _mediator.Subscribe<DisconnectedMessage>(this, _ => ClearAllOnDisconnect());
+        _mediator.Subscribe<PairOfflineMessage>(this, msg => RemoveOutgoingForUser(msg.User.UID));
+    }
+
+    public MareMediator Mediator => _mediator;
+
+    public bool IsNearbyHidden => _discoveryService.Value.IsHidden;
+
+    public async Task<bool> SendRequestAsync(string? token, string? uid = null, string? targetDisplayName = null, CancellationToken ct = default)
+    {
+        if (IsNearbyHidden)
+        {
+            _logger.LogDebug("Nearby request blocked: player is hidden from nearby discovery");
+            _mediator.Publish(new NotificationMessage(Loc.Get("Notification.Nearby.Blocked.Title"), Loc.Get("Notification.Nearby.Hidden.Body"), NotificationType.Info));
+            return false;
+        }
+
+        if (!_configService.Current.AllowAutoDetectPairRequests)
+        {
+            _logger.LogDebug("Nearby request blocked: AllowAutoDetectPairRequests is disabled");
+            _mediator.Publish(new NotificationMessage(Loc.Get("Notification.Nearby.Blocked.Title"), Loc.Get("Notification.Nearby.Blocked.Body"), NotificationType.Info));
+            return false;
+        }
+
+        if (string.IsNullOrEmpty(token) && string.IsNullOrEmpty(uid))
+        {
+            _logger.LogDebug("Nearby request blocked: no token or UID provided");
+            return false;
+        }
+
+        if (!string.IsNullOrEmpty(uid) && _pairManager.Value.IsAlreadyDirectPaired(uid))
+        {
+            _logger.LogDebug("Nearby request aborted: already direct paired with {uid}", uid);
+            _mediator.Publish(new NotificationMessage(Loc.Get("Notification.Nearby.AlreadyPaired.Title"), Loc.Get("Notification.Nearby.AlreadyPaired.Body"), NotificationType.Info));
+            return false;
+        }
+
+        if (string.IsNullOrEmpty(token))
+        {
+            // Le point d'accès de découverte n'accepte que des jetons : une demande par UID passe par le hub
+            return await SendDirectUidRequestAsync(uid!, targetDisplayName, fromNearby: true, ct).ConfigureAwait(false);
+        }
+
+        var targetKey = BuildTargetKey(uid, token, targetDisplayName);
+        if (!CanRequestTarget(targetKey)) return false;
+        var endpoint = _configProvider.RequestEndpoint;
+        if (string.IsNullOrEmpty(endpoint))
+        {
+            _logger.LogDebug("No request endpoint configured");
+            _mediator.Publish(new NotificationMessage(Loc.Get("Notification.Nearby.Failed.Title"), Loc.Get("Notification.Nearby.Failed.NoEndpoint"), NotificationType.Error));
+            _notificationTracker.Upsert(NotificationEntry.NearbyRequestFailed(Loc.Get("Notification.Nearby.Failed.NoEndpoint")));
+            return false;
+        }
+        string? displayName = null;
+        try
+        {
+            displayName = await _dalamud.RunOnFrameworkThread(() => _dalamud.GetPlayerCharacter()?.Name.TextValue).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to determine player display name for nearby request");
+        }
+
+        _logger.LogInformation("Nearby: sending pair request via {endpoint}", endpoint);
+        var ok = await _client.SendRequestAsync(endpoint, token, displayName, ct).ConfigureAwait(false);
+        if (ok)
+        {
+            RecordRequestSent(targetKey);
+            _mediator.Publish(new NotificationMessage(Loc.Get("Notification.Nearby.Sent.Title"), Loc.Get("Notification.Nearby.Sent.Body"), NotificationType.Info));
+            var pendingKey = EnsureTargetKey(targetKey);
+            var label = !string.IsNullOrWhiteSpace(targetDisplayName)
+                ? targetDisplayName
+                : (!string.IsNullOrEmpty(uid) ? uid : (!string.IsNullOrEmpty(token) ? token : pendingKey));
+            _pendingRequests[pendingKey] = new PendingRequestInfo(pendingKey, uid, token, label, DateTime.UtcNow);
+        }
+        else
+        {
+            RecordSendFailure(targetKey);
+            _mediator.Publish(new NotificationMessage(Loc.Get("Notification.Nearby.Failed.Title"), Loc.Get("Notification.Nearby.Failed.Rejected"), NotificationType.Warning));
+            _notificationTracker.Upsert(NotificationEntry.NearbyRequestFailed(Loc.Get("Notification.Nearby.Failed.Rejected")));
+        }
+        return ok;
+    }
+
+    /// <summary>
+    /// Demande d'appairage par UID, via le hub. <paramref name="fromNearby"/> applique en plus les règles
+    /// de la détection de proximité (pas de demande quand on est soi-même masqué).
+    /// </summary>
+    public async Task<bool> SendDirectUidRequestAsync(string uid, string? targetDisplayName = null, bool fromNearby = false, CancellationToken ct = default)
+    {
+        if (fromNearby && IsNearbyHidden)
+        {
+            _logger.LogDebug("Direct pair request blocked: player is hidden from nearby discovery");
+            _mediator.Publish(new NotificationMessage(Loc.Get("Notification.Nearby.Blocked.Title"), Loc.Get("Notification.Nearby.Hidden.Body"), NotificationType.Info));
+            return false;
+        }
+
+        if (!_configService.Current.AllowAutoDetectPairRequests)
+        {
+            _logger.LogDebug("Nearby request blocked: AllowAutoDetectPairRequests is disabled");
+            _mediator.Publish(new NotificationMessage(Loc.Get("Notification.Nearby.Blocked.Title"), Loc.Get("Notification.Nearby.Blocked.Body"), NotificationType.Info));
+            return false;
+        }
+
+        if (string.IsNullOrEmpty(uid))
+        {
+            _logger.LogDebug("Direct pair request aborted: UID is empty");
+            return false;
+        }
+
+        if (_pairManager.Value.IsAlreadyDirectPaired(uid))
+        {
+            _logger.LogDebug("Direct pair request aborted: already direct paired with {uid}", uid);
+            _mediator.Publish(new NotificationMessage(Loc.Get("Notification.Nearby.AlreadyPaired.Title"), Loc.Get("Notification.Nearby.AlreadyPaired.Body"), NotificationType.Info));
+            return false;
+        }
+
+        var targetKey = BuildTargetKey(uid, null, targetDisplayName);
+        if (!CanRequestTarget(targetKey)) return false;
+
+        try
+        {
+            ct.ThrowIfCancellationRequested();
+            await _apiController.Value.UserAddPair(new UserDto(new UserData(uid))).ConfigureAwait(false);
+
+            RecordRequestSent(targetKey);
+
+            _mediator.Publish(new NotificationMessage(Loc.Get("Notification.Nearby.Sent.Title"), Loc.Get("Notification.Nearby.Sent.Body"), NotificationType.Info));
+            var pendingKey = EnsureTargetKey(targetKey);
+            var label = !string.IsNullOrWhiteSpace(targetDisplayName) ? targetDisplayName : uid;
+            _pendingRequests[pendingKey] = new PendingRequestInfo(pendingKey, uid, null, label, DateTime.UtcNow);
+
+            return true;
+        }
+        catch (Exception ex) when (ApiController.IsPairRequestsDisabledError(ex))
+        {
+            RecordSendFailure(targetKey);
+            _mediator.Publish(new NotificationMessage(Loc.Get("Notification.Nearby.Failed.Title"), Loc.Get("Notification.AddPair.RequestsDisabled.Body"), NotificationType.Warning));
+            _notificationTracker.Upsert(NotificationEntry.NearbyRequestFailed(Loc.Get("Notification.AddPair.RequestsDisabled.Body")));
+            return false;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Direct pair request failed for {uid}", uid);
+            RecordSendFailure(targetKey);
+
+            _mediator.Publish(new NotificationMessage(Loc.Get("Notification.Nearby.Failed.Title"), Loc.Get("Notification.Nearby.Failed.Rejected"), NotificationType.Warning));
+            _notificationTracker.Upsert(NotificationEntry.NearbyRequestFailed(Loc.Get("Notification.Nearby.Failed.Rejected")));
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Marque une demande comme partie : le délai d'attente repart, et la série d'échecs d'envoi
+    /// consécutifs est oubliée puisque l'envoi vient de réussir.
+    /// </summary>
+    private void RecordRequestSent(string? targetKey)
+    {
+        if (string.IsNullOrEmpty(targetKey)) return;
+
+        using (_syncRoot.EnterScope())
+        {
+            _activeCooldowns[targetKey] = DateTime.UtcNow;
+            _sendFailureTrackers.Remove(targetKey);
+        }
+    }
+
+    /// <summary>
+    /// Comptabilise un échec d'envoi (rejet serveur, erreur réseau) pour cette cible et pose le verrou
+    /// au troisième d'affilée. Un refus de la cible elle-même est silencieux et n'est pas compté ici.
+    /// Un verrou arrivé à échéance remet le compteur à zéro : la série doit être récente pour compter.
+    /// </summary>
+    private void RecordSendFailure(string? targetKey)
+    {
+        if (string.IsNullOrEmpty(targetKey)) return;
+
+        var now = DateTime.UtcNow;
+        using (_syncRoot.EnterScope())
+        {
+            _activeCooldowns.Remove(targetKey);
+            if (!_sendFailureTrackers.TryGetValue(targetKey, out var tracker))
+            {
+                tracker = new SendFailureTracker();
+                _sendFailureTrackers[targetKey] = tracker;
+            }
+
+            if (tracker.LockUntil.HasValue && tracker.LockUntil.Value <= now)
+            {
+                tracker.LockUntil = null;
+                tracker.Count = 0;
+            }
+
+            tracker.Count++;
+            if (tracker.Count >= FailuresBeforeLock)
+            {
+                tracker.LockUntil = now.Add(FailureLockDuration);
+            }
+        }
+
+        _pendingRequests.TryRemove(targetKey, out _);
+    }
+
+    private bool CanRequestTarget(string? targetKey)
+    {
+        if (string.IsNullOrEmpty(targetKey)) return true;
+
+        var now = DateTime.UtcNow;
+        using (_syncRoot.EnterScope())
+        {
+            if (_sendFailureTrackers.TryGetValue(targetKey, out var tracker) && tracker.LockUntil.HasValue)
+            {
+                if (tracker.LockUntil.Value > now)
+                {
+                    PublishLockNotification(tracker.LockUntil.Value - now);
+                    return false;
+                }
+
+                // Verrou expiré : l'entrée ne sert plus à rien, le compteur d'échecs repart de zéro.
+                _sendFailureTrackers.Remove(targetKey);
+            }
+
+            if (_activeCooldowns.TryGetValue(targetKey, out var lastSent))
+            {
+                var elapsed = now - lastSent;
+                if (elapsed < RequestCooldown)
+                {
+                    PublishCooldownNotification(RequestCooldown - elapsed);
+                    return false;
+                }
+
+                _activeCooldowns.Remove(targetKey);
+            }
+        }
+
+        return true;
+    }
+
+    private static string? BuildTargetKey(string? uid, string? token, string? displayName)
+    {
+        if (!string.IsNullOrEmpty(uid)) return "uid:" + uid;
+        if (!string.IsNullOrEmpty(token)) return "token:" + token;
+        if (!string.IsNullOrEmpty(displayName)) return "name:" + displayName;
+        return null;
+    }
+
+    private void PublishCooldownNotification(TimeSpan remaining)
+    {
+        var durationText = FormatDuration(remaining);
+        _mediator.Publish(new NotificationMessage(Loc.Get("Notification.Nearby.Cooldown.Title"), string.Format(CultureInfo.CurrentCulture, Loc.Get("Notification.Nearby.Cooldown.Body"), durationText), NotificationType.Info, TimeSpan.FromSeconds(5)));
+    }
+
+    private void PublishLockNotification(TimeSpan remaining)
+    {
+        var durationText = FormatDuration(remaining);
+        _mediator.Publish(new NotificationMessage(Loc.Get("Notification.Nearby.Locked.Title"), string.Format(CultureInfo.CurrentCulture, Loc.Get("Notification.Nearby.Locked.Body"), durationText), NotificationType.Warning, TimeSpan.FromSeconds(5)));
+    }
+
+    private static string FormatDuration(TimeSpan remaining)
+    {
+        if (remaining.TotalMinutes >= 1)
+        {
+            var minutes = Math.Max(1, (int)Math.Ceiling(remaining.TotalMinutes));
+            return minutes == 1 ? "1 minute" : minutes + " minutes";
+        }
+
+        var seconds = Math.Max(1, (int)Math.Ceiling(remaining.TotalSeconds));
+        return seconds == 1 ? "1 seconde" : seconds + " secondes";
+    }
+
+    private sealed class SendFailureTracker
+    {
+        public int Count;
+        public DateTime? LockUntil;
+    }
+
+    private static readonly TimeSpan OutgoingExpiration = TimeSpan.FromMinutes(10);
+
+    private void ClearAllOnDisconnect()
+    {
+        if (_pendingRequests.IsEmpty) return;
+        _pendingRequests.Clear();
+        _logger.LogInformation("AutoDetectRequest: cleared all outgoing invitations (disconnected)");
+    }
+
+    private void RemoveOutgoingForUser(string uid)
+    {
+        if (string.IsNullOrEmpty(uid)) return;
+        foreach (var kvp in _pendingRequests)
+        {
+            if (string.Equals(kvp.Value.Uid, uid, StringComparison.Ordinal))
+            {
+                if (_pendingRequests.TryRemove(kvp.Key, out var removed))
+                {
+                    _logger.LogInformation("AutoDetectRequest: removed outgoing invite to {uid} (user went offline)", uid);
+                    _mediator.Publish(new NotificationMessage(
+                        Loc.Get("AutoDetect.Notification.DisconnectedTitle"),
+                        string.Format(CultureInfo.CurrentCulture, Loc.Get("AutoDetect.Notification.DisconnectedOutgoing"), removed.TargetDisplayName),
+                        NotificationType.Info, TimeSpan.FromSeconds(5)));
+                }
+                break;
+            }
+        }
+    }
+
+    public IReadOnlyCollection<PendingRequestInfo> GetPendingRequestsSnapshot()
+    {
+        CleanupExpiredOutgoing();
+        return _pendingRequests.Values.OrderByDescending(v => v.SentAt).ToList();
+    }
+
+    private void CleanupExpiredOutgoing()
+    {
+        var cutoff = DateTime.UtcNow - OutgoingExpiration;
+        foreach (var kvp in _pendingRequests)
+        {
+            if (kvp.Value.SentAt < cutoff)
+            {
+                _pendingRequests.TryRemove(kvp.Key, out _);
+            }
+        }
+    }
+
+    public void RemovePendingRequestByUid(string uid)
+    {
+        if (string.IsNullOrEmpty(uid)) return;
+        foreach (var kvp in _pendingRequests)
+        {
+            if (string.Equals(kvp.Value.Uid, uid, StringComparison.Ordinal))
+            {
+                _pendingRequests.TryRemove(kvp.Key, out _);
+                break;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Retire et renvoie l'invitation encore valide envoyée à <paramref name="uid"/>, s'il y en a une.
+    /// </summary>
+    public bool TryTakeOutgoingTo(string uid, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out PendingRequestInfo? info)
+    {
+        info = null;
+        if (string.IsNullOrEmpty(uid)) return false;
+        CleanupExpiredOutgoing();
+        foreach (var kvp in _pendingRequests)
+        {
+            if (string.Equals(kvp.Value.Uid, uid, StringComparison.Ordinal) && _pendingRequests.TryRemove(kvp.Key, out var removed))
+            {
+                info = removed;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public void RemovePendingRequestByKey(string key)
+    {
+        if (string.IsNullOrEmpty(key)) return;
+        _pendingRequests.TryRemove(key, out _);
+    }
+
+    private static string EnsureTargetKey(string? targetKey)
+    {
+        return !string.IsNullOrEmpty(targetKey) ? targetKey : "target:" + Guid.NewGuid().ToString("N");
+    }
+
+    public sealed record PendingRequestInfo(string Key, string? Uid, string? Token, string TargetDisplayName, DateTime SentAt);
+}

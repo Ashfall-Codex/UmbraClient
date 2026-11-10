@@ -12,6 +12,7 @@ using UmbraSync.Services.Mediator;
 using UmbraSync.Services.Notification;
 using NotificationType = UmbraSync.MareConfiguration.Models.NotificationType;
 
+using UmbraSync.Modules;
 namespace UmbraSync.UI;
 
 public partial class CompactUi
@@ -53,7 +54,8 @@ public partial class CompactUi
                 case NotificationCategory.McdfShare:
                     DrawMcdfShareNotification(notification);
                     break;
-                case NotificationCategory.Establishment when notification.Id.StartsWith(NotificationEntry.AffiliationRequestPrefix, StringComparison.Ordinal):
+                case NotificationCategory.Establishment when notification.Id.StartsWith(NotificationEntry.AffiliationRequestPrefix, StringComparison.Ordinal)
+                    && _uiSharedService.Modules.IsEnabled(ModuleId.Rp):
                     DrawAffiliationRequestNotification(notification);
                     break;
                 default:
@@ -99,7 +101,7 @@ public partial class CompactUi
 
             ImGuiHelpers.ScaledDummy(3f);
 
-            bool hasPending = _nearbyPending.Pending.ContainsKey(notification.Id);
+            bool hasPending = _nearbyPending?.Pending.ContainsKey(notification.Id) ?? false;
             using (ImRaii.PushId(notification.Id))
             {
                 using (ImRaii.Disabled(!hasPending))
@@ -111,12 +113,12 @@ public partial class CompactUi
                     ImGui.SameLine();
                     if (ImGui.Button(Loc.Get("CompactUi.Notifications.Decline")))
                     {
-                        _nearbyPending.Decline(notification.Id);
+                        _nearbyPending?.Decline(notification.Id);
                     }
                     ImGui.SameLine();
                     if (ImGui.Button(Loc.Get("AutoDetect.Block")))
                     {
-                        _nearbyPending.Block(notification.Id);
+                        _nearbyPending?.Block(notification.Id);
                     }
                     UiSharedService.AttachToolTip(Loc.Get("AutoDetect.Block.Tooltip"));
                 }
@@ -264,7 +266,7 @@ public partial class CompactUi
     {
         _ = Task.Run(async () =>
         {
-            bool accepted = await _nearbyPending.AcceptAsync(uid).ConfigureAwait(false);
+            bool accepted = _nearbyPending != null && await _nearbyPending.AcceptAsync(uid).ConfigureAwait(false);
             if (!accepted)
             {
                 Mediator.Publish(new NotificationMessage(Loc.Get("CompactUi.Notifications.AutoDetectTitle"), string.Format(CultureInfo.CurrentCulture, Loc.Get("CompactUi.Notifications.AcceptFailed"), uid), NotificationType.Warning, TimeSpan.FromSeconds(5)));
@@ -287,7 +289,7 @@ public partial class CompactUi
         if (nearby != null && !string.IsNullOrWhiteSpace(nearby.Name))
             return nearby.Name;
 
-        if (_nearbyPending.Pending.TryGetValue(uid, out var pendingEntry)
+        if (_nearbyPending != null && _nearbyPending.Pending.TryGetValue(uid, out var pendingEntry)
             && !string.IsNullOrWhiteSpace(pendingEntry.DisplayName)
             && !string.Equals(pendingEntry.DisplayName, _apiController.DisplayName, StringComparison.OrdinalIgnoreCase))
             return pendingEntry.DisplayName;

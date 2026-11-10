@@ -10,6 +10,7 @@ using UmbraSync.PlayerData.Pairs;
 using UmbraSync.Services.Mediator;
 using UmbraSync.Services.ServerConfiguration;
 
+using UmbraSync.Modules;
 namespace UmbraSync.Services;
 
 public sealed class UmbraProfileManager : MediatorSubscriberBase, IDisposable
@@ -28,6 +29,7 @@ public sealed class UmbraProfileManager : MediatorSubscriberBase, IDisposable
     private readonly PairManager _pairManager;
     private readonly ServerConfigurationManager _serverConfigurationManager;
     private readonly ProfileImageTextureCache _profileTextures;
+    private readonly IModuleRegistry _modules;
     private readonly ConcurrentDictionary<(UserData User, string? CharName, uint? WorldId), UmbraProfileData> _umbraProfiles = new();
     private readonly ConcurrentDictionary<string, GroupProfileDto> _groupProfiles = new(StringComparer.OrdinalIgnoreCase);
 
@@ -65,8 +67,9 @@ public sealed class UmbraProfileManager : MediatorSubscriberBase, IDisposable
     public UmbraProfileManager(ILogger<UmbraProfileManager> logger, MareConfigService mareConfigService,
         RpConfigService rpConfigService, MareMediator mediator, ApiController apiController,
         PairManager pairManager, DalamudUtilService dalamudUtil, ServerConfigurationManager serverConfigurationManager,
-        ProfileImageTextureCache profileTextures, IDalamudPluginInterface pluginInterface) : base(logger, mediator)
+        ProfileImageTextureCache profileTextures, IDalamudPluginInterface pluginInterface, IModuleRegistry moduleRegistry) : base(logger, mediator)
     {
+        _modules = moduleRegistry;
         _profileTextures = profileTextures;
         _mareConfigService = mareConfigService;
         _rpConfigService = rpConfigService;
@@ -758,6 +761,7 @@ public sealed class UmbraProfileManager : MediatorSubscriberBase, IDisposable
 
     public void RequestOwnCharacterProfiles()
     {
+        if (!_modules.IsEnabled(ModuleId.Rp)) return;
         if (!_apiController.IsConnected || Interlocked.Exchange(ref _ownCharactersRequested, 1) == 1) return;
         _ = Task.Run(LoadOwnCharacterProfilesAsync);
     }

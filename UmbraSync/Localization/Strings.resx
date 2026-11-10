@@ -948,6 +948,12 @@ Please keep a copy of your secret key in case you need to reset your plugins, or
   <data name="DrawUserPair.Menu.HousingScenariosTooltip" xml:space="preserve">
     <value>Shows or hides the NPCs {0} placed in their house.&amp;#x0A;This setting stays on your client: {0} is not notified.</value>
   </data>
+  <data name="DrawUserPair.Menu.PermStages" xml:space="preserve">
+    <value>Shared Stages</value>
+  </data>
+  <data name="DrawUserPair.Menu.StagesTooltip" xml:space="preserve">
+    <value>Shows or hides the Stages published by {0}. This setting stays on your client: {0} is not informed.</value>
+  </data>
   <data name="DrawUserPair.Menu.Unpair" xml:space="preserve">
     <value>Unpair Permanently</value>
   </data>
@@ -1143,6 +1149,12 @@ Click to change.</value>
   </data>
   <data name="CompactUi.SyncDefaults.ScenarioSubject" xml:space="preserve">
     <value>NPC scenario</value>
+  </data>
+  <data name="CompactUi.SyncDefaults.StagesLabel" xml:space="preserve">
+    <value>Stages</value>
+  </data>
+  <data name="CompactUi.SyncDefaults.StagesSubject" xml:space="preserve">
+    <value>shared Stages</value>
   </data>
   <data name="CompactUi.Uid.CopyTooltip" xml:space="preserve">
     <value>Copy your UID to clipboard</value>
@@ -4476,6 +4488,15 @@ Note: Weapons will not be displayed correctly unless using the same job as the s
   <data name="Ipc.Glamourer.Unavailable.ApiMismatch" xml:space="preserve">
     <value>Glamourer answers with an incompatible API version ({0}). Umbra needs an update, not Glamourer.</value>
   </data>
+  <data name="Ipc.Stagehand.Unavailable.NotLoaded" xml:space="preserve">
+    <value>Stagehand is not loaded.</value>
+  </data>
+  <data name="Ipc.Stagehand.Unavailable.TooOld" xml:space="preserve">
+    <value>Your Stagehand version is too old for UmbraSync. Please update it.</value>
+  </data>
+  <data name="Ipc.Stagehand.Unavailable.TooNew" xml:space="preserve">
+    <value>Your Stagehand version is newer than the one UmbraSync supports. Please update UmbraSync.</value>
+  </data>
   <data name="Notification.PluginIntegration.MissingPlugins.Title" xml:space="preserve">
     <value>Missing Plugins for {0}</value>
   </data>
@@ -4725,6 +4746,21 @@ Note: Weapons will not be displayed correctly unless using the same job as the s
   </data>
   <data name="UserProfile.RpCustomFieldValue" xml:space="preserve">
     <value>Value</value>
+  </data>
+  <data name="UserProfile.RpCharacteristics" xml:space="preserve">
+    <value>Characteristics</value>
+  </data>
+  <data name="EditProfile.CustomFields.AddSection" xml:space="preserve">
+    <value>New category</value>
+  </data>
+  <data name="EditProfile.CustomFields.NewSectionName" xml:space="preserve">
+    <value>Category</value>
+  </data>
+  <data name="EditProfile.CustomFields.SectionName" xml:space="preserve">
+    <value>Category name</value>
+  </data>
+  <data name="EditProfile.CustomFields.DeleteSection" xml:space="preserve">
+    <value>Delete the category and its details (Ctrl + click)</value>
   </data>
   <data name="UserProfile.RpNsfw" xml:space="preserve">
     <value>Is this a RP NSFW profile?</value>
@@ -5052,6 +5088,12 @@ Note: Weapons will not be displayed correctly unless using the same job as the s
   <data name="SyncshellAdmin.Profile.ImageTooLarge" xml:space="preserve">
     <value>Image too large (max 2 MB).</value>
   </data>
+  <data name="AutoDetectUi.Syncshell.ShowDescription" xml:space="preserve">
+    <value>Show description</value>
+  </data>
+  <data name="AutoDetectUi.Syncshell.HideDescription" xml:space="preserve">
+    <value>Hide description</value>
+  </data>
   <data name="AutoDetectUi.ShowNSFW" xml:space="preserve">
     <value>Show NSFW syncshells</value>
   </data>
@@ -5210,6 +5252,9 @@ Note: Weapons will not be displayed correctly unless using the same job as the s
   </data>
   <data name="Settings.Plugins.SimpleTweaks.Hint" xml:space="preserve">
     <value>Chat name colors set in SimpleTweaks are preserved when "Respect external name colors" is enabled</value>
+  </data>
+  <data name="Settings.Plugins.Stagehand.Hint" xml:space="preserve">
+    <value>Lets you share Stages (placed scenery) with players at the same place. Install it from its custom repository.</value>
   </data>
   <data name="Settings.Plugins.MissingMandatory" xml:space="preserve">
     <value>You need to install both Penumbra and Glamourer and keep them up to date to use UmbraSync.</value>
@@ -5737,7 +5782,7 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
     <value>Browse Cached Profiles</value>
   </data>
   <data name="Settings.ProfileBrowser.SearchHint" xml:space="preserve">
-    <value>Search by name, UID, or alias...</value>
+    <value>Search by name, UID, alias, or keyword...</value>
   </data>
   <data name="Settings.ProfileBrowser.NoResults" xml:space="preserve">
     <value>No profiles found</value>
@@ -5774,6 +5819,21 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
   </data>
   <data name="Settings.ProfileBrowser.MyCharacter" xml:space="preserve">
     <value>My character</value>
+  </data>
+  <data name="CharaDataHub.Profiles.Tab.All" xml:space="preserve">
+    <value>All</value>
+  </data>
+  <data name="CharaDataHub.Profiles.Tab.Mine" xml:space="preserve">
+    <value>My characters</value>
+  </data>
+  <data name="CharaDataHub.Profiles.Tab.Others" xml:space="preserve">
+    <value>Other profiles</value>
+  </data>
+  <data name="Settings.ProfileBrowser.DeleteCharacter" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="Settings.ProfileBrowser.DeleteCharacter.Tooltip" xml:space="preserve">
+    <value>Hold Ctrl to delete the RP profile of {0} from the server. This cannot be undone.</value>
   </data>
   <!-- GDPR / Privacy -->
   <data name="Settings.Section.Privacy.Desc" xml:space="preserve">
@@ -5831,7 +5891,7 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
     <value>Delete</value>
   </data>
   <data name="Settings.Privacy.Delete.InProgress" xml:space="preserve">
-    <value>Deletion in progress…</value>
+    <value>Deletion in progress...</value>
   </data>
   <data name="Settings.Privacy.Delete.Done" xml:space="preserve">
     <value>Local deletion complete. Your server-side data is unaffected.</value>
@@ -5864,7 +5924,7 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
     <value>Delete permanently</value>
   </data>
   <data name="Settings.Privacy.ServerDelete.InProgress" xml:space="preserve">
-    <value>Erasure requested from the server…</value>
+    <value>Erasure requested from the server...</value>
   </data>
   <data name="Settings.Privacy.ServerDelete.Done" xml:space="preserve">
     <value>Erasure complete. Your account no longer exists on this server.</value>
@@ -5999,7 +6059,7 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
     <value>I accept and continue</value>
   </data>
   <data name="Rgpd.Consent.MandatoryWarning" xml:space="preserve">
-    <value>This acceptance is required to use the service. Optional processing remains your choice.</value>
+    <value>Tick the box above to continue: it is required to use the service. Optional processing remains your choice.</value>
   </data>
   <data name="HousingShare.Progress.Hashing" xml:space="preserve">
     <value>Hashing files...</value>
@@ -6799,7 +6859,7 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
     <value>NPC scenario</value>
   </data>
   <data name="HousingScenario.Notification.Applying" xml:space="preserve">
-    <value>Applying an NPC scenario… Please wait a few seconds.</value>
+    <value>Applying an NPC scenario... Please wait a few seconds.</value>
   </data>
   <data name="HousingScenario.Notification.Applied" xml:space="preserve">
     <value>A shared NPC scenario is applied in this housing.</value>
@@ -6871,7 +6931,7 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
     <value>UmbraSync is not showing any NPC in this room.</value>
   </data>
   <data name="HousingNpc.Editor.NoneSpawnedTip" xml:space="preserve">
-    <value>If you still see NPCs here, another plugin placed them&amp;#x0A;(A Realm Repopulated, Brio…): they can only be removed from that plugin.</value>
+    <value>If you still see NPCs here, another plugin placed them&amp;#x0A;(A Realm Repopulated, Brio...): they can only be removed from that plugin.</value>
   </data>
   <data name="HousingNpc.Editor.SpawnedSummary" xml:space="preserve">
     <value>{0} NPC(s) shown here by UmbraSync.</value>
@@ -7093,7 +7153,7 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
     <value>Pick a Glamourer design:</value>
   </data>
   <data name="HousingNpc.Editor.CaptureGlamourerLoading" xml:space="preserve">
-    <value>Loading designs…</value>
+    <value>Loading designs...</value>
   </data>
   <data name="HousingNpc.Editor.CaptureGlamourerEmpty" xml:space="preserve">
     <value>No Glamourer design found.</value>
@@ -7506,6 +7566,75 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
   <data name="Settings.Section.About.Title" xml:space="preserve">
     <value>About</value>
   </data>
+  <data name="Settings.Section.Modules.Title" xml:space="preserve">
+    <value>Modules</value>
+  </data>
+  <data name="Settings.Section.Modules.Desc" xml:space="preserve">
+    <value>Enable or disable UmbraSync's main feature sets.</value>
+  </data>
+  <data name="Settings.Modules.ReloadRequired" xml:space="preserve">
+    <value>Your changes take effect the next time the plugin is reloaded (/xlplugins).</value>
+  </data>
+  <data name="Settings.Modules.Presets.Title" xml:space="preserve">
+    <value>Presets</value>
+  </data>
+  <data name="Settings.Modules.Intro" xml:space="preserve">
+    <value>Choose the feature families you use. “Full” enables everything; “Legacy” goes back to Mare's base features: pairs, syncshells, synchronisation, GPose and the classic profile.</value>
+  </data>
+  <data name="Settings.Modules.Preset.Full" xml:space="preserve">
+    <value>Full</value>
+  </data>
+  <data name="Settings.Modules.Preset.Full.Help" xml:space="preserve">
+    <value>Enables every module.</value>
+  </data>
+  <data name="Settings.Modules.Preset.Legacy" xml:space="preserve">
+    <value>Legacy</value>
+  </data>
+  <data name="Settings.Modules.Preset.Legacy.Help" xml:space="preserve">
+    <value>Disables every module to get back to Mare's base features: pairs, syncshells, synchronisation, GPose and the classic profile.</value>
+  </data>
+  <data name="Settings.Modules.State.Active" xml:space="preserve">
+    <value>Active</value>
+  </data>
+  <data name="Settings.Modules.State.Inactive" xml:space="preserve">
+    <value>Inactive</value>
+  </data>
+  <data name="Settings.Modules.State.PendingOn" xml:space="preserve">
+    <value>Active after the next reload</value>
+  </data>
+  <data name="Settings.Modules.State.PendingOff" xml:space="preserve">
+    <value>Inactive after the next reload</value>
+  </data>
+  <data name="Modules.Rp.Title" xml:space="preserve">
+    <value>RôlePlay</value>
+  </data>
+  <data name="Modules.Rp.Desc" xml:space="preserve">
+    <value>RP sheets, character journal, RP names in chat and on nameplates, establishments, wild RP and Ashfall Connect.</value>
+  </data>
+  <data name="Modules.Housing.Title" xml:space="preserve">
+    <value>Housing</value>
+  </data>
+  <data name="Modules.Housing.Desc" xml:space="preserve">
+    <value>Synchronisation of furniture, NPCs, housing scenarios and Stagehand scenery with your pairs.</value>
+  </data>
+  <data name="Modules.Discovery.Title" xml:space="preserve">
+    <value>Discovery</value>
+  </data>
+  <data name="Modules.Discovery.Desc" xml:space="preserve">
+    <value>Auto-detection of nearby players, pair requests, SyncFinder and temporary syncshells.</value>
+  </data>
+  <data name="Modules.ChatPlus.Title" xml:space="preserve">
+    <value>Chat+</value>
+  </data>
+  <data name="Modules.ChatPlus.Desc" xml:space="preserve">
+    <value>Typing indicator, ChatTwo compatibility and a sound when your target speaks.</value>
+  </data>
+  <data name="Command.ModuleDisabled" xml:space="preserve">
+    <value>This command needs the "{0}" module, which is disabled in the settings.</value>
+  </data>
+  <data name="Command.Modules.Header" xml:space="preserve">
+    <value>UmbraSync modules:</value>
+  </data>
   <data name="Settings.Storage.Intro" xml:space="preserve">
     <value>UmbraSync keeps the files received from the people you are paired with, so appearances load faster and the same data is not downloaded over and over. The storage governs itself by removing the oldest files once it exceeds the size you set: just pick that size, clearing it by hand is not needed.</value>
   </data>
@@ -7588,7 +7717,7 @@ The server is ready, awaiting integration with A Quest Reborn.</value>
     <value>Local storage used: {0} GiB</value>
   </data>
   <data name="Settings.Storage.Used.Calculating" xml:space="preserve">
-    <value>Local storage used: calculating…</value>
+    <value>Local storage used: calculating...</value>
   </data>
   <data name="Settings.Storage.FreeSpace" xml:space="preserve">
     <value>Free space on drive: {0} GiB</value>
@@ -7927,6 +8056,441 @@ Experimental: these hooks are low level; if anything goes wrong, turn this off (
   <data name="CharaDataHub.Nav.Npc" xml:space="preserve">
     <value>NPCs</value>
   </data>
+  <data name="CharaDataHub.Nav.Stages" xml:space="preserve">
+    <value>Stages</value>
+  </data>
+  <data name="CharaDataHub.Nav.DecorCatalog" xml:space="preserve">
+    <value>Catalogue</value>
+  </data>
+  <data name="DecorCatalog.Title" xml:space="preserve">
+    <value>Decor catalogue</value>
+  </data>
+  <data name="DecorCatalog.Intro" xml:space="preserve">
+    <value>Browse decors published by the community and display one where you stand. Nothing is written to your Stagehand library.</value>
+  </data>
+  <data name="DecorCatalog.StagehandMissing" xml:space="preserve">
+    <value>Stagehand is required to display a decor. You can still browse the catalogue.</value>
+  </data>
+  <data name="DecorCatalog.Processing" xml:space="preserve">
+    <value>Processing...</value>
+  </data>
+  <data name="DecorCatalog.Search.Hint" xml:space="preserve">
+    <value>Search decors...</value>
+  </data>
+  <data name="DecorCatalog.Sort.Recent" xml:space="preserve">
+    <value>Recent</value>
+  </data>
+  <data name="DecorCatalog.Sort.Popular" xml:space="preserve">
+    <value>Most displayed</value>
+  </data>
+  <data name="DecorCatalog.Sort.MostFavorited" xml:space="preserve">
+    <value>Most favourited</value>
+  </data>
+  <data name="DecorCatalog.Tab.All" xml:space="preserve">
+    <value>All</value>
+  </data>
+  <data name="DecorCatalog.Tab.Favorites" xml:space="preserve">
+    <value>Favourites</value>
+  </data>
+  <data name="DecorCatalog.Tab.Mine" xml:space="preserve">
+    <value>My decors</value>
+  </data>
+  <data name="DecorCatalog.Refresh" xml:space="preserve">
+    <value>Refresh</value>
+  </data>
+  <data name="DecorCatalog.Page" xml:space="preserve">
+    <value>Page {0}/{1} ({2})</value>
+  </data>
+  <data name="DecorCatalog.Empty" xml:space="preserve">
+    <value>No decor matches.</value>
+  </data>
+  <data name="DecorCatalog.Empty.Favorites" xml:space="preserve">
+    <value>You have no favourites yet.</value>
+  </data>
+  <data name="DecorCatalog.Empty.Mine" xml:space="preserve">
+    <value>You have not published anything yet.</value>
+  </data>
+  <data name="DecorCatalog.By" xml:space="preserve">
+    <value>by {0}</value>
+  </data>
+  <data name="DecorCatalog.Displays" xml:space="preserve">
+    <value>{0} display(s)</value>
+  </data>
+  <data name="DecorCatalog.Favorites.Count" xml:space="preserve">
+    <value>{0} favourite(s)</value>
+  </data>
+  <data name="DecorCatalog.Files" xml:space="preserve">
+    <value>{0} file(s), {1}</value>
+  </data>
+  <data name="DecorCatalog.Favorite.Add" xml:space="preserve">
+    <value>Add to favourites</value>
+  </data>
+  <data name="DecorCatalog.Favorite.Remove" xml:space="preserve">
+    <value>Remove from favourites</value>
+  </data>
+  <data name="DecorCatalog.DisplayHere" xml:space="preserve">
+    <value>Display here</value>
+  </data>
+  <data name="DecorCatalog.DisplayHere.Tooltip" xml:space="preserve">
+    <value>The decor is displayed temporarily at your position, replacing the one already displayed. It disappears when you change location.</value>
+  </data>
+  <data name="DecorCatalog.Hide" xml:space="preserve">
+    <value>Hide</value>
+  </data>
+  <data name="DecorCatalog.AppliedOrigin" xml:space="preserve">
+    <value>Catalogue</value>
+  </data>
+  <data name="DecorCatalog.Edit" xml:space="preserve">
+    <value>Edit</value>
+  </data>
+  <data name="DecorCatalog.Edit.Title" xml:space="preserve">
+    <value>Edit “{0}”</value>
+  </data>
+  <data name="DecorCatalog.Edit.Save" xml:space="preserve">
+    <value>Save</value>
+  </data>
+  <data name="DecorCatalog.Edit.Cancel" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="DecorCatalog.Delete" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="DecorCatalog.Delete.Tooltip" xml:space="preserve">
+    <value>Hold Ctrl to remove this decor from the catalogue.</value>
+  </data>
+  <data name="DecorCatalog.UpdateContent" xml:space="preserve">
+    <value>Update content</value>
+  </data>
+  <data name="DecorCatalog.UpdateContent.Tooltip" xml:space="preserve">
+    <value>Sends the decor again from your local file, without changing the card.</value>
+  </data>
+  <data name="DecorCatalog.Publish.Title" xml:space="preserve">
+    <value>Publish to the catalogue</value>
+  </data>
+  <data name="DecorCatalog.Publish" xml:space="preserve">
+    <value>Publish</value>
+  </data>
+  <data name="DecorCatalog.Publish.Tooltip" xml:space="preserve">
+    <value>The decor will be visible to every user, anchored at your current position.</value>
+  </data>
+  <data name="DecorCatalog.Name" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="DecorCatalog.Name.Hint" xml:space="preserve">
+    <value>Decor name</value>
+  </data>
+  <data name="DecorCatalog.Description" xml:space="preserve">
+    <value>Description</value>
+  </data>
+  <data name="DecorCatalog.Description.Hint" xml:space="preserve">
+    <value>Describe your decor...</value>
+  </data>
+  <data name="DecorCatalog.Preview" xml:space="preserve">
+    <value>Preview</value>
+  </data>
+  <data name="DecorCatalog.Preview.Select" xml:space="preserve">
+    <value>Choose an image</value>
+  </data>
+  <data name="DecorCatalog.Preview.Change" xml:space="preserve">
+    <value>Change the image</value>
+  </data>
+  <data name="DecorCatalog.Preview.Remove" xml:space="preserve">
+    <value>Remove the image</value>
+  </data>
+  <data name="DecorCatalog.Preview.None" xml:space="preserve">
+    <value>No preview</value>
+  </data>
+  <data name="DecorCatalog.Preview.Kept" xml:space="preserve">
+    <value>Current preview kept</value>
+  </data>
+  <data name="DecorCatalog.Preview.Removed" xml:space="preserve">
+    <value>Preview removed on save</value>
+  </data>
+  <data name="DecorCatalog.Preview.New" xml:space="preserve">
+    <value>New image ready</value>
+  </data>
+  <data name="DecorCatalog.Preview.Error" xml:space="preserve">
+    <value>This image could not be read.</value>
+  </data>
+  <data name="DecorCatalog.Preview.Dialog" xml:space="preserve">
+    <value>Choose the decor preview</value>
+  </data>
+  <data name="DecorCatalog.Report" xml:space="preserve">
+    <value>Report this decor</value>
+  </data>
+  <data name="DecorCatalog.Report.Title" xml:space="preserve">
+    <value>Report “{0}”</value>
+  </data>
+  <data name="DecorCatalog.Report.Note" xml:space="preserve">
+    <value>Describe what is wrong. The report goes to the moderators, who can remove the decor.</value>
+  </data>
+  <data name="DecorCatalog.Report.Submit" xml:space="preserve">
+    <value>Send the report</value>
+  </data>
+  <data name="DecorCatalog.Error.ListFailed" xml:space="preserve">
+    <value>The catalogue could not be loaded.</value>
+  </data>
+  <data name="DecorCatalog.Error.StagehandMissing" xml:space="preserve">
+    <value>Stagehand is not loaded.</value>
+  </data>
+  <data name="DecorCatalog.Error.PositionUnknown" xml:space="preserve">
+    <value>Your position is unknown.</value>
+  </data>
+  <data name="DecorCatalog.Error.TooLarge" xml:space="preserve">
+    <value>This decor is too large for the catalogue.</value>
+  </data>
+  <data name="DecorCatalog.Error.PublishRefused" xml:space="preserve">
+    <value>The server refused the publication (20 decors quota reached, empty name or decor too large).</value>
+  </data>
+  <data name="DecorCatalog.Error.UpdateFailed" xml:space="preserve">
+    <value>The update failed.</value>
+  </data>
+  <data name="DecorCatalog.Error.DeleteFailed" xml:space="preserve">
+    <value>The deletion failed.</value>
+  </data>
+  <data name="DecorCatalog.Error.ContentUnreadable" xml:space="preserve">
+    <value>The content of this decor is unreadable.</value>
+  </data>
+  <data name="DecorCatalog.Error.FormatTooRecent" xml:space="preserve">
+    <value>This decor requires a more recent Stagehand version.</value>
+  </data>
+  <data name="DecorCatalog.Success.Published" xml:space="preserve">
+    <value>Decor published to the catalogue.</value>
+  </data>
+  <data name="DecorCatalog.Success.PublishedSkipped" xml:space="preserve">
+    <value>Decor published to the catalogue ({0} missing resource(s) skipped).</value>
+  </data>
+  <data name="DecorCatalog.Success.Updated" xml:space="preserve">
+    <value>Card updated.</value>
+  </data>
+  <data name="DecorCatalog.Success.Deleted" xml:space="preserve">
+    <value>Decor removed from the catalogue.</value>
+  </data>
+  <data name="DecorCatalog.Success.Displayed" xml:space="preserve">
+    <value>Decor displayed at your position.</value>
+  </data>
+  <data name="DecorCatalog.Success.Reported" xml:space="preserve">
+    <value>Report sent.</value>
+  </data>
+  <data name="DecorCatalog.Notification.Title" xml:space="preserve">
+    <value>Decor catalogue</value>
+  </data>
+  <data name="Stages.Title" xml:space="preserve">
+    <value>Shared Stages</value>
+  </data>
+  <data name="Stages.Intro" xml:space="preserve">
+    <value>Publish a Stagehand Stage (placed scenery) where you are standing: allowed players will find it when they arrive at the same place. In housing it is displayed on arrival; outdoors, each player chooses to display it.</value>
+  </data>
+  <data name="Stages.StagehandMissing" xml:space="preserve">
+    <value>The Stagehand plugin is required to share and display Stages.</value>
+  </data>
+  <data name="Stages.StagehandRepo" xml:space="preserve">
+    <value>Open the Stagehand repository</value>
+  </data>
+  <data name="Stages.Processing" xml:space="preserve">
+    <value>Processing...</value>
+  </data>
+  <data name="Stages.CurrentLocation" xml:space="preserve">
+    <value>Current location:</value>
+  </data>
+  <data name="Stages.LocationUnknown" xml:space="preserve">
+    <value>unknown</value>
+  </data>
+  <data name="Stages.LocationFormat" xml:space="preserve">
+    <value>World {0}, territory {1}, ward {2}, plot {3}, room {4}</value>
+  </data>
+  <data name="Stages.Publish.Title" xml:space="preserve">
+    <value>Publish a Stage</value>
+  </data>
+  <data name="Stages.NoLocalStage" xml:space="preserve">
+    <value>No Stage in your Stagehand library.</value>
+  </data>
+  <data name="Stages.SelectStage" xml:space="preserve">
+    <value>Pick a Stage...</value>
+  </data>
+  <data name="Stages.LocalStage" xml:space="preserve">
+    <value>Local Stage</value>
+  </data>
+  <data name="Stages.LocalStage.Help" xml:space="preserve">
+    <value>The list comes from your Stagehand library. The Stage is published as saved on disk, with its current position.</value>
+  </data>
+  <data name="Stages.Folder" xml:space="preserve">
+    <value>Stages folder</value>
+  </data>
+  <data name="Stages.Folder.Hint" xml:space="preserve">
+    <value>Path of the Stagehand Stages folder (Enter to confirm)</value>
+  </data>
+  <data name="Stages.Folder.Help" xml:space="preserve">
+    <value>Fill this in only if UmbraSync cannot find your Stage files. By default, Stagehand stores them in Documents\Stages.</value>
+  </data>
+  <data name="Stages.Description" xml:space="preserve">
+    <value>Description</value>
+  </data>
+  <data name="Stages.Description.Hint" xml:space="preserve">
+    <value>Optional description, visible to allowed players</value>
+  </data>
+  <data name="Stages.Publish" xml:space="preserve">
+    <value>Publish here</value>
+  </data>
+  <data name="Stages.Publish.Tooltip" xml:space="preserve">
+    <value>Uploads the Stage's mod files and publishes it at your current location.</value>
+  </data>
+  <data name="Stages.Republish" xml:space="preserve">
+    <value>Republish</value>
+  </data>
+  <data name="Stages.Republish.Tooltip" xml:space="preserve">
+    <value>Sends the current content of the local file while keeping the share identifier.</value>
+  </data>
+  <data name="Stages.EditedLocally" xml:space="preserve">
+    <value>The local file changed since publication: republish to update the share.</value>
+  </data>
+  <data name="Stages.OwnShares" xml:space="preserve">
+    <value>My published Stages</value>
+  </data>
+  <data name="Stages.Refresh" xml:space="preserve">
+    <value>Refresh</value>
+  </data>
+  <data name="Stages.NoOwnShares" xml:space="preserve">
+    <value>You have not published any Stage.</value>
+  </data>
+  <data name="Stages.Column.Name" xml:space="preserve">
+    <value>Stage</value>
+  </data>
+  <data name="Stages.Column.Location" xml:space="preserve">
+    <value>Location</value>
+  </data>
+  <data name="Stages.Column.Created" xml:space="preserve">
+    <value>Published on</value>
+  </data>
+  <data name="Stages.Column.Access" xml:space="preserve">
+    <value>Access</value>
+  </data>
+  <data name="Stages.Column.Actions" xml:space="preserve">
+    <value>Actions</value>
+  </data>
+  <data name="Stages.Delete.Tooltip" xml:space="preserve">
+    <value>Hold Ctrl to delete this share.</value>
+  </data>
+  <data name="Stages.Edit.Title" xml:space="preserve">
+    <value>Edit share “{0}”</value>
+  </data>
+  <data name="Stages.Edit.Save" xml:space="preserve">
+    <value>Save</value>
+  </data>
+  <data name="Stages.Edit.Cancel" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="Stages.AppliedHere" xml:space="preserve">
+    <value>Stages at this place</value>
+  </data>
+  <data name="Stages.Here.Help" xml:space="preserve">
+    <value>Outdoors, nothing is displayed on its own: click the eye to display a Stage. In housing, the most recent one is displayed on arrival. Only one Stage is displayed at a time.</value>
+  </data>
+  <data name="Stages.NoneApplied" xml:space="preserve">
+    <value>No shared Stage at this place.</value>
+  </data>
+  <data name="Stages.Show" xml:space="preserve">
+    <value>Display this Stage (the one currently displayed will be hidden)</value>
+  </data>
+  <data name="Stages.Hide" xml:space="preserve">
+    <value>Hide this Stage</value>
+  </data>
+  <data name="Stages.HideAll" xml:space="preserve">
+    <value>Remove all</value>
+  </data>
+  <data name="Stages.HideAll.Tooltip" xml:space="preserve">
+    <value>Removes the Stages loaded at this place. The list stays available to display them again.</value>
+  </data>
+  <data name="Stages.Access.All" xml:space="preserve">
+    <value>All my pairs and syncshells</value>
+  </data>
+  <data name="Stages.Access.Restricted" xml:space="preserve">
+    <value>Restricted access</value>
+  </data>
+  <data name="Stages.Access.Help" xml:space="preserve">
+    <value>Choose who can see this Stage. With restricted access, only the listed pairs and syncshells will receive it.</value>
+  </data>
+  <data name="Stages.Access.Pairs" xml:space="preserve">
+    <value>Allowed pairs</value>
+  </data>
+  <data name="Stages.Access.Syncshells" xml:space="preserve">
+    <value>Allowed syncshells</value>
+  </data>
+  <data name="Stages.Access.PickSyncshell" xml:space="preserve">
+    <value>Add a syncshell...</value>
+  </data>
+  <data name="Stages.Access.Public" xml:space="preserve">
+    <value>Visible to everyone</value>
+  </data>
+  <data name="Stages.Progress.Reading" xml:space="preserve">
+    <value>Reading the Stage...</value>
+  </data>
+  <data name="Stages.Progress.Importing" xml:space="preserve">
+    <value>Preparing mod files...</value>
+  </data>
+  <data name="Stages.Progress.Uploading" xml:space="preserve">
+    <value>Uploading files...</value>
+  </data>
+  <data name="Stages.Progress.Publishing" xml:space="preserve">
+    <value>Publishing...</value>
+  </data>
+  <data name="Stages.Progress.Searching" xml:space="preserve">
+    <value>Looking for Stages at this place...</value>
+  </data>
+  <data name="Stages.Progress.Downloading" xml:space="preserve">
+    <value>Downloading the Stage...</value>
+  </data>
+  <data name="Stages.Progress.DownloadingFiles" xml:space="preserve">
+    <value>Downloading {0} file(s)...</value>
+  </data>
+  <data name="Stages.Progress.Applying" xml:space="preserve">
+    <value>Displaying the Stage...</value>
+  </data>
+  <data name="Stages.Error.StagehandMissing" xml:space="preserve">
+    <value>Stagehand is not available.</value>
+  </data>
+  <data name="Stages.Error.FileNotFound" xml:space="preserve">
+    <value>The file of this Stage cannot be found on disk.</value>
+  </data>
+  <data name="Stages.Error.ParseFailed" xml:space="preserve">
+    <value>The file of this Stage could not be read.</value>
+  </data>
+  <data name="Stages.Error.TooLarge" xml:space="preserve">
+    <value>This Stage is too large to be shared.</value>
+  </data>
+  <data name="Stages.Error.UploadFailed" xml:space="preserve">
+    <value>{0} file(s) could not be uploaded.</value>
+  </data>
+  <data name="Stages.Error.UpdateFailed" xml:space="preserve">
+    <value>Updating the share failed.</value>
+  </data>
+  <data name="Stages.Error.DeleteFailed" xml:space="preserve">
+    <value>Deleting the share failed.</value>
+  </data>
+  <data name="Stages.Error.DecryptFailed" xml:space="preserve">
+    <value>The shared Stage could not be decrypted.</value>
+  </data>
+  <data name="Stages.Error.ApplyFailed" xml:space="preserve">
+    <value>Stagehand refused to display this Stage.</value>
+  </data>
+  <data name="Stages.Success.Published" xml:space="preserve">
+    <value>Stage published ({0} mod file(s)).</value>
+  </data>
+  <data name="Stages.Success.PublishedSkipped" xml:space="preserve">
+    <value>Stage published ({0} mod file(s), {1} missing resource(s) skipped).</value>
+  </data>
+  <data name="Stages.Success.Updated" xml:space="preserve">
+    <value>Share updated.</value>
+  </data>
+  <data name="Stages.Success.Deleted" xml:space="preserve">
+    <value>Share deleted.</value>
+  </data>
+  <data name="Stages.Success.Refreshed" xml:space="preserve">
+    <value>List refreshed.</value>
+  </data>
+  <data name="Stages.Notification.Title" xml:space="preserve">
+    <value>Shared Stages</value>
+  </data>
   <data name="CharaDataHub.Library.All" xml:space="preserve">
     <value>All</value>
   </data>
@@ -7943,7 +8507,7 @@ Experimental: these hooks are low level; if anything goes wrong, turn this off (
     <value>Share with pairs or syncshells</value>
   </data>
   <data name="AutoDetectUi.Syncshell.Search" xml:space="preserve">
-    <value>Search a syncshell, owner or tag…</value>
+    <value>Search a syncshell, owner or tag...</value>
   </data>
   <data name="Settings.TargetTooltip.Enable" xml:space="preserve">
     <value>Show a profile card when targeting a paired player</value>
@@ -7970,10 +8534,22 @@ Experimental: these hooks are low level; if anything goes wrong, turn this off (
     <value>Only you can see this note. It is specific to this character, not to the whole account.</value>
   </data>
   <data name="Settings.TargetTooltip.HideInDuty" xml:space="preserve">
-    <value>Hide the profile card in instances (dungeons, raids, trials…)</value>
+    <value>Hide the profile card in instances (dungeons, raids, trials...)</value>
   </data>
   <data name="Settings.TargetTooltip.HideInDuty.Help" xml:space="preserve">
     <value>The card is also always hidden during combat and cutscenes.</value>
+  </data>
+  <data name="Settings.Profiles.ShowNsfw" xml:space="preserve">
+    <value>Show profiles marked as NSFW</value>
+  </data>
+  <data name="Settings.Profiles.ShowNsfw.Help" xml:space="preserve">
+    <value>Shows profiles whose owner enabled the NSFW tag.</value>
+  </data>
+  <data name="Settings.Profiles.ShowRpNsfw" xml:space="preserve">
+    <value>Show RP profiles marked as NSFW</value>
+  </data>
+  <data name="Settings.Profiles.ShowRpNsfw.Help" xml:space="preserve">
+    <value>Shows RP profiles whose owner enabled the RP NSFW tag.</value>
   </data>
   <data name="Settings.RpIdentityInPairList" xml:space="preserve">
     <value>Show RP avatar and name in the pair list</value>
@@ -8395,6 +8971,9 @@ WARNING: this cannot be undone.</value>
   <data name="ProfileImageCrop.TitlePortrait" xml:space="preserve">
     <value>Crop portrait</value>
   </data>
+  <data name="ProfileImageCrop.TitleDecorPreview" xml:space="preserve">
+    <value>Crop the preview</value>
+  </data>
   <data name="ProfileImageCrop.Hint" xml:space="preserve">
     <value>Drag the image to frame it, use the mouse wheel to zoom.</value>
   </data>
@@ -8470,6 +9049,84 @@ WARNING: this cannot be undone.</value>
   <data name="EditProfile.Background.Help" xml:space="preserve">
     <value>A background taken from the game's adventurer plates, shown behind your RP sheet.</value>
   </data>
+  <data name="EditProfile.Background.Heading.Upper" xml:space="preserve">
+    <value>Uppercase titles</value>
+  </data>
+  <data name="EditProfile.Background.Heading.Upper.Tooltip" xml:space="preserve">
+    <value>Shows the section titles of your RP sheet in capital letters.</value>
+  </data>
+  <data name="EditProfile.Background.Heading.Family.Rules" xml:space="preserve">
+    <value>Rules</value>
+  </data>
+  <data name="EditProfile.Background.Heading.Family.Ornaments" xml:space="preserve">
+    <value>Ornaments</value>
+  </data>
+  <data name="EditProfile.Background.Heading.Family.Frames" xml:space="preserve">
+    <value>Frames</value>
+  </data>
+  <data name="EditProfile.Background.Heading.Underline" xml:space="preserve">
+    <value>Underline</value>
+  </data>
+  <data name="EditProfile.Background.Heading.Dashes" xml:space="preserve">
+    <value>Dashes</value>
+  </data>
+  <data name="EditProfile.Background.Heading.Milestones" xml:space="preserve">
+    <value>Milestones</value>
+  </data>
+  <data name="EditProfile.Background.Heading.HollowDiamond" xml:space="preserve">
+    <value>Hollow diamond</value>
+  </data>
+  <data name="EditProfile.Background.Heading.Trefoil" xml:space="preserve">
+    <value>Trefoil</value>
+  </data>
+  <data name="EditProfile.Background.Heading.Chevrons" xml:space="preserve">
+    <value>Chevrons</value>
+  </data>
+  <data name="EditProfile.Background.Heading.Waves" xml:space="preserve">
+    <value>Waves</value>
+  </data>
+  <data name="EditProfile.Background.Heading.Parentheses" xml:space="preserve">
+    <value>Parentheses</value>
+  </data>
+  <data name="EditProfile.Background.Heading.Cartouche" xml:space="preserve">
+    <value>Cartouche</value>
+  </data>
+  <data name="EditProfile.Background.Heading.Band" xml:space="preserve">
+    <value>Band</value>
+  </data>
+  <data name="EditProfile.Background.Heading" xml:space="preserve">
+    <value>Section divider</value>
+  </data>
+  <data name="EditProfile.Background.Heading.Help" xml:space="preserve">
+    <value>The ornament drawn around the section titles of your RP sheet.</value>
+  </data>
+  <data name="EditProfile.Background.Heading.Preview" xml:space="preserve">
+    <value>Story</value>
+  </data>
+  <data name="EditProfile.Background.Heading.Diamonds" xml:space="preserve">
+    <value>Diamonds</value>
+  </data>
+  <data name="EditProfile.Background.Heading.Rule" xml:space="preserve">
+    <value>Single rule</value>
+  </data>
+  <data name="EditProfile.Background.Heading.DoubleRule" xml:space="preserve">
+    <value>Double rule</value>
+  </data>
+  <data name="EditProfile.Background.Heading.Pearls" xml:space="preserve">
+    <value>Pearls</value>
+  </data>
+  <data name="EditProfile.Background.Heading.Scrolls" xml:space="preserve">
+    <value>Scrolls</value>
+  </data>
+  <data name="EditProfile.Background.Heading.Stars" xml:space="preserve">
+    <value>Stars</value>
+  </data>
+  <data name="EditProfile.Background.Heading.Brackets" xml:space="preserve">
+    <value>Brackets</value>
+  </data>
+  <data name="EditProfile.Background.Heading.Editorial" xml:space="preserve">
+    <value>Editorial</value>
+  </data>
   <data name="EditProfile.Background.Dimming" xml:space="preserve">
     <value>Dimming</value>
   </data>
@@ -8498,7 +9155,7 @@ WARNING: this cannot be undone.</value>
     <value>Label color</value>
   </data>
   <data name="EditProfile.Background.LabelColor.Tooltip" xml:space="preserve">
-    <value>Field names (Age, Height, Residence…). Default: the tint matching the background, or grey without a background.</value>
+    <value>Field names (Age, Height, Residence...). Default: the tint matching the background, or grey without a background.</value>
   </data>
   <data name="EditProfile.Background.TextColor" xml:space="preserve">
     <value>Content color</value>
@@ -8805,5 +9462,188 @@ WARNING: this cannot be undone.</value>
   </data>
   <data name="Notification.AddPair.RequestsDisabled.Body" xml:space="preserve">
     <value>This player does not accept friend requests by UID.</value>
+  </data>
+  <data name="Journal.Title" xml:space="preserve">
+    <value>RôlePlay journal</value>
+  </data>
+  <data name="Journal.Header" xml:space="preserve">
+    <value>{0}'s journal</value>
+  </data>
+  <data name="Journal.Header.Count" xml:space="preserve">
+    <value>{0} characters followed</value>
+  </data>
+  <data name="Journal.Header.CountOne" xml:space="preserve">
+    <value>{0} character followed</value>
+  </data>
+  <data name="Journal.LocalOnly" xml:space="preserve">
+    <value>On this computer only</value>
+  </data>
+  <data name="Journal.LocalOnly.Tooltip" xml:space="preserve">
+    <value>Your journal is never sent to the server. It is saved in journal.json, in the UmbraSync configuration folder, and each character you play has its own.</value>
+  </data>
+  <data name="Journal.NotLoggedIn" xml:space="preserve">
+    <value>Log in to a character to open their journal.</value>
+  </data>
+  <data name="Journal.SearchHint" xml:space="preserve">
+    <value>Search a name or keyword</value>
+  </data>
+  <data name="Journal.Filter.All" xml:space="preserve">
+    <value>All trust levels</value>
+  </data>
+  <data name="Journal.AddTarget" xml:space="preserve">
+    <value>Add my target</value>
+  </data>
+  <data name="Journal.AddTarget.Tooltip" xml:space="preserve">
+    <value>Target a player, then click to add them to the journal. You can also right-click a player.</value>
+  </data>
+  <data name="Journal.AddTarget.NoTarget" xml:space="preserve">
+    <value>Target a player first.</value>
+  </data>
+  <data name="Journal.Empty" xml:space="preserve">
+    <value>No characters in this journal yet. Target a player and click “Add my target”, or right-click them.</value>
+  </data>
+  <data name="Journal.NoResult" xml:space="preserve">
+    <value>No matching character.</value>
+  </data>
+  <data name="Journal.SelectHint" xml:space="preserve">
+    <value>Choose a character from the list.</value>
+  </data>
+  <data name="Journal.LastSeen" xml:space="preserve">
+    <value>Seen on {0}</value>
+  </data>
+  <data name="Journal.OpenProfile" xml:space="preserve">
+    <value>View profile</value>
+  </data>
+  <data name="Journal.Pin" xml:space="preserve">
+    <value>Pin</value>
+  </data>
+  <data name="Journal.Unpin" xml:space="preserve">
+    <value>Unpin</value>
+  </data>
+  <data name="Journal.Delete" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="Journal.Delete.Tooltip" xml:space="preserve">
+    <value>Hold Ctrl to delete this character and everything you wrote about them.</value>
+  </data>
+  <data name="Journal.Card.Relation" xml:space="preserve">
+    <value>My relationship</value>
+  </data>
+  <data name="Journal.Relation.Hint" xml:space="preserve">
+    <value>Relationship: mentor, rival, childhood friend</value>
+  </data>
+  <data name="Journal.Card.Summary" xml:space="preserve">
+    <value>What I know</value>
+  </data>
+  <data name="Journal.Summary.Hint" xml:space="preserve">
+    <value>What your character knows about them, thinks of them, suspects.</value>
+  </data>
+  <data name="Journal.Card.Fields" xml:space="preserve">
+    <value>Fields</value>
+  </data>
+  <data name="Journal.Field.NewHint" xml:space="preserve">
+    <value>New field</value>
+  </data>
+  <data name="Journal.Field.Add" xml:space="preserve">
+    <value>Add</value>
+  </data>
+  <data name="Journal.Field.Remove" xml:space="preserve">
+    <value>Remove this field</value>
+  </data>
+  <data name="Journal.Card.Chronicle" xml:space="preserve">
+    <value>Chronicle</value>
+  </data>
+  <data name="Journal.Entry.Add" xml:space="preserve">
+    <value>Add</value>
+  </data>
+  <data name="Journal.Entry.Add.Tooltip" xml:space="preserve">
+    <value>The date and your current location are added automatically.</value>
+  </data>
+  <data name="Journal.Entry.Empty" xml:space="preserve">
+    <value>No entries yet. Write down your encounters and what you learn as you play.</value>
+  </data>
+  <data name="Journal.Entry.Edit" xml:space="preserve">
+    <value>Edit</value>
+  </data>
+  <data name="Journal.Entry.Save" xml:space="preserve">
+    <value>Save</value>
+  </data>
+  <data name="Journal.Entry.Delete.Tooltip" xml:space="preserve">
+    <value>Hold Ctrl to delete this entry.</value>
+  </data>
+  <data name="Journal.Trust.Unknown" xml:space="preserve">
+    <value>Unknown</value>
+  </data>
+  <data name="Journal.Trust.Unknown.Tooltip" xml:space="preserve">
+    <value>You don't know what to think of them yet.</value>
+  </data>
+  <data name="Journal.Trust.Hostile" xml:space="preserve">
+    <value>Hostile</value>
+  </data>
+  <data name="Journal.Trust.Hostile.Tooltip" xml:space="preserve">
+    <value>You consider them an enemy.</value>
+  </data>
+  <data name="Journal.Trust.Wary" xml:space="preserve">
+    <value>Wary</value>
+  </data>
+  <data name="Journal.Trust.Wary.Tooltip" xml:space="preserve">
+    <value>You keep your distance.</value>
+  </data>
+  <data name="Journal.Trust.Neutral" xml:space="preserve">
+    <value>Neutral</value>
+  </data>
+  <data name="Journal.Trust.Neutral.Tooltip" xml:space="preserve">
+    <value>Neither trust nor distrust.</value>
+  </data>
+  <data name="Journal.Trust.Trusting" xml:space="preserve">
+    <value>Trusting</value>
+  </data>
+  <data name="Journal.Trust.Trusting.Tooltip" xml:space="preserve">
+    <value>You trust them.</value>
+  </data>
+  <data name="Journal.Trust.Devoted" xml:space="preserve">
+    <value>Devoted</value>
+  </data>
+  <data name="Journal.Trust.Devoted.Tooltip" xml:space="preserve">
+    <value>You would trust them with your life.</value>
+  </data>
+  <data name="Journal.ContextMenu.Open" xml:space="preserve">
+    <value>Open in journal</value>
+  </data>
+  <data name="Journal.ContextMenu.Start" xml:space="preserve">
+    <value>Add to journal</value>
+  </data>
+  <data name="Journal.Profile.Start" xml:space="preserve">
+    <value>Start a journal</value>
+  </data>
+  <data name="Journal.Tooltip.Open" xml:space="preserve">
+    <value>Journal</value>
+  </data>
+  <data name="Settings.TargetTooltip.Journal" xml:space="preserve">
+    <value>Show the journal in the tooltip</value>
+  </data>
+  <data name="Settings.TargetTooltip.Journal.Help" xml:space="preserve">
+    <value>Shows your trust level and latest note when you target a character from your journal, even if they are not a pair.</value>
+  </data>
+  <data name="Journal.Tab" xml:space="preserve">
+    <value>Journal</value>
+  </data>
+  <data name="Journal.Profile.Header" xml:space="preserve">
+    <value>{0}'s notes about {1}</value>
+  </data>
+  <data name="Journal.Profile.Empty" xml:space="preserve">
+    <value>You haven't written anything about this character yet. The journal is private: it stays on this computer and depends on the character you play.</value>
+  </data>
+  <data name="Journal.Profile.NoCharacter" xml:space="preserve">
+    <value>No known character for this pair. Meet them in game to start a journal.</value>
+  </data>
+  <data name="Journal.Profile.OpenWindow" xml:space="preserve">
+    <value>Open journal</value>
+  </data>
+  <data name="CharaDataHub.Profiles.Tab.Journal" xml:space="preserve">
+    <value>My journal</value>
+  </data>
+  <data name="Journal.Card.InJournal" xml:space="preserve">
+    <value>In your journal: your trust and relationship.</value>
   </data>
 </root>

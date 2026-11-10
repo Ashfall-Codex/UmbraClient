@@ -11,6 +11,10 @@ public static class ResizableTextArea
 
     public static bool Draw(string id, ref string text, int maxLength, float defaultHeight,
         float minHeight = 60f, float maxHeight = 600f)
+        => Draw(id, ref text, maxLength, defaultHeight, out _, minHeight, maxHeight);
+
+    public static bool Draw(string id, ref string text, int maxLength, float defaultHeight, out bool deactivatedAfterEdit,
+        float minHeight = 60f, float maxHeight = 600f)
     {
         var scale = ImGuiHelpers.GlobalScale;
         uint key = ImGui.GetID(id);
@@ -18,6 +22,7 @@ public static class ResizableTextArea
             height = defaultHeight;
 
         bool changed = ImGui.InputTextMultiline(id, ref text, maxLength, new Vector2(-1, height * scale));
+        deactivatedAfterEdit = ImGui.IsItemDeactivatedAfterEdit();
         float width = ImGui.GetItemRectSize().X;
 
         float gripHeight = 7f * scale;

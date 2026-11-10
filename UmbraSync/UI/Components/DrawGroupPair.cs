@@ -12,12 +12,13 @@ using UmbraSync.API.Dto.User;
 using UmbraSync.Localization;
 using UmbraSync.MareConfiguration;
 using UmbraSync.MareConfiguration.Models;
+using UmbraSync.Modules.Discovery.Services;
 using UmbraSync.PlayerData.Pairs;
-using UmbraSync.Services.AutoDetect;
 using UmbraSync.Services.Mediator;
 using UmbraSync.Services.ServerConfiguration;
 using UmbraSync.UI.Handlers;
 
+using UmbraSync.Modules;
 namespace UmbraSync.UI.Components;
 
 public class DrawGroupPair : DrawPairBase
@@ -26,7 +27,7 @@ public class DrawGroupPair : DrawPairBase
     private GroupPairFullInfoDto _fullInfoDto;
     private GroupFullInfoDto _group;
     private readonly CharaDataManager _charaDataManager;
-    private readonly AutoDetectRequestService _autoDetectRequestService;
+    private readonly AutoDetectRequestService? _autoDetectRequestService;
     private readonly ServerConfigurationManager _serverConfigurationManager;
     private readonly MareConfigService _mareConfig;
     public void UpdateData(GroupFullInfoDto group, GroupPairFullInfoDto fullInfoDto)
@@ -38,7 +39,7 @@ public class DrawGroupPair : DrawPairBase
     public DrawGroupPair(string id, Pair entry, ApiController apiController,
         MareMediator mareMediator, GroupFullInfoDto group, GroupPairFullInfoDto fullInfoDto,
         UidDisplayHandler handler, UiSharedService uiSharedService, CharaDataManager charaDataManager,
-        AutoDetectRequestService autoDetectRequestService, ServerConfigurationManager serverConfigurationManager,
+        AutoDetectRequestService? autoDetectRequestService, ServerConfigurationManager serverConfigurationManager,
         MareConfigService mareConfig)
         : base(id, entry, apiController, handler, uiSharedService)
     {
@@ -66,7 +67,7 @@ public class DrawGroupPair : DrawPairBase
         var individualAnimDisabled = (localOverride?.DisableAnimations ?? false) || (_pair.UserPair?.OwnPermissions.IsDisableAnimations() ?? false) || (_pair.UserPair?.OtherPermissions.IsDisableAnimations() ?? false);
         var individualVFXDisabled = (localOverride?.DisableVfx ?? false) || (_pair.UserPair?.OwnPermissions.IsDisableVFX() ?? false) || (_pair.UserPair?.OtherPermissions.IsDisableVFX() ?? false);
         bool showInfo = individualAnimDisabled || individualSoundsDisabled || individualVFXDisabled || animDisabled || soundsDisabled || vfxDisabled;
-        bool showPlus = _pair.UserPair == null && _pair.IsOnline;
+        bool showPlus = _pair.UserPair == null && _pair.IsOnline && _autoDetectRequestService != null;
 
         if (showShared)
             width += _uiSharedService.GetIconButtonSize(FontAwesomeIcon.Running).X + spacing * 0.5f;
@@ -288,7 +289,7 @@ public class DrawGroupPair : DrawPairBase
 
         bool showShared = _charaDataManager.SharedWithYouData.TryGetValue(_pair.UserData, out var sharedData);
         bool showInfo = (individualAnimDisabled || individualSoundsDisabled || individualVFXDisabled || animDisabled || soundsDisabled || vfxDisabled);
-        bool showPlus = _pair.UserPair == null && _pair.IsOnline;
+        bool showPlus = _pair.UserPair == null && _pair.IsOnline && _autoDetectRequestService != null;
         bool showBars = true;
         bool showPause = true;
 
@@ -591,7 +592,8 @@ public class DrawGroupPair : DrawPairBase
             }
         }
 
-        UiSharedService.DrawTargetSoundOverrideCombo(_mareConfig, uid, "##pair_sound_");
+        if (_uiSharedService.Modules.IsEnabled(ModuleId.ChatPlus))
+            UiSharedService.DrawTargetSoundOverrideCombo(_mareConfig, uid, "##pair_sound_");
 
         bool canModerate = (userIsModerator || userIsOwner) && !(entryIsMod || entryIsOwner);
         if (!canModerate && !userIsOwner) return;
@@ -665,6 +667,7 @@ public class DrawGroupPair : DrawPairBase
 
     private async Task SendGroupPairInviteAsync(string targetUid, string displayName)
     {
+        if (_autoDetectRequestService == null) return;
         try
         {
             await _autoDetectRequestService.SendDirectUidRequestAsync(targetUid, displayName).ConfigureAwait(false);

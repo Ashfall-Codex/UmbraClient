@@ -239,18 +239,21 @@ La commande principale est `/usync`. Un alias `/umbrasync` est également enregi
 
 | Package | Version |
 |---|---|
-| `Microsoft.AspNetCore.SignalR.Client` | 10.0.12 |
-| `Microsoft.AspNetCore.SignalR.Protocols.MessagePack` | 10.0.12 |
-| `MessagePack` | 3.1.8 |
-| `Microsoft.Extensions.Hosting` | 10.0.12 |
-| `System.IdentityModel.Tokens.Jwt` | 8.19.2 |
+| `Microsoft.AspNetCore.SignalR.Client` | 10.0.14 |
+| `Microsoft.AspNetCore.SignalR.Protocols.MessagePack` | 10.0.14 |
+| `MessagePack` | 3.1.12 |
+| `Microsoft.Extensions.Hosting` | 10.0.14 |
+| `System.IdentityModel.Tokens.Jwt` | 8.23.0 |
 | `K4os.Compression.LZ4.Streams` | 1.3.8 |
 | `K4os.Compression.LZ4.Legacy` | 1.3.8 |
-| `Downloader` | 5.1.0 |
+| `Blake3` | 3.0.2 |
+| `SixLabors.ImageSharp` | 3.1.12 |
 | `Chaos.NaCl.Standard` | 1.0.0 |
 | `Brio.API` | 3.0.1 |
 | `Penumbra.Api` | 5.19.2 |
 | `Glamourer.Api` | 2.8.2 |
+| `Stagehand.Api` | 0.5.5 |
+| `Stagehand.Definitions` | 0.5.5 |
 | `Dalamud.NET.Sdk` | 15.0.0 |
 | `DalamudPackager` | 15.0.0 |
 
@@ -260,7 +263,7 @@ Analyseurs statiques appliqués à la compilation : `Meziantou.Analyzer` 3.0.200
 
 ### Compatibilité avec le serveur
 
-Le client et le serveur partagent la version d'API `IMareHub.ApiVersion` (UmbraAPI), actuellement `5001`. À la connexion, un client dont la version d'API diffère de celle du serveur se déconnecte et affiche la version requise (`ExpectedClientVersion` côté serveur). Toute montée de version d'API doit donc être déployée sur le serveur au moment de la publication du client.
+Le client et le serveur partagent la version d'API `IMareHub.ApiVersion` (UmbraAPI), actuellement `5002`. À la connexion, un client dont la version d'API diffère de celle du serveur se déconnecte et affiche la version requise (`ExpectedClientVersion` côté serveur). Toute montée de version d'API doit donc être déployée sur le serveur au moment de la publication du client.
 
 ### Submodules git
 

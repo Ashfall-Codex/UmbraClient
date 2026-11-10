@@ -15,9 +15,9 @@ using UmbraSync.API.Dto.User;
 using UmbraSync.Localization;
 using UmbraSync.MareConfiguration;
 using UmbraSync.MareConfiguration.Models;
+using UmbraSync.Modules.Discovery.Services;
 using UmbraSync.PlayerData.Factories;
 using UmbraSync.Services;
-using UmbraSync.Services.AutoDetect;
 using UmbraSync.Services.Events;
 using UmbraSync.Services.Mediator;
 
@@ -37,8 +37,8 @@ public sealed class PairManager : DisposableMediatorSubscriberBase
     private DateTime _burstSuppressUntil = DateTime.MinValue;
     private readonly MareConfigService _configurationService;
     private readonly IContextMenu _dalamudContextMenu;
-    private readonly NearbyDiscoveryService _nearbyDiscoveryService;
-    private readonly AutoDetectRequestService _autoDetectRequestService;
+    private readonly NearbyDiscoveryService? _nearbyDiscoveryService;
+    private readonly AutoDetectRequestService? _autoDetectRequestService;
     private readonly DalamudUtilService _dalamudUtilService;
     private readonly IServiceProvider _serviceProvider;
     private readonly PairFactory _pairFactory;
@@ -59,9 +59,10 @@ public sealed class PairManager : DisposableMediatorSubscriberBase
 
     public PairManager(ILogger<PairManager> logger, PairFactory pairFactory,
                 MareConfigService configurationService, MareMediator mediator,
-                IContextMenu dalamudContextMenu, NearbyDiscoveryService nearbyDiscoveryService,
-                AutoDetectRequestService autoDetectRequestService, DalamudUtilService dalamudUtilService,
-                IServiceProvider serviceProvider) : base(logger, mediator)
+                IContextMenu dalamudContextMenu, DalamudUtilService dalamudUtilService,
+                IServiceProvider serviceProvider,
+                NearbyDiscoveryService? nearbyDiscoveryService = null,
+                AutoDetectRequestService? autoDetectRequestService = null) : base(logger, mediator)
     {
         _pairFactory = pairFactory;
         _configurationService = configurationService;
@@ -948,9 +949,12 @@ public sealed class PairManager : DisposableMediatorSubscriberBase
 
     private void TryAddAutoDetectPairRequestItem(IMenuOpenedArgs args)
     {
+        var nearbyDiscovery = _nearbyDiscoveryService;
+        var requestService = _autoDetectRequestService;
+        if (nearbyDiscovery is null || requestService is null) return;
         if (!_configurationService.Current.EnableAutoDetectDiscovery) { Logger.LogDebug("[ContextMenu] Skipped pair request: AutoDetectDiscovery disabled"); return; }
         if (!_configurationService.Current.AllowAutoDetectPairRequests) { Logger.LogDebug("[ContextMenu] Skipped pair request: PairRequests not allowed"); return; }
-        if (_autoDetectRequestService.IsNearbyHidden) { Logger.LogDebug("[ContextMenu] Skipped pair request: hidden from nearby discovery"); return; }
+        if (requestService.IsNearbyHidden) { Logger.LogDebug("[ContextMenu] Skipped pair request: hidden from nearby discovery"); return; }
         if (args.Target is not MenuTargetDefault target) { Logger.LogDebug("[ContextMenu] Skipped pair request: Target not MenuTargetDefault (was {t})", args.Target.GetType().Name); return; }
 
         uint targetObjectId = (uint)target.TargetObjectId;
@@ -968,7 +972,7 @@ public sealed class PairManager : DisposableMediatorSubscriberBase
             return;
         }
 
-        var entries = _nearbyDiscoveryService.SnapshotEntries();
+        var entries = nearbyDiscovery.SnapshotEntries();
         var clickedPlayerName = clickedPlayer.Name;
 
         static bool NamesEqual(string left, string right)
@@ -1025,7 +1029,7 @@ public sealed class PairManager : DisposableMediatorSubscriberBase
                 Priority = 1,
                 OnClicked = clickedArgs =>
                 {
-                    _ = _autoDetectRequestService.SendRequestAsync(
+                    _ = requestService.SendRequestAsync(
                         nearbyEntry.Token!,
                         nearbyEntry.Uid,
                         nearbyEntry.DisplayName ?? nearbyEntry.Name);
@@ -1048,7 +1052,7 @@ public sealed class PairManager : DisposableMediatorSubscriberBase
                 OnClicked = clickedArgs =>
                 {
                     // Même chemin que les autres demandes : cooldown, invitation sortante, contrôle du masquage
-                    _ = _autoDetectRequestService.SendDirectUidRequestAsync(
+                    _ = requestService.SendDirectUidRequestAsync(
                         nearbyEntry.Uid!,
                         nearbyEntry.DisplayName ?? nearbyEntry.Name,
                         fromNearby: true);

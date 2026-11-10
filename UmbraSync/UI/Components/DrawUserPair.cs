@@ -14,6 +14,7 @@ using UmbraSync.Services.Mediator;
 using UmbraSync.Services.ServerConfiguration;
 using UmbraSync.UI.Handlers;
 
+using UmbraSync.Modules;
 namespace UmbraSync.UI.Components;
 
 public class DrawUserPair : DrawPairBase
@@ -409,25 +410,39 @@ public class DrawUserPair : DrawPairBase
             _ = _apiController.UserSetPairPermissions(new UserPermissionsDto(entry.UserData, permissions));
         }
 
-        var isDisableHousing = own.IsDisableHousing();
-        if (PopupMenu.ToggleRow(FontAwesomeIcon.Home, Loc.Get("Syncshell.Cards.Perm.Housing"), !isDisableHousing, "housing"))
+        if (_uiSharedService.Modules.IsEnabled(ModuleId.Housing))
         {
-            var permissions = entry.UserPair.OwnPermissions;
-            permissions.SetDisableHousing(!isDisableHousing);
-            _mediator.Publish(new PairSyncOverrideChanged(entry.UserData.UID, null, null, null, permissions.IsDisableHousing()));
-            _ = _apiController.UserSetPairPermissions(new UserPermissionsDto(entry.UserData, permissions));
-        }
+            var isDisableHousing = own.IsDisableHousing();
+            if (PopupMenu.ToggleRow(FontAwesomeIcon.Home, Loc.Get("Syncshell.Cards.Perm.Housing"), !isDisableHousing, "housing"))
+            {
+                var permissions = entry.UserPair.OwnPermissions;
+                permissions.SetDisableHousing(!isDisableHousing);
+                _mediator.Publish(new PairSyncOverrideChanged(entry.UserData.UID, null, null, null, permissions.IsDisableHousing()));
+                _ = _apiController.UserSetPairPermissions(new UserPermissionsDto(entry.UserData, permissions));
+            }
 
-        var scenarioOverride = _mareConfig.Current.PairSyncOverrides.TryGetValue(entry.UserData.UID, out var scenarioEntry)
-            ? scenarioEntry.DisableHousingScenarios
-            : null;
-        var isDisableScenarios = scenarioOverride ?? _mareConfig.Current.DefaultDisableHousingScenarios;
-        if (PopupMenu.ToggleRow(FontAwesomeIcon.UserFriends, Loc.Get("DrawUserPair.Menu.PermScenarios"), !isDisableScenarios, "scenarios"))
-        {
-            _mediator.Publish(new PairSyncOverrideChanged(entry.UserData.UID, null, null, null, null, !isDisableScenarios));
+            var scenarioOverride = _mareConfig.Current.PairSyncOverrides.TryGetValue(entry.UserData.UID, out var scenarioEntry)
+                ? scenarioEntry.DisableHousingScenarios
+                : null;
+            var isDisableScenarios = scenarioOverride ?? _mareConfig.Current.DefaultDisableHousingScenarios;
+            if (PopupMenu.ToggleRow(FontAwesomeIcon.UserFriends, Loc.Get("DrawUserPair.Menu.PermScenarios"), !isDisableScenarios, "scenarios"))
+            {
+                _mediator.Publish(new PairSyncOverrideChanged(entry.UserData.UID, null, null, null, null, !isDisableScenarios));
+            }
+            UiSharedService.AttachToolTip(string.Format(CultureInfo.CurrentCulture, Loc.Get("DrawUserPair.Menu.HousingScenariosTooltip"), entryUID));
+
+            var stagesOverride = _mareConfig.Current.PairSyncOverrides.TryGetValue(entry.UserData.UID, out var stagesEntry)
+                ? stagesEntry.DisableStages
+                : null;
+            var isDisableStages = stagesOverride ?? _mareConfig.Current.DefaultDisableStages;
+            if (PopupMenu.ToggleRow(FontAwesomeIcon.Cubes, Loc.Get("DrawUserPair.Menu.PermStages"), !isDisableStages, "stages"))
+            {
+                _mediator.Publish(new PairSyncOverrideChanged(entry.UserData.UID, null, null, null, null, null, !isDisableStages));
+            }
+            UiSharedService.AttachToolTip(string.Format(CultureInfo.CurrentCulture, Loc.Get("DrawUserPair.Menu.StagesTooltip"), entryUID));
         }
-        UiSharedService.AttachToolTip(string.Format(CultureInfo.CurrentCulture, Loc.Get("DrawUserPair.Menu.HousingScenariosTooltip"), entryUID));
-        UiSharedService.DrawTargetSoundOverrideCombo(_mareConfig, entry.UserData.UID, "##pair_sound_");
+        if (_uiSharedService.Modules.IsEnabled(ModuleId.ChatPlus))
+            UiSharedService.DrawTargetSoundOverrideCombo(_mareConfig, entry.UserData.UID, "##pair_sound_");
         PopupMenu.Divider();
         var danger = ImGuiColors.DalamudRed;
         if (PopupMenu.Row(FontAwesomeIcon.Trash, Loc.Get("DrawUserPair.Menu.Unpair"), "unpair", danger, danger) && UiSharedService.CtrlPressed())
