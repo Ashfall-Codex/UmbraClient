@@ -318,20 +318,17 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
     {
         return new List<ChangelogEntry>
         {
-            new(new Version(3, 1, 5, 1103), "3.1.5.1103", new List<ChangelogLine>
+            new(new Version(3, 2, 0, 1110), "3.2.0.1110", new List<ChangelogLine>
             {
-                new("Sécurité : Les fichiers téléchargés sont vérifiés avec BLAKE3, une empreinte plus sûre que le SHA-1 : un fichier abîmé pendant le transfert, ou différent de celui de l'émetteur, est écarté au lieu d'être appliqué. Votre cache est conservé et rien n'est retéléchargé."),
-                new("Sécurité : Cette version est la première étape du passage au BLAKE3. En février 2027, UmbraSync abandonnera le SHA-1."),
-                new("Nouveauté : Supprimez la fiche RP du personnage connecté depuis l'éditeur, page Chat et visibilité : elle disparaît du serveur et de votre machine. Le profil HRP, les Moodles et le titre Honorific sont conservés."),
-                new("Amélioration : Vos données ne partent plus vers toutes vos paires en ligne, seulement vers celles qui sont autour de vous."),
-                new("Amélioration : Consulter un joueur ne charge plus tous ses personnages, seulement celui que vous voyez."),
-                new("Amélioration : La fiche d'un joueur hors de vue affiche ses derniers titre et Moodles vus."),
-                new("Amélioration : Le cache des fiches est bien plus léger : leurs images sont rangées à part, ce qui accélère son ouverture et son enregistrement."),
-                new("Amélioration : Diverses améliorations de l'interface et des effets visuels."),
-                new("Correction : Un joueur qui change plusieurs fois de mods en quelques secondes n'est plus redessiné à chaque changement : les changements rapprochés sont regroupés et seul le dernier s'applique."),
-                new("Correction : Une fiche qui n'a pas pu être récupérée n'est plus prise pour une fiche vide : l'éditeur le signale et n'enregistre rien. Vos Moodles ne sont plus effacés non plus."),
-                new("Correction : Glamourer et Penumbra ne restent plus marqués comme absents quand ils finissent de charger en même temps qu'UmbraSync."),
-                new("Correction : Un fichier verrouillé par un autre programme n'interrompt plus la surveillance du cache : il est réessayé jusqu'à trois fois."),
+                new("Nouveauté : UmbraSync se découpe en modules que vous pouvez couper dans Réglages ▸ Modules : RôlePlay, Housing, Découverte et Chat+. Le préréglage « Legacy » ramène à une synchronisation Mare classique. Tout reste activé après la mise à jour ; chaque changement demande un rechargement du plugin. Sans Découverte, les demandes d'ami qu'on vous envoie sont refusées."),
+                new("Nouveauté : Journal RôlePlay : pour chaque personnage que vous jouez, un journal privé sur ceux que vous croisez (confiance, relation, ce que vous savez, chronique datée avec le lieu). Onglet « Journal » de leur fiche, clic droit sur un joueur hors paire, ou /usync journal. Tout reste sur votre ordinateur."),
+                new("Nouveauté : Décors partagés avec Stagehand : publiez un décor à l'endroit où vous êtes, les joueurs autorisés le trouvent en arrivant, mods compris. Page « Décors » du Hub."),
+                new("Nouveauté : Catalogue de décors : parcourez, mettez en favori et affichez temporairement les décors publiés par la communauté. Page « Catalogue » du Hub."),
+                new("Nouveauté : Fiche RP : dix-huit styles de séparateurs de section et catégories pour vos détails personnalisés."),
+                new("Amélioration : Page Profils du Hub : onglets Tous, Mes personnages, Autres profils et Mon journal ; suppression de la fiche RP d'un autre de vos personnages avec Ctrl ; recherche par plusieurs mots, sans tenir compte des majuscules ni des accents."),
+                new("Amélioration : Les descriptions des syncshells de la Découverte sont repliées par défaut."),
+                new("Amélioration : Le module RP s'appelle désormais RôlePlay."),
+                new("Correction : Les options NSFW de l'éditeur de profil et des réglages sont traduites en français."),
             }),
         };
     }
