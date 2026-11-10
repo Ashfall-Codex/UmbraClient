@@ -14,6 +14,8 @@ using UmbraSync.MareConfiguration;
 using UmbraSync.MareConfiguration.Models;
 using UmbraSync.Modules.Housing.Services;
 using UmbraSync.Modules.Housing.UI;
+using UmbraSync.Modules.Rp.Services;
+using UmbraSync.Modules.Rp.UI;
 using UmbraSync.PlayerData.Factories;
 using UmbraSync.PlayerData.Pairs;
 using UmbraSync.Services;
@@ -46,6 +48,7 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
     private readonly HousingOwnershipService? _housingOwnershipService;
     private readonly StageShareManager? _stageShareManager;
     private readonly DecorCatalogManager? _decorCatalogManager;
+    private readonly RpJournalService? _rpJournal;
     private readonly DecorReportPopupHandler? _decorReportPopup;
     private readonly HousingScenarioManager? _housingScenarioManager;
     private CancellationTokenSource? _closalCts = new();
@@ -166,6 +169,7 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
     private int _profilesSubTab;
     private const int ProfilesTabMine = 1;
     private const int ProfilesTabOthers = 2;
+    private const int ProfilesTabJournal = 3;
     private bool _clearProfileCacheConfirmShown;
     private readonly Dictionary<string, float> _profileCardHeights = new(StringComparer.Ordinal);
 
@@ -182,7 +186,8 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
                          HousingOwnershipService? housingOwnershipService = null,
                          StageShareManager? stageShareManager = null,
                          DecorCatalogManager? decorCatalogManager = null,
-                         DecorReportPopupHandler? decorReportPopup = null)
+                         DecorReportPopupHandler? decorReportPopup = null,
+                         RpJournalService? rpJournalService = null)
         : base(logger, mediator, $"{Loc.Get("CharaDataHub.WindowTitle")}###UmbraCharaDataUI", performanceCollectorService)
     {
         SetWindowSizeConstraints();
@@ -221,6 +226,7 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
         _stageShareManager = stageShareManager;
         _decorCatalogManager = decorCatalogManager;
         _decorReportPopup = decorReportPopup;
+        _rpJournal = rpJournalService;
         _umbraProfileManager = umbraProfileManager;
         _apiController = apiController;
         _pairFactory = pairFactory;
@@ -1698,8 +1704,10 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
             if (searchTerms.Length == 0) return true;
 
             var note = _serverConfigurationManager.GetNoteForUid(key.User.UID);
+            var journalSubject = _rpJournal?.TryGetSubject(key.CharName, key.WorldId ?? 0);
             foreach (var term in searchTerms)
             {
+                if (journalSubject != null && RpJournalQuery.Matches(journalSubject, [term])) continue;
                 if (!(Matches(key.User.AliasOrUID, term) || Matches(key.CharName, term) || Matches(note, term)
                       || Matches(profile.RpFirstName, term) || Matches(profile.RpLastName, term) || Matches(profile.RpTitle, term)
                       || Matches(profile.RpOccupation, term) || Matches(profile.RpAffiliation, term) || Matches(profile.RpResidence, term)
@@ -1769,17 +1777,24 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
         ImGuiHelpers.ScaledDummy(2f);
         using (ImRaii.PushId("profilesTabs"))
         {
-            DrawSubTabButtons(
-                [Loc.Get("CharaDataHub.Profiles.Tab.All"), Loc.Get("CharaDataHub.Profiles.Tab.Mine"), Loc.Get("CharaDataHub.Profiles.Tab.Others")],
-                [FontAwesomeIcon.LayerGroup, FontAwesomeIcon.User, FontAwesomeIcon.Users],
-                ref _profilesSubTab, accent);
+            bool journalTab = _rpJournal is { HasOwner: true };
+            if (!journalTab && _profilesSubTab == ProfilesTabJournal) _profilesSubTab = 0;
+            string[] tabLabels = journalTab
+                ? [Loc.Get("CharaDataHub.Profiles.Tab.All"), Loc.Get("CharaDataHub.Profiles.Tab.Mine"), Loc.Get("CharaDataHub.Profiles.Tab.Others"), Loc.Get("CharaDataHub.Profiles.Tab.Journal")]
+                : [Loc.Get("CharaDataHub.Profiles.Tab.All"), Loc.Get("CharaDataHub.Profiles.Tab.Mine"), Loc.Get("CharaDataHub.Profiles.Tab.Others")];
+            FontAwesomeIcon[] tabIcons = journalTab
+                ? [FontAwesomeIcon.LayerGroup, FontAwesomeIcon.User, FontAwesomeIcon.Users, FontAwesomeIcon.Feather]
+                : [FontAwesomeIcon.LayerGroup, FontAwesomeIcon.User, FontAwesomeIcon.Users];
+            DrawSubTabButtons(tabLabels, tabIcons, ref _profilesSubTab, accent);
         }
         ImGuiHelpers.ScaledDummy(4f);
 
-        bool showOwn = _profilesSubTab != ProfilesTabOthers;
+        bool showOwn = _profilesSubTab is not (ProfilesTabOthers or ProfilesTabJournal);
         bool showOthers = _profilesSubTab != ProfilesTabMine;
         if (!showOwn) own = [];
         if (!showOthers) filtered = [];
+        if (_profilesSubTab == ProfilesTabJournal && _rpJournal != null)
+            filtered = filtered.Where(p => _rpJournal.TryGetSubject(p.Key.CharName, p.Key.WorldId ?? 0) != null).ToList();
 
         if (filtered.Count == 0 && own.Count == 0)
         {
@@ -1843,6 +1858,8 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
         var uid = key.User.AliasOrUID;
         var note = _serverConfigurationManager.GetNoteForCharacter(key.User.UID, key.CharName, key.WorldId)
                    ?? _serverConfigurationManager.GetNoteForUid(key.User.UID);
+        var journalSubject = deletable || string.Equals(key.User.UID, _umbraProfileManager.CurrentUid, StringComparison.Ordinal)
+            ? null : _rpJournal?.TryGetSubject(key.CharName, key.WorldId ?? 0);
 
         var cardStyle = profile.CardStyle.Value;
         using var cardAccentScope = UiSharedService.PushProfileAccent(cardStyle.AccentColor);
@@ -1943,6 +1960,16 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
             {
                 using var _ = _uiSharedService.GameFont.Push();
                 UiSharedService.ColorText(title, titleColor);
+            }
+
+            if (journalSubject != null)
+            {
+                JournalTrustStyle.DrawDot(journalSubject.Trust);
+                ImGui.SameLine(0, 6f * ImGuiHelpers.GlobalScale);
+                var journalLine = JournalTrustStyle.Label(journalSubject.Trust);
+                if (!string.IsNullOrWhiteSpace(journalSubject.Relation)) journalLine += " · " + journalSubject.Relation;
+                UiSharedService.ColorText(journalLine, ImGuiColors.DalamudGrey);
+                UiSharedService.AttachToolTip(Loc.Get("Journal.Card.InJournal"));
             }
 
             ImGui.PopTextWrapPos();

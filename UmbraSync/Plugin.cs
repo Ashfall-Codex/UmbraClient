@@ -225,6 +225,7 @@ public sealed class Plugin : IDalamudPlugin
         collection.AddSingleton((s) => new ServerTagConfigService(pluginInterface.ConfigDirectory.FullName));
         collection.AddSingleton((s) => new SyncshellConfigService(pluginInterface.ConfigDirectory.FullName));
         collection.AddSingleton((s) => new EstablishmentConfigService(pluginInterface.ConfigDirectory.FullName));
+        collection.AddSingleton((s) => new RpJournalConfigService(pluginInterface.ConfigDirectory.FullName));
         collection.AddSingleton((s) => new TransientConfigService(pluginInterface.ConfigDirectory.FullName));
         collection.AddSingleton((s) => new XivDataStorageService(pluginInterface.ConfigDirectory.FullName));
         collection.AddSingleton((s) => new PlayerPerformanceConfigService(pluginInterface.ConfigDirectory.FullName));
@@ -238,6 +239,7 @@ public sealed class Plugin : IDalamudPlugin
         collection.AddSingleton<IConfigService<IMareConfiguration>>(s => s.GetRequiredService<ServerTagConfigService>());
         collection.AddSingleton<IConfigService<IMareConfiguration>>(s => s.GetRequiredService<SyncshellConfigService>());
         collection.AddSingleton<IConfigService<IMareConfiguration>>(s => s.GetRequiredService<EstablishmentConfigService>());
+        collection.AddSingleton<IConfigService<IMareConfiguration>>(s => s.GetRequiredService<RpJournalConfigService>());
         collection.AddSingleton<IConfigService<IMareConfiguration>>(s => s.GetRequiredService<TransientConfigService>());
         collection.AddSingleton<IConfigService<IMareConfiguration>>(s => s.GetRequiredService<XivDataStorageService>());
         collection.AddSingleton<IConfigService<IMareConfiguration>>(s => s.GetRequiredService<PlayerPerformanceConfigService>());

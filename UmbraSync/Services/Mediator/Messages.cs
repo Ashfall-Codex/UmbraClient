@@ -92,6 +92,7 @@ public record ProfilePopoutToggle(Pair? Pair) : MessageBase;
 public record CompactUiChange(Vector2 Size, Vector2 Position) : MessageBase;
 public record TargetProfilePreviewMessage(UmbraProfileData? Profile) : MessageBase;
 public record ProfileOpenStandaloneMessage(Pair Pair, string? CharName = null, uint? WorldId = null) : MessageBase;
+public record OpenJournalMessage(string? CharName = null, uint? WorldId = null, string? Uid = null, string? RpName = null) : SameThreadMessage;
 public record ProfileCloseStandaloneMessage(string Uid) : MessageBase;
 public record RemoveWindowMessage(WindowMediatorSubscriberBase Window) : MessageBase;
 public record PlayerVisibilityMessage(string Ident, bool IsVisible, bool Invalidate = false) : KeyedMessage(Ident, SameThread: true);

@@ -7522,7 +7522,7 @@ Le serveur est prêt, en attente de l'intégration avec A Quest Reborn.</value>
     <value>RôlePlay</value>
   </data>
   <data name="Modules.Rp.Desc" xml:space="preserve">
-    <value>Fiches RP, noms RP dans le chat et sur les plaques, établissements, RP sauvage et Ashfall Connect.</value>
+    <value>Fiches RP, journal de personnages, noms RP dans le chat et sur les plaques, établissements, RP sauvage et Ashfall Connect.</value>
   </data>
   <data name="Modules.Housing.Title" xml:space="preserve">
     <value>Housing</value>
@@ -9375,5 +9375,188 @@ ATTENTION : cette action est irréversible.</value>
   </data>
   <data name="Notification.AddPair.RequestsDisabled.Body" xml:space="preserve">
     <value>Ce joueur n'accepte pas les demandes d'ami par UID.</value>
+  </data>
+  <data name="Journal.Title" xml:space="preserve">
+    <value>Journal RôlePlay</value>
+  </data>
+  <data name="Journal.Header" xml:space="preserve">
+    <value>Journal de {0}</value>
+  </data>
+  <data name="Journal.Header.Count" xml:space="preserve">
+    <value>{0} personnages suivis</value>
+  </data>
+  <data name="Journal.Header.CountOne" xml:space="preserve">
+    <value>{0} personnage suivi</value>
+  </data>
+  <data name="Journal.LocalOnly" xml:space="preserve">
+    <value>Sur cet ordinateur uniquement</value>
+  </data>
+  <data name="Journal.LocalOnly.Tooltip" xml:space="preserve">
+    <value>Votre journal n'est jamais envoyé au serveur. Il est enregistré dans journal.json, dans le dossier de configuration d'UmbraSync, et chaque personnage que vous jouez a le sien.</value>
+  </data>
+  <data name="Journal.NotLoggedIn" xml:space="preserve">
+    <value>Connectez-vous à un personnage pour ouvrir son journal.</value>
+  </data>
+  <data name="Journal.SearchHint" xml:space="preserve">
+    <value>Rechercher un nom ou un mot-clé</value>
+  </data>
+  <data name="Journal.Filter.All" xml:space="preserve">
+    <value>Tous les niveaux de confiance</value>
+  </data>
+  <data name="Journal.AddTarget" xml:space="preserve">
+    <value>Ajouter ma cible</value>
+  </data>
+  <data name="Journal.AddTarget.Tooltip" xml:space="preserve">
+    <value>Ciblez un joueur, puis cliquez pour l'ajouter au journal. Vous pouvez aussi faire un clic droit sur un joueur.</value>
+  </data>
+  <data name="Journal.AddTarget.NoTarget" xml:space="preserve">
+    <value>Ciblez d'abord un joueur.</value>
+  </data>
+  <data name="Journal.Empty" xml:space="preserve">
+    <value>Aucun personnage dans ce journal. Ciblez un joueur et cliquez sur « Ajouter ma cible », ou faites un clic droit sur lui.</value>
+  </data>
+  <data name="Journal.NoResult" xml:space="preserve">
+    <value>Aucun personnage ne correspond.</value>
+  </data>
+  <data name="Journal.SelectHint" xml:space="preserve">
+    <value>Choisissez un personnage dans la liste.</value>
+  </data>
+  <data name="Journal.LastSeen" xml:space="preserve">
+    <value>Vu le {0}</value>
+  </data>
+  <data name="Journal.OpenProfile" xml:space="preserve">
+    <value>Voir la fiche</value>
+  </data>
+  <data name="Journal.Pin" xml:space="preserve">
+    <value>Épingler</value>
+  </data>
+  <data name="Journal.Unpin" xml:space="preserve">
+    <value>Désépingler</value>
+  </data>
+  <data name="Journal.Delete" xml:space="preserve">
+    <value>Supprimer</value>
+  </data>
+  <data name="Journal.Delete.Tooltip" xml:space="preserve">
+    <value>Maintenez Ctrl pour supprimer ce personnage et tout ce que vous avez écrit sur lui.</value>
+  </data>
+  <data name="Journal.Card.Relation" xml:space="preserve">
+    <value>Ma relation</value>
+  </data>
+  <data name="Journal.Relation.Hint" xml:space="preserve">
+    <value>Relation : mentor, rival, ami d'enfance</value>
+  </data>
+  <data name="Journal.Card.Summary" xml:space="preserve">
+    <value>Ce que je sais</value>
+  </data>
+  <data name="Journal.Summary.Hint" xml:space="preserve">
+    <value>Ce que votre personnage sait de lui, ce qu'il en pense, ce qu'il soupçonne.</value>
+  </data>
+  <data name="Journal.Card.Fields" xml:space="preserve">
+    <value>Champs</value>
+  </data>
+  <data name="Journal.Field.NewHint" xml:space="preserve">
+    <value>Nouveau champ</value>
+  </data>
+  <data name="Journal.Field.Add" xml:space="preserve">
+    <value>Ajouter</value>
+  </data>
+  <data name="Journal.Field.Remove" xml:space="preserve">
+    <value>Retirer ce champ</value>
+  </data>
+  <data name="Journal.Card.Chronicle" xml:space="preserve">
+    <value>Chronique</value>
+  </data>
+  <data name="Journal.Entry.Add" xml:space="preserve">
+    <value>Ajouter</value>
+  </data>
+  <data name="Journal.Entry.Add.Tooltip" xml:space="preserve">
+    <value>La date et le lieu où vous vous trouvez sont ajoutés automatiquement.</value>
+  </data>
+  <data name="Journal.Entry.Empty" xml:space="preserve">
+    <value>Aucune entrée. Racontez ici vos rencontres et ce que vous apprenez au fil du jeu.</value>
+  </data>
+  <data name="Journal.Entry.Edit" xml:space="preserve">
+    <value>Modifier</value>
+  </data>
+  <data name="Journal.Entry.Save" xml:space="preserve">
+    <value>Enregistrer</value>
+  </data>
+  <data name="Journal.Entry.Delete.Tooltip" xml:space="preserve">
+    <value>Maintenez Ctrl pour supprimer cette entrée.</value>
+  </data>
+  <data name="Journal.Trust.Unknown" xml:space="preserve">
+    <value>Inconnu</value>
+  </data>
+  <data name="Journal.Trust.Unknown.Tooltip" xml:space="preserve">
+    <value>Vous ne savez pas encore quoi penser de lui.</value>
+  </data>
+  <data name="Journal.Trust.Hostile" xml:space="preserve">
+    <value>Hostile</value>
+  </data>
+  <data name="Journal.Trust.Hostile.Tooltip" xml:space="preserve">
+    <value>Vous le considérez comme un ennemi.</value>
+  </data>
+  <data name="Journal.Trust.Wary" xml:space="preserve">
+    <value>Méfiant</value>
+  </data>
+  <data name="Journal.Trust.Wary.Tooltip" xml:space="preserve">
+    <value>Vous gardez vos distances.</value>
+  </data>
+  <data name="Journal.Trust.Neutral" xml:space="preserve">
+    <value>Neutre</value>
+  </data>
+  <data name="Journal.Trust.Neutral.Tooltip" xml:space="preserve">
+    <value>Ni confiance ni méfiance.</value>
+  </data>
+  <data name="Journal.Trust.Trusting" xml:space="preserve">
+    <value>Confiant</value>
+  </data>
+  <data name="Journal.Trust.Trusting.Tooltip" xml:space="preserve">
+    <value>Vous lui faites confiance.</value>
+  </data>
+  <data name="Journal.Trust.Devoted" xml:space="preserve">
+    <value>Dévoué</value>
+  </data>
+  <data name="Journal.Trust.Devoted.Tooltip" xml:space="preserve">
+    <value>Vous lui confieriez votre vie.</value>
+  </data>
+  <data name="Journal.ContextMenu.Open" xml:space="preserve">
+    <value>Ouvrir dans le journal</value>
+  </data>
+  <data name="Journal.ContextMenu.Start" xml:space="preserve">
+    <value>Ajouter au journal</value>
+  </data>
+  <data name="Journal.Profile.Start" xml:space="preserve">
+    <value>Commencer un journal</value>
+  </data>
+  <data name="Journal.Tooltip.Open" xml:space="preserve">
+    <value>Journal</value>
+  </data>
+  <data name="Settings.TargetTooltip.Journal" xml:space="preserve">
+    <value>Afficher le journal dans l'infobulle</value>
+  </data>
+  <data name="Settings.TargetTooltip.Journal.Help" xml:space="preserve">
+    <value>Affiche votre niveau de confiance et votre dernière note quand vous ciblez un personnage de votre journal, même s'il n'est pas une paire.</value>
+  </data>
+  <data name="Journal.Tab" xml:space="preserve">
+    <value>Journal</value>
+  </data>
+  <data name="Journal.Profile.Header" xml:space="preserve">
+    <value>Notes de {0} sur {1}</value>
+  </data>
+  <data name="Journal.Profile.Empty" xml:space="preserve">
+    <value>Vous n'avez encore rien noté sur ce personnage. Le journal est privé : il reste sur cet ordinateur et dépend du personnage que vous jouez.</value>
+  </data>
+  <data name="Journal.Profile.NoCharacter" xml:space="preserve">
+    <value>Aucun personnage connu pour cette paire. Croisez-le en jeu pour commencer un journal.</value>
+  </data>
+  <data name="Journal.Profile.OpenWindow" xml:space="preserve">
+    <value>Ouvrir le journal</value>
+  </data>
+  <data name="CharaDataHub.Profiles.Tab.Journal" xml:space="preserve">
+    <value>Mon journal</value>
+  </data>
+  <data name="Journal.Card.InJournal" xml:space="preserve">
+    <value>Dans votre journal : votre confiance et votre relation.</value>
   </data>
 </root>

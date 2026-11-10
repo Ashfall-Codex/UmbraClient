@@ -6,6 +6,7 @@ using UmbraSync.PlayerData.Pairs;
 using UmbraSync.Services.Mediator;
 using UmbraSync.MareConfiguration;
 using UmbraSync.Modules.Discovery.Services;
+using UmbraSync.Modules.Rp.Services;
 using UmbraSync.Services.Notification;
 using UmbraSync.Services.ServerConfiguration;
 using UmbraSync.UI;
@@ -26,7 +27,8 @@ public class UiFactory(
     FileDialogManager fileDialogManager,
     IpcManager ipcManager,
     MareConfigService mareConfigService,
-    SyncshellDiscoveryService? syncshellDiscoveryService = null)
+    SyncshellDiscoveryService? syncshellDiscoveryService = null,
+    RpJournalService? rpJournalService = null)
 {
     public SyncshellAdminUI CreateSyncshellAdminUi(GroupFullInfoDto dto)
     {
@@ -39,7 +41,7 @@ public class UiFactory(
     {
         return new StandaloneProfileUi(loggerFactory.CreateLogger<StandaloneProfileUi>(), mareMediator,
             uiSharedService, serverConfigManager, mareConfigService, umbraProfileManager, apiController, pair, performanceCollectorService,
-            ipcManager, dalamudUtilService);
+            ipcManager, dalamudUtilService, rpJournalService);
     }
 
     public PermissionWindowUI CreatePermissionPopupUi(Pair pair)

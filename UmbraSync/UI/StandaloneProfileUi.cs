@@ -20,6 +20,8 @@ using UmbraSync.Services.ServerConfiguration;
 using UmbraSync.UI.Components;
 
 using UmbraSync.Modules;
+using UmbraSync.Modules.Rp.Services;
+using UmbraSync.Modules.Rp.UI;
 namespace UmbraSync.UI;
 
 public class StandaloneProfileUi : WindowMediatorSubscriberBase
@@ -31,10 +33,14 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
     private readonly UiSharedService _uiSharedService;
     private readonly IpcManager _ipcManager;
     private readonly DalamudUtilService _dalamudUtil;
+    private readonly RpJournalService? _rpJournal;
     private IDalamudTextureWrap? _rpBannerTexture;
     private SheetPalette? _sheetPalette;
     private ProfileCardStyle _rpCardStyle = ProfileCardStyle.Default;
-    private bool _isRpTab;
+    private enum ProfileTab { Rp, Hrp, Journal }
+    private ProfileTab _tab;
+    private bool _isRpTab => _tab == ProfileTab.Rp;
+    private readonly JournalSubjectEditor? _journalEditor;
     private bool _windowSizeInitialized = false;
     private string _localMoodlesJson = string.Empty;
     private bool _moodlesFetching;
@@ -53,17 +59,21 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
 
     public StandaloneProfileUi(ILogger<StandaloneProfileUi> logger, MareMediator mediator, UiSharedService uiBuilder,
         ServerConfigurationManager serverManager, MareConfigService configService, UmbraProfileManager umbraProfileManager, ApiController apiController, Pair pair,
-        PerformanceCollectorService performanceCollector, IpcManager ipcManager, DalamudUtilService dalamudUtil)
+        PerformanceCollectorService performanceCollector, IpcManager ipcManager, DalamudUtilService dalamudUtil,
+        RpJournalService? rpJournal = null)
         : base(logger, mediator, string.Format(System.Globalization.CultureInfo.CurrentCulture, Loc.Get("StandaloneProfile.WindowTitle"), pair.UserData.AliasOrUID) + "###UmbraSyncStandaloneProfileUI" + pair.UserData.AliasOrUID, performanceCollector)
     {
         _uiSharedService = uiBuilder;
-        _isRpTab = uiBuilder.Modules.IsEnabled(ModuleId.Rp);
+        _tab = uiBuilder.Modules.IsEnabled(ModuleId.Rp) ? ProfileTab.Rp : ProfileTab.Hrp;
         _serverManager = serverManager;
         _configService = configService;
         _umbraProfileManager = umbraProfileManager;
         _apiController = apiController;
         _ipcManager = ipcManager;
         _dalamudUtil = dalamudUtil;
+        _rpJournal = rpJournal;
+        if (rpJournal != null)
+            _journalEditor = new JournalSubjectEditor(rpJournal, uiBuilder, logger, "profileJournal" + pair.UserData.UID);
         Pair = pair;
         Flags = ImGuiWindowFlags.None;
 
@@ -217,7 +227,13 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
 
             if (ImGui.BeginChild("ProfileScrollArea", ImGui.GetContentRegionAvail(), false))
             {
-                if (_isRpTab)
+                if (_tab == ProfileTab.Journal)
+                {
+                    _sheetPalette = null;
+                    _rpCardStyle = ProfileCardStyle.Default;
+                    DrawJournalTab();
+                }
+                else if (_isRpTab)
                 {
                     var sheetMin = ImGui.GetWindowPos();
                     var sheetMax = sheetMin + ImGui.GetWindowSize();
@@ -249,8 +265,21 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
 
     private void DrawTabButtons(Vector4 accent)
     {
-        var labels = new[] { "RP", "HRP" };
-        var icons = new[] { FontAwesomeIcon.Scroll, FontAwesomeIcon.User };
+        var tabs = ShowJournalTab
+            ? new[] { ProfileTab.Rp, ProfileTab.Hrp, ProfileTab.Journal }
+            : new[] { ProfileTab.Rp, ProfileTab.Hrp };
+        var labels = tabs.Select(t => t switch
+        {
+            ProfileTab.Rp => "RP",
+            ProfileTab.Hrp => "HRP",
+            _ => Loc.Get("Journal.Tab"),
+        }).ToArray();
+        var icons = tabs.Select(t => t switch
+        {
+            ProfileTab.Rp => FontAwesomeIcon.Scroll,
+            ProfileTab.Hrp => FontAwesomeIcon.User,
+            _ => FontAwesomeIcon.Feather,
+        }).ToArray();
         const float btnH = 32f;
         const float btnSpacing = 8f;
         const float rounding = 4f;
@@ -271,7 +300,7 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
             var p = ImGui.GetCursorScreenPos();
             bool clicked = ImGui.InvisibleButton($"##profileTab_{i}", new Vector2(btnW, btnH));
             bool hovered = ImGui.IsItemHovered();
-            bool isActive = _isRpTab ? i == 0 : i == 1;
+            bool isActive = _tab == tabs[i];
 
             var bg = isActive ? accent : hovered ? hoverBg : bgColor;
             dl.AddRectFilled(p, p + new Vector2(btnW, btnH), ImGui.GetColorU32(bg), rounding);
@@ -297,7 +326,7 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
             dl.AddText(new Vector2(startX + iconSz.X + iconTextGap, p.Y + (btnH - labelSz.Y) / 2f), textColorU32, labels[i]);
 
             if (hovered) ImGui.SetMouseCursor(ImGuiMouseCursor.Hand);
-            if (clicked) _isRpTab = i == 0;
+            if (clicked) _tab = tabs[i];
         }
 
         ImGuiHelpers.ScaledDummy(4f);
@@ -326,6 +355,73 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
             _serverManager.SetNoteForCharacter(Pair.UserData.UID, charName, worldId.Value, _characterNoteDraft);
         UiSharedService.AttachToolTip(Loc.Get("StandaloneProfile.CharacterNote.Tooltip"));
         ImGuiHelpers.ScaledDummy(4f);
+    }
+
+    private bool ShowJournalTab
+        => _journalEditor != null && !string.Equals(Pair.UserData.UID, _apiController.UID, StringComparison.Ordinal);
+
+    private void DrawJournalTab()
+    {
+        var journal = _rpJournal;
+        if (journal == null || _journalEditor == null || !ShowJournalTab)
+        {
+            _tab = ProfileTab.Hrp;
+            return;
+        }
+
+        var (charName, worldId) = (_selectedAltCharName != null && _selectedAltWorldId != null)
+            ? (_selectedAltCharName, _selectedAltWorldId)
+            : _umbraProfileManager.ResolveCharacter(Pair.UserData);
+
+        ImGuiHelpers.ScaledDummy(4f);
+        if (!journal.HasOwner || string.IsNullOrEmpty(charName) || worldId is not > 0)
+        {
+            UiSharedService.DrawGroupedCenteredColorText(
+                Loc.Get(journal.HasOwner ? "Journal.Profile.NoCharacter" : "Journal.NotLoggedIn"), ImGuiColors.DalamudGrey);
+            return;
+        }
+
+        var profile = _umbraProfileManager.GetUmbraProfile(Pair.UserData, charName, worldId);
+        var rpName = string.Join(' ', new[] { profile.RpFirstName, profile.RpLastName }.Where(n => !string.IsNullOrWhiteSpace(n)));
+        var shownName = string.IsNullOrEmpty(rpName) ? charName : rpName;
+
+        var subject = journal.TryGetSubject(charName, worldId.Value);
+        var header = string.Format(System.Globalization.CultureInfo.CurrentCulture, Loc.Get("Journal.Profile.Header"), journal.OwnerName, shownName);
+        var openLabel = Loc.Get("Journal.Profile.OpenWindow");
+        float openWidth = CapsuleButton.MeasureWidth(openLabel, FontAwesomeIcon.ExternalLinkAlt);
+        float regionMax = ImGui.GetWindowContentRegionMax().X;
+        float spacing = ImGui.GetStyle().ItemSpacing.X;
+        bool buttonOnSameLine = subject != null
+            && ImGui.GetCursorPosX() + ImGui.CalcTextSize(header).X + spacing + openWidth <= regionMax;
+
+        if (buttonOnSameLine)
+            ImGui.SetCursorPosY(ImGui.GetCursorPosY() + MathF.Max(0f, (CapsuleButton.HitRegionHeight - ImGui.GetTextLineHeight()) / 2f));
+        UiSharedService.ColorTextWrapped(header, ImGuiColors.DalamudGrey);
+        UiSharedService.AttachToolTip(Loc.Get("Journal.LocalOnly.Tooltip"));
+
+        if (subject == null)
+        {
+            ImGuiHelpers.ScaledDummy(6f);
+            UiSharedService.ColorTextWrapped(Loc.Get("Journal.Profile.Empty"), ImGuiColors.DalamudGrey3);
+            ImGuiHelpers.ScaledDummy(4f);
+            if (CapsuleButton.Draw(Loc.Get("Journal.Profile.Start"), FontAwesomeIcon.Feather))
+                journal.GetOrCreateSubject(charName, worldId.Value, Pair.UserData.UID, rpName);
+            return;
+        }
+
+        journal.RefreshIdentity(subject, Pair.UserData.UID, rpName);
+
+        if (buttonOnSameLine)
+        {
+            ImGui.SameLine();
+            ImGui.SetCursorPosY(ImGui.GetCursorPosY() - MathF.Max(0f, (CapsuleButton.HitRegionHeight - ImGui.GetTextLineHeight()) / 2f));
+        }
+        ImGui.SetCursorPosX(MathF.Max(ImGui.GetCursorPosX(), regionMax - openWidth));
+        if (CapsuleButton.Draw(openLabel, FontAwesomeIcon.ExternalLinkAlt))
+            Mediator.Publish(new OpenJournalMessage(charName, worldId.Value, Pair.UserData.UID, rpName));
+
+        ImGuiHelpers.ScaledDummy(4f);
+        _journalEditor.Draw(subject);
     }
 
     private void DrawRpProfile(UmbraProfileData profile, IDalamudTextureWrap? texture, Vector4 accent)

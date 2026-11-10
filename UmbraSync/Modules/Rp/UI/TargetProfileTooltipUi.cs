@@ -10,7 +10,9 @@ using Microsoft.Extensions.Logging;
 using System.Numerics;
 using UmbraSync.Localization;
 using UmbraSync.MareConfiguration;
+using UmbraSync.MareConfiguration.Configurations;
 using UmbraSync.MareConfiguration.Models;
+using UmbraSync.Modules.Rp.Services;
 using UmbraSync.PlayerData.Pairs;
 using UmbraSync.Services;
 using UmbraSync.Services.Mediator;
@@ -23,6 +25,7 @@ namespace UmbraSync.Modules.Rp.UI;
 public sealed class TargetProfileTooltipUi : WindowMediatorSubscriberBase
 {
     private const int MaxDescriptionLength = 220;
+    private const int JournalPreviewLength = 140;
     private static float TooltipWidth => 340f * ImGuiHelpers.GlobalScale;
     private static float PortraitSize => 84f * ImGuiHelpers.GlobalScale;
 
@@ -34,6 +37,7 @@ public sealed class TargetProfileTooltipUi : WindowMediatorSubscriberBase
     private readonly ServerConfigurationManager _serverManager;
     private readonly DalamudUtilService _dalamudUtil;
     private readonly IGameGui _gameGui;
+    private readonly RpJournalService _journal;
 
     private static readonly string[] TargetBarAddons = ["_TargetInfoMainTarget", "_TargetInfo"];
     private string? _dismissedTargetKey;
@@ -41,16 +45,16 @@ public sealed class TargetProfileTooltipUi : WindowMediatorSubscriberBase
     private volatile TargetInfo? _target;
     private volatile UmbraProfileData? _preview;
 
-    private sealed record TargetInfo(Pair Pair, string CharName, uint WorldId)
+    private sealed record TargetInfo(Pair? Pair, string CharName, uint WorldId)
     {
-        public string Key => $"{Pair.UserData.UID}|{CharName}|{WorldId}";
+        public string Key => $"{Pair?.UserData.UID}|{CharName}|{WorldId}";
     }
 
     public TargetProfileTooltipUi(ILogger<TargetProfileTooltipUi> logger, MareMediator mediator,
         ITargetManager targetManager, PairManager pairManager, UmbraProfileManager profileManager,
         MareConfigService configService, UiSharedService uiSharedService,
         ServerConfigurationManager serverManager, DalamudUtilService dalamudUtil, IGameGui gameGui,
-        PerformanceCollectorService performanceCollectorService)
+        RpJournalService journal, PerformanceCollectorService performanceCollectorService)
         : base(logger, mediator, "###UmbraSyncTargetProfileTooltip", performanceCollectorService)
     {
         _targetManager = targetManager;
@@ -61,6 +65,7 @@ public sealed class TargetProfileTooltipUi : WindowMediatorSubscriberBase
         _serverManager = serverManager;
         _dalamudUtil = dalamudUtil;
         _gameGui = gameGui;
+        _journal = journal;
 
         Flags = ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoResize
                 | ImGuiWindowFlags.NoCollapse | ImGuiWindowFlags.NoFocusOnAppearing | ImGuiWindowFlags.NoNav
@@ -93,6 +98,8 @@ public sealed class TargetProfileTooltipUi : WindowMediatorSubscriberBase
                 return;
             }
 
+            NoteJournalSighting();
+
             if (_preview != null)
             {
                 IsOpen = true;
@@ -111,10 +118,11 @@ public sealed class TargetProfileTooltipUi : WindowMediatorSubscriberBase
             if (_targetManager.Target is IPlayerCharacter pc)
             {
                 var pair = _pairManager.GetVisiblePairByObjectId(pc.EntityId);
-                if (pair != null)
+                var name = pc.Name.TextValue;
+                var world = pc.HomeWorld.RowId;
+                var subject = _configService.Current.ShowJournalInTargetTooltip ? _journal.TryGetSubject(name, world) : null;
+                if (pair != null || subject != null)
                 {
-                    var name = pc.Name.TextValue;
-                    var world = pc.HomeWorld.RowId;
                     var current = _target;
                     if (current == null || !ReferenceEquals(current.Pair, pair)
                         || !string.Equals(current.CharName, name, StringComparison.Ordinal) || current.WorldId != world)
@@ -130,8 +138,16 @@ public sealed class TargetProfileTooltipUi : WindowMediatorSubscriberBase
                         _dismissedTargetKey = null;
                     }
 
-                    var profile = _profileManager.GetUmbraProfile(pair.UserData, name, world);
-                    IsOpen = !string.IsNullOrWhiteSpace(profile.RpFirstName) || !string.IsNullOrWhiteSpace(profile.RpLastName);
+                    bool hasRpName = false;
+                    string? rpName = null;
+                    if (pair != null)
+                    {
+                        var profile = _profileManager.GetUmbraProfile(pair.UserData, name, world);
+                        rpName = $"{profile.RpFirstName} {profile.RpLastName}".Trim();
+                        hasRpName = rpName.Length > 0;
+                    }
+
+                    IsOpen = hasRpName || subject != null;
                     return;
                 }
             }
@@ -146,6 +162,23 @@ public sealed class TargetProfileTooltipUi : WindowMediatorSubscriberBase
             _target = null;
             IsOpen = false;
         }
+    }
+
+    private void NoteJournalSighting()
+    {
+        if (_targetManager.Target is not IPlayerCharacter pc) return;
+        var name = pc.Name.TextValue;
+        var world = pc.HomeWorld.RowId;
+        if (_journal.TryGetSubject(name, world) == null) return;
+
+        var pair = _pairManager.GetVisiblePairByObjectId(pc.EntityId);
+        string? rpName = null;
+        if (pair != null)
+        {
+            var profile = _profileManager.GetUmbraProfile(pair.UserData, name, world);
+            rpName = $"{profile.RpFirstName} {profile.RpLastName}".Trim();
+        }
+        _journal.NoteSeen(name, world, pair?.UserData.UID, rpName);
     }
 
     public override void PreDraw()
@@ -198,7 +231,7 @@ public sealed class TargetProfileTooltipUi : WindowMediatorSubscriberBase
         var preview = _preview;
         if (preview != null) return preview;
         var target = _target;
-        return target == null ? null : _profileManager.GetUmbraProfile(target.Pair.UserData, target.CharName, target.WorldId);
+        return target?.Pair == null ? null : _profileManager.GetUmbraProfile(target.Pair.UserData, target.CharName, target.WorldId);
     }
 
     protected override void DrawInternal()
@@ -207,9 +240,21 @@ public sealed class TargetProfileTooltipUi : WindowMediatorSubscriberBase
         var target = _target;
         if (preview == null && target == null) return;
 
-        var profile = preview ?? _profileManager.GetUmbraProfile(target!.Pair.UserData, target.CharName, target.WorldId);
+        var subject = preview == null && _configService.Current.ShowJournalInTargetTooltip
+            ? _journal.TryGetSubject(target!.CharName, target.WorldId) : null;
+        if (preview == null && target!.Pair == null)
+        {
+            if (subject != null) DrawJournalOnly(target, subject);
+            return;
+        }
+
+        var profile = preview ?? _profileManager.GetUmbraProfile(target!.Pair!.UserData, target.CharName, target.WorldId);
         var rpName = $"{profile.RpFirstName} {profile.RpLastName}".Trim();
-        if (string.IsNullOrEmpty(rpName)) return;
+        if (string.IsNullOrEmpty(rpName))
+        {
+            if (subject != null) DrawJournalOnly(target!, subject);
+            return;
+        }
 
         var accent = UiSharedService.AccentColor;
         if (accent.W <= 0f) accent = ImGuiColors.ParsedPurple;
@@ -272,7 +317,7 @@ public sealed class TargetProfileTooltipUi : WindowMediatorSubscriberBase
             ImGui.TextColored(infoColor, profile.RpResidence);
         }
 
-        var privateNote = target == null ? null
+        var privateNote = target?.Pair == null ? null
             : _serverManager.GetNoteForCharacter(target.Pair.UserData.UID, target.CharName, target.WorldId)
               ?? _serverManager.GetNoteForUid(target.Pair.UserData.UID);
         if (!string.IsNullOrWhiteSpace(privateNote))
@@ -292,6 +337,12 @@ public sealed class TargetProfileTooltipUi : WindowMediatorSubscriberBase
             ImGui.PopTextWrapPos();
         }
 
+        if (subject != null)
+        {
+            ImGui.Separator();
+            DrawJournalLines(subject);
+        }
+
         if (preview != null)
         {
             ImGuiHelpers.ScaledDummy(4f);
@@ -303,7 +354,7 @@ public sealed class TargetProfileTooltipUi : WindowMediatorSubscriberBase
             ImGuiHelpers.ScaledDummy(4f);
             float half = (ImGui.GetContentRegionAvail().X - ImGui.GetStyle().ItemSpacing.X) / 2f;
             if (DrawGhostButton(accent, Loc.Get("Settings.ProfileBrowser.OpenProfile"), FontAwesomeIcon.ExternalLinkAlt, "##openTargetProfile", half))
-                Mediator.Publish(new ProfileOpenStandaloneMessage(target!.Pair, target.CharName, target.WorldId));
+                Mediator.Publish(new ProfileOpenStandaloneMessage(target!.Pair!, target.CharName, target.WorldId));
             ImGui.SameLine();
             if (DrawGhostButton(accent, Loc.Get("TargetCard.Close"), FontAwesomeIcon.Times, "##closeTargetCard", half))
             {
@@ -314,6 +365,45 @@ public sealed class TargetProfileTooltipUi : WindowMediatorSubscriberBase
 
         DrawBanner(windowDraw, profile.RpBannerData, cardStyle);
         windowDraw.ChannelsMerge();
+    }
+
+    private void DrawJournalOnly(TargetInfo target, JournalSubject subject)
+    {
+        var accent = UiSharedService.AccentColor;
+        using (_uiSharedService.UidFont.Push())
+            UiSharedService.ColorText(RpJournalQuery.DisplayName(subject), accent);
+        ImGui.TextColored(ImGuiColors.DalamudGrey, target.CharName + " · " + _journal.WorldName(target.WorldId));
+        ImGui.Separator();
+        DrawJournalLines(subject);
+
+        if (IsTargetBarHoverMode) return;
+        ImGuiHelpers.ScaledDummy(4f);
+        float half = (ImGui.GetContentRegionAvail().X - ImGui.GetStyle().ItemSpacing.X) / 2f;
+        if (DrawGhostButton(accent, Loc.Get("Journal.Tooltip.Open"), FontAwesomeIcon.Feather, "##openJournal", half))
+            Mediator.Publish(new OpenJournalMessage(target.CharName, target.WorldId, target.Pair?.UserData.UID));
+        ImGui.SameLine();
+        if (DrawGhostButton(accent, Loc.Get("TargetCard.Close"), FontAwesomeIcon.Times, "##closeJournalCard", half))
+        {
+            _dismissedTargetKey = target.Key;
+            IsOpen = false;
+        }
+    }
+
+    private static void DrawJournalLines(JournalSubject subject)
+    {
+        JournalTrustStyle.DrawDot(subject.Trust);
+        ImGui.SameLine(0, 6f * ImGuiHelpers.GlobalScale);
+        var line = JournalTrustStyle.Label(subject.Trust);
+        if (!string.IsNullOrWhiteSpace(subject.Relation)) line += " · " + subject.Relation;
+        ImGui.TextColored(JournalTrustStyle.Color(subject.Trust), line);
+
+        var last = subject.Entries.Count > 0 ? subject.Entries[^1].Text : subject.Summary;
+        if (string.IsNullOrWhiteSpace(last)) return;
+        last = last.Trim().ReplaceLineEndings(" ");
+        if (last.Length > JournalPreviewLength) last = last[..JournalPreviewLength].TrimEnd() + "…";
+        ImGui.PushTextWrapPos(ImGui.GetCursorPosX() + TooltipWidth - ImGui.GetStyle().WindowPadding.X * 2);
+        ImGui.TextColored(ImGuiColors.DalamudGrey2, last);
+        ImGui.PopTextWrapPos();
     }
 
     // Bannière derrière tout le contenu, estompée sur les bords comme la carte héros du profil.

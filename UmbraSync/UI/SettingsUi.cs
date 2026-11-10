@@ -2463,6 +2463,17 @@ public class SettingsUi : WindowMediatorSubscriberBase
         }
         _uiShared.DrawHelpText(Loc.Get("Settings.TargetTooltip.HideInDuty.Help"));
 
+        var showJournalInTooltip = _configService.Current.ShowJournalInTargetTooltip;
+        using (ImRaii.Disabled(!showTargetTooltip))
+        {
+            if (ToggleSwitch.Draw(Loc.Get("Settings.TargetTooltip.Journal"), ref showJournalInTooltip))
+            {
+                _configService.Current.ShowJournalInTargetTooltip = showJournalInTooltip;
+                _configService.Save();
+            }
+        }
+        _uiShared.DrawHelpText(Loc.Get("Settings.TargetTooltip.Journal.Help"));
+
         if (ToggleSwitch.Draw(Loc.Get("Settings.Profiles.ShowNsfw"), ref showNsfwProfiles))
         {
             Mediator.Publish(new ClearProfileDataMessage());

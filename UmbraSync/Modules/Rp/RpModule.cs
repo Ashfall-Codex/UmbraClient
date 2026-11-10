@@ -25,6 +25,8 @@ public sealed class RpModule : IUmbraModule
         services.AddSingleton<IRuntimeScopedService>(sp => sp.GetRequiredService<EstablishmentProximityService>());
         services.AddSingleton<IRuntimeScopedService>(sp => sp.GetRequiredService<EstablishmentReminderService>());
         services.AddSingleton<IRuntimeScopedService>(sp => sp.GetRequiredService<EstablishmentSyncSlotService>());
+        services.AddSingleton<RpJournalService>();
+        services.AddSingleton<IRuntimeScopedService>(sp => sp.GetRequiredService<RpJournalService>());
         services.AddSingleton<AshfallConnectAutoSyncService>();
         services.AddHostedService(sp => sp.GetRequiredService<AshfallConnectAutoSyncService>());
 
@@ -35,8 +37,12 @@ public sealed class RpModule : IUmbraModule
         services.AddScoped<IRuntimeScopedService>(sp => sp.GetRequiredService<ChatNameReplacementService>());
         services.AddScoped<IRuntimeScopedService>(sp => sp.GetRequiredService<ChatEmoteHighlightService>());
         services.AddScoped<IRuntimeScopedService>(sp => sp.GetRequiredService<ChatProximityBlendService>());
+        services.AddScoped<RpJournalContextMenuService>();
+        services.AddScoped<IRuntimeScopedService>(sp => sp.GetRequiredService<RpJournalContextMenuService>());
 
         services.AddScoped<WindowMediatorSubscriberBase, TargetProfileTooltipUi>();
+        services.AddScoped<RpJournalUi>();
+        services.AddScoped<WindowMediatorSubscriberBase>(sp => sp.GetRequiredService<RpJournalUi>());
         services.AddScoped<AshfallLinkCodeUi>();
         services.AddScoped<WindowMediatorSubscriberBase>(sp => sp.GetRequiredService<AshfallLinkCodeUi>());
         services.AddScoped<EstablishmentDetailUi>();

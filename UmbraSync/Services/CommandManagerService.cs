@@ -47,7 +47,7 @@ public sealed class CommandManagerService : IDisposable
         _mareConfigService = mareConfigService;
         _commandManager.AddHandler(_commandName, new CommandInfo(OnCommand)
         {
-            HelpMessage = "Ouvre l'interface UmbraSync. Sous-commandes : toggle [on|off], gpose, npcedit, rescan, perf, analyze, modules"
+            HelpMessage = "Ouvre l'interface UmbraSync. Sous-commandes : toggle [on|off], gpose, journal, npcedit, rescan, perf, analyze, modules"
         });
         _commandManager.AddHandler(_commandAlias, new CommandInfo(OnCommand)
         {
@@ -129,6 +129,10 @@ public sealed class CommandManagerService : IDisposable
         else if (string.Equals(splitArgs[0], "analyze", StringComparison.OrdinalIgnoreCase))
         {
             _mediator.Publish(new UiToggleMessage(typeof(DataAnalysisUi)));
+        }
+        else if (string.Equals(splitArgs[0], "journal", StringComparison.OrdinalIgnoreCase) && RequireModule(ModuleId.Rp))
+        {
+            _mediator.Publish(new OpenJournalMessage());
         }
         else if (string.Equals(splitArgs[0], "npcadd", StringComparison.OrdinalIgnoreCase) && RequireModule(ModuleId.Housing))
         {
