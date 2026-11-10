@@ -320,7 +320,7 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
         {
             new(new Version(3, 2, 0, 1110), "3.2.0.1110", new List<ChangelogLine>
             {
-                new("Nouveauté : UmbraSync se découpe en modules que vous pouvez couper dans Réglages ▸ Modules : RôlePlay, Housing, Découverte et Chat+. Le préréglage « Legacy » ramène à une synchronisation Mare classique. Tout reste activé après la mise à jour ; chaque changement demande un rechargement du plugin. Sans Découverte, les demandes d'ami qu'on vous envoie sont refusées."),
+                new("Nouveauté : UmbraSync se découpe en modules que vous pouvez couper dans Réglages ▸ Modules : RôlePlay, Housing, Découverte et Chat+. Le préréglage « Legacy » ramène à une synchronisation Mare classique. Tout reste activé après la mise à jour ; chaque changement demande un rechargement du plugin."),
                 new("Nouveauté : Journal RôlePlay : pour chaque personnage que vous jouez, un journal privé sur ceux que vous croisez (confiance, relation, ce que vous savez, chronique datée avec le lieu). Onglet « Journal » de leur fiche, clic droit sur un joueur hors paire, ou /usync journal. Tout reste sur votre ordinateur."),
                 new("Nouveauté : Décors partagés avec Stagehand : publiez un décor à l'endroit où vous êtes, les joueurs autorisés le trouvent en arrivant, mods compris. Page « Décors » du Hub."),
                 new("Nouveauté : Catalogue de décors : parcourez, mettez en favori et affichez temporairement les décors publiés par la communauté. Page « Catalogue » du Hub."),
