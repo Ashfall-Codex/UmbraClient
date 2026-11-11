@@ -102,8 +102,18 @@ public static unsafe class ScrollEdgeEffect
         }
     }
 
+    public static IReadOnlyList<(Vector2 Min, Vector2 Max)>? OpaqueRegions { get; set; }
+
+    private static readonly List<(float Start, float End)> CoveredSpans = [];
+
     private static void DrawRows(ImDrawListPtr drawList, Vector2 min, Vector2 max, Vector2 clipMin, Vector2 clipMax, bool opensDownward, float strength, in Material material)
     {
+        if (OpaqueRegions is { Count: > 0 } regions && IntersectsAny(regions, min, max))
+        {
+            DrawRowsAroundOpaqueRegions(drawList, regions, min, max, clipMin, clipMax, opensDownward, strength, material);
+            return;
+        }
+
         int rows = (int)(max.Y - min.Y);
         drawList.PushClipRect(clipMin, clipMax, false);
 
@@ -121,6 +131,64 @@ public static unsafe class ScrollEdgeEffect
             var rowMin = new Vector2(min.X, min.Y + row);
             var color = new Vector4(material.Tint, RowOpacity(row, rows, opensDownward, strength) * material.TintAlpha);
             drawList.AddRectFilled(rowMin, new Vector2(max.X, rowMin.Y + 1f), ImGui.GetColorU32(color));
+        }
+
+        drawList.PopClipRect();
+    }
+
+    private static bool IntersectsAny(IReadOnlyList<(Vector2 Min, Vector2 Max)> regions, Vector2 min, Vector2 max)
+    {
+        for (var i = 0; i < regions.Count; i++)
+        {
+            var (rMin, rMax) = regions[i];
+            if (rMin.X < max.X && rMax.X > min.X && rMin.Y < max.Y && rMax.Y > min.Y) return true;
+        }
+        return false;
+    }
+
+    private static void DrawRowsAroundOpaqueRegions(ImDrawListPtr drawList, IReadOnlyList<(Vector2 Min, Vector2 Max)> regions, Vector2 min, Vector2 max,
+        Vector2 clipMin, Vector2 clipMax, bool opensDownward, float strength, in Material material)
+    {
+        int rows = (int)(max.Y - min.Y);
+        var backdrop = material.BlurOpacity > 0f && UiSharedService.Backdrop is { Ready: true } ready ? ready : null;
+        drawList.PushClipRect(clipMin, clipMax, false);
+
+        for (var row = 0; row < rows; row++)
+        {
+            float y0 = min.Y + row;
+            float y1 = y0 + 1f;
+            float opacity = RowOpacity(row, rows, opensDownward, strength);
+
+            CoveredSpans.Clear();
+            for (var i = 0; i < regions.Count; i++)
+            {
+                var (rMin, rMax) = regions[i];
+                if (rMin.Y >= y1 || rMax.Y <= y0) continue;
+                float start = MathF.Max(rMin.X, min.X);
+                float end = MathF.Min(rMax.X, max.X);
+                if (end > start) CoveredSpans.Add((start, end));
+            }
+            CoveredSpans.Sort(static (a, b) => a.Start.CompareTo(b.Start));
+
+            float cursor = min.X;
+            for (var i = 0; i <= CoveredSpans.Count; i++)
+            {
+                float gapEnd = i < CoveredSpans.Count ? CoveredSpans[i].Start : max.X;
+                if (gapEnd > cursor)
+                {
+                    backdrop?.DrawInto(drawList, new Vector2(cursor, y0), new Vector2(gapEnd, y1), opacity * material.BlurOpacity);
+                    drawList.AddRectFilled(new Vector2(cursor, y0), new Vector2(gapEnd, y1),
+                        ImGui.GetColorU32(new Vector4(material.Tint, opacity * material.TintAlpha)));
+                }
+                if (i == CoveredSpans.Count) break;
+
+                float spanStart = MathF.Max(cursor, CoveredSpans[i].Start);
+                float spanEnd = CoveredSpans[i].End;
+                if (spanEnd > spanStart)
+                    drawList.AddRectFilled(new Vector2(spanStart, y0), new Vector2(spanEnd, y1),
+                        ImGui.GetColorU32(new Vector4(material.Tint, opacity)));
+                cursor = MathF.Max(cursor, spanEnd);
+            }
         }
 
         drawList.PopClipRect();

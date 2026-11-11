@@ -8527,12 +8527,6 @@ Experimental: these hooks are low level; if anything goes wrong, turn this off (
   <data name="Settings.TargetTooltip.Trigger.OnTargetBarHover.Help" xml:space="preserve">
     <value>Target a player, then leave the cursor on their target bar (name and HP at the top of the screen): the card stays visible as long as the cursor is on the bar.</value>
   </data>
-  <data name="StandaloneProfile.CharacterNote.Hint" xml:space="preserve">
-    <value>Private note about this character...</value>
-  </data>
-  <data name="StandaloneProfile.CharacterNote.Tooltip" xml:space="preserve">
-    <value>Only you can see this note. It is specific to this character, not to the whole account.</value>
-  </data>
   <data name="Settings.TargetTooltip.HideInDuty" xml:space="preserve">
     <value>Hide the profile card in instances (dungeons, raids, trials...)</value>
   </data>
@@ -9616,6 +9610,24 @@ WARNING: this cannot be undone.</value>
   <data name="Journal.Profile.Start" xml:space="preserve">
     <value>Start a journal</value>
   </data>
+  <data name="Journal.Profile.Edit" xml:space="preserve">
+    <value>Edit in journal</value>
+  </data>
+  <data name="Journal.Profile.Edit.Tooltip" xml:space="preserve">
+    <value>The journal is written in its own window. Here you read it alongside the character sheet.</value>
+  </data>
+  <data name="Journal.Profile.Trust" xml:space="preserve">
+    <value>Trust</value>
+  </data>
+  <data name="Journal.Profile.Relation" xml:space="preserve">
+    <value>Relationship</value>
+  </data>
+  <data name="Journal.Profile.LastSeen" xml:space="preserve">
+    <value>Last met</value>
+  </data>
+  <data name="Journal.Profile.NothingYet" xml:space="preserve">
+    <value>Nothing written yet. Click "Edit in journal" to write down what you know about this character.</value>
+  </data>
   <data name="Journal.Tooltip.Open" xml:space="preserve">
     <value>Journal</value>
   </data>
@@ -9628,20 +9640,26 @@ WARNING: this cannot be undone.</value>
   <data name="Journal.Tab" xml:space="preserve">
     <value>Journal</value>
   </data>
-  <data name="Journal.Profile.Header" xml:space="preserve">
-    <value>{0}'s notes about {1}</value>
-  </data>
   <data name="Journal.Profile.Empty" xml:space="preserve">
     <value>You haven't written anything about this character yet. The journal is private: it stays on this computer and depends on the character you play.</value>
   </data>
   <data name="Journal.Profile.NoCharacter" xml:space="preserve">
     <value>No known character for this pair. Meet them in game to start a journal.</value>
   </data>
-  <data name="Journal.Profile.OpenWindow" xml:space="preserve">
-    <value>Open journal</value>
+  <data name="StandaloneProfile.Tab.Sheet" xml:space="preserve">
+    <value>Sheet</value>
   </data>
-  <data name="CharaDataHub.Profiles.Tab.Journal" xml:space="preserve">
-    <value>My journal</value>
+  <data name="StandaloneProfile.EnrichedProfile" xml:space="preserve">
+    <value>View enriched profile</value>
+  </data>
+  <data name="StandaloneProfile.EnrichedProfile.Tooltip" xml:space="preserve">
+    <value>Opens in your web browser. The profile must be set to "Public" on Connect to be accessible.</value>
+  </data>
+  <data name="CharaDataHub.Profiles.OpenJournal" xml:space="preserve">
+    <value>Open my journal</value>
+  </data>
+  <data name="CharaDataHub.Profiles.OpenJournal.Tooltip" xml:space="preserve">
+    <value>Your full RôlePlay journal: every character you follow with the character you are playing.</value>
   </data>
   <data name="Journal.Card.InJournal" xml:space="preserve">
     <value>In your journal: your trust and relationship.</value>

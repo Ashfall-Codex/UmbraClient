@@ -11,6 +11,7 @@ public class RpJournalConfig : IMareConfiguration
 public class CharacterJournal
 {
     public Dictionary<string, JournalSubject> Subjects { get; set; } = new(StringComparer.Ordinal);
+    public bool CharacterNotesImported { get; set; }
 }
 
 public enum JournalTrust

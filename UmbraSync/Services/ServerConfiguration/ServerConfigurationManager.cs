@@ -315,6 +315,21 @@ public class ServerConfigurationManager
         _notesConfig.Save();
     }
 
+    internal List<(string Uid, string CharName, uint WorldId, string Note)> GetAllCharacterNotes()
+    {
+        var notes = new List<(string Uid, string CharName, uint WorldId, string Note)>();
+        foreach (var (key, note) in CurrentNotesStorage().CharacterComments)
+        {
+            if (string.IsNullOrWhiteSpace(note)) continue;
+            var first = key.IndexOf('|', StringComparison.Ordinal);
+            var last = key.LastIndexOf('|');
+            if (first <= 0 || last <= first + 1) continue;
+            if (!uint.TryParse(key.AsSpan(last + 1), System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var worldId) || worldId == 0) continue;
+            notes.Add((key[..first], key[(first + 1)..last], worldId, note));
+        }
+        return notes;
+    }
+
     private static string CharacterNoteKey(string uid, string charName, uint worldId)
         => $"{uid}|{charName}|{worldId}";
 

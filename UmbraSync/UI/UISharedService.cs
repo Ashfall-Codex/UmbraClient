@@ -1332,7 +1332,7 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
     // Marge droite de la carte : ImGui n'a pas d'équivalent d'Indent pour ce bord. On rétrécit
     // la zone de contenu de la fenêtre le temps de la section, pour que tableaux, curseurs et
     // textes qui se calent sur la largeur disponible s'arrêtent avant le contour.
-    private static unsafe void ShiftContentRight(float delta)
+    internal static unsafe void ShiftContentRight(float delta)
     {
         var window = ImGuiP.GetCurrentWindow().Handle;
         if (window == null) return;
