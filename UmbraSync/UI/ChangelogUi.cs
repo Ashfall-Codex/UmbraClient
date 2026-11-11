@@ -321,14 +321,13 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
             new(new Version(3, 2, 0, 1111), "3.2.0.1111", new List<ChangelogLine>
             {
                 new("Nouveauté : UmbraSync se découpe en modules que vous pouvez couper dans Réglages ▸ Modules : RôlePlay, Housing, Découverte et Chat+. Le préréglage « Legacy » ramène à une synchronisation Mare classique. Tout reste activé après la mise à jour ; chaque changement demande un rechargement du plugin."),
-                new("Nouveauté : Journal RôlePlay : pour chaque personnage que vous jouez, un journal privé sur ceux que vous croisez (confiance, relation, ce que vous savez, chronique datée avec le lieu). Il se lit dans l'onglet RP de leur fiche, sous « Journal », et se rédige dans la fenêtre du journal : « Modifier dans le journal », clic droit sur un joueur hors paire, « Ouvrir mon journal » de la page Profils ou /usync journal. Tout reste sur votre ordinateur."),
+                new("Nouveauté : Journal RôlePlay : pour chaque personnage que vous jouez, un journal privé sur ceux que vous croisez (confiance, relation, ce que vous savez, chronique datée avec le lieu). Il se lit dans l'onglet RP de leur fiche, sous « Journal », et se rédige dans la fenêtre du journal : « Modifier dans le journal », clic droit sur un joueur hors paire ou « Ouvrir mon journal » de la page Profils. Tout reste sur votre ordinateur."),
                 new("Nouveauté : Décors partagés avec Stagehand : publiez un décor à l'endroit où vous êtes, les joueurs autorisés le trouvent en arrivant, mods compris. Page « Décors » du Hub."),
                 new("Nouveauté : Catalogue de décors : parcourez, mettez en favori et affichez temporairement les décors publiés par la communauté. Page « Catalogue » du Hub."),
                 new("Nouveauté : Fiche RP : dix-huit styles de séparateurs de section et catégories pour vos détails personnalisés."),
                 new("Amélioration : Page Profils du Hub : onglets Tous, Mes personnages et Autres profils, et bouton « Ouvrir mon journal » ; suppression de la fiche RP d'un autre de vos personnages avec Ctrl ; recherche par plusieurs mots, sans tenir compte des majuscules ni des accents."),
                 new("Amélioration : Une fenêtre UmbraSync posée sur une autre devient opaque là où elle la recouvre ; le reste garde son effet verre."),
                 new("Amélioration : Les descriptions des syncshells de la Découverte sont repliées par défaut."),
-                new("Amélioration : Le module RP s'appelle désormais RôlePlay."),
                 new("Amélioration : Fiche d'un joueur : l'onglet RP se partage entre « Fiche » et « Journal », avec « Voir le profil enrichi » sur la même ligne. Le champ de note privée quitte la fiche : vos notes déjà écrites sont reprises dans « Ce que je sais » du journal."),
                 new("Correction : Le fondu de la bannière des fiches s'efface dans le fond de la carte, sans cadre autour."),
                 new("Correction : Les options NSFW de l'éditeur de profil et des réglages sont traduites en français."),
