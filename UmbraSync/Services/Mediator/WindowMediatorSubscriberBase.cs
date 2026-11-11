@@ -12,19 +12,19 @@ namespace UmbraSync.Services.Mediator;
 
 public abstract class WindowMediatorSubscriberBase : Window, IMediatorSubscriber, IDisposable
 {
-    private const float OverlapFadeSeconds = 0.15f;
-    private const int FootprintMaxAgeFrames = 2;
-
     private static readonly Dictionary<WindowMediatorSubscriberBase, WindowFootprint> Footprints = [];
     private static readonly Lock FootprintsLock = new();
 
     protected readonly ILogger _logger;
     private readonly PerformanceCollectorService _performanceCollectorService;
-    private float _overlapOpacity;
+    private readonly List<(Vector2 Min, Vector2 Max)> _opaqueRegions = [];
     private bool _titleBarOverlapped;
 
     [StructLayout(LayoutKind.Auto)]
-    private readonly record struct WindowFootprint(Vector2 Min, Vector2 Max, float TitleBarHeight, int FocusOrder, int Frame);
+    private readonly record struct WindowFootprint(ImGuiWindowPtr Window, float TitleBarHeight);
+
+    [StructLayout(LayoutKind.Auto)]
+    private readonly record struct LiveFootprint(Vector2 Min, Vector2 Max, float TitleBarHeight, int FocusOrder, bool Resizable);
 
     protected WindowMediatorSubscriberBase(ILogger logger, MareMediator mediator, string name,
         PerformanceCollectorService performanceCollectorService) : base(name)
@@ -54,8 +54,8 @@ public abstract class WindowMediatorSubscriberBase : Window, IMediatorSubscriber
     public override void PreDraw()
     {
         float glass = UiSharedService.GlassAlpha(UiSharedService.ResolveGlassLevel(WindowGlassLevel));
-        float covered = glass + ((1f - glass) * UpdateOverlapOpacity());
-        float titleGlass = _titleBarOverlapped ? covered : glass;
+        UpdateTitleBarOverlap();
+        float titleGlass = _titleBarOverlapped ? 1f : glass;
 
         ImGui.PushStyleVar(ImGuiStyleVar.WindowBorderSize, 1f);
         // Rayons concentriques : le contenant est toujours plus arrondi que ce qu'il contient.
@@ -69,7 +69,7 @@ public abstract class WindowMediatorSubscriberBase : Window, IMediatorSubscriber
             UiSharedService.WithAlpha(UiSharedService.ThemeWindowBg, glass));
         // Éphémères et posés au-dessus de tout : le cas d'usage idéal du matériau.
         ImGui.PushStyleColor(ImGuiCol.PopupBg,
-            UiSharedService.WithAlpha(UiSharedService.ThemeWindowBg, covered));
+            UiSharedService.WithAlpha(UiSharedService.ThemeWindowBg, glass));
         ImGui.PushStyleColor(ImGuiCol.ChildBg, UiSharedService.ThemeChildBg);
         ImGui.PushStyleColor(ImGuiCol.Border, UiSharedService.ThemeBorder);
         ImGui.PushStyleColor(ImGuiCol.Separator, UiSharedService.ThemeSeparator);
@@ -103,85 +103,108 @@ public abstract class WindowMediatorSubscriberBase : Window, IMediatorSubscriber
         ImGui.PopStyleVar(UiSharedService.ThemeStyleVarCount);
     }
 
-    private float UpdateOverlapOpacity()
+    private static unsafe bool TryReadLive(in WindowFootprint footprint, out LiveFootprint live)
     {
-        int frame = ImGui.GetFrameCount();
-        bool overlapped = false;
-        WindowFootprint own;
-        bool tracked;
-        lock (FootprintsLock)
-            tracked = Footprints.TryGetValue(this, out own);
-        bool fresh = tracked && frame - own.Frame <= FootprintMaxAgeFrames;
-        _titleBarOverlapped = false;
-        if (fresh)
-        {
-            lock (FootprintsLock)
-            foreach (var (other, below) in Footprints)
-            {
-                if (!IsBelow(other, below, own, frame)) continue;
-                var min = Vector2.Max(own.Min, below.Min);
-                var max = Vector2.Min(own.Max, below.Max);
-                if (max.X <= min.X || max.Y <= min.Y) continue;
-                overlapped = true;
-                if (own.TitleBarHeight > 0f && min.Y < own.Min.Y + own.TitleBarHeight) _titleBarOverlapped = true;
-            }
-        }
+        live = default;
+        var window = footprint.Window;
+        if (window.Handle == null) return false;
+        if (!(window.Active || window.WasActive) || window.Hidden) return false;
+        if (window.DockIsActive && !window.DockTabIsVisible) return false;
+        if ((window.Flags & (ImGuiWindowFlags.NoBackground | ImGuiWindowFlags.NoInputs)) != ImGuiWindowFlags.None) return false;
 
-        float target = overlapped ? 1f : 0f;
-        if (!fresh)
-        {
-            _overlapOpacity = target;
-            return _overlapOpacity;
-        }
-        float step = 1f - MathF.Exp(-MathF.Max(ImGui.GetIO().DeltaTime, 0f) / OverlapFadeSeconds);
-        _overlapOpacity += (target - _overlapOpacity) * step;
-        if (MathF.Abs(target - _overlapOpacity) < 0.002f) _overlapOpacity = target;
-        return _overlapOpacity;
+        var min = window.Pos;
+        var max = min + window.Size;
+        if (max.X <= min.X || max.Y <= min.Y) return false;
+        live = new LiveFootprint(min, max, footprint.TitleBarHeight, window.FocusOrder,
+            !window.Collapsed && (window.Flags & ImGuiWindowFlags.NoResize) == ImGuiWindowFlags.None);
+        return true;
     }
 
-    private bool IsBelow(WindowMediatorSubscriberBase other, in WindowFootprint below, in WindowFootprint own, int frame)
-        => !ReferenceEquals(other, this) && frame - below.Frame <= FootprintMaxAgeFrames && below.FocusOrder < own.FocusOrder;
-
-    private void DrawOverlapBackdrop()
+    private bool TryReadOwn(out LiveFootprint own)
     {
-        if (_overlapOpacity <= 0f) return;
+        own = default;
+        return Footprints.TryGetValue(this, out var footprint) && TryReadLive(footprint, out own);
+    }
 
-        WindowFootprint own;
+    private void UpdateTitleBarOverlap()
+    {
+        _titleBarOverlapped = false;
         lock (FootprintsLock)
         {
-            if (!Footprints.TryGetValue(this, out own)) return;
+            if (!TryReadOwn(out var own) || own.TitleBarHeight <= 0f) return;
+
+            var titleMin = own.Min;
+            var titleMax = new Vector2(own.Max.X, MathF.Min(own.Max.Y, own.Min.Y + own.TitleBarHeight));
+            foreach (var (other, footprint) in Footprints)
+            {
+                if (ReferenceEquals(other, this) || !TryReadLive(footprint, out var below) || below.FocusOrder >= own.FocusOrder) continue;
+                if (MathF.Min(titleMax.X, below.Max.X) > MathF.Max(titleMin.X, below.Min.X)
+                    && MathF.Min(titleMax.Y, below.Max.Y) > MathF.Max(titleMin.Y, below.Min.Y))
+                {
+                    _titleBarOverlapped = true;
+                    return;
+                }
+            }
         }
+    }
+
+    private void CollectOpaqueRegions(out LiveFootprint own)
+    {
+        _opaqueRegions.Clear();
+        float border = ImGui.GetStyle().WindowBorderSize;
+        lock (FootprintsLock)
+        {
+            if (!TryReadOwn(out own)) return;
+            var areaMin = new Vector2(own.Min.X + border, own.Min.Y + MathF.Max(border, own.TitleBarHeight));
+            var areaMax = own.Max - new Vector2(border);
+            if (areaMax.X <= areaMin.X || areaMax.Y <= areaMin.Y) return;
+
+            float grip = own.Resizable ? MathF.Floor(ImGui.GetFontSize() * 1.35f) : 0f;
+            foreach (var (other, footprint) in Footprints)
+            {
+                if (ReferenceEquals(other, this) || !TryReadLive(footprint, out var below) || below.FocusOrder >= own.FocusOrder) continue;
+                var min = Vector2.Max(areaMin, below.Min);
+                var max = Vector2.Min(areaMax, below.Max);
+                if (max.X <= min.X || max.Y <= min.Y) continue;
+                AddExcludingCorner(min, max, own.Max - new Vector2(grip), own.Max);
+            }
+        }
+    }
+
+    private void AddExcludingCorner(Vector2 min, Vector2 max, Vector2 cornerMin, Vector2 cornerMax)
+    {
+        bool hitsCorner = cornerMax.X > cornerMin.X && max.X > cornerMin.X && min.X < cornerMax.X && max.Y > cornerMin.Y && min.Y < cornerMax.Y;
+        if (!hitsCorner)
+        {
+            _opaqueRegions.Add((min, max));
+            return;
+        }
+
+        if (cornerMin.Y > min.Y)
+            _opaqueRegions.Add((min, new Vector2(max.X, cornerMin.Y)));
+        float bandTop = MathF.Max(min.Y, cornerMin.Y);
+        if (cornerMin.X > min.X && max.Y > bandTop)
+            _opaqueRegions.Add((new Vector2(min.X, bandTop), new Vector2(cornerMin.X, max.Y)));
+    }
+
+    private void DrawOverlapBackdrop(in LiveFootprint own)
+    {
+        if (_opaqueRegions.Count == 0) return;
 
         var style = ImGui.GetStyle();
         float border = style.WindowBorderSize;
-        var areaMin = new Vector2(own.Min.X + border, own.Min.Y + MathF.Max(border, own.TitleBarHeight));
-        var areaMax = own.Max - new Vector2(border);
-        if (areaMax.X <= areaMin.X || areaMax.Y <= areaMin.Y) return;
-
+        var shapeMin = own.Min + new Vector2(border);
+        var shapeMax = own.Max - new Vector2(border);
         float rounding = MathF.Max(0f, style.WindowRounding - border);
-        uint color = ImGui.GetColorU32(UiSharedService.WithAlpha(UiSharedService.ThemeWindowBg, _overlapOpacity));
+        var corners = own.TitleBarHeight > 0f ? ImDrawFlags.RoundCornersBottom : ImDrawFlags.RoundCornersAll;
+        uint color = ImGui.GetColorU32(UiSharedService.WithAlpha(UiSharedService.ThemeWindowBg, 1f));
         var drawList = ImGui.GetWindowDrawList();
-        int frame = ImGui.GetFrameCount();
 
-        lock (FootprintsLock)
-        foreach (var (other, below) in Footprints)
+        foreach (var (min, max) in _opaqueRegions)
         {
-            if (!IsBelow(other, below, own, frame)) continue;
-            var min = Vector2.Max(areaMin, below.Min);
-            var max = Vector2.Min(areaMax, below.Max);
-            if (max.X <= min.X || max.Y <= min.Y) continue;
-
-            var corners = ImDrawFlags.RoundCornersNone;
-            bool left = min.X <= areaMin.X + 0.5f;
-            bool right = max.X >= areaMax.X - 0.5f;
-            bool top = own.TitleBarHeight <= 0f && min.Y <= areaMin.Y + 0.5f;
-            bool bottom = max.Y >= areaMax.Y - 0.5f;
-            if (top && left) corners |= ImDrawFlags.RoundCornersTopLeft;
-            if (top && right) corners |= ImDrawFlags.RoundCornersTopRight;
-            if (bottom && left) corners |= ImDrawFlags.RoundCornersBottomLeft;
-            if (bottom && right) corners |= ImDrawFlags.RoundCornersBottomRight;
-
-            drawList.AddRectFilled(min, max, color, corners == ImDrawFlags.RoundCornersNone ? 0f : rounding, corners);
+            drawList.PushClipRect(min, max, false);
+            drawList.AddRectFilled(shapeMin, shapeMax, color, rounding, corners);
+            drawList.PopClipRect();
         }
     }
 
@@ -196,13 +219,11 @@ public abstract class WindowMediatorSubscriberBase : Window, IMediatorSubscriber
             return;
         }
 
-        var pos = ImGui.GetWindowPos();
         float titleBar = (window.Flags & ImGuiWindowFlags.NoTitleBar) != ImGuiWindowFlags.None ? 0f : ImGui.GetFrameHeight();
-        var footprint = new WindowFootprint(pos, pos + ImGui.GetWindowSize(), titleBar, window.FocusOrder, ImGui.GetFrameCount());
         lock (FootprintsLock)
-            Footprints[this] = footprint;
+            Footprints[this] = new WindowFootprint(window, titleBar);
     }
-    
+
     protected virtual GlassLevel WindowGlassLevel => GlassLevel.Regular;
 
     protected virtual bool UseBackdropBlur => true;
@@ -212,11 +233,23 @@ public abstract class WindowMediatorSubscriberBase : Window, IMediatorSubscriber
     public override void Draw()
     {
         RecordFootprint();
-        DrawWindowSheen();
+        _opaqueRegions.Clear();
         if (!Flags.HasFlag(ImGuiWindowFlags.NoBackground))
-            DrawOverlapBackdrop();
+        {
+            CollectOpaqueRegions(out var own);
+            DrawOverlapBackdrop(own);
+        }
+        DrawWindowSheen();
         _performanceCollectorService.LogPerformance(this, $"Draw", DrawInternal);
-        ScrollEdgeEffect.DrawForCurrentWindow(WindowGlassLevel, UseBackdropBlur, ContentBackgroundLayers);
+        ScrollEdgeEffect.OpaqueRegions = _opaqueRegions;
+        try
+        {
+            ScrollEdgeEffect.DrawForCurrentWindow(WindowGlassLevel, UseBackdropBlur, ContentBackgroundLayers);
+        }
+        finally
+        {
+            ScrollEdgeEffect.OpaqueRegions = null;
+        }
         RoundedScrollbars.DrawForCurrentWindow();
     }
 
