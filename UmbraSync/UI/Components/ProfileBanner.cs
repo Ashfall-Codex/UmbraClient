@@ -19,11 +19,66 @@ public static class ProfileBanner
         if (size.X <= 1f || size.Y <= 1f || texture.Width == 0 || texture.Height == 0) return;
 
         var (uv0, uv1) = CoverUv(texture.Width, texture.Height, size.X, size.Y);
+        if (style.FadeEdges && DrawFadedImage(drawList, texture, min, size, uv0, uv1, style.BannerOpacity, rounding, style.FadeRadius))
+            return;
+
         var tint = ImGui.GetColorU32(new Vector4(1f, 1f, 1f, style.BannerOpacity));
         drawList.AddImageRounded(texture.Handle, min, max, uv0, uv1, tint, rounding);
+    }
 
-        if (style.FadeEdges)
-            FadeEdges(drawList, min, size, background with { W = 1f }, rounding, style.FadeRadius);
+    private static bool DrawFadedImage(ImDrawListPtr drawList, IDalamudTextureWrap texture, Vector2 pos, Vector2 size,
+        Vector2 uv0, Vector2 uv1, float opacity, float rounding, float clearRadius)
+    {
+        var half = size * 0.5f;
+        if (half.X <= rounding + 2f || half.Y <= rounding + 2f) return false;
+
+        var solidRadius = MathF.Min(1f - (rounding / half.X), 1f - (rounding / half.Y));
+        if (solidRadius <= clearRadius) return false;
+
+        var center = pos + half;
+        var inner = pos + new Vector2(rounding, rounding);
+        var innerSize = size - new Vector2(rounding * 2f, rounding * 2f);
+        var uvSpan = uv1 - uv0;
+        const int vertexCount = (Cols + 1) * (Rows + 1);
+        const int indexCount = Cols * Rows * 6;
+
+        drawList.PushTextureID(texture.Handle);
+        drawList.PrimReserve(indexCount, vertexCount);
+        var baseIndex = drawList.VtxCurrentIdx;
+
+        for (var r = 0; r <= Rows; r++)
+        {
+            for (var c = 0; c <= Cols; c++)
+            {
+                var point = inner + new Vector2(innerSize.X * c / Cols, innerSize.Y * r / Rows);
+                var offset = point - center;
+                var distance = new Vector2(offset.X / half.X, offset.Y / half.Y).Length();
+                var t = Math.Clamp((distance - clearRadius) / (solidRadius - clearRadius), 0f, 1f);
+                var fade = t * t * (3f - 2f * t);
+                var uv = uv0 + ((point - pos) / size * uvSpan);
+                drawList.PrimWriteVtx(point, uv, ImGui.GetColorU32(new Vector4(1f, 1f, 1f, opacity * (1f - fade))));
+            }
+        }
+
+        for (var r = 0; r < Rows; r++)
+        {
+            for (var c = 0; c < Cols; c++)
+            {
+                var topLeft = (ushort)(baseIndex + (r * (Cols + 1)) + c);
+                var topRight = (ushort)(topLeft + 1);
+                var bottomLeft = (ushort)(baseIndex + ((r + 1) * (Cols + 1)) + c);
+                var bottomRight = (ushort)(bottomLeft + 1);
+                drawList.PrimWriteIdx(topLeft);
+                drawList.PrimWriteIdx(topRight);
+                drawList.PrimWriteIdx(bottomRight);
+                drawList.PrimWriteIdx(topLeft);
+                drawList.PrimWriteIdx(bottomRight);
+                drawList.PrimWriteIdx(bottomLeft);
+            }
+        }
+
+        drawList.PopTextureID();
+        return true;
     }
 
     public static (Vector2 Uv0, Vector2 Uv1) CoverUv(float texWidth, float texHeight, float boxWidth, float boxHeight)
