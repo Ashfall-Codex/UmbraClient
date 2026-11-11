@@ -169,7 +169,6 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
     private int _profilesSubTab;
     private const int ProfilesTabMine = 1;
     private const int ProfilesTabOthers = 2;
-    private const int ProfilesTabJournal = 3;
     private bool _clearProfileCacheConfirmShown;
     private readonly Dictionary<string, float> _profileCardHeights = new(StringComparer.Ordinal);
 
@@ -1771,30 +1770,34 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
             ImGui.EndPopup();
         }
 
-        ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X);
+        bool journalButton = _rpJournal is { HasOwner: true };
+        var openJournalLabel = Loc.Get("CharaDataHub.Profiles.OpenJournal");
+        float openJournalWidth = journalButton
+            ? _uiSharedService.GetIconTextButtonSize(FontAwesomeIcon.Feather, openJournalLabel) + ImGui.GetStyle().ItemSpacing.X
+            : 0f;
+        ImGui.SetNextItemWidth(MathF.Max(1f, ImGui.GetContentRegionAvail().X - openJournalWidth));
         ImGui.InputTextWithHint("##profileBrowserSearch", Loc.Get("Settings.ProfileBrowser.SearchHint"), ref _profileBrowserSearch, 100);
+        if (journalButton)
+        {
+            ImGui.SameLine();
+            if (_uiSharedService.IconTextButton(FontAwesomeIcon.Feather, openJournalLabel))
+                Mediator.Publish(new OpenJournalMessage());
+            UiSharedService.AttachToolTip(Loc.Get("CharaDataHub.Profiles.OpenJournal.Tooltip"));
+        }
 
         ImGuiHelpers.ScaledDummy(2f);
         using (ImRaii.PushId("profilesTabs"))
         {
-            bool journalTab = _rpJournal is { HasOwner: true };
-            if (!journalTab && _profilesSubTab == ProfilesTabJournal) _profilesSubTab = 0;
-            string[] tabLabels = journalTab
-                ? [Loc.Get("CharaDataHub.Profiles.Tab.All"), Loc.Get("CharaDataHub.Profiles.Tab.Mine"), Loc.Get("CharaDataHub.Profiles.Tab.Others"), Loc.Get("CharaDataHub.Profiles.Tab.Journal")]
-                : [Loc.Get("CharaDataHub.Profiles.Tab.All"), Loc.Get("CharaDataHub.Profiles.Tab.Mine"), Loc.Get("CharaDataHub.Profiles.Tab.Others")];
-            FontAwesomeIcon[] tabIcons = journalTab
-                ? [FontAwesomeIcon.LayerGroup, FontAwesomeIcon.User, FontAwesomeIcon.Users, FontAwesomeIcon.Feather]
-                : [FontAwesomeIcon.LayerGroup, FontAwesomeIcon.User, FontAwesomeIcon.Users];
+            string[] tabLabels = [Loc.Get("CharaDataHub.Profiles.Tab.All"), Loc.Get("CharaDataHub.Profiles.Tab.Mine"), Loc.Get("CharaDataHub.Profiles.Tab.Others")];
+            FontAwesomeIcon[] tabIcons = [FontAwesomeIcon.LayerGroup, FontAwesomeIcon.User, FontAwesomeIcon.Users];
             DrawSubTabButtons(tabLabels, tabIcons, ref _profilesSubTab, accent);
         }
         ImGuiHelpers.ScaledDummy(4f);
 
-        bool showOwn = _profilesSubTab is not (ProfilesTabOthers or ProfilesTabJournal);
+        bool showOwn = _profilesSubTab != ProfilesTabOthers;
         bool showOthers = _profilesSubTab != ProfilesTabMine;
         if (!showOwn) own = [];
         if (!showOthers) filtered = [];
-        if (_profilesSubTab == ProfilesTabJournal && _rpJournal != null)
-            filtered = filtered.Where(p => _rpJournal.TryGetSubject(p.Key.CharName, p.Key.WorldId ?? 0) != null).ToList();
 
         if (filtered.Count == 0 && own.Count == 0)
         {
@@ -2133,7 +2136,7 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
         return string.Equals(key.CharName, charName, StringComparison.Ordinal) && key.WorldId == worldId;
     }
 
-    private static void DrawSubTabButtons(string[] subLabels, FontAwesomeIcon[] subIcons, ref int activeSubTab, System.Numerics.Vector4 accent)
+    internal static void DrawSubTabButtons(string[] subLabels, FontAwesomeIcon[] subIcons, ref int activeSubTab, System.Numerics.Vector4 accent, float reservedWidth = 0f)
     {
         const float btnH = 26f;
         const float btnSpacing = 5f;
@@ -2142,7 +2145,7 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
         const float btnPadX = 12f;
 
         var dl = ImGui.GetWindowDrawList();
-        var availWidth = ImGui.GetContentRegionAvail().X;
+        var availWidth = MathF.Max(0f, ImGui.GetContentRegionAvail().X - reservedWidth);
 
         var iconStrs = new string[subLabels.Length];
         var iconSzs = new System.Numerics.Vector2[subLabels.Length];

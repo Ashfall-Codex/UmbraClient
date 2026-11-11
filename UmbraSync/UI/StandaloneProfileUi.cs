@@ -12,6 +12,7 @@ using UmbraSync.API.Dto.User;
 using UmbraSync.Interop.Ipc;
 using UmbraSync.Localization;
 using UmbraSync.MareConfiguration;
+using UmbraSync.MareConfiguration.Configurations;
 using UmbraSync.PlayerData.Pairs;
 using UmbraSync.Models;
 using UmbraSync.Services;
@@ -37,18 +38,18 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
     private IDalamudTextureWrap? _rpBannerTexture;
     private SheetPalette? _sheetPalette;
     private ProfileCardStyle _rpCardStyle = ProfileCardStyle.Default;
-    private enum ProfileTab { Rp, Hrp, Journal }
+    private enum ProfileTab { Rp, Hrp }
+    private const int RpSubTabSheet = 0;
+    private const int RpSubTabJournal = 1;
     private ProfileTab _tab;
+    private int _rpSubTab = RpSubTabSheet;
     private bool _isRpTab => _tab == ProfileTab.Rp;
-    private readonly JournalSubjectEditor? _journalEditor;
     private bool _windowSizeInitialized = false;
     private string _localMoodlesJson = string.Empty;
     private bool _moodlesFetching;
     private DateTime _lastMoodlesFetch = DateTime.MinValue;
     private string? _selectedAltCharName;
     private uint? _selectedAltWorldId;
-    private string _characterNoteDraft = string.Empty;
-    private string? _characterNoteKey;
     private const float FixedWindowWidth = 700f;
     public void SelectCharacter(string? charName, uint? worldId)
     {
@@ -72,8 +73,6 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
         _ipcManager = ipcManager;
         _dalamudUtil = dalamudUtil;
         _rpJournal = rpJournal;
-        if (rpJournal != null)
-            _journalEditor = new JournalSubjectEditor(rpJournal, uiBuilder, logger, "profileJournal" + pair.UserData.UID);
         Pair = pair;
         Flags = ImGuiWindowFlags.None;
 
@@ -205,35 +204,46 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
             var currentTexture = _uiSharedService.ProfileTextures.GetTexture(_isRpTab ? umbraProfile.RpImageData : umbraProfile.ImageData);
             _rpBannerTexture = _isRpTab ? _uiSharedService.ProfileTextures.GetTexture(umbraProfile.RpBannerData) : null;
 
-            // Profil enrichi (onglet RP) à gauche, signalement (pas soi-même) à droite, sur la même ligne
-            if (_isRpTab)
+            bool ownProfile = string.Equals(Pair.UserData.UID, _apiController.UID, StringComparison.Ordinal);
+            bool rpSubTabs = _isRpTab && ShowJournalTab;
+            if (!rpSubTabs) _rpSubTab = RpSubTabSheet;
+            bool journalView = rpSubTabs && _rpSubTab == RpSubTabJournal;
+
+            if (rpSubTabs)
             {
-                if (_uiSharedService.IconTextButton(FontAwesomeIcon.ExternalLinkAlt, "Voir le profil enrichi"))
-                    OpenEnrichedProfile();
-                if (ImGui.IsItemHovered())
-                    ImGui.SetTooltip("S'ouvre dans votre navigateur web. Le profil doit être en mode \"Public\" sur Connect pour être accessible.");
+                float spacing = ImGui.GetStyle().ItemSpacing.X;
+                float enrichedWidth = _uiSharedService.GetIconTextButtonSize(FontAwesomeIcon.ExternalLinkAlt, Loc.Get("StandaloneProfile.EnrichedProfile")) + spacing;
+                float reportWidth = ownProfile ? 0f : _uiSharedService.GetIconTextButtonSize(FontAwesomeIcon.ExclamationTriangle, Loc.Get("StandaloneProfile.ReportButton")) + spacing;
+                float rowY = ImGui.GetCursorPosY();
+                using (ImRaii.PushId("rpSubTabs"))
+                {
+                    CharaDataHubUi.DrawSubTabButtons(
+                        [Loc.Get("StandaloneProfile.Tab.Sheet"), Loc.Get("Journal.Tab")],
+                        [FontAwesomeIcon.Scroll, FontAwesomeIcon.Feather],
+                        ref _rpSubTab, accent, enrichedWidth + reportWidth);
+                }
+                float subTabHeight = ImGui.GetItemRectSize().Y;
+                ImGui.SameLine(0f, spacing * 2f);
+                ImGui.SetCursorPosY(rowY + MathF.Max(0f, (subTabHeight - ImGui.GetFrameHeight()) / 2f));
+                DrawEnrichedProfileButton();
+                if (!ownProfile)
+                    DrawReportButton();
+                ImGuiHelpers.ScaledDummy(2f);
+            }
+            else if (_isRpTab)
+            {
+                DrawEnrichedProfileButton();
             }
 
-            if (!string.Equals(Pair.UserData.UID, _apiController.UID, StringComparison.Ordinal))
-            {
-                var reportButtonSize = _uiSharedService.GetIconTextButtonSize(FontAwesomeIcon.ExclamationTriangle, Loc.Get("StandaloneProfile.ReportButton"));
-                ImGui.SameLine(ImGui.GetWindowContentRegionMax().X - reportButtonSize);
-                if (_uiSharedService.IconTextButton(FontAwesomeIcon.ExclamationTriangle, Loc.Get("StandaloneProfile.ReportButton")))
-                    Mediator.Publish(new OpenReportPopupMessage(Pair));
-            }
+            if (!ownProfile && !rpSubTabs)
+                DrawReportButton();
 
             ImGuiHelpers.ScaledDummy(2f);
 
 
             if (ImGui.BeginChild("ProfileScrollArea", ImGui.GetContentRegionAvail(), false))
             {
-                if (_tab == ProfileTab.Journal)
-                {
-                    _sheetPalette = null;
-                    _rpCardStyle = ProfileCardStyle.Default;
-                    DrawJournalTab();
-                }
-                else if (_isRpTab)
+                if (_isRpTab)
                 {
                     var sheetMin = ImGui.GetWindowPos();
                     var sheetMax = sheetMin + ImGui.GetWindowSize();
@@ -246,7 +256,12 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
                         ?? ProfileSheetBackground.DrawPlain(ImGui.GetWindowDrawList(), _rpCardStyle, sheetMin, sheetMax, sheetRounding);
                     var contentColor = _sheetPalette?.Value ?? ProfileSheetBackground.CustomColor(_rpCardStyle.SheetTextColor);
                     using (ImRaii.PushColor(ImGuiCol.Text, contentColor ?? Vector4.Zero, contentColor != null))
-                        DrawRpProfile(umbraProfile, currentTexture, accent);
+                    {
+                        if (journalView)
+                            DrawJournalSheet(umbraProfile, currentTexture, accent);
+                        else
+                            DrawRpProfile(umbraProfile, currentTexture, accent);
+                    }
                 }
                 else
                 {
@@ -263,23 +278,26 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
         }
     }
 
+    private void DrawEnrichedProfileButton()
+    {
+        if (_uiSharedService.IconTextButton(FontAwesomeIcon.ExternalLinkAlt, Loc.Get("StandaloneProfile.EnrichedProfile")))
+            OpenEnrichedProfile();
+        UiSharedService.AttachToolTip(Loc.Get("StandaloneProfile.EnrichedProfile.Tooltip"));
+    }
+
+    private void DrawReportButton()
+    {
+        var reportButtonSize = _uiSharedService.GetIconTextButtonSize(FontAwesomeIcon.ExclamationTriangle, Loc.Get("StandaloneProfile.ReportButton"));
+        ImGui.SameLine(ImGui.GetWindowContentRegionMax().X - reportButtonSize);
+        if (_uiSharedService.IconTextButton(FontAwesomeIcon.ExclamationTriangle, Loc.Get("StandaloneProfile.ReportButton")))
+            Mediator.Publish(new OpenReportPopupMessage(Pair));
+    }
+
     private void DrawTabButtons(Vector4 accent)
     {
-        var tabs = ShowJournalTab
-            ? new[] { ProfileTab.Rp, ProfileTab.Hrp, ProfileTab.Journal }
-            : new[] { ProfileTab.Rp, ProfileTab.Hrp };
-        var labels = tabs.Select(t => t switch
-        {
-            ProfileTab.Rp => "RP",
-            ProfileTab.Hrp => "HRP",
-            _ => Loc.Get("Journal.Tab"),
-        }).ToArray();
-        var icons = tabs.Select(t => t switch
-        {
-            ProfileTab.Rp => FontAwesomeIcon.Scroll,
-            ProfileTab.Hrp => FontAwesomeIcon.User,
-            _ => FontAwesomeIcon.Feather,
-        }).ToArray();
+        var tabs = new[] { ProfileTab.Rp, ProfileTab.Hrp };
+        var labels = new[] { "RP", "HRP" };
+        var icons = new[] { FontAwesomeIcon.Scroll, FontAwesomeIcon.User };
         const float btnH = 32f;
         const float btnSpacing = 8f;
         const float rounding = 4f;
@@ -332,96 +350,217 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
         ImGuiHelpers.ScaledDummy(4f);
     }
 
-    private void DrawCharacterNote()
-    {
-        if (string.Equals(Pair.UserData.UID, _apiController.UID, StringComparison.Ordinal)) return;
-
-        var (charName, worldId) = (_selectedAltCharName != null && _selectedAltWorldId != null)
-            ? (_selectedAltCharName, _selectedAltWorldId)
-            : _umbraProfileManager.ResolveCharacter(Pair.UserData);
-        if (string.IsNullOrEmpty(charName) || worldId is not > 0) return;
-
-        // Le brouillon suit le personnage affiché : changer de personnage recharge sa propre note.
-        var key = $"{Pair.UserData.UID}|{charName}|{worldId}";
-        if (!string.Equals(_characterNoteKey, key, StringComparison.Ordinal))
-        {
-            _characterNoteKey = key;
-            _characterNoteDraft = _serverManager.GetNoteForCharacter(Pair.UserData.UID, charName, worldId) ?? string.Empty;
-        }
-
-        ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X);
-        ImGui.InputTextWithHint("##characterNote", Loc.Get("StandaloneProfile.CharacterNote.Hint"), ref _characterNoteDraft, 200);
-        if (ImGui.IsItemDeactivatedAfterEdit())
-            _serverManager.SetNoteForCharacter(Pair.UserData.UID, charName, worldId.Value, _characterNoteDraft);
-        UiSharedService.AttachToolTip(Loc.Get("StandaloneProfile.CharacterNote.Tooltip"));
-        ImGuiHelpers.ScaledDummy(4f);
-    }
-
     private bool ShowJournalTab
-        => _journalEditor != null && !string.Equals(Pair.UserData.UID, _apiController.UID, StringComparison.Ordinal);
+        => _rpJournal != null && !string.Equals(Pair.UserData.UID, _apiController.UID, StringComparison.Ordinal);
 
-    private void DrawJournalTab()
+    private void DrawJournalSheet(UmbraProfileData heroProfile, IDalamudTextureWrap? texture, Vector4 accent)
     {
         var journal = _rpJournal;
-        if (journal == null || _journalEditor == null || !ShowJournalTab)
+        if (journal == null || !ShowJournalTab)
         {
-            _tab = ProfileTab.Hrp;
+            _rpSubTab = RpSubTabSheet;
             return;
         }
 
+        var cardSpacing = 8f * ImGuiHelpers.GlobalScale;
+        DrawHeroCard(heroProfile, texture, accent);
+        ImGuiHelpers.ScaledDummy(cardSpacing / ImGuiHelpers.GlobalScale);
+
         var (charName, worldId) = (_selectedAltCharName != null && _selectedAltWorldId != null)
             ? (_selectedAltCharName, _selectedAltWorldId)
             : _umbraProfileManager.ResolveCharacter(Pair.UserData);
 
-        ImGuiHelpers.ScaledDummy(4f);
         if (!journal.HasOwner || string.IsNullOrEmpty(charName) || worldId is not > 0)
         {
-            UiSharedService.DrawGroupedCenteredColorText(
-                Loc.Get(journal.HasOwner ? "Journal.Profile.NoCharacter" : "Journal.NotLoggedIn"), ImGuiColors.DalamudGrey);
+            DrawJournalSheetMessage(Loc.Get(journal.HasOwner ? "Journal.Profile.NoCharacter" : "Journal.NotLoggedIn"));
             return;
         }
 
         var profile = _umbraProfileManager.GetUmbraProfile(Pair.UserData, charName, worldId);
         var rpName = string.Join(' ', new[] { profile.RpFirstName, profile.RpLastName }.Where(n => !string.IsNullOrWhiteSpace(n)));
-        var shownName = string.IsNullOrEmpty(rpName) ? charName : rpName;
-
         var subject = journal.TryGetSubject(charName, worldId.Value);
-        var header = string.Format(System.Globalization.CultureInfo.CurrentCulture, Loc.Get("Journal.Profile.Header"), journal.OwnerName, shownName);
-        var openLabel = Loc.Get("Journal.Profile.OpenWindow");
-        float openWidth = CapsuleButton.MeasureWidth(openLabel, FontAwesomeIcon.ExternalLinkAlt);
-        float regionMax = ImGui.GetWindowContentRegionMax().X;
-        float spacing = ImGui.GetStyle().ItemSpacing.X;
-        bool buttonOnSameLine = subject != null
-            && ImGui.GetCursorPosX() + ImGui.CalcTextSize(header).X + spacing + openWidth <= regionMax;
+        var openMessage = new OpenJournalMessage(charName, worldId.Value, Pair.UserData.UID, rpName);
 
-        if (buttonOnSameLine)
-            ImGui.SetCursorPosY(ImGui.GetCursorPosY() + MathF.Max(0f, (CapsuleButton.HitRegionHeight - ImGui.GetTextLineHeight()) / 2f));
-        UiSharedService.ColorTextWrapped(header, ImGuiColors.DalamudGrey);
-        UiSharedService.AttachToolTip(Loc.Get("Journal.LocalOnly.Tooltip"));
+        DrawJournalSheetHeader(subject != null, openMessage);
+        ImGuiHelpers.ScaledDummy(cardSpacing / ImGuiHelpers.GlobalScale);
 
         if (subject == null)
         {
-            ImGuiHelpers.ScaledDummy(6f);
-            UiSharedService.ColorTextWrapped(Loc.Get("Journal.Profile.Empty"), ImGuiColors.DalamudGrey3);
-            ImGuiHelpers.ScaledDummy(4f);
-            if (CapsuleButton.Draw(Loc.Get("Journal.Profile.Start"), FontAwesomeIcon.Feather))
-                journal.GetOrCreateSubject(charName, worldId.Value, Pair.UserData.UID, rpName);
+            DrawJournalSheetMessage(Loc.Get("Journal.Profile.Empty"));
             return;
         }
 
         journal.RefreshIdentity(subject, Pair.UserData.UID, rpName);
 
-        if (buttonOnSameLine)
-        {
-            ImGui.SameLine();
-            ImGui.SetCursorPosY(ImGui.GetCursorPosY() - MathF.Max(0f, (CapsuleButton.HitRegionHeight - ImGui.GetTextLineHeight()) / 2f));
-        }
-        ImGui.SetCursorPosX(MathF.Max(ImGui.GetCursorPosX(), regionMax - openWidth));
-        if (CapsuleButton.Draw(openLabel, FontAwesomeIcon.ExternalLinkAlt))
-            Mediator.Publish(new OpenJournalMessage(charName, worldId.Value, Pair.UserData.UID, rpName));
+        DrawJournalRelationCard(subject);
+        ImGuiHelpers.ScaledDummy(cardSpacing / ImGuiHelpers.GlobalScale);
 
+        bool hasSummary = !string.IsNullOrWhiteSpace(subject.Summary);
+        var fields = subject.CustomFields
+            .Where(f => !string.IsNullOrWhiteSpace(f.Label) || !string.IsNullOrWhiteSpace(f.Value))
+            .ToList();
+
+        if (hasSummary)
+        {
+            UiSharedService.DrawCard("journal-sheet-summary", () =>
+            {
+                var wrapWidth = SectionContentWidth;
+                DrawSectionTitle(Loc.Get("Journal.Card.Summary"));
+                using var _ = _uiSharedService.GameFont.Push();
+                DrawPlainSectionText(subject.Summary, wrapWidth);
+            }, stretchWidth: true, background: SheetCardFill, border: SheetCardFill);
+            ImGuiHelpers.ScaledDummy(cardSpacing / ImGuiHelpers.GlobalScale);
+        }
+
+        if (fields.Count > 0)
+        {
+            UiSharedService.DrawCard("journal-sheet-fields", () =>
+            {
+                DrawSectionTitle(Loc.Get("Journal.Card.Fields"));
+                var col1X = ImGui.GetCursorPosX();
+                var fullW = SectionContentWidth;
+                var halfW = fullW / 2f;
+                for (int i = 0; i < fields.Count; i += 2)
+                {
+                    if (i > 0) ImGuiHelpers.ScaledDummy(4f);
+                    var left = (fields[i].Label, fields[i].Value);
+                    if (i + 1 < fields.Count)
+                    {
+                        DrawCenteredRow(left, (fields[i + 1].Label, fields[i + 1].Value), col1X, col1X + halfW, halfW);
+                    }
+                    else
+                    {
+                        ImGui.BeginGroup();
+                        DrawCenteredField(left.Label, left.Value, col1X, fullW);
+                        ImGui.EndGroup();
+                    }
+                }
+            }, stretchWidth: true, background: SheetCardFill, border: SheetCardFill);
+            ImGuiHelpers.ScaledDummy(cardSpacing / ImGuiHelpers.GlobalScale);
+        }
+
+        if (subject.Entries.Count > 0)
+        {
+            UiSharedService.DrawCard("journal-sheet-chronicle", () =>
+            {
+                var wrapWidth = SectionContentWidth;
+                DrawSectionTitle(Loc.Get("Journal.Card.Chronicle"));
+                var startX = ImGui.GetCursorPosX();
+                for (int i = subject.Entries.Count - 1; i >= 0; i--)
+                {
+                    var entry = subject.Entries[i];
+                    if (i < subject.Entries.Count - 1) ImGuiHelpers.ScaledDummy(6f);
+                    var meta = entry.CreatedUtc.ToLocalTime().ToString("g", System.Globalization.CultureInfo.CurrentCulture);
+                    if (!string.IsNullOrEmpty(entry.Place)) meta = string.Concat(meta, " · ", entry.Place);
+                    DrawCenteredLine(meta, FieldLabelColor, startX, wrapWidth);
+                    using var _ = _uiSharedService.GameFont.Push();
+                    DrawPlainSectionText(entry.Text, wrapWidth);
+                }
+            }, stretchWidth: true, background: SheetCardFill, border: SheetCardFill);
+        }
+
+        if (!hasSummary && fields.Count == 0 && subject.Entries.Count == 0)
+            DrawJournalSheetMessage(Loc.Get("Journal.Profile.NothingYet"));
+    }
+
+    private void DrawJournalSheetHeader(bool hasSubject, OpenJournalMessage openMessage)
+    {
+        var header = Loc.Get("Journal.Tab");
+        var buttonLabel = Loc.Get(hasSubject ? "Journal.Profile.Edit" : "Journal.Profile.Start");
+        var buttonIcon = hasSubject ? FontAwesomeIcon.PenNib : FontAwesomeIcon.Feather;
+        float buttonWidth = _uiSharedService.GetIconTextButtonSize(buttonIcon, buttonLabel);
+
+        UiSharedService.DrawCard("journal-sheet-header", () =>
+        {
+            float startX = ImGui.GetCursorPosX();
+            float rowY = ImGui.GetCursorPosY();
+            float buttonX = startX + MathF.Max(0f, SectionContentWidth - buttonWidth);
+
+            ImGui.SetCursorPosY(rowY + MathF.Max(0f, (ImGui.GetFrameHeight() - ImGui.GetTextLineHeight()) / 2f));
+            using (ImRaii.PushFont(UiBuilder.IconFont))
+                ImGui.TextColored(FieldLabelColor, FontAwesomeIcon.BookOpen.ToIconString());
+            ImGui.SameLine();
+            ImGui.PushTextWrapPos(buttonX - ImGui.GetStyle().ItemSpacing.X);
+            ImGui.TextColored(FieldLabelColor, header);
+            ImGui.PopTextWrapPos();
+            UiSharedService.AttachToolTip(Loc.Get("Journal.LocalOnly.Tooltip"));
+
+            ImGui.SetCursorPos(new Vector2(buttonX, rowY));
+            using (ImRaii.PushColor(ImGuiCol.Text, ImGuiColors.DalamudWhite))
+            {
+                if (_uiSharedService.IconTextButton(buttonIcon, buttonLabel))
+                    Mediator.Publish(openMessage);
+            }
+            UiSharedService.AttachToolTip(Loc.Get("Journal.Profile.Edit.Tooltip"));
+        }, stretchWidth: true, background: SheetCardFill, border: SheetCardFill);
+    }
+
+    private void DrawJournalRelationCard(JournalSubject subject)
+    {
+        UiSharedService.DrawCard("journal-sheet-relation", () =>
+        {
+            DrawSectionTitle(Loc.Get("Journal.Card.Relation"));
+
+            var columns = new List<(string Label, string Value)>(3)
+            {
+                (Loc.Get("Journal.Profile.Trust"), JournalTrustStyle.Label(subject.Trust)),
+            };
+            if (!string.IsNullOrWhiteSpace(subject.Relation))
+                columns.Add((Loc.Get("Journal.Profile.Relation"), subject.Relation));
+            if (subject.LastSeenUtc is { } seen)
+            {
+                var seenText = seen.ToLocalTime().ToString("d", System.Globalization.CultureInfo.CurrentCulture);
+                if (!string.IsNullOrEmpty(subject.LastSeenPlace)) seenText = string.Concat(seenText, " · ", subject.LastSeenPlace);
+                columns.Add((Loc.Get("Journal.Profile.LastSeen"), seenText));
+            }
+
+            var startX = ImGui.GetCursorPosX();
+            var colWidth = SectionContentWidth / columns.Count;
+            var pad = 4f * ImGuiHelpers.GlobalScale;
+            for (int i = 0; i < columns.Count; i++)
+            {
+                if (i > 0) ImGui.SameLine();
+                ImGui.BeginGroup();
+                var columnX = startX + (i * colWidth);
+                DrawCenteredLine(columns[i].Label, FieldLabelColor, columnX + pad, colWidth - (pad * 2f));
+                if (i == 0)
+                    DrawTrustValue(subject.Trust, columns[i].Value, columnX + pad, colWidth - (pad * 2f));
+                else
+                    DrawCenteredLine(columns[i].Value, null, columnX + pad, colWidth - (pad * 2f));
+                ImGui.EndGroup();
+            }
+        }, stretchWidth: true, background: SheetCardFill, border: SheetCardFill);
+    }
+
+    private static void DrawTrustValue(JournalTrust trust, string label, float columnX, float width)
+    {
+        float scale = ImGuiHelpers.GlobalScale;
+        float radius = 4.5f * scale;
+        float gap = 6f * scale;
+        float total = (radius * 2f) + gap + ImGui.CalcTextSize(label).X;
+        ImGui.SetCursorPosX(columnX + MathF.Max((width - total) * 0.5f, 0f));
+        JournalTrustStyle.DrawDot(trust);
+        ImGui.SameLine(0f, gap);
+        ImGui.TextUnformatted(label);
+    }
+
+    private void DrawJournalSheetMessage(string text)
+    {
         ImGuiHelpers.ScaledDummy(4f);
-        _journalEditor.Draw(subject);
+        UiSharedService.DrawCard("journal-sheet-message", () =>
+        {
+            var width = SectionContentWidth;
+            var startX = ImGui.GetCursorPosX();
+            var inset = MathF.Round(width * 0.04f);
+            var innerWidth = width - (inset * 2f);
+            var size = ImGui.CalcTextSize(text, wrapWidth: innerWidth);
+            ImGuiHelpers.ScaledDummy(4f);
+            ImGui.SetCursorPosX(startX + inset + MathF.Max(0f, (innerWidth - size.X) / 2f));
+            ImGui.PushTextWrapPos(startX + inset + innerWidth);
+            ImGui.TextColored(FieldLabelColor, text);
+            ImGui.PopTextWrapPos();
+            ImGuiHelpers.ScaledDummy(4f);
+        }, stretchWidth: true, background: SheetCardFill, border: SheetCardFill);
     }
 
     private void DrawRpProfile(UmbraProfileData profile, IDalamudTextureWrap? texture, Vector4 accent)
@@ -431,7 +570,6 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
         DrawHeroCard(profile, texture, accent);
         ImGuiHelpers.ScaledDummy(cardSpacing / ImGuiHelpers.GlobalScale);
 
-        DrawCharacterNote();
 
         bool hasAnyRpContent = !string.IsNullOrEmpty(profile.RpAge)
             || !string.IsNullOrEmpty(profile.RpHeight)
@@ -1071,6 +1209,16 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
         var inset = MathF.Round(width * 0.04f);
         ImGui.Indent(inset);
         BbCodeRenderer.Render(bbcode, width - (inset * 2f));
+        ImGui.Unindent(inset);
+    }
+
+    private static void DrawPlainSectionText(string text, float width)
+    {
+        var inset = MathF.Round(width * 0.04f);
+        ImGui.Indent(inset);
+        ImGui.PushTextWrapPos(ImGui.GetCursorPosX() + width - (inset * 2f));
+        ImGui.TextUnformatted(text);
+        ImGui.PopTextWrapPos();
         ImGui.Unindent(inset);
     }
 

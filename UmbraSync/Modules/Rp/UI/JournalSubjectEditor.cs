@@ -63,9 +63,24 @@ public sealed class JournalSubjectEditor
         DrawChronicleCard(subject);
     }
 
+    private static void CardBody(Action draw)
+    {
+        float scale = ImGuiHelpers.GlobalScale;
+        float rightInset = ImGui.GetStyle().FramePadding.X + 4f * scale + MathF.Max(1f, scale);
+        UiSharedService.ShiftContentRight(-rightInset);
+        try
+        {
+            draw();
+        }
+        finally
+        {
+            UiSharedService.ShiftContentRight(rightInset);
+        }
+    }
+
     private void DrawRelationCard(JournalSubject subject)
     {
-        UiSharedService.DrawCard("journalRelation", () =>
+        UiSharedService.DrawCard("journalRelation", () => CardBody(() =>
         {
             UiSharedService.DrawCardTitle(FontAwesomeIcon.Handshake, Loc.Get("Journal.Card.Relation"));
             ImGuiHelpers.ScaledDummy(2f);
@@ -77,7 +92,7 @@ public sealed class JournalSubjectEditor
             if (ImGui.InputTextWithHint("##journalRelationText", Loc.Get("Journal.Relation.Hint"), ref relation, RpJournalQuery.MaxRelationLength))
                 subject.Relation = relation;
             if (ImGui.IsItemDeactivatedAfterEdit()) _journal.Touch(subject);
-        }, stretchWidth: true);
+        }), stretchWidth: true);
     }
 
     private void DrawTrustSelector(JournalSubject subject)
@@ -131,7 +146,7 @@ public sealed class JournalSubjectEditor
 
     private void DrawSummaryCard(JournalSubject subject)
     {
-        UiSharedService.DrawCard("journalSummary", () =>
+        UiSharedService.DrawCard("journalSummary", () => CardBody(() =>
         {
             UiSharedService.DrawCardTitle(FontAwesomeIcon.BookOpen, Loc.Get("Journal.Card.Summary"));
             ImGuiHelpers.ScaledDummy(2f);
@@ -141,12 +156,12 @@ public sealed class JournalSubjectEditor
             if (committed) _journal.Touch(subject);
             if (string.IsNullOrEmpty(subject.Summary))
                 UiSharedService.ColorTextWrapped(Loc.Get("Journal.Summary.Hint"), ImGuiColors.DalamudGrey3);
-        }, stretchWidth: true);
+        }), stretchWidth: true);
     }
 
     private void DrawFieldsCard(JournalSubject subject)
     {
-        UiSharedService.DrawCard("journalFields", () =>
+        UiSharedService.DrawCard("journalFields", () => CardBody(() =>
         {
             UiSharedService.DrawCardTitle(FontAwesomeIcon.ListUl, Loc.Get("Journal.Card.Fields"));
             ImGuiHelpers.ScaledDummy(2f);
@@ -184,10 +199,13 @@ public sealed class JournalSubjectEditor
 
             if (subject.CustomFields.Count >= RpJournalQuery.MaxCustomFields) return;
 
+            float rowY = ImGui.GetCursorPosY();
+            ImGui.SetCursorPosY(rowY + MathF.Max(0f, (CapsuleButton.HitRegionHeight - ImGui.GetFrameHeight()) / 2f));
             ImGui.SetNextItemWidth(labelWidth);
             bool submit = ImGui.InputTextWithHint("##newFieldLabel", Loc.Get("Journal.Field.NewHint"), ref _newFieldLabel,
                 RpJournalQuery.MaxFieldLabelLength, ImGuiInputTextFlags.EnterReturnsTrue);
             ImGui.SameLine();
+            ImGui.SetCursorPosY(rowY);
             using (ImRaii.Disabled(string.IsNullOrWhiteSpace(_newFieldLabel)))
             {
                 if (CapsuleButton.Draw(Loc.Get("Journal.Field.Add"), FontAwesomeIcon.Plus)) submit = true;
@@ -199,12 +217,12 @@ public sealed class JournalSubjectEditor
                 _newFieldLabel = string.Empty;
                 _journal.Touch(subject);
             }
-        }, stretchWidth: true);
+        }), stretchWidth: true);
     }
 
     private void DrawChronicleCard(JournalSubject subject)
     {
-        UiSharedService.DrawCard("journalChronicle", () =>
+        UiSharedService.DrawCard("journalChronicle", () => CardBody(() =>
         {
             int count = subject.Entries.Count;
             UiSharedService.DrawCardTitle(FontAwesomeIcon.Feather, Loc.Get("Journal.Card.Chronicle"),
@@ -284,6 +302,6 @@ public sealed class JournalSubjectEditor
                 if (_editingEntryId == toRemove) _editingEntryId = null;
                 _journal.DeleteEntry(subject, toRemove);
             }
-        }, stretchWidth: true);
+        }), stretchWidth: true);
     }
 }

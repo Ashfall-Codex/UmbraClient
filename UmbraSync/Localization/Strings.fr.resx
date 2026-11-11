@@ -3414,7 +3414,7 @@ Note : Les armes ne s'afficheront pas correctement sauf si vous utilisez le m&#x
     <value />
   </data>
   <data name="StandaloneProfile.ReportButton" xml:space="preserve">
-    <value />
+    <value>Signaler le profil</value>
   </data>
   <data name="StandaloneProfile.Status.Offline" xml:space="preserve">
     <value>Hors ligne</value>
@@ -8440,12 +8440,6 @@ Expérimental : ces hooks sont bas niveau ; en cas de souci, désactivez l'optio
   <data name="Settings.TargetTooltip.Trigger.OnTargetBarHover.Help" xml:space="preserve">
     <value>Ciblez un joueur, puis laissez le curseur sur sa barre de cible (son nom et ses PV en haut de l'écran) : la carte reste visible tant que le curseur est sur la barre.</value>
   </data>
-  <data name="StandaloneProfile.CharacterNote.Hint" xml:space="preserve">
-    <value>Note privée sur ce personnage.</value>
-  </data>
-  <data name="StandaloneProfile.CharacterNote.Tooltip" xml:space="preserve">
-    <value>Vous seul voyez cette note. Elle est propre à ce personnage.</value>
-  </data>
   <data name="Settings.TargetTooltip.HideInDuty" xml:space="preserve">
     <value>Masquer la carte en instance (donjons, raids, défis...)</value>
   </data>
@@ -9529,6 +9523,24 @@ ATTENTION : cette action est irréversible.</value>
   <data name="Journal.Profile.Start" xml:space="preserve">
     <value>Commencer un journal</value>
   </data>
+  <data name="Journal.Profile.Edit" xml:space="preserve">
+    <value>Modifier dans le journal</value>
+  </data>
+  <data name="Journal.Profile.Edit.Tooltip" xml:space="preserve">
+    <value>Le journal se rédige dans sa propre fenêtre. Ici, vous le relisez avec la fiche du personnage.</value>
+  </data>
+  <data name="Journal.Profile.Trust" xml:space="preserve">
+    <value>Confiance</value>
+  </data>
+  <data name="Journal.Profile.Relation" xml:space="preserve">
+    <value>Relation</value>
+  </data>
+  <data name="Journal.Profile.LastSeen" xml:space="preserve">
+    <value>Dernière rencontre</value>
+  </data>
+  <data name="Journal.Profile.NothingYet" xml:space="preserve">
+    <value>Rien de noté pour le moment. Cliquez sur « Modifier dans le journal » pour écrire ce que vous savez de ce personnage.</value>
+  </data>
   <data name="Journal.Tooltip.Open" xml:space="preserve">
     <value>Journal</value>
   </data>
@@ -9541,20 +9553,26 @@ ATTENTION : cette action est irréversible.</value>
   <data name="Journal.Tab" xml:space="preserve">
     <value>Journal</value>
   </data>
-  <data name="Journal.Profile.Header" xml:space="preserve">
-    <value>Notes de {0} sur {1}</value>
-  </data>
   <data name="Journal.Profile.Empty" xml:space="preserve">
     <value>Vous n'avez encore rien noté sur ce personnage. Le journal est privé : il reste sur cet ordinateur et dépend du personnage que vous jouez.</value>
   </data>
   <data name="Journal.Profile.NoCharacter" xml:space="preserve">
     <value>Aucun personnage connu pour cette paire. Croisez-le en jeu pour commencer un journal.</value>
   </data>
-  <data name="Journal.Profile.OpenWindow" xml:space="preserve">
-    <value>Ouvrir le journal</value>
+  <data name="StandaloneProfile.Tab.Sheet" xml:space="preserve">
+    <value>Fiche</value>
   </data>
-  <data name="CharaDataHub.Profiles.Tab.Journal" xml:space="preserve">
-    <value>Mon journal</value>
+  <data name="StandaloneProfile.EnrichedProfile" xml:space="preserve">
+    <value>Voir le profil enrichi</value>
+  </data>
+  <data name="StandaloneProfile.EnrichedProfile.Tooltip" xml:space="preserve">
+    <value>S'ouvre dans votre navigateur web. Le profil doit être en mode « Public » sur Connect pour être accessible.</value>
+  </data>
+  <data name="CharaDataHub.Profiles.OpenJournal" xml:space="preserve">
+    <value>Ouvrir mon journal</value>
+  </data>
+  <data name="CharaDataHub.Profiles.OpenJournal.Tooltip" xml:space="preserve">
+    <value>Votre journal RôlePlay complet : tous les personnages que vous suivez avec le personnage que vous jouez.</value>
   </data>
   <data name="Journal.Card.InJournal" xml:space="preserve">
     <value>Dans votre journal : votre confiance et votre relation.</value>
