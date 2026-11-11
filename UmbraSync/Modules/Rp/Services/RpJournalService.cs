@@ -9,6 +9,7 @@ using UmbraSync.MareConfiguration.Configurations;
 using UmbraSync.PlayerData.Pairs;
 using UmbraSync.Services;
 using UmbraSync.Services.Mediator;
+using UmbraSync.Services.ServerConfiguration;
 
 namespace UmbraSync.Modules.Rp.Services;
 
@@ -21,13 +22,16 @@ public sealed class RpJournalService : DisposableMediatorSubscriberBase, IRuntim
     private readonly ITargetManager _targetManager;
     private readonly IDataManager _gameData;
     private readonly PairManager _pairManager;
+    private readonly ServerConfigurationManager _serverConfigurationManager;
     private string? _ownerKey;
     private string _ownerName = string.Empty;
 
     public RpJournalService(ILogger<RpJournalService> logger, MareMediator mediator, RpJournalConfigService configService,
-        DalamudUtilService dalamudUtil, ITargetManager targetManager, IDataManager gameData, PairManager pairManager)
+        DalamudUtilService dalamudUtil, ITargetManager targetManager, IDataManager gameData, PairManager pairManager,
+        ServerConfigurationManager serverConfigurationManager)
         : base(logger, mediator)
     {
+        _serverConfigurationManager = serverConfigurationManager;
         _configService = configService;
         _dalamudUtil = dalamudUtil;
         _targetManager = targetManager;
@@ -69,10 +73,31 @@ public sealed class RpJournalService : DisposableMediatorSubscriberBase, IRuntim
             if (string.Equals(key, _ownerKey, StringComparison.Ordinal)) return;
             _ownerKey = key;
             _ownerName = name;
+            ImportCharacterNotes(key);
         }
         catch (Exception ex)
         {
             Logger.LogDebug(ex, "Journal: lecture du personnage joué impossible");
+        }
+    }
+
+    private void ImportCharacterNotes(string ownerKey)
+    {
+        try
+        {
+            if (_configService.Current.Journals.TryGetValue(ownerKey, out var existing) && existing.CharacterNotesImported) return;
+
+            var notes = _serverConfigurationManager.GetAllCharacterNotes();
+            var journal = existing ?? new CharacterJournal();
+            int imported = RpJournalQuery.ImportCharacterNotes(journal, notes, DateTime.UtcNow);
+            _configService.Current.Journals[ownerKey] = journal;
+            _configService.Save();
+            if (imported > 0)
+                Logger.LogInformation("Journal: {count} note(s) privée(s) reprise(s) dans le journal", imported);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Journal: reprise des notes privées impossible");
         }
     }
 

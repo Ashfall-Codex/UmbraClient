@@ -65,6 +65,34 @@ public static class RpJournalQuery
             .ToList();
     }
 
+    public static int ImportCharacterNotes(CharacterJournal journal, IEnumerable<(string Uid, string CharName, uint WorldId, string Note)> notes, DateTime nowUtc)
+    {
+        int imported = 0;
+        foreach (var (uid, charName, worldId, rawNote) in notes)
+        {
+            var note = rawNote?.Trim() ?? string.Empty;
+            if (note.Length == 0 || string.IsNullOrEmpty(charName) || worldId == 0) continue;
+
+            var key = SubjectKey(charName, worldId);
+            if (!journal.Subjects.TryGetValue(key, out var subject))
+            {
+                subject = new JournalSubject { TargetName = charName, TargetWorldId = worldId, CreatedUtc = nowUtc };
+                journal.Subjects[key] = subject;
+            }
+
+            if (!string.IsNullOrEmpty(uid) && string.IsNullOrEmpty(subject.LastKnownUid))
+                subject.LastKnownUid = uid;
+
+            if (subject.Summary.Contains(note, StringComparison.Ordinal)) continue;
+            subject.Summary = Clip(string.IsNullOrWhiteSpace(subject.Summary) ? note : string.Concat(subject.Summary, "\n\n", note), MaxSummaryLength);
+            subject.UpdatedUtc = nowUtc;
+            imported++;
+        }
+
+        journal.CharacterNotesImported = true;
+        return imported;
+    }
+
     public static string Clip(string? value, int maxLength)
     {
         if (string.IsNullOrEmpty(value)) return string.Empty;

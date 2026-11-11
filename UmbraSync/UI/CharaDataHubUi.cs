@@ -1859,7 +1859,7 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
         var worldId = key.WorldId ?? 0;
         var worldName = worldId > 0 && _dalamudUtilService.WorldData.Value.TryGetValue((ushort)worldId, out var wn) ? wn : string.Empty;
         var uid = key.User.AliasOrUID;
-        var note = _serverConfigurationManager.GetNoteForCharacter(key.User.UID, key.CharName, key.WorldId)
+        var note = (_rpJournal == null ? _serverConfigurationManager.GetNoteForCharacter(key.User.UID, key.CharName, key.WorldId) : null)
                    ?? _serverConfigurationManager.GetNoteForUid(key.User.UID);
         var journalSubject = deletable || string.Equals(key.User.UID, _umbraProfileManager.CurrentUid, StringComparison.Ordinal)
             ? null : _rpJournal?.TryGetSubject(key.CharName, key.WorldId ?? 0);

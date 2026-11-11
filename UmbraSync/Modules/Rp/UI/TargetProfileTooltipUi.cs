@@ -317,9 +317,7 @@ public sealed class TargetProfileTooltipUi : WindowMediatorSubscriberBase
             ImGui.TextColored(infoColor, profile.RpResidence);
         }
 
-        var privateNote = target?.Pair == null ? null
-            : _serverManager.GetNoteForCharacter(target.Pair.UserData.UID, target.CharName, target.WorldId)
-              ?? _serverManager.GetNoteForUid(target.Pair.UserData.UID);
+        var privateNote = target?.Pair == null ? null : _serverManager.GetNoteForUid(target.Pair.UserData.UID);
         if (!string.IsNullOrWhiteSpace(privateNote))
             ImGui.TextColored(ImGuiColors.DalamudGrey2, privateNote);
         ImGui.PopTextWrapPos();
