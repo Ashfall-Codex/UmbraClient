@@ -3,7 +3,6 @@ using Dalamud.Interface;
 using Dalamud.Interface.Colors;
 using Dalamud.Interface.Utility;
 using Dalamud.Interface.Utility.Raii;
-using Dalamud.Utility;
 using Stagehand.Api;
 using System.Globalization;
 using System.Numerics;
@@ -21,6 +20,7 @@ public sealed partial class CharaDataHubUi
     private PolledUiValue<StageLocationDto?>? _stageLocationPoll;
     private PolledUiValue<LocalStageDefinition[]>? _localStagesPoll;
     private bool _stagesInitialized;
+    private DateTime _stagehandLinkCopiedAt = DateTime.MinValue;
     private string _stageSelectedFilename = string.Empty;
     private string _stageDescription = string.Empty;
     private bool _stageToAll = true;
@@ -58,9 +58,15 @@ public sealed partial class CharaDataHubUi
             if (!string.IsNullOrEmpty(reason))
                 UiSharedService.TextWrapped(reason);
             ImGuiHelpers.ScaledDummy(3);
-            if (_uiSharedService.IconTextButton(FontAwesomeIcon.ExternalLinkAlt, Loc.Get("Stages.StagehandRepo")))
-                Util.OpenLink(Constants.StagehandRepoUrl);
-            UiSharedService.AttachToolTip(Constants.StagehandRepoUrl);
+            UiSharedService.ColorTextWrapped(Loc.Get("Stages.StagehandRepo.Hint"), ImGuiColors.DalamudGrey);
+            ImGuiHelpers.ScaledDummy(2);
+            if (_uiSharedService.IconTextButton(FontAwesomeIcon.Copy, Loc.Get("Stages.StagehandRepo")))
+            {
+                ImGui.SetClipboardText(Constants.StagehandRepoUrl);
+                _stagehandLinkCopiedAt = DateTime.UtcNow;
+            }
+            bool linkJustCopied = (DateTime.UtcNow - _stagehandLinkCopiedAt).TotalSeconds < 2;
+            UiSharedService.AttachToolTip(linkJustCopied ? Loc.Get("Stages.StagehandRepo.Copied") : Constants.StagehandRepoUrl);
             UiSharedService.EndSectionCard();
             return;
         }

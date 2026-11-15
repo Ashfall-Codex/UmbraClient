@@ -8285,7 +8285,13 @@ Experimental: these hooks are low level; if anything goes wrong, turn this off (
     <value>The Stagehand plugin is required to share and display Stages.</value>
   </data>
   <data name="Stages.StagehandRepo" xml:space="preserve">
-    <value>Open the Stagehand repository</value>
+    <value>Copy the Stagehand repository link</value>
+  </data>
+  <data name="Stages.StagehandRepo.Hint" xml:space="preserve">
+    <value>Add this link to Dalamud's custom plugin repositories (/xlsettings ▸ Experimental), then install Stagehand from the plugin installer.</value>
+  </data>
+  <data name="Stages.StagehandRepo.Copied" xml:space="preserve">
+    <value>Link copied to clipboard</value>
   </data>
   <data name="Stages.Processing" xml:space="preserve">
     <value>Processing...</value>

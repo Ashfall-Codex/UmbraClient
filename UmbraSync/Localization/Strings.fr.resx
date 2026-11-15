@@ -8198,7 +8198,13 @@ Expérimental : ces hooks sont bas niveau ; en cas de souci, désactivez l'optio
     <value>Le plugin Stagehand est nécessaire pour partager et afficher des décors.</value>
   </data>
   <data name="Stages.StagehandRepo" xml:space="preserve">
-    <value>Ouvrir le dépôt de Stagehand</value>
+    <value>Copier le lien du dépôt Stagehand</value>
+  </data>
+  <data name="Stages.StagehandRepo.Hint" xml:space="preserve">
+    <value>Ajoutez ce lien dans les dépôts personnalisés de Dalamud (/xlsettings ▸ Expérimental), puis installez Stagehand depuis l'installateur de plugins.</value>
+  </data>
+  <data name="Stages.StagehandRepo.Copied" xml:space="preserve">
+    <value>Lien copié dans le presse-papiers</value>
   </data>
   <data name="Stages.Processing" xml:space="preserve">
     <value>Traitement en cours...</value>
