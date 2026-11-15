@@ -1710,9 +1710,12 @@ public class SyncshellAdminUI : WindowMediatorSubscriberBase
     {
         if (!_showProfilePreview) return;
 
+        var previewTitle = string.Format(CultureInfo.CurrentCulture, Loc.Get("SyncshellAdmin.Profile.PreviewTitle"), GroupFullInfo.GroupAliasOrGID);
         ImGui.SetNextWindowSize(new Vector2(420, 500) * ImGuiHelpers.GlobalScale, ImGuiCond.FirstUseEver);
-        if (ImGui.Begin(string.Format(CultureInfo.CurrentCulture, Loc.Get("SyncshellAdmin.Profile.PreviewTitle"), GroupFullInfo.GroupAliasOrGID), ref _showProfilePreview))
+        WindowOverlap.PushTitleBarColors(previewTitle);
+        if (ImGui.Begin(previewTitle, ref _showProfilePreview))
         {
+            WindowOverlap.DrawForCurrentWindow();
             UiSharedService.DrawWindowGlass();
             float availWidth = ImGui.GetContentRegionAvail().X;
 
@@ -1789,6 +1792,7 @@ public class SyncshellAdminUI : WindowMediatorSubscriberBase
             }
         }
         ImGui.End();
+        WindowOverlap.PopTitleBarColors();
     }
 
     public override void OnClose()

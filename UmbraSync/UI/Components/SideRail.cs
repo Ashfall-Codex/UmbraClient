@@ -75,10 +75,11 @@ public sealed class SideRail
                     ImGui.GetColorU32(UiSharedService.ThemeRailHovered), UiSharedService.RadiusCard * scale);
             }
 
-            var color = !entry.Enabled ? UiSharedService.WithAlpha(UiSharedService.ThemeNavText, 0.4f)
-                : isActive ? UiSharedService.ThemeNavTextActive
-                : hovered ? UiSharedService.ThemeNavTextHovered
-                : UiSharedService.ThemeNavText;
+            Vector4 color;
+            if (!entry.Enabled) color = UiSharedService.WithAlpha(UiSharedService.ThemeNavText, 0.4f);
+            else if (isActive) color = UiSharedService.ThemeNavTextActive;
+            else if (hovered) color = UiSharedService.ThemeNavTextHovered;
+            else color = UiSharedService.ThemeNavText;
             uint colorU32 = ImGui.GetColorU32(color);
 
             string icon = entry.Icon.ToIconString();

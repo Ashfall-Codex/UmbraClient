@@ -216,8 +216,8 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
                 {
                     if (_connectionDto.CurrentClientVersion > currentClientVer)
                     {
-                        var currentVer = $"{currentClientVer.Major}.{currentClientVer.Minor}.{currentClientVer.Build}";
-                        var requiredVer = $"{_connectionDto.CurrentClientVersion.Major}.{_connectionDto.CurrentClientVersion.Minor}.{_connectionDto.CurrentClientVersion.Build}";
+                        var currentVer = currentClientVer.ToString();
+                        var requiredVer = _connectionDto.CurrentClientVersion.ToString();
                         Mediator.Publish(new DualNotificationMessage(Loc.Get("Notification.Toast.ClientIncompatible.Title"),
                             string.Format(CultureInfo.CurrentCulture, Loc.Get("Notification.Toast.ClientIncompatible.Body"), currentVer, requiredVer),
                             NotificationType.Error));
@@ -237,8 +237,8 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
 
                 if (_connectionDto.CurrentClientVersion > currentClientVer)
                 {
-                    var currentVer = $"{currentClientVer.Major}.{currentClientVer.Minor}.{currentClientVer.Build}";
-                    var latestVer = $"{_connectionDto.CurrentClientVersion.Major}.{_connectionDto.CurrentClientVersion.Minor}.{_connectionDto.CurrentClientVersion.Build}";
+                    var currentVer = currentClientVer.ToString();
+                    var latestVer = _connectionDto.CurrentClientVersion.ToString();
                     Mediator.Publish(new DualNotificationMessage(Loc.Get("Notification.Toast.ClientOutdated.Title"),
                         string.Format(CultureInfo.CurrentCulture, Loc.Get("Notification.Toast.ClientOutdated.Body"), currentVer, latestVer),
                         NotificationType.Warning, TimeSpan.FromSeconds(15)));

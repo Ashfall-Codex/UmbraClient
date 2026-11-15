@@ -527,8 +527,9 @@ public class NearbyDiscoveryService(ILogger<NearbyDiscoveryService> logger, Mare
                 return list;
             }).ConfigureAwait(false);
         }
-        catch
+        catch (Exception ex)
         {
+            _logger.LogDebug(ex, "Nearby entries refresh failed");
             return new List<NearbyEntry>();
         }
     }

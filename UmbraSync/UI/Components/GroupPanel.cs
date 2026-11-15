@@ -949,11 +949,10 @@ internal sealed class GroupPanel
         overrides.TryGetValue(gid, out var currentValue);
         var hasOverride = overrides.ContainsKey(gid);
 
-        var previewLabel = !hasOverride
-            ? Loc.Get("Settings.ChatTargetSound.Override.Default")
-            : currentValue == 0
-                ? Loc.Get("Settings.ChatTargetSound.Override.Disabled")
-                : string.Format(CultureInfo.CurrentCulture, Loc.Get("Settings.ChatTargetSound.SoundItem"), currentValue);
+        string previewLabel;
+        if (!hasOverride) previewLabel = Loc.Get("Settings.ChatTargetSound.Override.Default");
+        else if (currentValue == 0) previewLabel = Loc.Get("Settings.ChatTargetSound.Override.Disabled");
+        else previewLabel = string.Format(CultureInfo.CurrentCulture, Loc.Get("Settings.ChatTargetSound.SoundItem"), currentValue);
 
         ImGui.SetNextItemWidth(200 * ImGuiHelpers.GlobalScale);
         if (UiSharedService.BeginCombo(Loc.Get("Settings.ChatTargetSound.Override.Label") + "##shell_sound_" + gid, previewLabel))
@@ -1119,10 +1118,11 @@ internal sealed class GroupPanel
             if (cardHovered && ImGui.GetMousePos().X < actionsZoneStart)
                 DrawSyncshellTooltip(groupDto, groupName, connectedMembers, totalMembers, isPaused);
 
-            var borderColor = isSlotLeaving ? slotLeavingColor
-                : isActiveSlot ? slotActiveColor
-                : isPaused ? pausedColor with { W = 0.8f }
-                : UiSharedService.ThemeCardBorder;
+            Vector4 borderColor;
+            if (isSlotLeaving) borderColor = slotLeavingColor;
+            else if (isActiveSlot) borderColor = slotActiveColor;
+            else if (isPaused) borderColor = pausedColor with { W = 0.8f };
+            else borderColor = UiSharedService.ThemeCardBorder;
             drawList.AddRectFilled(cardMin, cardMax, ImGui.GetColorU32(UiSharedService.ThemeHeaderBg with { W = cardHovered ? 1f : 0.9f }), rounding);
             drawList.AddRectFilled(cardMin, cardMax, ImGui.GetColorU32(accent with { W = cardHovered ? 0.14f : 0.07f }), rounding);
             drawList.AddRect(cardMin, cardMax, ImGui.GetColorU32(borderColor), rounding, ImDrawFlags.None, 1.5f * scale);
@@ -1221,7 +1221,9 @@ internal sealed class GroupPanel
             float barHeight = 5f * scale;
             float blockHeight = lineHeight * 2f + barHeight + 8f * scale;
             float textY = cardMin.Y + (cardHeight - blockHeight) / 2f;
-            string? roleLabel = isOwner ? Loc.Get("GroupPair.Owner") : isModerator ? Loc.Get("GroupPair.Moderator") : null;
+            string? roleLabel = null;
+            if (isOwner) roleLabel = Loc.Get("GroupPair.Owner");
+            else if (isModerator) roleLabel = Loc.Get("GroupPair.Moderator");
             float roleWidth = roleLabel == null ? 0f : ImGui.CalcTextSize(roleLabel).X + 12f * scale;
             float nameMax = textWidth - (roleLabel != null && textWidth > 200f * scale ? roleWidth + 6f * scale : 0f);
             var shownName = UiSharedService.TruncateToWidth(groupName, nameMax);
@@ -1872,8 +1874,10 @@ internal sealed class GroupPanel
         bool isOpen = true;
 
         ImGui.SetNextWindowSize(new Vector2(450f * ImGuiHelpers.GlobalScale, 500f * ImGuiHelpers.GlobalScale), ImGuiCond.FirstUseEver);
+        WindowOverlap.PushTitleBarColors(windowTitle);
         if (ImGui.Begin(windowTitle, ref isOpen, ImGuiWindowFlags.NoCollapse))
         {
+            WindowOverlap.DrawForCurrentWindow();
             UiSharedService.DrawWindowGlass();
             var scale = ImGuiHelpers.GlobalScale;
             var totalMembers = pairsInGroup.Count + 1;
@@ -2004,6 +2008,7 @@ internal sealed class GroupPanel
             ImGui.EndChild();
         }
         ImGui.End();
+        WindowOverlap.PopTitleBarColors();
 
         if (!isOpen)
         {
@@ -2145,8 +2150,10 @@ internal sealed class GroupPanel
         bool isOpen = true;
 
         ImGui.SetNextWindowSize(new Vector2(420f * ImGuiHelpers.GlobalScale, 450f * ImGuiHelpers.GlobalScale), ImGuiCond.FirstUseEver);
+        WindowOverlap.PushTitleBarColors(windowTitle);
         if (ImGui.Begin(windowTitle, ref isOpen, ImGuiWindowFlags.NoCollapse))
         {
+            WindowOverlap.DrawForCurrentWindow();
             UiSharedService.DrawWindowGlass();
             if (_profileLoading)
             {
@@ -2235,6 +2242,7 @@ internal sealed class GroupPanel
             }
         }
         ImGui.End();
+        WindowOverlap.PopTitleBarColors();
 
         if (!isOpen)
         {

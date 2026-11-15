@@ -72,11 +72,12 @@ public class ConfigurationMigrator(ILogger<ConfigurationMigrator> logger, MareCo
             if (!root.TryGetProperty("UiGlass", out _))
             {
                 var config = _mareConfig.Current;
-                config.UiGlass = config.UiReduceTransparency
-                    ? 1f
-                    : root.TryGetProperty("UiOpacity", out _) && Math.Abs(config.UiOpacity - 0.88f) > 0.001f
-                        ? UiSharedService.GlassFromOpacity(config.UiOpacity)
-                        : MareConfig.DefaultGlass;
+                if (config.UiReduceTransparency)
+                    config.UiGlass = 1f;
+                else if (root.TryGetProperty("UiOpacity", out _) && Math.Abs(config.UiOpacity - 0.88f) > 0.001f)
+                    config.UiGlass = UiSharedService.GlassFromOpacity(config.UiOpacity);
+                else
+                    config.UiGlass = MareConfig.DefaultGlass;
                 config.UiReduceTransparency = false;
                 changed = true;
             }

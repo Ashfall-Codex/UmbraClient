@@ -35,9 +35,10 @@ internal static class WildRpAnnouncementCard
         }
 
         var elapsed = DateTime.UtcNow - announcement.CreatedAtUtc;
-        var elapsedStr = elapsed.TotalMinutes < 1 ? "< 1 min"
-            : elapsed.TotalHours >= 1 ? $"{(int)elapsed.TotalHours}h{elapsed.Minutes:D2}"
-            : $"{(int)elapsed.TotalMinutes} min";
+        string elapsedStr;
+        if (elapsed.TotalMinutes < 1) elapsedStr = "< 1 min";
+        else if (elapsed.TotalHours >= 1) elapsedStr = $"{(int)elapsed.TotalHours}h{elapsed.Minutes:D2}";
+        else elapsedStr = $"{(int)elapsed.TotalMinutes} min";
 
         UiSharedService.DrawCard($"wildrp_{announcement.Id}", () =>
         {

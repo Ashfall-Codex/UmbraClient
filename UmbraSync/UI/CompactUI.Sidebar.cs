@@ -85,11 +85,10 @@ public partial class CompactUi
         var connectionColor = state is ServerState.Connected
             ? new Vector4(0.25f, 0.85f, 0.45f, 1f)
             : new Vector4(0.90f, 0.25f, 0.25f, 1f);
-        var tooltip = hasServer
-            ? (isLinked
-                ? string.Format(CultureInfo.CurrentCulture, Loc.Get("CompactUi.Connection.DisconnectTooltip"), currentServer!.ServerName)
-                : string.Format(CultureInfo.CurrentCulture, Loc.Get("CompactUi.Connection.ConnectTooltip"), currentServer!.ServerName))
-            : Loc.Get("CompactUi.Connection.NoServer");
+        string tooltip;
+        if (!hasServer) tooltip = Loc.Get("CompactUi.Connection.NoServer");
+        else if (isLinked) tooltip = string.Format(CultureInfo.CurrentCulture, Loc.Get("CompactUi.Connection.DisconnectTooltip"), currentServer!.ServerName);
+        else tooltip = string.Format(CultureInfo.CurrentCulture, Loc.Get("CompactUi.Connection.ConnectTooltip"), currentServer!.ServerName);
 
         if (SidebarControls.DrawButton(icon, "##sidebar_connection", false, tooltip, SidebarButtonSize,
                 enabled: !isTogglingDisabled, iconColor: connectionColor) && !isTogglingDisabled)

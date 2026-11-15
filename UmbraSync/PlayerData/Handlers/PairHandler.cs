@@ -432,7 +432,7 @@ public sealed partial class PairHandler : DisposableMediatorSubscriberBase, IPai
         }
     }
     
-    private async Task ResumeInternalAsync()
+    private Task ResumeInternalAsync()
     {
         try
         {
@@ -441,7 +441,7 @@ public sealed partial class PairHandler : DisposableMediatorSubscriberBase, IPai
             if (_charaHandler is null || _charaHandler.Address == nint.Zero)
             {
                 Logger.LogDebug("Character handler is null or invalid, skipping resume");
-                return;
+                return Task.CompletedTask;
             }
 
             if (!IsVisible)
@@ -461,6 +461,8 @@ public sealed partial class PairHandler : DisposableMediatorSubscriberBase, IPai
         {
             Logger.LogWarning(ex, "Failed to resume handler for {user}", Pair.UserData.UID);
         }
+
+        return Task.CompletedTask;
     }
     
     public void SetPaused(bool paused)

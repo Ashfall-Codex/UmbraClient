@@ -116,7 +116,10 @@ public sealed class JournalSubjectEditor
             bool active = subject.Trust == level;
             var color = JournalTrustStyle.Color(level);
 
-            var bg = active ? UiSharedService.WithAlpha(color, 0.30f) : hovered ? UiSharedService.ThemeCapsuleHovered : UiSharedService.ThemeCapsule;
+            Vector4 bg;
+            if (active) bg = UiSharedService.WithAlpha(color, 0.30f);
+            else if (hovered) bg = UiSharedService.ThemeCapsuleHovered;
+            else bg = UiSharedService.ThemeCapsule;
             float rounding = height / 2f;
             drawList.AddRectFilled(pos, pos + new Vector2(segmentWidth, height), ImGui.GetColorU32(bg), rounding);
             drawList.AddRect(pos, pos + new Vector2(segmentWidth, height),

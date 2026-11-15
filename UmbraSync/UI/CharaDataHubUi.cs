@@ -494,7 +494,8 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
                 }
                 else
                 {
-                    UiSharedService.ColorTextWrapped(Loc.Get("CharaDataHub.GposeOnlyTooltip"), UiSharedService.AccentColor);
+                    _uiSharedService.DrawEmptyState(FontAwesomeIcon.Camera,
+                        Loc.Get("EmptyState.GposeActors.Title"), Loc.Get("EmptyState.GposeActors.Hint"));
                 }
                 break;
             case HubPage.NearbyPoses:
@@ -793,9 +794,10 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
                 _configService.Save();
             }
 
-            var displayName = shareEntry != null && !string.IsNullOrEmpty(shareEntry.Description)
-                ? shareEntry.Description
-                : !string.IsNullOrEmpty(favEntry?.CustomDescription) ? favEntry.CustomDescription : mcdfGuidStr;
+            string displayName;
+            if (shareEntry != null && !string.IsNullOrEmpty(shareEntry.Description)) displayName = shareEntry.Description;
+            else if (!string.IsNullOrEmpty(favEntry?.CustomDescription)) displayName = favEntry.CustomDescription;
+            else displayName = mcdfGuidStr;
 
             if (!MatchesSearch(search, displayName)) continue;
             LibraryItemStart(ref count, grouped, "CharaDataHub.Apply.Tabs.Favorites");
@@ -2181,14 +2183,18 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
             bool clicked = ImGui.IsItemClicked();
             bool isActive = activeSubTab == i;
 
-            var bg = isActive ? accent : hovered ? hoverBg : bgColor;
+            Vector4 bg;
+            if (isActive) bg = accent;
+            else if (hovered) bg = hoverBg;
+            else bg = bgColor;
             dl.AddRectFilled(p, p + new System.Numerics.Vector2(w, btnH), ImGui.GetColorU32(bg), rounding);
             if (!isActive)
                 dl.AddRect(p, p + new System.Numerics.Vector2(w, btnH), ImGui.GetColorU32(borderColor with { W = hovered ? 0.9f : 0.5f }), rounding);
 
-            var textColor = isActive ? UiSharedService.ThemeNavTextActive
-                : hovered ? UiSharedService.ThemeNavTextHovered
-                : UiSharedService.ThemeNavText;
+            Vector4 textColor;
+            if (isActive) textColor = UiSharedService.ThemeNavTextActive;
+            else if (hovered) textColor = UiSharedService.ThemeNavTextHovered;
+            else textColor = UiSharedService.ThemeNavText;
             var textColorU32 = ImGui.GetColorU32(textColor);
 
             if (iconOnly)

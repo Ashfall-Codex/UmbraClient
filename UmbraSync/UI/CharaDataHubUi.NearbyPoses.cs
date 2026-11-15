@@ -98,7 +98,8 @@ public sealed partial class CharaDataHubUi
         using var indent = ImRaii.PushIndent(5f);
         if (_charaDataNearbyManager.NearbyData.Count == 0)
         {
-            UiSharedService.DrawGroupedCenteredColorText(Loc.Get("CharaDataHub.NearbyPoses.NoneFound"), UiSharedService.AccentColor);
+            _uiSharedService.DrawEmptyState(FontAwesomeIcon.MapMarkerAlt,
+                Loc.Get("EmptyState.NearbyPoses.Title"), Loc.Get("EmptyState.NearbyPoses.Hint"));
         }
 
         bool wasAnythingHovered = false;
@@ -114,7 +115,10 @@ public sealed partial class CharaDataHubUi
             UiSharedService.DrawGrouped(() =>
             {
                 string? userNote = _serverConfigurationManager.GetNoteForUid(pose.Key.MetaInfo.Uploader.UID);
-                var noteText = pose.Key.MetaInfo.IsOwnData ? Loc.Get("CharaDataHub.NearbyPoses.YouLabel") : (userNote == null ? pose.Key.MetaInfo.Uploader.AliasOrUID : $"{userNote} ({pose.Key.MetaInfo.Uploader.AliasOrUID})");
+                string noteText;
+                if (pose.Key.MetaInfo.IsOwnData) noteText = Loc.Get("CharaDataHub.NearbyPoses.YouLabel");
+                else if (userNote == null) noteText = pose.Key.MetaInfo.Uploader.AliasOrUID;
+                else noteText = $"{userNote} ({pose.Key.MetaInfo.Uploader.AliasOrUID})";
                 ImGui.TextUnformatted(Loc.Get("CharaDataHub.NearbyPoses.PoseBy"));
                 ImGui.SameLine();
                 UiSharedService.ColorText(noteText, ImGuiColors.ParsedGreen);

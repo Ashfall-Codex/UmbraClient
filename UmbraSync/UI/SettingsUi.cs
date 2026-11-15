@@ -534,9 +534,10 @@ public class SettingsUi : WindowMediatorSubscriberBase
         if (!showTransferBars) ImGui.EndDisabled();
 
         // Texte « Envoi en cours » : un seul choix à trois états au lieu de deux interrupteurs imbriqués
-        var uploadingMode = !_configService.Current.ShowUploading ? UploadingTextMode.Off
-            : _configService.Current.ShowUploadingBigText ? UploadingTextMode.Large
-            : UploadingTextMode.Normal;
+        UploadingTextMode uploadingMode;
+        if (!_configService.Current.ShowUploading) uploadingMode = UploadingTextMode.Off;
+        else if (_configService.Current.ShowUploadingBigText) uploadingMode = UploadingTextMode.Large;
+        else uploadingMode = UploadingTextMode.Normal;
         ImGui.SetNextItemWidth(MathF.Min(200 * ImGuiHelpers.GlobalScale, ImGui.GetContentRegionAvail().X - 200 * ImGuiHelpers.GlobalScale));
         _uiShared.DrawCombo(Loc.Get("Settings.Transfer.Ui.Uploading") + "##uploadingText",
             [UploadingTextMode.Off, UploadingTextMode.Normal, UploadingTextMode.Large],
@@ -3133,7 +3134,10 @@ public class SettingsUi : WindowMediatorSubscriberBase
                 bool hovered = ImGui.IsItemHovered();
                 bool isActive = _serverConfigTab == t;
 
-                var bg = isActive ? accent : hovered ? hoverBg : bgColor;
+                Vector4 bg;
+                if (isActive) bg = accent;
+                else if (hovered) bg = hoverBg;
+                else bg = bgColor;
                 dl.AddRectFilled(p, p + new Vector2(btnW, btnH), ImGui.GetColorU32(bg), rounding);
                 if (!isActive)
                     dl.AddRect(p, p + new Vector2(btnW, btnH), ImGui.GetColorU32(borderColor with { W = hovered ? 0.9f : 0.5f }), rounding);
@@ -3147,7 +3151,10 @@ public class SettingsUi : WindowMediatorSubscriberBase
                 var totalW = iconSz.X + iconTextGap + labelSz.X;
                 var startX = p.X + (btnW - totalW) / 2f;
 
-                var textColor = isActive ? UiSharedService.ThemeNavTextActive : hovered ? UiSharedService.ThemeNavTextHovered : UiSharedService.ThemeNavText;
+                Vector4 textColor;
+                if (isActive) textColor = UiSharedService.ThemeNavTextActive;
+                else if (hovered) textColor = UiSharedService.ThemeNavTextHovered;
+                else textColor = UiSharedService.ThemeNavText;
                 var textColorU32 = ImGui.GetColorU32(textColor);
 
                 ImGui.PushFont(UiBuilder.IconFont);
@@ -4014,9 +4021,11 @@ public class SettingsUi : WindowMediatorSubscriberBase
                     (false, true) => "Settings.Modules.State.PendingOn",
                     (true, false) => "Settings.Modules.State.PendingOff",
                 };
-                UiSharedService.ColorText(Loc.Get(stateKey), active == enabled
-                    ? (active ? ImGuiColors.HealerGreen : ImGuiColors.DalamudGrey)
-                    : ImGuiColors.DalamudYellow);
+                Vector4 stateColor;
+                if (active != enabled) stateColor = ImGuiColors.DalamudYellow;
+                else if (active) stateColor = ImGuiColors.HealerGreen;
+                else stateColor = ImGuiColors.DalamudGrey;
+                UiSharedService.ColorText(Loc.Get(stateKey), stateColor);
                 UiSharedService.TextWrapped(Loc.Get(module.DescriptionKey));
             });
         }
@@ -4373,18 +4382,21 @@ public class SettingsUi : WindowMediatorSubscriberBase
     }
 
     // Pastille d'état en tête de la carte : ce que les autres voient, en un coup d'œil.
+    private (string Key, Vector4 Color, FontAwesomeIcon Icon) ResolveAutoDetectStatus(bool enabled, bool suppressed)
+    {
+        if (!enabled) return ("Settings.AutoDetect.Status.Off", ImGuiColors.DalamudGrey, FontAwesomeIcon.EyeSlash);
+        if (suppressed) return ("Settings.AutoDetect.Status.Suppressed", ImGuiColors.DalamudOrange, FontAwesomeIcon.PauseCircle);
+        return _nearbyDiscoveryService?.Visibility switch
+        {
+            NearbyVisibility.HiddenAfk => ("Settings.AutoDetect.Status.HiddenAfk", ImGuiColors.DalamudYellow, FontAwesomeIcon.Moon),
+            NearbyVisibility.HiddenNotRoleplaying => ("Settings.AutoDetect.Status.HiddenNotRoleplaying", ImGuiColors.DalamudYellow, FontAwesomeIcon.TheaterMasks),
+            _ => ("Settings.AutoDetect.Status.Visible", ImGuiColors.HealerGreen, FontAwesomeIcon.Eye),
+        };
+    }
+
     private void DrawAutoDetectStatus(bool enabled, bool suppressed)
     {
-        var (key, color, icon) = !enabled
-            ? ("Settings.AutoDetect.Status.Off", ImGuiColors.DalamudGrey, FontAwesomeIcon.EyeSlash)
-            : suppressed
-                ? ("Settings.AutoDetect.Status.Suppressed", ImGuiColors.DalamudOrange, FontAwesomeIcon.PauseCircle)
-                : _nearbyDiscoveryService?.Visibility switch
-                {
-                    NearbyVisibility.HiddenAfk => ("Settings.AutoDetect.Status.HiddenAfk", ImGuiColors.DalamudYellow, FontAwesomeIcon.Moon),
-                    NearbyVisibility.HiddenNotRoleplaying => ("Settings.AutoDetect.Status.HiddenNotRoleplaying", ImGuiColors.DalamudYellow, FontAwesomeIcon.TheaterMasks),
-                    _ => ("Settings.AutoDetect.Status.Visible", ImGuiColors.HealerGreen, FontAwesomeIcon.Eye),
-                };
+        var (key, color, icon) = ResolveAutoDetectStatus(enabled, suppressed);
 
         var scale = ImGuiHelpers.GlobalScale;
         var label = Loc.Get(key);

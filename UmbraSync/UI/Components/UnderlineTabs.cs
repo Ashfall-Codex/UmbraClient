@@ -36,8 +36,11 @@ internal static class UnderlineTabs
             if (clicked) active = i;
             bool isActive = active == i;
 
-            var textColor = ImGui.GetColorU32(isActive ? UiSharedService.AccentColor
-                : hovered ? UiSharedService.ThemeNavTextHovered : UiSharedService.ThemeNavText);
+            Vector4 textTint;
+            if (isActive) textTint = UiSharedService.AccentColor;
+            else if (hovered) textTint = UiSharedService.ThemeNavTextHovered;
+            else textTint = UiSharedService.ThemeNavText;
+            var textColor = ImGui.GetColorU32(textTint);
             string icon = icons[i].ToIconString();
             Vector2 iconSize;
             using (ImRaii.PushFont(UiBuilder.IconFont))

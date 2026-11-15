@@ -186,7 +186,7 @@ public sealed class AshfallLinkCodeUi : WindowMediatorSubscriberBase
 
         if (string.IsNullOrEmpty(_code)) return;
 
-        // Code en gros, format XXXX-XXXX
+        // Code en gros, en deux groupes de quatre caractères
         var displayed = _code.Length == 8 ? $"{_code[..4]}-{_code[4..]}" : _code;
         using (ImRaii.PushFont(UiBuilder.MonoFont))
         using (ImRaii.PushColor(ImGuiCol.Text, Gold))
@@ -203,9 +203,10 @@ public sealed class AshfallLinkCodeUi : WindowMediatorSubscriberBase
         var remaining = _expiresAt - DateTimeOffset.UtcNow;
         if (remaining < TimeSpan.Zero) remaining = TimeSpan.Zero;
         var secondsLeft = (int)remaining.TotalSeconds;
-        var timerColor = secondsLeft < 60 ? ImGuiColors.DalamudRed
-                       : secondsLeft < 120 ? ImGuiColors.DalamudYellow
-                       : ImGuiColors.HealerGreen;
+        Vector4 timerColor;
+        if (secondsLeft < 60) timerColor = ImGuiColors.DalamudRed;
+        else if (secondsLeft < 120) timerColor = ImGuiColors.DalamudYellow;
+        else timerColor = ImGuiColors.HealerGreen;
         var timerText = $"Valable encore {remaining:mm\\:ss}";
         var timerSize = ImGui.CalcTextSize(timerText);
         ImGui.SetCursorPosX((ImGui.GetContentRegionAvail().X - timerSize.X) * 0.5f + ImGui.GetCursorPosX());

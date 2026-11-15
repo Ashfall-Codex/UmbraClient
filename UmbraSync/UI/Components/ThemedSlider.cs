@@ -111,14 +111,10 @@ public static partial class ThemedSlider
             var x = trackStart + tt * trackLength;
             var current = Math.Abs(min + i * step - value) < step * 0.01f;
             var major = i % MajorEvery == 0;
-            var color = current ? UiSharedService.ThemeNavTextActive
-                : major ? ImGuiColors.DalamudGrey3
-                : ImGuiColors.DalamudGrey3 with { W = 0.55f };
-            var dot = current ? 1.6f : major ? 1.1f : 0.7f;
-            dl.AddCircleFilled(new Vector2(x, tickY), dot * scale, ImGui.GetColorU32(color), 8);
+            dl.AddCircleFilled(new Vector2(x, tickY), NotchDotRadius(current, major) * scale, ImGui.GetColorU32(NotchColor(current, major)), 8);
         }
 
-        var radius = knobRadius * (active ? 1.08f : hovered ? 1.04f : 1f);
+        var radius = knobRadius * KnobScale(active, hovered);
         dl.AddCircleFilled(new Vector2(knobX, centerY + 1f * scale), radius, ImGui.GetColorU32(new Vector4(0f, 0f, 0f, 0.35f)), 24);
         dl.AddCircleFilled(new Vector2(knobX, centerY), radius, ImGui.GetColorU32(UiSharedService.ThemeNavTextActive), 24);
 
@@ -143,9 +139,34 @@ public static partial class ThemedSlider
         var match = FormatSpec().Match(format);
         if (!match.Success) return value.ToString(integer ? "0" : "0.###", CultureInfo.CurrentCulture);
 
-        string number = match.Groups["decimals"].Success
-            ? value.ToString("F" + match.Groups["decimals"].Value, CultureInfo.CurrentCulture)
-            : integer ? ((int)MathF.Round(value)).ToString(CultureInfo.CurrentCulture) : value.ToString("F3", CultureInfo.CurrentCulture);
+        string number;
+        if (match.Groups["decimals"].Success)
+            number = value.ToString("F" + match.Groups["decimals"].Value, CultureInfo.CurrentCulture);
+        else if (integer)
+            number = ((int)MathF.Round(value)).ToString(CultureInfo.CurrentCulture);
+        else
+            number = value.ToString("F3", CultureInfo.CurrentCulture);
         return format[..match.Index] + number + format[(match.Index + match.Length)..];
+    }
+
+    private static Vector4 NotchColor(bool current, bool major)
+    {
+        if (current) return UiSharedService.ThemeNavTextActive;
+        if (major) return ImGuiColors.DalamudGrey3;
+        return ImGuiColors.DalamudGrey3 with { W = 0.55f };
+    }
+
+    private static float NotchDotRadius(bool current, bool major)
+    {
+        if (current) return 1.6f;
+        if (major) return 1.1f;
+        return 0.7f;
+    }
+
+    private static float KnobScale(bool active, bool hovered)
+    {
+        if (active) return 1.08f;
+        if (hovered) return 1.04f;
+        return 1f;
     }
 }

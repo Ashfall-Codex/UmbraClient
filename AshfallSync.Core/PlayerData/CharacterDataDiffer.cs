@@ -48,47 +48,7 @@ public static class CharacterDataDiffer
                     {
                         logger.LogDebug("[BASE-{appBase}] Updating {object}/{kind} (FileReplacements not equal) => {change}", applicationBase, playerLabel, objectKind, PlayerChanges.ModFiles);
                         charaDataToUpdate[objectKind].Add(PlayerChanges.ModFiles);
-                        // XXX: This logic is disabled disabled because it seems to skip redrawing for something as basic as toggling a gear mod
-#if false
-                        if (forceApplyMods || objectKind != ObjectKind.Player)
-                        {
-                            charaDataToUpdate[objectKind].Add(PlayerChanges.ForcedRedraw);
-                        }
-                        else
-                        {
-                            var existingFace = existingFileReplacements.Where(g => g.GamePaths.Any(p => p.Contains("/face/", StringComparison.OrdinalIgnoreCase)))
-                                .OrderBy(g => string.IsNullOrEmpty(g.Hash) ? g.FileSwapPath : g.Hash, StringComparer.OrdinalIgnoreCase).ToList();
-                            var existingHair = existingFileReplacements.Where(g => g.GamePaths.Any(p => p.Contains("/hair/", StringComparison.OrdinalIgnoreCase)))
-                                .OrderBy(g => string.IsNullOrEmpty(g.Hash) ? g.FileSwapPath : g.Hash, StringComparer.OrdinalIgnoreCase).ToList();
-                            var existingTail = existingFileReplacements.Where(g => g.GamePaths.Any(p => p.Contains("/tail/", StringComparison.OrdinalIgnoreCase)))
-                                .OrderBy(g => string.IsNullOrEmpty(g.Hash) ? g.FileSwapPath : g.Hash, StringComparer.OrdinalIgnoreCase).ToList();
-                            var newFace = newFileReplacements.Where(g => g.GamePaths.Any(p => p.Contains("/face/", StringComparison.OrdinalIgnoreCase)))
-                                .OrderBy(g => string.IsNullOrEmpty(g.Hash) ? g.FileSwapPath : g.Hash, StringComparer.OrdinalIgnoreCase).ToList();
-                            var newHair = newFileReplacements.Where(g => g.GamePaths.Any(p => p.Contains("/hair/", StringComparison.OrdinalIgnoreCase)))
-                                .OrderBy(g => string.IsNullOrEmpty(g.Hash) ? g.FileSwapPath : g.Hash, StringComparer.OrdinalIgnoreCase).ToList();
-                            var newTail = newFileReplacements.Where(g => g.GamePaths.Any(p => p.Contains("/tail/", StringComparison.OrdinalIgnoreCase)))
-                                .OrderBy(g => string.IsNullOrEmpty(g.Hash) ? g.FileSwapPath : g.Hash, StringComparer.OrdinalIgnoreCase).ToList();
-                            var existingTransients = existingFileReplacements.Where(g => g.GamePaths.Any(g => !g.EndsWith("mdl") && !g.EndsWith("tex") && !g.EndsWith("mtrl")))
-                                .OrderBy(g => string.IsNullOrEmpty(g.Hash) ? g.FileSwapPath : g.Hash, StringComparer.OrdinalIgnoreCase).ToList();
-                            var newTransients = newFileReplacements.Where(g => g.GamePaths.Any(g => !g.EndsWith("mdl") && !g.EndsWith("tex") && !g.EndsWith("mtrl")))
-                                .OrderBy(g => string.IsNullOrEmpty(g.Hash) ? g.FileSwapPath : g.Hash, StringComparer.OrdinalIgnoreCase).ToList();
-
-                            logger.LogTrace("[BASE-{appbase}] ExistingFace: {of}, NewFace: {fc}; ExistingHair: {eh}, NewHair: {nh}; ExistingTail: {et}, NewTail: {nt}; ExistingTransient: {etr}, NewTransient: {ntr}", applicationBase,
-                                existingFace.Count, newFace.Count, existingHair.Count, newHair.Count, existingTail.Count, newTail.Count, existingTransients.Count, newTransients.Count);
-
-                            var differentFace = !existingFace.SequenceEqual(newFace, FileReplacementDataComparer.Instance);
-                            var differentHair = !existingHair.SequenceEqual(newHair, FileReplacementDataComparer.Instance);
-                            var differentTail = !existingTail.SequenceEqual(newTail, FileReplacementDataComparer.Instance);
-                            var differenTransients = !existingTransients.SequenceEqual(newTransients, FileReplacementDataComparer.Instance);
-                            if (differentFace || differentHair || differentTail || differenTransients)
-                            {
-                                logger.LogDebug("[BASE-{appbase}] Different Subparts: Face: {face}, Hair: {hair}, Tail: {tail}, Transients: {transients} => {change}", applicationBase,
-                                    differentFace, differentHair, differentTail, differenTransients, PlayerChanges.ForcedRedraw);
-                                charaDataToUpdate[objectKind].Add(PlayerChanges.ForcedRedraw);
-                            }
-                        }
-#endif
-                        // XXX: Redraw on mod file changes always
+                        // Un changement de fichiers de mod force toujours un redraw
                         charaDataToUpdate[objectKind].Add(PlayerChanges.ForcedRedraw);
                     }
                 }

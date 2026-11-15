@@ -742,23 +742,6 @@ public class DalamudUtilService : IHostedService, IMediatorSubscriber
         return true;
     }
 
-    public unsafe void WaitWhileGposeCharacterIsDrawing(IntPtr characterAddress, int timeOut = 5000)
-    {
-        Thread.Sleep(500);
-        var obj = (GameObject*)characterAddress;
-        const int tick = 250;
-        int curWaitTime = 0;
-        _logger.LogTrace("RenderFlags: {flags}", obj->RenderFlags.ToString("X"));
-        while (NativeGameObjectUtils.IsLoadingRenderFlags(obj->RenderFlags) && curWaitTime < timeOut)
-        {
-            _logger.LogTrace($"Waiting for gpose actor to finish drawing");
-            curWaitTime += tick;
-            Thread.Sleep(tick);
-        }
-
-        Thread.Sleep(tick * 2);
-    }
-
     public Vector2 WorldToScreen(Dalamud.Game.ClientState.Objects.Types.IGameObject? obj)
     {
         if (obj == null) return Vector2.Zero;

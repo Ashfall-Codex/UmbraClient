@@ -53,8 +53,9 @@ public sealed class AshfallConnectService : IDisposable
             if (!res.IsSuccessStatusCode) return null;
             return await res.Content.ReadFromJsonAsync<MyStatusResult>(cancellationToken: token).ConfigureAwait(false);
         }
-        catch
+        catch (Exception ex)
         {
+            _logger.LogDebug(ex, "Ashfall Connect status request failed");
             return null;
         }
     }
@@ -78,8 +79,9 @@ public sealed class AshfallConnectService : IDisposable
             if (!res.IsSuccessStatusCode) return null;
             return await res.Content.ReadFromJsonAsync<LinkCodeStatus>(cancellationToken: token).ConfigureAwait(false);
         }
-        catch
+        catch (Exception ex)
         {
+            _logger.LogDebug(ex, "Ashfall Connect link code request failed");
             return null;
         }
     }

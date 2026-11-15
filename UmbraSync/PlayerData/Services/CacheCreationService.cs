@@ -316,7 +316,7 @@ public sealed class CacheCreationService : DisposableMediatorSubscriberBase
 
         if (_cachesToCreate.Count != 0 && (_cacheCreationTask?.IsCompleted ?? true))
         {
-            _cacheCreateLock.Wait();
+            if (!_cacheCreateLock.Wait(0)) return;
             var toCreate = _cachesToCreate.ToList();
             _cachesToCreate.Clear();
             _cacheCreateLock.Release();

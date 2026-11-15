@@ -129,9 +129,10 @@ public class ChatEmoteHighlightService : DisposableMediatorSubscriberBase, IRunt
         var regions = new List<(int start, int end, HighlightKind kind)>(matches.Count);
         foreach (Match m in matches)
         {
-            var kind = m.Groups[GroupQuotes].Success ? HighlightKind.Quotes
-                     : m.Groups[GroupHrp].Success ? HighlightKind.Hrp
-                     : HighlightKind.Emote;
+            HighlightKind kind;
+            if (m.Groups[GroupQuotes].Success) kind = HighlightKind.Quotes;
+            else if (m.Groups[GroupHrp].Success) kind = HighlightKind.Hrp;
+            else kind = HighlightKind.Emote;
             regions.Add((m.Index, m.Index + m.Length, kind));
         }
 

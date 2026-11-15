@@ -149,10 +149,13 @@ internal partial class EstablishmentDetailUi
                 }
             }, stretchWidth: true);
 
-            DrawSectionFooter(Loc.Get(isManager ? "Establishment.Affiliation.ManagerFooter"
-                : affiliation == null ? (isOwner ? "Establishment.Affiliation.IntroOwner" : "Establishment.Affiliation.Intro")
-                : affiliation.Status == EstablishmentAffiliationStatus.Pending ? "Establishment.Affiliation.PendingFooter"
-                : affiliation.ShowOnProfile ? "Establishment.Affiliation.MemberFooter" : "Establishment.Affiliation.MemberHiddenFooter"));
+            string footerKey;
+            if (isManager) footerKey = "Establishment.Affiliation.ManagerFooter";
+            else if (affiliation == null) footerKey = isOwner ? "Establishment.Affiliation.IntroOwner" : "Establishment.Affiliation.Intro";
+            else if (affiliation.Status == EstablishmentAffiliationStatus.Pending) footerKey = "Establishment.Affiliation.PendingFooter";
+            else if (affiliation.ShowOnProfile) footerKey = "Establishment.Affiliation.MemberFooter";
+            else footerKey = "Establishment.Affiliation.MemberHiddenFooter";
+            DrawSectionFooter(Loc.Get(footerKey));
 
             if (!isManager)
                 DrawAffiliationActions(profile, affiliation, isOwner);

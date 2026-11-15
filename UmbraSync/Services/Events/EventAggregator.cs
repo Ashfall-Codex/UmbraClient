@@ -10,6 +10,7 @@ public class EventAggregator : MediatorSubscriberBase, IHostedService
 {
     private readonly RollingList<Event> _events = new(500);
     private readonly SemaphoreSlim _lock = new(1);
+    private Task _writeChain = Task.CompletedTask;
     private readonly string _configDirectory;
     private readonly ILogger<EventAggregator> _logger;
 
@@ -28,12 +29,17 @@ public class EventAggregator : MediatorSubscriberBase, IHostedService
             {
                 Logger.LogTrace("Received Event: {evt}", msg.Event.ToString());
                 _events.Add(msg.Event);
-                if (configService.Current.LogEvents)
-                    WriteToFile(msg.Event);
             }
             finally
             {
                 _lock.Release();
+            }
+
+            // L'écriture disque quitte le thread du jeu ; la chaîne garde l'ordre des événements.
+            if (configService.Current.LogEvents)
+            {
+                var received = msg.Event;
+                _writeChain = _writeChain.ContinueWith(_ => WriteToFile(received), CancellationToken.None, TaskContinuationOptions.None, TaskScheduler.Default);
             }
 
             RecreateLazy();

@@ -48,9 +48,8 @@ public sealed partial class CharaDataHubUi
 
         if (!_uiSharedService.ApiController.IsConnected)
         {
-            ImGuiHelpers.ScaledDummy(5);
-            UiSharedService.DrawGroupedCenteredColorText(Loc.Get("HousingShare.ServerRequired"), UiSharedService.AccentColor);
-            ImGuiHelpers.ScaledDummy(5);
+            _uiSharedService.DrawEmptyState(FontAwesomeIcon.Unlink,
+                Loc.Get("EmptyState.ServerRequired.Title"), Loc.Get("EmptyState.ServerRequired.Hint"));
             return;
         }
 
@@ -166,13 +165,7 @@ public sealed partial class CharaDataHubUi
         var entries = manager.Entries;
         if (entries.Count == 0)
         {
-            string key = _decorSubTab switch
-            {
-                DecorTabFavorites => "DecorCatalog.Empty.Favorites",
-                DecorTabMine => "DecorCatalog.Empty.Mine",
-                _ => "DecorCatalog.Empty",
-            };
-            ImGui.TextDisabled(Loc.Get(key));
+            DrawDecorGridEmpty(manager);
             return;
         }
 
@@ -190,6 +183,56 @@ public sealed partial class CharaDataHubUi
         }
     }
 
+    private void DrawDecorGridEmpty(DecorCatalogManager manager)
+    {
+        float pad = 12f * ImGuiHelpers.GlobalScale;
+        if (manager.IsBusy)
+        {
+            _uiSharedService.DrawEmptyState(FontAwesomeIcon.CloudDownloadAlt,
+                Loc.Get("EmptyState.DecorCatalog.Loading.Title"), Loc.Get("EmptyState.DecorCatalog.Loading.Hint"), topPadding: pad);
+        }
+        else if (!string.IsNullOrWhiteSpace(_decorSearch))
+        {
+            if (_uiSharedService.DrawEmptyState(FontAwesomeIcon.Search,
+                    Loc.Get("EmptyState.DecorCatalog.NoResult.Title"), Loc.Get("EmptyState.DecorCatalog.NoResult.Hint"),
+                    Loc.Get("EmptyState.DecorCatalog.NoResult.Button"), FontAwesomeIcon.Times, topPadding: pad))
+            {
+                _decorSearch = string.Empty;
+                _decorPage = 0;
+                DecorSearch();
+            }
+        }
+        else
+        {
+            var (icon, title, hint) = _decorSubTab switch
+            {
+                DecorTabFavorites => (FontAwesomeIcon.Star, "EmptyState.DecorCatalog.Favorites.Title", "EmptyState.DecorCatalog.Favorites.Hint"),
+                DecorTabMine => (FontAwesomeIcon.User, "EmptyState.DecorCatalog.Mine.Title", "EmptyState.DecorCatalog.Mine.Hint"),
+                _ => (FontAwesomeIcon.Store, "EmptyState.DecorCatalog.All.Title", "EmptyState.DecorCatalog.All.Hint"),
+            };
+            _uiSharedService.DrawEmptyState(icon, Loc.Get(title), Loc.Get(hint), topPadding: pad);
+        }
+        ImGuiHelpers.ScaledDummy(8f);
+    }
+
+    private void DrawDecorPreviewPlaceholder(Vector2 size)
+    {
+        float scale = ImGuiHelpers.GlobalScale;
+        var pos = ImGui.GetCursorScreenPos();
+        var fill = UiSharedService.AccentColor with { W = 0.16f };
+        ImGui.GetWindowDrawList().AddRectFilled(pos, pos + size, UiSharedService.Color(fill), UiSharedService.RadiusControl * scale);
+        ImGui.Dummy(size);
+        var after = ImGui.GetCursorPos();
+        ImGui.SetCursorScreenPos(pos + size / 2f - new Vector2(10f, 10f) * scale);
+        _uiSharedService.IconText(FontAwesomeIcon.Images, UiSharedService.AccentColor with { W = 0.6f });
+        ImGui.SetCursorPos(after);
+    }
+
+    private static void DrawDecorFieldLabel(string label)
+    {
+        ImGui.TextColored(ImGuiColors.DalamudGrey, label);
+    }
+
     private void DrawDecorCard(DecorCatalogManager manager, StageShareManager stages, DecorCatalogEntryDto entry, float cardWidth)
     {
         float scale = ImGuiHelpers.GlobalScale;
@@ -205,14 +248,7 @@ public sealed partial class CharaDataHubUi
         }
         else
         {
-            var pos = ImGui.GetCursorScreenPos();
-            var fill = UiSharedService.AccentColor with { W = 0.16f };
-            ImGui.GetWindowDrawList().AddRectFilled(pos, pos + previewSize, UiSharedService.Color(fill), UiSharedService.RadiusControl * scale);
-            ImGui.Dummy(previewSize);
-            var after = ImGui.GetCursorPos();
-            ImGui.SetCursorScreenPos(pos + previewSize / 2f - new Vector2(10f, 10f) * scale);
-            _uiSharedService.IconText(FontAwesomeIcon.Images, UiSharedService.AccentColor with { W = 0.6f });
-            ImGui.SetCursorPos(after);
+            DrawDecorPreviewPlaceholder(previewSize);
         }
 
         UiSharedService.ColorText(entry.Name, UiSharedService.AccentColor);
@@ -344,13 +380,14 @@ public sealed partial class CharaDataHubUi
 
         float scale = ImGuiHelpers.GlobalScale;
         UiSharedService.BeginSectionCard(string.Format(CultureInfo.CurrentCulture, Loc.Get("DecorCatalog.Edit.Title"), entry.Name), FontAwesomeIcon.Edit);
-        ImGui.SetNextItemWidth(400f * scale);
+        float fieldWidth = MathF.Min(480f * scale, ImGui.GetContentRegionAvail().X);
+        DrawDecorFieldLabel(Loc.Get("DecorCatalog.Name"));
+        ImGui.SetNextItemWidth(fieldWidth);
         ImGui.InputTextWithHint("##decorEditName", Loc.Get("DecorCatalog.Name.Hint"), ref _decorEditName, DecorCatalogManager.MaxNameLength);
-        ImGui.SameLine();
-        ImGui.TextUnformatted(Loc.Get("DecorCatalog.Name"));
-        ImGui.InputTextMultiline("##decorEditDescription", ref _decorEditDescription, DecorCatalogManager.MaxDescriptionLength, new Vector2(400f * scale, 80f * scale));
-        ImGui.SameLine();
-        ImGui.TextUnformatted(Loc.Get("DecorCatalog.Description"));
+        ImGuiHelpers.ScaledDummy(4f);
+        DrawDecorFieldLabel(Loc.Get("DecorCatalog.Description"));
+        ImGui.InputTextMultiline("##decorEditDescription", ref _decorEditDescription, DecorCatalogManager.MaxDescriptionLength, new Vector2(fieldWidth, 80f * scale));
+        ImGuiHelpers.ScaledDummy(4f);
 
         string previewState = _decorEditPreview switch
         {
@@ -358,7 +395,8 @@ public sealed partial class CharaDataHubUi
             "" => Loc.Get("DecorCatalog.Preview.Removed"),
             _ => Loc.Get("DecorCatalog.Preview.New"),
         };
-        ImGui.TextUnformatted(Loc.Get("DecorCatalog.Preview") + " : " + previewState);
+        DrawDecorFieldLabel(Loc.Get("DecorCatalog.Preview"));
+        ImGui.TextUnformatted(previewState);
         if (_decorEditPreviewError)
             UiSharedService.ColorTextWrapped(Loc.Get("DecorCatalog.Preview.Error"), ImGuiColors.DalamudRed);
         if (_uiSharedService.IconTextButton(FontAwesomeIcon.Image, Loc.Get("DecorCatalog.Preview.Change")))
@@ -379,10 +417,10 @@ public sealed partial class CharaDataHubUi
                 _decorEditPreview = string.Empty;
         }
 
-        ImGuiHelpers.ScaledDummy(3);
+        ImGuiHelpers.ScaledDummy(6f);
         using (ImRaii.Disabled(manager.IsBusy || string.IsNullOrWhiteSpace(_decorEditName)))
         {
-            if (_uiSharedService.IconTextButton(FontAwesomeIcon.Save, Loc.Get("DecorCatalog.Edit.Save")))
+            if (CapsuleButton.Draw(Loc.Get("DecorCatalog.Edit.Save"), FontAwesomeIcon.Save))
             {
                 _ = manager.UpdateAsync(entry.Id, _decorEditName, _decorEditDescription, _decorEditPreview);
                 _decorEditingId = null;
@@ -429,13 +467,18 @@ public sealed partial class CharaDataHubUi
         LocalStageDefinition[] localStages = _localStagesPoll.Poll(_logger);
         if (localStages.Length == 0)
         {
-            ImGui.TextDisabled(Loc.Get("Stages.NoLocalStage"));
+            _uiSharedService.DrawEmptyState(FontAwesomeIcon.Cubes,
+                Loc.Get("EmptyState.DecorCatalog.NoLocalStage.Title"), Loc.Get("EmptyState.DecorCatalog.NoLocalStage.Hint"),
+                topPadding: 12f * scale);
+            ImGuiHelpers.ScaledDummy(8f);
             return;
         }
 
+        float fieldWidth = MathF.Min(480f * scale, ImGui.GetContentRegionAvail().X);
         int selectedIndex = Array.FindIndex(localStages, s => string.Equals(s.Filename, _decorPublishSelectedFilename, StringComparison.Ordinal));
         string preview = selectedIndex >= 0 ? StageLabel(localStages[selectedIndex]) : Loc.Get("Stages.SelectStage");
-        ImGui.SetNextItemWidth(300f * scale);
+        DrawDecorFieldLabel(Loc.Get("Stages.LocalStage"));
+        ImGui.SetNextItemWidth(fieldWidth);
         using (var combo = UiSharedService.Combo("##decorPublishSelect", preview))
         {
             if (combo)
@@ -452,8 +495,6 @@ public sealed partial class CharaDataHubUi
                 }
             }
         }
-        ImGui.SameLine();
-        ImGui.TextUnformatted(Loc.Get("Stages.LocalStage"));
 
         bool selectedMissing = false;
         if (selectedIndex >= 0)
@@ -464,27 +505,32 @@ public sealed partial class CharaDataHubUi
                 UiSharedService.ColorTextWrapped(Loc.Get("Stages.Error.FileNotFound"), ImGuiColors.DalamudRed);
         }
 
-        ImGui.SetNextItemWidth(400f * scale);
+        ImGuiHelpers.ScaledDummy(4f);
+        DrawDecorFieldLabel(Loc.Get("DecorCatalog.Name"));
+        ImGui.SetNextItemWidth(fieldWidth);
         ImGui.InputTextWithHint("##decorPublishName", Loc.Get("DecorCatalog.Name.Hint"), ref _decorPublishName, DecorCatalogManager.MaxNameLength);
-        ImGui.SameLine();
-        ImGui.TextUnformatted(Loc.Get("DecorCatalog.Name"));
-        ImGui.InputTextMultiline("##decorPublishDescription", ref _decorPublishDescription, DecorCatalogManager.MaxDescriptionLength, new Vector2(400f * scale, 80f * scale));
-        ImGui.SameLine();
-        ImGui.TextUnformatted(Loc.Get("DecorCatalog.Description"));
+        ImGuiHelpers.ScaledDummy(4f);
+        DrawDecorFieldLabel(Loc.Get("DecorCatalog.Description"));
+        ImGui.InputTextMultiline("##decorPublishDescription", ref _decorPublishDescription, DecorCatalogManager.MaxDescriptionLength, new Vector2(fieldWidth, 80f * scale));
+        ImGuiHelpers.ScaledDummy(4f);
 
         if (UiSharedService.TryConsumeUiTask(ref _decorPublishPreviewTask, _logger, out IDalamudTextureWrap? loaded) && loaded != null)
         {
             _decorPublishPreviewTexture?.Dispose();
             _decorPublishPreviewTexture = loaded;
         }
+        DrawDecorFieldLabel(Loc.Get("DecorCatalog.Preview"));
+        var previewSize = new Vector2(240f * scale, 240f * scale * 9f / 16f);
         if (_decorPublishPreviewTexture != null && _decorPublishPreview != null)
         {
-            float width = 240f * scale;
-            ImGui.Image(_decorPublishPreviewTexture.Handle, new Vector2(width, width * 9f / 16f));
+            var pos = ImGui.GetCursorScreenPos();
+            ImGui.GetWindowDrawList().AddImageRounded(_decorPublishPreviewTexture.Handle, pos, pos + previewSize,
+                Vector2.Zero, Vector2.One, ImGui.GetColorU32(Vector4.One), UiSharedService.RadiusControl * scale);
+            ImGui.Dummy(previewSize);
         }
         else
         {
-            ImGui.TextDisabled(Loc.Get("DecorCatalog.Preview.None"));
+            DrawDecorPreviewPlaceholder(previewSize);
         }
         if (_decorPublishPreviewError)
             UiSharedService.ColorTextWrapped(Loc.Get("DecorCatalog.Preview.Error"), ImGuiColors.DalamudRed);
@@ -508,12 +554,32 @@ public sealed partial class CharaDataHubUi
                 ClearDecorPublishPreview();
         }
 
-        ImGuiHelpers.ScaledDummy(3);
-        bool canPublish = selectedIndex >= 0 && !selectedMissing && !string.IsNullOrWhiteSpace(_decorPublishName)
-                          && manager.IsStagehandAvailable && !manager.IsBusy && !stages.IsBusy;
+        ImGuiHelpers.ScaledDummy(6f);
+        bool busy = manager.IsBusy || stages.IsBusy;
+        string? blockedHint = null;
+        if (!manager.IsStagehandAvailable) blockedHint = Loc.Get("DecorCatalog.Publish.Blocked.Stagehand");
+        else if (selectedIndex < 0) blockedHint = Loc.Get("DecorCatalog.Publish.Blocked.SelectStage");
+        else if (selectedMissing) blockedHint = Loc.Get("DecorCatalog.Publish.Blocked.FileMissing");
+        else if (string.IsNullOrWhiteSpace(_decorPublishName)) blockedHint = Loc.Get("DecorCatalog.Publish.Blocked.Name");
+        bool canPublish = blockedHint == null && !busy;
+
+        string publishLabel = Loc.Get("DecorCatalog.Publish");
+        float buttonWidth = CapsuleButton.MeasureWidth(publishLabel, FontAwesomeIcon.Upload);
+        float rowStartX = ImGui.GetCursorPosX();
+        float rowWidth = ImGui.GetContentRegionAvail().X;
+        float rowY = ImGui.GetCursorPosY();
+        if (blockedHint != null)
+        {
+            ImGui.SetCursorPosY(rowY + MathF.Max(0f, (CapsuleButton.HitRegionHeight - ImGui.GetTextLineHeight()) / 2f));
+            ImGui.PushTextWrapPos(rowStartX + rowWidth - buttonWidth - ImGui.GetStyle().ItemSpacing.X);
+            ImGui.TextColored(ImGuiColors.DalamudGrey, blockedHint);
+            ImGui.PopTextWrapPos();
+            ImGui.SameLine();
+        }
+        ImGui.SetCursorPos(new Vector2(rowStartX + rowWidth - buttonWidth, rowY));
         using (ImRaii.Disabled(!canPublish))
         {
-            if (_uiSharedService.IconTextButton(FontAwesomeIcon.Upload, Loc.Get("DecorCatalog.Publish")) && canPublish)
+            if (CapsuleButton.Draw(publishLabel, FontAwesomeIcon.Upload) && canPublish)
             {
                 _ = manager.PublishAsync(localStages[selectedIndex], _decorPublishName, _decorPublishDescription, _decorPublishPreview);
                 _decorPublishName = string.Empty;

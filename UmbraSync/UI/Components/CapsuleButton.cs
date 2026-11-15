@@ -44,9 +44,10 @@ public static class CapsuleButton
         bool pressed = hovered && ImGui.IsItemActive();
         if (hovered) ImGui.SetMouseCursor(ImGuiMouseCursor.Hand);
 
-        var fill = pressed ? UiSharedService.ThemeCapsulePressed
-            : hovered ? UiSharedService.ThemeCapsuleHovered
-            : UiSharedService.ThemeCapsule;
+        Vector4 fill;
+        if (pressed) fill = UiSharedService.ThemeCapsulePressed;
+        else if (hovered) fill = UiSharedService.ThemeCapsuleHovered;
+        else fill = UiSharedService.ThemeCapsule;
         var border = hovered ? UiSharedService.ThemeCapsuleBorderHovered : UiSharedService.ThemeCapsuleBorder;
         var labelColor = role == CapsuleButtonRole.Destructive ? UiSharedService.ThemeDestructive : UiSharedService.ThemeCapsuleLabel;
         if (pressed) labelColor.W *= PressedLabelOpacity;

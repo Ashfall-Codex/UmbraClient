@@ -61,14 +61,10 @@ public static class GlassSlider
             var x = trackStart + t * trackLength;
             var current = Math.Abs(t - value) < 0.001f;
             var major = i % MajorEvery == 0;
-            var color = current ? UiSharedService.ThemeNavTextActive
-                : major ? ImGuiColors.DalamudGrey3
-                : ImGuiColors.DalamudGrey3 with { W = 0.55f };
-            var dot = current ? 1.6f : major ? 1.1f : 0.7f;
-            dl.AddCircleFilled(new Vector2(x, tickY), dot * scale, ImGui.GetColorU32(color), 8);
+            dl.AddCircleFilled(new Vector2(x, tickY), NotchDotRadius(current, major) * scale, ImGui.GetColorU32(NotchColor(current, major)), 8);
         }
 
-        var radius = knobRadius * (active ? 1.08f : hovered ? 1.04f : 1f);
+        var radius = knobRadius * KnobScale(active, hovered);
         dl.AddCircleFilled(new Vector2(knobX, centerY + 1f * scale), radius, ImGui.GetColorU32(new Vector4(0f, 0f, 0f, 0.35f)), 24);
         dl.AddCircleFilled(new Vector2(knobX, centerY), radius, ImGui.GetColorU32(UiSharedService.ThemeNavTextActive), 24);
 
@@ -86,6 +82,27 @@ public static class GlassSlider
         ImGui.SetCursorScreenPos(new Vector2(origin.X, origin.Y + height));
         ImGui.Dummy(new Vector2(width, 0f));
         return released;
+    }
+
+    private static Vector4 NotchColor(bool current, bool major)
+    {
+        if (current) return UiSharedService.ThemeNavTextActive;
+        if (major) return ImGuiColors.DalamudGrey3;
+        return ImGuiColors.DalamudGrey3 with { W = 0.55f };
+    }
+
+    private static float NotchDotRadius(bool current, bool major)
+    {
+        if (current) return 1.6f;
+        if (major) return 1.1f;
+        return 0.7f;
+    }
+
+    private static float KnobScale(bool active, bool hovered)
+    {
+        if (active) return 1.08f;
+        if (hovered) return 1.04f;
+        return 1f;
     }
 
     private static float Snap(float raw)

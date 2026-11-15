@@ -224,7 +224,7 @@ public class PlayerPerformanceService : DisposableMediatorSubscriberBase
         if (config.TextureShrinkMode == MareConfiguration.Models.TextureShrinkMode.Never)
             return false;
 
-        // XXX: Temporary
+        // Repli provisoire : le mode par défaut ne réduit pas les textures.
         if (config.TextureShrinkMode == MareConfiguration.Models.TextureShrinkMode.Default)
             return false;
 

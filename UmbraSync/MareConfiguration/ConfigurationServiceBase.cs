@@ -63,9 +63,9 @@ public abstract class ConfigurationServiceBase<T> : IConfigService<T> where T : 
             {
                 config = JsonSerializer.Deserialize<T>(File.ReadAllText(ConfigurationPath));
             }
-            catch
+            catch (Exception ex)
             {
-                // config failed to load for some reason
+                ConfigurationDiagnostics.Report($"Configuration {ConfigurationName} illisible, tentative de restauration depuis une sauvegarde", ex);
                 config = AttemptToLoadBackup();
             }
         }
@@ -101,9 +101,9 @@ public abstract class ConfigurationServiceBase<T> : IConfigService<T> where T : 
                 File.Copy(file, ConfigurationPath, true);
                 return config;
             }
-            catch
+            catch (Exception ex)
             {
-                // couldn't load backup, might as well delete it
+                ConfigurationDiagnostics.Report($"Sauvegarde {Path.GetFileName(file)} illisible, supprimée", ex);
                 File.Delete(file);
             }
 

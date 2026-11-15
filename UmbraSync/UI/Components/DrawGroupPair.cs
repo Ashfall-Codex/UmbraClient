@@ -98,9 +98,10 @@ public class DrawGroupPair : DrawPairBase
         float roleWidth = 0f;
         if (showRole)
         {
-            var roleIcon = string.Equals(_pair.UserData.UID, _group.OwnerUID, StringComparison.Ordinal)
-                ? FontAwesomeIcon.Crown
-                : (_fullInfoDto.GroupPairStatusInfo.IsModerator() ? FontAwesomeIcon.UserShield : FontAwesomeIcon.Thumbtack);
+            FontAwesomeIcon roleIcon;
+            if (string.Equals(_pair.UserData.UID, _group.OwnerUID, StringComparison.Ordinal)) roleIcon = FontAwesomeIcon.Crown;
+            else if (_fullInfoDto.GroupPairStatusInfo.IsModerator()) roleIcon = FontAwesomeIcon.UserShield;
+            else roleIcon = FontAwesomeIcon.Thumbtack;
             roleWidth = UiSharedService.GetIconSize(roleIcon).X;
         }
 
@@ -294,9 +295,10 @@ public class DrawGroupPair : DrawPairBase
         bool showPause = true;
 
         var spacing = ImGui.GetStyle().ItemSpacing.X;
-        var permIcon = (individualAnimDisabled || individualSoundsDisabled || individualVFXDisabled)
-            ? FontAwesomeIcon.ExclamationTriangle
-            : ((soundsDisabled || animDisabled || vfxDisabled) ? FontAwesomeIcon.InfoCircle : FontAwesomeIcon.None);
+        FontAwesomeIcon permIcon;
+        if (individualAnimDisabled || individualSoundsDisabled || individualVFXDisabled) permIcon = FontAwesomeIcon.ExclamationTriangle;
+        else if (soundsDisabled || animDisabled || vfxDisabled) permIcon = FontAwesomeIcon.InfoCircle;
+        else permIcon = FontAwesomeIcon.None;
         float runningW = _uiSharedService.GetIconButtonSize(FontAwesomeIcon.Running).X;
         float infoMaxW = MathF.Max(
             UiSharedService.GetIconSize(FontAwesomeIcon.ExclamationTriangle).X,
