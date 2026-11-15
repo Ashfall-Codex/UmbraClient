@@ -365,6 +365,8 @@ public sealed class UmbraProfileManager : MediatorSubscriberBase, IDisposable
 
     public bool IsProfileFetchFailed(UmbraProfileData profile) => ReferenceEquals(profile, _defaultProfileData);
 
+    public bool IsProfileLoading(UmbraProfileData profile) => ReferenceEquals(profile, _loadingProfileData);
+
     public string? GetKnownLastSeenHonorific(UserData data, string? charName, uint? worldId)
     {
         if (string.IsNullOrEmpty(charName) || worldId is not > 0 || !IsCacheLoadedForCurrentUid()) return null;
@@ -433,9 +435,8 @@ public sealed class UmbraProfileManager : MediatorSubscriberBase, IDisposable
 
         if (pair != null)
         {
-            // Utilisateur online : utiliser les données du pair
             charName = pair.PlayerName;
-            worldId = pair.WorldId == 0 ? null : pair.WorldId;
+            worldId = pair.WorldId == 0 ? _serverConfigurationManager.GetWorldIdForUid(data.UID) : pair.WorldId;
         }
         else if (string.Equals(data.UID, _apiController.UID, StringComparison.Ordinal))
         {
@@ -465,12 +466,20 @@ public sealed class UmbraProfileManager : MediatorSubscriberBase, IDisposable
         var key = NormalizeKey(data, charName, worldId);
         if (!_umbraProfiles.TryGetValue(key, out var profile))
         {
-            if (_umbraProfiles.TryAdd(key, _loadingProfileData))
-                _ = Task.Run(() => GetUmbraProfileFromService(data, charName, worldId));
-            return (_loadingProfileData);
+            var persisted = GetPersistedProfile(data.UID, charName, worldId);
+            var seed = persisted ?? _loadingProfileData;
+            if (_umbraProfiles.TryAdd(key, seed))
+                _ = Task.Run(() => GetUmbraProfileFromService(data, charName, worldId, keepShown: persisted != null));
+            return seed;
         }
 
         return (profile);
+    }
+
+    private UmbraProfileData? GetPersistedProfile(string uid, string? charName, uint? worldId)
+    {
+        if (string.IsNullOrEmpty(charName) || worldId is not > 0 || !IsCacheLoadedForCurrentUid()) return null;
+        return _persistedProfiles.TryGetValue($"{uid}_{charName}_{worldId}", out var persisted) ? persisted.Profile : null;
     }
 
     public void SetPreviewProfile(UserData data, string? charName, uint? worldId, UmbraProfileData profileData)
@@ -480,13 +489,14 @@ public sealed class UmbraProfileManager : MediatorSubscriberBase, IDisposable
         _umbraProfiles[key] = profileData;
     }
 
-    public async Task GetUmbraProfileFromService(UserData data, string? charName = null, uint? worldId = null)
+    public async Task GetUmbraProfileFromService(UserData data, string? charName = null, uint? worldId = null, bool keepShown = false)
     {
         if (worldId == 0) worldId = null;
         var key = NormalizeKey(data, charName, worldId);
         try
         {
-            _umbraProfiles[key] = _loadingProfileData;
+            if (!keepShown)
+                _umbraProfiles[key] = _loadingProfileData;
             var profile = await _apiController.TryUserGetProfile(new API.Dto.User.UserDto(data)
             {
                 CharacterName = charName,
@@ -503,10 +513,13 @@ public sealed class UmbraProfileManager : MediatorSubscriberBase, IDisposable
                 string.IsNullOrEmpty(profile.RpFirstName) && string.IsNullOrEmpty(profile.RpLastName) ? "(empty)" : "(set)",
                 string.IsNullOrEmpty(profile.RpDescription) ? "(empty)" : "(set)");
 
-            if (!string.IsNullOrEmpty(profile.CharacterName))
-                _serverConfigurationManager.SetNameForUid(data.UID, profile.CharacterName);
-            if (profile.WorldId is > 0)
-                _serverConfigurationManager.SetWorldIdForUid(data.UID, profile.WorldId.Value);
+            if (string.IsNullOrEmpty(_serverConfigurationManager.GetNameForUid(data.UID)))
+            {
+                if (!string.IsNullOrEmpty(profile.CharacterName))
+                    _serverConfigurationManager.SetNameForUid(data.UID, profile.CharacterName);
+                if (profile.WorldId is > 0)
+                    _serverConfigurationManager.SetWorldIdForUid(data.UID, profile.WorldId.Value);
+            }
 
             if (!string.IsNullOrEmpty(profile.CharacterName) && profile.WorldId is > 0)
             {
@@ -668,16 +681,17 @@ public sealed class UmbraProfileManager : MediatorSubscriberBase, IDisposable
 
     private void MarkProfileFetchFailed((UserData User, string? CharName, uint? WorldId) key)
     {
-        _umbraProfiles[key] = _defaultProfileData;
-        _ = ForgetFailedProfileAsync(key);
+        var shown = GetPersistedProfile(key.User.UID, key.CharName, key.WorldId) ?? _defaultProfileData;
+        _umbraProfiles[key] = shown;
+        _ = ForgetFailedProfileAsync(key, shown);
     }
 
-    private async Task ForgetFailedProfileAsync((UserData User, string? CharName, uint? WorldId) key)
+    private async Task ForgetFailedProfileAsync((UserData User, string? CharName, uint? WorldId) key, UmbraProfileData shown)
     {
         try
         {
             await Task.Delay(Random.Shared.Next(FailedProfileRetryMinMs, FailedProfileRetryMaxMs)).ConfigureAwait(false);
-            _umbraProfiles.TryRemove(new KeyValuePair<(UserData User, string? CharName, uint? WorldId), UmbraProfileData>(key, _defaultProfileData));
+            _umbraProfiles.TryRemove(new KeyValuePair<(UserData User, string? CharName, uint? WorldId), UmbraProfileData>(key, shown));
         }
         catch (Exception ex)
         {

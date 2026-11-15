@@ -4750,6 +4750,9 @@ Note: Weapons will not be displayed correctly unless using the same job as the s
   <data name="UserProfile.RpCharacteristics" xml:space="preserve">
     <value>Characteristics</value>
   </data>
+  <data name="UserProfile.RpSociety" xml:space="preserve">
+    <value>Society</value>
+  </data>
   <data name="EditProfile.CustomFields.AddSection" xml:space="preserve">
     <value>New category</value>
   </data>
@@ -8604,6 +8607,36 @@ Experimental: these hooks are low level; if anything goes wrong, turn this off (
   </data>
   <data name="EmptyState.Favorites.Button" xml:space="preserve">
     <value>Browse the directory</value>
+  </data>
+  <data name="EmptyState.RpSheet.Title" xml:space="preserve">
+    <value>No RP sheet yet</value>
+  </data>
+  <data name="EmptyState.RpSheet.Hint" xml:space="preserve">
+    <value>This user hasn't written a sheet yet, or you haven't met them yet. You can still note what you know about them in your journal.</value>
+  </data>
+  <data name="EmptyState.RpSheet.Button" xml:space="preserve">
+    <value>Open the journal</value>
+  </data>
+  <data name="EmptyState.RpSheet.Own.Title" xml:space="preserve">
+    <value>Your RP sheet is empty</value>
+  </data>
+  <data name="EmptyState.RpSheet.Own.Hint" xml:space="preserve">
+    <value>Introduce your character: paired players will see it when targeting you or from their list.</value>
+  </data>
+  <data name="EmptyState.RpSheet.Own.Button" xml:space="preserve">
+    <value>Write my sheet</value>
+  </data>
+  <data name="EmptyState.RpSheet.Loading.Title" xml:space="preserve">
+    <value>Loading the sheet</value>
+  </data>
+  <data name="EmptyState.RpSheet.Loading.Hint" xml:space="preserve">
+    <value>The sheet is coming from the server, one moment.</value>
+  </data>
+  <data name="EmptyState.RpSheet.Unavailable.Title" xml:space="preserve">
+    <value>Sheet unavailable</value>
+  </data>
+  <data name="EmptyState.RpSheet.Unavailable.Hint" xml:space="preserve">
+    <value>The server did not answer. It will retry on its own in a few moments.</value>
   </data>
   <data name="EmptyState.Owned.Title" xml:space="preserve">
     <value>No registered venue</value>

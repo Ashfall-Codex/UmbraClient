@@ -4654,6 +4654,9 @@ Note : Les armes ne s'afficheront pas correctement sauf si vous utilisez le m&#x
   <data name="UserProfile.RpCharacteristics" xml:space="preserve">
     <value>Caractéristiques</value>
   </data>
+  <data name="UserProfile.RpSociety" xml:space="preserve">
+    <value>Société</value>
+  </data>
   <data name="EditProfile.CustomFields.AddSection" xml:space="preserve">
     <value>Nouvelle catégorie</value>
   </data>
@@ -8517,6 +8520,36 @@ Expérimental : ces hooks sont bas niveau ; en cas de souci, désactivez l'optio
   </data>
   <data name="EmptyState.Favorites.Button" xml:space="preserve">
     <value>Parcourir l'annuaire</value>
+  </data>
+  <data name="EmptyState.RpSheet.Title" xml:space="preserve">
+    <value>Pas encore de fiche RP</value>
+  </data>
+  <data name="EmptyState.RpSheet.Hint" xml:space="preserve">
+    <value>Cet utilisateur n'a pas rédigé de fiche pour le moment, ou vous ne l'avez pas encore croisé. Vous pouvez cependant déjà noter ce que vous savez de lui dans votre journal.</value>
+  </data>
+  <data name="EmptyState.RpSheet.Button" xml:space="preserve">
+    <value>Ouvrir le journal</value>
+  </data>
+  <data name="EmptyState.RpSheet.Own.Title" xml:space="preserve">
+    <value>Votre fiche RP est vide</value>
+  </data>
+  <data name="EmptyState.RpSheet.Own.Hint" xml:space="preserve">
+    <value>Présentez votre personnage : les joueurs appairés la verront en vous ciblant ou depuis leur liste.</value>
+  </data>
+  <data name="EmptyState.RpSheet.Own.Button" xml:space="preserve">
+    <value>Rédiger ma fiche</value>
+  </data>
+  <data name="EmptyState.RpSheet.Loading.Title" xml:space="preserve">
+    <value>Chargement de la fiche</value>
+  </data>
+  <data name="EmptyState.RpSheet.Loading.Hint" xml:space="preserve">
+    <value>La fiche arrive du serveur, un instant.</value>
+  </data>
+  <data name="EmptyState.RpSheet.Unavailable.Title" xml:space="preserve">
+    <value>Fiche indisponible</value>
+  </data>
+  <data name="EmptyState.RpSheet.Unavailable.Hint" xml:space="preserve">
+    <value>Le serveur n'a pas répondu. Un nouvel essai se fera de lui-même dans quelques instants.</value>
   </data>
   <data name="EmptyState.Owned.Title" xml:space="preserve">
     <value>Aucun lieu enregistré</value>

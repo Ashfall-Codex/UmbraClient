@@ -110,16 +110,22 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
         return (text, color, isOnline, false);
     }
 
-    private static void DrawPortrait(ImDrawListPtr drawList, IDalamudTextureWrap? texture, float portraitSize)
+    private void DrawPortrait(ImDrawListPtr drawList, IDalamudTextureWrap? texture, float portraitSize)
     {
         var portraitStart = ImGui.GetCursorScreenPos();
         var rounding = 10f * ImGuiHelpers.GlobalScale;
 
         if (texture == null)
         {
-            drawList.AddRectFilled(portraitStart,
-                new Vector2(portraitStart.X + portraitSize, portraitStart.Y + portraitSize),
-                ImGui.GetColorU32(new Vector4(0.15f, 0.15f, 0.15f, 1f)), rounding);
+            var portraitEnd = new Vector2(portraitStart.X + portraitSize, portraitStart.Y + portraitSize);
+            drawList.AddRectFilled(portraitStart, portraitEnd, ImGui.GetColorU32(new Vector4(0.15f, 0.15f, 0.15f, 1f)), rounding);
+            using (_uiSharedService.LargeIconFont.Push())
+            {
+                var icon = FontAwesomeIcon.User.ToIconString();
+                var iconSize = ImGui.CalcTextSize(icon);
+                var iconPos = portraitStart + ((portraitEnd - portraitStart) - iconSize) / 2f;
+                drawList.AddText(iconPos, ImGui.GetColorU32(ImGuiColors.DalamudGrey3 with { W = 0.55f }), icon);
+            }
             return;
         }
 
@@ -563,13 +569,49 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
         }, stretchWidth: true, background: SheetCardFill, border: SheetCardFill);
     }
 
+    // Fiche sans contenu : chargement, échec du serveur ou fiche jamais rédigée, chacun avec son message.
+    private void DrawRpSheetUnavailable(UmbraProfileData profile)
+    {
+        if (_umbraProfileManager.IsProfileLoading(profile))
+        {
+            _uiSharedService.DrawEmptyState(FontAwesomeIcon.CloudDownloadAlt,
+                Loc.Get("EmptyState.RpSheet.Loading.Title"), Loc.Get("EmptyState.RpSheet.Loading.Hint"));
+            return;
+        }
+
+        if (_umbraProfileManager.IsProfileFetchFailed(profile))
+        {
+            _uiSharedService.DrawEmptyState(FontAwesomeIcon.Unlink,
+                Loc.Get("EmptyState.RpSheet.Unavailable.Title"), Loc.Get("EmptyState.RpSheet.Unavailable.Hint"));
+            return;
+        }
+
+        bool ownProfile = string.Equals(Pair.UserData.UID, _apiController.UID, StringComparison.Ordinal);
+        if (ownProfile)
+        {
+            if (_uiSharedService.DrawEmptyState(FontAwesomeIcon.TheaterMasks,
+                    Loc.Get("EmptyState.RpSheet.Own.Title"), Loc.Get("EmptyState.RpSheet.Own.Hint"),
+                    Loc.Get("EmptyState.RpSheet.Own.Button"), FontAwesomeIcon.PenNib))
+                Mediator.Publish(new UiToggleMessage(typeof(EditProfileUi)));
+            return;
+        }
+
+        var (charName, worldId) = (_selectedAltCharName != null && _selectedAltWorldId != null)
+            ? (_selectedAltCharName, _selectedAltWorldId)
+            : _umbraProfileManager.ResolveCharacter(Pair.UserData);
+        bool journalAvailable = _rpJournal is { HasOwner: true } && !string.IsNullOrEmpty(charName) && worldId is > 0;
+
+        if (_uiSharedService.DrawEmptyState(FontAwesomeIcon.TheaterMasks,
+                Loc.Get("EmptyState.RpSheet.Title"), Loc.Get("EmptyState.RpSheet.Hint"),
+                journalAvailable ? Loc.Get("EmptyState.RpSheet.Button") : null, FontAwesomeIcon.Feather))
+        {
+            Mediator.Publish(new OpenJournalMessage(charName, worldId!.Value, Pair.UserData.UID, null));
+        }
+    }
+
     private void DrawRpProfile(UmbraProfileData profile, IDalamudTextureWrap? texture, Vector4 accent)
     {
         var cardSpacing = 8f * ImGuiHelpers.GlobalScale;
-
-        DrawHeroCard(profile, texture, accent);
-        ImGuiHelpers.ScaledDummy(cardSpacing / ImGuiHelpers.GlobalScale);
-
 
         bool hasAnyRpContent = !string.IsNullOrEmpty(profile.RpAge)
             || !string.IsNullOrEmpty(profile.RpHeight)
@@ -585,13 +627,12 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
 
         if (!hasAnyRpContent)
         {
-            ImGuiHelpers.ScaledDummy(12f);
-            var noProfileText = Loc.Get("UserProfile.NoRpProfile");
-            var noProfileSz = ImGui.CalcTextSize(noProfileText);
-            ImGui.SetCursorPosX(ImGui.GetCursorPosX() + (ImGui.GetContentRegionAvail().X - noProfileSz.X) / 2f);
-            ImGui.TextColored(ImGuiColors.DalamudGrey, noProfileText);
+            DrawRpSheetUnavailable(profile);
             return;
         }
+
+        DrawHeroCard(profile, texture, accent);
+        ImGuiHelpers.ScaledDummy(cardSpacing / ImGuiHelpers.GlobalScale);
 
         bool hasAge = !string.IsNullOrEmpty(profile.RpAge);
         bool hasHeight = !string.IsNullOrEmpty(profile.RpHeight);
@@ -629,23 +670,31 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
         {
             UiSharedService.DrawCard("rp-society-card", () =>
             {
-                DrawSectionTitle("Société");
+                DrawSectionTitle(Loc.Get("UserProfile.RpSociety"));
 
-                // Deux colonnes sur la largeur du titre, champ centré dans la sienne, comme les Caractéristiques.
+                var fields = new List<(string Label, string Value)>(4);
+                if (hasResidence) fields.Add((Loc.Get("UserProfile.RpResidence"), profile.RpResidence!));
+                if (hasOccupation) fields.Add((Loc.Get("UserProfile.RpOccupation"), profile.RpOccupation!));
+                if (hasAffiliation) fields.Add((Loc.Get("UserProfile.RpAffiliation"), profile.RpAffiliation!));
+                if (hasAlignment) fields.Add((Loc.Get("UserProfile.RpAlignment"), profile.RpAlignment!));
+
+                // Rangées de deux champs sur la largeur du titre ; un champ seul se centre sur toute la largeur.
                 var col1X = ImGui.GetCursorPosX();
-                var halfW = SectionContentWidth / 2f;
-                var col2X = col1X + halfW;
-
-                bool row1HasContent = hasResidence || hasOccupation;
-                if (row1HasContent)
-                    DrawCenteredRow(hasResidence ? (Loc.Get("UserProfile.RpResidence"), profile.RpResidence!) : null,
-                        hasOccupation ? (Loc.Get("UserProfile.RpOccupation"), profile.RpOccupation!) : null, col1X, col2X, halfW);
-
-                if (hasAffiliation || hasAlignment)
+                var fullW = SectionContentWidth;
+                var halfW = fullW / 2f;
+                for (int i = 0; i < fields.Count; i += 2)
                 {
-                    if (row1HasContent) ImGuiHelpers.ScaledDummy(4f);
-                    DrawCenteredRow(hasAffiliation ? (Loc.Get("UserProfile.RpAffiliation"), profile.RpAffiliation!) : null,
-                        hasAlignment ? (Loc.Get("UserProfile.RpAlignment"), profile.RpAlignment!) : null, col1X, col2X, halfW);
+                    if (i > 0) ImGuiHelpers.ScaledDummy(4f);
+                    if (i + 1 < fields.Count)
+                    {
+                        DrawCenteredRow(fields[i], fields[i + 1], col1X, col1X + halfW, halfW);
+                    }
+                    else
+                    {
+                        ImGui.BeginGroup();
+                        DrawCenteredField(fields[i].Label, fields[i].Value, col1X, fullW);
+                        ImGui.EndGroup();
+                    }
                 }
             }, stretchWidth: true, background: SheetCardFill, border: SheetCardFill);
             ImGuiHelpers.ScaledDummy(cardSpacing / ImGuiHelpers.GlobalScale);
