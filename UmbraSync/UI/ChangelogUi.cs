@@ -318,19 +318,14 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
     {
         return new List<ChangelogEntry>
         {
-            new(new Version(3, 2, 0, 1111), "3.2.0.1111", new List<ChangelogLine>
+            new(new Version(3, 2, 1, 1115), "3.2.1.1115", new List<ChangelogLine>
             {
-                new("Nouveauté : UmbraSync se découpe en modules que vous pouvez couper dans Réglages ▸ Modules : RôlePlay, Housing, Découverte et Chat+. Le préréglage « Legacy » ramène à une synchronisation Mare classique. Tout reste activé après la mise à jour ; chaque changement demande un rechargement du plugin."),
-                new("Nouveauté : Journal RôlePlay : pour chaque personnage que vous jouez, un journal privé sur ceux que vous croisez (confiance, relation, ce que vous savez, chronique datée avec le lieu). Il se lit dans l'onglet RP de leur fiche, sous « Journal », et se rédige dans la fenêtre du journal : « Modifier dans le journal », clic droit sur un joueur hors paire ou « Ouvrir mon journal » de la page Profils. Tout reste sur votre ordinateur."),
-                new("Nouveauté : Décors partagés avec Stagehand : publiez un décor à l'endroit où vous êtes, les joueurs autorisés le trouvent en arrivant, mods compris. Page « Décors » du Hub."),
-                new("Nouveauté : Catalogue de décors : parcourez, mettez en favori et affichez temporairement les décors publiés par la communauté. Page « Catalogue » du Hub."),
-                new("Nouveauté : Fiche RP : dix-huit styles de séparateurs de section et catégories pour vos détails personnalisés."),
-                new("Amélioration : Page Profils du Hub : onglets Tous, Mes personnages et Autres profils, et bouton « Ouvrir mon journal » ; suppression de la fiche RP d'un autre de vos personnages avec Ctrl ; recherche par plusieurs mots, sans tenir compte des majuscules ni des accents."),
-                new("Amélioration : Une fenêtre UmbraSync posée sur une autre devient opaque là où elle la recouvre ; le reste garde son effet verre."),
-                new("Amélioration : Les descriptions des syncshells de la Découverte sont repliées par défaut."),
-                new("Amélioration : Fiche d'un joueur : l'onglet RP se partage entre « Fiche » et « Journal », avec « Voir le profil enrichi » sur la même ligne. Le champ de note privée quitte la fiche : vos notes déjà écrites sont reprises dans « Ce que je sais » du journal."),
-                new("Correction : Le fondu de la bannière des fiches s'efface dans le fond de la carte, sans cadre autour."),
-                new("Correction : Les options NSFW de l'éditeur de profil et des réglages sont traduites en français."),
+                new("Amélioration : « Ouvrir le profil » depuis la liste des paires affiche la fiche RP du personnage sous lequel vous avez vu la personne en dernier, même hors ligne, en partant de la version en cache sur votre ordinateur."),
+                new("Amélioration : Une fiche RP sans contenu l'annonce clairement, avec un raccourci vers votre journal pour noter ce que vous savez du personnage, ou vers l'éditeur s'il s'agit de la vôtre."),
+                new("Amélioration : L'opacité des fenêtres superposées s'applique quelle que soit la fenêtre dessous, y compris celles des autres plugins, et aux fenêtres qui y échappaient."),
+                new("Amélioration : Hub : rendu des pages indisponibles."),
+                new("Correction : L'assistant de configuration ne tourne plus en boucle sur « Tout est prêt » quand vos réglages viennent d'un autre ordinateur et que le dossier de stockage n'existe plus."),
+                new("Correction : Le bouton de la page Décors copie le lien du dépôt Stagehand dans le presse-papiers au lieu d'ouvrir le fichier JSON dans le navigateur."),
             }),
         };
     }

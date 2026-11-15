@@ -41,9 +41,8 @@ public sealed partial class CharaDataHubUi
 
         if (!_uiSharedService.ApiController.IsConnected)
         {
-            ImGuiHelpers.ScaledDummy(5);
-            UiSharedService.DrawGroupedCenteredColorText(Loc.Get("HousingShare.ServerRequired"), UiSharedService.AccentColor);
-            ImGuiHelpers.ScaledDummy(5);
+            _uiSharedService.DrawEmptyState(FontAwesomeIcon.Unlink,
+                Loc.Get("EmptyState.ServerRequired.Title"), Loc.Get("EmptyState.ServerRequired.Hint"));
             return;
         }
 

@@ -494,7 +494,8 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
                 }
                 else
                 {
-                    UiSharedService.ColorTextWrapped(Loc.Get("CharaDataHub.GposeOnlyTooltip"), UiSharedService.AccentColor);
+                    _uiSharedService.DrawEmptyState(FontAwesomeIcon.Camera,
+                        Loc.Get("EmptyState.GposeActors.Title"), Loc.Get("EmptyState.GposeActors.Hint"));
                 }
                 break;
             case HubPage.NearbyPoses:

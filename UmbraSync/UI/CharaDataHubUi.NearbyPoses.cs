@@ -98,7 +98,8 @@ public sealed partial class CharaDataHubUi
         using var indent = ImRaii.PushIndent(5f);
         if (_charaDataNearbyManager.NearbyData.Count == 0)
         {
-            UiSharedService.DrawGroupedCenteredColorText(Loc.Get("CharaDataHub.NearbyPoses.NoneFound"), UiSharedService.AccentColor);
+            _uiSharedService.DrawEmptyState(FontAwesomeIcon.MapMarkerAlt,
+                Loc.Get("EmptyState.NearbyPoses.Title"), Loc.Get("EmptyState.NearbyPoses.Hint"));
         }
 
         bool wasAnythingHovered = false;

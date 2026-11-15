@@ -1078,14 +1078,14 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
     /// </summary>
     /// <returns>Vrai quand le bouton d'action est cliqué.</returns>
     public bool DrawEmptyState(FontAwesomeIcon icon, string title, string hint, string? buttonLabel = null,
-        FontAwesomeIcon? buttonIcon = null)
+        FontAwesomeIcon? buttonIcon = null, float? topPadding = null)
     {
         var scale = ImGuiHelpers.GlobalScale;
         var avail = ImGui.GetContentRegionAvail();
         var wrapWidth = MathF.Min(avail.X * 0.85f, 420f * scale);
         var accentDim = AccentColor with { W = 0.55f };
 
-        ImGui.SetCursorPosY(ImGui.GetCursorPosY() + MathF.Max(8f * scale, avail.Y * 0.22f));
+        ImGui.SetCursorPosY(ImGui.GetCursorPosY() + (topPadding ?? MathF.Max(8f * scale, avail.Y * 0.22f)));
 
         // Icône
         var iconText = icon.ToIconString();

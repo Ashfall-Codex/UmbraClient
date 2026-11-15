@@ -103,7 +103,8 @@ public sealed partial class CharaDataHubUi
 
                 if (!_charaDataGposeTogetherManager.UsersInLobby.Any() && !string.IsNullOrEmpty(_charaDataGposeTogetherManager.CurrentGPoseLobbyId))
                 {
-                    UiSharedService.DrawGroupedCenteredColorText(Loc.Get("CharaDataHub.GposeTogether.NoUsers"), UiSharedService.AccentColor);
+                    _uiSharedService.DrawEmptyState(FontAwesomeIcon.Users,
+                        Loc.Get("EmptyState.GposeLobby.Title"), Loc.Get("EmptyState.GposeLobby.Hint"));
                 }
                 else
                 {

@@ -8104,6 +8104,57 @@ Experimental: these hooks are low level; if anything goes wrong, turn this off (
   <data name="DecorCatalog.Page" xml:space="preserve">
     <value>Page {0}/{1} ({2})</value>
   </data>
+  <data name="EmptyState.DecorCatalog.Loading.Title" xml:space="preserve">
+    <value>Loading the catalogue</value>
+  </data>
+  <data name="EmptyState.DecorCatalog.Loading.Hint" xml:space="preserve">
+    <value>Published decors are coming from the server.</value>
+  </data>
+  <data name="EmptyState.DecorCatalog.NoResult.Title" xml:space="preserve">
+    <value>No results</value>
+  </data>
+  <data name="EmptyState.DecorCatalog.NoResult.Hint" xml:space="preserve">
+    <value>No decor matches your search. Try another word.</value>
+  </data>
+  <data name="EmptyState.DecorCatalog.NoResult.Button" xml:space="preserve">
+    <value>Clear the search</value>
+  </data>
+  <data name="EmptyState.DecorCatalog.Favorites.Title" xml:space="preserve">
+    <value>No favorites</value>
+  </data>
+  <data name="EmptyState.DecorCatalog.Favorites.Hint" xml:space="preserve">
+    <value>Click a decor's star to find it here.</value>
+  </data>
+  <data name="EmptyState.DecorCatalog.Mine.Title" xml:space="preserve">
+    <value>Nothing published</value>
+  </data>
+  <data name="EmptyState.DecorCatalog.Mine.Hint" xml:space="preserve">
+    <value>Your published decors will appear here. Use the form below to publish one.</value>
+  </data>
+  <data name="EmptyState.DecorCatalog.All.Title" xml:space="preserve">
+    <value>The catalogue is empty</value>
+  </data>
+  <data name="EmptyState.DecorCatalog.All.Hint" xml:space="preserve">
+    <value>No decor has been published yet. Be the first to share yours.</value>
+  </data>
+  <data name="EmptyState.DecorCatalog.NoLocalStage.Title" xml:space="preserve">
+    <value>No local decor</value>
+  </data>
+  <data name="EmptyState.DecorCatalog.NoLocalStage.Hint" xml:space="preserve">
+    <value>Create a decor in Stagehand: it will appear here, ready to publish.</value>
+  </data>
+  <data name="DecorCatalog.Publish.Blocked.Stagehand" xml:space="preserve">
+    <value>Stagehand is required to publish a decor.</value>
+  </data>
+  <data name="DecorCatalog.Publish.Blocked.SelectStage" xml:space="preserve">
+    <value>Pick the decor to publish.</value>
+  </data>
+  <data name="DecorCatalog.Publish.Blocked.FileMissing" xml:space="preserve">
+    <value>This decor's file cannot be found.</value>
+  </data>
+  <data name="DecorCatalog.Publish.Blocked.Name" xml:space="preserve">
+    <value>Give your decor a name.</value>
+  </data>
   <data name="DecorCatalog.Empty" xml:space="preserve">
     <value>No decor matches.</value>
   </data>
@@ -8315,7 +8366,7 @@ Experimental: these hooks are low level; if anything goes wrong, turn this off (
     <value>No Stage in your Stagehand library.</value>
   </data>
   <data name="Stages.SelectStage" xml:space="preserve">
-    <value>Pick a Stage...</value>
+    <value>Pick a Stage</value>
   </data>
   <data name="Stages.LocalStage" xml:space="preserve">
     <value>Local Stage</value>
@@ -8607,6 +8658,30 @@ Experimental: these hooks are low level; if anything goes wrong, turn this off (
   </data>
   <data name="EmptyState.Favorites.Button" xml:space="preserve">
     <value>Browse the directory</value>
+  </data>
+  <data name="EmptyState.GposeActors.Title" xml:space="preserve">
+    <value>Available in GPose</value>
+  </data>
+  <data name="EmptyState.GposeActors.Hint" xml:space="preserve">
+    <value>Enter GPose to see the actors in the scene and apply an appearance to them.</value>
+  </data>
+  <data name="EmptyState.ServerRequired.Title" xml:space="preserve">
+    <value>Connection required</value>
+  </data>
+  <data name="EmptyState.ServerRequired.Hint" xml:space="preserve">
+    <value>Connect to the UmbraSync server to use this page.</value>
+  </data>
+  <data name="EmptyState.NearbyPoses.Title" xml:space="preserve">
+    <value>No poses nearby</value>
+  </data>
+  <data name="EmptyState.NearbyPoses.Hint" xml:space="preserve">
+    <value>Poses shared by players around you will appear here.</value>
+  </data>
+  <data name="EmptyState.GposeLobby.Title" xml:space="preserve">
+    <value>Nobody else in the lobby</value>
+  </data>
+  <data name="EmptyState.GposeLobby.Hint" xml:space="preserve">
+    <value>Share the lobby ID so other players can join you.</value>
   </data>
   <data name="EmptyState.RpSheet.Title" xml:space="preserve">
     <value>No RP sheet yet</value>

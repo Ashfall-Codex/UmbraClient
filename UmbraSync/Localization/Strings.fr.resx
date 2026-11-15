@@ -1675,7 +1675,7 @@ Veuillez conserver une copie de votre clé secrète au cas où vous auriez besoi
     <value />
   </data>
   <data name="CharaDataHub.BrioRequired" xml:space="preserve">
-    <value />
+    <value>Brio est nécessaire pour les acteurs GPose.</value>
   </data>
   <data name="CharaDataHub.CancelApplication" xml:space="preserve">
     <value />
@@ -8017,6 +8017,57 @@ Expérimental : ces hooks sont bas niveau ; en cas de souci, désactivez l'optio
   <data name="DecorCatalog.Page" xml:space="preserve">
     <value>Page {0}/{1} ({2})</value>
   </data>
+  <data name="EmptyState.DecorCatalog.Loading.Title" xml:space="preserve">
+    <value>Chargement du catalogue</value>
+  </data>
+  <data name="EmptyState.DecorCatalog.Loading.Hint" xml:space="preserve">
+    <value>Les décors publiés arrivent du serveur.</value>
+  </data>
+  <data name="EmptyState.DecorCatalog.NoResult.Title" xml:space="preserve">
+    <value>Aucun résultat</value>
+  </data>
+  <data name="EmptyState.DecorCatalog.NoResult.Hint" xml:space="preserve">
+    <value>Aucun décor ne correspond à votre recherche. Essayez un autre mot.</value>
+  </data>
+  <data name="EmptyState.DecorCatalog.NoResult.Button" xml:space="preserve">
+    <value>Effacer la recherche</value>
+  </data>
+  <data name="EmptyState.DecorCatalog.Favorites.Title" xml:space="preserve">
+    <value>Aucun favori</value>
+  </data>
+  <data name="EmptyState.DecorCatalog.Favorites.Hint" xml:space="preserve">
+    <value>Cliquez sur l'étoile d'un décor pour le retrouver ici.</value>
+  </data>
+  <data name="EmptyState.DecorCatalog.Mine.Title" xml:space="preserve">
+    <value>Rien de publié</value>
+  </data>
+  <data name="EmptyState.DecorCatalog.Mine.Hint" xml:space="preserve">
+    <value>Vos décors publiés apparaîtront ici. Le formulaire ci-dessous vous permet d'en publier un.</value>
+  </data>
+  <data name="EmptyState.DecorCatalog.All.Title" xml:space="preserve">
+    <value>Le catalogue est vide</value>
+  </data>
+  <data name="EmptyState.DecorCatalog.All.Hint" xml:space="preserve">
+    <value>Aucun décor n'a encore été publié. Soyez la première personne à partager le vôtre.</value>
+  </data>
+  <data name="EmptyState.DecorCatalog.NoLocalStage.Title" xml:space="preserve">
+    <value>Aucun décor local</value>
+  </data>
+  <data name="EmptyState.DecorCatalog.NoLocalStage.Hint" xml:space="preserve">
+    <value>Créez un décor dans Stagehand : il apparaîtra ici, prêt à être publié.</value>
+  </data>
+  <data name="DecorCatalog.Publish.Blocked.Stagehand" xml:space="preserve">
+    <value>Stagehand est nécessaire pour publier un décor.</value>
+  </data>
+  <data name="DecorCatalog.Publish.Blocked.SelectStage" xml:space="preserve">
+    <value>Choisissez le décor à publier.</value>
+  </data>
+  <data name="DecorCatalog.Publish.Blocked.FileMissing" xml:space="preserve">
+    <value>Le fichier de ce décor est introuvable.</value>
+  </data>
+  <data name="DecorCatalog.Publish.Blocked.Name" xml:space="preserve">
+    <value>Donnez un nom à votre décor.</value>
+  </data>
   <data name="DecorCatalog.Empty" xml:space="preserve">
     <value>Aucun décor ne correspond.</value>
   </data>
@@ -8228,7 +8279,7 @@ Expérimental : ces hooks sont bas niveau ; en cas de souci, désactivez l'optio
     <value>Aucun décor dans votre bibliothèque Stagehand.</value>
   </data>
   <data name="Stages.SelectStage" xml:space="preserve">
-    <value>Choisissez un décor...</value>
+    <value>Choisissez un décor</value>
   </data>
   <data name="Stages.LocalStage" xml:space="preserve">
     <value>Décor local</value>
@@ -8520,6 +8571,30 @@ Expérimental : ces hooks sont bas niveau ; en cas de souci, désactivez l'optio
   </data>
   <data name="EmptyState.Favorites.Button" xml:space="preserve">
     <value>Parcourir l'annuaire</value>
+  </data>
+  <data name="EmptyState.GposeActors.Title" xml:space="preserve">
+    <value>Disponible en GPose</value>
+  </data>
+  <data name="EmptyState.GposeActors.Hint" xml:space="preserve">
+    <value>Entrez en GPose pour voir les acteurs de la scène et leur appliquer une apparence.</value>
+  </data>
+  <data name="EmptyState.ServerRequired.Title" xml:space="preserve">
+    <value>Connexion requise</value>
+  </data>
+  <data name="EmptyState.ServerRequired.Hint" xml:space="preserve">
+    <value>Connectez-vous au serveur UmbraSync pour utiliser cette page.</value>
+  </data>
+  <data name="EmptyState.NearbyPoses.Title" xml:space="preserve">
+    <value>Aucune pose à proximité</value>
+  </data>
+  <data name="EmptyState.NearbyPoses.Hint" xml:space="preserve">
+    <value>Les poses partagées par les joueurs autour de vous apparaîtront ici.</value>
+  </data>
+  <data name="EmptyState.GposeLobby.Title" xml:space="preserve">
+    <value>Personne d'autre dans le lobby</value>
+  </data>
+  <data name="EmptyState.GposeLobby.Hint" xml:space="preserve">
+    <value>Partagez l'identifiant du lobby pour que d'autres joueurs vous rejoignent.</value>
   </data>
   <data name="EmptyState.RpSheet.Title" xml:space="preserve">
     <value>Pas encore de fiche RP</value>
