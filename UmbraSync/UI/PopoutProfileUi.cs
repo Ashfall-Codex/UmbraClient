@@ -156,7 +156,10 @@ public class PopoutProfileUi : WindowMediatorSubscriberBase
             {
                 UiSharedService.ColorText(note, labelColor ?? ImGuiColors.DalamudGrey);
             }
-            string status = _pair.IsVisible ? Loc.Get("PopoutProfile.Status.Visible") : (_pair.IsOnline ? Loc.Get("PopoutProfile.Status.Online") : Loc.Get("PopoutProfile.Status.Offline"));
+            string status;
+            if (_pair.IsVisible) status = Loc.Get("PopoutProfile.Status.Visible");
+            else if (_pair.IsOnline) status = Loc.Get("PopoutProfile.Status.Online");
+            else status = Loc.Get("PopoutProfile.Status.Offline");
             UiSharedService.ColorText(status, (_pair.IsVisible || _pair.IsOnline) ? ImGuiColors.HealerGreen : UiSharedService.AccentColor);
             if (_pair.IsVisible)
             {

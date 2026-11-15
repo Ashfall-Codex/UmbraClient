@@ -69,9 +69,10 @@ public sealed class NearbyPendingService : IMediatorSubscriber, IDisposable
         if (!string.Equals(msg.TargetUid, _api.UID, StringComparison.Ordinal))
             return;
 
-        var display = !string.IsNullOrWhiteSpace(msg.SourceAlias)
-            ? msg.SourceAlias
-            : (!string.IsNullOrWhiteSpace(msg.DisplayName) ? msg.DisplayName! : msg.SourceUid);
+        string display;
+        if (!string.IsNullOrWhiteSpace(msg.SourceAlias)) display = msg.SourceAlias;
+        else if (!string.IsNullOrWhiteSpace(msg.DisplayName)) display = msg.DisplayName!;
+        else display = msg.SourceUid;
 
         // On avait nous-même invité ce joueur : sa « demande » est en fait son acceptation.
         // On complète la paire sans redemander de confirmation.

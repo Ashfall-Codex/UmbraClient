@@ -279,9 +279,10 @@ public class PlayerAnalysisUI : WindowMediatorSubscriberBase
 
     private void DrawTable(IGrouping<string, CharacterAnalyzer.FileDataEntry> fileGroup)
     {
-        var tableColumns = string.Equals(fileGroup.Key, "tex", StringComparison.Ordinal)
-            ? 5
-            : (string.Equals(fileGroup.Key, "mdl", StringComparison.Ordinal) ? 5 : 4);
+        int tableColumns;
+        if (string.Equals(fileGroup.Key, "tex", StringComparison.Ordinal)) tableColumns = 5;
+        else if (string.Equals(fileGroup.Key, "mdl", StringComparison.Ordinal)) tableColumns = 5;
+        else tableColumns = 4;
         using var table = ImRaii.Table("Analysis", tableColumns, ImGuiTableFlags.Sortable | ImGuiTableFlags.RowBg | ImGuiTableFlags.ScrollY | ImGuiTableFlags.SizingFixedFit,
             new Vector2(0, 300));
         if (!table.Success) return;

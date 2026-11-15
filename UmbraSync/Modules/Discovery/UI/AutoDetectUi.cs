@@ -322,29 +322,38 @@ public class AutoDetectUi : WindowMediatorSubscriberBase
 
             string displayName = entry.DisplayName ?? entry.Name;
 
-            string status = alreadyPaired
-                ? Loc.Get("AutoDetectUi.Nearby.Status.Paired")
-                : alreadyInvited
-                    ? Loc.Get("AutoDetectUi.Nearby.Status.Invited")
-                : overDistance
-                    ? string.Format(CultureInfo.CurrentCulture, Loc.Get("AutoDetectUi.Nearby.Status.OutOfRange"), maxDist)
-                    : !entry.AcceptPairRequests
-                        ? Loc.Get("AutoDetectUi.Nearby.Status.InvitesDisabled")
-                        : string.IsNullOrEmpty(entry.Token)
-                            ? Loc.Get("AutoDetectUi.Nearby.Status.Unavailable")
-                            : Loc.Get("AutoDetectUi.Nearby.Status.Available");
-
-            string reason = alreadyPaired
-                ? Loc.Get("AutoDetectUi.Nearby.Reason.Paired")
-                : alreadyInvited
-                    ? Loc.Get("AutoDetectUi.Nearby.Reason.AlreadyInvited")
-                : overDistance
-                    ? string.Format(CultureInfo.CurrentCulture, Loc.Get("AutoDetectUi.Nearby.Reason.OutOfRange"), maxDist)
-                    : !entry.AcceptPairRequests
-                        ? Loc.Get("AutoDetectUi.Nearby.Reason.InvitesDisabled")
-                        : string.IsNullOrEmpty(entry.Token)
-                            ? Loc.Get("AutoDetectUi.Nearby.Reason.Unavailable")
-                            : string.Empty;
+            string status;
+            string reason;
+            if (alreadyPaired)
+            {
+                status = Loc.Get("AutoDetectUi.Nearby.Status.Paired");
+                reason = Loc.Get("AutoDetectUi.Nearby.Reason.Paired");
+            }
+            else if (alreadyInvited)
+            {
+                status = Loc.Get("AutoDetectUi.Nearby.Status.Invited");
+                reason = Loc.Get("AutoDetectUi.Nearby.Reason.AlreadyInvited");
+            }
+            else if (overDistance)
+            {
+                status = string.Format(CultureInfo.CurrentCulture, Loc.Get("AutoDetectUi.Nearby.Status.OutOfRange"), maxDist);
+                reason = string.Format(CultureInfo.CurrentCulture, Loc.Get("AutoDetectUi.Nearby.Reason.OutOfRange"), maxDist);
+            }
+            else if (!entry.AcceptPairRequests)
+            {
+                status = Loc.Get("AutoDetectUi.Nearby.Status.InvitesDisabled");
+                reason = Loc.Get("AutoDetectUi.Nearby.Reason.InvitesDisabled");
+            }
+            else if (string.IsNullOrEmpty(entry.Token))
+            {
+                status = Loc.Get("AutoDetectUi.Nearby.Status.Unavailable");
+                reason = Loc.Get("AutoDetectUi.Nearby.Reason.Unavailable");
+            }
+            else
+            {
+                status = Loc.Get("AutoDetectUi.Nearby.Status.Available");
+                reason = string.Empty;
+            }
 
             bool canInvite = canRequest && !overDistance;
             float rightEdge = ImGui.GetWindowContentRegionMax().X - UiSharedService.GetCardContentPaddingX();
@@ -629,9 +638,10 @@ public class AutoDetectUi : WindowMediatorSubscriberBase
             float tileSize = 48f * scale;
             DrawSyncshellTile(name, tint, icon, tileSize);
 
-            string actionLabel = alreadyMember ? Loc.Get("AutoDetectUi.Syncshell.Status.Member")
-                : joining ? Loc.Get("AutoDetectUi.Syncshell.Status.Joining")
-                : Loc.Get("AutoDetectUi.Syncshell.JoinButton");
+            string actionLabel;
+            if (alreadyMember) actionLabel = Loc.Get("AutoDetectUi.Syncshell.Status.Member");
+            else if (joining) actionLabel = Loc.Get("AutoDetectUi.Syncshell.Status.Joining");
+            else actionLabel = Loc.Get("AutoDetectUi.Syncshell.JoinButton");
             var statusIcon = alreadyMember ? FontAwesomeIcon.Check : FontAwesomeIcon.Spinner;
             float buttonWidth = ImGui.CalcTextSize(actionLabel).X + style.FramePadding.X * 2f + 12f * scale;
             float actionWidth = alreadyMember || joining ? PillWidth(actionLabel, statusIcon) : buttonWidth;

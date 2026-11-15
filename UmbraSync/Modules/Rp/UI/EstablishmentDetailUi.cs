@@ -1336,6 +1336,9 @@ internal partial class EstablishmentDetailUi : WindowMediatorSubscriberBase
         }
     }
 
+    private static string? EditedImageOrCurrent(byte[] editedBytes, string? current)
+        => editedBytes.Length > 0 ? Convert.ToBase64String(editedBytes) : current;
+
     private async Task SaveImages(bool clearLogo = false, bool clearBanner = false)
     {
         var request = new EstablishmentUpdateRequestDto
@@ -1347,8 +1350,8 @@ internal partial class EstablishmentDetailUi : WindowMediatorSubscriberBase
             Schedule = _establishment.Schedule,
             FactionTag = _establishment.FactionTag,
             IsPublic = _establishment.IsPublic,
-            LogoImageBase64 = clearLogo ? null : (_editLogoBytes.Length > 0 ? Convert.ToBase64String(_editLogoBytes) : _establishment.LogoImageBase64),
-            BannerImageBase64 = clearBanner ? null : (_editBannerBytes.Length > 0 ? Convert.ToBase64String(_editBannerBytes) : _establishment.BannerImageBase64),
+            LogoImageBase64 = clearLogo ? null : EditedImageOrCurrent(_editLogoBytes, _establishment.LogoImageBase64),
+            BannerImageBase64 = clearBanner ? null : EditedImageOrCurrent(_editBannerBytes, _establishment.BannerImageBase64),
             ManagerRpProfileId = _establishment.ManagerRpProfileId,
             ShowManagerOnProfile = _establishment.ShowManagerOnProfile,
             Location = _establishment.Location

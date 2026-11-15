@@ -482,9 +482,10 @@ public class DataAnalysisUi : WindowMediatorSubscriberBase
             if (hovered && chip.Warn && chip.Tooltip != null)
                 UiSharedService.AttachToolTip(chip.Tooltip);
 
-            var background = isSelected ? UiSharedService.AccentColor with { W = 0.85f }
-                : hovered ? UiSharedService.ThemeFrameBgHovered
-                : UiSharedService.ThemeFrameBg;
+            Vector4 background;
+            if (isSelected) background = UiSharedService.AccentColor with { W = 0.85f };
+            else if (hovered) background = UiSharedService.ThemeFrameBgHovered;
+            else background = UiSharedService.ThemeFrameBg;
             drawList.AddRectFilled(min, max, ImGui.GetColorU32(background), height / 2f);
             if (!isSelected)
                 drawList.AddRect(min, max, ImGui.GetColorU32(UiSharedService.ThemeCardBorder with { W = 0.35f }), height / 2f, ImDrawFlags.None, scale);
@@ -537,7 +538,10 @@ public class DataAnalysisUi : WindowMediatorSubscriberBase
     {
         bool isTex = string.Equals(fileGroup.Key, "tex", StringComparison.Ordinal);
         bool isMdl = string.Equals(fileGroup.Key, "mdl", StringComparison.Ordinal);
-        var tableColumns = isTex ? (_enableBc7ConversionMode ? 7 : 6) : (isMdl ? 6 : 5);
+        int tableColumns;
+        if (isTex) tableColumns = _enableBc7ConversionMode ? 7 : 6;
+        else if (isMdl) tableColumns = 6;
+        else tableColumns = 5;
         using var table = ImRaii.Table("Analysis", tableColumns,
             ImGuiTableFlags.Sortable | ImGuiTableFlags.RowBg | ImGuiTableFlags.ScrollY | ImGuiTableFlags.SizingFixedFit
             | ImGuiTableFlags.BordersInnerH | ImGuiTableFlags.PadOuterX,

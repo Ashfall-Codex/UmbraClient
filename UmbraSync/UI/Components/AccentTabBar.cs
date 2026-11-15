@@ -33,7 +33,10 @@ internal static class AccentTabBar
             bool hovered = ImGui.IsItemHovered();
             bool isActive = activeTab == i;
 
-            var bg = isActive ? accent : hovered ? HoverColor : BackgroundColor;
+            Vector4 bg;
+            if (isActive) bg = accent;
+            else if (hovered) bg = HoverColor;
+            else bg = BackgroundColor;
             dl.AddRectFilled(p, p + new Vector2(btnW, ButtonHeight), ImGui.GetColorU32(bg), Rounding);
             if (!isActive)
                 dl.AddRect(p, p + new Vector2(btnW, ButtonHeight), ImGui.GetColorU32(BorderColor with { W = hovered ? 0.9f : 0.5f }), Rounding);
@@ -47,7 +50,10 @@ internal static class AccentTabBar
             var totalW = iconSz.X + IconTextGap + labelSz.X;
             var startX = p.X + (btnW - totalW) / 2f;
 
-            var textColor = isActive ? UiSharedService.ThemeNavTextActive : hovered ? UiSharedService.ThemeNavTextHovered : UiSharedService.ThemeNavText;
+            Vector4 textColor;
+            if (isActive) textColor = UiSharedService.ThemeNavTextActive;
+            else if (hovered) textColor = UiSharedService.ThemeNavTextHovered;
+            else textColor = UiSharedService.ThemeNavText;
             var textColorU32 = ImGui.GetColorU32(textColor);
 
             ImGui.PushFont(UiBuilder.IconFont);

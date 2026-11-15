@@ -815,11 +815,10 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
         overrides.TryGetValue(uid, out var currentValue); // 0 si absent : pas de surcharge, on affiche « Par défaut »
         var hasOverride = overrides.ContainsKey(uid);
 
-        var previewLabel = !hasOverride
-            ? Loc.Get("Settings.ChatTargetSound.Override.Default")
-            : currentValue == 0
-                ? Loc.Get("Settings.ChatTargetSound.Override.Disabled")
-                : string.Format(CultureInfo.CurrentCulture, Loc.Get("Settings.ChatTargetSound.SoundItem"), currentValue);
+        string previewLabel;
+        if (!hasOverride) previewLabel = Loc.Get("Settings.ChatTargetSound.Override.Default");
+        else if (currentValue == 0) previewLabel = Loc.Get("Settings.ChatTargetSound.Override.Disabled");
+        else previewLabel = string.Format(CultureInfo.CurrentCulture, Loc.Get("Settings.ChatTargetSound.SoundItem"), currentValue);
 
         ImGui.SetNextItemWidth(200 * ImGuiHelpers.GlobalScale);
         if (!UiSharedService.BeginCombo(Loc.Get("Settings.ChatTargetSound.Override.Label") + idPrefix + uid, previewLabel))
@@ -1744,8 +1743,12 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
         ImGui.PopTextWrapPos();
     }
 
-    public static Vector4 UploadColor((long, long) data) => data.Item1 == 0 ? ImGuiColors.DalamudGrey :
-        data.Item1 == data.Item2 ? ImGuiColors.ParsedGreen : ImGuiColors.DalamudYellow;
+    public static Vector4 UploadColor((long, long) data)
+    {
+        if (data.Item1 == 0) return ImGuiColors.DalamudGrey;
+        if (data.Item1 == data.Item2) return ImGuiColors.ParsedGreen;
+        return ImGuiColors.DalamudYellow;
+    }
 
     public bool ApplyNotesFromClipboard(string notes, bool overwrite)
     {

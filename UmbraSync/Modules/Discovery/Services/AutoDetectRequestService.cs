@@ -118,9 +118,11 @@ public class AutoDetectRequestService : IMediatorSubscriber
             RecordRequestSent(targetKey);
             _mediator.Publish(new NotificationMessage(Loc.Get("Notification.Nearby.Sent.Title"), Loc.Get("Notification.Nearby.Sent.Body"), NotificationType.Info));
             var pendingKey = EnsureTargetKey(targetKey);
-            var label = !string.IsNullOrWhiteSpace(targetDisplayName)
-                ? targetDisplayName
-                : (!string.IsNullOrEmpty(uid) ? uid : (!string.IsNullOrEmpty(token) ? token : pendingKey));
+            string label;
+            if (!string.IsNullOrWhiteSpace(targetDisplayName)) label = targetDisplayName;
+            else if (!string.IsNullOrEmpty(uid)) label = uid;
+            else if (!string.IsNullOrEmpty(token)) label = token;
+            else label = pendingKey;
             _pendingRequests[pendingKey] = new PendingRequestInfo(pendingKey, uid, token, label, DateTime.UtcNow);
         }
         else

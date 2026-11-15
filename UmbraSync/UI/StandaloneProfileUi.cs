@@ -103,11 +103,19 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
         if (isSelf)
             return (isOnline ? Loc.Get("StandaloneProfile.Status.Online") : Loc.Get("StandaloneProfile.Status.Offline"), color, isOnline, true);
 
-        var text = Pair.IsVisible
-            ? Loc.Get("StandaloneProfile.Status.Visible")
-            : Pair.IsOnline ? Loc.Get("StandaloneProfile.Status.Online") : Loc.Get("StandaloneProfile.Status.Offline");
+        string text;
+        if (Pair.IsVisible) text = Loc.Get("StandaloneProfile.Status.Visible");
+        else if (Pair.IsOnline) text = Loc.Get("StandaloneProfile.Status.Online");
+        else text = Loc.Get("StandaloneProfile.Status.Offline");
 
         return (text, color, isOnline, false);
+    }
+
+    private FontAwesomeIcon PresenceIcon(bool isOnline, bool isSelf)
+    {
+        if (!isOnline) return FontAwesomeIcon.CircleNotch;
+        if (Pair.IsVisible && !isSelf) return FontAwesomeIcon.Eye;
+        return FontAwesomeIcon.Circle;
     }
 
     private void DrawPortrait(ImDrawListPtr drawList, IDalamudTextureWrap? texture, float portraitSize)
@@ -326,7 +334,10 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
             bool hovered = ImGui.IsItemHovered();
             bool isActive = _tab == tabs[i];
 
-            var bg = isActive ? accent : hovered ? hoverBg : bgColor;
+            Vector4 bg;
+            if (isActive) bg = accent;
+            else if (hovered) bg = hoverBg;
+            else bg = bgColor;
             dl.AddRectFilled(p, p + new Vector2(btnW, btnH), ImGui.GetColorU32(bg), rounding);
             if (!isActive)
                 dl.AddRect(p, p + new Vector2(btnW, btnH), ImGui.GetColorU32(borderColor with { W = hovered ? 0.9f : 0.5f }), rounding);
@@ -340,7 +351,10 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
             var totalW = iconSz.X + iconTextGap + labelSz.X;
             var startX = p.X + (btnW - totalW) / 2f;
 
-            var textColor = isActive ? UiSharedService.ThemeNavTextActive : hovered ? UiSharedService.ThemeNavTextHovered : UiSharedService.ThemeNavText;
+            Vector4 textColor;
+            if (isActive) textColor = UiSharedService.ThemeNavTextActive;
+            else if (hovered) textColor = UiSharedService.ThemeNavTextHovered;
+            else textColor = UiSharedService.ThemeNavText;
             var textColorU32 = ImGui.GetColorU32(textColor);
 
             ImGui.PushFont(UiBuilder.IconFont);
@@ -1000,9 +1014,10 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
             // Race · Ethnicity
             var race = profile.RpRace ?? string.Empty;
             var ethnicity = profile.RpEthnicity ?? string.Empty;
-            var raceEthnicity = !string.IsNullOrEmpty(race) && !string.IsNullOrEmpty(ethnicity)
-                ? $"{race} · {ethnicity}"
-                : !string.IsNullOrEmpty(race) ? race : ethnicity;
+            string raceEthnicity;
+            if (!string.IsNullOrEmpty(race) && !string.IsNullOrEmpty(ethnicity)) raceEthnicity = $"{race} · {ethnicity}";
+            else if (!string.IsNullOrEmpty(race)) raceEthnicity = race;
+            else raceEthnicity = ethnicity;
             if (!string.IsNullOrEmpty(raceEthnicity))
                 ImGui.TextColored(UiSharedService.ProfileCardTextColor(profile.CardStyle.Value.TextColor), raceEthnicity);
 
@@ -1011,8 +1026,7 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
             var (statusText, statusColor, isOnline, isSelf) = ResolvePresence();
 
             // Status pill (online / offline / visible) + RP level pill on the same row
-            var statusIcon = !isOnline ? FontAwesomeIcon.CircleNotch
-                : (Pair.IsVisible && !isSelf ? FontAwesomeIcon.Eye : FontAwesomeIcon.Circle);
+            var statusIcon = PresenceIcon(isOnline, isSelf);
             DrawColoredPill(statusIcon, statusText, statusColor);
 
             var rpStyle = GetRpLevelStyle(profile.RpLevel);
@@ -1133,8 +1147,7 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
             var (statusText, statusColor, isOnline, isSelf) = ResolvePresence();
 
             ImGuiHelpers.ScaledDummy(2f);
-            var statusIconAlt = !isOnline ? FontAwesomeIcon.CircleNotch
-                : (Pair.IsVisible && !isSelf ? FontAwesomeIcon.Eye : FontAwesomeIcon.Circle);
+            var statusIconAlt = PresenceIcon(isOnline, isSelf);
             DrawColoredPill(statusIconAlt, statusText, statusColor);
 
             var rpStyleAlt = GetRpLevelStyle(profile.RpLevel);
@@ -1232,9 +1245,14 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
 
     private Vector4? SheetCardFill => _sheetPalette != null ? Vector4.Zero : null;
 
-    private Vector4? HeroCardFill => _sheetPalette is { } palette
-        ? (_rpBannerTexture == null ? Vector4.Zero : palette.Veil)
-        : null;
+    private Vector4? HeroCardFill
+    {
+        get
+        {
+            if (_sheetPalette is not { } palette) return null;
+            return _rpBannerTexture == null ? Vector4.Zero : palette.Veil;
+        }
+    }
 
     private Vector4? HeroCardBorder => _sheetPalette is { } palette ? palette.Accent with { W = ProfileSheetBackground.BorderOpacity } : null;
 

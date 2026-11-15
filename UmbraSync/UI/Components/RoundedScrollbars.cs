@@ -83,9 +83,10 @@ public static unsafe class RoundedScrollbars
             : new Vector2(grabMin.X + grabLength, areaMax.Y);
 
         uint id = ImGuiP.GetWindowScrollbarID(window, axis);
-        var grabColor = ImGuiP.GetActiveID() == id ? UiSharedService.ThemeScrollbarActive
-            : ImGuiP.GetHoveredID() == id ? UiSharedService.ThemeScrollbarHover
-            : UiSharedService.ThemeScrollbarGrab;
+        Vector4 grabColor;
+        if (ImGuiP.GetActiveID() == id) grabColor = UiSharedService.ThemeScrollbarActive;
+        else if (ImGuiP.GetHoveredID() == id) grabColor = UiSharedService.ThemeScrollbarHover;
+        else grabColor = UiSharedService.ThemeScrollbarGrab;
 
         var trackMax = frame.Max - (vertical ? new Vector2(window.WindowBorderSize, 0f) : new Vector2(0f, window.WindowBorderSize));
         var drawList = window.DrawList;
@@ -99,5 +100,10 @@ public static unsafe class RoundedScrollbars
 
     private static float PillRounding(Vector2 min, Vector2 max) => MathF.Min(max.X - min.X, max.Y - min.Y) * 0.5f;
 
-    private static float Clamp(float value, float min, float max) => value < min ? min : value > max ? max : value;
+    private static float Clamp(float value, float min, float max)
+    {
+        if (value < min) return min;
+        if (value > max) return max;
+        return value;
+    }
 }

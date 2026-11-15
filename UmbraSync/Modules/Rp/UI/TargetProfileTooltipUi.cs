@@ -437,7 +437,10 @@ public sealed class TargetProfileTooltipUi : WindowMediatorSubscriberBase
         var rounding = 6f * scale;
 
         // Style « fantôme » : fond à peine teinté, liseré fin, qui se remplit au survol.
-        float fillAlpha = held ? 0.45f : hovered ? 0.32f : 0.12f;
+        float fillAlpha;
+        if (held) fillAlpha = 0.45f;
+        else if (hovered) fillAlpha = 0.32f;
+        else fillAlpha = 0.12f;
         dl.AddRectFilled(pos, max, ImGui.GetColorU32(accent with { W = fillAlpha }), rounding);
         dl.AddRect(pos, max, ImGui.GetColorU32(accent with { W = hovered ? 0.85f : 0.4f }), rounding, ImDrawFlags.None, 1f * scale);
 

@@ -128,9 +128,10 @@ public class VisibilityService : DisposableMediatorSubscriberBase
             else
                 _inObjectTable.TryRemove(ident, out _);
             var isDrawn = findResult.Address != nint.Zero && _drawTracking.HasDrawObjectLinked(findResult.Address);
-            var isPresent = eventMode
-                ? (player.Value == TrackedPlayerStatus.Visible ? StaysVisible(ident, inObjectTable, isDrawn) : isDrawn)
-                : inObjectTable;
+            bool isPresent;
+            if (!eventMode) isPresent = inObjectTable;
+            else if (player.Value == TrackedPlayerStatus.Visible) isPresent = StaysVisible(ident, inObjectTable, isDrawn);
+            else isPresent = isDrawn;
             if (player.Value != TrackedPlayerStatus.Visible)
                 _undrawnSinceUtc.TryRemove(ident, out _);
 

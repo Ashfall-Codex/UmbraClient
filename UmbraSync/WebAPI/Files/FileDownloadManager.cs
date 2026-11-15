@@ -250,9 +250,10 @@ public class FileDownloadManager : DisposableMediatorSubscriberBase
         var rejectedByManifest = _blake3Rejected.TryRemove(hash, out _) && !success && !cancelled;
         if (_ownedClaims.TryRemove(hash, out var owned))
         {
-            var outcome = success ? DownloadClaimOutcome.Success
-                : cancelled || rejectedByManifest ? DownloadClaimOutcome.Released
-                : DownloadClaimOutcome.Failed;
+            DownloadClaimOutcome outcome;
+            if (success) outcome = DownloadClaimOutcome.Success;
+            else if (cancelled || rejectedByManifest) outcome = DownloadClaimOutcome.Released;
+            else outcome = DownloadClaimOutcome.Failed;
             _deduplicator.Complete(owned.ClaimedHash, owned.Generation, outcome);
         }
 
