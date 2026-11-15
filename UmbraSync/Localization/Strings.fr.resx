@@ -9316,6 +9316,9 @@ ATTENTION : cette action est irréversible.</value>
   <data name="Wizard.Storage.ScanDone" xml:space="preserve">
     <value>Analyse terminée.</value>
   </data>
+  <data name="Wizard.Storage.FolderMissing" xml:space="preserve">
+    <value>Le dossier « {0} » n'existe pas sur cet ordinateur. Choisissez un nouveau dossier de stockage pour continuer.</value>
+  </data>
   <data name="Wizard.Account.Subtitle" xml:space="preserve">
     <value>Créez un compte ou utilisez votre clé</value>
   </data>

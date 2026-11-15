@@ -271,6 +271,10 @@ public partial class IntroUi : WindowMediatorSubscriberBase
     private void HandleConnection()
     {
         if (_connectionHandled || !_uiShared.ApiController.IsConnected) return;
+        foreach (var step in new[] { Step.Prerequisites, Step.Terms, Step.Data, Step.Storage })
+        {
+            if (!IsStepComplete(step)) return;
+        }
         _connectionHandled = true;
 
         if (_freshInstall)
@@ -515,6 +519,13 @@ public partial class IntroUi : WindowMediatorSubscriberBase
         UiSharedService.BeginSectionCard(Loc.Get("Wizard.Storage.Card.Folder"), FontAwesomeIcon.FolderOpen);
         UiSharedService.TextWrapped(Loc.Get("CompactUi.IntroUi.Storage.Description"));
         ImGuiHelpers.ScaledDummy(2f);
+        string cacheFolder = _configService.Current.CacheFolder;
+        bool folderMissing = !string.IsNullOrEmpty(cacheFolder) && !Directory.Exists(cacheFolder);
+        if (folderMissing)
+        {
+            UiSharedService.ColorTextWrapped(string.Format(CultureInfo.CurrentCulture, Loc.Get("Wizard.Storage.FolderMissing"), cacheFolder), UiSharedService.AccentColor);
+            ImGuiHelpers.ScaledDummy(2f);
+        }
         _uiShared.DrawCacheDirectorySetting();
 
         UiSharedService.BeginSectionCard(Loc.Get("Wizard.Storage.Card.Scan"), FontAwesomeIcon.Search);
@@ -534,7 +545,7 @@ public partial class IntroUi : WindowMediatorSubscriberBase
             _uiShared.DrawFileScanState();
         }
 
-        if (_configService.Current.InitialScanComplete && !_cacheMonitor.IsScanRunning)
+        if (_configService.Current.InitialScanComplete && !_cacheMonitor.IsScanRunning && !folderMissing)
         {
             ImGuiHelpers.ScaledDummy(2f);
             _uiShared.IconText(FontAwesomeIcon.CheckCircle, ImGuiColors.HealerGreen);
@@ -724,8 +735,8 @@ public partial class IntroUi : WindowMediatorSubscriberBase
             Loc.Get("Wizard.Done.Subtitle"), availWidth);
 
         UiSharedService.BeginSectionCard(Loc.Get("Wizard.Done.Recap.Title"), FontAwesomeIcon.ClipboardCheck);
-        DrawRecapLine(_rgpdDataService.IsRgpdConsentValid, Loc.Get("Wizard.Done.Recap.Consent"));
-        DrawRecapLine(_configService.Current.InitialScanComplete,
+        DrawRecapLine(IsStepComplete(Step.Data), Loc.Get("Wizard.Done.Recap.Consent"));
+        DrawRecapLine(IsStepComplete(Step.Storage),
             string.Format(CultureInfo.CurrentCulture, Loc.Get("Wizard.Done.Recap.Storage"), _configService.Current.CacheFolder));
         bool connected = _uiShared.ApiController.IsConnected;
         DrawRecapLine(connected, connected

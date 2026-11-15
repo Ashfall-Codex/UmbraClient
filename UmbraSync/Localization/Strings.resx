@@ -9403,6 +9403,9 @@ WARNING: this cannot be undone.</value>
   <data name="Wizard.Storage.ScanDone" xml:space="preserve">
     <value>Scan complete.</value>
   </data>
+  <data name="Wizard.Storage.FolderMissing" xml:space="preserve">
+    <value>The folder "{0}" does not exist on this computer. Pick a new storage folder to continue.</value>
+  </data>
   <data name="Wizard.Account.Subtitle" xml:space="preserve">
     <value>Create an account or use your key</value>
   </data>
