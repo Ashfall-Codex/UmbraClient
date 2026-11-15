@@ -62,6 +62,8 @@ public class EditProfileUi : WindowMediatorSubscriberBase
     private List<RpCustomField> _rpCustomFields = new();
     private IDalamudTextureWrap? _pfpTextureWrap;
     private IDalamudTextureWrap? _rpPfpTextureWrap;
+    private Task<IDalamudTextureWrap>? _pfpLoadTask;
+    private Task<IDalamudTextureWrap>? _rpPfpLoadTask;
     private byte[] _profileImage = [];
     private byte[] _rpProfileImage = [];
     private bool _showFileDialogError = false;
@@ -181,6 +183,8 @@ public class EditProfileUi : WindowMediatorSubscriberBase
                 _pfpTextureWrap = null;
                 _rpPfpTextureWrap?.Dispose();
                 _rpPfpTextureWrap = null;
+                DiscardPortraitLoad(ref _pfpLoadTask);
+                DiscardPortraitLoad(ref _rpPfpLoadTask);
                 _rpBannerTexture?.Dispose();
                 _rpBannerTexture = null;
                 _bannerTextureStale = true;
@@ -598,8 +602,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
                 try
                 {
                     _rpProfileImage = !string.IsNullOrEmpty(umbraProfile.Base64RpProfilePicture) ? Convert.FromBase64String(umbraProfile.Base64RpProfilePicture) : [];
-                    _rpPfpTextureWrap?.Dispose();
-                    _rpPfpTextureWrap = _rpProfileImage.Length > 0 ? _uiSharedService.LoadImage(_rpProfileImage) : null;
+                    StartPortraitLoad(isRp: true);
                     _logger.LogDebug("Loaded RP profile image, size: {size}", _rpProfileImage.Length);
                 }
                 catch (Exception ex)
@@ -607,6 +610,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
                     _logger.LogWarning(ex, "Failed to load RP profile image");
                     _rpProfileImage = [];
                     _rpPfpTextureWrap = null;
+                    DiscardPortraitLoad(ref _rpPfpLoadTask);
                 }
             }
 
@@ -639,8 +643,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
                 try
                 {
                     _profileImage = umbraProfile.ImageData.ReadNow();
-                    _pfpTextureWrap?.Dispose();
-                    _pfpTextureWrap = _profileImage.Length > 0 ? _uiSharedService.LoadImage(_profileImage) : null;
+                    StartPortraitLoad(isRp: false);
                     _logger.LogDebug("Loaded HRP profile image, size: {size}", _profileImage.Length);
                 }
                 catch (Exception ex)
@@ -648,6 +651,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
                     _logger.LogWarning(ex, "Failed to load HRP profile image");
                     _profileImage = [];
                     _pfpTextureWrap = null;
+                    DiscardPortraitLoad(ref _pfpLoadTask);
                 }
             }
 
@@ -857,15 +861,54 @@ public class EditProfileUi : WindowMediatorSubscriberBase
         if (_rpPortraitStale)
         {
             _rpPortraitStale = false;
-            _rpPfpTextureWrap?.Dispose();
-            _rpPfpTextureWrap = _rpProfileImage.Length > 0 ? _uiSharedService.LoadImage(_rpProfileImage) : null;
+            StartPortraitLoad(isRp: true);
         }
         if (_hrpPortraitStale)
         {
             _hrpPortraitStale = false;
-            _pfpTextureWrap?.Dispose();
-            _pfpTextureWrap = _profileImage.Length > 0 ? _uiSharedService.LoadImage(_profileImage) : null;
+            StartPortraitLoad(isRp: false);
         }
+
+        if (UiSharedService.TryConsumeUiTask(ref _rpPfpLoadTask, _logger, out IDalamudTextureWrap? rpLoaded) && rpLoaded != null)
+        {
+            _rpPfpTextureWrap?.Dispose();
+            _rpPfpTextureWrap = rpLoaded;
+        }
+        if (UiSharedService.TryConsumeUiTask(ref _pfpLoadTask, _logger, out IDalamudTextureWrap? hrpLoaded) && hrpLoaded != null)
+        {
+            _pfpTextureWrap?.Dispose();
+            _pfpTextureWrap = hrpLoaded;
+        }
+    }
+
+    // La texture se crée hors du thread de rendu ; la frame suivante la récupère via TryConsumeUiTask.
+    private void StartPortraitLoad(bool isRp)
+    {
+        if (isRp)
+        {
+            _rpPfpTextureWrap?.Dispose();
+            _rpPfpTextureWrap = null;
+            DiscardPortraitLoad(ref _rpPfpLoadTask);
+            _rpPfpLoadTask = _rpProfileImage.Length > 0 ? _uiSharedService.LoadImageAsync(_rpProfileImage) : null;
+        }
+        else
+        {
+            _pfpTextureWrap?.Dispose();
+            _pfpTextureWrap = null;
+            DiscardPortraitLoad(ref _pfpLoadTask);
+            _pfpLoadTask = _profileImage.Length > 0 ? _uiSharedService.LoadImageAsync(_profileImage) : null;
+        }
+    }
+
+    private static void DiscardPortraitLoad(ref Task<IDalamudTextureWrap>? task)
+    {
+        var pending = task;
+        task = null;
+        if (pending == null) return;
+        _ = pending.ContinueWith(t =>
+        {
+            if (t.IsCompletedSuccessfully) t.Result.Dispose();
+        }, CancellationToken.None, TaskContinuationOptions.None, TaskScheduler.Default);
     }
 
     private void SelectPortrait(bool isRp)

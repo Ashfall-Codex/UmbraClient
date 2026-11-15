@@ -186,7 +186,7 @@ public sealed class AshfallLinkCodeUi : WindowMediatorSubscriberBase
 
         if (string.IsNullOrEmpty(_code)) return;
 
-        // Code en gros, format XXXX-XXXX
+        // Code en gros, en deux groupes de quatre caractères
         var displayed = _code.Length == 8 ? $"{_code[..4]}-{_code[4..]}" : _code;
         using (ImRaii.PushFont(UiBuilder.MonoFont))
         using (ImRaii.PushColor(ImGuiCol.Text, Gold))

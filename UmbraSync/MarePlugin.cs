@@ -45,6 +45,7 @@ public class MarePlugin : MediatorSubscriberBase, IHostedService
     {
         var version = Assembly.GetExecutingAssembly().GetName().Version!;
         Logger.LogInformation("Launching {name} {major}.{minor}.{build}.{rev}", "Umbra Sync", version.Major, version.Minor, version.Build, version.Revision);
+        ConfigurationDiagnostics.Attach((message, error) => Logger.LogWarning(error, "{message}", message));
         try
         {
             if (Crypto.Blake3SelfTest())

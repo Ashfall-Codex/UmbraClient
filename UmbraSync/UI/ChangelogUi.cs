@@ -326,6 +326,7 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
                 new("Amélioration : Hub : rendu des pages indisponibles."),
                 new("Correction : L'assistant de configuration ne tourne plus en boucle sur « Tout est prêt » quand vos réglages viennent d'un autre ordinateur et que le dossier de stockage n'existe plus."),
                 new("Correction : Le bouton de la page Décors copie le lien du dépôt Stagehand dans le presse-papiers au lieu d'ouvrir le fichier JSON dans le navigateur."),
+                new("Autre : Les portraits de l'éditeur de profil se chargent hors du thread de rendu et le journal d'événements s'écrit en arrière-plan ; quelques erreurs silencieuses sont désormais journalisées."),
             }),
         };
     }

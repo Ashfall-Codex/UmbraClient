@@ -476,6 +476,31 @@ public sealed class UmbraProfileManager : MediatorSubscriberBase, IDisposable
         return (profile);
     }
 
+    // Le serveur ne renseigne le dernier personnage vu que si rien n'est connu ; l'alt qu'il renvoie
+    // est mémorisé, et l'entrée locale demandée est retirée s'il a répondu par un autre personnage.
+    private void RememberServerCharacter(UserData data, string? requestedChar, uint? requestedWorld, string? serverChar, uint? serverWorld)
+    {
+        if (string.IsNullOrEmpty(_serverConfigurationManager.GetNameForUid(data.UID)))
+        {
+            if (!string.IsNullOrEmpty(serverChar))
+                _serverConfigurationManager.SetNameForUid(data.UID, serverChar);
+            if (serverWorld is > 0)
+                _serverConfigurationManager.SetWorldIdForUid(data.UID, serverWorld.Value);
+        }
+
+        if (string.IsNullOrEmpty(serverChar) || serverWorld is not > 0) return;
+        _serverConfigurationManager.AddEncounteredAlt(data.UID, serverChar, serverWorld.Value);
+
+        if (requestedChar == null || requestedWorld is not > 0) return;
+        if (string.Equals(serverChar, requestedChar, StringComparison.Ordinal) && serverWorld.Value == requestedWorld.Value) return;
+
+        Logger.LogDebug("Server corrected alt for {uid}: requested {reqChar}@{reqWorld}, got {srvChar}@{srvWorld}",
+            data.UID, requestedChar, requestedWorld, serverChar, serverWorld.Value);
+        _serverConfigurationManager.RemoveEncounteredAlt(data.UID, requestedChar, requestedWorld.Value);
+        RemovePersistedProfile(data, requestedChar, requestedWorld);
+        _umbraProfiles.TryRemove(NormalizeKey(data, requestedChar, requestedWorld), out _);
+    }
+
     private UmbraProfileData? GetPersistedProfile(string uid, string? charName, uint? worldId)
     {
         if (string.IsNullOrEmpty(charName) || worldId is not > 0 || !IsCacheLoadedForCurrentUid()) return null;
@@ -513,31 +538,7 @@ public sealed class UmbraProfileManager : MediatorSubscriberBase, IDisposable
                 string.IsNullOrEmpty(profile.RpFirstName) && string.IsNullOrEmpty(profile.RpLastName) ? "(empty)" : "(set)",
                 string.IsNullOrEmpty(profile.RpDescription) ? "(empty)" : "(set)");
 
-            if (string.IsNullOrEmpty(_serverConfigurationManager.GetNameForUid(data.UID)))
-            {
-                if (!string.IsNullOrEmpty(profile.CharacterName))
-                    _serverConfigurationManager.SetNameForUid(data.UID, profile.CharacterName);
-                if (profile.WorldId is > 0)
-                    _serverConfigurationManager.SetWorldIdForUid(data.UID, profile.WorldId.Value);
-            }
-
-            if (!string.IsNullOrEmpty(profile.CharacterName) && profile.WorldId is > 0)
-            {
-                _serverConfigurationManager.AddEncounteredAlt(data.UID, profile.CharacterName, profile.WorldId.Value);
-
-                // Clean up stale local entry if server returned different data than what we requested
-                if (charName != null && worldId is > 0
-                    && (!string.Equals(profile.CharacterName, charName, StringComparison.Ordinal) || profile.WorldId.Value != worldId.Value))
-                {
-                    // Passé en Debug : ces deux noms de personnage n'ont rien à faire dans un
-                    // journal que l'utilisateur partagera pour un tout autre problème.
-                    Logger.LogDebug("Server corrected alt for {uid}: requested {reqChar}@{reqWorld}, got {srvChar}@{srvWorld}",
-                        data.UID, charName, worldId, profile.CharacterName, profile.WorldId.Value);
-                    _serverConfigurationManager.RemoveEncounteredAlt(data.UID, charName, worldId.Value);
-                    RemovePersistedProfile(data, charName, worldId);
-                    _umbraProfiles.TryRemove(NormalizeKey(data, charName, worldId), out _);
-                }
-            }
+            RememberServerCharacter(data, charName, worldId, profile.CharacterName, profile.WorldId);
 
             List<RpCustomField>? customFields = null;
             if (!string.IsNullOrEmpty(profile.RpCustomFields))

@@ -556,11 +556,11 @@ public sealed partial class CharaDataHubUi
 
         ImGuiHelpers.ScaledDummy(6f);
         bool busy = manager.IsBusy || stages.IsBusy;
-        string? blockedHint = !manager.IsStagehandAvailable ? Loc.Get("DecorCatalog.Publish.Blocked.Stagehand")
-            : selectedIndex < 0 ? Loc.Get("DecorCatalog.Publish.Blocked.SelectStage")
-            : selectedMissing ? Loc.Get("DecorCatalog.Publish.Blocked.FileMissing")
-            : string.IsNullOrWhiteSpace(_decorPublishName) ? Loc.Get("DecorCatalog.Publish.Blocked.Name")
-            : null;
+        string? blockedHint = null;
+        if (!manager.IsStagehandAvailable) blockedHint = Loc.Get("DecorCatalog.Publish.Blocked.Stagehand");
+        else if (selectedIndex < 0) blockedHint = Loc.Get("DecorCatalog.Publish.Blocked.SelectStage");
+        else if (selectedMissing) blockedHint = Loc.Get("DecorCatalog.Publish.Blocked.FileMissing");
+        else if (string.IsNullOrWhiteSpace(_decorPublishName)) blockedHint = Loc.Get("DecorCatalog.Publish.Blocked.Name");
         bool canPublish = blockedHint == null && !busy;
 
         string publishLabel = Loc.Get("DecorCatalog.Publish");

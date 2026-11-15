@@ -532,8 +532,9 @@ public sealed class FileCacheManager : DisposableMediatorSubscriberBase, IHosted
                 File.WriteAllText(_csvPath, sb.ToString());
                 File.Delete(CsvBakPath);
             }
-            catch
+            catch (Exception ex)
             {
+                _logger.LogWarning(ex, "Could not write {csv}, keeping the backup copy", _csvPath);
                 File.WriteAllText(CsvBakPath, sb.ToString());
             }
         }

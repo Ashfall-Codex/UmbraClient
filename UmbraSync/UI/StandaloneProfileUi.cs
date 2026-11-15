@@ -609,23 +609,24 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
         }
     }
 
+    private static bool HasAnyRpContent(UmbraProfileData profile)
+        => !string.IsNullOrEmpty(profile.RpAge)
+           || !string.IsNullOrEmpty(profile.RpHeight)
+           || !string.IsNullOrEmpty(profile.RpBuild)
+           || !string.IsNullOrEmpty(profile.RpResidence)
+           || !string.IsNullOrEmpty(profile.RpOccupation)
+           || !string.IsNullOrEmpty(profile.RpAffiliation)
+           || !string.IsNullOrEmpty(profile.RpAlignment)
+           || !string.IsNullOrEmpty(profile.RpDescription)
+           || !string.IsNullOrEmpty(profile.RpAdditionalInfo)
+           || profile.RpCustomFields is { Count: > 0 }
+           || profile.RpLevel != 0;
+
     private void DrawRpProfile(UmbraProfileData profile, IDalamudTextureWrap? texture, Vector4 accent)
     {
         var cardSpacing = 8f * ImGuiHelpers.GlobalScale;
 
-        bool hasAnyRpContent = !string.IsNullOrEmpty(profile.RpAge)
-            || !string.IsNullOrEmpty(profile.RpHeight)
-            || !string.IsNullOrEmpty(profile.RpBuild)
-            || !string.IsNullOrEmpty(profile.RpResidence)
-            || !string.IsNullOrEmpty(profile.RpOccupation)
-            || !string.IsNullOrEmpty(profile.RpAffiliation)
-            || !string.IsNullOrEmpty(profile.RpAlignment)
-            || !string.IsNullOrEmpty(profile.RpDescription)
-            || !string.IsNullOrEmpty(profile.RpAdditionalInfo)
-            || profile.RpCustomFields is { Count: > 0 }
-            || profile.RpLevel != 0;
-
-        if (!hasAnyRpContent)
+        if (!HasAnyRpContent(profile))
         {
             DrawRpSheetUnavailable(profile);
             return;

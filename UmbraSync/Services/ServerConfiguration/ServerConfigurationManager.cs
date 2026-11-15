@@ -134,8 +134,9 @@ public class ServerConfigurationManager
         {
             return _configService.Current.ServerStorage[idx];
         }
-        catch
+        catch (Exception ex)
         {
+            _logger.LogWarning(ex, "Invalid server index {idx}, falling back to the main server", idx);
             _configService.Current.CurrentServer = 0;
             EnsureMainExists();
             return CurrentServer;
