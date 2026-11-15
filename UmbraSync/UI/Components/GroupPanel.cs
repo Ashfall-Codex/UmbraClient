@@ -1872,8 +1872,10 @@ internal sealed class GroupPanel
         bool isOpen = true;
 
         ImGui.SetNextWindowSize(new Vector2(450f * ImGuiHelpers.GlobalScale, 500f * ImGuiHelpers.GlobalScale), ImGuiCond.FirstUseEver);
+        WindowOverlap.PushTitleBarColors(windowTitle);
         if (ImGui.Begin(windowTitle, ref isOpen, ImGuiWindowFlags.NoCollapse))
         {
+            WindowOverlap.DrawForCurrentWindow();
             UiSharedService.DrawWindowGlass();
             var scale = ImGuiHelpers.GlobalScale;
             var totalMembers = pairsInGroup.Count + 1;
@@ -2004,6 +2006,7 @@ internal sealed class GroupPanel
             ImGui.EndChild();
         }
         ImGui.End();
+        WindowOverlap.PopTitleBarColors();
 
         if (!isOpen)
         {
@@ -2145,8 +2148,10 @@ internal sealed class GroupPanel
         bool isOpen = true;
 
         ImGui.SetNextWindowSize(new Vector2(420f * ImGuiHelpers.GlobalScale, 450f * ImGuiHelpers.GlobalScale), ImGuiCond.FirstUseEver);
+        WindowOverlap.PushTitleBarColors(windowTitle);
         if (ImGui.Begin(windowTitle, ref isOpen, ImGuiWindowFlags.NoCollapse))
         {
+            WindowOverlap.DrawForCurrentWindow();
             UiSharedService.DrawWindowGlass();
             if (_profileLoading)
             {
@@ -2235,6 +2240,7 @@ internal sealed class GroupPanel
             }
         }
         ImGui.End();
+        WindowOverlap.PopTitleBarColors();
 
         if (!isOpen)
         {
