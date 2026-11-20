@@ -14,10 +14,12 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      packages: read
     env:
       DOTNET_NOLOGO: true
       DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
       DOTNET_CLI_TELEMETRY_OPTOUT: true
+      NuGetPackageSourceCredentials_github: Username=${{ github.actor }};Password=${{ secrets.GITHUB_TOKEN }}
 
     steps:
       - uses: actions/checkout@v4
@@ -48,12 +50,12 @@ jobs:
         run: dotnet nuget locals all --clear
 
       - name: Restauration des dépendances
-        run: dotnet restore UmbraSync.sln --locked-mode
+        run: dotnet restore UmbraSync.sln --locked-mode -p:UseLocalUmbraApi=false
 
 
       - name: Compilation
         run: |
-          dotnet build UmbraSync.sln --no-restore --configuration Release --nologo -p:ContinuousIntegrationBuild=true
+          dotnet build UmbraSync.sln --no-restore --configuration Release --nologo -p:ContinuousIntegrationBuild=true -p:UseLocalUmbraApi=false
 
       - name: Création de l'archive
         run: |

@@ -59,8 +59,15 @@
         <NoWarn>$(NoWarn);NU1900;MSB3277</NoWarn>
     </PropertyGroup>
 
+    <ItemGroup Condition="'$(UseLocalUmbraApi)' == 'true'">
+        <ProjectReference Include="$(UmbraApiProject)" />
+    </ItemGroup>
+
+    <ItemGroup Condition="'$(UseLocalUmbraApi)' != 'true'">
+        <PackageReference Include="Ashfall.UmbraSync.Api" Version="$(UmbraApiVersion)" />
+    </ItemGroup>
+
     <ItemGroup>
-        <ProjectReference Include="..\UmbraAPI\UmbraSyncAPI\UmbraSync.API.csproj" />
         <ProjectReference Include="..\AshfallSync.Core\AshfallSync.Core.csproj" />
         <ProjectReference Include="..\ffxiv_pictomancy\Pictomancy\Pictomancy.csproj" />
         <None Include="..\.editorconfig" Link=".editorconfig" />

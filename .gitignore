@@ -18,7 +18,6 @@ results/
 MareSynchronos/.DS_Store
 *.zip
 UmbraServer_extracted/
-NuGet.config
 Directory.Build.props
 Directory.Build.props.disabled
 

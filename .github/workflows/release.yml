@@ -11,6 +11,7 @@ on:
 
 permissions:
   contents: write
+  packages: read
 
 concurrency:
   group: release
@@ -24,6 +25,7 @@ jobs:
       DOTNET_NOLOGO: true
       DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
       DOTNET_CLI_TELEMETRY_OPTOUT: true
+      NuGetPackageSourceCredentials_github: Username=${{ github.actor }};Password=${{ secrets.GITHUB_TOKEN }}
       PACKAGE: UmbraSync/bin/x64/Release/UmbraSync/latest.zip
       MANIFEST: UmbraSync/bin/x64/Release/UmbraSync/UmbraSync.json
 
@@ -58,10 +60,10 @@ jobs:
           rm -f dalamud.zip
 
       - name: Restauration des dépendances
-        run: dotnet restore UmbraSync.sln --locked-mode
+        run: dotnet restore UmbraSync.sln --locked-mode -p:UseLocalUmbraApi=false
 
       - name: Compilation
-        run: dotnet build UmbraSync.sln --no-restore --configuration Release --nologo -p:ContinuousIntegrationBuild=true
+        run: dotnet build UmbraSync.sln --no-restore --configuration Release --nologo -p:ContinuousIntegrationBuild=true -p:UseLocalUmbraApi=false
 
       - name: Vérification du paquet et du patchnote
         id: check

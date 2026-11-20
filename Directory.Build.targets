@@ -1,4 +1,10 @@
 <Project>
+  <PropertyGroup>
+    <UmbraApiVersion>5002.0.0</UmbraApiVersion>
+    <UmbraApiProject>$(MSBuildThisFileDirectory)UmbraAPI/UmbraSyncAPI/UmbraSync.API.csproj</UmbraApiProject>
+    <UseLocalUmbraApi Condition="'$(UseLocalUmbraApi)' == '' and Exists('$(UmbraApiProject)')">true</UseLocalUmbraApi>
+  </PropertyGroup>
+
   <!--
     Réglages locaux pour les projets des submodules externes (Pictomancy, Penumbra.Api,
     Glamourer.Api, OtterGui). On les consomme par ProjectReference, jamais par leur nupkg.
