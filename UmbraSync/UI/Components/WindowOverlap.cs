@@ -17,6 +17,7 @@ public static unsafe class WindowOverlap
 
     public static bool IsBackdropCandidate(ImGuiWindowPtr window)
         => window.Handle != null
+           && !window.IsFallbackWindow
            && (window.Flags & (ImGuiWindowFlags.NoBackground | ImGuiWindowFlags.NoInputs)) == ImGuiWindowFlags.None;
 
     public static bool TryRead(ImGuiWindowPtr window, float titleBarHeight, out Footprint live)
