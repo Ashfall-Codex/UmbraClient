@@ -318,15 +318,14 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
     {
         return new List<ChangelogEntry>
         {
-            new(new Version(3, 2, 1, 1115), "3.2.1.1115", new List<ChangelogLine>
+            new(new Version(3, 2, 2, 1121), "3.2.2.1121", new List<ChangelogLine>
             {
-                new("Amélioration : « Ouvrir le profil » depuis la liste des paires affiche la fiche RP du personnage sous lequel vous avez vu la personne en dernier, même hors ligne, en partant de la version en cache sur votre ordinateur."),
-                new("Amélioration : Une fiche RP sans contenu l'annonce clairement, avec un raccourci vers votre journal pour noter ce que vous savez du personnage, ou vers l'éditeur s'il s'agit de la vôtre."),
-                new("Amélioration : L'opacité des fenêtres superposées s'applique quelle que soit la fenêtre dessous, y compris celles des autres plugins, et aux fenêtres qui y échappaient."),
-                new("Amélioration : Hub : rendu des pages indisponibles."),
-                new("Correction : L'assistant de configuration ne tourne plus en boucle sur « Tout est prêt » quand vos réglages viennent d'un autre ordinateur et que le dossier de stockage n'existe plus."),
-                new("Correction : Le bouton de la page Décors copie le lien du dépôt Stagehand dans le presse-papiers au lieu d'ouvrir le fichier JSON dans le navigateur."),
-                new("Autre : L'éditeur de profil et le visualiseur d'événements s'ouvrent plus souplement, sans à-coup. Certaines erreurs qui passaient inaperçues sont maintenant inscrites dans les journaux, ce qui facilitera le support."),
+                new("Sécurité : Les portraits et bannières reçus des autres joueurs ne sont plus acceptés qu'en PNG ou en JPEG, comme sur le serveur et dans l'éditeur de profil."),
+                new("Sécurité : La bibliothèque d'images ImageSharp passe en 3.2.0 dans le plugin et sur le serveur, ce qui corrige six failles liées à des fichiers d'image piégés (CVE-2026-106110, CVE-2026-106113, CVE-2026-106114, CVE-2026-106115, CVE-2026-106116 et CVE-2026-106118)."),
+                new("Sécurité : Côté serveur, correction de CVE-2026-114147, une faille de SignalR qui pouvait ralentir le serveur ; les informations envoyées pour les indicateurs de saisie sont désormais contrôlées."),
+                new("Amélioration : « Ajouter au journal » n'apparaît plus au clic droit que sur les joueurs qui utilisent UmbraSync (paires visibles, joueurs repérés par l'AutoDetect) ; « Ouvrir dans le journal » reste proposé pour les personnages déjà notés."),
+                new("Correction : Les fenêtres d'UmbraSync ne deviennent plus translucides à tort quand aucune autre fenêtre ne se trouve réellement dessous."),
+                new("Autre : Les composants de communication avec le serveur passent en .NET 10.0.15."),
             }),
         };
     }
