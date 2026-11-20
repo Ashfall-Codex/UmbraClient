@@ -3,6 +3,7 @@ using Dalamud.Plugin.Services;
 using Microsoft.Extensions.Logging;
 using UmbraSync.Localization;
 using UmbraSync.MareConfiguration;
+using UmbraSync.Modules.Discovery.Services;
 using UmbraSync.PlayerData.Pairs;
 using UmbraSync.Services.Mediator;
 
@@ -16,10 +17,12 @@ public sealed class RpJournalContextMenuService : IDisposable, IRuntimeScopedSer
     private readonly RpJournalService _journal;
     private readonly PairManager _pairManager;
     private readonly MareMediator _mediator;
+    private readonly NearbyDiscoveryService? _nearbyDiscovery;
     private bool _subscribed;
 
     public RpJournalContextMenuService(ILogger<RpJournalContextMenuService> logger, IContextMenu contextMenu,
-        MareConfigService configService, RpJournalService journal, PairManager pairManager, MareMediator mediator)
+        MareConfigService configService, RpJournalService journal, PairManager pairManager, MareMediator mediator,
+        NearbyDiscoveryService? nearbyDiscovery = null)
     {
         _logger = logger;
         _contextMenu = contextMenu;
@@ -27,6 +30,7 @@ public sealed class RpJournalContextMenuService : IDisposable, IRuntimeScopedSer
         _journal = journal;
         _pairManager = pairManager;
         _mediator = mediator;
+        _nearbyDiscovery = nearbyDiscovery;
         _contextMenu.OnMenuOpened += OnMenuOpened;
         _subscribed = true;
     }
@@ -45,6 +49,8 @@ public sealed class RpJournalContextMenuService : IDisposable, IRuntimeScopedSer
 
             bool known = _journal.TryGetSubject(name, worldId) != null;
             var objectId = (uint)target.TargetObjectId;
+            if (!known && !UsesUmbraSync(objectId, name, worldId)) return;
+
             args.AddMenuItem(new MenuItem
             {
                 Name = Loc.Get(known ? "Journal.ContextMenu.Open" : "Journal.ContextMenu.Start"),
@@ -66,6 +72,14 @@ public sealed class RpJournalContextMenuService : IDisposable, IRuntimeScopedSer
         {
             _logger.LogDebug(ex, "Journal: menu contextuel");
         }
+    }
+
+    private bool UsesUmbraSync(uint objectId, string name, uint worldId)
+    {
+        if (_pairManager.GetVisiblePairByObjectId(objectId) != null) return true;
+
+        return _nearbyDiscovery?.SnapshotEntries().Exists(e => e.IsMatch && e.WorldId == worldId
+            && string.Equals(e.Name, name, StringComparison.Ordinal)) == true;
     }
 
     public void Dispose()
