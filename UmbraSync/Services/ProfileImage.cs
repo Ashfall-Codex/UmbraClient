@@ -1,4 +1,7 @@
 using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Formats;
+using SixLabors.ImageSharp.Formats.Jpeg;
+using SixLabors.ImageSharp.Formats.Png;
 using System.Runtime.CompilerServices;
 
 namespace UmbraSync.Services;
@@ -7,6 +10,11 @@ public sealed class ProfileImage
 {
     private const int MaxEncodedBytes = 16 * 1024 * 1024;
     private const int MaxDimension = 4096;
+
+    private static readonly DecoderOptions AcceptedFormats = new()
+    {
+        Configuration = new Configuration(new PngConfigurationModule(), new JpegConfigurationModule()),
+    };
 
     private static readonly ConditionalWeakTable<string, ProfileImage> DecodedImages = [];
 
@@ -72,7 +80,7 @@ public sealed class ProfileImage
 
         try
         {
-            var info = Image.Identify(bytes);
+            var info = Image.Identify(AcceptedFormats, bytes);
             return info.Width is > 0 and <= MaxDimension && info.Height is > 0 and <= MaxDimension;
         }
         catch (Exception ex) when (ex is ImageFormatException or NotSupportedException)
