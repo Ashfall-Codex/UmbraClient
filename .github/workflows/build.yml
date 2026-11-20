@@ -46,6 +46,14 @@ jobs:
           rm -f latest.zip
           echo "DALAMUD_DIR=$DALAMUD_PATH" >> $GITHUB_ENV
 
+      - name: Clé de licence Six Labors
+        env:
+          SIXLABORS_LICENSE: ${{ secrets.SIXLABORS_LICENSE }}
+        run: |
+          [ -n "$SIXLABORS_LICENSE" ] || { echo "::error::secret SIXLABORS_LICENSE absent : ImageSharp refuse le build Release sans licence"; exit 1; }
+          printf '%s' "$SIXLABORS_LICENSE" > "$RUNNER_TEMP/sixlabors.lic"
+          echo "SixLaborsLicenseFile=$RUNNER_TEMP/sixlabors.lic" >> "$GITHUB_ENV"
+
       - name: Nettoyage du cache NuGet
         run: dotnet nuget locals all --clear
 

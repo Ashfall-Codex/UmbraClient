@@ -50,6 +50,14 @@ jobs:
         with:
           dotnet-version: "10.0.x"
 
+      - name: Clé de licence Six Labors
+        env:
+          SIXLABORS_LICENSE: ${{ secrets.SIXLABORS_LICENSE }}
+        run: |
+          [ -n "$SIXLABORS_LICENSE" ] || { echo "::error::secret SIXLABORS_LICENSE absent : ImageSharp refuse le build Release sans licence"; exit 1; }
+          printf '%s' "$SIXLABORS_LICENSE" > "$RUNNER_TEMP/sixlabors.lic"
+          echo "SixLaborsLicenseFile=$RUNNER_TEMP/sixlabors.lic" >> "$GITHUB_ENV"
+
       # Canal stable de Dalamud, celui des joueurs (la CI de build.yml utilise staging pour voir venir)
       - name: Préparation de l'environnement Dalamud
         run: |

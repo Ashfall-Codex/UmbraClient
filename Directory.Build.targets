@@ -5,6 +5,10 @@
     <UseLocalUmbraApi Condition="'$(UseLocalUmbraApi)' == '' and Exists('$(UmbraApiProject)')">true</UseLocalUmbraApi>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(SixLaborsLicenseKey)' == '' and '$(SixLaborsLicenseFile)' == '' and Exists('$(HOME)/.config/sixlabors/sixlabors.lic')">
+    <SixLaborsLicenseFile>$(HOME)/.config/sixlabors/sixlabors.lic</SixLaborsLicenseFile>
+  </PropertyGroup>
+
   <!--
     Réglages locaux pour les projets des submodules externes (Pictomancy, Penumbra.Api,
     Glamourer.Api, OtterGui). On les consomme par ProjectReference, jamais par leur nupkg.
