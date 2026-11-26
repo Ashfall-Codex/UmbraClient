@@ -8359,6 +8359,12 @@ Expérimental : ces hooks sont bas niveau ; en cas de souci, désactivez l'optio
   <data name="Stages.Here.Help" xml:space="preserve">
     <value>En extérieur, rien ne s'affiche tout seul : cliquez sur l'œil pour afficher un décor. En logement, le plus récent s'affiche à l'arrivée. Un seul décor est affiché à la fois.</value>
   </data>
+  <data name="Stages.RefreshHere" xml:space="preserve">
+    <value>Rechercher les décors ici</value>
+  </data>
+  <data name="Stages.RefreshHere.Tooltip" xml:space="preserve">
+    <value>Recharge la liste des décors partagés à cet endroit, par exemple après une publication faite pendant que vous étiez déjà sur place.</value>
+  </data>
   <data name="Stages.NoneApplied" xml:space="preserve">
     <value>Aucun décor partagé à cet endroit.</value>
   </data>

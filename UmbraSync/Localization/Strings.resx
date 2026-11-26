@@ -8446,6 +8446,12 @@ Experimental: these hooks are low level; if anything goes wrong, turn this off (
   <data name="Stages.Here.Help" xml:space="preserve">
     <value>Outdoors, nothing is displayed on its own: click the eye to display a Stage. In housing, the most recent one is displayed on arrival. Only one Stage is displayed at a time.</value>
   </data>
+  <data name="Stages.RefreshHere" xml:space="preserve">
+    <value>Look for Stages here</value>
+  </data>
+  <data name="Stages.RefreshHere.Tooltip" xml:space="preserve">
+    <value>Reloads the list of Stages shared at this place, for instance after one was published while you were already here.</value>
+  </data>
   <data name="Stages.NoneApplied" xml:space="preserve">
     <value>No shared Stage at this place.</value>
   </data>

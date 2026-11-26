@@ -293,6 +293,7 @@ public sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
     public override void OnOpen()
     {
         EnsureFreshCts(ref _closalCts);
+        _stagesInitialized = false;
     }
 
     protected override void Dispose(bool disposing)

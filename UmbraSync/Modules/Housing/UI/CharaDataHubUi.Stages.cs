@@ -74,6 +74,7 @@ public sealed partial class CharaDataHubUi
         {
             _stagesInitialized = true;
             _ = manager.RefreshAsync();
+            _ = manager.RefreshAvailableHereAsync();
         }
 
         if (manager.IsBusy)
@@ -334,6 +335,14 @@ public sealed partial class CharaDataHubUi
     private void DrawStagesAppliedHere(StageShareManager manager)
     {
         UiSharedService.BeginSectionCard(Loc.Get("Stages.AppliedHere"), FontAwesomeIcon.Eye);
+
+        using (ImRaii.Disabled(manager.IsBusy))
+        {
+            if (_uiSharedService.IconTextButton(FontAwesomeIcon.Sync, Loc.Get("Stages.RefreshHere")))
+                _ = manager.RefreshAvailableHereAsync();
+        }
+        UiSharedService.AttachToolTip(Loc.Get("Stages.RefreshHere.Tooltip"));
+        ImGuiHelpers.ScaledDummy(2);
 
         var available = manager.AvailableStages;
         bool catalogApplied = manager.AppliedStages.Any(a => a.Source == StageShareManager.AppliedStageSource.Catalog);

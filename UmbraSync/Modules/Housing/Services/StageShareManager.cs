@@ -491,6 +491,13 @@ public sealed partial class StageShareManager : IDisposable
         });
     }
 
+    public async Task RefreshAvailableHereAsync()
+    {
+        var location = await GetLocationAsync().ConfigureAwait(false);
+        if (location == null) return;
+        await RefreshAvailableAsync(location.Value).ConfigureAwait(false);
+    }
+
     public static bool IsIndoor(StageLocationDto location) => location.HouseId >= 0 && location.RoomId >= 0;
 
     public Task ShowStageAsync(Guid shareId, CancellationToken ct = default)
