@@ -8099,7 +8099,7 @@ Expérimental : ces hooks sont bas niveau ; en cas de souci, désactivez l'optio
     <value>Afficher ici</value>
   </data>
   <data name="DecorCatalog.DisplayHere.Tooltip" xml:space="preserve">
-    <value>Le décor s'affiche temporairement à votre position, en remplaçant celui déjà affiché. Il disparaît quand vous changez de lieu.</value>
+    <value>Le décor s'affiche temporairement à l'endroit où son auteur l'a placé, en remplaçant celui déjà affiché. Il disparaît quand vous changez de lieu.</value>
   </data>
   <data name="DecorCatalog.Hide" xml:space="preserve">
     <value>Masquer</value>
@@ -8234,7 +8234,7 @@ Expérimental : ces hooks sont bas niveau ; en cas de souci, désactivez l'optio
     <value>Décor retiré du catalogue.</value>
   </data>
   <data name="DecorCatalog.Success.Displayed" xml:space="preserve">
-    <value>Décor affiché à votre position.</value>
+    <value>Décor affiché à son emplacement d'origine.</value>
   </data>
   <data name="DecorCatalog.Success.Reported" xml:space="preserve">
     <value>Signalement envoyé.</value>

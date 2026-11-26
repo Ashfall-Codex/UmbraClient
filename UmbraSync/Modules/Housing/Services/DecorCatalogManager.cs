@@ -272,15 +272,8 @@ public sealed class DecorCatalogManager : IDisposable
                 return;
             }
 
-            var transform = await _dalamudUtil.GetPlayerTransformAsync().ConfigureAwait(false);
-            if (transform == null)
-            {
-                LastError = Loc.Get("DecorCatalog.Error.PositionUnknown");
-                return;
-            }
-
-            Vector3 translation = DecorCatalogPlacement.Translate(plaintext.Translation,
-                new Vector3(payload.AnchorX, payload.AnchorY, payload.AnchorZ), transform.Value.Position);
+            float[] t = plaintext.Translation is { Length: 3 } ? plaintext.Translation : [0f, 0f, 0f];
+            Vector3 translation = new(t[0], t[1], t[2]);
             string name = string.IsNullOrWhiteSpace(entry.Name) ? plaintext.StageName : entry.Name;
             await _stageShareManager.ShowExternalAsync(entry.Id, plaintext, translation, entry.OwnerUid, name, ct).ConfigureAwait(false);
 

@@ -8186,7 +8186,7 @@ Experimental: these hooks are low level; if anything goes wrong, turn this off (
     <value>Display here</value>
   </data>
   <data name="DecorCatalog.DisplayHere.Tooltip" xml:space="preserve">
-    <value>The decor is displayed temporarily at your position, replacing the one already displayed. It disappears when you change location.</value>
+    <value>The decor is displayed temporarily where its author placed it, replacing the one already displayed. It disappears when you change location.</value>
   </data>
   <data name="DecorCatalog.Hide" xml:space="preserve">
     <value>Hide</value>
@@ -8321,7 +8321,7 @@ Experimental: these hooks are low level; if anything goes wrong, turn this off (
     <value>Decor removed from the catalogue.</value>
   </data>
   <data name="DecorCatalog.Success.Displayed" xml:space="preserve">
-    <value>Decor displayed at your position.</value>
+    <value>Decor displayed at its original spot.</value>
   </data>
   <data name="DecorCatalog.Success.Reported" xml:space="preserve">
     <value>Report sent.</value>
