@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.AspNetCore.SignalR.Client;
 using System.Runtime.CompilerServices;
 using Microsoft.Extensions.Logging;
@@ -7,9 +8,9 @@ namespace UmbraSync.WebAPI.SignalR;
 
 public sealed partial class ApiController
 {
-    // Jusqu'à cette taille on reste sur l'invocation classique (compatible avec un serveur sans streaming)
-    private const int McdfInlineUploadLimit = 90 * 1024 * 1024;
     private const int McdfStreamChunkSize = 1024 * 1024;
+    private const int McdfInlineUploadLimit = McdfStreamChunkSize;
+    private bool _mcdfDownloadInfoUnsupported;
 
     public async Task<List<McdfShareEntryDto>> McdfShareGetOwn()
     {
@@ -72,13 +73,26 @@ public sealed partial class ApiController
         }
     }
 
-    public async Task<McdfSharePayloadDto?> McdfShareDownload(Guid shareId)
+    public async Task<McdfSharePayloadDto?> McdfShareDownload(Guid shareId, CancellationToken token)
     {
         if (!IsConnected) return null;
         try
         {
             using var timeoutCts = new CancellationTokenSource(TimeSpan.FromMinutes(30));
-            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(timeoutCts.Token, _connectionCancellationTokenSource.Token);
+            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(timeoutCts.Token, _connectionCancellationTokenSource.Token, token);
+            if (!_mcdfDownloadInfoUnsupported)
+            {
+                try
+                {
+                    return await _mareHub!.InvokeAsync<McdfSharePayloadDto?>("McdfShareDownloadInfo", shareId, linkedCts.Token).ConfigureAwait(false);
+                }
+                catch (HubException ex) when (ex.Message.Contains("does not exist", StringComparison.OrdinalIgnoreCase)
+                    || ex.Message.Contains("Unknown hub method", StringComparison.OrdinalIgnoreCase))
+                {
+                    _mcdfDownloadInfoUnsupported = true;
+                    Logger.LogDebug("McdfShareDownloadInfo absent du serveur, repli sur {method}", nameof(McdfShareDownload));
+                }
+            }
             return await _mareHub!.InvokeAsync<McdfSharePayloadDto?>(nameof(McdfShareDownload), shareId, linkedCts.Token).ConfigureAwait(false);
         }
         catch (Exception ex)

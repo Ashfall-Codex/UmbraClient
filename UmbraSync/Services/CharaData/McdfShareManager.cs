@@ -335,7 +335,7 @@ public sealed class McdfShareManager(ILogger<McdfShareManager> logger, ApiContro
 
     private async Task<byte[]?> DownloadAndDecryptShareAsync(Guid shareId, CancellationToken token)
     {
-        var payload = await _apiController.McdfShareDownload(shareId).ConfigureAwait(false);
+        var payload = await _apiController.McdfShareDownload(shareId, token).ConfigureAwait(false);
         if (payload == null)
         {
             LastError = "Partage indisponible.";
