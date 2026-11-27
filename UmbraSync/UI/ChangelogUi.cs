@@ -318,14 +318,11 @@ public sealed class ChangelogUi : WindowMediatorSubscriberBase
     {
         return new List<ChangelogEntry>
         {
-            new(new Version(3, 2, 2, 1121), "3.2.2.1121", new List<ChangelogLine>
+            new(new Version(3, 2, 3, 1127), "3.2.3.1127", new List<ChangelogLine>
             {
-                new("Sécurité : Les portraits et bannières reçus des autres joueurs ne sont plus acceptés qu'en PNG ou en JPEG, comme sur le serveur et dans l'éditeur de profil."),
-                new("Sécurité : La bibliothèque d'images ImageSharp passe en 3.2.0 dans le plugin et sur le serveur, ce qui corrige six failles liées à des fichiers d'image piégés (CVE-2026-106110, CVE-2026-106113, CVE-2026-106114, CVE-2026-106115, CVE-2026-106116 et CVE-2026-106118)."),
-                new("Sécurité : Côté serveur, correction de CVE-2026-114147, une faille de SignalR qui pouvait ralentir le serveur ; les informations envoyées pour les indicateurs de saisie sont désormais contrôlées."),
-                new("Amélioration : « Ajouter au journal » n'apparaît plus au clic droit que sur les joueurs qui utilisent UmbraSync (paires visibles, joueurs repérés par l'AutoDetect) ; « Ouvrir dans le journal » reste proposé pour les personnages déjà notés."),
-                new("Correction : Les fenêtres d'UmbraSync ne deviennent plus translucides à tort quand aucune autre fenêtre ne se trouve réellement dessous."),
-                new("Autre : Les composants de communication avec le serveur passent en .NET 10.0.15."),
+                new("Correction : Un partage / téléchargement d'un MCDF volumineux ne fait plus déconnecter du serveur pendant son traitement."),
+                new("Amélioration : Un nouveau bouton « Rechercher les décors ici » recharge la liste des décors partagés là où vous êtes. Un décor publié pendant que vous étiez déjà sur place apparaît désormais sans que vous ayez à changer de zone."),
+                new("Correction : « Afficher ici » dans le catalogue de décors place désormais le décor exactement là où son auteur l'a posé, et non plus par rapport à votre position."),
             }),
         };
     }
